@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minesweeper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            height: 100%; margin: 0; padding: 0;
+            overflow: hidden;
+            background-color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        }
+        .glass-header {
+            background-color: rgba(255,255,255,0.7);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        /* ── Board wrapper ── */
+        #board-wrapper {
+            perspective: 1500px;
+            display: flex; align-items: center; justify-content: center;
+            flex-grow: 1; padding: 1rem; min-height: 0;
+        }
+        #board {
+            display: grid;
+            background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%);
+            gap: 2px;
+            border: 6px solid #111;
+            border-radius: 12px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.4), inset 0 0 20px rgba(0,0,0,0.8);
+            max-width: 100%; max-height: 100%;
+            position: relative;
+            transition: box-shadow 0.3s;
+        }
+        #board.board-shake {
+            animation: boardShake 0.55s cubic-bezier(.36,.07,.19,.97) forwards;
+        }
+        @keyframes boardShake {
+            0%,100% { transform: translateX(0) rotate(0deg); }
+            12%  { transform: translateX(-9px) rotate(-1.3deg); }
+            24%  { transform: translateX(8px)  rotate(0.9deg); }
+            36%  { transform: translateX(-6px) rotate(-0.6deg); }
+            48%  { transform: translateX(5px)  rotate(0.4deg); }
+            60%  { transform: translateX(-3px); }
+            72%  { transform: translateX(3px); }
+            84%  { transform: translateX(-1px); }
+        }
+        #board.board-win-glow {
+            animation: winGlow 1.1s ease-in-out infinite alternate;
+        }
+        @keyframes winGlow {
+            from { box-shadow: 0 40px 80px rgba(0,0,0,0.4), inset 0 0 20px rgba(0,0,0,0.8), 0 0 28px rgba(34,197,94,0.35); }
+            to   { box-shadow: 0 40px 80px rgba(0,0,0,0.4), inset 0 0 20px rgba(0,0,0,0.8), 0 0 65px rgba(34,197,94,0.85); }
+        }
+
+        /* ── Cells ── */
+        .cell {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+            aspect-ratio: 1 / 1;
+            user-select: none; -webkit-user-select: none;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .c-hidden {
+            background: linear-gradient(145deg, #5a6a82 0%, #38485e 100%);
+            box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -1.5px -1.5px 0 rgba(0,0,0,0.38);
+            cursor: pointer;
+        }
+        .c-hidden:active {
+            background: linear-gradient(145deg, #38485e 0%, #4a5a72 100%);
+            box-shadow: inset 0 0 0 rgba(255,255,255,0);
+        }
+        .c-open {
+            background: #192030;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.45);
+        }
+        .c-flag {
+            background: linear-gradient(145deg, #5a6a82 0%, #38485e 100%);
+            box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -1.5px -1.5px 0 rgba(0,0,0,0.38);
+            cursor: pointer;
+        }
+        .c-boom   { background: radial-gradient(circle at 38% 38%, #ff7070 0%, #c40000 65%, #7a0000 100%) !important; }
+        .c-mshow  { background: #1e1014; }
+        .c-xflag  { background: #200e0e; }
+
+        /* ── Numbers ── */
+        .cn { font-weight: 900; line-height: 1; font-size: 62%; font-variant-numeric: tabular-nums; }
+        .n1 { color:#60a5fa; text-shadow:0 0 7px rgba(96,165,250,0.7); }
+        .n2 { color:#34d399; text-shadow:0 0 7px rgba(52,211,153,0.7); }
+        .n3 { color:#f87171; text-shadow:0 0 7px rgba(248,113,113,0.7); }
+        .n4 { color:#a78bfa; text-shadow:0 0 7px rgba(167,139,250,0.7); }
+        .n5 { color:#fb923c; text-shadow:0 0 7px rgba(251,146,60,0.7); }
+        .n6 { color:#22d3ee; text-shadow:0 0 7px rgba(34,211,238,0.7); }
+        .n7 { color:#f472b6; text-shadow:0 0 7px rgba(244,114,182,0.7); }
+        .n8 { color:#94a3b8; text-shadow:0 0 7px rgba(148,163,184,0.7); }
+
+        /* ── Icons ── */
+        .ci { font-size: 62%; line-height:1; display:block; }
+
+        /* ── Animations ── */
+        .a-reveal {
+            animation: aReveal 0.28s cubic-bezier(0.175,0.885,0.32,1.25) both;
+        }
+        @keyframes aReveal {
+            from { transform: scale(0.65); opacity:0.15; }
+            to   { transform: scale(1);    opacity:1; }
+        }
+        .a-flag-in {
+            animation: aFlagIn 0.42s cubic-bezier(0.175,0.885,0.32,1.5) both;
+        }
+        @keyframes aFlagIn {
+            0%   { transform: scale(0) translateY(-10px) rotate(-22deg); opacity:0; }
+            60%  { transform: scale(1.3) translateY(0)   rotate(4deg);   opacity:1; }
+            100% { transform: scale(1)   translateY(0)   rotate(0deg);   opacity:1; }
+        }
+        .a-flag-out {
+            animation: aFlagOut 0.18s ease-in both;
+        }
+        @keyframes aFlagOut {
+            from { transform: scale(1) rotate(0deg); opacity:1; }
+            to   { transform: scale(0) rotate(28deg); opacity:0; }
+        }
+        .a-auto-flag {
+            animation: aAutoFlag 0.5s cubic-bezier(0.175,0.885,0.32,1.4) both;
+        }
+        @keyframes aAutoFlag {
+            0%   { transform: scale(0) translateY(-18px); opacity:0; }
+            65%  { transform: scale(1.2) translateY(0);   opacity:1; }
+            100% { transform: scale(1);                   opacity:1; }
+        }
+        .a-boom-hit {
+            animation: aBoomHit 0.52s ease-out both;
+        }
+        @keyframes aBoomHit {
+            0%   { transform: scale(1);   filter:brightness(1); }
+            20%  { transform: scale(1.6); filter:brightness(4); }
+            45%  { transform: scale(0.88); filter:brightness(2); }
+            65%  { transform: scale(1.18); filter:brightness(1.5); }
+            100% { transform: scale(1);   filter:brightness(1); }
+        }
+        .a-mine-pop {
+            animation: aMinePop 0.3s cubic-bezier(0.175,0.885,0.32,1.2) both;
+        }
+        @keyframes aMinePop {
+            0%   { transform: scale(0.4) rotate(-12deg); opacity:0; }
+            60%  { transform: scale(1.15) rotate(3deg);  opacity:1; }
+            100% { transform: scale(1)    rotate(0deg);  opacity:1; }
+        }
+
+        /* ── Ripple on reveal ── */
+        .ripple {
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.22);
+            animation: rippleAnim 0.5s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes rippleAnim {
+            0%   { transform:scale(0.3); opacity:1; }
+            100% { transform:scale(2.8); opacity:0; }
+        }
+
+        /* ── Flash overlay ── */
+        #flash {
+            position:fixed; inset:0;
+            background:rgba(200,20,20,0.55);
+            pointer-events:none; z-index:200; opacity:0;
+        }
+        #flash.flash-go { animation: flashAnim 0.75s ease-out forwards; }
+        @keyframes flashAnim {
+            0%   { opacity:0.85; }
+            100% { opacity:0; }
+        }
+
+        /* ── Particles ── */
+        .pt {
+            position:fixed; border-radius:50%;
+            pointer-events:none; z-index:150;
+            animation: ptAnim linear forwards;
+        }
+        @keyframes ptAnim {
+            0%   { transform:translate(0,0) scale(1); opacity:1; }
+            100% { transform:translate(var(--px),var(--py)) scale(0); opacity:0; }
+        }
+
+        /* ── Toast ── */
+        .toast {
+            animation: toastAnim 2.1s cubic-bezier(0.175,0.885,0.32,1.2) forwards;
+        }
+        @keyframes toastAnim {
+            0%   { transform:translate(-50%,-50%) scale(0.35); opacity:0; }
+            16%  { transform:translate(-50%,-50%) scale(1.04);  opacity:1; }
+            24%  { transform:translate(-50%,-50%) scale(1);     opacity:1; }
+            72%  { transform:translate(-50%,-50%) scale(1);     opacity:1; }
+            100% { transform:translate(-50%,-50%) scale(0.82);  opacity:0; }
+        }
+
+        /* ── Confetti ── */
+        .cf {
+            position:fixed; top:-14px;
+            pointer-events:none; z-index:100;
+            animation: cfFall linear forwards;
+        }
+        @keyframes cfFall {
+            0%   { transform:translateY(0)     rotate(0deg)   rotateX(0deg); opacity:1; }
+            100% { transform:translateY(110vh) rotate(560deg) rotateX(400deg); opacity:0; }
+        }
+
+        /* ── Info cards active state (matches reversi) ── */
+        .card-active {
+            border-color: #3b82f6 !important;
+            transform: scale(1.03);
+            box-shadow: 0 8px 22px rgba(59,130,246,0.15);
+            background-color: white !important;
+        }
+
+        /* ── Flag mode button ── */
+        #flag-btn.flag-on {
+            background-color: #fef2f2 !important;
+            color: #dc2626 !important;
+            border-color: #fca5a5 !important;
+        }
+        #flag-btn.flag-on .flag-dot {
+            background: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220,38,38,0.2);
+        }
+        .flag-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #d4d4d8;
+            transition: all 0.2s;
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <div id="flash"></div>
+
+    <!-- ── Header ── -->
+    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
+        <button onclick="window.location.href='index.html'"
+                class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-sm font-bold">ホーム</span>
+        </button>
+        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">Ready</div>
+        <div class="w-20"></div>
+    </header>
+
+    <main class="flex-grow flex flex-col overflow-hidden max-w-2xl mx-auto w-full">
+
+        <!-- ── Info cards ── -->
+        <div class="grid grid-cols-2 gap-4 px-6 pt-6 shrink-0">
+            <div id="card-mines"
+                 class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-zinc-900 shadow-lg border-2 border-white flex items-center justify-center">
+                        <span style="font-size:17px;line-height:1">💣</span>
+                    </div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Mines</span>
+                </div>
+                <span id="mines-left" class="text-2xl font-black">10</span>
+            </div>
+            <div id="card-timer"
+                 class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white shadow-md border-2 border-zinc-200 flex items-center justify-center">
+                        <i data-lucide="timer" class="w-5 h-5 text-zinc-600"></i>
+                    </div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Time</span>
+                </div>
+                <span id="timer-val" class="text-2xl font-black">0</span>
+            </div>
+        </div>
+
+        <!-- ── Board ── -->
+        <div id="board-wrapper">
+            <div id="board"></div>
+        </div>
+
+        <!-- ── Controls ── -->
+        <div class="px-6 pb-6 shrink-0">
+            <div class="bg-white/80 backdrop-blur-md p-4 rounded-[2rem] border border-black/5 space-y-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <!-- Difficulty -->
+                    <div class="flex p-1 bg-zinc-100 rounded-2xl gap-1">
+                        <button onclick="setDiff('easy')"   id="df-easy"   class="px-4 py-2 rounded-xl text-[10px] font-bold bg-white shadow-sm text-black">Easy</button>
+                        <button onclick="setDiff('normal')" id="df-normal" class="px-4 py-2 rounded-xl text-[10px] font-bold text-zinc-500">Normal</button>
+                        <button onclick="setDiff('hard')"   id="df-hard"   class="px-4 py-2 rounded-xl text-[10px] font-bold text-zinc-500">Hard</button>
+                    </div>
+                    <!-- Flag mode toggle -->
+                    <button id="flag-btn" onclick="toggleFlag()"
+                            class="flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-bold bg-zinc-100 text-zinc-600 transition-all border-2 border-transparent">
+                        <span style="font-size:14px;line-height:1">🚩</span>
+                        <div class="flag-dot"></div>
+                    </button>
+                </div>
+                <button onclick="resetGame()"
+                        class="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                    リセット
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    /* ================================================================
+       MINESWEEPER — full game logic + animation engine
+    ================================================================ */
+
+    const DIFFS = {
+        easy:   { rows:9,  cols:9,  mines:10 },
+        normal: { rows:12, cols:12, mines:25 },
+        hard:   { rows:16, cols:16, mines:40 }
+    };
+
+    let diff = 'easy';
+    let rows, cols, mineTotal;
+    let grid = [];       // grid[r][c] = { mine, adj, revealed, flagged, _pend }
+    let gState = 'idle'; // idle | playing | won | lost
+    let flagMode = false;
+    let firstClick = true;
+    let timerSec = 0, timerInt = null;
+    let flagsDown = 0;
+    let gGen = 0;        // generation counter to cancel stale timeouts
+
+    /* ── Init ── */
+    function resetGame() {
+        lucide.createIcons();
+        gGen++;
+        clearInterval(timerInt); timerSec = 0; flagsDown = 0;
+        firstClick = true; gState = 'idle'; flagMode = false;
+
+        const cfg = DIFFS[diff];
+        rows = cfg.rows; cols = cfg.cols; mineTotal = cfg.mines;
+
+        grid = Array.from({length: rows}, () =>
+            Array.from({length: cols}, () =>
+                ({ mine:false, adj:0, revealed:false, flagged:false, _pend:false })
+            )
+        );
+
+        document.getElementById('board').classList.remove('board-shake','board-win-glow');
+        document.querySelectorAll('.cf,.toast,.pt').forEach(e => e.remove());
+
+        flagMode = false;
+        refreshFlagBtn();
+        refreshInfoCards();
+        buildBoard();
+
+        setStatus('Ready');
+        document.getElementById('timer-val').textContent = '0';
+    }
+
+    function placeMines(safeR, safeC) {
+        let placed = 0;
+        while (placed < mineTotal) {
+            const r = Math.floor(Math.random() * rows);
+            const c = Math.floor(Math.random() * cols);
+            if (Math.abs(r-safeR) <= 1 && Math.abs(c-safeC) <= 1) continue;
+            if (grid[r][c].mine) continue;
+            grid[r][c].mine = true; placed++;
+        }
+        forAll((r, c) => {
+            if (grid[r][c].mine) return;
+            let n = 0;
+            forNeighbors(r, c, (nr, nc) => { if (grid[nr][nc].mine) n++; });
+            grid[r][c].adj = n;
+        });
+    }
+
+    function forAll(fn) {
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) fn(r, c);
+    }
+    function forNeighbors(r, c, fn) {
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+            if (dr===0 && dc===0) continue;
+            const nr=r+dr, nc=c+dc;
+            if (nr>=0 && nr<rows && nc>=0 && nc<cols) fn(nr, nc);
+        }
+    }
+
+    /* ── Board DOM ── */
+    function buildBoard() {
+        const boardEl = document.getElementById('board');
+        const wrap    = document.getElementById('board-wrapper');
+        const pad = 32;
+        const sz = Math.min(wrap.clientWidth - pad, wrap.clientHeight - pad);
+
+        boardEl.style.width  = sz + 'px';
+        boardEl.style.height = sz + 'px';
+        boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        boardEl.innerHTML = '';
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const el = document.createElement('div');
+                el.className = 'cell';
+                el.dataset.r = r; el.dataset.c = c;
+
+                // Desktop left/right click
+                el.addEventListener('click', (e) => { e.preventDefault(); onTap(r, c); });
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (gState!=='lost' && gState!=='won') doFlag(r, c);
+                });
+
+                // Mobile long-press = flag
+                let ptimer = null, lFired = false;
+                el.addEventListener('touchstart', () => {
+                    lFired = false;
+                    ptimer = setTimeout(() => {
+                        lFired = true; ptimer = null;
+                        if (gState!=='lost' && gState!=='won') doFlag(r, c);
+                    }, 420);
+                }, { passive:true });
+                el.addEventListener('touchend', () => {
+                    if (ptimer) { clearTimeout(ptimer); ptimer = null; }
+                }, { passive:true });
+                el.addEventListener('touchmove', () => {
+                    if (ptimer) { clearTimeout(ptimer); ptimer = null; }
+                }, { passive:true });
+                // Swallow click if long-press fired
+                el.addEventListener('click', (e) => {
+                    if (lFired) { lFired = false; e.stopImmediatePropagation(); }
+                }, true);
+
+                boardEl.appendChild(el);
+                paintCell(r, c);
+            }
+        }
+    }
+
+    function getEl(r, c) {
+        return document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`);
+    }
+
+    /* paintCell: rebuilds visual from grid state, optionally with animation class */
+    function paintCell(r, c, animClass) {
+        const el = getEl(r, c);
+        if (!el) return;
+        const cell = grid[r][c];
+
+        el.className = 'cell';
+        el.innerHTML = '';
+
+        /* Flagged (not yet revealed) */
+        if (cell.flagged && !cell.revealed) {
+            el.classList.add('c-flag');
+            const ico = document.createElement('span');
+            ico.className = 'ci';
+            ico.textContent = '🚩';
+            if (animClass) ico.classList.add(animClass);
+            el.appendChild(ico);
+            return;
+        }
+
+        /* Hidden */
+        if (!cell.revealed) {
+            el.classList.add('c-hidden');
+            return;
+        }
+
+        /* Revealed mine (not the hit one) */
+        if (cell.mine) {
+            el.classList.add('c-mshow');
+            const ico = document.createElement('span');
+            ico.className = 'ci';
+            ico.textContent = '💣';
+            if (animClass) ico.classList.add(animClass);
+            el.appendChild(ico);
+            return;
+        }
+
+        /* Revealed safe cell */
+        el.classList.add('c-open');
+        if (animClass) el.classList.add(animClass);
+
+        if (cell.adj > 0) {
+            const num = document.createElement('span');
+            num.className = `cn n${cell.adj}`;
+            num.textContent = cell.adj;
+            el.appendChild(num);
+        }
+    }
+
+    /* ── Input handlers ── */
+    function onTap(r, c) {
+        if (gState==='won' || gState==='lost') return;
+        if (flagMode) { doFlag(r, c); return; }
+        const cell = grid[r][c];
+        if (cell.revealed || cell.flagged) return;
+
+        if (firstClick) {
+            firstClick = false;
+            placeMines(r, c);
+            gState = 'playing';
+            startTimer();
+            setStatus('Playing');
+        }
+
+        if (cell.mine) { doBoom(r, c); }
+        else           { cascade(r, c, 0, gGen); }
+    }
+
+    function doFlag(r, c) {
+        const cell = grid[r][c];
+        if (cell.revealed) return;
+
+        if (cell.flagged) {
+            /* Animate flag removal, then repaint as hidden */
+            const el = getEl(r, c);
+            const ico = el?.querySelector('.ci');
+            if (ico) {
+                ico.classList.add('a-flag-out');
+                setTimeout(() => {
+                    cell.flagged = false; flagsDown--;
+                    paintCell(r, c);
+                    refreshInfoCards();
+                }, 180);
+            } else {
+                cell.flagged = false; flagsDown--;
+                paintCell(r, c);
+                refreshInfoCards();
+            }
+        } else {
+            cell.flagged = true; flagsDown++;
+            paintCell(r, c, 'a-flag-in');
+            spawnParticles(r, c, 7, ['#ef4444','#f87171','#fca5a5'], 22);
+            refreshInfoCards();
+        }
+    }
+
+    /* ── Cascade reveal (wave animation by BFS depth) ── */
+    function cascade(r, c, depth, gen) {
+        if (gen !== gGen) return;
+        if (r<0||r>=rows||c<0||c>=cols) return;
+        const cell = grid[r][c];
+        if (cell.revealed || cell.flagged || cell.mine || cell._pend) return;
+        cell._pend = true;
+
+        setTimeout(() => {
+            if (gen !== gGen) return;
+            cell.revealed = true; cell._pend = false;
+            const el = getEl(r, c);
+            if (el) {
+                el.className = 'cell c-open a-reveal';
+                el.innerHTML = '';
+                if (cell.adj > 0) {
+                    const num = document.createElement('span');
+                    num.className = `cn n${cell.adj}`;
+                    num.textContent = cell.adj;
+                    el.appendChild(num);
+                }
+                /* ripple effect */
+                const rip = document.createElement('div');
+                rip.className = 'ripple';
+                el.appendChild(rip);
+                setTimeout(() => rip.remove(), 500);
+            }
+            if (cell.adj === 0) {
+                forNeighbors(r, c, (nr, nc) => cascade(nr, nc, depth + 1, gen));
+            }
+            checkWin();
+        }, depth * 18);
+    }
+
+    /* ── Game over — BOOM ── */
+    function doBoom(hitR, hitC) {
+        gState = 'lost';
+        clearInterval(timerInt);
+        setStatus('💥 Boom!');
+
+        /* Hit cell */
+        grid[hitR][hitC].revealed = true;
+        const hitEl = getEl(hitR, hitC);
+        if (hitEl) {
+            hitEl.className = 'cell c-boom';
+            const ico = document.createElement('span');
+            ico.className = 'ci a-boom-hit';
+            ico.textContent = '💣';
+            hitEl.appendChild(ico);
+            spawnParticles(hitR, hitC, 24, ['#ff4400','#ff8800','#ffcc00','#ff2200','#ff6600'], 90);
+        }
+
+        /* Screen flash + board shake */
+        const fl = document.getElementById('flash');
+        fl.classList.remove('flash-go'); void fl.offsetWidth; fl.classList.add('flash-go');
+        const bo = document.getElementById('board');
+        bo.classList.remove('board-shake'); void bo.offsetWidth; bo.classList.add('board-shake');
+
+        /* Reveal all other mines + mark wrong flags */
+        let d = 380;
+        forAll((r, c) => {
+            if (grid[r][c].mine && !(r===hitR && c===hitC) && !grid[r][c].flagged) {
+                const _r=r,_c=c,_d=d;
+                setTimeout(() => {
+                    grid[_r][_c].revealed = true;
+                    paintCell(_r, _c, 'a-mine-pop');
+                }, _d);
+                d += 55;
+            }
+            if (grid[r][c].flagged && !grid[r][c].mine) {
+                const _r=r,_c=c,_d=d;
+                setTimeout(() => {
+                    const el = getEl(_r, _c);
+                    if (el) {
+                        el.className = 'cell c-xflag';
+                        el.innerHTML = '<span class="ci" style="opacity:.55">❌</span>';
+                    }
+                }, _d);
+                d += 55;
+            }
+        });
+
+        setTimeout(() => showToast('💥 BOOM!', '#b91c1c'), 180);
+    }
+
+    /* ── Win check ── */
+    function checkWin() {
+        if (gState !== 'playing') return;
+        let rem = 0;
+        forAll((r, c) => { if (!grid[r][c].mine && !grid[r][c].revealed && !grid[r][c]._pend) rem++; });
+        if (rem === 0) doWin();
+    }
+
+    function doWin() {
+        if (gState === 'won') return;   // guard double-call
+        gState = 'won';
+        clearInterval(timerInt);
+        setStatus('🎉 Cleared!');
+
+        /* Auto-flag remaining mines */
+        let d = 0;
+        forAll((r, c) => {
+            if (grid[r][c].mine && !grid[r][c].flagged) {
+                const _r=r,_c=c,_d=d;
+                setTimeout(() => {
+                    grid[_r][_c].flagged = true; flagsDown++;
+                    paintCell(_r, _c, 'a-auto-flag');
+                    refreshInfoCards();
+                }, _d);
+                d += 45;
+            }
+        });
+
+        setTimeout(() => {
+            document.getElementById('board').classList.add('board-win-glow');
+            showToast('🎉 CLEARED!', '#15803d');
+            spawnConfetti();
+        }, d + 80);
+    }
+
+    /* ── Timer ── */
+    function startTimer() {
+        clearInterval(timerInt);
+        timerInt = setInterval(() => {
+            timerSec++;
+            document.getElementById('timer-val').textContent = timerSec;
+        }, 1000);
+    }
+
+    /* ── UI helpers ── */
+    function setStatus(msg) {
+        document.getElementById('status-text').textContent = msg;
+    }
+    function refreshInfoCards() {
+        document.getElementById('mines-left').textContent = mineTotal - flagsDown;
+    }
+    function toggleFlag() {
+        flagMode = !flagMode;
+        refreshFlagBtn();
+    }
+    function refreshFlagBtn() {
+        const btn = document.getElementById('flag-btn');
+        if (flagMode) btn.classList.add('flag-on');
+        else          btn.classList.remove('flag-on');
+    }
+    function setDiff(d) {
+        diff = d;
+        ['easy','normal','hard'].forEach(n => {
+            document.getElementById(`df-${n}`).className = n===d
+                ? 'px-4 py-2 rounded-xl text-[10px] font-bold bg-white shadow-sm text-black'
+                : 'px-4 py-2 rounded-xl text-[10px] font-bold text-zinc-500';
+        });
+        resetGame();
+    }
+
+    /* ── Effects ── */
+    function spawnParticles(r, c, count, colors, spread) {
+        const el = getEl(r, c);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+        for (let i = 0; i < count; i++) {
+            const p = document.createElement('div');
+            p.className = 'pt';
+            const ang = (Math.PI*2*i)/count + (Math.random()-0.5)*0.7;
+            const dist = spread * (0.55 + Math.random()*0.9);
+            const sz = 4 + Math.random()*7;
+            p.style.cssText = `left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;background:${colors[i%colors.length]};animation-duration:${0.35+Math.random()*0.45}s;`;
+            p.style.setProperty('--px', Math.cos(ang)*dist + 'px');
+            p.style.setProperty('--py', Math.sin(ang)*dist + 'px');
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 900);
+        }
+    }
+
+    function spawnConfetti() {
+        const colors = ['#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#a3e635'];
+        for (let i = 0; i < 75; i++) {
+            const cf = document.createElement('div');
+            cf.className = 'cf';
+            const sz = 6 + Math.random()*10;
+            cf.style.cssText = `left:${Math.random()*100}vw;width:${sz}px;height:${sz}px;background:${colors[i%colors.length]};animation-duration:${1.8+Math.random()*2.4}s;animation-delay:${Math.random()*0.9}s;border-radius:${Math.random()>.45?'50%':'2px'};`;
+            document.body.appendChild(cf);
+            setTimeout(() => cf.remove(), 4500);
+        }
+    }
+
+    function showToast(msg, bg) {
+        const t = document.createElement('div');
+        t.className = 'toast fixed top-1/2 left-1/2 text-white px-8 py-4 rounded-3xl font-black z-50 text-xl whitespace-nowrap shadow-2xl';
+        t.style.backgroundColor = bg || '#111';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2200);
+    }
+
+    window.addEventListener('resize', buildBoard);
+    window.onload = resetGame;
+    </script>
+</body>
+</html>

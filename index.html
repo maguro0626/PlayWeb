@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlayWeb</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass-header {
+            background-color: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-[#f5f5f7] text-zinc-900 selection:bg-zinc-200 min-h-screen flex flex-col">
+
+    <div id="app" class="flex-1 flex flex-col w-full"></div>
+
+    <script>
+        /**
+         * ゲームカタログのデータ定義
+         * path: 遷移先のHTMLファイル名
+         * isPlayable: 実装済みの場合は true
+         */
+        const GAME_CATALOG = [
+            {
+                id: 'reversi',
+                title: 'オセロ',
+                icon: 'circle-dot',
+                gradient: 'from-zinc-200 to-zinc-400',
+                iconColor: 'text-zinc-700',
+                path: 'reversi.html',
+                isPlayable: true
+            },
+            {
+                id: 'shogi',
+                title: '将棋',
+                icon: 'hexagon',
+                gradient: 'from-amber-100 to-orange-200',
+                iconColor: 'text-amber-800',
+                path: 'shogi.html',
+                isPlayable: true
+            },
+            {
+                id: 'minesweeper',
+                title: 'マインスイーパー',
+                icon: 'bomb',
+                gradient: 'from-red-100 to-rose-300',
+                iconColor: 'text-rose-800',
+                path: 'minesweeper.html',
+                isPlayable: true
+            }
+        ];
+
+        const appContainer = document.getElementById('app');
+
+        /**
+         * ゲーム選択時の処理
+         */
+        function handleGameClick(gameId) {
+            const game = GAME_CATALOG.find(g => g.id === gameId);
+            if (!game) return;
+
+            if (game.isPlayable) {
+                // 実装済みの場合はそのファイルへ遷移
+                window.location.href = game.path;
+            } else {
+                // 未実装の場合は詳細（Coming Soon）画面を表示
+                renderComingSoon(game);
+            }
+        }
+
+        /**
+         * トップページの描画
+         */
+        function renderCatalog() {
+            const cardsHtml = GAME_CATALOG.map(game => `
+                <div onclick="handleGameClick('${game.id}')" class="group cursor-pointer flex flex-col gap-4">
+                    <div class="relative aspect-square rounded-[2rem] overflow-hidden bg-gradient-to-br ${game.gradient} p-6 flex items-center justify-center shadow-sm transition-all duration-500 ease-out group-hover:shadow-xl group-hover:-translate-y-1.5">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500"></div>
+                        
+                        <i data-lucide="${game.icon}" class="w-20 h-20 md:w-28 md:h-28 ${game.iconColor} transition-transform duration-500 ease-out group-hover:scale-110 drop-shadow-sm" stroke-width="1.5"></i>
+                        
+                        ${!game.isPlayable ? `
+                        <div class="absolute top-4 right-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-zinc-500 shadow-sm">
+                            Coming Soon
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="text-center px-2">
+                        <h3 class="text-lg md:text-xl font-semibold tracking-tight">${game.title}</h3>
+                    </div>
+                </div>
+            `).join('');
+
+            appContainer.innerHTML = `
+                <header class="sticky top-0 z-50 glass-header border-b border-black/5 h-14 flex items-center px-6">
+                    <div class="flex items-center gap-2 font-bold text-lg tracking-tight">
+                        <i data-lucide="gamepad-2" class="w-5 h-5"></i>
+                        <span>PlayWeb</span>
+                    </div>
+                </header>
+
+                <main class="pb-32 flex-1 fade-in">
+                    <section class="py-24 md:py-32 flex flex-col items-center justify-center text-center px-6">
+                        <h1 class="text-6xl md:text-8xl font-bold tracking-tighter text-zinc-900">
+                            Arcade.
+                        </h1>
+                    </section>
+
+                    <section class="px-6 md:px-10 max-w-4xl mx-auto">
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10 md:gap-x-12 md:gap-y-16">
+                            ${cardsHtml}
+                        </div>
+                    </section>
+                </main>
+            `;
+            
+            lucide.createIcons();
+        }
+
+        /**
+         * 未実装ゲームの画面（Coming Soon）
+         */
+        function renderComingSoon(game) {
+            appContainer.innerHTML = `
+                <div class="min-h-screen flex flex-col fade-in bg-white">
+                    <header class="sticky top-0 z-50 glass-header border-b border-black/5 h-14 flex items-center px-4">
+                        <button onclick="renderCatalog()" class="flex items-center gap-1 text-zinc-500 hover:text-zinc-900 transition-colors font-medium text-sm">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                            <span>Catalog</span>
+                        </button>
+                    </header>
+                    
+                    <main class="flex-1 flex flex-col items-center justify-center p-6 pb-32">
+                        <div class="max-w-xs w-full text-center">
+                            <div class="w-32 h-32 md:w-40 md:h-40 mx-auto rounded-[2.5rem] bg-gradient-to-br ${game.gradient} flex items-center justify-center shadow-lg mb-8">
+                                <i data-lucide="${game.icon}" class="w-16 h-16 md:w-20 md:h-20 ${game.iconColor}" stroke-width="1.5"></i>
+                            </div>
+                            
+                            <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-12">${game.title}</h2>
+                            
+                            <div class="bg-[#f5f5f7] rounded-[2rem] p-6 text-center">
+                                <h3 class="text-lg font-bold text-zinc-900 mb-6">Coming Soon</h3>
+                                <button onclick="renderCatalog()" class="w-full bg-black text-white rounded-full py-3.5 font-semibold text-base hover:bg-zinc-800 transition-colors active:scale-[0.98] duration-200">
+                                    Return
+                                </button>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCatalog();
+        });
+    </script>
+</body>
+</html>
