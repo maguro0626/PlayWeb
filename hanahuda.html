@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>花札 — こいこい</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            height: 100%; margin: 0; padding: 0; overflow: hidden;
+            background: #0d1117;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            color: #f0f0f0;
+        }
+        .glass-header {
+            background-color: rgba(13,17,23,0.85);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* ── Game background ── */
+        #game-bg {
+            background:
+                radial-gradient(ellipse at 15% 15%, rgba(60,20,10,0.5) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 85%, rgba(10,30,60,0.5) 0%, transparent 55%),
+                radial-gradient(ellipse at 50% 50%, rgba(20,10,30,0.4) 0%, transparent 70%),
+                linear-gradient(160deg, #0d1117 0%, #111820 50%, #0d1117 100%);
+        }
+
+        /* ── Cards ── */
+        .hana-card {
+            position: relative; border-radius: 7px; cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+            transform-style: preserve-3d; flex-shrink: 0;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.5);
+            display: inline-block;
+        }
+        .hana-card svg { display: block; border-radius: 7px; }
+        .hana-card:hover.hoverable { transform: translateY(-10px) scale(1.07); box-shadow: 0 14px 28px rgba(0,0,0,0.8); }
+        .hana-card.selected {
+            transform: translateY(-14px) scale(1.1) !important;
+            box-shadow: 0 0 0 3px #f59e0b, 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(245,158,11,0.5) !important;
+        }
+        .hana-card.matchable {
+            animation: card-matchable 1.1s infinite ease-in-out;
+        }
+        @keyframes card-matchable {
+            0%,100% { box-shadow: 0 0 0 2.5px #4ade80, 0 6px 18px rgba(34,197,94,0.3); }
+            50%      { box-shadow: 0 0 0 4px #86efac, 0 8px 26px rgba(74,222,128,0.6); }
+        }
+        .hana-card.field-selectable {
+            animation: field-select 0.9s infinite ease-in-out; cursor: pointer;
+            transform: scale(1.05);
+        }
+        @keyframes field-select {
+            0%,100% { box-shadow: 0 0 0 3px #22c55e, 0 8px 22px rgba(34,197,94,0.4); }
+            50%      { box-shadow: 0 0 0 5px #4ade80, 0 10px 30px rgba(74,222,128,0.7); }
+        }
+
+        /* ── Card animations ── */
+        @keyframes card-deal-in {
+            0%   { transform: translateY(-160px) scale(0.6) rotate(-12deg); opacity: 0; }
+            100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+        }
+        .card-deal-anim { animation: card-deal-in 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.2) both; }
+
+        @keyframes card-flip-reveal {
+            0%   { transform: rotateY(90deg) scale(0.9); opacity: 0.3; }
+            100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+        }
+        .card-flip-anim { animation: card-flip-reveal 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+        @keyframes card-capture-fx {
+            0%   { transform: scale(1); opacity: 1; filter: brightness(1); }
+            40%  { transform: scale(1.25); opacity: 0.9; filter: brightness(2) saturate(2); }
+            100% { transform: scale(0.1); opacity: 0; filter: brightness(3); }
+        }
+        .card-capture-anim { animation: card-capture-fx 0.38s ease-in forwards; }
+
+        @keyframes drawn-card-enter {
+            0%   { transform: translateX(60px) rotate(6deg) scale(0.8); opacity: 0; }
+            100% { transform: translateX(0) rotate(0) scale(1); opacity: 1; }
+        }
+        .card-drawn-anim { animation: drawn-card-enter 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.2) both; }
+
+        /* ── Bright card shimmer ── */
+        .bright-shimmer {
+            position: absolute; inset: 0; border-radius: 7px; pointer-events: none; z-index: 2;
+            background: linear-gradient(105deg, transparent 35%, rgba(255,220,80,0.22) 50%, transparent 65%);
+            background-size: 200% 100%; animation: bright-sweep 2.4s ease-in-out infinite;
+        }
+        @keyframes bright-sweep {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ── Score panel ── */
+        .score-panel {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid transparent;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .score-panel.active-turn {
+            border-color: rgba(245,158,11,0.7);
+            background: rgba(245,158,11,0.08);
+            animation: panel-glow 2s infinite ease-in-out;
+        }
+        .score-panel.dimmed { opacity: 0.45; }
+        @keyframes panel-glow {
+            0%,100% { box-shadow: 0 0 16px rgba(245,158,11,0.18); }
+            50%      { box-shadow: 0 0 32px rgba(245,158,11,0.45); }
+        }
+        .score-pop { animation: score-pop-kf 0.5s cubic-bezier(0.175,0.885,0.32,1.6) both; }
+        @keyframes score-pop-kf {
+            0%   { transform: scale(1);   color: inherit; }
+            50%  { transform: scale(1.65); color: #f59e0b; }
+            100% { transform: scale(1);   color: inherit; }
+        }
+
+        /* ── Toast ── */
+        .toast-base {
+            position: fixed; top: 50%; left: 50%; z-index: 150; pointer-events: none;
+            transform: translate(-50%, -50%);
+            background: rgba(10,10,20,0.93);
+            border: 1.5px solid rgba(255,255,255,0.1);
+            border-radius: 28px; padding: 14px 32px;
+            font-weight: 900; font-size: 1.1rem; color: #fff;
+            white-space: nowrap;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        }
+        .toast-anim {
+            animation: toast-kf 2s cubic-bezier(0.175,0.885,0.32,1.2) forwards;
+        }
+        @keyframes toast-kf {
+            0%   { transform: translate(-50%,-50%) scale(0.45); opacity: 0; }
+            14%  { transform: translate(-50%,-50%) scale(1.06); opacity: 1; }
+            24%  { transform: translate(-50%,-50%) scale(1);    opacity: 1; }
+            78%  { transform: translate(-50%,-50%) scale(1);    opacity: 1; }
+            100% { transform: translate(-50%,-50%) scale(0.8);  opacity: 0; }
+        }
+
+        /* ── Yaku announcement ── */
+        .yaku-overlay {
+            position: fixed; top: 50%; left: 50%; z-index: 160; pointer-events: none;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(20,10,5,0.97), rgba(10,10,30,0.97));
+            border: 2px solid rgba(245,158,11,0.6);
+            border-radius: 28px; padding: 24px 36px; text-align: center;
+            box-shadow: 0 0 50px rgba(245,158,11,0.25), 0 30px 80px rgba(0,0,0,0.9);
+            min-width: 240px;
+        }
+        .yaku-overlay-anim {
+            animation: yaku-kf 3.2s cubic-bezier(0.175,0.885,0.32,1.2) forwards;
+        }
+        @keyframes yaku-kf {
+            0%   { transform: translate(-50%,-50%) scale(0.4) rotateX(20deg); opacity: 0; }
+            12%  { transform: translate(-50%,-50%) scale(1.04) rotateX(0deg); opacity: 1; }
+            22%  { transform: translate(-50%,-50%) scale(1) rotateX(0deg); opacity: 1; }
+            78%  { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%,-50%) scale(0.85); opacity: 0; }
+        }
+
+        /* ── Sparks ── */
+        .spark { position: fixed; border-radius: 50%; pointer-events: none; z-index: 140;
+                 animation: spark-kf linear forwards; }
+        @keyframes spark-kf {
+            0%   { transform: translate(0,0) scale(1.2); opacity: 1; }
+            100% { transform: translate(var(--tx),var(--ty)) scale(0); opacity: 0; }
+        }
+
+        /* ── Confetti ── */
+        .confetti { position: fixed; top: -30px; z-index: 200; pointer-events: none;
+                    animation: confetti-fall linear forwards; }
+        @keyframes confetti-fall {
+            0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+            85%  { opacity: 1; }
+            100% { transform: translateY(115vh) rotate(var(--rot,720deg)) scale(0.7); opacity: 0; }
+        }
+
+        /* ── Victory flash ── */
+        .victory-flash { position: fixed; inset: 0; pointer-events: none; z-index: 190;
+                         animation: vflash 0.65s ease-out forwards; }
+        @keyframes vflash {
+            0%   { background: rgba(255,255,255,0.4); }
+            100% { background: rgba(255,255,255,0); }
+        }
+
+        /* ── CPU thinking dots ── */
+        .cpu-dot { width: 5px; height: 5px; border-radius: 50%; background: #f59e0b;
+                   display: inline-block; margin: 0 2px; animation: cpu-bounce 0.75s infinite ease-in-out; }
+        .cpu-dot:nth-child(2) { animation-delay: 0.15s; }
+        .cpu-dot:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes cpu-bounce {
+            0%,100% { transform: translateY(0); opacity: 0.35; }
+            50%      { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* ── Cards row ── */
+        .cards-row {
+            display: flex; gap: 5px; overflow-x: auto; overflow-y: visible;
+            padding: 4px 6px; justify-content: center; align-items: flex-end;
+            scrollbar-width: none;
+        }
+        .cards-row::-webkit-scrollbar { display: none; }
+
+        /* ── Field grid ── */
+        #field-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px; padding: 8px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 18px; min-height: 100px;
+        }
+        .field-slot {
+            aspect-ratio: 11/16;
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .field-slot .hana-card { width: 100%; }
+        .field-slot .hana-card svg { width: 100%; height: auto; }
+
+        /* ── Captured pips ── */
+        .cap-pip { width: 9px; height: 13px; border-radius: 2px; flex-shrink: 0; }
+
+        /* ── Buttons ── */
+        .koi-btn, .agari-btn {
+            padding: 11px 22px; border-radius: 16px; font-weight: 900;
+            font-size: 0.85rem; letter-spacing: 0.05em; cursor: pointer;
+            transition: all 0.18s; border: none; outline: none;
+        }
+        .koi-btn { background: linear-gradient(135deg, #dc2626, #991b1b); color: #fff;
+                   box-shadow: 0 4px 20px rgba(220,38,38,0.4); }
+        .koi-btn:active { transform: scale(0.94); }
+        .agari-btn { background: linear-gradient(135deg, #f59e0b, #b45309); color: #1a0a00;
+                     box-shadow: 0 4px 20px rgba(245,158,11,0.4); }
+        .agari-btn:active { transform: scale(0.94); }
+        .next-round-btn {
+            background: linear-gradient(135deg, #059669, #065f46);
+            color: #fff; padding: 12px 28px; border-radius: 16px;
+            font-weight: 900; font-size: 0.85rem; cursor: pointer;
+            box-shadow: 0 4px 20px rgba(5,150,105,0.4); border: none;
+            transition: all 0.18s;
+        }
+        .next-round-btn:active { transform: scale(0.94); }
+
+        /* ── Diff buttons ── */
+        .diff-btn { padding: 5px 12px; border-radius: 10px; font-size: 0.65rem;
+                    font-weight: 800; cursor: pointer; border: none; transition: all 0.18s;
+                    background: transparent; color: rgba(255,255,255,0.35); }
+        .diff-btn.active { background: rgba(255,255,255,0.12); color: #fff; }
+
+        /* ── Help overlay ── */
+        #help-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 300;
+            overflow-y: auto; padding: 20px 16px;
+        }
+
+        /* ── Drawn card display ── */
+        #drawn-card-area {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%); z-index: 50;
+            pointer-events: none;
+        }
+
+        /* ── Status bar ── */
+        #status-bar {
+            min-height: 28px; display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <!-- Header -->
+    <header class="w-full shrink-0 z-50 glass-header h-14 flex items-center justify-between px-4">
+        <button onclick="window.location.href='index.html'"
+                class="flex items-center gap-2 text-white/55 hover:text-white transition-colors p-2 rounded-xl hover:bg-white/8">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-sm font-bold">ホーム</span>
+        </button>
+        <div id="status-bar">
+            <span id="status-text" class="text-[10px] font-black tracking-widest uppercase text-white/35">花札 こいこい</span>
+        </div>
+        <button onclick="showHelp()"
+                class="flex items-center gap-1 text-white/55 hover:text-white transition-colors p-2 rounded-xl hover:bg-white/8">
+            <i data-lucide="help-circle" class="w-5 h-5"></i>
+        </button>
+    </header>
+
+    <!-- Main game area -->
+    <main id="game-bg" class="flex-grow flex flex-col overflow-hidden max-w-2xl mx-auto w-full relative">
+
+        <!-- Score panels -->
+        <div class="grid grid-cols-2 gap-3 px-4 pt-3 shrink-0">
+            <div id="panel-player" class="score-panel active-turn p-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-orange-500 flex items-center justify-center font-black text-amber-900 text-xs shadow-lg">人</div>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-white/35">Player</span>
+                </div>
+                <div class="text-right">
+                    <div id="score-player" class="text-2xl font-black text-amber-300">0</div>
+                    <div id="total-player" class="text-[8px] text-white/30 font-bold">累計 0</div>
+                </div>
+            </div>
+            <div id="panel-cpu" class="score-panel dimmed p-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-400 to-zinc-600 flex items-center justify-center font-black text-zinc-900 text-xs shadow-lg">機</div>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-white/35">CPU</span>
+                </div>
+                <div class="text-right">
+                    <div id="score-cpu" class="text-2xl font-black text-zinc-300">0</div>
+                    <div id="total-cpu" class="text-[8px] text-white/30 font-bold">累計 0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CPU hand -->
+        <div class="px-4 pt-2 shrink-0">
+            <div class="flex items-center justify-between mb-1 px-1">
+                <span class="text-[8px] font-black uppercase tracking-widest text-white/22">CPU手札</span>
+                <div class="flex items-center gap-3">
+                    <span id="cpu-hand-count" class="text-[8px] text-white/28 font-bold">8枚</span>
+                    <div class="flex items-center gap-1 text-[8px] text-white/28 font-bold">
+                        <i data-lucide="layers" class="w-3 h-3"></i>
+                        <span id="deck-count">24</span>枚
+                    </div>
+                </div>
+            </div>
+            <div id="cpu-hand" class="cards-row" style="min-height:56px;"></div>
+        </div>
+
+        <!-- Field area -->
+        <div class="px-4 pt-2 flex-1 flex flex-col min-h-0">
+            <div class="flex items-center justify-between mb-1.5 px-1">
+                <span class="text-[8px] font-black uppercase tracking-widest text-white/22">場</span>
+                <span id="field-hint" class="text-[8px] text-amber-400/60 font-bold"></span>
+            </div>
+            <div id="field-cards"></div>
+        </div>
+
+        <!-- Captured cards -->
+        <div class="px-4 pt-1.5 grid grid-cols-2 gap-2 shrink-0">
+            <div class="bg-white/3 rounded-xl p-2 border border-white/5">
+                <div class="text-[7px] text-white/25 font-bold mb-1">取り札 / Player</div>
+                <div id="player-caps" class="flex flex-wrap gap-1"></div>
+            </div>
+            <div class="bg-white/3 rounded-xl p-2 border border-white/5">
+                <div class="text-[7px] text-white/25 font-bold mb-1">取り札 / CPU</div>
+                <div id="cpu-caps" class="flex flex-wrap gap-1"></div>
+            </div>
+        </div>
+
+        <!-- Player hand -->
+        <div class="px-4 pt-2 shrink-0">
+            <span class="text-[8px] font-black uppercase tracking-widest text-white/22 px-1">手札</span>
+            <div id="player-hand" class="cards-row mt-1" style="min-height:84px;"></div>
+        </div>
+
+        <!-- Control panel -->
+        <div class="px-4 py-3 shrink-0">
+            <div class="bg-white/4 backdrop-blur-sm border border-white/6 rounded-[1.6rem] p-3 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <!-- Difficulty -->
+                    <div class="flex bg-white/5 rounded-xl p-0.5 gap-0.5">
+                        <button class="diff-btn" id="df-1" onclick="changeDiff(1)">易</button>
+                        <button class="diff-btn active" id="df-2" onclick="changeDiff(2)">普</button>
+                        <button class="diff-btn" id="df-3" onclick="changeDiff(3)">難</button>
+                    </div>
+                    <!-- Koi/Agari or Next Round -->
+                    <div id="koi-btns" class="hidden flex gap-2">
+                        <button class="koi-btn" onclick="playerDecision('koi')">こいこい！</button>
+                        <button class="agari-btn" onclick="playerDecision('agari')">あがり</button>
+                    </div>
+                    <div id="next-btn" class="hidden">
+                        <button class="next-round-btn" onclick="nextRound()">次ラウンド →</button>
+                    </div>
+                    <div id="cpu-thinking" class="hidden">
+                        <span class="cpu-dot"></span><span class="cpu-dot"></span><span class="cpu-dot"></span>
+                    </div>
+                </div>
+                <button onclick="resetGame()"
+                    class="w-full py-3.5 bg-white/6 hover:bg-white/10 border border-white/8 text-white/65 hover:text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    リセット
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Help overlay -->
+    <div id="help-overlay" class="hidden">
+        <div class="max-w-lg mx-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-xl font-black">こいこい ルール</h2>
+                <button onclick="hideHelp()" class="text-white/50 hover:text-white p-2 rounded-xl hover:bg-white/10">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="bg-white/5 rounded-2xl p-4">
+                    <h3 class="font-black text-amber-300 mb-2 text-base">遊び方</h3>
+                    <p class="text-white/65 leading-relaxed text-xs">
+                        ① 手札から1枚選ぶ → 場の同月カードと合わせて取る（なければ場に置く）<br>
+                        ② 山札から1枚めくる → 同様に合わせる<br>
+                        ③ 役が揃ったら「あがり」で得点獲得。さらに狙うなら「こいこい」（相手が上がると2倍になる危険あり）
+                    </p>
+                </div>
+                <div class="bg-white/5 rounded-2xl p-4">
+                    <h3 class="font-black text-amber-300 mb-3 text-base">役一覧</h3>
+                    <div id="yaku-list" class="space-y-1.5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  CARD DATA
+// ══════════════════════════════════════════════════════════════
+const B='bright', A='animal', R='ribbon', C='chaff';
+const PO='poetry', BL='blue', PL='plain';
+
+const DECK_DATA=[
+  {id:0,m:1,t:B,rt:null,  name:'松に鶴'},
+  {id:1,m:1,t:R,rt:PO,    name:'松に赤短'},
+  {id:2,m:1,t:C,rt:null,  name:'松のカス'},
+  {id:3,m:1,t:C,rt:null,  name:'松のカス'},
+  {id:4,m:2,t:A,rt:null,  name:'梅に鶯'},
+  {id:5,m:2,t:R,rt:PO,    name:'梅に赤短'},
+  {id:6,m:2,t:C,rt:null,  name:'梅のカス'},
+  {id:7,m:2,t:C,rt:null,  name:'梅のカス'},
+  {id:8,m:3,t:B,rt:null,  name:'桜に幕'},
+  {id:9,m:3,t:R,rt:PO,    name:'桜に赤短'},
+  {id:10,m:3,t:C,rt:null, name:'桜のカス'},
+  {id:11,m:3,t:C,rt:null, name:'桜のカス'},
+  {id:12,m:4,t:A,rt:null, name:'藤に不如帰'},
+  {id:13,m:4,t:R,rt:PL,   name:'藤に短冊'},
+  {id:14,m:4,t:C,rt:null, name:'藤のカス'},
+  {id:15,m:4,t:C,rt:null, name:'藤のカス'},
+  {id:16,m:5,t:A,rt:null, name:'菖蒲に八橋'},
+  {id:17,m:5,t:R,rt:PL,   name:'菖蒲に短冊'},
+  {id:18,m:5,t:C,rt:null, name:'菖蒲のカス'},
+  {id:19,m:5,t:C,rt:null, name:'菖蒲のカス'},
+  {id:20,m:6,t:A,rt:null, name:'牡丹に蝶'},
+  {id:21,m:6,t:R,rt:BL,   name:'牡丹に青短'},
+  {id:22,m:6,t:C,rt:null, name:'牡丹のカス'},
+  {id:23,m:6,t:C,rt:null, name:'牡丹のカス'},
+  {id:24,m:7,t:A,rt:null, name:'萩に猪'},
+  {id:25,m:7,t:R,rt:PL,   name:'萩に短冊'},
+  {id:26,m:7,t:C,rt:null, name:'萩のカス'},
+  {id:27,m:7,t:C,rt:null, name:'萩のカス'},
+  {id:28,m:8,t:B,rt:null, name:'芒に月'},
+  {id:29,m:8,t:A,rt:null, name:'芒に雁'},
+  {id:30,m:8,t:C,rt:null, name:'芒のカス'},
+  {id:31,m:8,t:C,rt:null, name:'芒のカス'},
+  {id:32,m:9,t:A,rt:null, name:'菊に盃'},
+  {id:33,m:9,t:R,rt:BL,   name:'菊に青短'},
+  {id:34,m:9,t:C,rt:null, name:'菊のカス'},
+  {id:35,m:9,t:C,rt:null, name:'菊のカス'},
+  {id:36,m:10,t:A,rt:null,name:'紅葉に鹿'},
+  {id:37,m:10,t:R,rt:BL,  name:'紅葉に青短'},
+  {id:38,m:10,t:C,rt:null,name:'紅葉のカス'},
+  {id:39,m:10,t:C,rt:null,name:'紅葉のカス'},
+  {id:40,m:11,t:B,rt:null,name:'柳に小野道風'},
+  {id:41,m:11,t:A,rt:null,name:'柳に燕'},
+  {id:42,m:11,t:R,rt:PL,  name:'柳に短冊'},
+  {id:43,m:11,t:C,rt:null,name:'柳のカス'},
+  {id:44,m:12,t:B,rt:null,name:'桐に鳳凰'},
+  {id:45,m:12,t:C,rt:null,name:'桐のカス'},
+  {id:46,m:12,t:C,rt:null,name:'桐のカス'},
+  {id:47,m:12,t:C,rt:null,name:'桐のカス'},
+];
+
+function cPts(c){ return c.t===B?20:c.t===A?10:c.t===R?5:1; }
+
+// ══════════════════════════════════════════════════════════════
+//  MONTH VISUAL DATA
+// ══════════════════════════════════════════════════════════════
+const MD={
+  1: {k:'松', c1:'#e8f0e8',c2:'#b8d0b8',ac:'#2a6a2a',dark:false},
+  2: {k:'梅', c1:'#fce8f0',c2:'#f0b0cc',ac:'#cc2266',dark:false},
+  3: {k:'桜', c1:'#ffd8ec',c2:'#ffaacf',ac:'#bb1155',dark:false},
+  4: {k:'藤', c1:'#ecdcff',c2:'#ccaaee',ac:'#7722cc',dark:false},
+  5: {k:'菖蒲',c1:'#d8e8ff',c2:'#aac0ee',ac:'#3355aa',dark:false},
+  6: {k:'牡丹',c1:'#ffdcf8',c2:'#ffaaee',ac:'#cc22aa',dark:false},
+  7: {k:'萩', c1:'#ffdcdc',c2:'#ffaaaa',ac:'#cc2222',dark:false},
+  8: {k:'芒', c1:'#141e2e',c2:'#0c1422',ac:'#7799cc',dark:true},
+  9: {k:'菊', c1:'#fff8cc',c2:'#ffe866',ac:'#aa8800',dark:false},
+  10:{k:'紅葉',c1:'#ffe0cc',c2:'#ffaa66',ac:'#cc4400',dark:false},
+  11:{k:'柳', c1:'#d0e4d0',c2:'#98be98',ac:'#226622',dark:false},
+  12:{k:'桐', c1:'#eee8d8',c2:'#d4cca8',ac:'#887722',dark:false},
+};
+
+// ══════════════════════════════════════════════════════════════
+//  CARD SVG RENDERING
+// ══════════════════════════════════════════════════════════════
+function svgCard(card){
+  const W=52,H=76;
+  const d=MD[card.m];
+  const tc=d.dark?'#ddeeff':'#222222';
+  const plant=plantArt(card.m,W,H,d.dark);
+  let overlay='', ribbon='', shimmer='';
+
+  if(card.t===B){
+    overlay=`<circle cx="${W/2}" cy="${H*0.56}" r="${W*0.27}" fill="rgba(255,210,60,0.13)" stroke="rgba(255,210,60,0.55)" stroke-width="1.2"/>
+      <text x="${W/2}" y="${H*0.61}" text-anchor="middle" font-size="12" fill="#e8a000" font-weight="900" font-family="serif">光</text>`;
+    shimmer=`<div class="bright-shimmer"></div>`;
+  }else if(card.t===A){
+    const em=animalGlyph(card.m);
+    overlay=`<text x="${W/2}" y="${H*0.63}" text-anchor="middle" font-size="15" dominant-baseline="auto">${em}</text>`;
+  }
+
+  if(card.t===R){
+    const rc=card.rt===BL?'#2288ee':card.rt===PO?'#ee2244':'#dd3344';
+    ribbon=`<rect x="${W*0.12}" y="${H*0.73}" width="${W*0.76}" height="${H*0.08}" rx="2.5" fill="${rc}" opacity="0.92"/>`;
+    if(card.rt===PO)ribbon+=`<text x="${W/2}" y="${H*0.80}" text-anchor="middle" font-size="4.8" fill="rgba(255,255,255,0.9)" font-weight="bold">みよし野</text>`;
+    if(card.rt===BL)ribbon+=`<text x="${W/2}" y="${H*0.80}" text-anchor="middle" font-size="5" fill="rgba(255,255,255,0.85)" font-weight="bold">青短冊</text>`;
+  }
+
+  const uid=`c${card.id}`;
+  return `<div class="hana-card" data-id="${card.id}" style="position:relative;width:${W}px;height:${H}px;">
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="border-radius:7px;display:block;">
+      <defs>
+        <linearGradient id="g${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${d.c1}"/>
+          <stop offset="100%" stop-color="${d.c2}"/>
+        </linearGradient>
+      </defs>
+      <rect width="${W}" height="${H}" fill="url(#g${uid})" rx="7"/>
+      <rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="${d.ac}" stroke-width="0.9" opacity="0.45" rx="6.5"/>
+      ${plant}
+      ${overlay}
+      ${ribbon}
+      <text x="3.5" y="${H-4}" font-size="6.5" fill="${d.ac}" font-weight="800" opacity="0.65" font-family="serif">${d.k}</text>
+      <text x="${W-3.5}" y="${H-4}" font-size="6" fill="${d.ac}" font-weight="700" opacity="0.5" text-anchor="end">${card.m}</text>
+    </svg>
+    ${shimmer}
+  </div>`;
+}
+
+function svgBack(small=false){
+  const W=small?28:48,H=small?40:70;
+  const dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="1.1" fill="rgba(255,200,0,0.18)"/>`;
+  let dots='';
+  for(let i=0;i<Math.ceil(W/7);i++)for(let j=0;j<Math.ceil(H/7);j++)dots+=dot(3.5+i*7,3.5+j*7);
+  return `<div class="hana-card" style="width:${W}px;height:${H}px;">
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="border-radius:7px;display:block;">
+      <defs>
+        <linearGradient id="back${W}" x1="0" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stop-color="#7a0a10"/><stop offset="100%" stop-color="#3a0406"/>
+        </linearGradient>
+      </defs>
+      <rect width="${W}" height="${H}" fill="url(#back${W})" rx="7"/>
+      ${dots}
+      <rect x="1.5" y="1.5" width="${W-3}" height="${H-3}" fill="none" stroke="rgba(255,190,0,0.3)" stroke-width="1" rx="5.5"/>
+      <text x="${W/2}" y="${H/2+7}" text-anchor="middle" font-size="${small?11:18}" fill="rgba(255,200,0,0.38)" font-weight="900" font-family="serif">花</text>
+    </svg>
+  </div>`;
+}
+
+function animalGlyph(m){
+  return {1:'🦢',2:'🐦',3:'⛺',4:'🐦',5:'🌉',6:'🦋',7:'🐗',8:'🌕',9:'🍶',10:'🦌',11:'🌧',12:'🦚'}[m]||'✿';
+}
+
+function plantArt(m,W,H,dark){
+  const cx=W/2,ty=H*0.12,my=H*0.46;
+  const s=(v)=>Math.round(v*10)/10;
+  switch(m){
+    case 1:return`<line x1="${s(cx)}" y1="${s(ty)}" x2="${s(cx)}" y2="${s(my+4)}" stroke="#3a6a3a" stroke-width="1.8"/>
+      <line x1="${s(cx)}" y1="${s(ty+10)}" x2="${s(cx-10)}" y2="${s(ty+3)}" stroke="#2d5a2d" stroke-width="1"/>
+      <line x1="${s(cx)}" y1="${s(ty+10)}" x2="${s(cx+10)}" y2="${s(ty+3)}" stroke="#2d5a2d" stroke-width="1"/>
+      <line x1="${s(cx)}" y1="${s(ty+18)}" x2="${s(cx-13)}" y2="${s(ty+9)}" stroke="#2a552a" stroke-width="1"/>
+      <line x1="${s(cx)}" y1="${s(ty+18)}" x2="${s(cx+13)}" y2="${s(ty+9)}" stroke="#2a552a" stroke-width="1"/>
+      <ellipse cx="${s(cx)}" cy="${s(ty-1)}" rx="5" ry="7" fill="#4a8a4a" opacity="0.7"/>`;
+    case 2:{
+      const a=[0,72,144,216,288];
+      return a.map(ag=>{
+        const r=H*0.1,px=cx+r*1.3*Math.cos(ag*Math.PI/180),py=my*0.65+r*Math.sin(ag*Math.PI/180);
+        return `<circle cx="${s(px)}" cy="${s(py)}" r="${s(W*0.09)}" fill="#ffb0cc" stroke="#ee6699" stroke-width="0.6" opacity="0.9"/>`;
+      }).join('')+`<circle cx="${s(cx)}" cy="${s(my*0.65)}" r="3.5" fill="#ffe840" opacity="0.9"/>
+        <line x1="${s(cx-4)}" y1="${s(my*0.78)}" x2="${s(cx+4)}" y2="${s(my*0.78)}" stroke="#aa5577" stroke-width="1" opacity="0.5"/>`;
+    }
+    case 3:{
+      const a=[0,72,144,216,288];
+      return a.map(ag=>{
+        const r=H*0.1,px=cx+r*Math.cos(ag*Math.PI/180),py=my*0.66+r*0.8*Math.sin(ag*Math.PI/180);
+        return `<ellipse cx="${s(px)}" cy="${s(py)}" rx="${s(W*0.1)}" ry="${s(W*0.07)}" fill="#ffaacc" stroke="#ee5588" stroke-width="0.5" transform="rotate(${ag},${s(px)},${s(py)})" opacity="0.9"/>`;
+      }).join('')+`<circle cx="${s(cx)}" cy="${s(my*0.66)}" r="3" fill="#ffee88" opacity="1"/>`;
+    }
+    case 4:{
+      let r=`<line x1="${s(cx)}" y1="${s(ty)}" x2="${s(cx+3)}" y2="${s(ty+12)}" stroke="#7755aa" stroke-width="1.3"/>`;
+      const pts=[[-6,5],[-2,9],[2,13],[6,17],[4,21],[-2,24],[-7,27]];
+      pts.forEach(([dx,dy])=>r+=`<ellipse cx="${s(cx+dx)}" cy="${s(ty+dy)}" rx="${s(W*0.07)}" ry="${s(W*0.05)}" fill="#cc88ee" stroke="#aa66cc" stroke-width="0.4" opacity="0.82"/>`);
+      return r;
+    }
+    case 5:return`<line x1="${s(cx)}" y1="${s(ty)}" x2="${s(cx)}" y2="${s(my+6)}" stroke="#446688" stroke-width="2"/>
+      <line x1="${s(cx-7)}" y1="${s(ty+6)}" x2="${s(cx-7)}" y2="${s(my+6)}" stroke="#446688" stroke-width="1.2"/>
+      <line x1="${s(cx+7)}" y1="${s(ty+6)}" x2="${s(cx+7)}" y2="${s(my+6)}" stroke="#446688" stroke-width="1.2"/>
+      <ellipse cx="${s(cx)}" cy="${s(ty+2)}" rx="${s(W*0.1)}" ry="${s(W*0.14)}" fill="#6688cc" opacity="0.85"/>
+      <ellipse cx="${s(cx-7)}" cy="${s(ty+9)}" rx="${s(W*0.08)}" ry="${s(W*0.1)}" fill="#7799dd" opacity="0.7"/>
+      <ellipse cx="${s(cx+7)}" cy="${s(ty+9)}" rx="${s(W*0.08)}" ry="${s(W*0.1)}" fill="#7799dd" opacity="0.7"/>`;
+    case 6:{
+      let r='';
+      for(let i=0;i<8;i++){
+        const ag=i*45,rd=W*0.12,px=cx+rd*Math.cos(ag*Math.PI/180),py=my*0.62+rd*0.75*Math.sin(ag*Math.PI/180);
+        r+=`<ellipse cx="${s(px)}" cy="${s(py)}" rx="${s(W*0.12)}" ry="${s(W*0.09)}" fill="#ee44aa" stroke="#cc1188" stroke-width="0.5" opacity="0.8"/>`;
+      }
+      return r+`<circle cx="${s(cx)}" cy="${s(my*0.62)}" r="4" fill="#ffee44" opacity="0.95"/>`;
+    }
+    case 7:{
+      const pp=[[-6,2],[0,-5],[6,2],[-3,8],[3,12],[-6,16],[2,19]];
+      let r=`<path d="M${s(cx-7)},${s(my+4)} Q${s(cx-2)},${s(ty+8)} ${s(cx)},${s(ty)} Q${s(cx+2)},${s(ty+8)} ${s(cx+7)},${s(my+4)}" fill="none" stroke="#aa3344" stroke-width="1.3"/>`;
+      pp.forEach(([dx,dy])=>r+=`<circle cx="${s(cx+dx)}" cy="${s(ty+dy)}" r="${s(W*0.065)}" fill="#ff7788" stroke="#dd5566" stroke-width="0.4" opacity="0.85"/>`);
+      return r;
+    }
+    case 8:{
+      let r=`<circle cx="${s(W*0.73)}" cy="${s(H*0.2)}" r="${s(W*0.19)}" fill="none" stroke="rgba(240,240,200,0.45)" stroke-width="1.8"/>
+        <circle cx="${s(W*0.73)}" cy="${s(H*0.2)}" r="${s(W*0.13)}" fill="rgba(240,240,180,0.12)"/>`;
+      for(let i=-2;i<=2;i++)r+=`<path d="M${s(cx+i*7)},${s(my+8)} Q${s(cx+i*4)},${s(ty+6)} ${s(cx+i*9)},${s(ty)}" fill="none" stroke="#8899bb" stroke-width="1.1" opacity="0.65"/>`;
+      return r;
+    }
+    case 9:{
+      let r='';
+      for(let i=0;i<12;i++){
+        const ag=i*30,rd=W*0.13,px=cx+rd*Math.cos(ag*Math.PI/180),py=my*0.63+rd*0.8*Math.sin(ag*Math.PI/180);
+        r+=`<ellipse cx="${s(px)}" cy="${s(py)}" rx="${s(W*0.09)}" ry="${s(W*0.06)}" fill="#ffee44" stroke="#ddaa00" stroke-width="0.4" transform="rotate(${ag},${s(px)},${s(py)})" opacity="0.88"/>`;
+      }
+      return r+`<circle cx="${s(cx)}" cy="${s(my*0.63)}" r="3.8" fill="#ffcc00" opacity="1"/>`;
+    }
+    case 10:{
+      const lp=[[-9,-8],[0,-13],[9,-8],[-12,0],[12,0],[-9,8],[9,8],[0,13]];
+      return lp.map(([lx,ly])=>`<path d="M${s(cx+lx)},${s(my*0.68+ly)} l-3,-5 l3,1 l0,-6 l3,5 l4,-4 l-2,5 l5,0 l-4,3 l2,5 l-4,-2 l-2,4 z" fill="#dd4400" stroke="#bb3300" stroke-width="0.3" opacity="0.85"/>`).join('');
+    }
+    case 11:{
+      let r=`<line x1="${s(cx)}" y1="${s(ty)}" x2="${s(cx)}" y2="${s(my+6)}" stroke="#336633" stroke-width="1.6"/>`;
+      const wx=[[-5,0],[0,2],[5,0],[3,-3],[-3,-3]];
+      wx.forEach(([dx,yo],i)=>{
+        r+=`<path d="M${s(cx+dx)},${s(ty+yo+i*6)} Q${s(cx+dx+9)},${s(ty+yo+i*6+10)} ${s(cx+dx+5)},${s(ty+yo+i*6+22)}" fill="none" stroke="#558855" stroke-width="0.9" opacity="0.78"/>`;
+        r+=`<path d="M${s(cx+dx)},${s(ty+yo+i*6)} Q${s(cx+dx-9)},${s(ty+yo+i*6+10)} ${s(cx+dx-5)},${s(ty+yo+i*6+22)}" fill="none" stroke="#558855" stroke-width="0.9" opacity="0.78"/>`;
+      });
+      return r;
+    }
+    case 12:return`<line x1="${s(cx)}" y1="${s(ty)}" x2="${s(cx)}" y2="${s(my+5)}" stroke="#887733" stroke-width="1.6"/>
+      <line x1="${s(cx-9)}" y1="${s(ty+8)}" x2="${s(cx)}" y2="${s(ty+2)}" stroke="#887733" stroke-width="1.2"/>
+      <line x1="${s(cx+9)}" y1="${s(ty+8)}" x2="${s(cx)}" y2="${s(ty+2)}" stroke="#887733" stroke-width="1.2"/>
+      <ellipse cx="${s(cx)}" cy="${s(ty+2)}" rx="${s(W*0.1)}" ry="${s(W*0.15)}" fill="#9988cc" opacity="0.82"/>
+      <ellipse cx="${s(cx-9)}" cy="${s(ty+8)}" rx="${s(W*0.08)}" ry="${s(W*0.12)}" fill="#8877bb" opacity="0.72"/>
+      <ellipse cx="${s(cx+9)}" cy="${s(ty+8)}" rx="${s(W*0.08)}" ry="${s(W*0.12)}" fill="#8877bb" opacity="0.72"/>`;
+    default:return'';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  YAKU DEFINITIONS
+// ══════════════════════════════════════════════════════════════
+const YAKUS=[
+  {id:'goko',   name:'五光',     pts:10, desc:'光札5枚',
+    chk:(c)=>c.filter(x=>x.t===B).length>=5},
+  {id:'shiko',  name:'四光',     pts:8,  desc:'光札4枚（雨なし）',
+    chk:(c)=>{const br=c.filter(x=>x.t===B);return br.length>=4&&!br.some(x=>x.m===11);}},
+  {id:'ameshiko',name:'雨四光',  pts:7,  desc:'光札4枚（雨あり）',
+    chk:(c)=>{const br=c.filter(x=>x.t===B);return br.length===4&&br.some(x=>x.m===11);}},
+  {id:'sanko',  name:'三光',     pts:5,  desc:'光札3枚（雨なし）',
+    chk:(c)=>{const br=c.filter(x=>x.t===B);return br.length===3&&!br.some(x=>x.m===11);}},
+  {id:'tsukimi',name:'月見酒',   pts:5,  desc:'芒に月＋菊に盃',
+    chk:(c)=>c.some(x=>x.id===28)&&c.some(x=>x.id===32)},
+  {id:'hanami', name:'花見酒',   pts:5,  desc:'桜に幕＋菊に盃',
+    chk:(c)=>c.some(x=>x.id===8)&&c.some(x=>x.id===32)},
+  {id:'inoshikachou',name:'猪鹿蝶',pts:5,desc:'萩に猪＋紅葉に鹿＋牡丹に蝶',
+    chk:(c)=>c.some(x=>x.id===24)&&c.some(x=>x.id===36)&&c.some(x=>x.id===20)},
+  {id:'akatan', name:'赤短',     pts:5,  desc:'松・梅・桜の赤短冊3枚',
+    chk:(c)=>[1,5,9].every(id=>c.some(x=>x.id===id))},
+  {id:'aotan',  name:'青短',     pts:5,  desc:'牡丹・菊・紅葉の青短冊3枚',
+    chk:(c)=>[21,33,37].every(id=>c.some(x=>x.id===id))},
+  {id:'tane',   name:'たね',     pts:1,  desc:'種札5枚以上（追加+1）',
+    chk:(c)=>c.filter(x=>x.t===A).length>=5,
+    extra:(c)=>Math.max(0,c.filter(x=>x.t===A).length-5)},
+  {id:'tan',    name:'たん',     pts:1,  desc:'短冊5枚以上（追加+1）',
+    chk:(c)=>c.filter(x=>x.t===R).length>=5,
+    extra:(c)=>Math.max(0,c.filter(x=>x.t===R).length-5)},
+  {id:'kasu',   name:'かす',     pts:1,  desc:'カス10枚以上（追加+1）',
+    chk:(c)=>c.filter(x=>x.t===C).length>=10,
+    extra:(c)=>Math.max(0,c.filter(x=>x.t===C).length-10)},
+];
+
+function calcYaku(cap){
+  let total=0;
+  const list=[];
+  for(const y of YAKUS){
+    if(y.chk(cap)){
+      let pts=y.pts+(y.extra?y.extra(cap):0);
+      list.push({...y,score:pts});
+      total+=pts;
+    }
+  }
+  // Bright de-dup
+  if(list.some(y=>y.id==='goko'))       ['shiko','ameshiko','sanko'].forEach(id=>{const i=list.findIndex(y=>y.id===id);if(i>=0){total-=list[i].score;list.splice(i,1);}});
+  else if(list.some(y=>y.id==='shiko'))  ['ameshiko','sanko'].forEach(id=>{const i=list.findIndex(y=>y.id===id);if(i>=0){total-=list[i].score;list.splice(i,1);}});
+  else if(list.some(y=>y.id==='ameshiko'))['sanko'].forEach(id=>{const i=list.findIndex(y=>y.id===id);if(i>=0){total-=list[i].score;list.splice(i,1);}});
+  return{total,list};
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════════════════════════
+let difficulty=2;
+let totalP=0,totalCPU=0;
+let playerHand,cpuHand,field,deck;
+let playerCap,cpuCap;
+let turn; // 'player'|'cpu'
+let busy;
+let phase; // 'p-hand'|'p-field'|'draw-field'|'koi-decide'|'cpu'|'end'
+let selCard;   // card chosen from hand
+let fieldOpts; // 2 field cards to choose from
+let drawPend;  // pending drawn card when choosing field match
+let koiP,koiCPU;
+let prevYakuP,prevYakuCPU;
+
+// ══════════════════════════════════════════════════════════════
+//  RESET / START ROUND
+// ══════════════════════════════════════════════════════════════
+function resetGame(){
+  totalP=0;totalCPU=0;
+  document.getElementById('total-player').innerText='累計 0';
+  document.getElementById('total-cpu').innerText='累計 0';
+  startRound();
+}
+
+function startRound(){
+  const sh=[...DECK_DATA].sort(()=>Math.random()-0.5);
+  playerHand=sh.splice(0,8);
+  cpuHand=sh.splice(0,8);
+  field=sh.splice(0,8);
+  deck=sh;
+  playerCap=[];cpuCap=[];
+  turn='player';busy=false;
+  selCard=null;fieldOpts=null;drawPend=null;
+  koiP=0;koiCPU=0;
+  prevYakuP=[];prevYakuCPU=[];
+  phase='p-hand';
+  hideKoiBtns();hideNextBtn();showCpuThinking(false);
+  setStat('手札からカードを選んでください');
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FULL RENDER
+// ══════════════════════════════════════════════════════════════
+function render(){
+  renderCpuHand();
+  renderField();
+  renderPlayerHand();
+  renderCaps();
+  renderScores();
+  lucide.createIcons();
+}
+
+function renderCpuHand(){
+  const el=document.getElementById('cpu-hand');
+  el.innerHTML=cpuHand.map(()=>svgBack(true)).join('');
+  document.getElementById('cpu-hand-count').innerText=cpuHand.length+'枚';
+  document.getElementById('deck-count').innerText=deck.length;
+}
+
+function renderField(){
+  const el=document.getElementById('field-cards');
+  el.innerHTML='';
+  field.forEach(card=>{
+    const slot=document.createElement('div');
+    slot.className='field-slot';
+    const wrap=document.createElement('div');
+    wrap.innerHTML=svgCard(card);
+    const cd=wrap.firstElementChild;
+    cd.setAttribute('data-id',card.id);
+    // Highlighting
+    if((phase==='p-field'||phase==='draw-field')&&fieldOpts&&fieldOpts.some(f=>f.id===card.id)){
+      cd.classList.add('field-selectable');
+      if(phase==='p-field')cd.onclick=()=>pSelectField(card);
+      else cd.onclick=()=>pSelectDrawField(card);
+    }else if(phase==='p-hand'&&selCard&&card.m===selCard.m){
+      cd.classList.add('matchable');
+    }
+    slot.appendChild(cd);
+    el.appendChild(slot);
+  });
+}
+
+function renderPlayerHand(){
+  const el=document.getElementById('player-hand');
+  el.innerHTML='';
+  playerHand.forEach(card=>{
+    const wrap=document.createElement('div');
+    wrap.innerHTML=svgCard(card);
+    const cd=wrap.firstElementChild;
+    if(phase==='p-hand'){
+      cd.classList.add('hoverable');
+      if(selCard&&selCard.id===card.id)cd.classList.add('selected');
+      cd.onclick=()=>pSelectHand(card);
+    }
+    el.appendChild(cd);
+  });
+}
+
+function renderCaps(){
+  const typeColor=(c)=>c.t===B?'#f59e0b':c.t===A?'#22c55e':c.t===R?'#3b82f6':'#55555a';
+  document.getElementById('player-caps').innerHTML=playerCap.map(c=>`<div class="cap-pip" style="background:${typeColor(c)}" title="${c.name}"></div>`).join('');
+  document.getElementById('cpu-caps').innerHTML=cpuCap.map(c=>`<div class="cap-pip" style="background:${typeColor(c)}" title="${c.name}"></div>`).join('');
+}
+
+function renderScores(){
+  const {total:ps}=calcYaku(playerCap);
+  const {total:cs}=calcYaku(cpuCap);
+  animScore('score-player',ps);
+  animScore('score-cpu',cs);
+  document.getElementById('total-player').innerText='累計 '+totalP;
+  document.getElementById('total-cpu').innerText='累計 '+totalCPU;
+  const pp=document.getElementById('panel-player');
+  const cp=document.getElementById('panel-cpu');
+  pp.classList.toggle('active-turn',turn==='player');
+  pp.classList.toggle('dimmed',turn!=='player');
+  cp.classList.toggle('active-turn',turn==='cpu');
+  cp.classList.toggle('dimmed',turn!=='cpu');
+}
+
+let _prevPS={p:-1,c:-1};
+function animScore(id,val){
+  const el=document.getElementById(id);
+  const key=id.includes('player')?'p':'c';
+  el.innerText=val;
+  if(val!==_prevPS[key]){
+    el.classList.remove('score-pop');void el.offsetWidth;el.classList.add('score-pop');
+    _prevPS[key]=val;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PLAYER INTERACTIONS
+// ══════════════════════════════════════════════════════════════
+function pSelectHand(card){
+  if(phase!=='p-hand'||busy)return;
+  if(selCard&&selCard.id===card.id){selCard=null;renderPlayerHand();renderField();setStat('手札からカードを選んでください');return;}
+  selCard=card;
+  const matches=field.filter(f=>f.m===card.m);
+  renderPlayerHand();renderField();
+  if(matches.length===0){setStat(card.name+' → 場に置く');setTimeout(()=>execPlayToField(card,null),550);}
+  else if(matches.length===1){setStat(card.name+' × '+matches[0].name+' を取る！');setTimeout(()=>execPlayToField(card,matches[0]),550);}
+  else if(matches.length>=3){setStat(card.name+' → 全取り！');setTimeout(()=>execPlayToField(card,'all'),550);}
+  else{fieldOpts=matches;phase='p-field';renderField();setStat('場のどのカードと合わせますか？');}
+}
+
+function pSelectField(fc){
+  if(phase!=='p-field'||busy)return;
+  phase='p-hand';fieldOpts=null;
+  setStat(selCard.name+' × '+fc.name+' を取る！');
+  setTimeout(()=>execPlayToField(selCard,fc),300);
+}
+
+async function execPlayToField(handCard,fieldMatch){
+  busy=true;
+  playerHand=playerHand.filter(c=>c.id!==handCard.id);
+  if(fieldMatch==='all'){
+    const all=[handCard,...field.filter(f=>f.m===handCard.m)];
+    field=field.filter(f=>f.m!==handCard.m);
+    playerCap.push(...all);
+    spawnSparks(60,60,'player');
+  }else if(fieldMatch){
+    playerCap.push(handCard,fieldMatch);
+    field=field.filter(c=>c.id!==fieldMatch.id);
+    spawnSparks(60,60,'player');
+  }else{field.push(handCard);}
+  render();
+  await sleep(350);
+  await drawPhase('player');
+}
+
+async function drawPhase(who){
+  if(deck.length===0){await checkRoundEnd();return;}
+  const drawn=deck.shift();
+  renderScores();
+  document.getElementById('deck-count').innerText=deck.length;
+  setStat(who==='player'?`めくり: ${drawn.name}`:'CPU めくり...');
+  await sleep(400);
+  const m=field.filter(f=>f.m===drawn.m);
+  if(m.length===0){field.push(drawn);render();await sleep(450);}
+  else if(m.length===1){
+    const cap=who==='player'?playerCap:cpuCap;
+    cap.push(drawn,m[0]);field=field.filter(c=>c.id!==m[0].id);
+    spawnSparks(40,50,who);render();await sleep(450);
+  }else if(m.length>=3){
+    const all=[drawn,...m];const cap=who==='player'?playerCap:cpuCap;
+    cap.push(...all);field=field.filter(f=>f.m!==drawn.m);
+    spawnSparks(40,50,who);render();await sleep(450);
+  }else{
+    if(who==='player'){
+      fieldOpts=m;drawPend=drawn;phase='draw-field';
+      render();setStat('めくりカードの合わせ先を選んでください');busy=false;return;
+    }else{
+      const best=cpuPickField(m,drawn);
+      cpuCap.push(drawn,best);field=field.filter(c=>c.id!==best.id);
+      spawnSparks(40,50,'cpu');render();await sleep(450);
+    }
+  }
+  await afterTurn(who);
+}
+
+async function pSelectDrawField(fc){
+  if(phase!=='draw-field'||busy)return;
+  busy=true;
+  const drawn=drawPend;drawPend=null;fieldOpts=null;phase='p-hand';
+  playerCap.push(drawn,fc);field=field.filter(c=>c.id!==fc.id);
+  spawnSparks(40,50,'player');render();await sleep(350);
+  await afterTurn('player');
+}
+
+async function afterTurn(who){
+  renderScores();renderCaps();
+  const cap=who==='player'?playerCap:cpuCap;
+  const prevY=who==='player'?prevYakuP:prevYakuCPU;
+  const {total,list}=calcYaku(cap);
+  const newY=list.filter(y=>!prevY.some(p=>p.id===y.id));
+  if(newY.length>0){
+    if(who==='player')prevYakuP=list;else prevYakuCPU=list;
+    showYakuBanner(newY,total,who);
+    await sleep(2000);
+    if(who==='player'){
+      phase='koi-decide';showKoiBtns();setStat(`役成立！ こいこい or あがり？`);busy=false;return;
+    }else{
+      const dec=cpuKoiDec(list,total);
+      if(dec==='agari'){
+        const mul=koiP>0?2:1;totalCPU+=total*mul;
+        showToast(`CPU あがり！ ${total*mul}点`);await sleep(1200);
+        endRound('cpu',total*mul);return;
+      }else{koiCPU++;showToast('CPU こいこい！');await sleep(900);}
+    }
+  }
+  await nextTurn(who);
+}
+
+function playerDecision(dec){
+  if(phase!=='koi-decide')return;
+  hideKoiBtns();phase='p-hand';
+  const {total}=calcYaku(playerCap);
+  if(dec==='agari'){
+    const mul=koiCPU>0?2:1;totalP+=total*mul;
+    showToast(`あがり！ ${total*mul}点！`);endRound('player',total*mul);
+  }else{
+    koiP++;showToast('こいこい！');busy=false;nextTurn('player');
+  }
+}
+
+async function nextTurn(who){
+  if(playerHand.length===0&&cpuHand.length===0&&deck.length===0){await checkRoundEnd();return;}
+  turn=who==='player'?'cpu':'player';
+  renderScores();
+  if(turn==='cpu'){setStat('CPU思考中...');showCpuThinking(true);busy=false;await sleep(900);await cpuTurn();}
+  else{phase='p-hand';selCard=null;busy=false;setStat('手札からカードを選んでください');render();}
+}
+
+async function checkRoundEnd(){
+  const ps=calcYaku(playerCap).total,cs=calcYaku(cpuCap).total;
+  if(ps>cs){totalP+=ps;endRound('player',ps);}
+  else if(cs>ps){totalCPU+=cs;endRound('cpu',cs);}
+  else endRound('draw',0);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CPU AI
+// ══════════════════════════════════════════════════════════════
+async function cpuTurn(){
+  busy=true;showCpuThinking(true);
+  const card=cpuPickHand();
+  cpuHand=cpuHand.filter(c=>c.id!==card.id);
+  const m=field.filter(f=>f.m===card.m);
+  let fm=null;
+  if(m.length===1)fm=m[0];
+  else if(m.length===2)fm=cpuPickField(m,card);
+  else if(m.length>=3)fm='all';
+  setStat(`CPU: ${card.name}${fm?' → 取る！':' → 場に置く'}`);
+  renderCpuHand();await sleep(700);
+  if(fm==='all'){const all=[card,...field.filter(f=>f.m===card.m)];field=field.filter(f=>f.m!==card.m);cpuCap.push(...all);spawnSparks(40,50,'cpu');}
+  else if(fm){cpuCap.push(card,fm);field=field.filter(c=>c.id!==fm.id);spawnSparks(40,50,'cpu');}
+  else field.push(card);
+  render();await sleep(350);
+  showCpuThinking(false);
+  await drawPhase('cpu');
+}
+
+function cpuPickHand(){
+  if(difficulty===1)return cpuHand[Math.floor(Math.random()*cpuHand.length)];
+  return cpuHand.map(card=>{
+    let sc=0;
+    const m=field.filter(f=>f.m===card.m).length;
+    sc+=m*12+cPts(card);
+    if(difficulty===3){
+      const tmp=[...cpuCap,card];
+      if(m>0){const mf=field.find(f=>f.m===card.m);if(mf)tmp.push(mf);}
+      sc+=calcYaku(tmp).total*4;
+    }
+    return{card,sc};
+  }).sort((a,b)=>b.sc-a.sc)[0].card;
+}
+
+function cpuPickField(opts,played){
+  if(difficulty===1)return opts[Math.floor(Math.random()*opts.length)];
+  return opts.reduce((b,c)=>cPts(c)>cPts(b)?c:b);
+}
+
+function cpuKoiDec(list,total){
+  if(difficulty===1)return total>=5?'agari':'koi';
+  if(difficulty===2)return total>=7?'agari':'koi';
+  if(total>=10)return'agari';
+  if(koiP>0)return'agari';
+  return'koi';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ROUND END
+// ══════════════════════════════════════════════════════════════
+function endRound(winner,pts){
+  busy=false;phase='end';
+  const fl=document.createElement('div');fl.className='victory-flash';document.body.appendChild(fl);setTimeout(()=>fl.remove(),700);
+  let msg;
+  if(winner==='player'){msg=`あなたの勝ち！ +${pts}点`;spawnConfetti('player');}
+  else if(winner==='cpu'){msg=`CPUの勝ち！ CPU +${pts}点`;spawnConfetti('cpu');}
+  else{msg='ドロー';spawnConfetti(null);}
+  renderScores();setStat(msg);showNextBtn();hideKoiBtns();showCpuThinking(false);
+}
+
+function nextRound(){hideNextBtn();startRound();}
+
+// ══════════════════════════════════════════════════════════════
+//  EFFECTS
+// ══════════════════════════════════════════════════════════════
+function spawnSparks(x,y,who){
+  const colors=who==='player'
+    ?['#f59e0b','#fcd34d','#fb923c','#fde68a']
+    :['#888','#aaa','#666','#9ca3af'];
+  for(let i=0;i<10;i++){
+    const el=document.createElement('div');el.className='spark';
+    el.style.left=(15+Math.random()*70)+'vw';
+    el.style.top=(who==='player'?72:20)+'vh';
+    const a=Math.random()*Math.PI*2,d=25+Math.random()*55;
+    el.style.setProperty('--tx',`${Math.cos(a)*d}px`);
+    el.style.setProperty('--ty',`${Math.sin(a)*d}px`);
+    const sz=3+Math.random()*4;el.style.width=el.style.height=sz+'px';
+    el.style.backgroundColor=colors[Math.floor(Math.random()*colors.length)];
+    el.style.animationDuration=(0.35+Math.random()*0.35)+'s';
+    document.body.appendChild(el);setTimeout(()=>el.remove(),800);
+  }
+}
+
+function showYakuBanner(newY,total,who){
+  const old=document.querySelector('.yaku-overlay');if(old)old.remove();
+  const el=document.createElement('div');
+  el.className='yaku-overlay yaku-overlay-anim';
+  el.innerHTML=`<div style="font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px;">${who==='player'?'あなた':'CPU'} 役成立！</div>
+    ${newY.map(y=>`<div style="font-size:22px;font-weight:900;color:#f59e0b;line-height:1.3;">${y.name} <span style="font-size:14px;color:#fbbf24;">${y.score}点</span></div>`).join('')}
+    <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.5);">合計 <span style="color:#f59e0b;font-weight:900;font-size:18px;">${total}</span> 点</div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>el&&el.remove(),3200);
+}
+
+function showToast(msg){
+  const t=document.createElement('div');t.className='toast-base toast-anim';t.innerText=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2100);
+}
+
+function spawnConfetti(winner){
+  const pal={player:['#f59e0b','#fcd34d','#fb923c','#ec4899','#a855f7'],cpu:['#6b7280','#9ca3af','#60a5fa','#4ade80'],null:['#f59e0b','#ef4444','#22c55e','#3b82f6','#a855f7']};
+  const colors=pal[winner]||pal[null];
+  for(let i=0;i<85;i++){
+    const el=document.createElement('div');el.className='confetti';
+    el.style.left=(Math.random()*110)+'vw';el.style.top=(-10-Math.random()*50)+'px';
+    el.style.backgroundColor=colors[Math.floor(Math.random()*colors.length)];
+    el.style.animationDuration=(2+Math.random()*2.8)+'s';
+    el.style.animationDelay=(Math.random()*0.8)+'s';
+    el.style.setProperty('--rot',(Math.random()*1440-720)+'deg');
+    const sh=Math.floor(Math.random()*3);
+    if(sh===0){const d=6+Math.random()*9;el.style.width=d+'px';el.style.height=d+'px';el.style.borderRadius='50%';}
+    else if(sh===1){const d=5+Math.random()*8;el.style.width=d+'px';el.style.height=d+'px';el.style.borderRadius='2px';}
+    else{el.style.width=(4+Math.random()*5)+'px';el.style.height=(9+Math.random()*10)+'px';el.style.borderRadius='2px';}
+    document.body.appendChild(el);setTimeout(()=>el.remove(),5500);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════════════════════════════════════
+function setStat(msg){document.getElementById('status-text').innerText=msg;}
+function showKoiBtns(){document.getElementById('koi-btns').classList.remove('hidden');}
+function hideKoiBtns(){document.getElementById('koi-btns').classList.add('hidden');}
+function showNextBtn(){document.getElementById('next-btn').classList.remove('hidden');}
+function hideNextBtn(){document.getElementById('next-btn').classList.add('hidden');}
+function showCpuThinking(v){document.getElementById('cpu-thinking').classList.toggle('hidden',!v);}
+
+function changeDiff(d){
+  difficulty=d;
+  [1,2,3].forEach(n=>document.getElementById('df-'+n).classList.toggle('active',n===d));
+}
+
+function showHelp(){
+  const el=document.getElementById('yaku-list');
+  el.innerHTML=YAKUS.map(y=>`<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+    <div><span style="font-weight:900;color:#fbbf24;">${y.name}</span> <span style="font-size:10px;color:rgba(255,255,255,0.45);">${y.desc}</span></div>
+    <span style="font-weight:900;color:#f59e0b;white-space:nowrap;margin-left:12px;">${y.pts}点${y.extra?'+':''}</span>
+  </div>`).join('');
+  document.getElementById('help-overlay').classList.remove('hidden');
+  lucide.createIcons();
+}
+function hideHelp(){document.getElementById('help-overlay').classList.add('hidden');}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+window.onload=()=>{lucide.createIcons();changeDiff(2);resetGame();};
+</script>
+</body>
+</html>

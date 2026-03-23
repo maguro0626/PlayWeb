@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>大富豪 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            height: 100%; margin: 0; padding: 0; overflow: hidden;
+            background-color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            touch-action: none; /* スワイプによる戻るなどを防止 */
+        }
+        .glass-header {
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        /* カスタムスクロールバー (手札領域用) */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* トランプカードのスタイル */
+        .playing-card {
+            width: clamp(50px, 12vw, 80px);
+            height: clamp(75px, 18vw, 120px);
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4px;
+            font-weight: 800;
+            font-size: clamp(14px, 4vw, 20px);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            user-select: none;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .playing-card::after {
+            content: attr(data-suit);
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(24px, 6vw, 40px);
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .card-red { color: #ef4444; }
+        .card-black { color: #18181b; }
+        .card-joker { color: #9333ea; }
+        
+        .card-selected {
+            transform: translateY(-15px) scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            border-color: #3b82f6;
+            z-index: 10;
+        }
+        .card-table-anim {
+            animation: dropToTable 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* エフェクトアニメーション */
+        @keyframes dropToTable {
+            0% { transform: scale(1.5) translateY(50px); opacity: 0; }
+            100% { transform: scale(1) translateY(0) rotate(var(--rot)); opacity: 1; }
+        }
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-2deg); }
+            75% { transform: translateX(5px) rotate(2deg); }
+        }
+        @keyframes slash {
+            0% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); opacity: 1; }
+            50% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .anim-pop { animation: popIn 0.3s ease-out forwards; }
+        .anim-shake { animation: shake 0.4s ease-in-out; }
+        
+        /* 革命エフェクト時のボディクラス */
+        body.revolution-active {
+            background-color: #27272a;
+            color: #f4f4f5;
+        }
+        body.revolution-active .glass-panel, 
+        body.revolution-active .glass-header {
+            background-color: rgba(39, 39, 42, 0.85);
+            border-color: rgba(255,255,255,0.1);
+            color: white;
+        }
+        body.revolution-active .text-zinc-900 { color: #f4f4f5; }
+        body.revolution-active .text-zinc-600 { color: #a1a1aa; }
+        body.revolution-active .bg-white { background-color: #3f3f46; color: white; }
+
+        /* スイッチトグル用 */
+        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+    </style>
+</head>
+<body class="flex flex-col transition-colors duration-700">
+
+    <!-- Header -->
+    <header class="glass-header z-50 border-b border-zinc-200/50 flex-none relative transition-colors duration-700">
+        <div class="px-4 h-14 flex items-center justify-between max-w-5xl mx-auto w-full">
+            <button onclick="window.location.href='index.html'" class="p-2 -ml-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-full transition-colors active:scale-95">
+                <i data-lucide="chevron-left" class="w-6 h-6"></i>
+            </button>
+            <h1 class="font-bold text-lg tracking-tight flex items-center gap-2">
+                <i data-lucide="crown" class="w-5 h-5 text-amber-500"></i>大富豪
+            </h1>
+            <div class="w-10"></div> <!-- バランス用 -->
+        </div>
+        
+        <!-- ステータスバー (革命 / 11バック表示用) -->
+        <div id="status-bar" class="absolute top-14 left-0 w-full h-1 bg-transparent overflow-hidden flex justify-center items-start pt-1 pointer-events-none">
+            <!-- JSでバッジを挿入 -->
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 relative overflow-hidden" id="main-container">
+        
+        <!-- Screen: Setup -->
+        <div id="screen-setup" class="absolute inset-0 flex flex-col items-center justify-center p-4 anim-pop z-40 overflow-y-auto hide-scrollbar">
+            <div class="glass-panel w-full max-w-md rounded-[2rem] p-6 shadow-xl space-y-8">
+                <div class="text-center">
+                    <h2 class="text-2xl font-extrabold mb-1">ゲーム設定</h2>
+                    <p class="text-sm text-zinc-500">Game Setup</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- CPU数 -->
+                    <div>
+                        <label class="block text-sm font-bold text-zinc-700 mb-3">対戦相手 (CPU)</label>
+                        <div class="flex gap-2">
+                            <button onclick="updateSetting('cpuCount', 2)" class="setup-btn-cpu flex-1 py-3 rounded-xl border-2 font-bold transition-all border-amber-500 bg-amber-50 text-amber-700">2人</button>
+                            <button onclick="updateSetting('cpuCount', 3)" class="setup-btn-cpu flex-1 py-3 rounded-xl border-2 border-transparent bg-zinc-100 text-zinc-500 font-bold transition-all">3人</button>
+                            <button onclick="updateSetting('cpuCount', 4)" class="setup-btn-cpu flex-1 py-3 rounded-xl border-2 border-transparent bg-zinc-100 text-zinc-500 font-bold transition-all">4人</button>
+                        </div>
+                        <p class="text-xs text-zinc-400 mt-2 text-center">※プレイヤー含め3〜5人プレイ</p>
+                    </div>
+
+                    <div class="h-px bg-zinc-200 w-full"></div>
+
+                    <!-- ローカルルール -->
+                    <div>
+                        <label class="block text-sm font-bold text-zinc-700 mb-3">ローカルルール</label>
+                        <div class="space-y-3">
+                            <label class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-zinc-50 transition-colors border border-zinc-100">
+                                <div>
+                                    <div class="font-bold text-zinc-800">革命</div>
+                                    <div class="text-xs text-zinc-500">同じ数字4枚で強さ逆転</div>
+                                </div>
+                                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" id="rule-revolution" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 z-10 top-0 left-0"/>
+                                    <label for="rule-revolution" class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-300 cursor-pointer transition-colors duration-300"></label>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-zinc-50 transition-colors border border-zinc-100">
+                                <div>
+                                    <div class="font-bold text-zinc-800">8切り</div>
+                                    <div class="text-xs text-zinc-500">8を含む役で場が流れる</div>
+                                </div>
+                                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" id="rule-8cut" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 z-10 top-0 left-0"/>
+                                    <label for="rule-8cut" class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-300 cursor-pointer transition-colors duration-300"></label>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center justify-between cursor-pointer p-3 rounded-xl hover:bg-zinc-50 transition-colors border border-zinc-100">
+                                <div>
+                                    <div class="font-bold text-zinc-800">11バック</div>
+                                    <div class="text-xs text-zinc-500">Jを含む役で一時的に革命</div>
+                                </div>
+                                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" id="rule-11back" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 z-10 top-0 left-0"/>
+                                    <label for="rule-11back" class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-300 cursor-pointer transition-colors duration-300"></label>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="startGame()" class="w-full bg-zinc-900 text-white rounded-2xl py-4 font-bold text-lg hover:bg-zinc-800 active:scale-95 transition-all shadow-lg flex justify-center items-center gap-2">
+                    ゲームスタート <i data-lucide="play" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen: Game -->
+        <div id="screen-game" class="hidden absolute inset-0 flex flex-col pt-2 pb-6 px-2">
+            
+            <!-- CPU Areas (Top) -->
+            <div id="cpu-container" class="flex-none flex justify-center gap-2 sm:gap-6 mb-2 min-h-[80px]">
+                <!-- CPU generated by JS -->
+            </div>
+
+            <!-- Table Area (Center) -->
+            <div class="flex-1 relative flex items-center justify-center min-h-[150px]">
+                <!-- 場に出たカード -->
+                <div id="table-cards" class="flex gap-[-20px] justify-center items-center relative z-10">
+                    <div class="text-zinc-300 font-bold text-xl tracking-widest opacity-50">TABLE</div>
+                </div>
+                
+                <!-- パスなどのメッセージ表示用 -->
+                <div id="table-message" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-amber-500 drop-shadow-md opacity-0 pointer-events-none z-20 transition-opacity">
+                    PASS
+                </div>
+            </div>
+
+            <!-- Player Controls & Info -->
+            <div class="flex-none flex justify-between items-end mb-2 px-2">
+                <div class="flex flex-col">
+                    <span id="my-rank-badge" class="text-xs font-bold px-2 py-1 bg-zinc-200 text-zinc-600 rounded-full w-max mb-1 opacity-0">平民</span>
+                    <span class="font-bold text-zinc-800 text-sm">You</span>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-pass" onclick="handlePlayerPass()" class="px-5 py-3 rounded-full bg-zinc-200 text-zinc-700 font-bold hover:bg-zinc-300 active:scale-95 transition-all shadow-sm">
+                        パス
+                    </button>
+                    <button id="btn-play" onclick="handlePlayerPlay()" class="px-6 py-3 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-600 active:scale-95 transition-all shadow-md opacity-50 pointer-events-none">
+                        出す
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player Hand Area (Bottom) -->
+            <div class="flex-none w-full h-[140px] relative">
+                <div id="my-hand" class="absolute inset-0 flex justify-center items-end gap-[-10px] sm:gap-1 px-4 overflow-x-auto hide-scrollbar pb-4 pt-4">
+                    <!-- Cards generated by JS -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Overlay: Effects Container -->
+    <div id="effect-container" class="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden"></div>
+
+    <!-- Modal: Exchange / Result -->
+    <div id="modal-overlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div id="modal-content" class="glass-panel w-full max-w-sm rounded-[2rem] p-6 shadow-2xl text-center transform scale-95 transition-transform duration-300">
+            <!-- Content injected -->
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-zinc-800 text-white px-6 py-3 rounded-full font-bold text-sm shadow-xl z-[90] transition-all duration-300 opacity-0 pointer-events-none translate-y-[-20px]">
+        Message
+    </div>
+
+    <script>
+        // --- Constants & Data ---
+        const SUITS = ['S', 'H', 'D', 'C'];
+        const SUIT_SYMBOLS = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣', 'J': 'JOKER' };
+        const RANKS_NAME = ['大富豪', '富豪', '平民', '貧民', '大貧民'];
+        
+        // --- State ---
+        let settings = {
+            cpuCount: 2,
+            rules: { revolution: true, eightCut: true, elevenBack: true }
+        };
+
+        let game = {
+            players: [],
+            deck: [],
+            table: { cards: [], lastPlayerId: null },
+            turnIndex: 0,
+            passCount: 0,
+            isRevolution: false,
+            is11Back: false,
+            state: 'setup', // setup, exchange, playing, result
+            finishedCount: 0,
+            rankMap: [] // 前回ラウンドの順位 [playerId, rankName]
+        };
+
+        // --- Classes ---
+        class Card {
+            constructor(suit, number) {
+                this.suit = suit;
+                this.number = number; // 1-13, 0 for Joker
+                this.id = suit + number;
+                this.selected = false;
+                this.calculateStrength();
+            }
+            calculateStrength() {
+                if (this.suit === 'J') { this.strength = 16; return; }
+                if (this.number === 2) { this.strength = 15; return; }
+                if (this.number === 1) { this.strength = 14; return; }
+                this.strength = this.number;
+            }
+            get displayStr() {
+                if (this.suit === 'J') return 'Joker';
+                if (this.number === 1) return 'A';
+                if (this.number === 11) return 'J';
+                if (this.number === 12) return 'Q';
+                if (this.number === 13) return 'K';
+                return this.number.toString();
+            }
+            get colorClass() {
+                if (this.suit === 'H' || this.suit === 'D') return 'card-red';
+                if (this.suit === 'J') return 'card-joker';
+                return 'card-black';
+            }
+        }
+
+        class Player {
+            constructor(id, name, isCPU) {
+                this.id = id;
+                this.name = name;
+                this.isCPU = isCPU;
+                this.hand = [];
+                this.isFinished = false;
+                this.rankThisRound = null;
+                this.lastRank = null; // 前回の順位
+            }
+            sortHand() {
+                this.hand.sort((a, b) => a.strength - b.strength);
+            }
+        }
+
+        // --- Core Logic ---
+        function createDeck() {
+            let deck = [];
+            for (let suit of SUITS) {
+                for (let num = 1; num <= 13; num++) {
+                    deck.push(new Card(suit, num));
+                }
+            }
+            deck.push(new Card('J', 0)); // Joker 1枚
+            return deck;
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function getActiveRevolution() {
+            // 革命中、または11バック中で強さが逆転するか
+            return game.isRevolution !== game.is11Back;
+        }
+
+        // 役の評価
+        function evaluatePlay(cards) {
+            if (!cards || cards.length === 0) return null;
+            
+            const jokers = cards.filter(c => c.suit === 'J');
+            const normals = cards.filter(c => c.suit !== 'J');
+
+            if (cards.length === 1) {
+                return { type: 'single', count: 1, strength: cards[0].strength, cards };
+            }
+
+            // 複数枚出し（同じ数字）※階段は今回除外
+            if (normals.length > 0) {
+                const targetNum = normals[0].number;
+                if (normals.every(c => c.number === targetNum)) {
+                    // ジョーカーを含めても成立
+                    return { type: 'group', count: cards.length, strength: normals[0].strength, cards };
+                }
+            } else if (jokers.length > 1) {
+                // ジョーカーのみの複数枚 (今回Joker1枚なので通常あり得ない)
+                return { type: 'group', count: cards.length, strength: 16, cards };
+            }
+
+            return null; // 無効な組み合わせ
+        }
+
+        // 場に出せるか判定
+        function isValidPlay(playInfo) {
+            if (!playInfo) return false;
+            
+            // 場が空の場合
+            if (game.table.cards.length === 0) return true;
+
+            const tableInfo = evaluatePlay(game.table.cards);
+            if (!tableInfo) return true;
+
+            // 枚数が違う
+            if (playInfo.count !== tableInfo.count) return false;
+            // タイプが違う
+            if (playInfo.type !== tableInfo.type) return false;
+
+            // ジョーカー単体出しの場合は、ジョーカーを出せるか（前回がジョーカー単体でないこと）
+            if (playInfo.cards[0].suit === 'J' && playInfo.count === 1) {
+                if (tableInfo.cards[0].suit === 'J') return false; // Jに対してJは出せない
+                return true; // Jは無条件で出せる
+            }
+
+            // 強さの比較
+            const rev = getActiveRevolution();
+            
+            // 革命時は数字が小さい方が強い (Jokerは常に最強)
+            if (rev) {
+                return playInfo.strength < tableInfo.strength;
+            } else {
+                return playInfo.strength > tableInfo.strength;
+            }
+        }
+
+        // CPUの思考ロジック
+        async function getCPUAction(player) {
+            await sleep(1000 + Math.random() * 800); // 思考時間
+            
+            const hand = player.hand;
+            let validPlays = [];
+
+            // 全ての可能な組み合わせを生成（シングル、グループ）
+            const groups = {};
+            const jokers = hand.filter(c => c.suit === 'J');
+            const normals = hand.filter(c => c.suit !== 'J');
+
+            normals.forEach(c => {
+                if (!groups[c.number]) groups[c.number] = [];
+                groups[c.number].push(c);
+            });
+
+            // 1枚
+            normals.forEach(c => validPlays.push([c]));
+            if (jokers.length > 0) validPlays.push([jokers[0]]);
+
+            // 複数枚
+            Object.values(groups).forEach(cards => {
+                if (cards.length >= 2) validPlays.push(cards.slice(0, 2));
+                if (cards.length >= 3) validPlays.push(cards.slice(0, 3));
+                if (cards.length === 4) validPlays.push(cards);
+
+                if (jokers.length === 1) {
+                    validPlays.push([...cards.slice(0, 1), jokers[0]]);
+                    if (cards.length >= 2) validPlays.push([...cards.slice(0, 2), jokers[0]]);
+                    if (cards.length >= 3) validPlays.push([...cards.slice(0, 3), jokers[0]]);
+                }
+            });
+
+            // 場に出せるものだけフィルタリング
+            const playableOptions = validPlays.map(cards => {
+                const info = evaluatePlay(cards);
+                return { cards, info, valid: isValidPlay(info) };
+            }).filter(opt => opt.valid);
+
+            if (playableOptions.length === 0) return 'PASS';
+
+            // 戦略：出せる中で最も弱いものを出す。たまに温存でパス。
+            const rev = getActiveRevolution();
+            playableOptions.sort((a, b) => {
+                if (rev) return b.info.strength - a.info.strength; // 革命中は数字が大きい(弱い)順
+                return a.info.strength - b.info.strength; // 通常は数字が小さい順
+            });
+
+            // Jを含まないものを優先
+            const withoutJoker = playableOptions.filter(opt => !opt.cards.some(c => c.suit === 'J'));
+            
+            let selectedOption = withoutJoker.length > 0 ? withoutJoker[0] : playableOptions[0];
+
+            // ランダムでたまにパスする (CPUっぽさ) 場が流れていない場合のみ
+            if (game.table.cards.length > 0 && Math.random() < 0.15) {
+                // ただし自分が上がりそうな時はパスしない
+                if (player.hand.length > 3) return 'PASS';
+            }
+
+            return selectedOption.cards;
+        }
+
+        // --- Game Flow ---
+
+        function updateSetting(key, val) {
+            if (key === 'cpuCount') {
+                settings.cpuCount = val;
+                document.querySelectorAll('.setup-btn-cpu').forEach(btn => {
+                    if (btn.innerText.includes(val)) {
+                        btn.className = "setup-btn-cpu flex-1 py-3 rounded-xl border-2 font-bold transition-all border-amber-500 bg-amber-50 text-amber-700";
+                    } else {
+                        btn.className = "setup-btn-cpu flex-1 py-3 rounded-xl border-2 border-transparent bg-zinc-100 text-zinc-500 font-bold transition-all";
+                    }
+                });
+            }
+        }
+
+        async function startGame() {
+            lucide.createIcons();
+            settings.rules.revolution = document.getElementById('rule-revolution').checked;
+            settings.rules.eightCut = document.getElementById('rule-8cut').checked;
+            settings.rules.elevenBack = document.getElementById('rule-11back').checked;
+
+            game.players = [new Player('p0', 'You', false)];
+            for (let i = 1; i <= settings.cpuCount; i++) {
+                game.players.push(new Player('p' + i, 'CPU ' + i, true));
+            }
+            
+            game.rankMap = []; // 初期化
+            
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            
+            startRound();
+        }
+
+        async function startRound() {
+            game.state = 'playing';
+            game.table.cards = [];
+            game.table.lastPlayerId = null;
+            game.passCount = 0;
+            game.isRevolution = false;
+            game.is11Back = false;
+            game.finishedCount = 0;
+            updateBodyClass();
+            updateStatusBar();
+
+            // デッキ生成と配布
+            let deck = createDeck();
+            shuffle(deck);
+            
+            // 手札リセット
+            game.players.forEach(p => {
+                p.hand = [];
+                p.isFinished = false;
+                p.rankThisRound = null;
+                // 前回の順位を引き継ぎ
+                const pastRank = game.rankMap.find(rm => rm.id === p.id);
+                p.lastRank = pastRank ? pastRank.rank : null;
+            });
+
+            // 配布
+            let pIdx = 0;
+            while(deck.length > 0) {
+                game.players[pIdx].hand.push(deck.pop());
+                pIdx = (pIdx + 1) % game.players.length;
+            }
+
+            game.players.forEach(p => p.sortHand());
+            renderAll();
+
+            // 儀式のチェック
+            if (game.rankMap.length > 0) {
+                await processExchangeRitual();
+            }
+
+            // 大貧民（いない場合はランダム）からスタート
+            let startIdx = 0;
+            if (game.rankMap.length > 0) {
+                const daihinminId = game.rankMap.find(r => r.rank === RANKS_NAME[RANKS_NAME.length-1])?.id;
+                if(daihinminId) startIdx = game.players.findIndex(p => p.id === daihinminId);
+            } else {
+                startIdx = Math.floor(Math.random() * game.players.length);
+            }
+            
+            game.turnIndex = startIdx;
+            
+            showToast("ゲームスタート！", 2000);
+            await sleep(2000);
+            
+            processTurn();
+        }
+
+        async function processExchangeRitual() {
+            game.state = 'exchange';
+            
+            const logs = [];
+            const players = game.players;
+            
+            // 役職の特定
+            const getPlayerByRank = (rName) => players.find(p => p.lastRank === rName);
+            const daiFugo = getPlayerByRank(RANKS_NAME[0]); // 大富豪
+            const fugo = getPlayerByRank(RANKS_NAME[1]);    // 富豪
+            const hinmin = getPlayerByRank(RANKS_NAME[RANKS_NAME.length-2]); // 貧民
+            const daiHinmin = getPlayerByRank(RANKS_NAME[RANKS_NAME.length-1]); // 大貧民
+
+            // 大富豪 ↔ 大貧民 (2枚)
+            if (daiFugo && daiHinmin) {
+                // 大貧民: 最強2枚を渡す
+                daiHinmin.sortHand();
+                const giveToDaiFugo = daiHinmin.hand.splice(-2, 2);
+                
+                // 大富豪: 最弱2枚を渡す (Jokerは避けるロジックを入れると丁寧だが今回は単純に最弱)
+                daiFugo.sortHand();
+                const giveToDaiHinmin = daiFugo.hand.splice(0, 2);
+
+                daiFugo.hand.push(...giveToDaiFugo);
+                daiHinmin.hand.push(...giveToDaiHinmin);
+                daiFugo.sortHand(); daiHinmin.sortHand();
+
+                logs.push(`<div class="mb-2"><b class="text-amber-500">${daiFugo.name}</b> が <b class="text-blue-500">${daiHinmin.name}</b> から最強カード2枚を搾取しました。</div>`);
+            }
+
+            // 富豪 ↔ 貧民 (1枚) 参加人数が4人以上の場合のみ
+            if (players.length >= 4 && fugo && hinmin) {
+                hinmin.sortHand();
+                const giveToFugo = hinmin.hand.splice(-1, 1);
+                
+                fugo.sortHand();
+                const giveToHinmin = fugo.hand.splice(0, 1);
+
+                fugo.hand.push(...giveToFugo);
+                hinmin.hand.push(...giveToHinmin);
+                fugo.sortHand(); hinmin.sortHand();
+                
+                logs.push(`<div class="mb-2"><b class="text-amber-400">${fugo.name}</b> が <b class="text-blue-400">${hinmin.name}</b> から最強カード1枚を徴収しました。</div>`);
+            }
+
+            if (logs.length > 0) {
+                await showModal("大富豪の儀式", logs.join(''), "OK", false);
+                await sleep(500);
+            }
+            renderAll();
+            game.state = 'playing';
+        }
+
+        async function processTurn() {
+            if (game.state !== 'playing') return;
+
+            const currentPlayer = game.players[game.turnIndex];
+            
+            // 上がっている場合はスキップ
+            if (currentPlayer.isFinished) {
+                nextTurn();
+                return;
+            }
+
+            renderAll();
+
+            // ターン開始時、最後にカードを出したのが自分なら場を流す
+            if (game.table.lastPlayerId === currentPlayer.id) {
+                clearTable();
+            }
+
+            if (currentPlayer.isCPU) {
+                // CPU Turn
+                showTableMessage(`${currentPlayer.name} 思考中...`, 1000);
+                const action = await getCPUAction(currentPlayer);
+                if (action === 'PASS') {
+                    handlePass(currentPlayer);
+                } else {
+                    await handlePlayCards(currentPlayer, action);
+                }
+            } else {
+                // Player Turn
+                showToast("あなたのターンです", 1500);
+                updatePlayerControls(); // ボタンの有効化
+            }
+        }
+
+        function clearTable() {
+            game.table.cards = [];
+            game.table.lastPlayerId = null;
+            game.passCount = 0;
+            // 11バック解除
+            if (game.is11Back) {
+                game.is11Back = false;
+                updateBodyClass();
+                updateStatusBar();
+                showToast("11バック終了", 1500);
+            }
+            renderTable();
+        }
+
+        async function handlePass(player) {
+            game.passCount++;
+            showTableMessage("PASS", 1000);
+            await sleep(1000);
+
+            // 全員パス判定 (生き残っている人数 - 1)
+            const activePlayers = game.players.filter(p => !p.isFinished).length;
+            if (game.passCount >= activePlayers - 1 && game.table.lastPlayerId !== null) {
+                // 場が流れる
+                await sleep(500);
+                showTableMessage("流れます", 1500);
+                await sleep(1000);
+                
+                // 最後にカードを出した人が既に上がっている場合、その次の人から
+                const lastPlayer = game.players.find(p => p.id === game.table.lastPlayerId);
+                if (lastPlayer && lastPlayer.isFinished) {
+                    game.turnIndex = (game.players.findIndex(p => p.id === game.table.lastPlayerId) + 1) % game.players.length;
+                    clearTable();
+                    processTurn();
+                    return;
+                } else {
+                    // 通常は最後にカードを出した人から
+                    game.turnIndex = game.players.findIndex(p => p.id === game.table.lastPlayerId);
+                    clearTable();
+                    processTurn();
+                    return;
+                }
+            }
+            nextTurn();
+        }
+
+        async function handlePlayCards(player, cards) {
+            // 手札から削除
+            player.hand = player.hand.filter(c => !cards.includes(c));
+            
+            // 場を更新
+            game.table.cards = cards;
+            game.table.lastPlayerId = player.id;
+            game.passCount = 0;
+
+            // アニメーション用
+            const isPlayer = !player.isCPU;
+            renderTable(isPlayer);
+            renderPlayers();
+            if(isPlayer) renderHand();
+
+            await sleep(500); // カードが出るアニメーション待ち
+
+            const info = evaluatePlay(cards);
+
+            // --- ローカルルールチェック ---
+            let turnEnds = false;
+
+            // 8切り
+            if (settings.rules.eightCut && cards.some(c => c.number === 8)) {
+                await playEffect('eightCut');
+                showToast("8切り！", 1500);
+                turnEnds = true;
+            }
+
+            // 革命
+            if (settings.rules.revolution && info.count >= 4) {
+                game.isRevolution = !game.isRevolution;
+                await playEffect('revolution');
+            }
+
+            // 11バック
+            if (settings.rules.elevenBack && cards.some(c => c.number === 11)) {
+                game.is11Back = true;
+                updateBodyClass();
+                updateStatusBar();
+                showToast("11バック！", 1500);
+            }
+
+            // 上がり判定
+            if (player.hand.length === 0) {
+                player.isFinished = true;
+                player.rankThisRound = RANKS_NAME[game.finishedCount];
+                game.finishedCount++;
+                await playEffect('finish');
+                showToast(`${player.name} が ${player.rankThisRound} で上がりました！`, 2000);
+                await sleep(1000);
+                
+                // 上がったカードが8切りの場合は特殊処理（流れて次の人へ）
+                if (turnEnds) {
+                     game.turnIndex = (game.turnIndex + 1) % game.players.length;
+                     clearTable();
+                     checkRoundEnd();
+                     return;
+                }
+            }
+
+            if (turnEnds) {
+                // 8切り等でターンが強制終了・場が流れる場合
+                clearTable();
+                // 自分が上がっていない場合は自分から。上がっている場合は次の人から。
+                if (player.isFinished) {
+                    game.turnIndex = (game.turnIndex + 1) % game.players.length;
+                }
+                checkRoundEnd();
+                if(game.state === 'playing') processTurn();
+                return;
+            }
+
+            // 通常の次ターンへ
+            if (!checkRoundEnd()) {
+                nextTurn();
+            }
+        }
+
+        function checkRoundEnd() {
+            const activePlayers = game.players.filter(p => !p.isFinished);
+            if (activePlayers.length <= 1) {
+                // ラウンド終了
+                if (activePlayers.length === 1) {
+                    activePlayers[0].isFinished = true;
+                    activePlayers[0].rankThisRound = RANKS_NAME[game.finishedCount]; // 大貧民
+                }
+                endRound();
+                return true;
+            }
+            return false;
+        }
+
+        function nextTurn() {
+            game.turnIndex = (game.turnIndex + 1) % game.players.length;
+            processTurn();
+        }
+
+        async function endRound() {
+            game.state = 'result';
+            
+            // 次回の順位を保存
+            game.rankMap = game.players.map(p => ({ id: p.id, name: p.name, rank: p.rankThisRound }));
+            
+            // 順位順にソート
+            const sorted = [...game.rankMap].sort((a, b) => RANKS_NAME.indexOf(a.rank) - RANKS_NAME.indexOf(b.rank));
+            
+            let html = `<h2 class="text-3xl font-black mb-6 text-zinc-800">ラウンド結果</h2>`;
+            html += `<div class="space-y-3 mb-8">`;
+            sorted.forEach((p, idx) => {
+                const color = idx === 0 ? 'text-amber-500 font-bold' : (idx === sorted.length-1 ? 'text-blue-500' : 'text-zinc-700');
+                html += `
+                    <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-zinc-100 shadow-sm">
+                        <span class="${color}">${p.rank}</span>
+                        <span class="font-bold text-zinc-900">${p.name}</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            html += `
+                <div class="flex gap-3">
+                    <button onclick="window.location.reload()" class="flex-1 py-3 rounded-xl bg-zinc-200 text-zinc-700 font-bold hover:bg-zinc-300">やめる</button>
+                    <button onclick="startNextRound()" class="flex-1 py-3 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 shadow-md">次のラウンドへ</button>
+                </div>
+            `;
+            
+            await sleep(1000);
+            showModal("", html, null, true);
+        }
+
+        function startNextRound() {
+            hideModal();
+            startRound();
+        }
+
+        // --- Player Actions ---
+        function toggleCardSelection(cardId) {
+            if (game.state !== 'playing' || game.players[game.turnIndex].isCPU) return;
+            const player = game.players[0]; // You
+            const card = player.hand.find(c => c.id === cardId);
+            if (card) {
+                card.selected = !card.selected;
+                renderHand();
+                updatePlayerControls();
+            }
+        }
+
+        function updatePlayerControls() {
+            const isMyTurn = game.state === 'playing' && !game.players[game.turnIndex].isCPU;
+            const btnPlay = document.getElementById('btn-play');
+            const btnPass = document.getElementById('btn-pass');
+            
+            if (!isMyTurn) {
+                btnPlay.classList.add('opacity-50', 'pointer-events-none');
+                btnPass.classList.add('opacity-50', 'pointer-events-none');
+                return;
+            }
+
+            btnPass.classList.remove('opacity-50', 'pointer-events-none');
+
+            const player = game.players[0];
+            const selectedCards = player.hand.filter(c => c.selected);
+            const playInfo = evaluatePlay(selectedCards);
+            
+            if (isValidPlay(playInfo)) {
+                btnPlay.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                btnPlay.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function handlePlayerPass() {
+            if (game.state !== 'playing' || game.players[game.turnIndex].isCPU) return;
+            // 選択解除
+            game.players[0].hand.forEach(c => c.selected = false);
+            renderHand();
+            updatePlayerControls();
+            handlePass(game.players[0]);
+        }
+
+        function handlePlayerPlay() {
+            if (game.state !== 'playing' || game.players[game.turnIndex].isCPU) return;
+            const player = game.players[0];
+            const selectedCards = player.hand.filter(c => c.selected);
+            const playInfo = evaluatePlay(selectedCards);
+            
+            if (isValidPlay(playInfo)) {
+                // UI無効化
+                document.getElementById('btn-play').classList.add('opacity-50', 'pointer-events-none');
+                document.getElementById('btn-pass').classList.add('opacity-50', 'pointer-events-none');
+                selectedCards.forEach(c => c.selected = false);
+                handlePlayCards(player, selectedCards);
+            }
+        }
+
+        // --- Rendering ---
+        function renderAll() {
+            renderPlayers();
+            renderHand();
+            renderTable();
+        }
+
+        function renderPlayers() {
+            const container = document.getElementById('cpu-container');
+            container.innerHTML = '';
+            
+            // プレイヤー自身(p0)の情報更新
+            const p0 = game.players[0];
+            const rankBadge = document.getElementById('my-rank-badge');
+            if (p0.lastRank || p0.rankThisRound) {
+                rankBadge.innerText = p0.rankThisRound || p0.lastRank;
+                rankBadge.classList.remove('opacity-0');
+            }
+
+            game.players.forEach((p, index) => {
+                if (index === 0) return; // 自分は下部
+                
+                const isTurn = game.turnIndex === index;
+                const activeClass = isTurn ? 'ring-4 ring-amber-400 scale-105' : 'opacity-80';
+                const finishBadge = p.isFinished ? `<div class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">${p.rankThisRound}</div>` : '';
+                const rankText = (p.lastRank && !p.isFinished) ? `<div class="text-[10px] text-zinc-500 font-bold">${p.lastRank}</div>` : '';
+                
+                const html = `
+                    <div class="flex flex-col items-center transition-all duration-300 relative ${activeClass}">
+                        ${finishBadge}
+                        <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white shadow-md flex items-center justify-center border-2 border-zinc-200 overflow-hidden relative">
+                            <i data-lucide="bot" class="w-6 h-6 sm:w-8 sm:h-8 text-zinc-400"></i>
+                            ${!p.isFinished ? `<div class="absolute bottom-0 w-full bg-zinc-800/80 text-white text-[10px] sm:text-xs font-bold text-center py-0.5">${p.hand.length}枚</div>` : ''}
+                        </div>
+                        <span class="text-xs font-bold text-zinc-700 mt-1">${p.name}</span>
+                        ${rankText}
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+            lucide.createIcons();
+        }
+
+        function renderHand() {
+            const container = document.getElementById('my-hand');
+            container.innerHTML = '';
+            const player = game.players[0];
+            
+            if (player.isFinished) {
+                container.innerHTML = '<div class="text-zinc-400 font-bold text-lg mt-10">上がりました</div>';
+                return;
+            }
+
+            // カードの重なりを調整 (枚数が多いほど詰める)
+            const overlap = Math.max(-25, -30 + (player.hand.length * 1.5));
+
+            player.hand.forEach((card, i) => {
+                const selClass = card.selected ? 'card-selected' : '';
+                const ml = i === 0 ? '0' : `${overlap}px`;
+                
+                const el = document.createElement('div');
+                el.className = `playing-card ${card.colorClass} ${selClass} cursor-pointer hover:-translate-y-2`;
+                el.style.marginLeft = ml;
+                el.setAttribute('data-suit', SUIT_SYMBOLS[card.suit] || '');
+                el.onclick = () => toggleCardSelection(card.id);
+                
+                el.innerHTML = `
+                    <div class="self-start leading-none">${card.displayStr}</div>
+                    <div class="self-end leading-none rotate-180">${card.displayStr}</div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function renderTable(animate = false) {
+            const container = document.getElementById('table-cards');
+            container.innerHTML = '';
+            
+            if (game.table.cards.length === 0) {
+                container.innerHTML = '<div class="text-zinc-300 font-bold text-xl tracking-widest opacity-50">TABLE</div>';
+                return;
+            }
+
+            game.table.cards.forEach((card, i) => {
+                const el = document.createElement('div');
+                const animClass = animate ? 'card-table-anim' : '';
+                // 角度を少しランダムに
+                const rot = (Math.random() - 0.5) * 20;
+                
+                el.className = `playing-card ${card.colorClass} ${animClass} absolute`;
+                el.style.setProperty('--rot', `${rot}deg`);
+                if(!animate) el.style.transform = `rotate(${rot}deg)`;
+                
+                // 複数枚出す時少しずらす
+                const offset = (i - (game.table.cards.length-1)/2) * 25;
+                el.style.left = `calc(50% - 30px + ${offset}px)`; // 30px is half width (approx)
+                
+                el.setAttribute('data-suit', SUIT_SYMBOLS[card.suit] || '');
+                el.innerHTML = `
+                    <div class="self-start leading-none">${card.displayStr}</div>
+                    <div class="self-end leading-none rotate-180">${card.displayStr}</div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function updateBodyClass() {
+            if (game.isRevolution) {
+                document.body.classList.add('revolution-active');
+            } else {
+                document.body.classList.remove('revolution-active');
+            }
+        }
+
+        function updateStatusBar() {
+            const bar = document.getElementById('status-bar');
+            bar.innerHTML = '';
+            if (game.isRevolution) {
+                bar.innerHTML += '<span class="bg-red-600 text-white text-[10px] font-black px-3 py-0.5 rounded-b-lg shadow-md tracking-wider mx-1">革命中</span>';
+            }
+            if (game.is11Back) {
+                bar.innerHTML += '<span class="bg-purple-600 text-white text-[10px] font-black px-3 py-0.5 rounded-b-lg shadow-md tracking-wider mx-1">11BACK</span>';
+            }
+        }
+
+        function showTableMessage(text, duration = 1500) {
+            const el = document.getElementById('table-message');
+            el.innerText = text;
+            el.classList.remove('opacity-0');
+            el.classList.add('anim-pop');
+            setTimeout(() => {
+                el.classList.add('opacity-0');
+                el.classList.remove('anim-pop');
+            }, duration);
+        }
+
+        function showToast(msg, duration = 2000) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0', 'translate-y-[-20px]');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-[-20px]');
+            }, duration);
+        }
+
+        // --- Effects & Modals ---
+        async function playEffect(type) {
+            const container = document.getElementById('effect-container');
+            
+            if (type === 'revolution') {
+                const el = document.createElement('div');
+                el.className = 'absolute inset-0 bg-red-900/40 mix-blend-multiply flex items-center justify-center z-[100] transition-opacity duration-1000';
+                el.innerHTML = '<h1 class="text-6xl sm:text-8xl font-black text-red-600 drop-shadow-[0_0_20px_rgba(220,38,38,1)] anim-shake tracking-widest" style="-webkit-text-stroke: 2px white;">革命</h1>';
+                container.appendChild(el);
+                await sleep(2000);
+                el.style.opacity = '0';
+                await sleep(1000);
+                el.remove();
+            } 
+            else if (type === 'eightCut') {
+                const el = document.createElement('div');
+                el.className = 'absolute w-full h-full bg-black/80 flex items-center justify-center z-[100]';
+                el.style.animation = 'slash 0.5s cubic-bezier(0.1, 0.9, 0.2, 1) forwards';
+                el.innerHTML = '<h1 class="text-7xl font-black text-white italic drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">8切り</h1>';
+                container.appendChild(el);
+                await sleep(600);
+                el.remove();
+            }
+            else if (type === 'finish') {
+                // 簡易クラッカーエフェクト
+                for(let i=0; i<30; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'absolute w-3 h-3 rounded-full z-[100]';
+                    p.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+                    p.style.left = '50%'; p.style.top = '50%';
+                    const tx = (Math.random()-0.5)*300; const ty = (Math.random()-0.5)*300;
+                    p.style.transition = 'all 1s cubic-bezier(0.1, 0.8, 0.2, 1)';
+                    container.appendChild(p);
+                    // 次のフレームで移動
+                    requestAnimationFrame(() => {
+                        p.style.transform = `translate(${tx}px, ${ty}px) scale(0)`;
+                        p.style.opacity = '0';
+                    });
+                    setTimeout(()=>p.remove(), 1000);
+                }
+                await sleep(500);
+            }
+        }
+
+        function showModal(title, contentHTML, btnText, isHtmlContent = false) {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('modal-overlay');
+                const content = document.getElementById('modal-content');
+                
+                let html = '';
+                if (title) html += `<h3 class="text-2xl font-bold mb-4">${title}</h3>`;
+                html += `<div class="mb-6 text-sm text-zinc-600 leading-relaxed">${contentHTML}</div>`;
+                if (btnText) {
+                    html += `<button id="modal-btn" class="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors">${btnText}</button>`;
+                }
+
+                content.innerHTML = isHtmlContent ? contentHTML : html;
+                
+                overlay.classList.remove('hidden');
+                // reflow
+                void overlay.offsetWidth;
+                overlay.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+
+                if (btnText) {
+                    document.getElementById('modal-btn').onclick = () => {
+                        hideModal();
+                        resolve();
+                    };
+                } else if (!isHtmlContent) {
+                    // 自動で閉じる用
+                    setTimeout(() => { hideModal(); resolve(); }, 3000);
+                } else {
+                    // カスタムHTMLの場合はボタンのハンドラが別途HTML内にある想定
+                    resolve();
+                }
+            });
+        }
+
+        function hideModal() {
+            const overlay = document.getElementById('modal-overlay');
+            const content = document.getElementById('modal-content');
+            overlay.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- Utils ---
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        // 初期化
+        window.onload = () => {
+            lucide.createIcons();
+            // Prevent bounce scroll on iOS
+            document.body.addEventListener('touchmove', function(e) {
+                // 手札領域のスクロールは許可する
+                if (!e.target.closest('#my-hand') && !e.target.closest('#screen-setup')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        };
+
+    </script>
+</body>
+</html>
