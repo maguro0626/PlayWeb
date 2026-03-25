@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Suica Puzzle Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            height: 100%; margin: 0; padding: 0; overflow: hidden;
+            background-color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        }
+        .glass-header {
+            background-color: rgba(255,255,255,0.7);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        #board-wrapper {
+            perspective: 1500px;
+            display: flex; align-items: center; justify-content: center;
+            flex-grow: 1; padding: 1rem; min-height: 0;
+        }
+        
+        #board {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 360 / 520;
+            background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
+            border: 8px solid #cbd5e1;
+            border-radius: 24px;
+            box-shadow: 
+                inset 0 0 30px rgba(0,0,0,0.05),
+                0 20px 40px rgba(0,0,0,0.1),
+                0 0 0 2px rgba(255,255,255,0.8);
+            overflow: hidden;
+        }
+
+        #game-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            touch-action: none; /* スマホのスワイプ防止 */
+            cursor: crosshair;
+        }
+
+        /* ━━━ スコアポップ ━━━ */
+        .score-pop { animation: score-pop 0.45s cubic-bezier(0.175,0.885,0.32,1.6) both; }
+        @keyframes score-pop {
+            0%   { transform: scale(1);    color: inherit; }
+            50%  { transform: scale(1.6);  color: #f59e0b; }
+            100% { transform: scale(1);    color: inherit; }
+        }
+
+        /* ━━━ トースト ━━━ */
+        .toast-pop { animation: toast-anim 2.5s cubic-bezier(0.175,0.885,0.32,1.2) forwards; }
+        @keyframes toast-anim {
+            0%   { transform:translate(-50%,-50%) scale(0.5); opacity:0; }
+            10%  { transform:translate(-50%,-50%) scale(1.05); opacity:1; }
+            20%  { transform:translate(-50%,-50%) scale(1);    opacity:1; }
+            80%  { transform:translate(-50%,-50%) scale(1);    opacity:1; }
+            100% { transform:translate(-50%,-50%) scale(0.8);  opacity:0; }
+        }
+
+        /* ━━━ コンフェティ ━━━ */
+        .confetti {
+            position: fixed; top: -30px;
+            z-index: 100; pointer-events: none;
+            animation: confetti-fall linear forwards;
+        }
+        @keyframes confetti-fall {
+            0%   { transform: translateY(0)     rotate(0deg)              scale(1);   opacity:1; }
+            85%  { opacity:1; }
+            100% { transform: translateY(115vh) rotate(var(--rot,720deg)) scale(0.7); opacity:0; }
+        }
+
+        /* ━━━ 勝利フラッシュ ━━━ */
+        .victory-flash {
+            position: fixed; inset: 0; pointer-events: none; z-index: 90;
+            animation: v-flash 0.8s ease-out forwards;
+        }
+        @keyframes v-flash {
+            0%   { background: rgba(255,255,255,0.8); }
+            100% { background: rgba(255,255,255,0); }
+        }
+        
+        .active-ring {
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+
+    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
+        <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-sm font-bold">ホーム</span>
+        </button>
+        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">Match Ready</div>
+        <div class="w-20"></div>
+    </header>
+
+    <main class="flex-grow flex flex-col overflow-hidden max-w-2xl mx-auto w-full">
+        <!-- スコア ＆ ネクスト 表示部 -->
+        <div class="grid grid-cols-2 gap-4 px-6 pt-6 shrink-0">
+            <div class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-amber-400 shadow-lg border-2 border-white flex items-center justify-center text-white">
+                        <i data-lucide="star" class="w-5 h-5 fill-current"></i>
+                    </div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Score</span>
+                </div>
+                <span id="score-val" class="text-2xl font-black text-zinc-800">0</span>
+            </div>
+            
+            <div id="ui-next" class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300 active-ring">
+                <div class="flex items-center gap-3">
+                    <div id="next-icon" class="w-10 h-10 rounded-full shadow-md border-2 border-white transition-all duration-300"></div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Next</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span id="next-name" class="text-sm font-bold text-zinc-700">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 物理ゲームキャンバス -->
+        <div id="board-wrapper">
+            <div id="board">
+                <canvas id="game-canvas" width="360" height="520"></canvas>
+            </div>
+        </div>
+
+        <div class="px-6 pb-6 shrink-0">
+            <button onclick="resetGame()" class="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-black/20">
+                <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                ゲームをリセット
+            </button>
+        </div>
+    </main>
+
+    <script>
+        // --- 設定・定数 ---
+        const C_WIDTH = 360;
+        const C_HEIGHT = 520;
+        const DEAD_LINE = 100;
+
+        // フルーツの進化段階とパラメータ（色、サイズ、スコア）
+        const FRUITS = [
+            { name: 'チェリー', r: 14, gradient: ['#fca5a5', '#dc2626'], score: 1 },
+            { name: 'イチゴ',   r: 20, gradient: ['#f87171', '#b91c1c'], score: 3 },
+            { name: 'ブドウ',   r: 28, gradient: ['#c084fc', '#7e22ce'], score: 6 },
+            { name: 'デコポン', r: 38, gradient: ['#fb923c', '#c2410c'], score: 10 },
+            { name: '柿',       r: 48, gradient: ['#fbbf24', '#b45309'], score: 15 },
+            { name: 'リンゴ',   r: 58, gradient: ['#f87171', '#991b1b'], score: 21 },
+            { name: '梨',       r: 70, gradient: ['#fef9c3', '#ca8a04'], score: 28 },
+            { name: '桃',       r: 84, gradient: ['#fbcfe8', '#be185d'], score: 36 },
+            { name: 'パイン',   r: 100, gradient: ['#fde047', '#854d0e'], score: 45 },
+            { name: 'メロン',   r: 116, gradient: ['#bbf7d0', '#15803d'], score: 55 },
+            { name: 'スイカ',   r: 134, gradient: ['#4ade80', '#14532d'], score: 66 }
+        ];
+
+        // --- 状態管理 ---
+        let gameActive = false;
+        let score = 0;
+        let prevScore = 0;
+        let nextFruitIndex = 0;
+        let canDrop = true;
+        let isTouching = false;
+        let dropX = C_WIDTH / 2;
+        let particles = [];
+        let pairsToMerge = [];
+        let gameOverTimer = 0;
+
+        // --- Matter.js モジュール ---
+        const { Engine, Composite, Bodies, Events } = Matter;
+        let engine;
+
+        // --- 初期化 ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // 背景描画するためalpha:falseで最適化
+
+        function init() {
+            lucide.createIcons();
+            
+            // エンジンのセットアップ
+            engine = Engine.create({
+                positionIterations: 8,
+                velocityIterations: 6
+            });
+            engine.world.gravity.y = 1.2;
+
+            setupEvents();
+            setupInput();
+            resetGame();
+            
+            // メインループ開始
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resetGame() {
+            Composite.clear(engine.world);
+            Engine.clear(engine);
+            
+            // 壁の作成（見えないようにする）
+            const wallOptions = { isStatic: true, render: { visible: false }, friction: 0.5 };
+            const ground = Bodies.rectangle(C_WIDTH/2, C_HEIGHT + 20, C_WIDTH + 100, 40, wallOptions);
+            const leftWall = Bodies.rectangle(-20, C_HEIGHT/2, 40, C_HEIGHT + 100, wallOptions);
+            const rightWall = Bodies.rectangle(C_WIDTH + 20, C_HEIGHT/2, 40, C_HEIGHT + 100, wallOptions);
+            
+            Composite.add(engine.world, [ground, leftWall, rightWall]);
+
+            score = 0;
+            prevScore = 0;
+            updateScoreUI();
+            
+            gameActive = true;
+            canDrop = true;
+            isTouching = false;
+            particles = [];
+            pairsToMerge = [];
+            gameOverTimer = 0;
+            
+            setNextFruit();
+            updateStatus('READY');
+            
+            document.querySelectorAll('.confetti,.toast-pop,.victory-flash').forEach(e => e.remove());
+        }
+
+        // --- 次のフルーツ設定 ---
+        function setNextFruit() {
+            // 初期はインデックス 0(チェリー) 〜 4(柿) までからランダム
+            nextFruitIndex = Math.floor(Math.random() * 5);
+            
+            const nextEl = document.getElementById('next-icon');
+            const nameEl = document.getElementById('next-name');
+            const f = FRUITS[nextFruitIndex];
+            
+            nextEl.style.background = `radial-gradient(circle at 30% 30%, ${f.gradient[0]}, ${f.gradient[1]})`;
+            nameEl.innerText = f.name;
+        }
+
+        // --- フルーツの生成 ---
+        function createFruit(x, y, index) {
+            const f = FRUITS[index];
+            const body = Bodies.circle(x, y, f.r, {
+                restitution: 0.25, // やや跳ねる
+                friction: 0.5,
+                density: 0.001 + (index * 0.0005), // 大きいほど重い
+                label: 'fruit'
+            });
+            body.fruitIndex = index;
+            // 落下直後はゲームオーバー判定を緩めるためのフラグ
+            body.spawnTime = Date.now(); 
+            return body;
+        }
+
+        // --- 入力制御 ---
+        function setupInput() {
+            canvas.addEventListener('pointerdown', (e) => {
+                if (!gameActive || !canDrop) return;
+                isTouching = true;
+                updateDropPos(e);
+            });
+            canvas.addEventListener('pointermove', (e) => {
+                if (isTouching) updateDropPos(e);
+            });
+            canvas.addEventListener('pointerup', (e) => {
+                if (!gameActive || !canDrop || !isTouching) return;
+                isTouching = false;
+                triggerDrop();
+            });
+            canvas.addEventListener('pointerleave', (e) => {
+                if (isTouching && gameActive && canDrop) {
+                    isTouching = false;
+                    triggerDrop();
+                }
+            });
+        }
+
+        function updateDropPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            let x = (e.clientX - rect.left) * scaleX;
+            
+            const r = FRUITS[nextFruitIndex].r;
+            // 壁にめり込まないように制限
+            dropX = Math.max(r + 5, Math.min(C_WIDTH - r - 5, x));
+        }
+
+        function triggerDrop() {
+            const newFruit = createFruit(dropX, 40, nextFruitIndex);
+            Composite.add(engine.world, newFruit);
+            
+            canDrop = false;
+            updateStatus('WAIT...');
+            document.getElementById('ui-next').classList.remove('active-ring');
+            document.getElementById('ui-next').classList.add('opacity-50');
+
+            setNextFruit();
+
+            // クールダウン
+            setTimeout(() => {
+                if (gameActive) {
+                    canDrop = true;
+                    updateStatus('READY');
+                    document.getElementById('ui-next').classList.add('active-ring');
+                    document.getElementById('ui-next').classList.remove('opacity-50');
+                }
+            }, 1000);
+        }
+
+        // --- 物理イベント (衝突) ---
+        function setupEvents() {
+            Events.on(engine, 'collisionStart', (event) => {
+                event.pairs.forEach(pair => {
+                    const { bodyA, bodyB } = pair;
+                    
+                    // 両方フルーツで、同じ種類の場合
+                    if (bodyA.fruitIndex !== undefined && bodyB.fruitIndex !== undefined 
+                        && bodyA.fruitIndex === bodyB.fruitIndex) {
+                        
+                        // 重複してマージキューに入れないための制御
+                        if (!bodyA.isMerging && !bodyB.isMerging) {
+                            bodyA.isMerging = true;
+                            bodyB.isMerging = true;
+                            pairsToMerge.push({
+                                bodyA, bodyB, index: bodyA.fruitIndex
+                            });
+                        }
+                    }
+                });
+            });
+        }
+
+        // --- マージ処理の実行 ---
+        function handleMerges() {
+            if (pairsToMerge.length === 0) return;
+
+            pairsToMerge.forEach(pair => {
+                const { bodyA, bodyB, index } = pair;
+                
+                // すでに削除されていたらスキップ
+                if (!Composite.get(engine.world, bodyA.id, bodyA.type) || 
+                    !Composite.get(engine.world, bodyB.id, bodyB.type)) {
+                    return;
+                }
+
+                // 中間地点の計算
+                const midX = (bodyA.position.x + bodyB.position.x) / 2;
+                const midY = (bodyA.position.y + bodyB.position.y) / 2;
+
+                // 古いボディを削除
+                Composite.remove(engine.world, [bodyA, bodyB]);
+
+                const f = FRUITS[index];
+                
+                // エフェクト生成
+                spawnMergeEffect(midX, midY, f.gradient[0], f.r);
+
+                // 次の段階へ
+                if (index < FRUITS.length - 1) {
+                    const nextIndex = index + 1;
+                    const newFruit = createFruit(midX, midY, nextIndex);
+                    Composite.add(engine.world, newFruit);
+                    
+                    addScore(FRUITS[nextIndex].score);
+                    
+                    // スイカ（最大サイズ）ができた時の特別演出
+                    if (nextIndex === FRUITS.length - 1) {
+                        showToast('🍉 S U I C A !! 🍉');
+                        spawnConfetti('rainbow');
+                    }
+                } else {
+                    // スイカ同士がぶつかった場合（消滅してボーナス）
+                    addScore(100);
+                    showToast('PERFECT!');
+                    spawnMergeEffect(midX, midY, '#ffffff', 150);
+                }
+            });
+            pairsToMerge = [];
+        }
+
+        // --- スコアとUI ---
+        function addScore(s) {
+            score += s;
+            updateScoreUI();
+            spawnTextEffect(dropX, 80, `+${s}`);
+        }
+
+        function updateScoreUI() {
+            const el = document.getElementById('score-val');
+            el.innerText = score;
+            if (score !== prevScore) {
+                el.classList.remove('score-pop');
+                void el.offsetWidth;
+                el.classList.add('score-pop');
+                prevScore = score;
+            }
+        }
+
+        function updateStatus(text) {
+            document.getElementById('status-text').innerText = text;
+        }
+
+        // --- ゲームオーバー判定 ---
+        function checkGameOver() {
+            if (!gameActive) return;
+
+            let isDanger = false;
+            const bodies = Composite.allBodies(engine.world);
+            
+            for (let body of bodies) {
+                if (body.fruitIndex !== undefined) {
+                    // 生成直後のものは除外（落下中だから）
+                    if (Date.now() - body.spawnTime < 1500) continue;
+
+                    // 一番上の端がデッドラインを超えているか
+                    if (body.position.y - body.circleRadius < DEAD_LINE) {
+                        // かつ、静止状態に近い場合（弾いている最中は許容）
+                        if (Math.abs(body.velocity.y) < 1.0 && Math.abs(body.velocity.x) < 1.0) {
+                            isDanger = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (isDanger) {
+                gameOverTimer++;
+                // 約2秒間（60fps × 2 = 120）ラインを超え続けたら
+                if (gameOverTimer > 120) {
+                    triggerGameOver();
+                }
+            } else {
+                gameOverTimer = 0;
+            }
+        }
+
+        function triggerGameOver() {
+            gameActive = false;
+            canDrop = false;
+            updateStatus('GAME OVER');
+            showToast('GAME OVER\nScore: ' + score);
+            
+            const flash = document.createElement('div');
+            flash.className = 'victory-flash';
+            document.body.appendChild(flash);
+
+            spawnConfetti('gameover');
+        }
+
+        // --- 描画・エフェクト関連 ---
+        function spawnMergeEffect(x, y, color, size) {
+            // 光の輪
+            particles.push({ type: 'ring', x, y, radius: size * 0.5, maxRadius: size * 1.8, color, alpha: 1 });
+            // スパーク
+            for(let i=0; i<8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 2;
+                particles.push({
+                    type: 'spark', x, y,
+                    vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+                    color, alpha: 1, size: Math.random()*5+3
+                });
+            }
+        }
+
+        function spawnTextEffect(x, y, text) {
+            particles.push({ type: 'text', x, y, text, alpha: 1, vy: -1.5 });
+        }
+
+        function updateAndDrawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if (p.type === 'ring') {
+                    p.radius += (p.maxRadius - p.radius) * 0.12;
+                    p.alpha -= 0.06;
+                    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                    
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                    ctx.strokeStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.lineWidth = 6;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                } else if (p.type === 'spark') {
+                    p.x += p.vx; p.y += p.vy;
+                    p.vy += 0.25; // 重力
+                    p.alpha -= 0.04;
+                    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                    
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                } else if (p.type === 'text') {
+                    p.y += p.vy;
+                    p.alpha -= 0.02;
+                    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                    
+                    ctx.fillStyle = `rgba(245, 158, 11, ${p.alpha})`; // amber-500
+                    ctx.font = '900 24px "SF Pro Text", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.shadowColor = 'rgba(255,255,255,0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.fillText(p.text, p.x, p.y);
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        // 可愛い顔を描画する
+        function drawFace(x, y, radius, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            const eyeOffset = radius * 0.35;
+            const eyeSize = Math.max(2, radius * 0.08);
+            
+            ctx.fillStyle = '#1f2937'; // 濃いグレー
+            // 目
+            ctx.beginPath(); ctx.arc(-eyeOffset, -radius*0.1, eyeSize, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeOffset, -radius*0.1, eyeSize, 0, Math.PI*2); ctx.fill();
+            
+            // ほっぺ
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; // 赤
+            ctx.beginPath(); ctx.arc(-eyeOffset*1.3, radius*0.15, eyeSize*1.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeOffset*1.3, radius*0.15, eyeSize*1.5, 0, Math.PI*2); ctx.fill();
+            
+            // 口
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = Math.max(1.5, radius * 0.05);
+            ctx.beginPath();
+            ctx.arc(0, radius*0.1, eyeSize*1.5, 0.2, Math.PI-0.2);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // --- メインレンダーループ ---
+        function gameLoop() {
+            // 物理エンジンの更新 (60fps固定ステップ)
+            Engine.update(engine, 1000 / 60);
+            
+            handleMerges();
+            checkGameOver();
+
+            // 背景塗りつぶし
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, C_WIDTH, C_HEIGHT);
+
+            // デッドライン（警告線）の描画
+            ctx.beginPath();
+            ctx.moveTo(0, DEAD_LINE);
+            ctx.lineTo(C_WIDTH, DEAD_LINE);
+            // ピンチ時は赤く点滅
+            const isDanger = gameOverTimer > 0;
+            ctx.strokeStyle = isDanger ? `rgba(239, 68, 68, ${0.4 + Math.sin(Date.now() / 80) * 0.4})` : 'rgba(203, 213, 225, 0.6)';
+            ctx.setLineDash([8, 8]);
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // ボディ（フルーツ）の描画
+            const bodies = Composite.allBodies(engine.world);
+            for (let body of bodies) {
+                if (body.fruitIndex !== undefined) {
+                    const f = FRUITS[body.fruitIndex];
+                    const r = body.circleRadius;
+                    
+                    ctx.save();
+                    ctx.translate(body.position.x, body.position.y);
+                    ctx.rotate(body.angle);
+                    
+                    // 立体的なグラデーション
+                    const grad = ctx.createRadialGradient(-r*0.3, -r*0.3, r*0.1, 0, 0, r);
+                    grad.addColorStop(0, f.gradient[0]);
+                    grad.addColorStop(1, f.gradient[1]);
+                    
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, Math.PI*2);
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                    
+                    // ハイライト（輪郭）
+                    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                    ctx.lineWidth = Math.max(1, r*0.05);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // 顔を描画（回転を適用）
+                    drawFace(body.position.x, body.position.y, r, body.angle);
+                }
+            }
+
+            // プレビューの描画
+            if (gameActive && (canDrop || isTouching)) {
+                const f = FRUITS[nextFruitIndex];
+                ctx.globalAlpha = canDrop ? 0.7 : 0.3;
+                
+                // 落下予測線
+                ctx.beginPath();
+                ctx.moveTo(dropX, 40 + f.r);
+                ctx.lineTo(dropX, C_HEIGHT);
+                ctx.strokeStyle = f.gradient[0];
+                ctx.setLineDash([4, 6]);
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // プレビュー本体
+                const grad = ctx.createRadialGradient(dropX - f.r*0.3, 40 - f.r*0.3, f.r*0.1, dropX, 40, f.r);
+                grad.addColorStop(0, f.gradient[0]);
+                grad.addColorStop(1, f.gradient[1]);
+                
+                ctx.beginPath();
+                ctx.arc(dropX, 40, f.r, 0, Math.PI*2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                
+                drawFace(dropX, 40, f.r, 0);
+
+                ctx.globalAlpha = 1.0;
+            }
+
+            // パーティクルの描画
+            updateAndDrawParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- 汎用演出 ---
+        function showToast(m) {
+            const t = document.createElement('div');
+            t.className = 'toast-pop fixed top-1/2 left-1/2 bg-zinc-900/95 text-white px-8 py-5 rounded-3xl font-black z-50 text-center whitespace-pre-line shadow-2xl';
+            t.innerText = m;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2500);
+        }
+
+        function spawnConfetti(type) {
+            const palettes = {
+                rainbow: ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899'],
+                gameover: ['#1f2937','#4b5563','#9ca3af','#ef4444']
+            };
+            const colors = palettes[type] || palettes.rainbow;
+            
+            for (let i = 0; i < 80; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti';
+                el.style.left = (Math.random() * 105) + 'vw';
+                el.style.top  = (-10 - Math.random() * 50) + 'px';
+                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                el.style.animationDuration = (2 + Math.random() * 3) + 's';
+                el.style.animationDelay   = (Math.random() * 0.5) + 's';
+                el.style.setProperty('--rot', (Math.random() * 1440 - 720) + 'deg');
+                
+                const d = 6 + Math.random() * 10;
+                el.style.width = d+'px'; 
+                el.style.height = d+'px'; 
+                el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 5500);
+            }
+        }
+
+        // 起動
+        window.onload = init;
+    </script>
+</body>
+</html>
