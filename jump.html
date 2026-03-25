@@ -26,20 +26,21 @@
             perspective: 1500px;
             display: flex; align-items: center; justify-content: center;
             flex-grow: 1; padding: 1rem; min-height: 0;
+            width: 100%;
         }
 
-        /* オセロの盤面デザインを踏襲したゲーム画面の枠 */
+        /* 画面を広く使うためのコンテナ設定 */
         #game-container {
             position: relative;
-            background: #0f172a; /* 描画前ベース色 */
+            background: #0f172a;
             border: 6px solid #0a0a0a;
             border-radius: 12px;
             box-shadow:
                 0 40px 80px rgba(0,0,0,0.5),
                 inset 0 0 30px rgba(0,0,0,0.9);
             width: 100%;
-            max-width: 800px;
-            aspect-ratio: 4/3;
+            height: 100%; /* 親要素いっぱいに広げる */
+            max-height: 600px; /* PCなどでの過度な拡大を防止 */
             overflow: hidden;
             transform-style: preserve-3d;
         }
@@ -48,10 +49,10 @@
             display: block;
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: contain; /* 横長の論理解像度を維持してフィットさせる */
         }
 
-        /* ━━━ アニメーション・エフェクト（オセロ流用） ━━━ */
+        /* ━━━ アニメーション・エフェクト ━━━ */
         .active-turn {
             border-color: #3b82f6 !important;
             transform: scale(1.05);
@@ -119,9 +120,9 @@
             opacity: 0; pointer-events: none; transition: opacity 0.3s;
             z-index: 10;
         }
-        .message-overlay.show { opacity: 1; }
+        .message-overlay.show { opacity: 1; pointer-events: auto; }
         .message-text {
-            font-size: 3rem; font-weight: 900; color: white;
+            font-size: 3.5rem; font-weight: 900; color: white;
             text-shadow: 0 4px 20px rgba(0,0,0,0.8);
             transform: scale(0.8); transition: transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
         }
@@ -141,20 +142,22 @@
         <div class="w-20"></div>
     </header>
 
-    <main class="flex-grow flex flex-col overflow-hidden max-w-2xl mx-auto w-full">
-        <!-- ━━━ ステータス表示エリア (オセロのスコア部を踏襲) ━━━ -->
+    <!-- 幅を広くするために max-w-5xl に変更 -->
+    <main class="flex-grow flex flex-col overflow-hidden max-w-5xl mx-auto w-full">
+        <!-- ━━━ ステータス表示エリア ━━━ -->
         <div class="grid grid-cols-2 gap-4 px-6 pt-6 shrink-0">
             <!-- ステージ情報 -->
             <div id="ui-stage" class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 shadow-sm border border-blue-200">
-                        <i data-lucide="map" class="w-5 h-5"></i>
+                        <i id="stage-icon" data-lucide="map" class="w-5 h-5"></i>
                     </div>
                     <div class="flex flex-col">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Stage <span id="lbl-stage-num">1</span></span>
-                        <span id="lbl-stage-name" class="text-xs font-bold text-black truncate w-20">草原の道</span>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500" id="lbl-stage-num-wrap">Stage <span id="lbl-stage-num">1</span></span>
+                        <span id="lbl-stage-name" class="text-xs font-bold text-black truncate w-24">草原の道</span>
                     </div>
                 </div>
+                <!-- 距離または%を表示 -->
                 <span id="score-progress" class="text-2xl font-black">0%</span>
             </div>
             <!-- キャラクター情報 -->
@@ -168,7 +171,7 @@
                         <span id="lbl-char-name" class="text-xs font-bold text-black truncate w-20">ニンジャ</span>
                     </div>
                 </div>
-                <!-- 残りシールド等があれば表示 -->
+                <!-- 残りシールド等 -->
                 <div id="lbl-shield" class="text-xl text-zinc-400 hidden"><i data-lucide="shield" class="w-6 h-6"></i></div>
             </div>
         </div>
@@ -176,18 +179,19 @@
         <!-- ━━━ ゲーム画面 ━━━ -->
         <div id="board-wrapper">
             <div id="game-container">
-                <!-- 論理解像度 800x600 -->
-                <canvas id="gameCanvas" width="800" height="600"></canvas>
+                <!-- より広い視界を確保するために解像度を横長（1200x600）に設定 -->
+                <canvas id="gameCanvas" width="1200" height="600"></canvas>
                 
                 <div id="game-message" class="message-overlay">
                     <div id="message-text" class="message-text">CLEAR!</div>
-                    <div id="message-sub" class="text-white/80 font-bold mt-2"></div>
+                    <div id="message-sub" class="text-white/80 font-bold mt-2 mb-8"></div>
+                    <div id="end-buttons" class="flex gap-4"></div>
                 </div>
             </div>
         </div>
 
-        <!-- ━━━ コントロールパネル ━━━ -->
-        <div class="px-6 pb-6 shrink-0">
+        <!-- ━━━ コントロールパネル (PLAY時は非表示または簡略化) ━━━ -->
+        <div class="px-6 pb-6 shrink-0 transition-all duration-300" id="control-panel-wrapper">
             <div class="bg-white/80 backdrop-blur-md p-4 rounded-[2rem] border border-black/5 shadow-sm transition-all" id="control-panel">
                 <!-- JSで中身を生成 -->
             </div>
@@ -204,7 +208,9 @@
             { id: 'knight', name: 'ナイト', desc: 'トゲを1度防ぐバリア。', color: '#64748b', maxJumps: 1, jumpForce: -13, gravity: 0.6, size: 44, shield: 1 }
         ];
 
+        // エンドレスモードを ID: 0 として先頭に配置
         const STAGES = [
+            { id: 0, name: 'エンドレス', bg: ['#0f172a', '#020617'], ground: '#1e293b', groundLine: '#334155', speed: 8, length: Infinity, isEndless: true, obs: [] },
             { id: 1, name: '草原の道', bg: ['#bae6fd', '#38bdf8'], ground: '#4ade80', groundLine: '#22c55e', speed: 6, length: 3000, obs: [
                 {x: 600, w: 40, h: 40, type: 'spike'}, {x: 1000, w: 150, type: 'pit'}, {x: 1500, w: 40, h: 40, type: 'spike'}, {x: 1550, w: 40, h: 40, type: 'spike'}, {x: 2000, w: 200, type: 'pit'}, {x: 2500, y: 100, w: 100, h: 20, type: 'block'}
             ]},
@@ -235,9 +241,9 @@
         // --- ゲームエンジン変数 ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const CW = 800;
+        const CW = 1200; // 幅を広げた
         const CH = 600;
-        const GROUND_Y = CH - 120; // 地面の高さ
+        const GROUND_Y = CH - 120;
         
         let lastTime = 0;
         let animationId;
@@ -272,27 +278,32 @@
         // --- UI構築 ---
         function changeState(newState) {
             gameState = newState;
+            const panelWrapper = document.getElementById('control-panel-wrapper');
             const panel = document.getElementById('control-panel');
             const msgOver = document.getElementById('game-message');
             const txtMain = document.getElementById('message-text');
             const txtSub = document.getElementById('message-sub');
+            const endBtns = document.getElementById('end-buttons');
             const statusText = document.getElementById('status-text');
 
             panel.innerHTML = '';
+            endBtns.innerHTML = '';
             msgOver.classList.remove('show');
 
             if (newState === 'MENU') {
                 statusText.innerText = 'Select Stage & Character';
                 document.getElementById('ui-stage').classList.remove('active-turn');
                 document.getElementById('ui-char').classList.remove('active-turn');
+                panelWrapper.style.display = 'block'; // パネルを表示
                 
                 // ステージ選択
                 let stageHTML = `<div class="mb-1"><span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Stage Select</span></div><div class="flex overflow-x-auto gap-2 pb-3 hide-scrollbar">`;
                 STAGES.forEach(s => {
-                    const isUnl = s.id <= unlockedStages;
+                    const isUnl = s.id === 0 || s.id <= unlockedStages;
                     const isSel = s.id === selectedStageId;
+                    const stageLabel = s.id === 0 ? 'Endless' : `Stage ${s.id}`;
                     stageHTML += `<button onclick="if(${isUnl}){selectedStageId=${s.id};changeState('MENU');}" class="selection-btn px-4 py-3 rounded-xl text-sm font-bold flex flex-col items-start min-w-[120px] ${isSel ? 'selected' : (isUnl ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200' : 'bg-zinc-100 text-zinc-300 opacity-50 cursor-not-allowed')}">
-                        <span>Stage ${s.id}</span><span class="text-[10px] font-normal truncate w-full text-left">${isUnl ? s.name : 'Locked'}</span>
+                        <span class="${s.id === 0 ? 'text-purple-600' : ''}">${stageLabel}</span><span class="text-[10px] font-normal truncate w-full text-left">${isUnl ? s.name : 'Locked'}</span>
                     </button>`;
                 });
                 stageHTML += `</div>`;
@@ -324,37 +335,46 @@
                 document.getElementById('ui-stage').classList.add('active-turn');
                 document.getElementById('ui-char').classList.add('active-turn');
 
+                // ジャンプボタンを廃止し、操作説明のテキストのみ配置
                 panel.innerHTML = `
-                    <div class="flex gap-2">
-                        <button onclick="jumpAction()" class="flex-grow py-8 bg-zinc-900 text-white rounded-[1.5rem] font-black text-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-black/20">
-                            <i data-lucide="arrow-up-circle" class="w-8 h-8"></i> JUMP (TAP)
-                        </button>
+                    <div class="text-center text-zinc-400 font-bold text-sm tracking-widest animate-pulse py-1">
+                        TAP SCREEN OR PRESS SPACE TO JUMP
                     </div>`;
+
             } else if (newState === 'OVER' || newState === 'CLEAR') {
+                const s = STAGES.find(x => x.id === selectedStageId);
                 statusText.innerText = newState === 'CLEAR' ? 'Mission Complete' : 'Mission Failed';
                 document.getElementById('ui-stage').classList.remove('active-turn');
                 document.getElementById('ui-char').classList.remove('active-turn');
 
+                panelWrapper.style.display = 'none'; // パネルを隠して画面を広く使う
                 msgOver.classList.add('show');
+                
                 txtMain.innerText = newState === 'CLEAR' ? 'STAGE CLEAR' : 'GAME OVER';
                 txtMain.style.color = newState === 'CLEAR' ? '#4ade80' : '#f87171';
-                txtSub.innerText = newState === 'CLEAR' ? '素晴らしい走破でした！' : '障害物に当たってしまった...';
+                
+                if (s.isEndless) {
+                    const distance = Math.floor(scrollX / 10);
+                    txtSub.innerText = `走行距離: ${distance}m`;
+                } else {
+                    txtSub.innerText = newState === 'CLEAR' ? '素晴らしい走破でした！' : '障害物に当たってしまった...';
+                }
 
-                let btnsHTML = `<div class="flex flex-col gap-3">`;
-                if (newState === 'CLEAR' && selectedStageId < STAGES.length) {
-                    btnsHTML += `<button onclick="nextStage()" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-blue-500/30">
-                        NEXT STAGE <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                // ゲーム画面中央にボタンを配置
+                let btnsHTML = ``;
+                if (newState === 'CLEAR' && selectedStageId > 0 && selectedStageId < STAGES.length - 1) {
+                    btnsHTML += `<button onclick="nextStage()" class="px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-blue-500/30">
+                        NEXT STAGE <i data-lucide="arrow-right" class="w-4 h-4"></i>
                     </button>`;
                 }
                 btnsHTML += `
-                    <button onclick="startGame()" class="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-all">
-                        <i data-lucide="rotate-ccw" class="w-5 h-5"></i> RETRY
+                    <button onclick="startGame()" class="px-6 py-3 bg-white text-black rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> RETRY
                     </button>
-                    <button onclick="changeState('MENU')" class="w-full py-4 bg-zinc-100 text-zinc-600 hover:bg-zinc-200 rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-all">
-                        <i data-lucide="menu" class="w-5 h-5"></i> MENU
-                    </button>
-                </div>`;
-                panel.innerHTML = btnsHTML;
+                    <button onclick="changeState('MENU')" class="px-6 py-3 bg-black/50 text-white backdrop-blur-md rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all border border-white/10">
+                        <i data-lucide="menu" class="w-4 h-4"></i> MENU
+                    </button>`;
+                endBtns.innerHTML = btnsHTML;
             }
             lucide.createIcons();
         }
@@ -362,11 +382,26 @@
         function updateTopInfo() {
             const s = STAGES.find(x => x.id === selectedStageId);
             const c = CHARACTERS.find(x => x.id === selectedCharId);
-            document.getElementById('lbl-stage-num').innerText = s.id;
+            
+            if (s.isEndless) {
+                document.getElementById('lbl-stage-num-wrap').innerHTML = '<span class="text-purple-500">ENDLESS MODE</span>';
+                document.getElementById('stage-icon').setAttribute('data-lucide', 'infinity');
+            } else {
+                document.getElementById('lbl-stage-num-wrap').innerHTML = `Stage <span id="lbl-stage-num">${s.id}</span>`;
+                document.getElementById('stage-icon').setAttribute('data-lucide', 'map');
+            }
+            
             document.getElementById('lbl-stage-name').innerText = s.name;
             document.getElementById('lbl-char-name').innerText = c.name;
             document.getElementById('char-icon-bg').style.backgroundColor = c.color + '20';
             document.getElementById('char-icon-inner').style.backgroundColor = c.color;
+            
+            if (s.isEndless) {
+                document.getElementById('score-progress').innerText = '0m';
+            } else {
+                document.getElementById('score-progress').innerText = '0%';
+            }
+            lucide.createIcons();
         }
 
         // --- ゲームロジック ---
@@ -374,29 +409,36 @@
             const charData = CHARACTERS.find(c => c.id === selectedCharId);
             const stageData = STAGES.find(s => s.id === selectedStageId);
             
+            // ディープコピーしてレベルデータを初期化
             level = JSON.parse(JSON.stringify(stageData));
             scrollX = 0;
             particles = [];
             shakeTime = 0;
-            prevProgress = 0;
-            document.getElementById('score-progress').innerText = '0%';
+            prevProgress = -1;
+            
+            if (level.isEndless) {
+                document.getElementById('score-progress').innerText = '0m';
+                level.lastObsX = CW; // エンドレス用の障害物生成基準
+            } else {
+                document.getElementById('score-progress').innerText = '0%';
+            }
             
             // 背景星初期化
             bgStars = [];
-            for(let i=0; i<40; i++) {
+            for(let i=0; i<60; i++) {
                 bgStars.push({ x: Math.random()*CW, y: Math.random()*GROUND_Y, size: Math.random()*2+1, speed: Math.random()*0.3+0.1 });
             }
 
             player = {
                 ...charData,
-                x: CW * 0.2,
+                x: CW * 0.15, // 画面が広くなったので少し左寄りに
                 y: GROUND_Y - charData.size,
                 vy: 0,
                 jumpsLeft: charData.maxJumps,
                 rotation: 0,
                 squash: 1,
                 invincible: 0,
-                trail: [], // ランナー用残像
+                trail: [],
                 
                 jump() {
                     if (this.jumpsLeft > 0) {
@@ -435,7 +477,6 @@
                     } else if (this.id === 'runner') {
                         ctx.beginPath(); ctx.roundRect(-this.size/2, -this.size*0.4, this.size, this.size*0.8, 6); ctx.fill();
                     } else {
-                        // ninja, knight
                         ctx.beginPath(); ctx.roundRect(-this.size/2, -this.size/2, this.size, this.size, 8); ctx.fill();
                     }
 
@@ -443,7 +484,7 @@
                     ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(this.size*0.15, -this.size*0.1, this.size*0.15, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(this.size*0.2, -this.size*0.1, this.size*0.06, 0, Math.PI*2); ctx.fill();
 
-                    // ナイトのシールド
+                    // シールド
                     if (this.shield > 0) {
                         ctx.strokeStyle = 'rgba(255,255,255,0.8)';
                         ctx.lineWidth = 3;
@@ -451,7 +492,7 @@
                     }
                     ctx.restore();
 
-                    // ランナー残像
+                    // 残像
                     if (this.id === 'runner' && gameState === 'PLAYING') {
                         this.trail.forEach((t, i) => {
                             ctx.save(); ctx.translate(t.x + this.size/2, t.y + this.size/2); ctx.rotate(t.rot);
@@ -495,14 +536,13 @@
             spawnParticles(player.x+player.size/2, player.y+player.size/2, '#fbbf24', 60);
             document.getElementById('score-progress').innerText = '100%';
             
-            // 勝利フラッシュと紙吹雪 (オセロ流用)
             const flash = document.createElement('div');
             flash.className = 'victory-flash';
             document.body.appendChild(flash);
             setTimeout(() => flash.remove(), 700);
-            spawnConfetti('null');
+            spawnConfetti();
 
-            if (selectedStageId === unlockedStages && unlockedStages < STAGES.length) {
+            if (!level.isEndless && selectedStageId === unlockedStages && unlockedStages < STAGES.length - 1) {
                 unlockedStages++;
                 setTimeout(() => showToast('Next Stage Unlocked!'), 800);
             }
@@ -514,7 +554,6 @@
             changeState('MENU');
         }
 
-        // オセロのトースト流用
         function showToast(m) {
             const t = document.createElement('div');
             t.className = 'toast-pop fixed top-1/2 left-1/2 bg-black/90 text-white px-8 py-4 rounded-3xl font-black z-50 text-center';
@@ -523,7 +562,6 @@
             setTimeout(() => t.remove(), 1800);
         }
 
-        // オセロのコンフェティ流用
         function spawnConfetti() {
             const colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899'];
             for (let i = 0; i < 70; i++) {
@@ -546,8 +584,49 @@
         function updateGame(dt) {
             scrollX += level.speed;
             
-            // ゴール判定
-            if (scrollX > level.length) {
+            // エンドレスモードの動的生成
+            if (level.isEndless) {
+                // スピードを徐々に上げる（上限あり）
+                if (level.speed < 18) level.speed += 0.0015;
+
+                // 新しい障害物を生成
+                while (level.lastObsX < scrollX + CW * 1.5) {
+                    // 間隔はスピードが上がるほど広くする
+                    let baseGap = 400 + (level.speed - 8) * 30; 
+                    let gap = baseGap + Math.random() * 400;
+                    level.lastObsX += gap;
+                    
+                    const types = ['spike', 'pit', 'block'];
+                    // 複雑にするため、時々複合配置にする
+                    const isCombo = Math.random() < 0.3;
+                    
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    let obs = { x: level.lastObsX, type: type };
+                    
+                    if (type === 'spike') {
+                        obs.w = 40;
+                        obs.h = 40 + Math.random() * (level.speed > 12 ? 80 : 40);
+                    } else if (type === 'pit') {
+                        obs.w = 150 + Math.random() * (level.speed > 10 ? 300 : 150);
+                    } else if (type === 'block') {
+                        obs.w = 60 + Math.random() * 60;
+                        obs.h = 20;
+                        obs.y = 80 + Math.random() * 80;
+                        
+                        // ブロックの上にトゲを置くコンボ
+                        if (isCombo) {
+                            level.obs.push({ x: level.lastObsX + 10, y: obs.y, w: 30, h: 30, type: 'spike' });
+                        }
+                    }
+                    level.obs.push(obs);
+                }
+                
+                // 画面外に出た古い障害物を削除してメモリ節約
+                level.obs = level.obs.filter(o => o.x - scrollX > -500);
+            }
+
+            // ゴール判定 (通常モードのみ)
+            if (!level.isEndless && scrollX > level.length) {
                 stageClear();
                 return;
             }
@@ -569,7 +648,7 @@
                 if (obs.type === 'pit') {
                     if (pR > obsX && pL < obsX + obs.w) groundLevel = CH + 1000;
                 } else if (obs.type === 'block') {
-                    const bT = GROUND_Y - obs.y - obs.h;
+                    const bT = GROUND_Y - (obs.y||0) - obs.h;
                     if (pR > obsX && pL < obsX + obs.w) {
                         if (player.vy >= 0 && pB <= bT + player.vy + 2 && pB >= bT - 15) {
                             groundLevel = bT; onGround = true; player.y = bT - player.size;
@@ -623,14 +702,30 @@
             }
 
             // スコア(進捗)UI更新
-            let prog = Math.floor(Math.min(100, Math.max(0, (scrollX / level.length) * 100)));
-            if (prog !== prevProgress) {
-                const el = document.getElementById('score-progress');
-                el.innerText = prog + '%';
-                el.classList.remove('score-pop');
-                void el.offsetWidth;
-                el.classList.add('score-pop');
-                prevProgress = prog;
+            if (level.isEndless) {
+                let distance = Math.floor(scrollX / 10);
+                if (distance !== prevProgress) {
+                    const el = document.getElementById('score-progress');
+                    el.innerText = distance + 'm';
+                    // 100mごとにポップアニメーション
+                    if (distance > 0 && distance % 100 === 0) {
+                        el.classList.remove('score-pop');
+                        void el.offsetWidth;
+                        el.classList.add('score-pop');
+                        showToast(distance + 'm 突破！');
+                    }
+                    prevProgress = distance;
+                }
+            } else {
+                let prog = Math.floor(Math.min(100, Math.max(0, (scrollX / level.length) * 100)));
+                if (prog !== prevProgress) {
+                    const el = document.getElementById('score-progress');
+                    el.innerText = prog + '%';
+                    el.classList.remove('score-pop');
+                    void el.offsetWidth;
+                    el.classList.add('score-pop');
+                    prevProgress = prog;
+                }
             }
         }
 
@@ -639,7 +734,10 @@
             const bgGrad = ctx.createLinearGradient(0, 0, 0, CH);
             let c1 = '#0f172a', c2 = '#000000';
             if (level) { c1 = level.bg[0]; c2 = level.bg[1]; }
-            else if (STAGES[selectedStageId-1]) { c1 = STAGES[selectedStageId-1].bg[0]; c2 = STAGES[selectedStageId-1].bg[1]; }
+            else {
+                const s = STAGES.find(x => x.id === selectedStageId);
+                if(s) { c1 = s.bg[0]; c2 = s.bg[1]; }
+            }
             bgGrad.addColorStop(0, c1); bgGrad.addColorStop(1, c2);
             ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, CW, CH);
 
@@ -684,7 +782,7 @@
                     } else if (obs.type === 'spike') {
                         const sT = GROUND_Y - (obs.y||0) - obs.h;
                         const sB = GROUND_Y - (obs.y||0);
-                        ctx.fillStyle = '#ef4444'; // 赤
+                        ctx.fillStyle = '#ef4444';
                         ctx.beginPath();
                         ctx.moveTo(obsX + obs.w/2, sT); ctx.lineTo(obsX + obs.w, sB); ctx.lineTo(obsX, sB);
                         ctx.closePath(); ctx.fill();
@@ -694,19 +792,20 @@
                     }
                 }
 
-                // ゴールライン
-                const goalX = level.length - scrollX;
-                if (goalX > -100 && goalX < CW) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                    ctx.fillRect(goalX, 0, 30, CH);
-                    ctx.fillStyle = '#fbbf24';
-                    ctx.fillRect(goalX+10, 0, 10, CH);
+                // ゴールライン (通常モードのみ)
+                if (!level.isEndless) {
+                    const goalX = level.length - scrollX;
+                    if (goalX > -100 && goalX < CW) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.fillRect(goalX, 0, 30, CH);
+                        ctx.fillStyle = '#fbbf24';
+                        ctx.fillRect(goalX+10, 0, 10, CH);
+                    }
                 }
 
                 particles.forEach(p => p.draw(ctx));
                 if (gameState !== 'OVER') player.draw(ctx);
             } else if (gameState === 'MENU') {
-                // メニュー時も選ばれているキャラを真ん中に立たせておく演出
                 const c = CHARACTERS.find(x => x.id === selectedCharId);
                 ctx.translate(CW/2, GROUND_Y - c.size/2);
                 ctx.scale(1.5, 1.5);
@@ -739,15 +838,20 @@
         }
 
         // --- イベントリスナー ---
-        // スマホのタップ、PCのクリックをCanvasで検知してジャンプ
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jumpAction(); }, {passive: false});
-        canvas.addEventListener('mousedown', jumpAction);
+        // 画面上のどこをタップしてもジャンプするように設定
+        document.getElementById('game-container').addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            jumpAction(); 
+        }, {passive: false});
+        
+        document.getElementById('game-container').addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            jumpAction();
+        });
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') jumpAction();
         });
-
-        // 画面リサイズ時にCanvasの表示サイズを調整（CSS側で制御しているためロジック上は不要だが念のため）
-        window.addEventListener('resize', () => { /* CSSの object-fit: contain で対応済み */ });
 
         window.onload = () => {
             lucide.createIcons();
