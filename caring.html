@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Caring Pro Max</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            height: 100%; margin: 0; padding: 0; overflow: hidden;
+            background-color: #f4f4f5;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .glass-header {
+            background-color: rgba(255,255,255,0.7);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        /* ━━━ デバイス＆画面 UI ━━━ */
+        .device-body {
+            background: linear-gradient(145deg, #ffffff, #f4f4f5);
+            box-shadow: 20px 20px 60px #d1d1d6, -20px -20px 60px #ffffff, inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        .action-btn {
+            width: 48px; height: 48px;
+            background: #ffffff;
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            color: #52525b; /* zinc-600 */
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.05), -4px -4px 10px rgba(255,255,255,0.8);
+            border: 2px solid transparent;
+            transition: all 0.1s;
+        }
+        .action-btn:active {
+            transform: scale(0.92);
+            box-shadow: inset 4px 4px 10px rgba(0,0,0,0.05), inset -4px -4px 10px rgba(255,255,255,0.8);
+        }
+        .action-btn.active-icon {
+            color: #3b82f6; border-color: #bfdbfe; background: #eff6ff;
+        }
+        .action-btn.disabled {
+            opacity: 0.4; pointer-events: none;
+        }
+
+        #incubator {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
+            border: 8px solid #18181b;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.2);
+            transition: filter 0.5s;
+        }
+        #incubator::before {
+            content: ''; position: absolute; inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 20px 20px; pointer-events: none; z-index: 1;
+        }
+        .room-dark { filter: brightness(0.2) saturate(0.5); }
+
+        /* ━━━ モンスターグラフィック (CSS生成) ━━━ */
+        .monster-wrapper {
+            position: absolute; top: 55%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px; height: 120px;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10;
+        }
+        .monster {
+            position: relative; width: 60px; height: 60px;
+            transform: scale(var(--scale, 1)) scaleX(var(--facing, 1));
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* たまご */
+        .egg {
+            width: 50px; height: 60px;
+            background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: relative;
+            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.1), 0 10px 20px rgba(0,0,0,0.3);
+            background-image: radial-gradient(#4ade80 15%, transparent 16%), radial-gradient(#4ade80 15%, transparent 16%);
+            background-size: 20px 20px; background-position: 0 0, 10px 10px;
+            transform: scale(var(--scale, 1));
+        }
+
+        /* お墓 */
+        .tombstone {
+            width: 50px; height: 60px;
+            background: #94a3b8;
+            border-radius: 25px 25px 0 0;
+            position: relative;
+            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.5);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .tombstone::after { content: 'RIP'; font-weight: bold; color: #475569; font-size: 14px; }
+
+        /* ベース形状 */
+        .monster-body { position: relative; width: 100%; height: 100%; z-index: 10; transition: all 0.5s; }
+        .base-A .monster-body { background: radial-gradient(circle at 30% 30%, #60a5fa, #3b82f6, #1e3a8a); border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%; }
+        .base-B .monster-body { background: radial-gradient(circle at 30% 30%, #4ade80, #22c55e, #14532d); border-radius: 12px; }
+        .base-C .monster-body { background: radial-gradient(circle at 30% 30%, #f87171, #ef4444, #7f1d1d); border-radius: 50% 50% 10% 10%; clip-path: polygon(50% 0%, 100% 40%, 80% 100%, 20% 100%, 0% 40%); }
+        .monster-body { box-shadow: inset -5px -5px 15px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.4); }
+
+        /* 顔パーツ */
+        .eyes { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 70%; display: flex; justify-content: space-around; z-index: 12; }
+        .eye { position: relative; background: #fff; overflow: hidden; }
+        .eye::after { content:''; position: absolute; background: #000; width: 50%; height: 50%; top: 25%; left: 25%; border-radius: 50%; transition: all 0.2s;}
+        .eye-A { width: 14px; height: 14px; border-radius: 50%; }
+        .eye-B { width: 14px; height: 10px; border-radius: 2px; }
+        .eye-B::after { background: #dc2626; width: 6px; height: 6px; top: 2px; left: 4px; }
+        .eye-C { width: 14px; height: 10px; border-radius: 50% 50% 0 0; transform: rotate(15deg); }
+        .eye-C:first-child { transform: rotate(-15deg); }
+
+        /* 睡眠中の目 */
+        .is-sleeping .eye { height: 4px; border-radius: 0; margin-top: 5px; background: #000; }
+        .is-sleeping .eye::after { display: none; }
+
+        .mouth { position: absolute; top: 65%; left: 50%; transform: translateX(-50%); z-index: 12; }
+        .mouth-A { width: 10px; height: 10px; background: #000; border-radius: 50%; clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%); }
+        .mouth-B { width: 14px; height: 3px; background: #000; border-radius: 2px; }
+        .mouth-C { width: 12px; height: 8px; border-radius: 50%; border-bottom: 2px solid #000; }
+
+        /* 装飾パーツ */
+        .part-wing { position: absolute; width: 30px; height: 20px; top: 20px; z-index: 5; }
+        .wing-left { left: -20px; transform: scaleX(-1); }
+        .wing-right { right: -20px; }
+        .wing-angel { background: linear-gradient(to bottom, #fff, #cbd5e1); border-radius: 20px 20px 0 20px; }
+        .wing-demon { background: linear-gradient(to bottom, #334155, #0f172a); border-radius: 0 20px 20px 20px; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%); }
+        .part-tail { position: absolute; width: 16px; height: 16px; background: #b45309; top: -10px; border-radius: 50% 50% 0 0; z-index: 5;}
+        .tail-left { left: 8px; transform: rotate(-20deg); }
+        .tail-right { right: 8px; transform: rotate(20deg); }
+        .part-crown { position: absolute; width: 24px; height: 14px; background: linear-gradient(#fde047, #eab308); top: -10px; left: 18px; clip-path: polygon(0 0, 20% 50%, 50% 0, 80% 50%, 100% 0, 100% 100%, 0 100%); z-index: 15;}
+        .part-horn { position: absolute; width: 8px; height: 20px; background: linear-gradient(#fecaca, #f87171); top: -12px; left: 26px; border-radius: 4px 4px 0 0; z-index: 15;}
+        .part-mask { position: absolute; width: 100%; height: 40%; background: #1e293b; bottom: 0; left: 0; border-radius: 0 0 45% 45%; z-index: 15; box-shadow: 0 -2px 5px rgba(0,0,0,0.5); }
+
+        /* ━━━ アニメーション ━━━ */
+        @keyframes float { 0%, 100% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(0); } 50% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(-8px); } }
+        .anim-float { animation: float 3s infinite ease-in-out; }
+        @keyframes bounce-slow { 0%, 100% { transform: scale(var(--scale, 1)) translateY(0); } 50% { transform: scale(var(--scale, 1)) translateY(-6px); } }
+        .anim-bounce-slow { animation: bounce-slow 2s infinite ease-in-out; }
+        @keyframes jump-joy { 0% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(0); } 50% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(-30px); } 100% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(0); } }
+        .anim-jump { animation: jump-joy 0.4s ease-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .anim-shake { animation: shake 0.3s infinite; }
+        
+        /* 状態エフェクト */
+        .icon-pulse { animation: pulse-red 1s infinite; color: #ef4444 !important; }
+        @keyframes pulse-red { 0%, 100% { opacity: 1; text-shadow: 0 0 10px #ef4444; } 50% { opacity: 0.5; text-shadow: none;} }
+        
+        .sick-icon { position: absolute; top: -10px; right: -20px; font-size: 24px; animation: float 2s infinite; z-index: 20; }
+        .zzz-icon { position: absolute; top: -20px; right: -10px; font-size: 20px; font-weight: bold; color: white; opacity: 0; animation: zzz 3s infinite; z-index: 20; }
+        @keyframes zzz { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 50% { opacity: 1; } 100% { transform: translate(15px, -20px) scale(1.5); opacity: 0; } }
+
+        /* メニューオーバーレイ */
+        .overlay-menu {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.95);
+            z-index: 40; display: flex; flex-direction: column; padding: 1rem;
+            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .overlay-menu.show { transform: translateY(0); }
+
+        .game-overlay { background: rgba(15,23,42,0.95); color: white; }
+
+        /* ハートメーター */
+        .heart { color: #d1d5db; font-size: 24px; transition: color 0.3s; }
+        .heart.filled { color: #ef4444; }
+        .heart.filled-happy { color: #f59e0b; }
+
+        /* エフェクト */
+        .confetti { position: absolute; z-index: 80; pointer-events: none; animation: confetti-fall linear forwards; }
+        @keyframes confetti-fall { 0% { transform: translateY(-20px) rotate(0deg) scale(1); opacity:1; } 100% { transform: translateY(400px) rotate(var(--rot,720deg)) scale(0.5); opacity:0; } }
+        .victory-flash { position: absolute; inset: 0; background: #fff; pointer-events: none; z-index: 90; animation: v-flash 1s ease-out forwards; border-radius: 18px; }
+        @keyframes v-flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+    </style>
+</head>
+<body class="flex flex-col items-center">
+
+    <!-- ヘッダー -->
+    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4 max-w-lg mx-auto">
+        <button onclick="window.location.reload()" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
+            <i data-lucide="home" class="w-5 h-5"></i><span class="text-sm font-bold">ホーム</span>
+        </button>
+        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">CARING PRO MAX</div>
+        <button onclick="resetGame()" class="p-2 text-zinc-400 hover:text-red-500 transition-colors rounded-xl" title="データリセット">
+            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+        </button>
+    </header>
+
+    <main class="flex-grow flex flex-col items-center justify-center p-4 w-full max-w-lg">
+        
+        <!-- デバイス本体 -->
+        <div class="device-body p-6 rounded-[2.5rem] w-full max-w-[360px] relative border border-white/50">
+            
+            <!-- 上部ボタン群 -->
+            <div class="flex justify-between mb-6 px-1">
+                <button class="action-btn group" id="btn-status" onclick="toggleMenu('status')" title="ステータス">
+                    <i data-lucide="activity" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <button class="action-btn group" id="btn-meal" onclick="toggleMenu('meal')" title="食事">
+                    <i data-lucide="utensils" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <button class="action-btn group" id="btn-toilet" onclick="actionToilet()" title="トイレ">
+                    <i data-lucide="bath" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <button class="action-btn group" id="btn-game" onclick="toggleMenu('game')" title="ゲーム">
+                    <i data-lucide="gamepad-2" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+            </div>
+
+            <!-- インキュベーター（画面） -->
+            <div id="incubator" class="aspect-square rounded-[2rem] relative overflow-hidden">
+                <!-- モンスター表示 -->
+                <div id="monster-wrapper" class="monster-wrapper">
+                    <div id="monster-container"></div>
+                </div>
+                <!-- うんちレイヤー -->
+                <div id="poop-layer" class="absolute inset-0 pointer-events-none z-20"></div>
+                <!-- エフェクトレイヤー -->
+                <div id="effect-layer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+                <!-- オーバーレイメニュー：ステータス -->
+                <div id="menu-status" class="overlay-menu rounded-[1.5rem] m-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="font-black text-zinc-800 text-lg">STATUS</span>
+                        <button onclick="toggleMenu(null)" class="text-zinc-400 hover:text-zinc-800"><i data-lucide="x"></i></button>
+                    </div>
+                    <div class="space-y-4 flex-grow overflow-y-auto pr-2 pb-2">
+                        <div class="flex justify-between items-end border-b-2 border-zinc-100 pb-2">
+                            <span class="text-xs font-bold text-zinc-500">AGE / WEIGHT</span>
+                            <span class="font-black text-xl text-zinc-700"><span id="st-age">0</span><span class="text-sm">才</span> / <span id="st-weight">5</span><span class="text-sm">g</span></span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-zinc-500 block mb-1">HUNGER</span>
+                            <div class="flex gap-1" id="st-hunger"></div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-zinc-500 block mb-1">HAPPY</span>
+                            <div class="flex gap-1" id="st-happy"></div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-zinc-500 block mb-1">DISCIPLINE</span>
+                            <div class="w-full bg-zinc-200 rounded-full h-3 overflow-hidden">
+                                <div id="st-discipline" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- オーバーレイメニュー：食事 -->
+                <div id="menu-meal" class="overlay-menu rounded-[1.5rem] m-2 flex flex-col justify-end pb-6">
+                    <button onclick="toggleMenu('null')" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-800"><i data-lucide="x"></i></button>
+                    <div class="flex gap-4">
+                        <button onclick="actionFeed('food')" class="flex-1 bg-zinc-100 hover:bg-zinc-200 py-4 rounded-2xl font-bold text-zinc-700 flex flex-col items-center gap-2 transition-colors">
+                            <span class="text-3xl">🍚</span> ごはん
+                        </button>
+                        <button onclick="actionFeed('snack')" class="flex-1 bg-zinc-100 hover:bg-zinc-200 py-4 rounded-2xl font-bold text-zinc-700 flex flex-col items-center gap-2 transition-colors">
+                            <span class="text-3xl">🍬</span> おやつ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- オーバーレイメニュー：ミニゲーム -->
+                <div id="menu-game" class="overlay-menu game-overlay rounded-[1.5rem] m-2 flex flex-col items-center justify-center text-center">
+                    <button onclick="toggleMenu('null')" class="absolute top-4 right-4 text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
+                    <div id="game-ui-start">
+                        <i data-lucide="gamepad-2" class="w-12 h-12 mx-auto mb-4 text-blue-400"></i>
+                        <h3 class="font-black text-xl mb-2">シンクロゲーム</h3>
+                        <p class="text-xs text-zinc-400 mb-6">同じ方向を向いたら勝ち！<br>(3回勝負)</p>
+                        <button onclick="startGameRound()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full transition-all active:scale-95">START</button>
+                    </div>
+                    <div id="game-ui-play" class="hidden w-full">
+                        <div class="text-sm font-bold text-blue-400 mb-4 tracking-widest">ROUND <span id="game-round">1</span>/3</div>
+                        <div class="flex justify-center gap-2 mb-8" id="game-results">
+                            <!-- 勝敗アイコンが入る -->
+                        </div>
+                        <div class="flex justify-between w-full px-4 gap-4">
+                            <button onclick="playTurn('L')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-6 rounded-2xl text-2xl font-black transition-all active:scale-95 text-white border-b-4 border-zinc-900">L</button>
+                            <button onclick="playTurn('R')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-6 rounded-2xl text-2xl font-black transition-all active:scale-95 text-white border-b-4 border-zinc-900">R</button>
+                        </div>
+                    </div>
+                    <div id="game-ui-end" class="hidden w-full">
+                        <div id="game-final-msg" class="text-2xl font-black mb-6"></div>
+                        <button onclick="toggleMenu('game')" class="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-full transition-all active:scale-95">もどる</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下部ボタン群 -->
+            <div class="flex justify-between mt-6 px-1">
+                <button class="action-btn group" id="btn-discipline" onclick="actionDiscipline()" title="しつけ">
+                    <i data-lucide="megaphone" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <button class="action-btn group" id="btn-medical" onclick="actionMedical()" title="注射">
+                    <i data-lucide="syringe" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <button class="action-btn group" id="btn-light" onclick="actionLight()" title="電気">
+                    <i data-lucide="lightbulb" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
+                </button>
+                <button class="action-btn" id="call-sign" title="呼び出しサイン" style="pointer-events: none;">
+                    <i data-lucide="bell" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        /* ━━━ 定数・設定 ━━━ */
+        const DB_KEY = 'caring_pro_max_save';
+        const TICKS_PER_DAY = 60; // 1日=60秒
+        const SLEEP_START = 45;   // 45~59秒は睡眠時間
+        const MAX_HEARTS = 4;
+        
+        // 進化タイミング(日数)
+        const EVOLVE_DAYS = { 1: 1, 2: 2, 3: 4 }; // 卵->1日->第1->2日->第2->4日->最終
+        const DEATH_AGE = 10; // 寿命
+
+        /* ━━━ ゲームシステム ━━━ */
+        const getInitialState = () => ({
+            stage: 'egg', // 'egg', 'A', 'AB', 'ABC', 'dead'
+            hunger: 4,
+            happy: 4,
+            weight: 5,
+            discipline: 0,
+            ageTicks: 0,    // 総経過秒数
+            phaseTicks: 0,  // 現在の形態になってからの秒数
+            poops: [],      // うんち配列
+            isSick: false,
+            sickTicks: 0,   // 病気放置時間
+            isSleeping: false,
+            lightOn: true,
+            isSelfish: false,
+            careMistakes: 0,
+            lastTick: Date.now()
+        });
+
+        let state = getInitialState();
+        let loopId = null;
+        let activeMenu = null;
+
+        /* ━━━ セーブ＆ロード ━━━ */
+        function load() {
+            const saved = localStorage.getItem(DB_KEY);
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                    // オフライン進行（最大120秒分だけシミュレートして放置死を防ぐ）
+                    const diffSec = Math.floor((Date.now() - state.lastTick) / 1000);
+                    if (diffSec > 0 && state.stage !== 'dead') {
+                        const simSec = Math.min(diffSec, 120);
+                        for(let i=0; i<simSec; i++) simulateTick(true);
+                    }
+                } catch(e) { console.error('Save data error'); }
+            }
+            state.lastTick = Date.now();
+            updateAll();
+        }
+
+        function save() {
+            if(state.stage === 'dead') return; // 死んだら保存更新停止（リセット待ち）
+            state.lastTick = Date.now();
+            localStorage.setItem(DB_KEY, JSON.stringify(state));
+        }
+
+        function resetGame() {
+            if(confirm('セーブデータを消去して、たまごからやり直しますか？')) {
+                state = getInitialState();
+                save();
+                toggleMenu(null);
+                updateAll();
+            }
+        }
+
+        /* ━━━ ゲームループ ━━━ */
+        function startGame() {
+            load();
+            if(loopId) clearInterval(loopId);
+            loopId = setInterval(() => {
+                if(state.stage !== 'dead') {
+                    simulateTick(false);
+                    updateUI();
+                    save();
+                }
+            }, 1000);
+        }
+
+        function simulateTick(isOffline) {
+            state.ageTicks++;
+            state.phaseTicks++;
+
+            // 睡眠判定
+            const timeOfDay = state.ageTicks % TICKS_PER_DAY;
+            const wasSleeping = state.isSleeping;
+            state.isSleeping = (timeOfDay >= SLEEP_START && state.stage !== 'egg');
+
+            // 起床時の処理
+            if (wasSleeping && !state.isSleeping) {
+                if (state.lightOn) {
+                    state.careMistakes++; // 電気つけっぱなしペナルティ
+                    state.happy = Math.max(0, state.happy - 1);
+                }
+            }
+
+            // 寝ている間はパラメータ減少しない
+            if (!state.isSleeping && state.stage !== 'egg') {
+                // 空腹減少 (約15秒で1減)
+                if (state.ageTicks % 15 === 0) state.hunger = Math.max(0, state.hunger - 1);
+                // ごきげん減少 (約20秒で1減)
+                if (state.ageTicks % 20 === 0) state.happy = Math.max(0, state.happy - 1);
+                
+                // うんち発生 (約10秒に1回、確率で)
+                if (state.ageTicks % 10 === 0 && Math.random() < 0.6 && state.poops.length < 4) {
+                    state.poops.push({ id: Date.now(), x: 20 + Math.random() * 60, y: 75 + Math.random() * 15 });
+                    if(!isOffline) renderPoops();
+                }
+
+                // わがまま判定 (空腹・ごきげんが3以上あるのに確率で発生)
+                if (!state.isSelfish && !state.isSick && state.hunger >= 3 && state.happy >= 3 && Math.random() < 0.05) {
+                    state.isSelfish = true;
+                }
+
+                // 病気判定 (うんち放置で確率UP)
+                if (!state.isSick) {
+                    let sickChance = 0.01 + (state.poops.length * 0.05);
+                    if (Math.random() < sickChance) state.isSick = true;
+                }
+            }
+
+            // 病気進行
+            if (state.isSick) {
+                state.sickTicks++;
+                if (state.sickTicks > 30) { die(); return; } // 30秒放置で死
+            } else {
+                state.sickTicks = 0;
+            }
+
+            // 寿命判定
+            if (getAgeDays() >= DEATH_AGE) { die(); return; }
+
+            // ケアミス蓄積 (呼び出しサイン放置)
+            if (checkCallSign() && state.ageTicks % 5 === 0) {
+                state.careMistakes += 0.5;
+            }
+
+            // 進化判定
+            checkEvolution();
+        }
+
+        function getAgeDays() { return Math.floor(state.ageTicks / TICKS_PER_DAY); }
+
+        /* ━━━ 死と進化 ━━━ */
+        function die() {
+            state.stage = 'dead';
+            state.poops = [];
+            state.isSick = false;
+            state.isSelfish = false;
+            updateAll();
+        }
+
+        function checkEvolution() {
+            if (state.stage.length >= 3 && state.stage !== 'egg') return;
+            
+            let currentPhaseDays = Math.floor(state.phaseTicks / TICKS_PER_DAY);
+            let targetDays = state.stage === 'egg' ? EVOLVE_DAYS[1] : 
+                             state.stage.length === 1 ? EVOLVE_DAYS[2] : EVOLVE_DAYS[3];
+
+            if (currentPhaseDays >= targetDays) {
+                evolve();
+            }
+        }
+
+        function evolve() {
+            let nextChar = 'B'; // デフォルト普通
+            const isGood = state.careMistakes <= 2 && state.discipline >= 50;
+            const isBad = state.careMistakes > 5 || state.weight > 30; // 肥満もCルート
+
+            if (isGood) nextChar = 'A';
+            else if (isBad) nextChar = 'C';
+
+            if (state.stage === 'egg') state.stage = nextChar;
+            else state.stage += nextChar;
+
+            state.phaseTicks = 0;
+            state.careMistakes = 0;
+            state.weight = Math.max(state.weight, state.stage.length * 10); // 形態により最低体重アップ
+            
+            showEvolveEffect();
+            updateAll();
+        }
+
+        /* ━━━ UI状態判定 ━━━ */
+        function checkCallSign() {
+            if (state.stage === 'egg' || state.stage === 'dead') return false;
+            return state.hunger === 0 || 
+                   state.happy === 0 || 
+                   state.isSick || 
+                   (state.isSleeping && state.lightOn) || 
+                   state.isSelfish;
+        }
+
+        function canAct() {
+            if (state.stage === 'egg' || state.stage === 'dead') return false;
+            if (state.isSleeping) {
+                showToast('寝ていますZzz');
+                return false;
+            }
+            return true;
+        }
+
+        /* ━━━ アクション ━━━ */
+        function toggleMenu(menuId) {
+            if (menuId && !canAct() && menuId !== 'status') return; // 寝ててもステータスは見れる
+            
+            // 全メニュー閉じる
+            document.querySelectorAll('.overlay-menu').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('.action-btn').forEach(el => el.classList.remove('active-icon'));
+            activeMenu = null;
+
+            if (menuId) {
+                document.getElementById(`menu-${menuId}`).classList.add('show');
+                document.getElementById(`btn-${menuId}`).classList.add('active-icon');
+                activeMenu = menuId;
+                if(menuId === 'status') renderStatus();
+                if(menuId === 'game') resetGameUI();
+            }
+        }
+
+        function actionFeed(type) {
+            if (state.isSick) { showToast('病気で食べられません'); return; }
+            if (state.hunger >= MAX_HEARTS && type === 'food') {
+                if (Math.random() < 0.5) state.isSelfish = true; // 満腹で無理やり食べさせるとわがままに
+                showToast('おなかいっぱいです'); return; 
+            }
+            if (state.isSelfish && Math.random() < 0.7) { showToast('プイッ（食べない）'); return; }
+
+            if (type === 'food') {
+                state.hunger = Math.min(MAX_HEARTS, state.hunger + 1);
+                state.weight += 1;
+                spawnItemEffect('🍚');
+            } else {
+                state.happy = Math.min(MAX_HEARTS, state.happy + 1);
+                state.weight += 2;
+                spawnItemEffect('🍬');
+            }
+            triggerAnim('monster-container', 'anim-jump', 400);
+            toggleMenu(null);
+            updateUI(); save();
+        }
+
+        function actionToilet() {
+            if (!canAct() && !state.isSleeping) return; // 寝ててもトイレは流せる
+            if (state.poops.length === 0) { showToast('きれいです'); return; }
+            state.poops = [];
+            spawnItemEffect('🌊');
+            renderPoops();
+            updateUI(); save();
+        }
+
+        function actionDiscipline() {
+            if (!canAct()) return;
+            if (state.isSelfish) {
+                state.discipline = Math.min(100, state.discipline + 25);
+                state.isSelfish = false;
+                state.happy = Math.max(0, state.happy - 1); // 叱られて少しごきげんダウン
+                spawnItemEffect('💢');
+                showToast('しつけました');
+            } else {
+                // わがままじゃないのに叱る＝ミス
+                state.careMistakes++;
+                state.happy = Math.max(0, state.happy - 1);
+                spawnItemEffect('❓');
+            }
+            updateUI(); save();
+        }
+
+        function actionMedical() {
+            if (state.stage === 'egg' || state.stage === 'dead') return;
+            if (state.isSick) {
+                state.isSick = false;
+                state.sickTicks = 0;
+                spawnItemEffect('💉');
+                showToast('治りました');
+            } else {
+                spawnItemEffect('❓');
+            }
+            updateUI(); save();
+        }
+
+        function actionLight() {
+            if (state.stage === 'egg' || state.stage === 'dead') return;
+            state.lightOn = !state.lightOn;
+            updateUI(); save();
+        }
+
+        /* ━━━ ミニゲーム ━━━ */
+        let gameData = { round: 1, wins: 0 };
+        function resetGameUI() {
+            document.getElementById('game-ui-start').classList.remove('hidden');
+            document.getElementById('game-ui-play').classList.add('hidden');
+            document.getElementById('game-ui-end').classList.add('hidden');
+        }
+        function startGameRound() {
+            if(state.weight <= 5 && state.stage.length === 1) { showToast('体重が軽すぎます'); return; }
+            gameData = { round: 1, wins: 0 };
+            document.getElementById('game-ui-start').classList.add('hidden');
+            document.getElementById('game-ui-play').classList.remove('hidden');
+            updateGamePlayUI();
+        }
+        function updateGamePlayUI() {
+            document.getElementById('game-round').innerText = gameData.round;
+            const resDiv = document.getElementById('game-results');
+            resDiv.innerHTML = '';
+            for(let i=0; i<3; i++) {
+                if(i < gameData.round - 1) {
+                    // 過去ラウンドの結果（DOM構造が単純なので配列管理せず手抜きで表示）
+                }
+            }
+        }
+        function playTurn(userChoice) {
+            const choices = ['L', 'R'];
+            const monChoice = choices[Math.floor(Math.random() * 2)];
+            
+            // モンスターを向かせる演出
+            const wrapper = document.getElementById('monster-wrapper');
+            const monEl = wrapper.querySelector('.monster');
+            if(monEl) monEl.style.setProperty('--facing', monChoice === 'L' ? -1 : 1);
+
+            const isWin = userChoice === monChoice;
+            if(isWin) gameData.wins++;
+
+            const resDiv = document.getElementById('game-results');
+            resDiv.innerHTML += `<div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isWin ? 'bg-green-500':'bg-zinc-600'}">${isWin?'O':'X'}</div>`;
+
+            if(gameData.round < 3) {
+                gameData.round++;
+                document.getElementById('game-round').innerText = gameData.round;
+            } else {
+                setTimeout(endGame, 1000);
+            }
+        }
+        function endGame() {
+            document.getElementById('game-ui-play').classList.add('hidden');
+            document.getElementById('game-ui-end').classList.remove('hidden');
+            const msgEl = document.getElementById('game-final-msg');
+            
+            if(gameData.wins >= 2) {
+                msgEl.innerText = 'WIN! 🎉';
+                msgEl.className = 'text-3xl font-black mb-6 text-green-400';
+                state.happy = Math.min(MAX_HEARTS, state.happy + (gameData.wins === 3 ? 2 : 1));
+                state.weight = Math.max(5, state.weight - 1);
+                triggerAnim('monster-container', 'anim-jump', 400);
+            } else {
+                msgEl.innerText = 'LOSE... 💦';
+                msgEl.className = 'text-3xl font-black mb-6 text-zinc-400';
+            }
+            save(); updateUI();
+        }
+
+
+        /* ━━━ 描画・UI更新 ━━━ */
+        function updateAll() {
+            updateUI();
+            renderMonster();
+            renderPoops();
+        }
+
+        function updateUI() {
+            // 電気
+            const incubator = document.getElementById('incubator');
+            if (!state.lightOn) incubator.classList.add('room-dark');
+            else incubator.classList.remove('room-dark');
+
+            // 呼び出しサイン
+            const callBtn = document.getElementById('call-sign');
+            if (checkCallSign()) callBtn.classList.add('icon-pulse');
+            else callBtn.classList.remove('icon-pulse');
+
+            // ボタンの有効無効
+            const isDeadOrEgg = state.stage === 'dead' || state.stage === 'egg';
+            document.querySelectorAll('.action-btn:not(#call-sign)').forEach(btn => {
+                if (isDeadOrEgg) btn.classList.add('disabled');
+                else btn.classList.remove('disabled');
+            });
+            // ステータスと電気は卵でも見れる
+            document.getElementById('btn-status').classList.remove('disabled');
+            document.getElementById('btn-light').classList.remove('disabled');
+
+            // 状態エフェクト更新（クラス付与によるCSS制御）
+            renderMonsterEffects();
+
+            if(activeMenu === 'status') renderStatus();
+        }
+
+        function renderStatus() {
+            document.getElementById('st-age').innerText = getAgeDays();
+            document.getElementById('st-weight').innerText = state.weight;
+            
+            const renderHearts = (id, val, fillClass) => {
+                const el = document.getElementById(id);
+                el.innerHTML = '';
+                for(let i=0; i<MAX_HEARTS; i++) {
+                    el.innerHTML += `<i data-lucide="heart" class="w-6 h-6 heart ${i < val ? fillClass : ''}"></i>`;
+                }
+            };
+            renderHearts('st-hunger', state.hunger, 'filled');
+            renderHearts('st-happy', state.happy, 'filled-happy');
+            lucide.createIcons();
+
+            document.getElementById('st-discipline').style.width = `${state.discipline}%`;
+        }
+
+        function renderPoops() {
+            const layer = document.getElementById('poop-layer');
+            layer.innerHTML = '';
+            state.poops.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'absolute text-2xl drop-shadow-md';
+                div.innerText = '💩';
+                div.style.left = `${p.x}%`;
+                div.style.top = `${p.y}%`;
+                div.style.transform = 'translate(-50%, -50%)';
+                layer.appendChild(div);
+            });
+        }
+
+        function renderMonster() {
+            const container = document.getElementById('monster-container');
+            
+            if (state.stage === 'dead') {
+                container.innerHTML = `<div class="tombstone"></div>`;
+                return;
+            }
+            if (state.stage === 'egg') {
+                container.innerHTML = `<div class="egg anim-bounce-slow" style="--scale: 1.2;"></div>`;
+                return;
+            }
+
+            const c1 = state.stage[0];
+            const c2 = state.stage.length >= 2 ? state.stage[1] : '';
+            const c3 = state.stage.length >= 3 ? state.stage[2] : '';
+            const scales = { 1: 1.1, 2: 1.4, 3: 1.8 };
+            const scale = scales[state.stage.length] || 1;
+
+            let html = `<div class="monster base-${c1} anim-float" style="--scale: ${scale}; --facing: 1;">`;
+
+            // 背部パーツ
+            if (c2 === 'A') html += `<div class="part-wing wing-angel wing-left"></div><div class="part-wing wing-angel wing-right"></div>`;
+            if (c2 === 'B') html += `<div class="part-tail tail-left"></div><div class="part-tail tail-right"></div>`;
+            if (c2 === 'C') html += `<div class="part-wing wing-demon wing-left"></div><div class="part-wing wing-demon wing-right"></div>`;
+
+            // ボディ
+            html += `<div class="monster-body">`;
+            html += `<div class="eyes"><div class="eye eye-${c1}"></div><div class="eye eye-${c1}"></div></div>`;
+            html += `<div class="mouth mouth-${c1}"></div>`;
+
+            // 前部パーツ
+            if (c3 === 'A') html += `<div class="part-crown"></div>`;
+            if (c3 === 'B') html += `<div class="part-horn"></div>`;
+            if (c3 === 'C') html += `<div class="part-mask"></div>`;
+
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        function renderMonsterEffects() {
+            const wrapper = document.getElementById('monster-wrapper');
+            if(!wrapper) return;
+
+            // 睡眠
+            if(state.isSleeping) wrapper.classList.add('is-sleeping');
+            else wrapper.classList.remove('is-sleeping');
+
+            // わがまま
+            if(state.isSelfish) wrapper.classList.add('anim-shake');
+            else wrapper.classList.remove('anim-shake');
+
+            // アイコン類
+            let existingSick = document.getElementById('icon-sick');
+            let existingZzz = document.getElementById('icon-zzz');
+
+            if (state.isSick && !existingSick && state.stage !== 'dead') {
+                const sick = document.createElement('div');
+                sick.id = 'icon-sick'; sick.className = 'sick-icon'; sick.innerText = '💀';
+                wrapper.appendChild(sick);
+            } else if (!state.isSick && existingSick) existingSick.remove();
+
+            if (state.isSleeping && !existingZzz && state.stage !== 'dead') {
+                const zzz = document.createElement('div');
+                zzz.id = 'icon-zzz'; zzz.className = 'zzz-icon'; zzz.innerText = 'Zzz';
+                wrapper.appendChild(zzz);
+            } else if (!state.isSleeping && existingZzz) existingZzz.remove();
+        }
+
+        /* ━━━ エフェクト・ユーティリティ ━━━ */
+        function spawnItemEffect(emoji) {
+            const layer = document.getElementById('effect-layer');
+            const el = document.createElement('div');
+            el.innerText = emoji;
+            el.className = 'absolute text-4xl z-50 transition-all duration-700 pointer-events-none';
+            el.style.left = '50%'; el.style.top = '-20%'; el.style.transform = 'translate(-50%, 0)';
+            layer.appendChild(el);
+            
+            requestAnimationFrame(() => {
+                el.style.transform = 'translate(-50%, 150px)';
+                el.style.opacity = '0';
+            });
+            setTimeout(() => el.remove(), 700);
+        }
+
+        function showEvolveEffect() {
+            const incubator = document.getElementById('incubator');
+            const flash = document.createElement('div');
+            flash.className = 'victory-flash';
+            incubator.appendChild(flash);
+            setTimeout(() => flash.remove(), 1000);
+            showToast("進化しました！✨");
+            
+            const colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b'];
+            for (let i = 0; i < 30; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti';
+                el.style.left = (10 + Math.random() * 80) + '%';
+                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                el.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+                el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                const size = 6 + Math.random() * 4;
+                el.style.width = size + 'px'; el.style.height = size + 'px';
+                incubator.appendChild(el);
+                setTimeout(() => el.remove(), 3000);
+            }
+        }
+
+        function showToast(m) {
+            const t = document.createElement('div');
+            t.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-6 py-3 rounded-full font-bold z-[100] transition-all duration-300';
+            t.style.opacity = '0';
+            t.innerText = m;
+            document.body.appendChild(t);
+            requestAnimationFrame(() => t.style.opacity = '1');
+            setTimeout(() => {
+                t.style.opacity = '0';
+                setTimeout(() => t.remove(), 300);
+            }, 2000);
+        }
+
+        function triggerAnim(elId, animClass, duration) {
+            const el = document.getElementById(elId);
+            if(!el) return;
+            el.classList.remove(animClass);
+            void el.offsetWidth;
+            el.classList.add(animClass);
+            setTimeout(() => el.classList.remove(animClass), duration);
+        }
+
+        // 初期起動
+        window.onload = startGame;
+
+    </script>
+</body>
+</html>
