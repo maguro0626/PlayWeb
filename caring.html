@@ -1,867 +1,1589 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Caring Pro Max</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        :root { --app-height: 100%; }
-        html, body {
-            height: 100%; margin: 0; padding: 0; overflow: hidden;
-            background-color: #f4f4f5;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-            touch-action: manipulation;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        .glass-header {
-            background-color: rgba(255,255,255,0.7);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-        }
-
-        /* ━━━ デバイス＆画面 UI ━━━ */
-        .device-body {
-            background: linear-gradient(145deg, #ffffff, #f4f4f5);
-            box-shadow: 20px 20px 60px #d1d1d6, -20px -20px 60px #ffffff, inset 0 0 10px rgba(0,0,0,0.05);
-        }
-        .action-btn {
-            width: 48px; height: 48px;
-            background: #ffffff;
-            border-radius: 16px;
-            display: flex; align-items: center; justify-content: center;
-            color: #52525b; /* zinc-600 */
-            box-shadow: 4px 4px 10px rgba(0,0,0,0.05), -4px -4px 10px rgba(255,255,255,0.8);
-            border: 2px solid transparent;
-            transition: all 0.1s;
-        }
-        .action-btn:active {
-            transform: scale(0.92);
-            box-shadow: inset 4px 4px 10px rgba(0,0,0,0.05), inset -4px -4px 10px rgba(255,255,255,0.8);
-        }
-        .action-btn.active-icon {
-            color: #3b82f6; border-color: #bfdbfe; background: #eff6ff;
-        }
-        .action-btn.disabled {
-            opacity: 0.4; pointer-events: none;
-        }
-
-        #incubator {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
-            border: 8px solid #18181b;
-            box-shadow: inset 0 0 30px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.2);
-            transition: filter 0.5s;
-        }
-        #incubator::before {
-            content: ''; position: absolute; inset: 0;
-            background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-            background-size: 20px 20px; pointer-events: none; z-index: 1;
-        }
-        .room-dark { filter: brightness(0.2) saturate(0.5); }
-
-        /* ━━━ モンスターグラフィック (CSS生成) ━━━ */
-        .monster-wrapper {
-            position: absolute; top: 55%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 120px; height: 120px;
-            display: flex; align-items: center; justify-content: center;
-            z-index: 10;
-        }
-        .monster {
-            position: relative; width: 60px; height: 60px;
-            transform: scale(var(--scale, 1)) scaleX(var(--facing, 1));
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        /* たまご */
-        .egg {
-            width: 50px; height: 60px;
-            background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0);
-            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-            position: relative;
-            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.1), 0 10px 20px rgba(0,0,0,0.3);
-            background-image: radial-gradient(#4ade80 15%, transparent 16%), radial-gradient(#4ade80 15%, transparent 16%);
-            background-size: 20px 20px; background-position: 0 0, 10px 10px;
-            transform: scale(var(--scale, 1));
-        }
-
-        /* お墓 */
-        .tombstone {
-            width: 50px; height: 60px;
-            background: #94a3b8;
-            border-radius: 25px 25px 0 0;
-            position: relative;
-            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.5);
-            display: flex; justify-content: center; align-items: center;
-        }
-        .tombstone::after { content: 'RIP'; font-weight: bold; color: #475569; font-size: 14px; }
-
-        /* ベース形状 */
-        .monster-body { position: relative; width: 100%; height: 100%; z-index: 10; transition: all 0.5s; }
-        .base-A .monster-body { background: radial-gradient(circle at 30% 30%, #60a5fa, #3b82f6, #1e3a8a); border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%; }
-        .base-B .monster-body { background: radial-gradient(circle at 30% 30%, #4ade80, #22c55e, #14532d); border-radius: 12px; }
-        .base-C .monster-body { background: radial-gradient(circle at 30% 30%, #f87171, #ef4444, #7f1d1d); border-radius: 50% 50% 10% 10%; clip-path: polygon(50% 0%, 100% 40%, 80% 100%, 20% 100%, 0% 40%); }
-        .monster-body { box-shadow: inset -5px -5px 15px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.4); }
-
-        /* 顔パーツ */
-        .eyes { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 70%; display: flex; justify-content: space-around; z-index: 12; }
-        .eye { position: relative; background: #fff; overflow: hidden; }
-        .eye::after { content:''; position: absolute; background: #000; width: 50%; height: 50%; top: 25%; left: 25%; border-radius: 50%; transition: all 0.2s;}
-        .eye-A { width: 14px; height: 14px; border-radius: 50%; }
-        .eye-B { width: 14px; height: 10px; border-radius: 2px; }
-        .eye-B::after { background: #dc2626; width: 6px; height: 6px; top: 2px; left: 4px; }
-        .eye-C { width: 14px; height: 10px; border-radius: 50% 50% 0 0; transform: rotate(15deg); }
-        .eye-C:first-child { transform: rotate(-15deg); }
-
-        /* 睡眠中の目 */
-        .is-sleeping .eye { height: 4px; border-radius: 0; margin-top: 5px; background: #000; }
-        .is-sleeping .eye::after { display: none; }
-
-        .mouth { position: absolute; top: 65%; left: 50%; transform: translateX(-50%); z-index: 12; }
-        .mouth-A { width: 10px; height: 10px; background: #000; border-radius: 50%; clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%); }
-        .mouth-B { width: 14px; height: 3px; background: #000; border-radius: 2px; }
-        .mouth-C { width: 12px; height: 8px; border-radius: 50%; border-bottom: 2px solid #000; }
-
-        /* 装飾パーツ */
-        .part-wing { position: absolute; width: 30px; height: 20px; top: 20px; z-index: 5; }
-        .wing-left { left: -20px; transform: scaleX(-1); }
-        .wing-right { right: -20px; }
-        .wing-angel { background: linear-gradient(to bottom, #fff, #cbd5e1); border-radius: 20px 20px 0 20px; }
-        .wing-demon { background: linear-gradient(to bottom, #334155, #0f172a); border-radius: 0 20px 20px 20px; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%); }
-        .part-tail { position: absolute; width: 16px; height: 16px; background: #b45309; top: -10px; border-radius: 50% 50% 0 0; z-index: 5;}
-        .tail-left { left: 8px; transform: rotate(-20deg); }
-        .tail-right { right: 8px; transform: rotate(20deg); }
-        .part-crown { position: absolute; width: 24px; height: 14px; background: linear-gradient(#fde047, #eab308); top: -10px; left: 18px; clip-path: polygon(0 0, 20% 50%, 50% 0, 80% 50%, 100% 0, 100% 100%, 0 100%); z-index: 15;}
-        .part-horn { position: absolute; width: 8px; height: 20px; background: linear-gradient(#fecaca, #f87171); top: -12px; left: 26px; border-radius: 4px 4px 0 0; z-index: 15;}
-        .part-mask { position: absolute; width: 100%; height: 40%; background: #1e293b; bottom: 0; left: 0; border-radius: 0 0 45% 45%; z-index: 15; box-shadow: 0 -2px 5px rgba(0,0,0,0.5); }
-
-        /* ━━━ アニメーション ━━━ */
-        @keyframes float { 0%, 100% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(0); } 50% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(-8px); } }
-        .anim-float { animation: float 3s infinite ease-in-out; }
-        @keyframes bounce-slow { 0%, 100% { transform: scale(var(--scale, 1)) translateY(0); } 50% { transform: scale(var(--scale, 1)) translateY(-6px); } }
-        .anim-bounce-slow { animation: bounce-slow 2s infinite ease-in-out; }
-        @keyframes jump-joy { 0% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(0); } 50% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(-30px); } 100% { transform: scale(var(--scale, 1)) scaleX(var(--facing, 1)) translateY(0); } }
-        .anim-jump { animation: jump-joy 0.4s ease-out; }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-        .anim-shake { animation: shake 0.3s infinite; }
-        
-        /* 状態エフェクト */
-        .icon-pulse { animation: pulse-red 1s infinite; color: #ef4444 !important; }
-        @keyframes pulse-red { 0%, 100% { opacity: 1; text-shadow: 0 0 10px #ef4444; } 50% { opacity: 0.5; text-shadow: none;} }
-        
-        .sick-icon { position: absolute; top: -10px; right: -20px; font-size: 24px; animation: float 2s infinite; z-index: 20; }
-        .zzz-icon { position: absolute; top: -20px; right: -10px; font-size: 20px; font-weight: bold; color: white; opacity: 0; animation: zzz 3s infinite; z-index: 20; }
-        @keyframes zzz { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 50% { opacity: 1; } 100% { transform: translate(15px, -20px) scale(1.5); opacity: 0; } }
-
-        /* メニューオーバーレイ */
-        .overlay-menu {
-            position: absolute; inset: 0; background: rgba(255,255,255,0.95);
-            z-index: 40; display: flex; flex-direction: column; padding: 1rem;
-            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .overlay-menu.show { transform: translateY(0); }
-
-        .game-overlay { background: rgba(15,23,42,0.95); color: white; }
-
-        /* ハートメーター */
-        .heart { color: #d1d5db; font-size: 24px; transition: color 0.3s; }
-        .heart.filled { color: #ef4444; }
-        .heart.filled-happy { color: #f59e0b; }
-
-        /* エフェクト */
-        .confetti { position: absolute; z-index: 80; pointer-events: none; animation: confetti-fall linear forwards; }
-        @keyframes confetti-fall { 0% { transform: translateY(-20px) rotate(0deg) scale(1); opacity:1; } 100% { transform: translateY(400px) rotate(var(--rot,720deg)) scale(0.5); opacity:0; } }
-        .victory-flash { position: absolute; inset: 0; background: #fff; pointer-events: none; z-index: 90; animation: v-flash 1s ease-out forwards; border-radius: 18px; }
-        @keyframes v-flash { 0% { opacity: 1; } 100% { opacity: 0; } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Monster Raising</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+:root{--app-height:100%}
+html,body{height:100%;margin:0;padding:0;overflow:hidden;background-color:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif}
+.glass-header{background-color:rgba(255,255,255,0.7);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px)}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes floatup{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(2deg)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes wobble{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes dance{0%{transform:rotate(-6deg) translateY(0)}25%{transform:rotate(0) translateY(-8px)}50%{transform:rotate(6deg) translateY(0)}75%{transform:rotate(0) translateY(-8px)}100%{transform:rotate(-6deg) translateY(0)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.anim-bounce{animation:bounce 1.1s ease-in-out infinite}
+.anim-float{animation:floatup 2s ease-in-out infinite}
+.anim-pulse{animation:pulse 1.5s ease-in-out infinite}
+.anim-wobble{animation:wobble 0.9s ease-in-out infinite}
+.anim-dance{animation:dance 0.75s ease-in-out infinite}
+@keyframes score-pop{0%{transform:scale(1)}50%{transform:scale(1.6);color:#3b82f6}100%{transform:scale(1)}}
+.score-pop{animation:score-pop 0.45s cubic-bezier(0.175,0.885,0.32,1.6) both}
+@keyframes toast-anim{0%{transform:translate(-50%,-50%) scale(0.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.05);opacity:1}80%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(0.8);opacity:0}}
+.toast-pop{animation:toast-anim 1.8s cubic-bezier(0.175,0.885,0.32,1.2) forwards}
+@keyframes v-flash{0%{background:rgba(255,255,255,0.6)}100%{background:rgba(255,255,255,0)}}
+.victory-flash{position:fixed;inset:0;pointer-events:none;z-index:90;animation:v-flash 0.7s ease-out forwards}
+@keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg) scale(1);opacity:1}85%{opacity:1}100%{transform:translateY(115vh) rotate(var(--rot,720deg)) scale(0.7);opacity:0}}
+.confetti{position:fixed;top:-30px;z-index:100;pointer-events:none;animation:confetti-fall linear forwards}
+@keyframes evo-in{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes glow-pulse{0%,100%{filter:drop-shadow(0 0 20px gold) drop-shadow(0 0 40px white)}50%{filter:drop-shadow(0 0 60px gold) drop-shadow(0 0 100px rgba(255,220,80,0.8))}}
+@keyframes ring-pulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.6}50%{transform:translate(-50%,-50%) scale(1.2);opacity:1}}
+@keyframes sick-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}60%{transform:translateX(5px)}}
+@keyframes particle-up{0%{transform:translate(var(--px),0) scale(1);opacity:1}100%{transform:translate(var(--px),var(--py)) scale(0);opacity:0}}
+.particle{position:absolute;border-radius:50%;pointer-events:none;animation:particle-up linear forwards}
+.action-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
+.action-btn:active{transform:scale(0.88);transition:transform 0.07s}
+.sl{font-size:8px;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;color:#aaa}
+#evo-overlay{z-index:200}
+#dead-overlay{z-index:190}
+#reset-dialog{z-index:180}
+#book-overlay{z-index:170}
+#mg-overlay{z-index:160}
+.brow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;margin-bottom:6px;background:#f8f8f8}
+.brow.found{background:white;border:1px solid rgba(0,0,0,0.07);box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+.brow.current{border:2px solid #3b82f6;background:white;box-shadow:0 4px 16px rgba(59,130,246,0.2)}
+</style>
 </head>
-<body class="flex flex-col items-center">
+<body class="flex flex-col">
 
-    <!-- ヘッダー -->
-    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4 max-w-lg mx-auto">
-        <button onclick="window.location.reload()" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
-            <i data-lucide="home" class="w-5 h-5"></i><span class="text-sm font-bold">ホーム</span>
-        </button>
-        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">CARING PRO MAX</div>
-        <button onclick="resetGame()" class="p-2 text-zinc-400 hover:text-red-500 transition-colors rounded-xl" title="データリセット">
-            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
-        </button>
-    </header>
+<header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
+  <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
+    <i data-lucide="home" class="w-5 h-5"></i>
+    <span class="text-sm font-bold">ホーム</span>
+  </button>
+  <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">RAISING</div>
+  <button onclick="showBook()" class="p-2 rounded-xl hover:bg-black/5 text-zinc-600 transition-colors">
+    <i data-lucide="book-open" class="w-5 h-5"></i>
+  </button>
+</header>
 
-    <main class="flex-grow flex flex-col items-center justify-center p-4 w-full max-w-lg">
-        
-        <!-- デバイス本体 -->
-        <div class="device-body p-6 rounded-[2.5rem] w-full max-w-[360px] relative border border-white/50">
-            
-            <!-- 上部ボタン群 -->
-            <div class="flex justify-between mb-6 px-1">
-                <button class="action-btn group" id="btn-status" onclick="toggleMenu('status')" title="ステータス">
-                    <i data-lucide="activity" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-                <button class="action-btn group" id="btn-meal" onclick="toggleMenu('meal')" title="食事">
-                    <i data-lucide="utensils" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-                <button class="action-btn group" id="btn-toilet" onclick="actionToilet()" title="トイレ">
-                    <i data-lucide="bath" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-                <button class="action-btn group" id="btn-game" onclick="toggleMenu('game')" title="ゲーム">
-                    <i data-lucide="gamepad-2" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-            </div>
+<main class="flex-grow flex flex-col overflow-hidden max-w-md mx-auto w-full px-3 pt-2 pb-2 gap-2">
+  <div class="flex items-center justify-between px-5 py-2.5 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm shrink-0">
+    <div class="text-center">
+      <div class="sl">AGE</div>
+      <div id="age-display" class="text-sm font-black text-zinc-900">0日</div>
+    </div>
+    <div class="text-center">
+      <div id="mon-name-disp" class="text-[11px] font-black text-zinc-600 tracking-wider">たまご</div>
+      <div id="stage-disp" class="sl mt-0.5">STAGE: EGG</div>
+    </div>
+    <div class="text-center">
+      <div class="sl">WEIGHT</div>
+      <div id="weight-display" class="text-sm font-black text-zinc-900">5g</div>
+    </div>
+  </div>
 
-            <!-- インキュベーター（画面） -->
-            <div id="incubator" class="aspect-square rounded-[2rem] relative overflow-hidden">
-                <!-- モンスター表示 -->
-                <div id="monster-wrapper" class="monster-wrapper">
-                    <div id="monster-container"></div>
-                </div>
-                <!-- うんちレイヤー -->
-                <div id="poop-layer" class="absolute inset-0 pointer-events-none z-20"></div>
-                <!-- エフェクトレイヤー -->
-                <div id="effect-layer" class="absolute inset-0 pointer-events-none z-30"></div>
+  <div class="grid grid-cols-2 gap-2 shrink-0">
+    <div class="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm">
+      <span class="text-base">🍖</span>
+      <div><div class="sl mb-1">HUNGER</div><div id="hunger-hearts" class="flex gap-0.5 text-sm"></div></div>
+    </div>
+    <div class="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm">
+      <span class="text-base">😊</span>
+      <div><div class="sl mb-1">HAPPY</div><div id="happy-hearts" class="flex gap-0.5 text-sm"></div></div>
+    </div>
+  </div>
 
-                <!-- オーバーレイメニュー：ステータス -->
-                <div id="menu-status" class="overlay-menu rounded-[1.5rem] m-2">
-                    <div class="flex justify-between items-center mb-4">
-                        <span class="font-black text-zinc-800 text-lg">STATUS</span>
-                        <button onclick="toggleMenu(null)" class="text-zinc-400 hover:text-zinc-800"><i data-lucide="x"></i></button>
-                    </div>
-                    <div class="space-y-4 flex-grow overflow-y-auto pr-2 pb-2">
-                        <div class="flex justify-between items-end border-b-2 border-zinc-100 pb-2">
-                            <span class="text-xs font-bold text-zinc-500">AGE / WEIGHT</span>
-                            <span class="font-black text-xl text-zinc-700"><span id="st-age">0</span><span class="text-sm">才</span> / <span id="st-weight">5</span><span class="text-sm">g</span></span>
-                        </div>
-                        <div>
-                            <span class="text-xs font-bold text-zinc-500 block mb-1">HUNGER</span>
-                            <div class="flex gap-1" id="st-hunger"></div>
-                        </div>
-                        <div>
-                            <span class="text-xs font-bold text-zinc-500 block mb-1">HAPPY</span>
-                            <div class="flex gap-1" id="st-happy"></div>
-                        </div>
-                        <div>
-                            <span class="text-xs font-bold text-zinc-500 block mb-1">DISCIPLINE</span>
-                            <div class="w-full bg-zinc-200 rounded-full h-3 overflow-hidden">
-                                <div id="st-discipline" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+  <div id="monster-stage" class="flex-1 flex items-center justify-center relative bg-white/80 backdrop-blur-md rounded-3xl border border-black/5 shadow-sm overflow-hidden" style="min-height:170px">
+    <div id="stage-bg" class="absolute inset-0 rounded-3xl transition-all duration-1000"></div>
+    <div id="mon-container" class="relative z-10 flex items-center justify-center">
+      <svg id="monster-svg" width="160" height="160" viewBox="0 0 200 200" style="transform-origin:center center"></svg>
+    </div>
+    <div id="poop-ind" class="absolute bottom-3 right-5 text-2xl hidden select-none">💩</div>
+    <div id="sick-ind" class="absolute top-3 right-3 hidden">
+      <div class="bg-amber-400 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">SICK</div>
+    </div>
+    <div id="sleep-overlay" class="absolute inset-0 bg-indigo-950/88 flex items-center justify-center hidden z-20 rounded-3xl">
+      <div class="text-white text-center"><div class="text-5xl mb-3" style="animation:floatup 2s ease-in-out infinite">💤</div><div class="sl opacity-50">おやすみ...</div></div>
+    </div>
+    <div id="call-ind" class="absolute top-3 left-3 hidden">
+      <span class="flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+    </div>
+  </div>
 
-                <!-- オーバーレイメニュー：食事 -->
-                <div id="menu-meal" class="overlay-menu rounded-[1.5rem] m-2 flex flex-col justify-end pb-6">
-                    <button onclick="toggleMenu('null')" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-800"><i data-lucide="x"></i></button>
-                    <div class="flex gap-4">
-                        <button onclick="actionFeed('food')" class="flex-1 bg-zinc-100 hover:bg-zinc-200 py-4 rounded-2xl font-bold text-zinc-700 flex flex-col items-center gap-2 transition-colors">
-                            <span class="text-3xl">🍚</span> ごはん
-                        </button>
-                        <button onclick="actionFeed('snack')" class="flex-1 bg-zinc-100 hover:bg-zinc-200 py-4 rounded-2xl font-bold text-zinc-700 flex flex-col items-center gap-2 transition-colors">
-                            <span class="text-3xl">🍬</span> おやつ
-                        </button>
-                    </div>
-                </div>
+  <div class="text-center shrink-0 h-5">
+    <span id="msg-text" class="text-[11px] font-black uppercase tracking-widest text-zinc-400"></span>
+  </div>
 
-                <!-- オーバーレイメニュー：ミニゲーム -->
-                <div id="menu-game" class="overlay-menu game-overlay rounded-[1.5rem] m-2 flex flex-col items-center justify-center text-center">
-                    <button onclick="toggleMenu('null')" class="absolute top-4 right-4 text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
-                    <div id="game-ui-start">
-                        <i data-lucide="gamepad-2" class="w-12 h-12 mx-auto mb-4 text-blue-400"></i>
-                        <h3 class="font-black text-xl mb-2">シンクロゲーム</h3>
-                        <p class="text-xs text-zinc-400 mb-6">同じ方向を向いたら勝ち！<br>(3回勝負)</p>
-                        <button onclick="startGameRound()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full transition-all active:scale-95">START</button>
-                    </div>
-                    <div id="game-ui-play" class="hidden w-full">
-                        <div class="text-sm font-bold text-blue-400 mb-4 tracking-widest">ROUND <span id="game-round">1</span>/3</div>
-                        <div class="flex justify-center gap-2 mb-8" id="game-results">
-                            <!-- 勝敗アイコンが入る -->
-                        </div>
-                        <div class="flex justify-between w-full px-4 gap-4">
-                            <button onclick="playTurn('L')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-6 rounded-2xl text-2xl font-black transition-all active:scale-95 text-white border-b-4 border-zinc-900">L</button>
-                            <button onclick="playTurn('R')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-6 rounded-2xl text-2xl font-black transition-all active:scale-95 text-white border-b-4 border-zinc-900">R</button>
-                        </div>
-                    </div>
-                    <div id="game-ui-end" class="hidden w-full">
-                        <div id="game-final-msg" class="text-2xl font-black mb-6"></div>
-                        <button onclick="toggleMenu('game')" class="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-8 rounded-full transition-all active:scale-95">もどる</button>
-                    </div>
-                </div>
-            </div>
+  <div class="grid grid-cols-6 gap-1.5 shrink-0">
+    <button onclick="doFeed()"     class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">🍖</span><span class="sl">FEED</span></button>
+    <button onclick="doPlay()"     class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">🎮</span><span class="sl">PLAY</span></button>
+    <button onclick="doClean()"    class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">🧹</span><span class="sl">CLEAN</span></button>
+    <button onclick="doMedicine()" class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">💊</span><span class="sl">MED</span></button>
+    <button onclick="doScold()"    class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">⚡</span><span class="sl">SCOLD</span></button>
+    <button onclick="toggleLight()" class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span id="light-icon" class="text-xl mb-0.5">💡</span><span class="sl">LIGHT</span></button>
+  </div>
 
-            <!-- 下部ボタン群 -->
-            <div class="flex justify-between mt-6 px-1">
-                <button class="action-btn group" id="btn-discipline" onclick="actionDiscipline()" title="しつけ">
-                    <i data-lucide="megaphone" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-                <button class="action-btn group" id="btn-medical" onclick="actionMedical()" title="注射">
-                    <i data-lucide="syringe" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-                <button class="action-btn group" id="btn-light" onclick="actionLight()" title="電気">
-                    <i data-lucide="lightbulb" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                </button>
-                <button class="action-btn" id="call-sign" title="呼び出しサイン" style="pointer-events: none;">
-                    <i data-lucide="bell" class="w-6 h-6"></i>
-                </button>
-            </div>
-            
+  <div class="bg-white/80 backdrop-blur-md p-3 rounded-[2rem] border border-black/5 shadow-sm shrink-0">
+    <button onclick="confirmReset()" class="w-full py-3.5 bg-zinc-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
+      <i data-lucide="refresh-cw" class="w-4 h-4"></i>リセット
+    </button>
+  </div>
+</main>
+
+<!-- MINIGAME -->
+<div id="mg-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-end justify-center pb-6 px-4">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+    <h2 class="text-center font-black text-lg uppercase tracking-wider mb-1">あそぶ！</h2>
+    <p class="text-center text-xs text-zinc-400 mb-5">🔵が光ったらすぐタップ！5回チャレンジ</p>
+    <div id="mg-light" class="w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer" onclick="pressGameBtn()"></div>
+    <div id="mg-result" class="text-center font-black text-xl h-8 mb-1"></div>
+    <div id="mg-score-text" class="text-center text-xs text-zinc-400 mb-4">0 / 5 ヒット</div>
+    <button onclick="closeMinigame()" class="w-full py-3 bg-zinc-100 rounded-2xl font-bold text-sm hover:bg-zinc-200 transition-all">やめる</button>
+  </div>
+</div>
+
+<!-- BOOK -->
+<div id="book-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center px-4">
+  <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col" style="max-height:85vh">
+    <div class="p-5 border-b border-zinc-100 shrink-0">
+      <h2 class="text-center font-black text-lg uppercase tracking-wider">進化図鑑</h2>
+      <p class="text-center sl mt-1">育て方によって進化が分岐する</p>
+    </div>
+    <div id="book-content" class="overflow-y-auto p-4 flex-grow"></div>
+    <div class="p-4 border-t border-zinc-100 shrink-0">
+      <button onclick="document.getElementById('book-overlay').classList.add('hidden')" class="w-full py-3 bg-zinc-900 text-white rounded-2xl font-bold text-sm">とじる</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVOLUTION -->
+<div id="evo-overlay" class="fixed inset-0 bg-black hidden flex items-center justify-center flex-col">
+  <div id="evo-stars-bg" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+  <div class="relative z-10 text-center px-8">
+    <div id="evo-label" class="text-xs font-black uppercase tracking-widest text-yellow-400 mb-4" style="opacity:0">EVOLUTION!</div>
+    <div id="evo-svg-wrap" class="mb-6"><svg id="evo-svg" width="200" height="200" viewBox="0 0 200 200" style="opacity:0"></svg></div>
+    <div id="evo-title" class="text-white font-black text-3xl uppercase tracking-widest mb-2" style="opacity:0"></div>
+    <div id="evo-sub"   class="text-zinc-400 text-sm font-bold mb-10" style="opacity:0"></div>
+    <button onclick="closeEvolution()" id="evo-btn" class="px-10 py-3 bg-white/20 text-white rounded-2xl font-bold text-sm hover:bg-white/30 transition-all" style="opacity:0">つぎへ</button>
+  </div>
+</div>
+
+<!-- DEAD -->
+<div id="dead-overlay" class="fixed inset-0 bg-black/92 hidden flex items-center justify-center px-8">
+  <div class="text-center text-white w-full max-w-xs">
+    <div class="text-6xl mb-5">👻</div>
+    <div class="text-2xl font-black mb-2">さようなら...</div>
+    <div id="dead-msg" class="text-zinc-400 text-sm mb-6">もっとお世話してあげてね</div>
+    <div class="bg-white/10 rounded-2xl p-4 mb-6 text-sm space-y-2">
+      <div class="flex justify-between"><span class="text-zinc-400">生きた日数</span><span id="dead-age" class="font-bold"></span></div>
+      <div class="flex justify-between"><span class="text-zinc-400">最終形態</span><span id="dead-stage" class="font-bold"></span></div>
+    </div>
+    <button onclick="resetGame()" class="w-full py-4 bg-white text-black rounded-2xl font-bold text-sm">あたらしく始める</button>
+  </div>
+</div>
+
+<!-- RESET CONFIRM -->
+<div id="reset-dialog" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center px-8">
+  <div class="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center">
+    <div class="text-4xl mb-4">⚠️</div>
+    <div class="font-black text-lg mb-2">本当にリセット？</div>
+    <div class="text-sm text-zinc-500 mb-6">データが全て消えます</div>
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('reset-dialog').classList.add('hidden')" class="flex-1 py-3 bg-zinc-100 rounded-2xl font-bold text-sm hover:bg-zinc-200 transition-all">キャンセル</button>
+      <button onclick="resetGame()" class="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold text-sm hover:bg-red-600 transition-all">リセット</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════
+//  MONSTER DEFINITIONS  (40 total)
+// ════════════════════════════════════
+const M = {
+// ─ EGG ─
+egg:{name:'たまご',desc:'小さな命',bg:'linear-gradient(135deg,#FFFAF0,#F5EDD5)',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g0" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="70%" stop-color="#FFF5E8"/><stop offset="100%" stop-color="#EDE0C4"/></radialGradient><filter id="g0f"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="52" ry="63" fill="rgba(255,240,200,0.3)" filter="url(#g0f)"/>
+<ellipse cx="100" cy="110" rx="46" ry="56" fill="url(#g0)" stroke="#DDD0AA" stroke-width="1.5"/>
+<circle cx="82" cy="88" r="5.5" fill="#CCAAE0" opacity="0.55"/><circle cx="115" cy="98" r="4" fill="#CCAAE0" opacity="0.5"/>
+<circle cx="90" cy="118" r="3.5" fill="#CCAAE0" opacity="0.45"/><circle cx="112" cy="128" r="3" fill="#BBAADD" opacity="0.4"/>
+<circle cx="80" cy="113" r="2.5" fill="#CCAAE0" opacity="0.4"/><circle cx="108" cy="76" r="4" fill="#CCAAE0" opacity="0.45"/>
+<ellipse cx="88" cy="90" rx="13" ry="8" fill="rgba(255,255,255,0.5)" transform="rotate(-22,88,90)"/>
+`},
+// ─ FORM 1 ─
+A:{name:'パフモ',desc:'まんまる ふわふわ',bg:'linear-gradient(135deg,#FFF0F5,#FFE0EC)',anim:'anim-bounce',draw:()=>`
+<defs><radialGradient id="gA" cx="38%" cy="32%"><stop offset="0%" stop-color="#FFF"/><stop offset="65%" stop-color="#FFE5F0"/><stop offset="100%" stop-color="#FFC8DE"/></radialGradient></defs>
+<ellipse cx="62" cy="118" rx="16" ry="10" fill="#FFD5EB" opacity="0.7" transform="rotate(-30,62,118)"/>
+<ellipse cx="138" cy="118" rx="16" ry="10" fill="#FFD5EB" opacity="0.7" transform="rotate(30,138,118)"/>
+<circle cx="100" cy="118" r="44" fill="url(#gA)" stroke="#FFB8D8" stroke-width="1"/>
+<ellipse cx="100" cy="128" rx="26" ry="21" fill="rgba(255,255,255,0.75)"/>
+<circle cx="74" cy="84" r="13" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/><circle cx="126" cy="84" r="13" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/>
+<circle cx="87" cy="111" r="10" fill="#1A0810"/><circle cx="113" cy="111" r="10" fill="#1A0810"/>
+<circle cx="90" cy="108" r="3.5" fill="white"/><circle cx="116" cy="108" r="3.5" fill="white"/>
+<circle cx="76" cy="119" r="9" fill="#FFB0CC" opacity="0.45"/><circle cx="124" cy="119" r="9" fill="#FFB0CC" opacity="0.45"/>
+<path d="M93 123 Q100 129 107 123" stroke="#CC6688" stroke-width="2" fill="none" stroke-linecap="round"/>
+`},
+B:{name:'イグニク',desc:'ちいさなドラゴン',bg:'linear-gradient(135deg,#E8FFFC,#CCEFFF)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="gB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88EEDD"/><stop offset="100%" stop-color="#00AACC"/></linearGradient></defs>
+<path d="M100 165 Q130 176 148 163 Q152 143 136 137" fill="#00AACC" opacity="0.8"/>
+<path d="M100 78 Q136 78 147 110 Q150 132 136 150 Q120 164 100 164 Q80 164 64 150 Q50 132 53 110 Q64 78 100 78Z" fill="url(#gB)" stroke="#009AB8" stroke-width="1.5"/>
+<ellipse cx="100" cy="133" rx="28" ry="23" fill="rgba(200,255,245,0.7)"/>
+<polygon points="82,80 77,61 88,78" fill="#00CCEE"/><polygon points="100,77 100,55 108,76" fill="#00DDFF"/><polygon points="118,80 123,61 112,78" fill="#00CCEE"/>
+<ellipse cx="86" cy="107" rx="10" ry="7" fill="#001820"/><ellipse cx="114" cy="107" rx="10" ry="7" fill="#001820"/>
+<ellipse cx="89" cy="105" rx="4" ry="3" fill="white"/><ellipse cx="117" cy="105" rx="4" ry="3" fill="white"/>
+<path d="M68 153 L60 160 M73 159 L66 165" stroke="#009AB8" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M132 153 L140 160 M127 159 L134 165" stroke="#009AB8" stroke-width="2.5" stroke-linecap="round"/>
+`},
+C:{name:'ルメッシュ',desc:'ふわっと 浮かんでる',bg:'linear-gradient(135deg,#F2E8FF,#E0D0FF)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gC" cx="42%" cy="38%"><stop offset="0%" stop-color="#DDD0FF"/><stop offset="60%" stop-color="#A888EE"/><stop offset="100%" stop-color="#7755CC"/></radialGradient><filter id="gCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M78 150 Q64 172 55 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 158 Q98 176 94 188" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.48"/>
+<path d="M122 150 Q136 172 145 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 68 Q132 66 144 90 Q158 118 150 144 Q140 165 120 164 Q104 172 86 162 Q62 152 56 130 Q48 106 62 86 Q73 66 100 68Z" fill="url(#gC)" opacity="0.93"/>
+<circle cx="87" cy="108" r="14" fill="#180A28"/><circle cx="114" cy="113" r="9" fill="#180A28"/>
+<circle cx="91" cy="103" r="5" fill="rgba(220,180,255,0.9)"/><circle cx="117" cy="109" r="3" fill="rgba(220,180,255,0.9)"/>
+<path d="M58 108 Q43 103 38 112 Q43 122 56 118" fill="#8866BB" opacity="0.65"/>
+<path d="M142 122 Q157 117 162 126 Q157 135 146 130" fill="#8866BB" opacity="0.65"/>
+`},
+// ─ FORM 2 ─
+AA:{name:'フラッフィア',desc:'天使型 ふわふわ',bg:'linear-gradient(135deg,#FFF5F8,#FFE5EE)',anim:'anim-bounce',draw:()=>`
+<defs><radialGradient id="gAA" cx="36%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFE0EE"/><stop offset="100%" stop-color="#FFC0D8"/></radialGradient><filter id="gAAf"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 108 Q30 88 22 72 Q35 68 50 82 Q56 90 58 104Z" fill="rgba(255,230,245,0.9)" stroke="#FFD0E8" stroke-width="1"/>
+<path d="M148 108 Q170 88 178 72 Q165 68 150 82 Q144 90 142 104Z" fill="rgba(255,230,245,0.9)" stroke="#FFD0E8" stroke-width="1"/>
+<path d="M50 116 Q28 108 22 95 Q38 93 52 105Z" fill="rgba(255,220,240,0.7)"/>
+<path d="M150 116 Q172 108 178 95 Q162 93 148 105Z" fill="rgba(255,220,240,0.7)"/>
+<circle cx="100" cy="118" r="48" fill="url(#gAA)" stroke="#FFB0D0" stroke-width="1"/>
+<ellipse cx="100" cy="128" rx="30" ry="26" fill="rgba(255,255,255,0.8)"/>
+<path d="M70 75 Q60 50 74 46 Q82 55 78 72Z" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/>
+<path d="M130 75 Q140 50 126 46 Q118 55 122 72Z" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/>
+<ellipse cx="100" cy="68" rx="22" ry="7" fill="none" stroke="#FFDD88" stroke-width="3" opacity="0.8" filter="url(#gAAf)"/>
+<circle cx="86" cy="110" r="12" fill="#180A10"/><circle cx="114" cy="110" r="12" fill="#180A10"/>
+<circle cx="89" cy="106" r="4.5" fill="white"/><circle cx="117" cy="106" r="4.5" fill="white"/>
+<circle cx="72" cy="120" r="11" fill="#FFB0CC" opacity="0.4"/><circle cx="128" cy="120" r="11" fill="#FFB0CC" opacity="0.4"/>
+<path d="M92 124 Q100 131 108 124" stroke="#CC5577" stroke-width="2" fill="none" stroke-linecap="round"/>
+<text x="64" y="86" font-size="10" fill="#FFDD88" opacity="0.8">★</text><text x="128" y="86" font-size="10" fill="#FFDD88" opacity="0.8">★</text>
+`},
+AB:{name:'スカルドフワ',desc:'ウロコと ふわふわ',bg:'linear-gradient(135deg,#FFF3E8,#FFE5C0)',anim:'anim-wobble',draw:()=>`
+<defs><radialGradient id="gAB" cx="38%" cy="32%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFEACC"/><stop offset="100%" stop-color="#FFCC88"/></radialGradient></defs>
+<path d="M130 150 Q158 165 162 148 Q155 130 138 135Z" fill="#FFBB66"/>
+<circle cx="100" cy="118" r="46" fill="url(#gAB)" stroke="#FFCC88" stroke-width="1.5"/>
+<path d="M75 105 Q82 98 90 105 Q83 112 75 105Z" fill="#FFAA44" opacity="0.4"/>
+<path d="M90 105 Q97 98 105 105 Q98 112 90 105Z" fill="#FFAA44" opacity="0.4"/>
+<path d="M105 105 Q112 98 120 105 Q113 112 105 105Z" fill="#FFAA44" opacity="0.35"/>
+<circle cx="75" cy="83" r="13" fill="#FFCC88" stroke="#FFAA66" stroke-width="1"/>
+<circle cx="125" cy="83" r="13" fill="#FFCC88" stroke="#FFAA66" stroke-width="1"/>
+<polygon points="100,68 94,82 106,82" fill="#FFAA44" stroke="#FF8822" stroke-width="1"/>
+<circle cx="88" cy="111" r="11" fill="#1A0800"/><circle cx="112" cy="111" r="11" fill="#1A0800"/>
+<circle cx="91" cy="108" r="4" fill="white"/><circle cx="115" cy="108" r="4" fill="white"/>
+<circle cx="73" cy="120" r="10" fill="#FFAA66" opacity="0.4"/><circle cx="127" cy="120" r="10" fill="#FFAA66" opacity="0.4"/>
+<path d="M93 124 Q100 130 107 124" stroke="#CC7733" stroke-width="2" fill="none" stroke-linecap="round"/>
+`},
+AC:{name:'ミストパフ',desc:'半透明で ふしぎ',bg:'linear-gradient(135deg,#EAEEFF,#D5E5FF)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gAC" cx="40%" cy="35%"><stop offset="0%" stop-color="rgba(255,255,255,0.95)"/><stop offset="60%" stop-color="rgba(200,220,255,0.75)"/><stop offset="100%" stop-color="rgba(160,190,255,0.6)"/></radialGradient><filter id="gACf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 148 Q62 165 54 174" stroke="rgba(180,200,255,0.6)" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 155 Q100 170 96 180" stroke="rgba(180,200,255,0.5)" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M124 148 Q138 165 146 174" stroke="rgba(180,200,255,0.6)" stroke-width="10" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="115" r="52" fill="rgba(180,200,255,0.15)" filter="url(#gACf)"/>
+<circle cx="100" cy="115" r="44" fill="url(#gAC)" stroke="rgba(160,185,255,0.5)" stroke-width="1.5"/>
+<circle cx="74" cy="80" r="13" fill="rgba(200,215,255,0.6)" stroke="rgba(180,200,255,0.4)" stroke-width="1"/>
+<circle cx="126" cy="80" r="13" fill="rgba(200,215,255,0.6)" stroke="rgba(180,200,255,0.4)" stroke-width="1"/>
+<circle cx="88" cy="111" r="11" fill="#2244AA" opacity="0.85"/><circle cx="112" cy="111" r="11" fill="#2244AA" opacity="0.85"/>
+<circle cx="88" cy="111" r="7" fill="#4488FF" opacity="0.8" filter="url(#gACf)"/>
+<circle cx="112" cy="111" r="7" fill="#4488FF" opacity="0.8" filter="url(#gACf)"/>
+<circle cx="91" cy="108" r="3" fill="white"/><circle cx="115" cy="108" r="3" fill="white"/>
+<circle cx="68" cy="95" r="3" fill="rgba(180,200,255,0.7)"/><circle cx="133" cy="93" r="2.5" fill="rgba(180,200,255,0.7)"/>
+`},
+BA:{name:'カールスケイル',desc:'おだやかな ドラゴン',bg:'linear-gradient(135deg,#E8FFF5,#CCFAE8)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="gBA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#AAEEDD"/><stop offset="100%" stop-color="#44BBAA"/></linearGradient></defs>
+<path d="M134 148 Q165 152 168 138 Q168 122 150 122 Q140 122 138 134" fill="none" stroke="#44BBAA" stroke-width="10" stroke-linecap="round"/>
+<path d="M100 76 Q136 76 148 110 Q151 134 136 150 Q120 164 100 164 Q80 164 64 150 Q49 134 52 110 Q64 76 100 76Z" fill="url(#gBA)" stroke="#33AAAA" stroke-width="1.5"/>
+<ellipse cx="100" cy="134" rx="30" ry="25" fill="rgba(200,255,245,0.6)"/>
+<circle cx="78" cy="108" r="5" fill="#33AAAA" opacity="0.4"/><circle cx="94" cy="100" r="5" fill="#33AAAA" opacity="0.35"/>
+<circle cx="110" cy="100" r="5" fill="#33AAAA" opacity="0.35"/><circle cx="122" cy="108" r="5" fill="#33AAAA" opacity="0.4"/>
+<path d="M85,78 Q82,62 88,60 Q94,68 92,78Z" fill="#55CCAA"/><path d="M100,74 Q100,56 106,55 Q110,65 108,74Z" fill="#66DDBB"/><path d="M115,78 Q118,62 112,60 Q106,68 108,78Z" fill="#55CCAA"/>
+<ellipse cx="86" cy="106" rx="10" ry="8" fill="#001818"/><ellipse cx="114" cy="106" rx="10" ry="8" fill="#001818"/>
+<ellipse cx="89" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="117" cy="104" rx="4" ry="3" fill="white"/>
+<path d="M66 152 L58 159 M71 158 L64 164" stroke="#33AAAA" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M134 152 L142 159 M129 158 L136 164" stroke="#33AAAA" stroke-width="2.5" stroke-linecap="round"/>
+`},
+BB:{name:'ブレイザー',desc:'もえるドラゴン',bg:'linear-gradient(135deg,#FFF2E0,#FFE0B0)',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="gBB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FFCC66"/><stop offset="100%" stop-color="#FF5500"/></linearGradient><filter id="gBBf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 108 Q28 80 20 55 Q38 55 58 78 Q62 92 60 108Z" fill="#FF9922" opacity="0.85" stroke="#FF7700" stroke-width="1"/>
+<path d="M148 108 Q172 80 180 55 Q162 55 142 78 Q138 92 140 108Z" fill="#FF9922" opacity="0.85" stroke="#FF7700" stroke-width="1"/>
+<path d="M100 162 Q130 178 148 168 Q152 148 135 142" fill="#FF6600"/>
+<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 162 100 162 Q80 162 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="url(#gBB)" stroke="#EE5500" stroke-width="1.5"/>
+<ellipse cx="100" cy="132" rx="30" ry="23" fill="rgba(255,230,150,0.6)"/>
+<path d="M82,74 Q79,56 84,46 Q90,58 88,72Z" fill="#FF4400"/><path d="M100,70 Q100,48 106,38 Q112,52 108,70Z" fill="#FF6600"/><path d="M118,74 Q121,56 116,46 Q110,58 112,72Z" fill="#FF4400"/>
+<path d="M84,66 Q79,52 84,46 Q90,58 88,72Z" fill="#FFAA00" opacity="0.6" filter="url(#gBBf)"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#220800"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#220800"/>
+<ellipse cx="88" cy="104" rx="4.5" ry="3" fill="#FF8844"/><ellipse cx="118" cy="104" rx="4.5" ry="3" fill="#FF8844"/>
+<path d="M64 150 L56 157 M69 156 L62 162" stroke="#FF6600" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M136 150 L144 157 M131 156 L138 162" stroke="#FF6600" stroke-width="2.5" stroke-linecap="round"/>
+`},
+BC:{name:'ヴァイアスケイル',desc:'どく どくしてる',bg:'linear-gradient(135deg,#EEFFF0,#D5F5BB)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="gBC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88CC66"/><stop offset="100%" stop-color="#336622"/></linearGradient></defs>
+<circle cx="74" cy="168" r="5" fill="#88CC44" opacity="0.7"/><circle cx="100" cy="172" r="6" fill="#99DD44" opacity="0.6"/><circle cx="126" cy="168" r="4" fill="#88CC44" opacity="0.65"/>
+<path d="M130 155 Q165 168 168 150 Q162 132 145 138" fill="#446622" stroke="#335511" stroke-width="1"/>
+<polygon points="158,150 165,142 170,152" fill="#558833"/>
+<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="url(#gBC)" stroke="#335511" stroke-width="1.5"/>
+<ellipse cx="100" cy="132" rx="28" ry="23" fill="rgba(200,255,150,0.5)"/>
+<path d="M76 108 Q83 100 91 108 Q84 116 76 108Z" fill="#448833" opacity="0.5"/><path d="M95 103 Q102 95 110 103 Q103 111 95 103Z" fill="#448833" opacity="0.45"/><path d="M114 108 Q121 100 129 108 Q122 116 114 108Z" fill="#448833" opacity="0.5"/>
+<polygon points="84,78 80,58 90,76" fill="#66AA33"/><polygon points="100,74 100,52 108,73" fill="#77BB44"/><polygon points="116,78 120,58 110,76" fill="#66AA33"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#0A1800"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#0A1800"/>
+<ellipse cx="85" cy="106" rx="3" ry="7" fill="#88FF44" opacity="0.7"/><ellipse cx="115" cy="106" rx="3" ry="7" fill="#88FF44" opacity="0.7"/>
+<circle cx="80" cy="120" r="4" fill="#AAFF44" opacity="0.5"/><circle cx="122" cy="118" r="4" fill="#AAFF44" opacity="0.5"/>
+`},
+CA:{name:'スターウィッシュ',desc:'星が好きな ゆうれい',bg:'linear-gradient(135deg,#F5EEFF,#E8D5FF)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gCA" cx="44%" cy="38%"><stop offset="0%" stop-color="#DDD0FF"/><stop offset="55%" stop-color="#AA88EE"/><stop offset="100%" stop-color="#7744CC"/></radialGradient><filter id="gCAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M80 152 Q66 172 58 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 158 Q99 175 95 186" stroke="#9977CC" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.48"/>
+<path d="M120 152 Q134 172 142 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<text x="87" y="62" font-size="22" fill="#FFDD88" filter="url(#gCAf)">★</text>
+<path d="M100 68 Q132 66 144 90 Q158 118 150 144 Q140 165 120 164 Q104 172 86 162 Q62 152 56 130 Q48 106 62 86 Q73 66 100 68Z" fill="url(#gCA)" opacity="0.93"/>
+<circle cx="88" cy="110" r="13" fill="#180A28"/><circle cx="114" cy="113" r="10" fill="#180A28"/>
+<circle cx="91" cy="106" r="5" fill="rgba(240,200,255,0.95)"/><circle cx="117" cy="110" r="3.5" fill="rgba(240,200,255,0.95)"/>
+<text x="55" y="100" font-size="11" fill="#FFDD88" opacity="0.7">★</text>
+<text x="134" y="95" font-size="9" fill="#FFDD88" opacity="0.65">★</text>
+<path d="M56 108 Q40 103 37 113 Q41 122 54 118" fill="#8866BB" opacity="0.6"/>
+`},
+CB:{name:'スペクトレル',desc:'竜の霊',bg:'linear-gradient(135deg,#E8EEFF,#D0D8FF)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gCB" cx="44%" cy="38%"><stop offset="0%" stop-color="#D0DAFF"/><stop offset="55%" stop-color="#8899DD"/><stop offset="100%" stop-color="#4455BB"/></radialGradient><filter id="gCBf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 100 Q30 78 22 56 Q42 60 56 82 Q58 92 56 104Z" fill="rgba(136,153,221,0.45)" stroke="rgba(100,120,200,0.5)" stroke-width="1"/>
+<path d="M148 100 Q170 78 178 56 Q158 60 144 82 Q142 92 144 104Z" fill="rgba(136,153,221,0.45)" stroke="rgba(100,120,200,0.5)" stroke-width="1"/>
+<path d="M78 152 Q65 170 57 180" stroke="#8899DD" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M100 158 Q100 174 96 184" stroke="#8899DD" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.45"/>
+<path d="M122 152 Q135 170 143 180" stroke="#8899DD" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="url(#gCB)" opacity="0.88"/>
+<polygon points="85,70 80,52 91,68" fill="rgba(120,140,220,0.5)"/><polygon points="100,67 100,47 108,66" fill="rgba(140,160,240,0.55)"/><polygon points="115,70 120,52 109,68" fill="rgba(120,140,220,0.5)"/>
+<circle cx="88" cy="110" r="13" fill="#08001A"/><circle cx="113" cy="113" r="9" fill="#08001A"/>
+<circle cx="91" cy="106" r="5" fill="rgba(180,200,255,0.9)"/><circle cx="116" cy="110" r="3" fill="rgba(180,200,255,0.9)"/>
+`},
+CC:{name:'ドレッドリング',desc:'くらやみから 来た',bg:'linear-gradient(135deg,#20103A,#12062A)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gCC" cx="44%" cy="38%"><stop offset="0%" stop-color="#4A2880"/><stop offset="55%" stop-color="#2A1055"/><stop offset="100%" stop-color="#100520"/></radialGradient><filter id="gCCf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="62" ry="70" fill="rgba(80,20,140,0.15)" filter="url(#gCCf)"/>
+<path d="M76 152 Q62 174 52 186" stroke="#4A2280" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 160 Q98 178 92 190" stroke="#4A2280" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M124 152 Q138 174 148 186" stroke="#4A2280" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#gCC)" opacity="0.96"/>
+<path d="M82,67 L78,48 L86,58 L92,42 L98,58 L104,42 L110,58 L118,67Z" fill="#3A1870" stroke="#220E58" stroke-width="1"/>
+<circle cx="88" cy="110" r="14" fill="#08001A"/><circle cx="112" cy="112" r="10" fill="#08001A"/>
+<circle cx="88" cy="110" r="10" fill="#1C0840" opacity="0.8" filter="url(#gCCf)"/>
+<circle cx="88" cy="110" r="3" fill="rgba(180,130,255,0.6)"/><circle cx="112" cy="112" r="2" fill="rgba(180,130,255,0.5)"/>
+`},
+// ─ FORM 3 (27 types) ─
+// AAA-AAC: Angel branch final
+AAA:{name:'セレスタフィン',desc:'天使の最終形態',bg:'linear-gradient(135deg,#FFFEF5,#FFF8E0)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3AAA" cx="36%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFF5E0"/><stop offset="100%" stop-color="#FFE0AA"/></radialGradient><filter id="g3AAAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M42 108 Q12 78 6 46 Q28 44 50 72 Q56 88 56 108Z" fill="rgba(255,248,220,0.95)" stroke="#FFDD88" stroke-width="1.5"/>
+<path d="M158 108 Q188 78 194 46 Q172 44 150 72 Q144 88 144 108Z" fill="rgba(255,248,220,0.95)" stroke="#FFDD88" stroke-width="1.5"/>
+<path d="M40 122 Q10 114 6 98 Q28 95 44 110Z" fill="rgba(255,238,170,0.8)"/>
+<path d="M160 122 Q190 114 194 98 Q172 95 156 110Z" fill="rgba(255,238,170,0.8)"/>
+<circle cx="100" cy="118" r="48" fill="url(#g3AAA)" stroke="#FFD888" stroke-width="1.5"/>
+<ellipse cx="100" cy="128" rx="32" ry="28" fill="rgba(255,255,255,0.85)"/>
+<path d="M70 74 Q60 48 72 44 Q82 54 80 72Z" fill="#FFE8AA" stroke="#FFCC66" stroke-width="1"/>
+<path d="M130 74 Q140 48 128 44 Q118 54 120 72Z" fill="#FFE8AA" stroke="#FFCC66" stroke-width="1"/>
+<ellipse cx="100" cy="64" rx="30" ry="9" fill="none" stroke="#FFDD44" stroke-width="4" opacity="0.9" filter="url(#g3AAAf)"/>
+<ellipse cx="100" cy="64" rx="30" ry="9" fill="none" stroke="#FFB800" stroke-width="1.5"/>
+<circle cx="86" cy="110" r="12" fill="#180A00"/><circle cx="114" cy="110" r="12" fill="#180A00"/>
+<circle cx="89" cy="106" r="5" fill="white"/><circle cx="117" cy="106" r="5" fill="white"/>
+<circle cx="70" cy="120" r="12" fill="#FFCC44" opacity="0.3"/><circle cx="130" cy="120" r="12" fill="#FFCC44" opacity="0.3"/>
+<path d="M91 124 Q100 132 109 124" stroke="#CC9933" stroke-width="2" fill="none" stroke-linecap="round"/>
+<text x="56" y="90" font-size="14" fill="#FFDD44" opacity="0.8" filter="url(#g3AAAf)">★</text><text x="128" y="88" font-size="12" fill="#FFDD44" opacity="0.75" filter="url(#g3AAAf)">★</text>
+<text x="92" y="56" font-size="10" fill="#FFDD44" opacity="0.8">✦</text>
+`},
+AAB:{name:'パイロスタフィン',desc:'炎の神',bg:'linear-gradient(135deg,#FFF3E0,#FFDDBB)',anim:'anim-dance',draw:()=>`
+<defs><radialGradient id="g3AAB" cx="38%" cy="32%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFEEDD"/><stop offset="100%" stop-color="#FFCC99"/></radialGradient><filter id="g3AABf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 108 Q32 82 26 60 Q44 62 56 84 Q60 96 58 110Z" fill="#FF8822" opacity="0.8"/>
+<path d="M148 108 Q168 82 174 60 Q156 62 144 84 Q140 96 142 110Z" fill="#FF8822" opacity="0.8"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3AAB)" stroke="#FFBB77" stroke-width="1"/>
+<ellipse cx="100" cy="128" rx="30" ry="26" fill="rgba(255,255,255,0.75)"/>
+<path d="M70 74 Q60 48 72 44 Q82 54 80 72Z" fill="#FFE0AA" stroke="#FFCC77" stroke-width="1"/>
+<path d="M130 74 Q140 48 128 44 Q118 54 120 72Z" fill="#FFE0AA" stroke="#FFCC77" stroke-width="1"/>
+<circle cx="72" cy="44" r="5" fill="#FF4400" filter="url(#g3AABf)"/><circle cx="128" cy="44" r="5" fill="#FF4400" filter="url(#g3AABf)"/>
+<path d="M78,72 Q74,50 80,36 Q88,52 86,70Z" fill="#FF3300"/><path d="M100,68 Q100,44 106,30 Q112,48 110,68Z" fill="#FF5500"/><path d="M122,72 Q126,50 120,36 Q114,52 116,70Z" fill="#FF3300"/>
+<path d="M80,64 Q76,48 80,36 Q88,52 86,70Z" fill="#FFAA00" opacity="0.55"/>
+<circle cx="86" cy="110" r="12" fill="#1A0600"/><circle cx="114" cy="110" r="12" fill="#1A0600"/>
+<circle cx="89" cy="106" r="5" fill="#FF8844"/><circle cx="117" cy="106" r="5" fill="#FF8844"/>
+<circle cx="73" cy="119" r="11" fill="#FF8844" opacity="0.3"/><circle cx="127" cy="119" r="11" fill="#FF8844" opacity="0.3"/>
+<path d="M91 124 Q100 131 109 124" stroke="#CC5511" stroke-width="2" fill="none" stroke-linecap="round"/>
+`},
+AAC:{name:'ファントスタフィン',desc:'天使の幽霊',bg:'linear-gradient(135deg,#F2EEFF,#E2D8FF)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3AAC" cx="38%" cy="32%"><stop offset="0%" stop-color="rgba(255,255,255,0.95)"/><stop offset="60%" stop-color="rgba(230,220,255,0.8)"/><stop offset="100%" stop-color="rgba(190,175,255,0.65)"/></radialGradient><filter id="g3AACf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M44 106 Q22 82 16 58 Q36 60 54 80 Q58 94 56 108Z" fill="rgba(220,215,255,0.45)" stroke="rgba(180,170,255,0.5)" stroke-width="1"/>
+<path d="M156 106 Q178 82 184 58 Q164 60 146 80 Q142 94 144 108Z" fill="rgba(220,215,255,0.45)" stroke="rgba(180,170,255,0.5)" stroke-width="1"/>
+<path d="M78 152 Q64 172 56 182" stroke="rgba(180,165,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 158 Q99 175 95 186" stroke="rgba(180,165,255,0.48)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M122 152 Q136 172 144 182" stroke="rgba(180,165,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3AAC)" stroke="rgba(190,180,255,0.5)" stroke-width="1.5"/>
+<ellipse cx="100" cy="128" rx="29" ry="25" fill="rgba(255,255,255,0.7)"/>
+<circle cx="74" cy="81" r="13" fill="rgba(210,200,255,0.55)"/><circle cx="126" cy="81" r="13" fill="rgba(210,200,255,0.55)"/>
+<ellipse cx="100" cy="65" rx="28" ry="8" fill="none" stroke="rgba(200,185,255,0.7)" stroke-width="3.5" filter="url(#g3AACf)"/>
+<circle cx="86" cy="110" r="12" fill="#150828"/><circle cx="114" cy="110" r="12" fill="#150828"/>
+<circle cx="86" cy="110" r="7" fill="#8855FF" opacity="0.7" filter="url(#g3AACf)"/>
+<circle cx="114" cy="110" r="7" fill="#8855FF" opacity="0.7" filter="url(#g3AACf)"/>
+<circle cx="89" cy="106" r="4" fill="rgba(230,215,255,0.9)"/><circle cx="117" cy="106" r="4" fill="rgba(230,215,255,0.9)"/>
+<circle cx="72" cy="120" r="11" fill="rgba(180,160,255,0.25)"/><circle cx="128" cy="120" r="11" fill="rgba(180,160,255,0.25)"/>
+<text x="57" y="90" font-size="12" fill="rgba(200,180,255,0.7)" filter="url(#g3AACf)">✦</text>
+<text x="130" y="88" font-size="10" fill="rgba(200,180,255,0.65)" filter="url(#g3AACf)">✦</text>
+`},
+// ABA-ABC: Gold branch
+ABA:{name:'グリムスケイル',desc:'黄金の鎧竜',bg:'linear-gradient(135deg,#FFFBE0,#FFF3A0)',anim:'anim-wobble',draw:()=>`
+<defs><radialGradient id="g3ABA" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFFCE0"/><stop offset="60%" stop-color="#FFE866"/><stop offset="100%" stop-color="#FFB800"/></radialGradient><filter id="g3ABAf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="116" r="52" fill="rgba(255,220,50,0.15)" filter="url(#g3ABAf)"/>
+<path d="M100 74 Q138 74 150 110 Q153 133 138 152 Q122 166 100 166 Q78 166 62 152 Q47 133 50 110 Q62 74 100 74Z" fill="url(#g3ABA)" stroke="#CC9900" stroke-width="2"/>
+<ellipse cx="100" cy="135" rx="32" ry="27" fill="rgba(255,255,200,0.6)"/>
+<path d="M74 106 Q82 97 91 106 Q83 115 74 106Z" fill="#CC9900" opacity="0.5"/><path d="M93 100 Q101 91 110 100 Q102 109 93 100Z" fill="#CC9900" opacity="0.45"/><path d="M112 106 Q120 97 129 106 Q121 115 112 106Z" fill="#CC9900" opacity="0.5"/>
+<path d="M80,76 L76,56 L86,66 L92,50 L100,62 L108,50 L114,66 L124,56 L120,76Z" fill="#FFD700" stroke="#CC9900" stroke-width="1.5" filter="url(#g3ABAf)"/>
+<circle cx="74" cy="82" r="13" fill="#FFE066" stroke="#CC9900" stroke-width="1"/><circle cx="126" cy="82" r="13" fill="#FFE066" stroke="#CC9900" stroke-width="1"/>
+<circle cx="87" cy="111" r="12" fill="#1A0A00"/><circle cx="113" cy="111" r="12" fill="#1A0A00"/>
+<circle cx="90" cy="107" r="5" fill="#FFD700"/><circle cx="116" cy="107" r="5" fill="#FFD700"/>
+<circle cx="72" cy="120" r="11" fill="#FFCC00" opacity="0.3"/><circle cx="128" cy="120" r="11" fill="#FFCC00" opacity="0.3"/>
+<path d="M91 125 Q100 132 109 125" stroke="#997700" stroke-width="2" fill="none" stroke-linecap="round"/>
+`},
+ABB:{name:'フレアウィング',desc:'炎の翼竜',bg:'linear-gradient(135deg,#FFF0E0,#FFC8AA)',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3ABB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FFCC66"/><stop offset="50%" stop-color="#FF6600"/><stop offset="100%" stop-color="#CC2200"/></linearGradient><filter id="g3ABBf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 106 Q14 72 8 38 Q32 38 56 68 Q62 88 58 110Z" fill="#FF6600" opacity="0.9"/>
+<path d="M154 106 Q186 72 192 38 Q168 38 144 68 Q138 88 142 110Z" fill="#FF6600" opacity="0.9"/>
+<path d="M42 122 Q10 112 6 92 Q30 90 46 108Z" fill="#FF4400" opacity="0.8"/>
+<path d="M158 122 Q190 112 194 92 Q170 90 154 108Z" fill="#FF4400" opacity="0.8"/>
+<path d="M126 158 Q160 174 166 155 Q162 134 146 140" fill="#CC3300"/>
+<path d="M100 74 Q136 74 148 110 Q151 133 136 152 Q120 166 100 166 Q80 166 64 152 Q49 133 52 110 Q64 74 100 74Z" fill="url(#g3ABB)" stroke="#AA2200" stroke-width="2"/>
+<ellipse cx="100" cy="134" rx="30" ry="24" fill="rgba(255,200,100,0.5)"/>
+<path d="M82,76 Q77,52 83,38 Q90,54 88,74Z" fill="#FF2200"/><path d="M100,70 Q100,44 107,30 Q114,48 110,70Z" fill="#FF4400"/><path d="M118,76 Q123,52 117,38 Q110,54 112,74Z" fill="#FF2200"/>
+<path d="M84,68 Q78,50 83,38 Q90,54 88,74Z" fill="#FFAA00" opacity="0.55"/>
+<ellipse cx="85" cy="107" rx="11" ry="8" fill="#200400"/><ellipse cx="115" cy="107" rx="11" ry="8" fill="#200400"/>
+<ellipse cx="88" cy="105" rx="4.5" ry="3" fill="#FF6622"/><ellipse cx="118" cy="105" rx="4.5" ry="3" fill="#FF6622"/>
+<path d="M64 150 L56 158 M70 157 L62 163" stroke="#FF4400" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M136 150 L144 158 M130 157 L138 163" stroke="#FF4400" stroke-width="2.5" stroke-linecap="round"/>
+`},
+ABC:{name:'シャドウクロウ',desc:'闇の爪竜',bg:'linear-gradient(135deg,#1C0E30,#2A0C40)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3ABC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#553388"/><stop offset="100%" stop-color="#1A0832"/></linearGradient><filter id="g3ABCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M48 108 Q22 78 16 50 Q40 52 58 78 Q62 93 58 110Z" fill="rgba(80,30,120,0.7)"/>
+<path d="M152 108 Q178 78 184 50 Q160 52 142 78 Q138 93 142 110Z" fill="rgba(80,30,120,0.7)"/>
+<path d="M126 158 Q160 173 164 153 Q158 134 142 140" fill="#2A0A44"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 151 Q120 165 100 165 Q80 165 64 151 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3ABC)" stroke="#441066" stroke-width="1.5"/>
+<ellipse cx="100" cy="133" rx="30" ry="24" fill="rgba(80,30,130,0.5)"/>
+<polygon points="85,76 80,55 91,73" fill="#3A0A66"/><polygon points="100,72 100,50 108,71" fill="#4A1077"/><polygon points="115,76 120,55 109,73" fill="#3A0A66"/>
+<ellipse cx="85" cy="107" rx="11" ry="8" fill="#0A0014"/><ellipse cx="115" cy="107" rx="11" ry="8" fill="#0A0014"/>
+<ellipse cx="85" cy="107" rx="7" ry="5" fill="#AA44FF" opacity="0.6" filter="url(#g3ABCf)"/><ellipse cx="115" cy="107" rx="7" ry="5" fill="#AA44FF" opacity="0.6" filter="url(#g3ABCf)"/>
+<ellipse cx="88" cy="105" rx="3.5" ry="2.5" fill="rgba(200,150,255,0.9)"/><ellipse cx="118" cy="105" rx="3.5" ry="2.5" fill="rgba(200,150,255,0.9)"/>
+<path d="M62 152 L53 161 M68 159 L60 167" stroke="#551088" stroke-width="3" stroke-linecap="round"/>
+<path d="M138 152 L147 161 M132 159 L140 167" stroke="#551088" stroke-width="3" stroke-linecap="round"/>
+`},
+// ACA-ACC: Moon ghost branch
+ACA:{name:'ルナフォーム',desc:'月の門番',bg:'linear-gradient(135deg,#F5F2FF,#EDE0FF)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3ACA" cx="38%" cy="32%"><stop offset="0%" stop-color="rgba(255,255,255,0.98)"/><stop offset="60%" stop-color="rgba(230,225,255,0.85)"/><stop offset="100%" stop-color="rgba(200,190,255,0.7)"/></radialGradient><filter id="g3ACAf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M100 42 Q115 42 119 52 Q110 52 105 60 Q93 58 90 50 Q93 42 100 42Z" fill="#EEDDFF" stroke="#CCAAFF" stroke-width="1" filter="url(#g3ACAf)"/>
+<path d="M76 153 Q62 174 54 184" stroke="rgba(190,175,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 159 Q99 177 94 188" stroke="rgba(190,175,255,0.48)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M124 153 Q138 174 146 184" stroke="rgba(190,175,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3ACA)" stroke="rgba(190,175,255,0.5)" stroke-width="1.5"/>
+<ellipse cx="100" cy="128" rx="30" ry="26" fill="rgba(255,255,255,0.7)"/>
+<circle cx="74" cy="81" r="13" fill="rgba(220,210,255,0.6)"/><circle cx="126" cy="81" r="13" fill="rgba(220,210,255,0.6)"/>
+<text x="57" y="88" font-size="12" fill="rgba(200,180,255,0.8)" filter="url(#g3ACAf)">★</text>
+<text x="130" y="86" font-size="10" fill="rgba(200,180,255,0.75)" filter="url(#g3ACAf)">★</text>
+<circle cx="86" cy="111" r="12" fill="#1A0828"/><circle cx="114" cy="111" r="12" fill="#1A0828"/>
+<circle cx="86" cy="111" r="8" fill="#7755AA" opacity="0.6" filter="url(#g3ACAf)"/><circle cx="114" cy="111" r="8" fill="#7755AA" opacity="0.6" filter="url(#g3ACAf)"/>
+<circle cx="89" cy="107" r="4.5" fill="rgba(230,220,255,0.95)"/><circle cx="117" cy="107" r="4.5" fill="rgba(230,220,255,0.95)"/>
+<circle cx="71" cy="121" r="11" fill="rgba(180,160,255,0.2)"/><circle cx="129" cy="121" r="11" fill="rgba(180,160,255,0.2)"/>
+`},
+ACB:{name:'ゴーストクロウ',desc:'幽霊竜',bg:'linear-gradient(135deg,#E8EEF8,#D0D8EE)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3ACB" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(220,228,250,0.92)"/><stop offset="55%" stop-color="rgba(160,175,230,0.75)"/><stop offset="100%" stop-color="rgba(100,120,200,0.6)"/></radialGradient><filter id="g3ACBf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M50 104 Q26 78 20 54 Q42 57 58 80 Q62 94 58 108Z" fill="rgba(160,175,230,0.4)"/>
+<path d="M150 104 Q174 78 180 54 Q158 57 142 80 Q138 94 142 108Z" fill="rgba(160,175,230,0.4)"/>
+<path d="M78 152 Q64 172 56 182" stroke="rgba(140,160,220,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 158 Q99 175 95 186" stroke="rgba(140,160,220,0.45)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M122 152 Q136 172 144 182" stroke="rgba(140,160,220,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="url(#g3ACB)" opacity="0.88"/>
+<polygon points="85,70 80,50 91,68" fill="rgba(130,150,210,0.45)"/><polygon points="100,67 100,46 108,66" fill="rgba(150,168,225,0.5)"/><polygon points="115,70 120,50 109,68" fill="rgba(130,150,210,0.45)"/>
+<circle cx="87" cy="110" r="13" fill="#060A18"/><circle cx="113" cy="113" r="9" fill="#060A18"/>
+<circle cx="87" cy="110" r="8" fill="#3366FF" opacity="0.6" filter="url(#g3ACBf)"/><circle cx="113" cy="113" r="5" fill="#3366FF" opacity="0.55" filter="url(#g3ACBf)"/>
+<circle cx="90" cy="106" r="4.5" fill="rgba(180,200,255,0.9)"/><circle cx="116" cy="110" r="3" fill="rgba(180,200,255,0.9)"/>
+<path d="M60 152 L52 160 M66 158 L58 165" stroke="rgba(120,145,210,0.55)" stroke-width="3" stroke-linecap="round"/>
+<path d="M140 152 L148 160 M134 158 L142 165" stroke="rgba(120,145,210,0.55)" stroke-width="3" stroke-linecap="round"/>
+`},
+ACC:{name:'ヴォイドパフ',desc:'虚無の存在',bg:'linear-gradient(135deg,#0C0818,#160C28)',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g3ACC" cx="38%" cy="32%"><stop offset="0%" stop-color="#3A1C70"/><stop offset="55%" stop-color="#1E0A44"/><stop offset="100%" stop-color="#080418"/></radialGradient><filter id="g3ACCf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="118" r="60" fill="rgba(80,20,160,0.12)" filter="url(#g3ACCf)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 159 Q98 177 93 188" stroke="#2A0A4A" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3ACC)" stroke="#3A0A66" stroke-width="1.5"/>
+<circle cx="74" cy="81" r="13" fill="#1E0A38" stroke="#3A1066" stroke-width="1"/><circle cx="126" cy="81" r="13" fill="#1E0A38" stroke="#3A1066" stroke-width="1"/>
+<circle cx="86" cy="111" r="13" fill="#0A0420"/><circle cx="86" cy="111" r="9" fill="rgba(255,255,255,0.9)" filter="url(#g3ACCf)"/><circle cx="86" cy="111" r="5" fill="white"/>
+<circle cx="114" cy="111" r="13" fill="#0A0420"/><circle cx="114" cy="111" r="9" fill="rgba(255,255,255,0.9)" filter="url(#g3ACCf)"/><circle cx="114" cy="111" r="5" fill="white"/>
+<circle cx="68" cy="88" r="3" fill="rgba(150,80,255,0.5)" filter="url(#g3ACCf)"/><circle cx="133" cy="86" r="2.5" fill="rgba(150,80,255,0.45)" filter="url(#g3ACCf)"/>
+`},
+// BAA-BCC: Dragon branches
+BAA:{name:'タイドウォーデン',desc:'海の守護竜',bg:'linear-gradient(135deg,#DAFFF5,#B5F5E0)',anim:'anim-float',draw:()=>`
+<defs><linearGradient id="g3BAA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#AAFFEE"/><stop offset="100%" stop-color="#22CCAA"/></linearGradient><filter id="g3BAAf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 104 Q24 82 16 58 Q38 62 54 84 Q58 95 56 108Z" fill="rgba(100,220,200,0.55)"/>
+<path d="M154 104 Q176 82 184 58 Q162 62 146 84 Q142 95 144 108Z" fill="rgba(100,220,200,0.55)"/>
+<path d="M132 150 Q164 155 166 140 Q164 124 148 126 Q138 127 136 139" fill="none" stroke="#22CCAA" stroke-width="9" stroke-linecap="round"/>
+<path d="M100 74 Q136 74 148 110 Q151 133 136 151 Q120 165 100 165 Q80 165 64 151 Q49 133 52 110 Q64 74 100 74Z" fill="url(#g3BAA)" stroke="#11BBAA" stroke-width="1.5"/>
+<ellipse cx="100" cy="134" rx="30" ry="25" fill="rgba(200,255,245,0.65)"/>
+<path d="M82,76 L78,58 L86,68 L92,54 L98,66 L104,54 L110,66 L118,58 L120,76Z" fill="#AAFFEE" stroke="#22BBAA" stroke-width="1.5" filter="url(#g3BAAf)"/>
+<circle cx="92" cy="57" r="4" fill="rgba(255,255,220,0.9)"/><circle cx="100" cy="54" r="4.5" fill="rgba(255,255,220,0.9)"/><circle cx="108" cy="57" r="4" fill="rgba(255,255,220,0.9)"/>
+<path d="M83,76 Q80,60 86,56 Q92,66 91,75Z" fill="#55DDCC"/><path d="M100,72 Q100,54 107,52 Q111,64 108,72Z" fill="#66EEDD"/><path d="M117,76 Q120,60 114,56 Q108,66 109,75Z" fill="#55DDCC"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#001414"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#001414"/>
+<ellipse cx="88" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="118" cy="104" rx="4" ry="3" fill="white"/>
+`},
+BAB:{name:'ウェーブクレスト',desc:'波乗り竜',bg:'linear-gradient(135deg,#E0F2FF,#B5DEFF)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3BAB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88CCFF"/><stop offset="100%" stop-color="#2266DD"/></linearGradient></defs>
+<path d="M78,76 Q72,54 82,44 Q90,58 88,74Z" fill="#4499FF"/><path d="M100,70 Q100,46 108,36 Q114,52 110,70Z" fill="#55AAFF"/><path d="M122,76 Q128,54 118,44 Q110,58 112,74Z" fill="#4499FF"/>
+<path d="M80,68 Q74,52 82,44 Q90,58 88,74Z" fill="#AACCFF" opacity="0.5"/>
+<path d="M126 158 Q160 170 168 152 Q164 132 148 138" fill="#2266DD"/>
+<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="url(#g3BAB)" stroke="#1144CC" stroke-width="1.5"/>
+<ellipse cx="100" cy="133" rx="30" ry="24" fill="rgba(150,200,255,0.5)"/>
+<path d="M76 108 Q84 99 93 108 Q85 117 76 108Z" fill="#1144BB" opacity="0.4"/><path d="M95 102 Q103 93 112 102 Q104 111 95 102Z" fill="#1144BB" opacity="0.35"/><path d="M114 108 Q122 99 131 108 Q123 117 114 108Z" fill="#1144BB" opacity="0.4"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#001428"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#001428"/>
+<ellipse cx="88" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="118" cy="104" rx="4" ry="3" fill="white"/>
+<path d="M64 150 L56 157 M70 157 L62 163" stroke="#2266DD" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M136 150 L144 157 M130 157 L138 163" stroke="#2266DD" stroke-width="2.5" stroke-linecap="round"/>
+`},
+BAC:{name:'ネブラスケイル',desc:'星雲竜',bg:'linear-gradient(135deg,#1A1040,#2A1860)',anim:'anim-float',draw:()=>`
+<defs><linearGradient id="g3BAC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#8866CC"/><stop offset="100%" stop-color="#331166"/></linearGradient><filter id="g3BACf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 104 Q28 80 20 56 Q42 58 58 80 Q62 93 58 107Z" fill="rgba(88,55,155,0.5)"/>
+<path d="M148 104 Q172 80 180 56 Q158 58 142 80 Q138 93 142 107Z" fill="rgba(88,55,155,0.5)"/>
+<path d="M130 154 Q160 168 164 150 Q158 132 144 138" fill="#441188"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BAC)" stroke="#220066" stroke-width="1.5"/>
+<ellipse cx="100" cy="132" rx="30" ry="24" fill="rgba(100,60,180,0.5)"/>
+<circle cx="80" cy="106" r="4" fill="#AA88FF" opacity="0.5"/><circle cx="95" cy="100" r="3" fill="#AA88FF" opacity="0.4"/><circle cx="110" cy="100" r="3" fill="#AA88FF" opacity="0.4"/><circle cx="124" cy="108" r="4" fill="#AA88FF" opacity="0.5"/>
+<polygon points="84,78 80,58 90,76" fill="#AA66FF"/><polygon points="100,74 100,52 108,73" fill="#BB77FF"/><polygon points="116,78 120,58 110,76" fill="#AA66FF"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#080010"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#080010"/>
+<ellipse cx="85" cy="106" rx="6" ry="5" fill="#8844FF" opacity="0.55" filter="url(#g3BACf)"/><ellipse cx="115" cy="106" rx="6" ry="5" fill="#8844FF" opacity="0.55" filter="url(#g3BACf)"/>
+<ellipse cx="88" cy="104" rx="3" ry="2" fill="rgba(200,180,255,0.9)"/><ellipse cx="118" cy="104" rx="3" ry="2" fill="rgba(200,180,255,0.9)"/>
+<circle cx="68" cy="90" r="2.5" fill="rgba(180,140,255,0.5)"/><circle cx="134" cy="88" r="2" fill="rgba(180,140,255,0.45)"/>
+`},
+BBA:{name:'サンダーウィング',desc:'雷竜',bg:'linear-gradient(135deg,#FFFFF0,#FFFF88)',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3BBA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FFFF88"/><stop offset="100%" stop-color="#BBAA00"/></linearGradient><filter id="g3BBAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 104 Q16 72 10 40 Q34 40 56 68 Q62 88 58 108Z" fill="#DDCC00" opacity="0.85"/>
+<path d="M154 104 Q184 72 190 40 Q166 40 144 68 Q138 88 142 108Z" fill="#DDCC00" opacity="0.85"/>
+<path d="M42 120 Q12 112 8 96 Q32 94 46 110Z" fill="#CCBB00" opacity="0.8"/>
+<path d="M158 120 Q188 112 192 96 Q168 94 154 110Z" fill="#CCBB00" opacity="0.8"/>
+<path d="M126 158 Q155 170 158 154 Q154 136 142 140" fill="#998800"/>
+<!-- Lightning bolts -->
+<path d="M90,48 L82,68 L92,65 L84,84" stroke="#FFFF00" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#g3BBAf)"/>
+<path d="M110,44 L104,62 L112,60 L106,78" stroke="#FFFF00" stroke-width="2.5" fill="none" stroke-linecap="round" filter="url(#g3BBAf)"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 152 Q120 166 100 166 Q80 166 64 152 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BBA)" stroke="#998800" stroke-width="2"/>
+<ellipse cx="100" cy="133" rx="30" ry="24" fill="rgba(255,255,180,0.55)"/>
+<path d="M74 106 Q82 97 91 106 Q83 115 74 106Z" fill="#998800" opacity="0.4"/><path d="M93 100 Q101 91 110 100 Q102 109 93 100Z" fill="#998800" opacity="0.35"/><path d="M112 106 Q120 97 129 106 Q121 115 112 106Z" fill="#998800" opacity="0.4"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#181400"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#181400"/>
+<ellipse cx="88" cy="104" rx="4.5" ry="3" fill="#FFFF44"/><ellipse cx="118" cy="104" rx="4.5" ry="3" fill="#FFFF44"/>
+<path d="M64 150 L56 157 M70 157 L62 163" stroke="#BBAA00" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M136 150 L144 157 M130 157 L138 163" stroke="#BBAA00" stroke-width="2.5" stroke-linecap="round"/>
+`},
+BBB:{name:'インフェルノ',desc:'最強の炎竜',bg:'linear-gradient(135deg,#300800,#500A00)',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3BBB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FF8844"/><stop offset="50%" stop-color="#CC2200"/><stop offset="100%" stop-color="#880000"/></linearGradient><filter id="g3BBBf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="112" r="65" fill="rgba(255,50,0,0.08)" filter="url(#g3BBBf)"/>
+<path d="M40 105 Q8 68 4 30 Q30 30 54 64 Q60 86 56 108Z" fill="#CC4400" opacity="0.9"/>
+<path d="M160 105 Q192 68 196 30 Q170 30 146 64 Q140 86 144 108Z" fill="#CC4400" opacity="0.9"/>
+<path d="M36 124 Q4 112 2 92 Q28 90 44 112Z" fill="#AA3300" opacity="0.85"/>
+<path d="M164 124 Q196 112 198 92 Q172 90 156 112Z" fill="#AA3300" opacity="0.85"/>
+<!-- Massive flame crown -->
+<path d="M74,74 Q68,46 76,28 Q86,48 84,72Z" fill="#FF1100"/><path d="M88,68 Q85,38 92,20 Q100,42 98,68Z" fill="#FF3300"/>
+<path d="M100,66 Q100,36 108,18 Q116,40 112,66Z" fill="#FF4400"/><path d="M114,68 Q115,38 108,20 Q116,42 118,66Z" fill="#FF3300"/>
+<path d="M126,74 Q132,46 124,28 Q114,48 116,72Z" fill="#FF1100"/>
+<path d="M78,66 Q70,44 76,28 Q86,48 84,72Z" fill="#FFAA00" opacity="0.5" filter="url(#g3BBBf)"/>
+<path d="M100,58 Q100,36 108,18 Q116,40 112,66Z" fill="#FFCC00" opacity="0.4" filter="url(#g3BBBf)"/>
+<!-- Body -->
+<path d="M100 72 Q140 72 152 110 Q155 134 140 154 Q124 170 100 170 Q76 170 60 154 Q45 134 48 110 Q60 72 100 72Z" fill="url(#g3BBB)" stroke="#660000" stroke-width="2"/>
+<ellipse cx="100" cy="136" rx="32" ry="26" fill="rgba(255,150,50,0.35)"/>
+<!-- Scale armor heavy -->
+<path d="M72 108 Q80 99 89 108 Q81 117 72 108Z" fill="#880000" opacity="0.55"/>
+<path d="M91 101 Q99 92 108 101 Q100 110 91 101Z" fill="#880000" opacity="0.5"/>
+<path d="M110 108 Q118 99 127 108 Q119 117 110 108Z" fill="#880000" opacity="0.55"/>
+<path d="M80 120 Q88 111 97 120 Q89 129 80 120Z" fill="#880000" opacity="0.45"/>
+<path d="M103 120 Q111 111 120 120 Q112 129 103 120Z" fill="#880000" opacity="0.45"/>
+<path d="M134 152 Q150 168 162 158 Q164 136 150 140" fill="#661100"/>
+<!-- Eyes demon -->
+<ellipse cx="84" cy="107" rx="12" ry="9" fill="#100000"/>
+<ellipse cx="84" cy="107" rx="8" ry="6" fill="#FF2200" opacity="0.7" filter="url(#g3BBBf)"/>
+<ellipse cx="84" cy="107" rx="4.5" ry="3.5" fill="#FF6622"/>
+<ellipse cx="116" cy="107" rx="12" ry="9" fill="#100000"/>
+<ellipse cx="116" cy="107" rx="8" ry="6" fill="#FF2200" opacity="0.7" filter="url(#g3BBBf)"/>
+<ellipse cx="116" cy="107" rx="4.5" ry="3.5" fill="#FF6622"/>
+<!-- Triple claws -->
+<path d="M58 152 L48 162 M65 159 L55 169 M72 165 L63 174" stroke="#882200" stroke-width="3" stroke-linecap="round"/>
+<path d="M142 152 L152 162 M135 159 L145 169 M128 165 L137 174" stroke="#882200" stroke-width="3" stroke-linecap="round"/>
+`},
+BBC:{name:'ポイズンフレア',desc:'毒炎竜',bg:'linear-gradient(135deg,#1A2E00,#2A4800)',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3BBC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88CC00"/><stop offset="50%" stop-color="#446600"/><stop offset="100%" stop-color="#223300"/></linearGradient><filter id="g3BBCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 106 Q18 74 12 42 Q36 44 56 72 Q62 90 58 109Z" fill="#448800" opacity="0.85"/>
+<path d="M154 106 Q182 74 188 42 Q164 44 144 72 Q138 90 142 109Z" fill="#448800" opacity="0.85"/>
+<path d="M130 154 Q164 168 168 150 Q162 130 146 137" fill="#336600"/>
+<!-- Poison flames -->
+<path d="M80,74 Q75,52 82,38 Q88,54 87,72Z" fill="#66BB00"/><path d="M100,70 Q100,46 107,32 Q113,50 110,70Z" fill="#77CC00"/><path d="M120,74 Q125,52 118,38 Q112,54 113,72Z" fill="#66BB00"/>
+<path d="M82,66 Q76,48 82,38 Q88,54 87,72Z" fill="#CCFF44" opacity="0.45" filter="url(#g3BBCf)"/>
+<!-- Toxic drips -->
+<circle cx="70" cy="170" r="5" fill="#88CC44" opacity="0.7"/><circle cx="100" cy="174" r="6" fill="#99DD44" opacity="0.6"/><circle cx="130" cy="170" r="4" fill="#88CC44" opacity="0.65"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 151 Q120 165 100 165 Q80 165 64 151 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BBC)" stroke="#224400" stroke-width="2"/>
+<ellipse cx="100" cy="133" rx="29" ry="23" fill="rgba(150,255,50,0.3)"/>
+<path d="M74 107 Q82 98 91 107 Q83 116 74 107Z" fill="#335500" opacity="0.55"/>
+<path d="M93 101 Q101 92 110 101 Q102 110 93 101Z" fill="#335500" opacity="0.5"/>
+<path d="M112 107 Q120 98 129 107 Q121 116 112 107Z" fill="#335500" opacity="0.55"/>
+<ellipse cx="85" cy="107" rx="11" ry="8" fill="#0A1400"/><ellipse cx="115" cy="107" rx="11" ry="8" fill="#0A1400"/>
+<ellipse cx="85" cy="107" rx="4" ry="7" fill="#AAFF22" opacity="0.65"/><ellipse cx="115" cy="107" rx="4" ry="7" fill="#AAFF22" opacity="0.65"/>
+<circle cx="80" cy="122" r="5" fill="#BBFF44" opacity="0.4" filter="url(#g3BBCf)"/><circle cx="122" cy="120" r="5" fill="#BBFF44" opacity="0.4" filter="url(#g3BBCf)"/>
+`},
+BCA:{name:'クリスタルスケイル',desc:'宝石竜',bg:'linear-gradient(135deg,#E8FFFF,#B8EEFF)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3BCA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88EEFF"/><stop offset="50%" stop-color="#44AACC"/><stop offset="100%" stop-color="#0066AA"/></linearGradient><filter id="g3BCAf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<!-- Crystal facets on wings -->
+<path d="M48 104 Q22 78 16 50 Q38 54 56 78 Q60 92 58 108Z" fill="rgba(100,200,240,0.6)"/>
+<path d="M152 104 Q178 78 184 50 Q162 54 144 78 Q140 92 142 108Z" fill="rgba(100,200,240,0.6)"/>
+<path d="M126 156 Q156 168 160 150 Q156 132 142 137" fill="#0088BB"/>
+<!-- Crystal crown -->
+<path d="M82,76 L78,56 L84,64 L90,50 L96,62 L102,50 L108,62 L114,50 L120,64 L126,56 L122,76Z" fill="#88EEFF" stroke="#0088CC" stroke-width="1.5" filter="url(#g3BCAf)"/>
+<!-- Gem sparkles -->
+<path d="M92,56 L90,60 L88,56 L92,52Z" fill="white" opacity="0.8"/>
+<path d="M108,52 L106,56 L104,52 L108,48Z" fill="white" opacity="0.8"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 152 Q120 166 100 166 Q80 166 64 152 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BCA)" stroke="#005588" stroke-width="1.5"/>
+<ellipse cx="100" cy="133" rx="30" ry="24" fill="rgba(180,240,255,0.55)"/>
+<path d="M74 106 Q82 97 91 106 Q83 115 74 106Z" fill="#0077AA" opacity="0.45"/>
+<path d="M93 100 Q101 91 110 100 Q102 109 93 100Z" fill="#0077AA" opacity="0.4"/>
+<path d="M112 106 Q120 97 129 106 Q121 115 112 106Z" fill="#0077AA" opacity="0.45"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#001828"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#001828"/>
+<ellipse cx="88" cy="104" rx="4" ry="3" fill="rgba(180,240,255,0.9)"/><ellipse cx="118" cy="104" rx="4" ry="3" fill="rgba(180,240,255,0.9)"/>
+<!-- Crystal shine spots -->
+<circle cx="78" cy="106" r="3" fill="white" opacity="0.5" filter="url(#g3BCAf)"/>
+<circle cx="122" cy="106" r="3" fill="white" opacity="0.5" filter="url(#g3BCAf)"/>
+`},
+BCB:{name:'ファングウィング',desc:'毒翼竜',bg:'linear-gradient(135deg,#102808,#183A10)',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3BCB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#66CC44"/><stop offset="100%" stop-color="#224400"/></linearGradient><filter id="g3BCBf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M44 104 Q18 78 12 50 Q36 52 56 76 Q60 92 58 107Z" fill="rgba(70,140,50,0.65)"/>
+<path d="M156 104 Q182 78 188 50 Q164 52 144 76 Q140 92 142 107Z" fill="rgba(70,140,50,0.65)"/>
+<path d="M38 120 Q14 112 10 96 Q34 95 44 110Z" fill="rgba(50,120,40,0.6)"/>
+<path d="M162 120 Q186 112 190 96 Q166 95 156 110Z" fill="rgba(50,120,40,0.6)"/>
+<!-- Spiked tail -->
+<path d="M128 156 Q160 170 166 152 Q162 132 146 138" fill="#224400"/>
+<polygon points="152,150 162,142 168,156" fill="#336600"/>
+<!-- Body -->
+<path d="M100 74 Q136 74 148 110 Q151 132 136 151 Q120 165 100 165 Q80 165 64 151 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BCB)" stroke="#112200" stroke-width="2"/>
+<ellipse cx="100" cy="132" rx="28" ry="22" fill="rgba(160,255,100,0.35)"/>
+<!-- Toxic scale pattern -->
+<path d="M74 107 Q82 98 91 107 Q83 116 74 107Z" fill="#336600" opacity="0.6"/>
+<path d="M93 101 Q101 92 110 101 Q102 110 93 101Z" fill="#336600" opacity="0.55"/>
+<path d="M112 107 Q120 98 129 107 Q121 116 112 107Z" fill="#336600" opacity="0.6"/>
+<!-- Double horn spikes -->
+<polygon points="85,76 80,54 90,74" fill="#66CC33"/><polygon points="100,72 100,48 109,71" fill="#77DD44"/><polygon points="115,76 120,54 110,74" fill="#66CC33"/>
+<!-- Snake eyes -->
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#0A1400"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#0A1400"/>
+<ellipse cx="85" cy="106" rx="3" ry="7" fill="#99FF44" opacity="0.7"/><ellipse cx="115" cy="106" rx="3" ry="7" fill="#99FF44" opacity="0.7"/>
+<!-- Poison drips -->
+<circle cx="74" cy="172" r="5" fill="#88CC44" opacity="0.7" filter="url(#g3BCBf)"/>
+<circle cx="100" cy="175" r="6" fill="#AADD44" opacity="0.65" filter="url(#g3BCBf)"/>
+<circle cx="126" cy="172" r="4" fill="#88CC44" opacity="0.7" filter="url(#g3BCBf)"/>
+`},
+BCC:{name:'デスリンク',desc:'毒の幽霊竜',bg:'linear-gradient(135deg,#0C1408,#182008)',anim:'anim-float',draw:()=>`
+<defs><linearGradient id="g3BCC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#446633"/><stop offset="100%" stop-color="#0A1A00"/></linearGradient><filter id="g3BCCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="112" r="60" fill="rgba(40,100,20,0.1)" filter="url(#g3BCCf)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#335522" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 158 Q98 176 93 187" stroke="#335522" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M124 152 Q138 174 146 184" stroke="#335522" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="url(#g3BCC)" stroke="#111A00" stroke-width="1.5"/>
+<polygon points="84,70 80,50 91,68" fill="rgba(80,140,40,0.5)"/><polygon points="100,67 100,46 108,66" fill="rgba(100,160,50,0.55)"/><polygon points="116,70 120,50 109,68" fill="rgba(80,140,40,0.5)"/>
+<circle cx="87" cy="110" r="13" fill="#040A00"/><circle cx="113" cy="113" r="9" fill="#040A00"/>
+<circle cx="87" cy="110" r="8" fill="#55AA22" opacity="0.55" filter="url(#g3BCCf)"/><circle cx="113" cy="113" r="5" fill="#55AA22" opacity="0.5" filter="url(#g3BCCf)"/>
+<ellipse cx="87" cy="110" rx="3" ry="7" fill="#AAFF44" opacity="0.5"/><ellipse cx="113" cy="113" rx="2" ry="5" fill="#AAFF44" opacity="0.45"/>
+<circle cx="76" cy="166" r="5" fill="#88CC44" opacity="0.7" filter="url(#g3BCCf)"/><circle cx="100" cy="170" r="6" fill="#99DD44" opacity="0.65" filter="url(#g3BCCf)"/><circle cx="124" cy="166" r="4" fill="#88CC44" opacity="0.65" filter="url(#g3BCCf)"/>
+`},
+// CAA-CCC: Ghost branches
+CAA:{name:'スターブライト',desc:'流れ星の神',bg:'linear-gradient(135deg,#FFFFF5,#FFF8CC)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CAA" cx="44%" cy="38%"><stop offset="0%" stop-color="#FFFEF0"/><stop offset="55%" stop-color="#EEE880"/><stop offset="100%" stop-color="#CCCC00"/></radialGradient><filter id="g3CAAf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="62" ry="70" fill="rgba(255,255,100,0.1)" filter="url(#g3CAAf)"/>
+<path d="M78 152 Q64 174 56 184" stroke="rgba(220,220,50,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 158 Q99 175 95 186" stroke="rgba(220,220,50,0.48)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M122 152 Q136 174 144 184" stroke="rgba(220,220,50,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CAA)" opacity="0.93"/>
+<!-- Star crown big -->
+<text x="85" y="58" font-size="28" fill="#FFEE44" filter="url(#g3CAAf)">★</text>
+<!-- Orbiting stars -->
+<text x="44" y="90" font-size="14" fill="#FFEE44" opacity="0.7" filter="url(#g3CAAf)">★</text>
+<text x="142" y="85" font-size="12" fill="#FFEE44" opacity="0.65" filter="url(#g3CAAf)">★</text>
+<text x="50" y="140" font-size="9" fill="#FFEE44" opacity="0.6">✦</text>
+<text x="138" y="142" font-size="9" fill="#FFEE44" opacity="0.6">✦</text>
+<circle cx="88" cy="110" r="13" fill="#180A00"/><circle cx="114" cy="113" r="10" fill="#180A00"/>
+<circle cx="91" cy="106" r="5" fill="rgba(255,240,150,0.95)"/><circle cx="117" cy="110" r="3.5" fill="rgba(255,240,150,0.95)"/>
+<path d="M56 108 Q40 103 37 113 Q41 122 54 118" fill="#AAAA44" opacity="0.6"/>
+<path d="M144 118 Q160 113 163 123 Q159 132 148 127" fill="#AAAA44" opacity="0.55"/>
+`},
+CAB:{name:'ドラゴンスター',desc:'龍の星神',bg:'linear-gradient(135deg,#1A1010,#2A1414)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CAB" cx="44%" cy="38%"><stop offset="0%" stop-color="#664422"/><stop offset="55%" stop-color="#331108"/><stop offset="100%" stop-color="#100400"/></radialGradient><filter id="g3CABf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="110" rx="60" ry="68" fill="rgba(180,80,20,0.1)" filter="url(#g3CABf)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#441100" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 158 Q98 176 93 187" stroke="#441100" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M124 152 Q138 174 146 184" stroke="#441100" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<!-- Draconic ghost form -->
+<path d="M52 100 Q28 76 20 52 Q42 55 58 78 Q62 92 58 104Z" fill="rgba(140,60,20,0.4)"/>
+<path d="M148 100 Q172 76 180 52 Q158 55 142 78 Q138 92 142 104Z" fill="rgba(140,60,20,0.4)"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CAB)" opacity="0.95"/>
+<!-- Fire star crown -->
+<text x="85" y="60" font-size="24" fill="#FF8844" filter="url(#g3CABf)">★</text>
+<!-- Ghost horns -->
+<polygon points="84,68 80,50 90,66" fill="rgba(200,100,50,0.5)"/><polygon points="100,65 100,44 108,64" fill="rgba(220,120,60,0.55)"/><polygon points="116,68 120,50 110,66" fill="rgba(200,100,50,0.5)"/>
+<circle cx="88" cy="110" r="13" fill="#0A0400"/><circle cx="113" cy="113" r="9" fill="#0A0400"/>
+<circle cx="88" cy="110" r="8" fill="#FF6622" opacity="0.55" filter="url(#g3CABf)"/><circle cx="113" cy="113" r="5" fill="#FF6622" opacity="0.5" filter="url(#g3CABf)"/>
+<circle cx="91" cy="106" r="4.5" fill="rgba(255,200,150,0.9)"/><circle cx="116" cy="110" r="3" fill="rgba(255,200,150,0.9)"/>
+`},
+CAC:{name:'コズミックソウル',desc:'宇宙の魂',bg:'linear-gradient(135deg,#080420,#100830)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CAC" cx="44%" cy="38%"><stop offset="0%" stop-color="#2A1855"/><stop offset="55%" stop-color="#150830"/><stop offset="100%" stop-color="#050210"/></radialGradient><filter id="g3CACf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="66" ry="74" fill="rgba(100,40,200,0.1)" filter="url(#g3CACf)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#180830" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 159 Q98 177 93 188" stroke="#180830" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="#180830" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 63 Q137 61 150 90 Q164 122 154 150 Q144 170 122 169 Q106 177 86 167 Q60 156 54 132 Q46 106 60 83 Q72 63 100 63Z" fill="url(#g3CAC)" opacity="0.97"/>
+<!-- Cosmos star crown -->
+<text x="80" y="58" font-size="30" fill="#8888FF" filter="url(#g3CACf)">✦</text>
+<!-- Floating cosmos stars -->
+<text x="40" y="88" font-size="10" fill="rgba(180,160,255,0.65)" filter="url(#g3CACf)">★</text>
+<text x="148" y="86" font-size="9" fill="rgba(180,160,255,0.6)" filter="url(#g3CACf)">★</text>
+<text x="46" y="138" font-size="7" fill="rgba(180,160,255,0.5)">✦</text>
+<text x="144" y="140" font-size="7" fill="rgba(180,160,255,0.5)">✦</text>
+<!-- Cosmic void eyes -->
+<circle cx="88" cy="110" r="14" fill="#030108"/>
+<circle cx="88" cy="110" r="10" fill="#5533AA" opacity="0.6" filter="url(#g3CACf)"/>
+<circle cx="88" cy="110" r="5" fill="rgba(200,180,255,0.85)"/>
+<circle cx="112" cy="112" r="10" fill="#030108"/>
+<circle cx="112" cy="112" r="6" fill="#5533AA" opacity="0.55" filter="url(#g3CACf)"/>
+<circle cx="112" cy="112" r="3" fill="rgba(200,180,255,0.8)"/>
+<!-- Tendrils -->
+<path d="M55 108 Q38 100 34 112 Q38 124 52 119" fill="rgba(80,40,160,0.5)"/>
+<path d="M145 120 Q162 112 166 124 Q162 135 150 129" fill="rgba(80,40,160,0.45)"/>
+`},
+CBA:{name:'ファントムタイド',desc:'幻影の海竜',bg:'linear-gradient(135deg,#D8FCFF,#A8F0F8)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CBA" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(200,250,255,0.9)"/><stop offset="55%" stop-color="rgba(100,210,230,0.75)"/><stop offset="100%" stop-color="rgba(50,170,200,0.6)"/></radialGradient><filter id="g3CBAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="60" ry="68" fill="rgba(100,220,240,0.12)" filter="url(#g3CBAf)"/>
+<path d="M76 152 Q62 174 54 184" stroke="rgba(80,190,210,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 158 Q99 175 95 186" stroke="rgba(80,190,210,0.44)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="rgba(80,190,210,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<!-- Flowing ghost fins -->
+<path d="M50 100 Q24 76 16 52 Q38 56 56 80 Q60 92 57 105Z" fill="rgba(100,210,230,0.38)"/>
+<path d="M150 100 Q176 76 184 52 Q162 56 144 80 Q140 92 143 105Z" fill="rgba(100,210,230,0.38)"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CBA)" opacity="0.9"/>
+<!-- Gem crown aqua -->
+<path d="M82,68 L78,50 L86,60 L92,46 L98,58 L104,46 L110,58 L118,60 L122,50 L120,68Z" fill="rgba(100,220,240,0.8)" stroke="#0099BB" stroke-width="1.5" filter="url(#g3CBAf)"/>
+<!-- Eyes deep blue -->
+<circle cx="88" cy="110" r="13" fill="#001820"/>
+<circle cx="88" cy="110" r="8" fill="#0099CC" opacity="0.65" filter="url(#g3CBAf)"/>
+<circle cx="91" cy="107" r="4" fill="rgba(180,240,255,0.9)"/>
+<circle cx="113" cy="113" r="9" fill="#001820"/>
+<circle cx="113" cy="113" r="5" fill="#0099CC" opacity="0.6" filter="url(#g3CBAf)"/>
+<circle cx="115" cy="111" r="3" fill="rgba(180,240,255,0.9)"/>
+`},
+CBB:{name:'フレアスペクター',desc:'炎の幽霊竜',bg:'linear-gradient(135deg,#280808,#3A0C08)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CBB" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(180,70,30,0.85)"/><stop offset="55%" stop-color="rgba(100,20,10,0.7)"/><stop offset="100%" stop-color="rgba(40,5,0,0.6)"/></radialGradient><filter id="g3CBBf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="110" rx="62" ry="70" fill="rgba(200,50,20,0.1)" filter="url(#g3CBBf)"/>
+<!-- Fire ghost wings -->
+<path d="M50 100 Q24 74 16 48 Q38 52 56 76 Q60 91 57 104Z" fill="rgba(200,60,0,0.4)"/>
+<path d="M150 100 Q176 74 184 48 Q162 52 144 76 Q140 91 143 104Z" fill="rgba(200,60,0,0.4)"/>
+<!-- Ghost wisps fire -->
+<path d="M76 152 Q62 174 54 184" stroke="rgba(200,60,0,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 158 Q98 176 93 187" stroke="rgba(180,50,0,0.48)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="rgba(200,60,0,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CBB)" opacity="0.95"/>
+<!-- Fire horns ghost -->
+<path d="M83,68 Q78,48 83,36 Q90,52 88,66Z" fill="rgba(220,80,0,0.5)"/><path d="M100,65 Q100,42 107,30 Q113,48 110,65Z" fill="rgba(230,90,0,0.55)"/><path d="M117,68 Q122,48 117,36 Q110,52 112,66Z" fill="rgba(220,80,0,0.5)"/>
+<path d="M84,60 Q78,44 83,36 Q90,52 88,66Z" fill="#FF8800" opacity="0.35" filter="url(#g3CBBf)"/>
+<!-- Fire eyes -->
+<circle cx="88" cy="110" r="13" fill="#0A0200"/>
+<circle cx="88" cy="110" r="8" fill="#FF3300" opacity="0.6" filter="url(#g3CBBf)"/>
+<circle cx="91" cy="107" r="4" fill="rgba(255,200,150,0.85)"/>
+<circle cx="113" cy="113" r="9" fill="#0A0200"/>
+<circle cx="113" cy="113" r="5" fill="#FF3300" opacity="0.55" filter="url(#g3CBBf)"/>
+<circle cx="115" cy="111" r="3" fill="rgba(255,200,150,0.8)"/>
+`},
+CBC:{name:'ポイズンスペクター',desc:'毒霧の幽霊竜',bg:'linear-gradient(135deg,#0C1A08,#142408)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CBC" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(100,180,60,0.8)"/><stop offset="55%" stop-color="rgba(50,100,20,0.65)"/><stop offset="100%" stop-color="rgba(15,35,5,0.55)"/></radialGradient><filter id="g3CBCf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="110" rx="60" ry="68" fill="rgba(60,160,30,0.1)" filter="url(#g3CBCf)"/>
+<!-- Toxic ghost wings -->
+<path d="M50 100 Q24 76 16 52 Q38 56 56 80 Q60 92 57 104Z" fill="rgba(60,140,30,0.35)"/>
+<path d="M150 100 Q176 76 184 52 Q162 56 144 80 Q140 92 143 104Z" fill="rgba(60,140,30,0.35)"/>
+<!-- Ghost tail wisps -->
+<path d="M76 152 Q62 174 54 184" stroke="rgba(60,140,30,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 158 Q98 176 93 187" stroke="rgba(50,120,25,0.44)" stroke-width="8" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="rgba(60,140,30,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CBC)" opacity="0.93"/>
+<!-- Poison spikes ghost -->
+<polygon points="84,68 80,48 90,66" fill="rgba(100,200,40,0.45)"/><polygon points="100,65 100,44 108,64" fill="rgba(120,220,50,0.5)"/><polygon points="116,68 120,48 110,66" fill="rgba(100,200,40,0.45)"/>
+<!-- Snake eyes ghost -->
+<circle cx="88" cy="110" r="13" fill="#040800"/>
+<circle cx="88" cy="110" r="8" fill="#44BB00" opacity="0.55" filter="url(#g3CBCf)"/>
+<ellipse cx="88" cy="110" rx="3" ry="8" fill="#AAFF44" opacity="0.6"/>
+<circle cx="113" cy="113" r="9" fill="#040800"/>
+<circle cx="113" cy="113" r="5" fill="#44BB00" opacity="0.5" filter="url(#g3CBCf)"/>
+<ellipse cx="113" cy="113" rx="2" ry="5" fill="#AAFF44" opacity="0.55"/>
+<!-- Poison particles -->
+<circle cx="64" cy="90" r="3" fill="rgba(150,255,50,0.5)" filter="url(#g3CBCf)"/><circle cx="138" cy="88" r="2.5" fill="rgba(150,255,50,0.45)" filter="url(#g3CBCf)"/>
+<circle cx="70" cy="168" r="5" fill="#88CC44" opacity="0.6" filter="url(#g3CBCf)"/><circle cx="100" cy="172" r="6" fill="#AADD44" opacity="0.55" filter="url(#g3CBCf)"/>
+`},
+CCA:{name:'ヴォイドスター',desc:'虚無の星神',bg:'linear-gradient(135deg,#050210,#0C0420)',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g3CCA" cx="44%" cy="38%"><stop offset="0%" stop-color="#2A1855"/><stop offset="55%" stop-color="#130835"/><stop offset="100%" stop-color="#050215"/></radialGradient><filter id="g3CCAf"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="68" ry="76" fill="rgba(60,20,130,0.15)" filter="url(#g3CCAf)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#1E0840" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 159 Q98 177 93 188" stroke="#1E0840" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="#1E0840" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 63 Q137 61 150 90 Q164 122 154 150 Q144 170 122 169 Q106 177 86 167 Q60 156 54 132 Q46 106 60 83 Q72 63 100 63Z" fill="url(#g3CCA)" opacity="0.97"/>
+<!-- Void star crown - giant -->
+<text x="80" y="55" font-size="32" fill="rgba(150,100,255,0.7)" filter="url(#g3CCAf)">★</text>
+<!-- Orbiting void stars -->
+<text x="34" y="84" font-size="12" fill="rgba(150,100,255,0.5)" filter="url(#g3CCAf)">★</text>
+<text x="150" y="80" font-size="10" fill="rgba(150,100,255,0.45)" filter="url(#g3CCAf)">★</text>
+<text x="40" y="142" font-size="8" fill="rgba(150,100,255,0.4)">✦</text>
+<text x="148" y="144" font-size="8" fill="rgba(150,100,255,0.4)">✦</text>
+<!-- Void corona around body -->
+<path d="M55 108 Q38 100 34 112 Q38 124 52 119" fill="rgba(80,30,180,0.45)"/>
+<path d="M145 120 Q162 112 166 124 Q162 135 150 129" fill="rgba(80,30,180,0.4)"/>
+<!-- Eyes - blinding white void -->
+<circle cx="88" cy="110" r="14" fill="#030108"/>
+<circle cx="88" cy="110" r="10" fill="rgba(180,120,255,0.6)" filter="url(#g3CCAf)"/>
+<circle cx="88" cy="110" r="5" fill="rgba(255,255,255,0.9)" filter="url(#g3CCAf)"/>
+<circle cx="112" cy="112" r="10" fill="#030108"/>
+<circle cx="112" cy="112" r="6" fill="rgba(180,120,255,0.55)" filter="url(#g3CCAf)"/>
+<circle cx="112" cy="112" r="3" fill="rgba(255,255,255,0.85)" filter="url(#g3CCAf)"/>
+`},
+CCB:{name:'アビスドレイク',desc:'深淵の竜霊',bg:'linear-gradient(135deg,#080410,#100618)',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CCB" cx="44%" cy="38%"><stop offset="0%" stop-color="#2A1055"/><stop offset="55%" stop-color="#140830"/><stop offset="100%" stop-color="#080415"/></radialGradient><filter id="g3CCBf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="110" rx="66" ry="74" fill="rgba(60,20,120,0.12)" filter="url(#g3CCBf)"/>
+<!-- Abyss wings -->
+<path d="M48 100 Q20 72 12 44 Q36 48 56 74 Q62 90 58 104Z" fill="rgba(50,20,100,0.55)"/>
+<path d="M152 100 Q180 72 188 44 Q164 48 144 74 Q138 90 142 104Z" fill="rgba(50,20,100,0.55)"/>
+<path d="M44 118 Q16 110 12 94 Q36 93 48 110Z" fill="rgba(40,15,85,0.5)"/>
+<path d="M156 118 Q184 110 188 94 Q164 93 152 110Z" fill="rgba(40,15,85,0.5)"/>
+<!-- Ghost wisps -->
+<path d="M76 152 Q62 174 54 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M100 158 Q98 176 93 187" stroke="#2A0A4A" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M124 152 Q138 174 146 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M100 63 Q137 61 150 90 Q164 122 154 150 Q144 170 122 169 Q106 177 86 167 Q60 156 54 132 Q46 106 60 83 Q72 63 100 63Z" fill="url(#g3CCB)" opacity="0.97"/>
+<!-- Dark draconic void crown -->
+<path d="M80,67 L76,46 L84,57 L90,40 L98,54 L106,40 L114,54 L120,57 L124,46 L120,67Z" fill="#2A0A55" stroke="#1A0640" stroke-width="1.5"/>
+<!-- Void dragon eyes -->
+<ellipse cx="86" cy="107" rx="12" ry="9" fill="#040010"/>
+<ellipse cx="86" cy="107" rx="8" ry="6" fill="#6622CC" opacity="0.65" filter="url(#g3CCBf)"/>
+<ellipse cx="86" cy="107" rx="4" ry="3" fill="rgba(200,160,255,0.9)"/>
+<ellipse cx="114" cy="107" rx="12" ry="9" fill="#040010"/>
+<ellipse cx="114" cy="107" rx="8" ry="6" fill="#6622CC" opacity="0.65" filter="url(#g3CCBf)"/>
+<ellipse cx="114" cy="107" rx="4" ry="3" fill="rgba(200,160,255,0.9)"/>
+<!-- Spectral claws -->
+<path d="M56 152 L46 162 M63 159 L53 168 M70 165 L61 173" stroke="rgba(100,50,200,0.55)" stroke-width="3" stroke-linecap="round"/>
+<path d="M144 152 L154 162 M137 159 L147 168 M130 165 L139 173" stroke="rgba(100,50,200,0.55)" stroke-width="3" stroke-linecap="round"/>
+`},
+CCC:{name:'カオスヴォイド',desc:'すべての終わり',bg:'linear-gradient(135deg,#000000,#050010)',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g3CCC" cx="44%" cy="38%"><stop offset="0%" stop-color="#1A0840"/><stop offset="50%" stop-color="#0A0420"/><stop offset="100%" stop-color="#020108"/></radialGradient><filter id="g3CCCf"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<!-- Cosmic void aura -->
+<circle cx="100" cy="110" rx="72" ry="80" fill="rgba(50,10,120,0.18)" filter="url(#g3CCCf)"/>
+<circle cx="100" cy="110" rx="58" ry="64" fill="rgba(80,20,180,0.1)" filter="url(#g3CCCf)"/>
+<!-- Void arms reaching out -->
+<path d="M52 98 Q24 70 14 40 Q38 44 58 72 Q63 89 59 104Z" fill="rgba(40,10,90,0.6)"/>
+<path d="M148 98 Q176 70 186 40 Q162 44 142 72 Q137 89 141 104Z" fill="rgba(40,10,90,0.6)"/>
+<path d="M44 118 Q14 108 10 90 Q36 89 50 108Z" fill="rgba(30,8,70,0.55)"/>
+<path d="M156 118 Q186 108 190 90 Q164 89 150 108Z" fill="rgba(30,8,70,0.55)"/>
+<!-- Ghost wisps multiplied -->
+<path d="M72 152 Q56 176 46 188" stroke="#1A0838" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.7"/>
+<path d="M86 158 Q80 178 74 190" stroke="#1A0838" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 160 Q98 180 93 192" stroke="#1A0838" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M114 158 Q120 178 126 190" stroke="#1A0838" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M128 152 Q144 176 154 188" stroke="#1A0838" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.7"/>
+<path d="M100 60 Q140 58 154 88 Q170 122 158 152 Q148 174 126 173 Q110 181 90 171 Q62 160 56 136 Q48 108 62 84 Q74 60 100 60Z" fill="url(#g3CCC)" opacity="0.98"/>
+<!-- Chaos void crown - massive -->
+<path d="M76,64 L70,40 L80,54 L86,34 L94,52 L100,28 L106,52 L114,34 L120,54 L130,40 L124,64Z" fill="#1E0844" stroke="#120530" stroke-width="1.5"/>
+<!-- Void particles (many) -->
+<circle cx="66" cy="84" r="3.5" fill="rgba(120,60,255,0.5)" filter="url(#g3CCCf)"/>
+<circle cx="136" cy="80" r="3" fill="rgba(120,60,255,0.45)" filter="url(#g3CCCf)"/>
+<circle cx="58" cy="126" r="2.5" fill="rgba(120,60,255,0.4)"/>
+<circle cx="142" cy="124" r="2.5" fill="rgba(120,60,255,0.4)"/>
+<circle cx="78" cy="156" r="2" fill="rgba(120,60,255,0.35)"/>
+<circle cx="122" cy="154" r="2" fill="rgba(120,60,255,0.35)"/>
+<!-- Multi-layered void eyes -->
+<circle cx="88" cy="110" r="15" fill="#040010"/>
+<circle cx="88" cy="110" r="12" fill="rgba(80,30,200,0.5)" filter="url(#g3CCCf)"/>
+<circle cx="88" cy="110" r="7" fill="rgba(150,80,255,0.7)" filter="url(#g3CCCf)"/>
+<circle cx="88" cy="110" r="3" fill="white" filter="url(#g3CCCf)"/>
+<circle cx="112" cy="110" r="12" fill="#040010"/>
+<circle cx="112" cy="110" r="9" fill="rgba(80,30,200,0.5)" filter="url(#g3CCCf)"/>
+<circle cx="112" cy="110" r="5" fill="rgba(150,80,255,0.65)" filter="url(#g3CCCf)"/>
+<circle cx="112" cy="110" r="2" fill="white" filter="url(#g3CCCf)"/>
+<!-- Spectral tendrils from mouth -->
+<path d="M90 124 Q85 136 76 142 Q84 144 88 136Z" fill="rgba(80,30,180,0.4)"/>
+<path d="M110 124 Q115 136 124 142 Q116 144 112 136Z" fill="rgba(80,30,180,0.4)"/>
+`}
+};
+
+// ════════════════════════════════════
+//  EVOLUTION TREE
+// ════════════════════════════════════
+const EVO_TREE = {
+  egg:  {next:['A','B','C'],   cond:(g)=>g.age>=1},
+  A:    {next:['AA','AB','AC'], cond:(g)=>g.age>=3},
+  B:    {next:['BA','BB','BC'], cond:(g)=>g.age>=3},
+  C:    {next:['CA','CB','CC'], cond:(g)=>g.age>=3},
+  AA:   {next:['AAA','AAB','AAC'],cond:(g)=>g.age>=6},
+  AB:   {next:['ABA','ABB','ABC'],cond:(g)=>g.age>=6},
+  AC:   {next:['ACA','ACB','ACC'],cond:(g)=>g.age>=6},
+  BA:   {next:['BAA','BAB','BAC'],cond:(g)=>g.age>=6},
+  BB:   {next:['BBA','BBB','BBC'],cond:(g)=>g.age>=6},
+  BC:   {next:['BCA','BCB','BCC'],cond:(g)=>g.age>=6},
+  CA:   {next:['CAA','CAB','CAC'],cond:(g)=>g.age>=6},
+  CB:   {next:['CBA','CBB','CBC'],cond:(g)=>g.age>=6},
+  CC:   {next:['CCA','CCB','CCC'],cond:(g)=>g.age>=6},
+};
+
+// Evolution condition: which of 3 paths?
+// Based on care stats: happy-favored=A, balanced=B, scold-favored/hungry=C
+function chooseEvolution(g, nextList) {
+  // Stat score: happy/fed well → A path, dragon/active → B path, ghost/neglect → C path
+  const h = g.totalHappy;   // happiness actions taken
+  const f = g.totalFed;     // feed actions
+  const s = g.totalScold;   // scold actions
+  const c = g.totalClean;   // clean actions
+  const miss = g.missedCare; // missed care moments
+  
+  // Score for each path
+  let scores = [0,0,0];
+  scores[0] += h * 2 + f;           // A: happy & fed
+  scores[1] += (f + c) * 1.5;      // B: fed & clean (dragon)
+  scores[2] += s * 2 + miss * 3;   // C: scold & neglect (ghost)
+  
+  // Add some randomness
+  scores[0] += Math.random() * 5;
+  scores[1] += Math.random() * 5;
+  scores[2] += Math.random() * 5;
+  
+  // Find index of highest score
+  let idx = scores.indexOf(Math.max(...scores));
+  return nextList[idx] || nextList[0];
+}
+
+// ════════════════════════════════════
+//  GAME STATE
+// ════════════════════════════════════
+const SAVE_KEY = 'monster_caring_v2';
+
+let G = {
+  stage: 'egg',
+  age: 0,          // in days
+  ageMs: 0,        // age in milliseconds accumulated
+  weight: 5,
+  hunger: 4,       // 0-4
+  happy: 4,        // 0-4
+  isSick: false,
+  isSleeping: false,
+  poop: false,
+  isAlive: true,
+  lightOn: true,
+  totalHappy: 0,
+  totalFed: 0,
+  totalScold: 0,
+  totalClean: 0,
+  missedCare: 0,
+  lastSave: Date.now(),
+  lastTick: Date.now(),
+  discovered: ['egg'],
+  evoPath: '',     // accumulated evolution path e.g. "AB"
+};
+
+let tickTimer = null;
+let callTimer = null;
+let callActive = false;
+let mgActive = false;
+let mgLit = false;
+let mgScore = 0;
+let mgRound = 0;
+let mgTimer = null;
+let evoQueue = [];
+
+// ════════════════════════════════════
+//  SAVE / LOAD
+// ════════════════════════════════════
+function saveGame() {
+  G.lastSave = Date.now();
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch(e){}
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    // Merge to handle missing keys
+    G = Object.assign({}, G, saved);
+    // Apply offline time
+    const elapsed = Date.now() - (G.lastSave || Date.now());
+    const elapsedSec = Math.min(elapsed / 1000, 3600); // cap 1hr
+    applyOfflineTime(elapsedSec);
+    return true;
+  } catch(e){ return false; }
+}
+
+function applyOfflineTime(sec) {
+  // Each 300 real seconds = ~1 in-game hour
+  const hours = sec / 300;
+  if (!G.isAlive) return;
+  // Hunger/happy decay during offline
+  const decayH = Math.floor(hours * 0.5);
+  const decayHp = Math.floor(hours * 0.4);
+  G.hunger = Math.max(0, G.hunger - decayH);
+  G.happy  = Math.max(0, G.happy  - decayHp);
+  G.ageMs  = (G.ageMs||0) + sec * 1000;
+  G.age    = Math.floor(G.ageMs / (86400000/24)); // accelerated: 1 day per hour realtime
+  if (G.hunger===0 && !G.isSick) { G.isSick = true; G.missedCare += decayH; }
+  if (G.isSick && hours > 2) { G.isAlive = false; }
+}
+
+// ════════════════════════════════════
+//  TICK (called every 5 seconds)
+// ════════════════════════════════════
+const TICK_MS = 5000;
+// Each tick = 5s real → in-game: hunger drops 1 every 120 ticks (10 min), happy every 100 ticks (8.3 min)
+// Accelerated for playability: hunger every 36 ticks (3 min), happy every 30 ticks (2.5 min)
+let tickCount = 0;
+
+function startTick() {
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = setInterval(gameTick, TICK_MS);
+}
+
+function gameTick() {
+  if (!G.isAlive) return;
+  tickCount++;
+  G.ageMs += TICK_MS;
+  G.age = Math.floor(G.ageMs / 360000); // 1 day per 360s (6 min real)
+
+  if (!G.isSleeping && G.lightOn) {
+    // Hunger decay: every 36 ticks (~3 min)
+    if (tickCount % 36 === 0) {
+      G.hunger = Math.max(0, G.hunger - 1);
+      if (G.hunger === 0) {
+        G.missedCare++;
+        if (!G.isSick) triggerSick();
+        scheduleCall();
+      }
+    }
+    // Happy decay: every 30 ticks (~2.5 min)
+    if (tickCount % 30 === 0) {
+      G.happy = Math.max(0, G.happy - 1);
+      if (G.happy === 0) {
+        G.missedCare++;
+        scheduleCall();
+      }
+    }
+    // Poop: every 90 ticks (~7.5 min)
+    if (tickCount % 90 === 0 && !G.poop) {
+      G.poop = true;
+      scheduleCall();
+      if (!G.isSick && Math.random() < 0.3) triggerSick();
+    }
+    // Weight gain: every 60 ticks if fed
+    if (tickCount % 60 === 0) {
+      if (G.totalFed > 0 && G.stage !== 'egg') G.weight = Math.min(99, G.weight + 1);
+    }
+    // Sick gets worse over time
+    if (G.isSick && tickCount % 60 === 0) {
+      G.missedCare++;
+      if (G.missedCare > 20 || (G.hunger === 0 && G.happy === 0)) {
+        killMonster();
+        return;
+      }
+    }
+    // Auto sleep: between tick 720-864 of the day cycle (simulate night)
+    const dayTick = tickCount % 720;
+    if (dayTick === 480 && !G.isSleeping) autoSleep();
+    if (dayTick === 0   &&  G.isSleeping) wakeUp();
+  }
+
+  // Check evolution
+  checkEvo();
+  updateUI();
+  saveGame();
+}
+
+function triggerSick() {
+  if (G.stage === 'egg') return;
+  G.isSick = true;
+  showCallInd(true);
+  showMsg('😷 びょうきだよ！くすりを！');
+}
+
+function killMonster() {
+  G.isAlive = false;
+  saveGame();
+  showDead();
+}
+
+function scheduleCall() {
+  showCallInd(true);
+}
+
+function showCallInd(on) {
+  callActive = on;
+  document.getElementById('call-ind').classList.toggle('hidden', !on);
+}
+
+// ════════════════════════════════════
+//  EVOLUTION CHECK
+// ════════════════════════════════════
+function checkEvo() {
+  const node = EVO_TREE[G.stage];
+  if (!node) return;
+  if (!node.cond(G)) return;
+  // Choose which branch
+  const nextStage = chooseEvolution(G, node.next);
+  evolve(nextStage);
+}
+
+function evolve(newStage) {
+  if (!M[newStage]) return;
+  G.stage = newStage;
+  if (!G.discovered.includes(newStage)) G.discovered.push(newStage);
+  G.totalHappy = 0; G.totalFed = 0; G.totalScold = 0; G.totalClean = 0; G.missedCare = 0;
+  G.hunger = 4; G.happy = 4; G.isSick = false; G.poop = false;
+  saveGame();
+  showEvolution(newStage);
+}
+
+// ════════════════════════════════════
+//  ACTIONS
+// ════════════════════════════════════
+function doFeed() {
+  if (!G.isAlive || G.isSleeping) { showMsg('ねてるよ💤'); return; }
+  if (G.hunger >= 4) { showMsg('おなかいっぱい！'); return; }
+  G.hunger = Math.min(4, G.hunger + 1);
+  G.weight = Math.min(99, G.weight + 1);
+  G.totalFed++;
+  spawnParticles('🍖');
+  showMsg('もぐもぐ🍖');
+  showCallInd(G.isSick || G.hungry === 0);
+  updateUI(); saveGame();
+}
+
+function doPlay() {
+  if (!G.isAlive || G.isSleeping) { showMsg('ねてるよ💤'); return; }
+  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); return; }
+  openMinigame();
+}
+
+function doClean() {
+  if (!G.isAlive) return;
+  if (!G.poop) { showMsg('きれいだよ✨'); return; }
+  G.poop = false;
+  G.totalClean++;
+  spawnParticles('✨');
+  showMsg('きれいになった✨');
+  if (!G.isSick && !G.hunger===0 && !G.happy===0) showCallInd(false);
+  updateUI(); saveGame();
+}
+
+function doMedicine() {
+  if (!G.isAlive) return;
+  if (!G.isSick) { showMsg('げんきだよ！'); return; }
+  G.isSick = false;
+  G.hunger = Math.min(4, G.hunger + 1);
+  spawnParticles('💊');
+  showMsg('なおった！💊');
+  showCallInd(G.poop || G.hunger===0);
+  updateUI(); saveGame();
+}
+
+function doScold() {
+  if (!G.isAlive) return;
+  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); return; }
+  G.happy = Math.max(0, G.happy - 1);
+  G.totalScold++;
+  showMsg('⚡おこった！');
+  spawnParticles('⚡');
+  updateUI(); saveGame();
+}
+
+function toggleLight() {
+  G.lightOn = !G.lightOn;
+  document.getElementById('light-icon').textContent = G.lightOn ? '💡' : '🌙';
+  if (!G.lightOn) {
+    G.isSleeping = true;
+    document.getElementById('sleep-overlay').classList.remove('hidden');
+    showMsg('おやすみ💤');
+  } else {
+    G.isSleeping = false;
+    document.getElementById('sleep-overlay').classList.add('hidden');
+    showMsg('おはよう！☀️');
+  }
+  updateUI(); saveGame();
+}
+
+function autoSleep() {
+  G.isSleeping = true;
+  document.getElementById('sleep-overlay').classList.remove('hidden');
+  document.getElementById('light-icon').textContent = '🌙';
+}
+
+function wakeUp() {
+  G.isSleeping = false;
+  document.getElementById('sleep-overlay').classList.add('hidden');
+  document.getElementById('light-icon').textContent = '💡';
+  G.lightOn = true;
+}
+
+// ════════════════════════════════════
+//  MINIGAME
+// ════════════════════════════════════
+let mgLitTimer = null;
+let mgWaitTimer = null;
+
+function openMinigame() {
+  if (G.isSleeping) { showMsg('ねてるよ💤'); return; }
+  mgActive = true; mgScore = 0; mgRound = 0; mgLit = false;
+  document.getElementById('mg-overlay').classList.remove('hidden');
+  document.getElementById('mg-result').textContent = '';
+  document.getElementById('mg-score-text').textContent = '0 / 5 ヒット';
+  document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer';
+  setTimeout(nextMgRound, 600);
+}
+
+function nextMgRound() {
+  if (!mgActive || mgRound >= 5) { endMinigame(); return; }
+  const delay = 600 + Math.random() * 1400;
+  mgWaitTimer = setTimeout(() => {
+    if (!mgActive) return;
+    mgLit = true;
+    document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 shadow-inner select-none transition-all duration-75 cursor-pointer bg-blue-500 shadow-blue-300 shadow-lg';
+    document.getElementById('mg-result').textContent = '';
+    mgLitTimer = setTimeout(() => {
+      if (!mgActive) return;
+      if (mgLit) {
+        mgLit = false;
+        mgRound++;
+        document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer';
+        document.getElementById('mg-result').textContent = 'ミス！😢';
+        setTimeout(nextMgRound, 600);
+      }
+    }, 800);
+  }, delay);
+}
+
+function pressGameBtn() {
+  if (!mgActive || !mgLit) {
+    if (mgActive) {
+      document.getElementById('mg-result').textContent = '早すぎ！⚡';
+    }
+    return;
+  }
+  clearTimeout(mgLitTimer);
+  mgLit = false; mgScore++; mgRound++;
+  document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 shadow-inner select-none transition-all duration-75 cursor-pointer bg-green-400 shadow-green-300 shadow-lg';
+  document.getElementById('mg-result').textContent = 'ナイス！🎉';
+  document.getElementById('mg-score-text').textContent = `${mgScore} / 5 ヒット`;
+  setTimeout(()=>{
+    document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer';
+    nextMgRound();
+  }, 300);
+}
+
+function endMinigame() {
+  mgActive = false;
+  clearTimeout(mgLitTimer); clearTimeout(mgWaitTimer);
+  // Apply result
+  const gained = Math.ceil(mgScore * 0.75);
+  G.happy = Math.min(4, G.happy + gained);
+  G.totalHappy += gained;
+  document.getElementById('mg-result').textContent = mgScore >= 4 ? '最高！🏆' : mgScore >= 2 ? 'よくできた！😄' : 'がんばれ！';
+  document.getElementById('mg-score-text').textContent = `結果: +${gained}ハッピー`;
+  spawnParticles('⭐');
+  showCallInd(G.isSick || G.hunger===0 || G.poop);
+  updateUI(); saveGame();
+}
+
+function closeMinigame() {
+  mgActive = false;
+  clearTimeout(mgLitTimer); clearTimeout(mgWaitTimer);
+  document.getElementById('mg-overlay').classList.add('hidden');
+}
+
+// ════════════════════════════════════
+//  EVOLUTION CUTSCENE
+// ════════════════════════════════════
+function showEvolution(stage) {
+  const mon = M[stage];
+  const ov = document.getElementById('evo-overlay');
+  ov.classList.remove('hidden');
+  
+  // Stars background
+  const bg = document.getElementById('evo-stars-bg');
+  bg.innerHTML = '';
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.style.cssText = `position:absolute;border-radius:50%;background:white;opacity:${0.3+Math.random()*0.7};
+      width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;
+      left:${Math.random()*100}%;top:${Math.random()*100}%;
+      animation:spin ${3+Math.random()*4}s ease-in-out infinite alternate;animation-delay:${Math.random()*2}s`;
+    bg.appendChild(s);
+  }
+
+  // Animate elements
+  const svg = document.getElementById('evo-svg');
+  svg.innerHTML = mon.draw();
+  
+  let delay = 300;
+  setTimeout(()=>{ 
+    document.getElementById('evo-label').style.cssText='opacity:1;transition:opacity 0.5s;';
+  }, delay);
+  delay += 500;
+  setTimeout(()=>{ 
+    svg.style.cssText='opacity:1;animation:evo-in 0.8s cubic-bezier(0.175,0.885,0.32,1.25) both, glow-pulse 2s ease-in-out infinite;';
+  }, delay);
+  delay += 900;
+  setTimeout(()=>{ 
+    document.getElementById('evo-title').style.cssText='opacity:1;transition:opacity 0.5s;';
+    document.getElementById('evo-title').textContent = mon.name;
+  }, delay);
+  delay += 300;
+  setTimeout(()=>{ 
+    document.getElementById('evo-sub').style.cssText='opacity:1;transition:opacity 0.5s;';
+    document.getElementById('evo-sub').textContent = mon.desc;
+  }, delay);
+  delay += 400;
+  setTimeout(()=>{ 
+    document.getElementById('evo-btn').style.cssText='opacity:1;transition:opacity 0.5s;';
+  }, delay);
+}
+
+function closeEvolution() {
+  document.getElementById('evo-overlay').classList.add('hidden');
+  // Reset evo svg styling
+  const svg = document.getElementById('evo-svg');
+  svg.style.cssText = 'opacity:0';
+  ['evo-label','evo-title','evo-sub','evo-btn'].forEach(id=>{
+    document.getElementById(id).style.opacity='0';
+  });
+  updateUI();
+}
+
+// ════════════════════════════════════
+//  BOOK
+// ════════════════════════════════════
+const STAGE_LABELS = {
+  egg:'たまご', A:'第一形態',B:'第一形態',C:'第一形態',
+  AA:'第二形態',AB:'第二形態',AC:'第二形態',
+  BA:'第二形態',BB:'第二形態',BC:'第二形態',
+  CA:'第二形態',CB:'第二形態',CC:'第二形態',
+};
+['AAA','AAB','AAC','ABA','ABB','ABC','ACA','ACB','ACC',
+ 'BAA','BAB','BAC','BBA','BBB','BBC','BCA','BCB','BCC',
+ 'CAA','CAB','CAC','CBA','CBB','CBC','CCA','CCB','CCC'].forEach(k=>STAGE_LABELS[k]='最終形態');
+
+const STAGE_ORDER = ['egg','A','B','C',
+  'AA','AB','AC','BA','BB','BC','CA','CB','CC',
+  'AAA','AAB','AAC','ABA','ABB','ABC','ACA','ACB','ACC',
+  'BAA','BAB','BAC','BBA','BBB','BBC','BCA','BCB','BCC',
+  'CAA','CAB','CAC','CBA','CBB','CBC','CCA','CCB','CCC'];
+
+function showBook() {
+  const content = document.getElementById('book-content');
+  const sections = {'たまご':['egg'],'第一形態':['A','B','C'],
+    '第二形態':['AA','AB','AC','BA','BB','BC','CA','CB','CC'],
+    '最終形態':STAGE_ORDER.slice(13)};
+  
+  let html = `<div class="text-xs text-zinc-400 mb-3 font-bold">${G.discovered.length}/40 ひっさつ！</div>`;
+  
+  for (const [label, keys] of Object.entries(sections)) {
+    html += `<div class="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-2 mt-3">${label}</div>`;
+    for (const k of keys) {
+      const mon = M[k];
+      const found = G.discovered.includes(k);
+      const isCurrent = G.stage === k;
+      let cls = 'brow';
+      if (isCurrent) cls += ' current';
+      else if (found) cls += ' found';
+      
+      const svgMini = found ? `<svg width="44" height="44" viewBox="0 0 200 200">${mon.draw()}</svg>` : `<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:8px;font-size:20px">?</div>`;
+      
+      html += `<div class="${cls}">
+        ${svgMini}
+        <div>
+          <div style="font-size:11px;font-weight:900;color:${found?'#111':'#aaa'}">${found?mon.name:'???'}</div>
+          <div style="font-size:9px;color:#aaa;font-weight:600">${found?mon.desc:'未発見'}</div>
         </div>
-    </main>
-
-    <script>
-        lucide.createIcons();
-
-        /* ━━━ 定数・設定 ━━━ */
-        const DB_KEY = 'caring_pro_max_save';
-        const TICKS_PER_DAY = 60; // 1日=60秒
-        const SLEEP_START = 45;   // 45~59秒は睡眠時間
-        const MAX_HEARTS = 4;
-        
-        // 進化タイミング(日数)
-        const EVOLVE_DAYS = { 1: 1, 2: 2, 3: 4 }; // 卵->1日->第1->2日->第2->4日->最終
-        const DEATH_AGE = 10; // 寿命
-
-        /* ━━━ ゲームシステム ━━━ */
-        const getInitialState = () => ({
-            stage: 'egg', // 'egg', 'A', 'AB', 'ABC', 'dead'
-            hunger: 4,
-            happy: 4,
-            weight: 5,
-            discipline: 0,
-            ageTicks: 0,    // 総経過秒数
-            phaseTicks: 0,  // 現在の形態になってからの秒数
-            poops: [],      // うんち配列
-            isSick: false,
-            sickTicks: 0,   // 病気放置時間
-            isSleeping: false,
-            lightOn: true,
-            isSelfish: false,
-            careMistakes: 0,
-            lastTick: Date.now()
-        });
-
-        let state = getInitialState();
-        let loopId = null;
-        let activeMenu = null;
-
-        /* ━━━ セーブ＆ロード ━━━ */
-        function load() {
-            const saved = localStorage.getItem(DB_KEY);
-            if (saved) {
-                try {
-                    state = JSON.parse(saved);
-                    // オフライン進行（最大120秒分だけシミュレートして放置死を防ぐ）
-                    const diffSec = Math.floor((Date.now() - state.lastTick) / 1000);
-                    if (diffSec > 0 && state.stage !== 'dead') {
-                        const simSec = Math.min(diffSec, 120);
-                        for(let i=0; i<simSec; i++) simulateTick(true);
-                    }
-                } catch(e) { console.error('Save data error'); }
-            }
-            state.lastTick = Date.now();
-            updateAll();
-        }
-
-        function save() {
-            if(state.stage === 'dead') return; // 死んだら保存更新停止（リセット待ち）
-            state.lastTick = Date.now();
-            localStorage.setItem(DB_KEY, JSON.stringify(state));
-        }
-
-        function resetGame() {
-            if(confirm('セーブデータを消去して、たまごからやり直しますか？')) {
-                state = getInitialState();
-                save();
-                toggleMenu(null);
-                updateAll();
-            }
-        }
-
-        /* ━━━ ゲームループ ━━━ */
-        function startGame() {
-            load();
-            if(loopId) clearInterval(loopId);
-            loopId = setInterval(() => {
-                if(state.stage !== 'dead') {
-                    simulateTick(false);
-                    updateUI();
-                    save();
-                }
-            }, 1000);
-        }
-
-        function simulateTick(isOffline) {
-            state.ageTicks++;
-            state.phaseTicks++;
-
-            // 睡眠判定
-            const timeOfDay = state.ageTicks % TICKS_PER_DAY;
-            const wasSleeping = state.isSleeping;
-            state.isSleeping = (timeOfDay >= SLEEP_START && state.stage !== 'egg');
-
-            // 起床時の処理
-            if (wasSleeping && !state.isSleeping) {
-                if (state.lightOn) {
-                    state.careMistakes++; // 電気つけっぱなしペナルティ
-                    state.happy = Math.max(0, state.happy - 1);
-                }
-            }
-
-            // 寝ている間はパラメータ減少しない
-            if (!state.isSleeping && state.stage !== 'egg') {
-                // 空腹減少 (約15秒で1減)
-                if (state.ageTicks % 15 === 0) state.hunger = Math.max(0, state.hunger - 1);
-                // ごきげん減少 (約20秒で1減)
-                if (state.ageTicks % 20 === 0) state.happy = Math.max(0, state.happy - 1);
-                
-                // うんち発生 (約10秒に1回、確率で)
-                if (state.ageTicks % 10 === 0 && Math.random() < 0.6 && state.poops.length < 4) {
-                    state.poops.push({ id: Date.now(), x: 20 + Math.random() * 60, y: 75 + Math.random() * 15 });
-                    if(!isOffline) renderPoops();
-                }
-
-                // わがまま判定 (空腹・ごきげんが3以上あるのに確率で発生)
-                if (!state.isSelfish && !state.isSick && state.hunger >= 3 && state.happy >= 3 && Math.random() < 0.05) {
-                    state.isSelfish = true;
-                }
-
-                // 病気判定 (うんち放置で確率UP)
-                if (!state.isSick) {
-                    let sickChance = 0.01 + (state.poops.length * 0.05);
-                    if (Math.random() < sickChance) state.isSick = true;
-                }
-            }
-
-            // 病気進行
-            if (state.isSick) {
-                state.sickTicks++;
-                if (state.sickTicks > 30) { die(); return; } // 30秒放置で死
-            } else {
-                state.sickTicks = 0;
-            }
-
-            // 寿命判定
-            if (getAgeDays() >= DEATH_AGE) { die(); return; }
-
-            // ケアミス蓄積 (呼び出しサイン放置)
-            if (checkCallSign() && state.ageTicks % 5 === 0) {
-                state.careMistakes += 0.5;
-            }
-
-            // 進化判定
-            checkEvolution();
-        }
-
-        function getAgeDays() { return Math.floor(state.ageTicks / TICKS_PER_DAY); }
-
-        /* ━━━ 死と進化 ━━━ */
-        function die() {
-            state.stage = 'dead';
-            state.poops = [];
-            state.isSick = false;
-            state.isSelfish = false;
-            updateAll();
-        }
-
-        function checkEvolution() {
-            if (state.stage.length >= 3 && state.stage !== 'egg') return;
-            
-            let currentPhaseDays = Math.floor(state.phaseTicks / TICKS_PER_DAY);
-            let targetDays = state.stage === 'egg' ? EVOLVE_DAYS[1] : 
-                             state.stage.length === 1 ? EVOLVE_DAYS[2] : EVOLVE_DAYS[3];
-
-            if (currentPhaseDays >= targetDays) {
-                evolve();
-            }
-        }
-
-        function evolve() {
-            let nextChar = 'B'; // デフォルト普通
-            const isGood = state.careMistakes <= 2 && state.discipline >= 50;
-            const isBad = state.careMistakes > 5 || state.weight > 30; // 肥満もCルート
-
-            if (isGood) nextChar = 'A';
-            else if (isBad) nextChar = 'C';
-
-            if (state.stage === 'egg') state.stage = nextChar;
-            else state.stage += nextChar;
-
-            state.phaseTicks = 0;
-            state.careMistakes = 0;
-            state.weight = Math.max(state.weight, state.stage.length * 10); // 形態により最低体重アップ
-            
-            showEvolveEffect();
-            updateAll();
-        }
-
-        /* ━━━ UI状態判定 ━━━ */
-        function checkCallSign() {
-            if (state.stage === 'egg' || state.stage === 'dead') return false;
-            return state.hunger === 0 || 
-                   state.happy === 0 || 
-                   state.isSick || 
-                   (state.isSleeping && state.lightOn) || 
-                   state.isSelfish;
-        }
-
-        function canAct() {
-            if (state.stage === 'egg' || state.stage === 'dead') return false;
-            if (state.isSleeping) {
-                showToast('寝ていますZzz');
-                return false;
-            }
-            return true;
-        }
-
-        /* ━━━ アクション ━━━ */
-        function toggleMenu(menuId) {
-            if (menuId && !canAct() && menuId !== 'status') return; // 寝ててもステータスは見れる
-            
-            // 全メニュー閉じる
-            document.querySelectorAll('.overlay-menu').forEach(el => el.classList.remove('show'));
-            document.querySelectorAll('.action-btn').forEach(el => el.classList.remove('active-icon'));
-            activeMenu = null;
-
-            if (menuId) {
-                document.getElementById(`menu-${menuId}`).classList.add('show');
-                document.getElementById(`btn-${menuId}`).classList.add('active-icon');
-                activeMenu = menuId;
-                if(menuId === 'status') renderStatus();
-                if(menuId === 'game') resetGameUI();
-            }
-        }
-
-        function actionFeed(type) {
-            if (state.isSick) { showToast('病気で食べられません'); return; }
-            if (state.hunger >= MAX_HEARTS && type === 'food') {
-                if (Math.random() < 0.5) state.isSelfish = true; // 満腹で無理やり食べさせるとわがままに
-                showToast('おなかいっぱいです'); return; 
-            }
-            if (state.isSelfish && Math.random() < 0.7) { showToast('プイッ（食べない）'); return; }
-
-            if (type === 'food') {
-                state.hunger = Math.min(MAX_HEARTS, state.hunger + 1);
-                state.weight += 1;
-                spawnItemEffect('🍚');
-            } else {
-                state.happy = Math.min(MAX_HEARTS, state.happy + 1);
-                state.weight += 2;
-                spawnItemEffect('🍬');
-            }
-            triggerAnim('monster-container', 'anim-jump', 400);
-            toggleMenu(null);
-            updateUI(); save();
-        }
-
-        function actionToilet() {
-            if (!canAct() && !state.isSleeping) return; // 寝ててもトイレは流せる
-            if (state.poops.length === 0) { showToast('きれいです'); return; }
-            state.poops = [];
-            spawnItemEffect('🌊');
-            renderPoops();
-            updateUI(); save();
-        }
-
-        function actionDiscipline() {
-            if (!canAct()) return;
-            if (state.isSelfish) {
-                state.discipline = Math.min(100, state.discipline + 25);
-                state.isSelfish = false;
-                state.happy = Math.max(0, state.happy - 1); // 叱られて少しごきげんダウン
-                spawnItemEffect('💢');
-                showToast('しつけました');
-            } else {
-                // わがままじゃないのに叱る＝ミス
-                state.careMistakes++;
-                state.happy = Math.max(0, state.happy - 1);
-                spawnItemEffect('❓');
-            }
-            updateUI(); save();
-        }
-
-        function actionMedical() {
-            if (state.stage === 'egg' || state.stage === 'dead') return;
-            if (state.isSick) {
-                state.isSick = false;
-                state.sickTicks = 0;
-                spawnItemEffect('💉');
-                showToast('治りました');
-            } else {
-                spawnItemEffect('❓');
-            }
-            updateUI(); save();
-        }
-
-        function actionLight() {
-            if (state.stage === 'egg' || state.stage === 'dead') return;
-            state.lightOn = !state.lightOn;
-            updateUI(); save();
-        }
-
-        /* ━━━ ミニゲーム ━━━ */
-        let gameData = { round: 1, wins: 0 };
-        function resetGameUI() {
-            document.getElementById('game-ui-start').classList.remove('hidden');
-            document.getElementById('game-ui-play').classList.add('hidden');
-            document.getElementById('game-ui-end').classList.add('hidden');
-        }
-        function startGameRound() {
-            if(state.weight <= 5 && state.stage.length === 1) { showToast('体重が軽すぎます'); return; }
-            gameData = { round: 1, wins: 0 };
-            document.getElementById('game-ui-start').classList.add('hidden');
-            document.getElementById('game-ui-play').classList.remove('hidden');
-            updateGamePlayUI();
-        }
-        function updateGamePlayUI() {
-            document.getElementById('game-round').innerText = gameData.round;
-            const resDiv = document.getElementById('game-results');
-            resDiv.innerHTML = '';
-            for(let i=0; i<3; i++) {
-                if(i < gameData.round - 1) {
-                    // 過去ラウンドの結果（DOM構造が単純なので配列管理せず手抜きで表示）
-                }
-            }
-        }
-        function playTurn(userChoice) {
-            const choices = ['L', 'R'];
-            const monChoice = choices[Math.floor(Math.random() * 2)];
-            
-            // モンスターを向かせる演出
-            const wrapper = document.getElementById('monster-wrapper');
-            const monEl = wrapper.querySelector('.monster');
-            if(monEl) monEl.style.setProperty('--facing', monChoice === 'L' ? -1 : 1);
-
-            const isWin = userChoice === monChoice;
-            if(isWin) gameData.wins++;
-
-            const resDiv = document.getElementById('game-results');
-            resDiv.innerHTML += `<div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isWin ? 'bg-green-500':'bg-zinc-600'}">${isWin?'O':'X'}</div>`;
-
-            if(gameData.round < 3) {
-                gameData.round++;
-                document.getElementById('game-round').innerText = gameData.round;
-            } else {
-                setTimeout(endGame, 1000);
-            }
-        }
-        function endGame() {
-            document.getElementById('game-ui-play').classList.add('hidden');
-            document.getElementById('game-ui-end').classList.remove('hidden');
-            const msgEl = document.getElementById('game-final-msg');
-            
-            if(gameData.wins >= 2) {
-                msgEl.innerText = 'WIN! 🎉';
-                msgEl.className = 'text-3xl font-black mb-6 text-green-400';
-                state.happy = Math.min(MAX_HEARTS, state.happy + (gameData.wins === 3 ? 2 : 1));
-                state.weight = Math.max(5, state.weight - 1);
-                triggerAnim('monster-container', 'anim-jump', 400);
-            } else {
-                msgEl.innerText = 'LOSE... 💦';
-                msgEl.className = 'text-3xl font-black mb-6 text-zinc-400';
-            }
-            save(); updateUI();
-        }
-
-
-        /* ━━━ 描画・UI更新 ━━━ */
-        function updateAll() {
-            updateUI();
-            renderMonster();
-            renderPoops();
-        }
-
-        function updateUI() {
-            // 電気
-            const incubator = document.getElementById('incubator');
-            if (!state.lightOn) incubator.classList.add('room-dark');
-            else incubator.classList.remove('room-dark');
-
-            // 呼び出しサイン
-            const callBtn = document.getElementById('call-sign');
-            if (checkCallSign()) callBtn.classList.add('icon-pulse');
-            else callBtn.classList.remove('icon-pulse');
-
-            // ボタンの有効無効
-            const isDeadOrEgg = state.stage === 'dead' || state.stage === 'egg';
-            document.querySelectorAll('.action-btn:not(#call-sign)').forEach(btn => {
-                if (isDeadOrEgg) btn.classList.add('disabled');
-                else btn.classList.remove('disabled');
-            });
-            // ステータスと電気は卵でも見れる
-            document.getElementById('btn-status').classList.remove('disabled');
-            document.getElementById('btn-light').classList.remove('disabled');
-
-            // 状態エフェクト更新（クラス付与によるCSS制御）
-            renderMonsterEffects();
-
-            if(activeMenu === 'status') renderStatus();
-        }
-
-        function renderStatus() {
-            document.getElementById('st-age').innerText = getAgeDays();
-            document.getElementById('st-weight').innerText = state.weight;
-            
-            const renderHearts = (id, val, fillClass) => {
-                const el = document.getElementById(id);
-                el.innerHTML = '';
-                for(let i=0; i<MAX_HEARTS; i++) {
-                    el.innerHTML += `<i data-lucide="heart" class="w-6 h-6 heart ${i < val ? fillClass : ''}"></i>`;
-                }
-            };
-            renderHearts('st-hunger', state.hunger, 'filled');
-            renderHearts('st-happy', state.happy, 'filled-happy');
-            lucide.createIcons();
-
-            document.getElementById('st-discipline').style.width = `${state.discipline}%`;
-        }
-
-        function renderPoops() {
-            const layer = document.getElementById('poop-layer');
-            layer.innerHTML = '';
-            state.poops.forEach(p => {
-                const div = document.createElement('div');
-                div.className = 'absolute text-2xl drop-shadow-md';
-                div.innerText = '💩';
-                div.style.left = `${p.x}%`;
-                div.style.top = `${p.y}%`;
-                div.style.transform = 'translate(-50%, -50%)';
-                layer.appendChild(div);
-            });
-        }
-
-        function renderMonster() {
-            const container = document.getElementById('monster-container');
-            
-            if (state.stage === 'dead') {
-                container.innerHTML = `<div class="tombstone"></div>`;
-                return;
-            }
-            if (state.stage === 'egg') {
-                container.innerHTML = `<div class="egg anim-bounce-slow" style="--scale: 1.2;"></div>`;
-                return;
-            }
-
-            const c1 = state.stage[0];
-            const c2 = state.stage.length >= 2 ? state.stage[1] : '';
-            const c3 = state.stage.length >= 3 ? state.stage[2] : '';
-            const scales = { 1: 1.1, 2: 1.4, 3: 1.8 };
-            const scale = scales[state.stage.length] || 1;
-
-            let html = `<div class="monster base-${c1} anim-float" style="--scale: ${scale}; --facing: 1;">`;
-
-            // 背部パーツ
-            if (c2 === 'A') html += `<div class="part-wing wing-angel wing-left"></div><div class="part-wing wing-angel wing-right"></div>`;
-            if (c2 === 'B') html += `<div class="part-tail tail-left"></div><div class="part-tail tail-right"></div>`;
-            if (c2 === 'C') html += `<div class="part-wing wing-demon wing-left"></div><div class="part-wing wing-demon wing-right"></div>`;
-
-            // ボディ
-            html += `<div class="monster-body">`;
-            html += `<div class="eyes"><div class="eye eye-${c1}"></div><div class="eye eye-${c1}"></div></div>`;
-            html += `<div class="mouth mouth-${c1}"></div>`;
-
-            // 前部パーツ
-            if (c3 === 'A') html += `<div class="part-crown"></div>`;
-            if (c3 === 'B') html += `<div class="part-horn"></div>`;
-            if (c3 === 'C') html += `<div class="part-mask"></div>`;
-
-            html += `</div></div>`;
-            container.innerHTML = html;
-        }
-
-        function renderMonsterEffects() {
-            const wrapper = document.getElementById('monster-wrapper');
-            if(!wrapper) return;
-
-            // 睡眠
-            if(state.isSleeping) wrapper.classList.add('is-sleeping');
-            else wrapper.classList.remove('is-sleeping');
-
-            // わがまま
-            if(state.isSelfish) wrapper.classList.add('anim-shake');
-            else wrapper.classList.remove('anim-shake');
-
-            // アイコン類
-            let existingSick = document.getElementById('icon-sick');
-            let existingZzz = document.getElementById('icon-zzz');
-
-            if (state.isSick && !existingSick && state.stage !== 'dead') {
-                const sick = document.createElement('div');
-                sick.id = 'icon-sick'; sick.className = 'sick-icon'; sick.innerText = '💀';
-                wrapper.appendChild(sick);
-            } else if (!state.isSick && existingSick) existingSick.remove();
-
-            if (state.isSleeping && !existingZzz && state.stage !== 'dead') {
-                const zzz = document.createElement('div');
-                zzz.id = 'icon-zzz'; zzz.className = 'zzz-icon'; zzz.innerText = 'Zzz';
-                wrapper.appendChild(zzz);
-            } else if (!state.isSleeping && existingZzz) existingZzz.remove();
-        }
-
-        /* ━━━ エフェクト・ユーティリティ ━━━ */
-        function spawnItemEffect(emoji) {
-            const layer = document.getElementById('effect-layer');
-            const el = document.createElement('div');
-            el.innerText = emoji;
-            el.className = 'absolute text-4xl z-50 transition-all duration-700 pointer-events-none';
-            el.style.left = '50%'; el.style.top = '-20%'; el.style.transform = 'translate(-50%, 0)';
-            layer.appendChild(el);
-            
-            requestAnimationFrame(() => {
-                el.style.transform = 'translate(-50%, 150px)';
-                el.style.opacity = '0';
-            });
-            setTimeout(() => el.remove(), 700);
-        }
-
-        function showEvolveEffect() {
-            const incubator = document.getElementById('incubator');
-            const flash = document.createElement('div');
-            flash.className = 'victory-flash';
-            incubator.appendChild(flash);
-            setTimeout(() => flash.remove(), 1000);
-            showToast("進化しました！✨");
-            
-            const colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b'];
-            for (let i = 0; i < 30; i++) {
-                const el = document.createElement('div');
-                el.className = 'confetti';
-                el.style.left = (10 + Math.random() * 80) + '%';
-                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                el.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
-                el.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
-                const size = 6 + Math.random() * 4;
-                el.style.width = size + 'px'; el.style.height = size + 'px';
-                incubator.appendChild(el);
-                setTimeout(() => el.remove(), 3000);
-            }
-        }
-
-        function showToast(m) {
-            const t = document.createElement('div');
-            t.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-6 py-3 rounded-full font-bold z-[100] transition-all duration-300';
-            t.style.opacity = '0';
-            t.innerText = m;
-            document.body.appendChild(t);
-            requestAnimationFrame(() => t.style.opacity = '1');
-            setTimeout(() => {
-                t.style.opacity = '0';
-                setTimeout(() => t.remove(), 300);
-            }, 2000);
-        }
-
-        function triggerAnim(elId, animClass, duration) {
-            const el = document.getElementById(elId);
-            if(!el) return;
-            el.classList.remove(animClass);
-            void el.offsetWidth;
-            el.classList.add(animClass);
-            setTimeout(() => el.classList.remove(animClass), duration);
-        }
-
-        // 初期起動
-        window.onload = startGame;
-
-    </script>
+        ${isCurrent?'<div style="margin-left:auto;font-size:8px;font-weight:900;color:#3b82f6;letter-spacing:0.1em">NOW</div>':''}
+      </div>`;
+    }
+  }
+  content.innerHTML = html;
+  document.getElementById('book-overlay').classList.remove('hidden');
+}
+
+// ════════════════════════════════════
+//  DEAD SCREEN
+// ════════════════════════════════════
+function showDead() {
+  const mon = M[G.stage] || M['egg'];
+  document.getElementById('dead-age').textContent = `${G.age}日`;
+  document.getElementById('dead-stage').textContent = mon.name;
+  document.getElementById('dead-overlay').classList.remove('hidden');
+  spawnConfetti();
+}
+
+// ════════════════════════════════════
+//  RESET
+// ════════════════════════════════════
+function confirmReset() {
+  document.getElementById('reset-dialog').classList.remove('hidden');
+}
+
+function resetGame() {
+  ['reset-dialog','dead-overlay','evo-overlay'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  clearInterval(tickTimer);
+  tickCount = 0;
+  G = {
+    stage:'egg', age:0, ageMs:0, weight:5, hunger:4, happy:4,
+    isSick:false, isSleeping:false, poop:false, isAlive:true, lightOn:true,
+    totalHappy:0, totalFed:0, totalScold:0, totalClean:0, missedCare:0,
+    lastSave:Date.now(), lastTick:Date.now(), discovered:['egg'], evoPath:''
+  };
+  saveGame();
+  startTick();
+  updateUI();
+  showMsg('あたらしいたまごが うまれた！🥚');
+  spawnConfetti();
+}
+
+// ════════════════════════════════════
+//  UI UPDATE
+// ════════════════════════════════════
+function renderHearts(id, val, max=4) {
+  const el = document.getElementById(id);
+  let h = '';
+  for (let i = 0; i < max; i++) {
+    h += `<span style="color:${i<val?'#FF4478':'#DDD'};font-size:14px">${i<val?'♥':'♡'}</span>`;
+  }
+  el.innerHTML = h;
+}
+
+let prevAge = -1, prevWeight = -1;
+
+function updateUI() {
+  const mon = M[G.stage] || M['egg'];
+  
+  // Stage bg
+  document.getElementById('stage-bg').style.background = G.isAlive ? mon.bg : '#eee';
+  
+  // Monster SVG
+  const svg = document.getElementById('monster-svg');
+  svg.innerHTML = mon.draw();
+  const mc = document.getElementById('mon-container');
+  mc.className = 'relative z-10 flex items-center justify-center';
+  if (G.isAlive) mc.classList.add(mon.anim);
+  if (G.isSick) mc.style.animation = 'sick-shake 0.4s ease-in-out infinite';
+  else mc.style.animation = '';
+  
+  // Name & stage
+  document.getElementById('mon-name-disp').textContent = G.isAlive ? mon.name : '👻';
+  
+  let stageLabel = 'STAGE: EGG';
+  if (['A','B','C'].includes(G.stage)) stageLabel = 'STAGE: 1';
+  else if (G.stage.length === 2 && G.stage !== 'egg') stageLabel = 'STAGE: 2';
+  else if (G.stage.length === 3) stageLabel = 'STAGE: FINAL';
+  document.getElementById('stage-disp').textContent = stageLabel;
+  
+  // Age & weight
+  const ageEl = document.getElementById('age-display');
+  if (G.age !== prevAge) { 
+    ageEl.textContent = `${G.age}日`;
+    ageEl.classList.remove('score-pop');
+    void ageEl.offsetWidth;
+    if (prevAge >= 0) ageEl.classList.add('score-pop');
+    prevAge = G.age;
+  }
+  const wEl = document.getElementById('weight-display');
+  if (G.weight !== prevWeight) {
+    wEl.textContent = `${G.weight}g`;
+    wEl.classList.remove('score-pop');
+    void wEl.offsetWidth;
+    if (prevWeight >= 0) wEl.classList.add('score-pop');
+    prevWeight = G.weight;
+  }
+  
+  // Hearts
+  renderHearts('hunger-hearts', G.hunger);
+  renderHearts('happy-hearts', G.happy);
+  
+  // Indicators
+  document.getElementById('poop-ind').classList.toggle('hidden', !G.poop);
+  document.getElementById('sick-ind').classList.toggle('hidden', !G.isSick);
+  
+  // Status text
+  let st = 'RAISING';
+  if (!G.isAlive) st = 'GOODBYE...';
+  else if (G.isSleeping) st = 'SLEEPING';
+  else if (G.isSick) st = 'SICK!';
+  else if (G.hunger === 0 || G.happy === 0) st = 'CALL!';
+  document.getElementById('status-text').textContent = st;
+  
+  // Call indicator
+  showCallInd(callActive || (!G.isAlive?false: G.isSick || G.hunger === 0 || G.happy === 0 || G.poop));
+}
+
+// ════════════════════════════════════
+//  PARTICLES
+// ════════════════════════════════════
+function spawnParticles(emoji) {
+  const stage = document.getElementById('monster-stage');
+  const rect = stage.getBoundingClientRect();
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.style.cssText = `position:fixed;font-size:${14+Math.random()*10}px;pointer-events:none;z-index:50;
+      left:${rect.left + rect.width/2 + (Math.random()-0.5)*60}px;
+      top:${rect.top + rect.height/2}px;
+      --px:${(Math.random()-0.5)*80}px;
+      --py:${-40-Math.random()*60}px;
+      animation:particle-up ${0.6+Math.random()*0.5}s ease-out forwards`;
+    p.textContent = emoji;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(), 1200);
+  }
+}
+
+function spawnConfetti() {
+  const colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899','#06b6d4'];
+  for (let i = 0; i < 70; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.left = (Math.random()*105)+'vw';
+    el.style.top = (-10-Math.random()*50)+'px';
+    el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+    el.style.animationDuration = (2+Math.random()*2.8)+'s';
+    el.style.animationDelay = (Math.random()*0.9)+'s';
+    el.style.setProperty('--rot',(Math.random()*1440-720)+'deg');
+    const d = 6+Math.random()*8; el.style.width=d+'px'; el.style.height=d+'px'; el.style.borderRadius='2px';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),5000);
+  }
+}
+
+// ════════════════════════════════════
+//  MESSAGE
+// ════════════════════════════════════
+let msgTimer = null;
+function showMsg(text) {
+  const el = document.getElementById('msg-text');
+  el.textContent = text;
+  if (msgTimer) clearTimeout(msgTimer);
+  msgTimer = setTimeout(()=>el.textContent='', 2500);
+}
+
+function showToast(text) {
+  const t = document.createElement('div');
+  t.className = 'toast-pop fixed top-1/2 left-1/2 bg-black/90 text-white px-8 py-4 rounded-3xl font-black z-50 text-lg';
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 1900);
+}
+
+// ════════════════════════════════════
+//  INIT
+// ════════════════════════════════════
+window.onload = function() {
+  lucide.createIcons();
+  const loaded = loadGame();
+  startTick();
+  updateUI();
+  if (!loaded) {
+    showMsg('あたらしいたまごが うまれた！🥚');
+  } else {
+    showMsg(`おかえり！${M[G.stage]?.name || 'たまご'}だよ！`);
+  }
+};
+</script>
 </body>
 </html>
