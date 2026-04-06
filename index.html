@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PlayWeb</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body {
@@ -33,9 +31,19 @@
 
     <script>
         /**
+         * アップデート情報
+         */
+        const UPDATE_INFO = {
+            date: '4月6日(月) 16:30',
+            logs: [
+                '「RPG」：一旦完成(調整の余地大あり)',
+                '「テトリス」：消したらGAME OVERになる不具合を修正',
+                '「育成ゲーム」：リセットしても図鑑は情報を保持するよう修正'
+            ]
+        };
+
+        /**
          * ゲームカタログのデータ定義
-         * path: 遷移先のHTMLファイル名
-         * isPlayable: 実装済みの場合は true
          */
         const GAME_CATALOG = [
             {
@@ -145,6 +153,15 @@
   		iconColor: 'text-white',
                 path: 'uno.html',
                 isPlayable: true
+            },
+            {
+                id: 'rpg',
+                title: 'RPG',
+  		icon: 'sword', 
+  		gradient: 'from-red-500 to-red-500', 
+  		iconColor: 'text-white',
+                path: 'rpg.html',
+                isPlayable: true
             }
         ];
 
@@ -159,10 +176,8 @@
             if (!game) return;
 
             if (game.isPlayable) {
-                // 実装済みの場合はそのファイルへ遷移
                 window.location.href = game.path;
             } else {
-                // 未実装の場合は詳細（Coming Soon）画面を表示
                 renderComingSoon(game);
             }
         }
@@ -199,7 +214,27 @@
                 </header>
 
                 <main class="pb-32 flex-1 fade-in">
-                    <section class="py-24 md:py-32 flex flex-col items-center justify-center text-center px-6">
+                    <section class="mt-8 px-6 max-w-4xl mx-auto">
+                        <div class="bg-white/60 border border-black/[0.03] rounded-3xl p-5 md:p-6 shadow-sm">
+                            <div class="flex items-center gap-2 mb-3 text-zinc-500">
+                                <i data-lucide="megaphone" class="w-4 h-4"></i>
+                                <span class="text-xs font-bold uppercase tracking-wider">Recent Update</span>
+                            </div>
+                            <ul class="space-y-1.5 text-sm md:text-base text-zinc-700 font-medium">
+                                ${UPDATE_INFO.logs.map(log => `
+                                    <li class="flex items-start gap-2">
+                                        <span class="text-zinc-400 text-xs mt-1.5">●</span>
+                                        <span>${log}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            <p class="text-[10px] md:text-xs text-zinc-400 mt-4 text-right font-medium">
+                                (${UPDATE_INFO.date})
+                            </p>
+                        </div>
+                    </section>
+
+                    <section class="py-16 md:py-24 flex flex-col items-center justify-center text-center px-6">
                         <h1 class="text-6xl md:text-8xl font-bold tracking-tighter text-zinc-900">
                             Arcade.
                         </h1>
