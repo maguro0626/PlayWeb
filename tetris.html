@@ -26,6 +26,7 @@ html,body{
   position:relative;flex-shrink:0;
   background:linear-gradient(155deg,#04040f 0%,#080830 52%,#0d0d3c 100%);
   border:5px solid #07071a;border-radius:10px;
+  box-sizing:border-box;
   box-shadow:0 30px 70px rgba(0,0,0,.6),inset 0 0 50px rgba(0,0,0,.85),0 0 50px rgba(80,80,230,.1);
   overflow:hidden;
 }
@@ -35,7 +36,7 @@ html,body{
   background-size:var(--bs,26px) var(--bs,26px);
 }
 canvas#game-canvas{display:block;position:relative;z-index:2;}
-.side-panel{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px;width:64px;}
+.side-panel{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px;width:56px;}
 .side-lbl{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:rgb(113,113,122);}
 .side-card{background:rgba(255,255,255,.84);border:1.5px solid rgba(0,0,0,.06);border-radius:14px;padding:5px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
 .score-pop{animation:score-pop .45s cubic-bezier(.175,.885,.32,1.6) both;}
@@ -60,10 +61,37 @@ canvas#game-canvas{display:block;position:relative;z-index:2;}
 @keyframes vflash{0%{background:rgba(255,255,255,.55)}100%{background:rgba(255,255,255,0)}}
 .active-stat{border-color:#3b82f6!important;background-color:white!important;animation:stat-glow 2s infinite ease-in-out;}
 @keyframes stat-glow{0%,100%{box-shadow:0 6px 16px rgba(59,130,246,.2),0 0 14px rgba(59,130,246,.1)}50%{box-shadow:0 10px 28px rgba(59,130,246,.38),0 0 32px rgba(59,130,246,.2)}}
-.lflash{position:absolute;left:0;right:0;pointer-events:none;z-index:10;animation:lf .38s ease-out forwards;}
-@keyframes lf{0%{background:rgba(255,255,255,.95)}60%{background:rgba(255,255,255,.3)}100%{background:rgba(255,255,255,0)}}
+.lflash{position:absolute;left:0;right:0;pointer-events:none;z-index:10;animation:lf .55s ease-out forwards;}
+@keyframes lf{
+  0%  {background:rgba(255,255,255,.98);}
+  18% {background:rgba(255,80,80,.85);}
+  36% {background:rgba(255,240,60,.85);}
+  54% {background:rgba(60,255,120,.75);}
+  72% {background:rgba(80,160,255,.65);}
+  100%{background:rgba(255,255,255,0);}
+}
 .fxp{position:fixed;border-radius:3px;pointer-events:none;z-index:80;animation:pfx linear forwards;}
 @keyframes pfx{0%{transform:translate(0,0) rotate(0deg) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) rotate(var(--tr)) scale(0);opacity:0}}
+.shockwave{position:fixed;border-radius:50%;pointer-events:none;z-index:200;
+  transform:translate(-50%,-50%) scale(0);
+  animation:shockwave-a var(--sw-dur,.6s) ease-out forwards;}
+@keyframes shockwave-a{
+  0%  {transform:translate(-50%,-50%) scale(0);opacity:1;}
+  60% {opacity:.7;}
+  100%{transform:translate(-50%,-50%) scale(var(--sw-sc,30));opacity:0;}
+}
+@keyframes line-clear-shake{
+  0%,100%{transform:translate(0,0) rotate(0);}
+  8% {transform:translate(-10px,-5px) rotate(-.6deg);}
+  18%{transform:translate(10px,5px) rotate(.6deg);}
+  28%{transform:translate(-8px,3px) rotate(-.4deg);}
+  38%{transform:translate(8px,-3px) rotate(.4deg);}
+  50%{transform:translate(-5px,5px) rotate(-.2deg);}
+  62%{transform:translate(5px,-5px) rotate(.2deg);}
+  74%{transform:translate(-3px,2px);}
+  86%{transform:translate(3px,-2px);}
+}
+.line-clear-shake{animation:line-clear-shake var(--shake-dur,.42s) ease;}
 .lvup{
   position:fixed;top:40%;left:50%;z-index:200;pointer-events:none;
   font-size:2rem;font-weight:900;letter-spacing:.08em;text-align:center;white-space:nowrap;
@@ -286,14 +314,15 @@ function polyFill(){
 function resizeAll(){
   const wr=document.getElementById('board-wrapper');
   const wW=wr.clientWidth,wH=wr.clientHeight;
-  const sideTot=72*2+6*2;
-  const maxBW=Math.min(wW-sideTot-8,360);
+  const BORDER=10; // 5px each side
+  const sideTot=56*2+6*2; // side panels + gaps
+  const maxBW=Math.min(wW-sideTot-8,480);
   const maxBH=wH-8;
   BS=Math.max(14,Math.floor(Math.min(maxBW/COLS,maxBH/ROWS)));
   const bW=BS*COLS,bH=BS*ROWS;
   cvs.width=bW; cvs.height=bH;
   const bEl=document.getElementById('tetris-board');
-  bEl.style.width=bW+'px'; bEl.style.height=bH+'px';
+  bEl.style.width=(bW+BORDER)+'px'; bEl.style.height=(bH+BORDER)+'px';
   bEl.style.setProperty('--bs',BS+'px');
   const ms=Math.max(10,Math.floor(BS*.7));
   nCvs.width=ms*4; nCvs.height=ms*9;
@@ -503,12 +532,14 @@ function holdPiece(){
 function lockPiece(){
   if(!cur)return;
   cancelLock();
-  for(let r=0;r<cur.shape.length;r++)
-    for(let c=0;c<cur.shape[r].length;c++)
-      if(cur.shape[r][c]){
-        const ny=cur.y+r;
+  const piece=cur;
+  cur=null; // prevent drop-timer from re-locking during animation
+  for(let r=0;r<piece.shape.length;r++)
+    for(let c=0;c<piece.shape[r].length;c++)
+      if(piece.shape[r][c]){
+        const ny=piece.y+r;
         if(ny<0){gameOver();return;}
-        board[ny][cur.x+c]=cur.type;
+        board[ny][piece.x+c]=piece.type;
       }
   lockFX();
   clearLines();
@@ -535,7 +566,7 @@ function clearLines(){
     else if(full.length===3)showToast('TRIPLE!!');
     else if(full.length===2)showToast('DOUBLE!');
     if(combo>=3)showComboFloat(combo);
-    cur=null; spawnPiece();
+    spawnPiece();
   });
 }
 
@@ -720,39 +751,85 @@ function drawIdle(){
 ═══════════════════════════════════════ */
 function animLineClear(rows,cb){
   const bEl=document.getElementById('tetris-board');
+  const bRect=bEl.getBoundingClientRect();
+  const n=rows.length;
+
+  // Board shake - stronger for more lines
+  bEl.classList.remove('line-clear-shake');
+  void bEl.offsetWidth;
+  bEl.style.setProperty('--shake-dur',(0.28+n*0.06)+'s');
+  bEl.classList.add('line-clear-shake');
+  setTimeout(()=>bEl.classList.remove('line-clear-shake'),600);
+
+  // Line flashes (2 waves per row for rainbow effect)
   rows.forEach((r,i)=>{
-    const fl=document.createElement('div');
-    fl.className='lflash';
-    fl.style.top=(r*BS)+'px';
-    fl.style.height=BS+'px';
-    fl.style.animationDelay=(i*30)+'ms';
-    bEl.appendChild(fl);
-    setTimeout(()=>fl.remove(),500);
-    // particle burst
-    const bRect=bEl.getBoundingClientRect();
+    [0,90].forEach(delay=>{
+      const fl=document.createElement('div');
+      fl.className='lflash';
+      fl.style.top=(r*BS)+'px';
+      fl.style.height=BS+'px';
+      fl.style.animationDelay=(i*25+delay)+'ms';
+      bEl.appendChild(fl);
+      setTimeout(()=>fl.remove(),700+delay);
+    });
+    // Heavier particle burst per cell
     const cy=bRect.top+r*BS+BS/2;
     for(let c=0;c<COLS;c++){
       const cx=bRect.left+c*BS+BS/2;
       spawnParticle(cx,cy,TETS[board[r][c]]?.col||'#fff');
     }
   });
-  setTimeout(cb,320);
+
+  // Shockwave rings (one per line cleared, staggered)
+  const midRow=rows[Math.floor(rows.length/2)];
+  const swCx=bRect.left+bRect.width/2;
+  rows.forEach((r,i)=>{
+    setTimeout(()=>{
+      const cy=bRect.top+r*BS+BS/2;
+      spawnShockwave(swCx,cy,'rgba(255,255,255,.85)',n>=4?35:28,0.5+i*0.06);
+      if(n>=2) spawnShockwave(swCx,cy,'rgba(120,160,255,.55)',n>=4?50:40,0.7+i*0.06);
+    },i*40);
+  });
+
+  // Screen-wide flash overlay
+  const fl=document.createElement('div');
+  fl.className='v-flash';
+  fl.style.background=n>=4
+    ?'rgba(160,100,255,.45)'
+    :n>=3?'rgba(80,200,255,.32)':'rgba(255,255,255,.22)';
+  document.body.appendChild(fl);
+  setTimeout(()=>fl.remove(),700);
+
+  setTimeout(cb, 400);
+}
+
+function spawnShockwave(x,y,col,scale,dur){
+  const el=document.createElement('div');
+  el.className='shockwave';
+  el.style.cssText=`left:${x}px;top:${y}px;
+    width:12px;height:12px;
+    border:3px solid ${col};
+    --sw-sc:${scale};--sw-dur:${dur}s;`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),(dur+.15)*1000);
 }
 
 function spawnParticle(x,y,col){
-  for(let i=0;i<4;i++){
+  for(let i=0;i<9;i++){
     const p=document.createElement('div');
     p.className='fxp';
     const a=Math.random()*Math.PI*2;
-    const d=30+Math.random()*70;
-    const dur=0.35+Math.random()*0.45;
-    p.style.cssText=`left:${x}px;top:${y}px;width:${4+Math.random()*4}px;height:${4+Math.random()*4}px;
-      background:${col};animation-duration:${dur}s;`;
+    const d=40+Math.random()*110;
+    const dur=0.4+Math.random()*0.55;
+    const sz=3+Math.random()*7;
+    p.style.cssText=`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;
+      background:${col};animation-duration:${dur}s;
+      border-radius:${Math.random()>.4?'50%':'2px'};`;
     p.style.setProperty('--tx',Math.cos(a)*d+'px');
     p.style.setProperty('--ty',Math.sin(a)*d+'px');
-    p.style.setProperty('--tr',(Math.random()*720-360)+'deg');
+    p.style.setProperty('--tr',(Math.random()*900-450)+'deg');
     document.body.appendChild(p);
-    setTimeout(()=>p.remove(),(dur+.1)*1000);
+    setTimeout(()=>p.remove(),(dur+.15)*1000);
   }
 }
 
