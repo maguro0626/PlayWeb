@@ -1,761 +1,2327 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Monster RPG</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        :root { --app-height: 100%; }
-        html, body {
-            height: 100%; margin: 0; padding: 0; overflow: hidden;
-            background-color: #f5f5f7;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-            touch-action: none;
-            user-select: none;
-        }
-        .glass-header {
-            background-color: rgba(255,255,255,0.7);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-        }
-        
-        .game-screen-wrapper {
-            background: linear-gradient(135deg, #081e09 0%, #133314 60%, #1a4a1c 100%);
-            border: 6px solid #0a0a0a;
-            border-radius: 12px;
-            box-shadow:
-                0 40px 80px rgba(0,0,0,0.5),
-                inset 0 0 30px rgba(0,0,0,0.9),
-                0 0 60px rgba(0,80,0,0.2);
-            overflow: hidden;
-            position: relative;
-            aspect-ratio: 1/1;
-            width: 100%;
-            max-width: 480px;
-            margin: 0 auto;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>モンスタークエスト</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none;user-select:none;
+  font-family:'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif}
+canvas{position:fixed;top:0;left:0;width:100%;height:100%;image-rendering:pixelated;display:block}
 
-        canvas {
-            image-rendering: pixelated;
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;z-index:50;padding:8px 14px 6px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.7) 0%,transparent);pointer-events:none}
+#hud-loc{font-size:14px;font-weight:900;color:#fff;text-shadow:0 2px 8px #000}
+#hud-money{font-size:11px;color:#fbbf24;font-weight:700;margin-top:1px}
+#hud-badges{display:flex;gap:3px;margin-top:4px}
+.badge-icon{font-size:18px;filter:drop-shadow(0 0 4px gold)}
 
-        @keyframes floatup{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
-        @keyframes wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
-        @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        
-        .anim-float { animation: floatup 2s ease-in-out infinite; }
-        .anim-pulse { animation: pulse 1.5s ease-in-out infinite; }
-        .anim-wobble { animation: wobble 1s ease-in-out infinite; }
-        .anim-bounce { animation: bounce 1.1s ease-in-out infinite; }
+/* D-PAD */
+#controls{position:fixed;bottom:0;left:0;right:0;z-index:50;
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:8px 18px 20px;pointer-events:none}
+#dpad{position:relative;width:120px;height:120px;pointer-events:all}
+.dp{position:absolute;width:40px;height:40px;
+  background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.3);
+  border-radius:10px;backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  font-size:16px;color:rgba(255,255,255,0.7);transition:background .07s}
+.dp.on,.dp:active{background:rgba(255,255,255,0.42)}
+#dp-u{top:0;left:40px}#dp-d{bottom:0;left:40px}
+#dp-l{top:40px;left:0}#dp-r{top:40px;right:0}
+#dp-c{position:absolute;top:40px;left:40px;width:40px;height:40px;
+  background:rgba(255,255,255,0.05);border-radius:50%}
 
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        .battle-blink { animation: blink 0.2s 3; }
-        
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
-        .battle-shake { animation: shake 0.3s; filter: brightness(2) sepia(1) hue-rotate(-50deg) saturate(5); }
+/* Action buttons */
+#ab-btns{display:flex;gap:14px;align-items:flex-end;pointer-events:all}
+.ab{width:54px;height:54px;border-radius:50%;border:none;font-weight:900;font-size:15px;
+  color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  box-shadow:0 6px 0 rgba(0,0,0,0.55);
+  transition:transform .07s,box-shadow .07s;display:flex;align-items:center;justify-content:center}
+.ab:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,0.55)}
+#btn-b{background:#c91c1c;margin-bottom:22px}
+#btn-a{background:#1d4ed8}
 
-        @keyframes attack-move-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-        .attack-up { animation: attack-move-up 0.3s; }
-        @keyframes attack-move-down { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(20px); } }
-        .attack-down { animation: attack-move-down 0.3s; }
+/* Menu button */
+#btn-menu{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:50;
+  background:rgba(255,255,255,0.13);border:1.5px solid rgba(255,255,255,0.3);
+  backdrop-filter:blur(6px);color:#fff;font-size:11px;font-weight:900;
+  padding:6px 18px;border-radius:20px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#btn-menu:active{background:rgba(255,255,255,0.3)}
 
-        @keyframes flash { 0%, 50%, 100% { background: white; opacity: 0; } 25%, 75% { background: black; opacity: 1; } }
-        .enc-flash { position: absolute; inset: 0; pointer-events: none; z-index: 50; animation: flash 1s forwards; }
+/* OVERLAYS */
+.ov{position:fixed;inset:0;z-index:100;display:none;flex-direction:column}
+.ov.on{display:flex}
 
-        .btn-press:active { transform: scale(0.92); transition: transform 0.05s; }
+/* TITLE */
+#ov-title{background:radial-gradient(ellipse at 40% 30%,#0c1a3a,#12294d 50%,#080e20);
+  align-items:center;justify-content:center;text-align:center;padding:24px}
+.title-glow{font-size:42px;font-weight:900;letter-spacing:-1px;line-height:1;
+  background:linear-gradient(135deg,#60a5fa,#a78bfa,#34d399);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 20px rgba(96,165,250,0.5));margin-bottom:6px}
+.title-sub{font-size:12px;color:#94a3b8;font-weight:700;letter-spacing:4px;text-transform:uppercase;margin-bottom:36px}
+#ov-title .egg-wrap{width:130px;height:130px;background:rgba(255,255,255,0.06);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 36px;box-shadow:0 0 50px rgba(96,165,250,0.25),inset 0 0 30px rgba(0,0,0,0.4)}
+.start-btn{padding:16px 48px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  color:#fff;font-weight:900;font-size:18px;border:none;border-radius:24px;cursor:pointer;
+  box-shadow:0 8px 30px rgba(59,130,246,0.5);-webkit-tap-highlight-color:transparent}
+.start-btn:active{transform:scale(0.95)}
+.title-hint{font-size:10px;color:#475569;margin-top:14px;letter-spacing:2px}
 
-        .hp-bar-bg { background-color: #4b5563; height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid #1f2937; }
-        .hp-bar-fill { height: 100%; background-color: #22c55e; transition: width 0.3s ease, background-color 0.3s ease; }
-        .hp-bar-fill.low { background-color: #ef4444; }
-        .hp-bar-fill.mid { background-color: #eab308; }
+/* STARTER SELECT */
+#ov-starter{background:rgba(5,10,25,0.97);align-items:center;justify-content:center;
+  z-index:200;padding:20px}
+.s-title{color:#f0f4ff;font-size:22px;font-weight:900;text-align:center;margin-bottom:6px}
+.s-sub{color:#64748b;font-size:12px;text-align:center;margin-bottom:24px}
+.s-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;width:100%;max-width:360px}
+.s-card{background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.1);
+  border-radius:18px;padding:14px 8px;text-align:center;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:all 0.18s}
+.s-card:active,.s-card.sel{border-color:#60a5fa;background:rgba(96,165,250,0.15)}
+.s-card svg{display:block;margin:0 auto 6px}
+.s-cname{color:#e0f2fe;font-size:12px;font-weight:800}
+.s-ctype{font-size:10px;color:#64748b;margin-top:2px}
+.s-confirm{margin-top:20px;padding:15px 48px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  color:#fff;font-weight:900;font-size:16px;border:none;border-radius:20px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;opacity:0;transition:opacity 0.2s;pointer-events:none}
+.s-confirm.on{opacity:1;pointer-events:all}
 
-        .back-sprite svg { transform: scaleX(-1); filter: brightness(0.9); }
-    </style>
+/* DIALOG */
+#dlg{position:fixed;bottom:0;left:0;right:0;z-index:110;
+  background:linear-gradient(0deg,rgba(0,0,0,0.98),rgba(10,15,30,0.96));
+  border-top:2px solid rgba(255,255,255,0.1);padding:16px 20px 28px;display:none}
+#dlg-name{font-size:11px;font-weight:900;color:#94a3b8;letter-spacing:2px;margin-bottom:5px}
+#dlg-txt{font-size:15px;color:#f0f4ff;line-height:1.7;font-weight:600;min-height:52px}
+#dlg-cursor{display:inline-block;color:#60a5fa;animation:blink 0.6s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+#dlg-choices{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.dlg-ch{padding:12px 16px;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);
+  border-radius:12px;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;text-align:left}
+.dlg-ch:active{background:rgba(96,165,250,0.25);border-color:#60a5fa}
+.dlg-ch.sel{background:rgba(96,165,250,0.2);border-color:#60a5fa;color:#fff}
+
+/* BATTLE */
+#ov-battle{background:#e0f2fe}
+#bfield{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#b-ezone{flex:1;position:relative;
+  background:linear-gradient(180deg,#bfdbfe 0%,#dbeafe 60%,#eff6ff 100%);
+  display:flex;align-items:flex-start;justify-content:space-between;padding:14px}
+#b-pzone{flex:1;position:relative;
+  background:linear-gradient(0deg,#bbf7d0 0%,#dcfce7 60%,#f0fff4 100%);
+  display:flex;align-items:flex-end;justify-content:space-between;padding:14px}
+#b-ui{background:#0f172a;padding:12px 14px 18px;flex-shrink:0}
+.bcard{background:white;border-radius:16px;padding:10px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.22);min-width:150px}
+.bnrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.bname{font-size:13px;font-weight:900;color:#1e293b}
+.blv{font-size:11px;color:#64748b;font-weight:700;background:#f1f5f9;
+  padding:2px 7px;border-radius:8px}
+.bhpt{height:9px;background:#e2e8f0;border-radius:5px;overflow:hidden}
+.bhpf{height:100%;border-radius:5px;transition:width 0.5s ease,background-color 0.3s}
+.bhpf.h{background:linear-gradient(90deg,#22c55e,#4ade80)}
+.bhpf.m{background:linear-gradient(90deg,#ca8a04,#eab308)}
+.bhpf.l{background:linear-gradient(90deg,#b91c1c,#ef4444)}
+.bhtxt{font-size:10px;color:#64748b;font-weight:700;text-align:right;margin-top:3px}
+.bspr{flex:1;display:flex;align-items:center;justify-content:center;margin:0 8px}
+#b-ui-inner{display:flex;flex-direction:column;gap:8px}
+#bmsg{color:#e2e8f0;font-size:14px;font-weight:700;line-height:1.6;min-height:50px;
+  background:rgba(255,255,255,0.05);border-radius:10px;padding:9px 13px}
+#bcmds{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bcmd{padding:14px 8px;border-radius:12px;font-size:13px;font-weight:900;cursor:pointer;
+  border:none;-webkit-tap-highlight-color:transparent;transition:transform .08s,opacity .1s;
+  letter-spacing:0.3px}
+.bcmd:active{transform:scale(0.93)}
+.bcmd:disabled{opacity:0.35;cursor:default;transform:none}
+.cf{background:#fef3c7;color:#92400e}
+.cc{background:#ede9fe;color:#4c1d95}
+.cb{background:#dcfce7;color:#14532d}
+.cr{background:#ffe4e6;color:#9f1239}
+
+/* Move select */
+#mpanel{display:none;grid-template-columns:1fr 1fr;gap:8px}
+.mcmd{padding:13px 8px;border-radius:12px;font-size:12px;font-weight:900;
+  cursor:pointer;border:2px solid transparent;-webkit-tap-highlight-color:transparent;
+  color:white;transition:transform .08s}
+.mcmd:active{transform:scale(0.93)}
+
+/* Bag */
+#bagpanel{display:none;grid-template-columns:1fr 1fr;gap:8px}
+.bagbtn{background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.18);
+  color:#e2e8f0;border-radius:10px;padding:12px;font-size:12px;font-weight:700;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left}
+.bagbtn:active{background:rgba(255,255,255,0.25)}
+
+/* Switch */
+#swpanel{display:none;flex-direction:column;gap:6px;max-height:170px;overflow-y:auto}
+.swrow{display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);
+  border-radius:10px;padding:8px 11px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.swrow:active{background:rgba(255,255,255,0.22)}
+.swname{color:#e2e8f0;font-size:12px;font-weight:800}
+.swlv{color:#94a3b8;font-size:10px;font-weight:600}
+
+/* Menu overlay */
+#ov-menu{background:rgba(5,8,20,0.97);backdrop-filter:blur(12px);z-index:130;padding:18px 18px 24px}
+.mu-title{color:#f0f4ff;font-size:14px;font-weight:900;letter-spacing:3px;
+  text-align:center;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:14px}
+.mu-section{color:#64748b;font-size:10px;font-weight:900;letter-spacing:2px;margin-bottom:8px}
+#party-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.prow{display:flex;align-items:center;gap:11px;background:rgba(255,255,255,0.06);
+  border:1.5px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px 13px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.prow:active{background:rgba(255,255,255,0.18)}
+.prow.lead{border-color:#3b82f6;background:rgba(59,130,246,0.12)}
+.prow-name{color:#e0f2fe;font-size:13px;font-weight:800}
+.prow-lv{color:#94a3b8;font-size:10px;font-weight:700}
+.prow-hpbar{height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin-top:4px;flex:1}
+.prow-hpf{height:100%;border-radius:3px}
+.mu-close{width:100%;padding:14px;background:rgba(255,255,255,0.07);
+  border:1.5px solid rgba(255,255,255,0.15);color:#e2e8f0;font-weight:900;font-size:14px;
+  border-radius:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mu-close:active{background:rgba(255,255,255,0.2)}
+.mu-badges-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.mu-badge{font-size:22px;filter:drop-shadow(0 2px 6px rgba(255,200,0,0.5))}
+.mu-badge.empty{opacity:0.18;filter:grayscale(1)}
+
+/* EV overlay */
+#ov-evo{background:#000;align-items:center;justify-content:center;z-index:150;text-align:center;padding:24px}
+#evo-sfx{font-size:72px;animation:evo-spin 0.6s linear infinite}
+@keyframes evo-spin{from{transform:scale(1) rotate(0deg)}to{transform:scale(1.3) rotate(360deg)}}
+.evo-label{color:#fbbf24;font-size:11px;font-weight:900;letter-spacing:3px;margin-bottom:8px}
+.evo-name{color:#fff;font-size:28px;font-weight:900;margin:14px 0 6px}
+.evo-desc{color:#94a3b8;font-size:13px;margin-bottom:24px}
+.evo-ok{padding:14px 44px;background:rgba(255,255,255,0.14);color:#fff;font-weight:900;
+  border:1.5px solid rgba(255,255,255,0.3);border-radius:16px;cursor:pointer;font-size:15px;
+  -webkit-tap-highlight-color:transparent}
+.evo-ok:active{background:rgba(255,255,255,0.3)}
+
+/* WIN / LOSE */
+#ov-win{background:rgba(0,0,0,0.9);align-items:center;justify-content:center;z-index:160;text-align:center;padding:24px}
+.win-icon{font-size:64px;margin-bottom:14px}
+.win-title{font-size:28px;font-weight:900;color:#fbbf24;margin-bottom:8px}
+.win-sub{font-size:14px;color:#94a3b8;margin-bottom:20px}
+.win-reward{background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);
+  border-radius:14px;padding:14px 20px;margin-bottom:20px;text-align:left}
+.win-reward div{font-size:13px;color:#e2e8f0;font-weight:700;margin-bottom:4px}
+.win-ok{padding:14px 40px;background:linear-gradient(135deg,#fbbf24,#f59e0b);
+  color:#000;font-weight:900;font-size:16px;border:none;border-radius:16px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.win-ok:active{transform:scale(0.95)}
+
+/* Status bar strip */
+#strip{position:fixed;bottom:142px;left:0;right:0;z-index:48;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;gap:0}
+#strip-inner{background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.1);border-radius:20px;
+  padding:5px 16px;display:flex;align-items:center;gap:14px}
+.si-label{font-size:9px;font-weight:900;color:#64748b;letter-spacing:1.5px}
+.si-val{font-size:12px;font-weight:900;color:#e2e8f0}
+.si-div{width:1px;height:20px;background:rgba(255,255,255,0.1)}
+
+/* Encounter flash */
+@keyframes encflash{0%,100%{opacity:0}20%,60%{opacity:1;background:white}40%,80%{opacity:0.5;background:black}}
+.enc-flash{position:fixed;inset:0;z-index:200;pointer-events:none;animation:encflash 0.8s forwards}
+
+/* Battle animations */
+@keyframes floatup{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@keyframes wobble{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes dance{0%{transform:rotate(-6deg) translateY(0)}25%{transform:rotate(0) translateY(-9px)}50%{transform:rotate(6deg) translateY(0)}75%{transform:rotate(0) translateY(-9px)}100%{transform:rotate(-6deg) translateY(0)}}
+.anim-float{animation:floatup 2s ease-in-out infinite}
+.anim-pulse{animation:pulse 1.5s ease-in-out infinite}
+.anim-wobble{animation:wobble 1s ease-in-out infinite}
+.anim-bounce{animation:bounce 1.1s ease-in-out infinite}
+.anim-dance{animation:dance 0.75s ease-in-out infinite}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-12px)}75%{transform:translateX(12px)}}
+.b-shake{animation:shake 0.35s}
+@keyframes atk-u{0%,100%{transform:translateY(0)}50%{transform:translateY(-24px)}}
+@keyframes atk-d{0%,100%{transform:translateY(0)}50%{transform:translateY(24px)}}
+.atk-up{animation:atk-u 0.32s}
+.atk-dn{animation:atk-d 0.32s}
+@keyframes dmg-flash{0%,100%{filter:brightness(1)}30%,70%{filter:brightness(3) saturate(0)}}
+.dmg-fl{animation:dmg-flash 0.4s}
+
+/* Trainer battle banner */
+#trainer-banner{position:fixed;top:0;left:0;right:0;z-index:220;
+  background:linear-gradient(90deg,#1e40af,#7c3aed);
+  color:#fff;text-align:center;padding:12px;font-size:16px;font-weight:900;
+  display:none;transform:translateY(-100%);transition:transform 0.4s}
+#trainer-banner.show{display:block;transform:translateY(0)}
+
+/* Scrollable text */
+#ov-menu .scroll{max-height:calc(100vh - 260px);overflow-y:auto}
+
+/* Responsive */
+@media (min-width:500px){
+  #controls{padding-bottom:30px}
+  .dp{width:44px;height:44px}
+  #dp-u{top:0;left:44px}#dp-d{bottom:0;left:44px}#dp-l{top:44px;left:0}#dp-r{top:44px;right:0}
+  #dp-c{top:44px;left:44px;width:44px;height:44px}
+  #dpad{width:132px;height:132px}
+}
+
+#loading{position:fixed;inset:0;z-index:300;background:#000;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:12px;color:#fff}
+.ld-dot{width:10px;height:10px;background:#3b82f6;border-radius:50%;display:inline-block;
+  animation:ld 0.9s ease-in-out infinite;margin:0 3px}
+.ld-dot:nth-child(2){animation-delay:0.15s}.ld-dot:nth-child(3){animation-delay:0.3s}
+@keyframes ld{0%,100%{transform:scale(0.7);opacity:0.5}50%{transform:scale(1.2);opacity:1}}
+</style>
 </head>
-<body class="flex flex-col text-zinc-900">
+<body>
 
-    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
-        <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
-            <i data-lucide="home" class="w-5 h-5"></i>
-            <span class="text-sm font-bold">ホーム</span>
-        </button>
-        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">Match Ready</div>
-        <div class="w-20"></div>
-    </header>
+<div id="loading">
+  <div style="font-size:32px">🥚</div>
+  <div><span class="ld-dot"></span><span class="ld-dot"></span><span class="ld-dot"></span></div>
+  <div style="font-size:12px;color:#64748b;letter-spacing:2px">LOADING...</div>
+</div>
 
-    <main class="flex-grow flex flex-col items-center justify-center p-4 max-w-lg mx-auto w-full gap-4">
-        
-        <div class="game-screen-wrapper">
-            <canvas id="gameCanvas" width="160" height="160" class="absolute inset-0 z-0"></canvas>
-            
-            <div id="view-title" class="absolute inset-0 z-40 bg-zinc-900 text-white flex flex-col items-center justify-center p-6">
-                <div class="text-4xl font-black mb-2 tracking-widest text-transparent bg-clip-text bg-gradient-to-br from-green-400 to-blue-500 text-center leading-tight">MONSTER<br>QUEST</div>
-                <p class="text-xs text-zinc-400 mb-8">Tap START to begin your journey</p>
-                <div class="w-24 h-24 mb-8 bg-zinc-800 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.3)]">
-                    <svg width="80" height="80" viewBox="0 0 200 200">
-                        <defs><radialGradient id="g0" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="70%" stop-color="#FFF5E8"/><stop offset="100%" stop-color="#EDE0C4"/></radialGradient><filter id="g0f"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-                        <ellipse cx="100" cy="110" rx="52" ry="63" fill="rgba(255,240,200,0.3)" filter="url(#g0f)"/>
-                        <ellipse cx="100" cy="110" rx="46" ry="56" fill="url(#g0)" stroke="#DDD0AA" stroke-width="1.5"/>
-                        <circle cx="82" cy="88" r="5.5" fill="#CCAAE0" opacity="0.55"/><circle cx="115" cy="98" r="4" fill="#CCAAE0" opacity="0.5"/>
-                    </svg>
-                </div>
-                <button onclick="startGame()" class="px-8 py-3 bg-white text-black font-black rounded-2xl active:scale-95 transition-transform">GAME START</button>
-            </div>
+<canvas id="gc" width="480" height="480"></canvas>
 
-            <div id="view-battle" class="absolute inset-0 z-20 bg-white hidden flex-col">
-                <div class="flex-1 relative flex justify-between items-start p-4" style="background: linear-gradient(180deg, #e0f2fe 0%, #ffffff 100%);">
-                    <div class="bg-white/80 backdrop-blur rounded-xl p-2 border border-black/10 shadow-sm min-w-[120px]">
-                        <div class="text-[10px] font-black text-zinc-800 flex justify-between"><span id="enemy-name">モンスタ</span><span>Lv <span id="enemy-lvl">5</span></span></div>
-                        <div class="hp-bar-bg mt-1"><div id="enemy-hp-bar" class="hp-bar-fill" style="width: 100%;"></div></div>
-                    </div>
-                    <div id="enemy-sprite" class="w-24 h-24 mt-4 drop-shadow-xl transform origin-bottom"></div>
-                </div>
-                <div class="flex-1 relative flex justify-between items-end p-4 pb-2" style="background: linear-gradient(0deg, #dcfce7 0%, #ffffff 100%);">
-                    <div id="player-sprite" class="w-24 h-24 mb-4 drop-shadow-xl back-sprite transform origin-bottom"></div>
-                    <div class="bg-white/90 backdrop-blur rounded-xl p-2 border border-black/10 shadow-sm min-w-[120px] relative top-[-10px]">
-                        <div class="text-[10px] font-black text-zinc-800 flex justify-between"><span id="player-name">たまご</span><span>Lv <span id="player-lvl">5</span></span></div>
-                        <div class="hp-bar-bg mt-1"><div id="player-hp-bar" class="hp-bar-fill" style="width: 100%;"></div></div>
-                        <div class="text-right text-[9px] font-bold mt-0.5 text-zinc-500"><span id="player-hp-val">20</span> / <span id="player-hp-max">20</span></div>
-                    </div>
-                </div>
-                <div class="h-[35%] bg-zinc-900 border-t-4 border-zinc-700 p-3 flex flex-col">
-                    <div id="battle-msg" class="text-white text-xs font-bold leading-relaxed mb-2 h-8">あ！ やせいの モンスタ が とびだしてきた！</div>
-                    <div id="battle-cmds" class="grid grid-cols-2 gap-2 flex-1">
-                        <button onclick="battleCmd('attack')" class="btn-press bg-zinc-100 text-zinc-900 rounded-xl font-black text-sm">たたかう</button>
-                        <button onclick="battleCmd('catch')" class="btn-press bg-zinc-800 border-2 border-zinc-600 text-white rounded-xl font-black text-sm">つかまえる</button>
-                        <button onclick="battleCmd('party')" class="btn-press bg-zinc-800 border-2 border-zinc-600 text-white rounded-xl font-black text-sm">モンス</button>
-                        <button onclick="battleCmd('run')" class="btn-press bg-zinc-800 border-2 border-zinc-600 text-white rounded-xl font-black text-sm">にげる</button>
-                    </div>
-                </div>
-            </div>
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-loc">スタート地点</div>
+  <div id="hud-money">💰 <span id="hud-gold">0</span> G</div>
+  <div id="hud-badges"></div>
+</div>
 
-            <div id="view-menu" class="absolute inset-0 z-30 bg-black/90 backdrop-blur-sm hidden text-white p-4 flex flex-col">
-                <div class="text-sm font-black uppercase tracking-widest text-center border-b border-white/20 pb-2 mb-3">PARTY - <span class="text-xs text-zinc-400">タップで先頭に変更</span></div>
-                <div id="party-list" class="flex-1 overflow-y-auto space-y-2">
-                    <!-- Party items injected here -->
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-3">
-                    <button onclick="saveGame(true)" class="py-3 bg-blue-600 text-white rounded-xl font-bold btn-press flex items-center justify-center gap-2"><i data-lucide="save" class="w-4 h-4"></i>セーブ</button>
-                    <button onclick="closeMenu()" class="py-3 bg-zinc-700 text-white rounded-xl font-bold btn-press flex items-center justify-center gap-2"><i data-lucide="x" class="w-4 h-4"></i>とじる</button>
-                </div>
-            </div>
+<!-- Status strip -->
+<div id="strip" style="display:none">
+  <div id="strip-inner">
+    <div><div class="si-label">PARTY</div><div class="si-val" id="si-party">1/1</div></div>
+    <div class="si-div"></div>
+    <div><div class="si-label">LEADER</div><div class="si-val" id="si-leader">-</div></div>
+    <div class="si-div"></div>
+    <div><div class="si-label">Lv</div><div class="si-val" id="si-lv">1</div></div>
+    <div class="si-div"></div>
+    <div><div class="si-label">HP</div><div class="si-val" id="si-hp">-</div></div>
+  </div>
+</div>
 
-            <div id="view-dialog" class="absolute inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4">
-                <div class="bg-white text-black p-6 rounded-3xl w-full max-w-[280px] text-center shadow-2xl">
-                    <div id="dialog-img" class="w-24 h-24 mx-auto mb-4"></div>
-                    <div id="dialog-title" class="font-black text-lg mb-2">レベルアップ！</div>
-                    <div id="dialog-desc" class="text-sm font-bold text-zinc-600 mb-6">たまご は Lv 6 になった！</div>
-                    <button onclick="closeDialog()" class="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold btn-press">OK</button>
-                </div>
-            </div>
+<!-- Controls -->
+<div id="controls">
+  <div id="dpad">
+    <button class="dp" id="dp-u">▲</button>
+    <button class="dp" id="dp-d">▼</button>
+    <button class="dp" id="dp-l">◀</button>
+    <button class="dp" id="dp-r">▶</button>
+    <div id="dp-c"></div>
+  </div>
+  <div id="ab-btns">
+    <button class="ab" id="btn-b" onclick="btnB()">B</button>
+    <button class="ab" id="btn-a" onclick="btnA()">A</button>
+  </div>
+</div>
+<button id="btn-menu" onclick="openMenu()" style="display:none">☰ メニュー</button>
 
-        </div>
+<!-- TITLE -->
+<div class="ov on" id="ov-title">
+  <div class="title-glow">モンスター<br>クエスト</div>
+  <div class="title-sub">Monster Quest</div>
+  <div class="egg-wrap">
+    <svg width="110" height="110" viewBox="0 0 200 200">
+      <defs><radialGradient id="ge0" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="70%" stop-color="#FFF5E8"/><stop offset="100%" stop-color="#EDE0C4"/></radialGradient><filter id="gef"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <ellipse cx="100" cy="110" rx="52" ry="63" fill="rgba(255,240,200,0.3)" filter="url(#gef)"/>
+      <ellipse cx="100" cy="110" rx="46" ry="56" fill="url(#ge0)" stroke="#DDD0AA" stroke-width="1.5"/>
+      <circle cx="82" cy="88" r="5.5" fill="#CCAAE0" opacity="0.55"/><circle cx="115" cy="98" r="4" fill="#CCAAE0" opacity="0.5"/>
+      <circle cx="90" cy="118" r="3.5" fill="#CCAAE0" opacity="0.45"/><circle cx="112" cy="128" r="3" fill="#BBAADD" opacity="0.4"/>
+      <ellipse cx="88" cy="90" rx="13" ry="8" fill="rgba(255,255,255,0.5)" transform="rotate(-22,88,90)"/>
+    </svg>
+  </div>
+  <button class="start-btn" onclick="showStarterSelect()">はじめる</button>
+  <div class="title-hint">© 2025 MONSTER QUEST</div>
+</div>
 
-        <div class="w-full bg-white/80 backdrop-blur-md p-4 rounded-[2rem] border border-black/5 shadow-sm shrink-0 flex justify-between items-center px-6">
-            <div class="relative w-28 h-28">
-                <div class="absolute inset-0 bg-zinc-200 rounded-full opacity-50"></div>
-                <div class="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-full bg-zinc-800 rounded-xl"></div>
-                <div class="absolute top-1/2 left-0 -translate-y-1/2 w-full h-9 bg-zinc-800 rounded-xl"></div>
-                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-zinc-900 rounded-full shadow-inner"></div>
-                
-                <button onmousedown="inputDir('up', true)" onmouseup="inputDir('up', false)" onmouseleave="inputDir('up', false)" ontouchstart="inputDir('up', true)" ontouchend="inputDir('up', false)" class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 opacity-0 z-10"></button>
-                <button onmousedown="inputDir('down', true)" onmouseup="inputDir('down', false)" onmouseleave="inputDir('down', false)" ontouchstart="inputDir('down', true)" ontouchend="inputDir('down', false)" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-10 opacity-0 z-10"></button>
-                <button onmousedown="inputDir('left', true)" onmouseup="inputDir('left', false)" onmouseleave="inputDir('left', false)" ontouchstart="inputDir('left', true)" ontouchend="inputDir('left', false)" class="absolute top-1/2 left-0 -translate-y-1/2 w-10 h-10 opacity-0 z-10"></button>
-                <button onmousedown="inputDir('right', true)" onmouseup="inputDir('right', false)" onmouseleave="inputDir('right', false)" ontouchstart="inputDir('right', true)" ontouchend="inputDir('right', false)" class="absolute top-1/2 right-0 -translate-y-1/2 w-10 h-10 opacity-0 z-10"></button>
-            </div>
+<!-- STARTER SELECT -->
+<div class="ov" id="ov-starter">
+  <div class="s-title">さいしょの モンスを えらんでね</div>
+  <div class="s-sub">あなたの はじめての なかま になります</div>
+  <div class="s-grid" id="s-grid"></div>
+  <button class="s-confirm" id="s-confirm" onclick="confirmStarter()">このこに する！</button>
+</div>
 
-            <div class="flex gap-4 transform rotate-[-15deg]">
-                <button onclick="btnB()" class="w-14 h-14 bg-red-500 rounded-full shadow-[0_6px_0_#b91c1c] active:shadow-[0_2px_0_#b91c1c] active:translate-y-1 transition-all flex items-center justify-center relative top-6">
-                    <span class="text-white font-black text-xl">B</span>
-                </button>
-                <button onclick="btnA()" class="w-14 h-14 bg-blue-500 rounded-full shadow-[0_6px_0_#1d4ed8] active:shadow-[0_2px_0_#1d4ed8] active:translate-y-1 transition-all flex items-center justify-center">
-                    <span class="text-white font-black text-xl">A</span>
-                </button>
-            </div>
-        </div>
+<!-- DIALOG -->
+<div id="dlg">
+  <div id="dlg-name">？？？</div>
+  <div id="dlg-txt"></div>
+  <div id="dlg-choices"></div>
+</div>
 
-    </main>
+<!-- BATTLE -->
+<div class="ov" id="ov-battle">
+  <div id="bfield">
+    <div id="b-ezone">
+      <div class="bcard" id="e-card">
+        <div class="bnrow"><span class="bname" id="e-name">???</span><span class="blv">Lv <span id="e-lv">1</span></span></div>
+        <div class="bhpt"><div class="bhpf h" id="e-hpf" style="width:100%"></div></div>
+      </div>
+      <div class="bspr" id="e-spr"></div>
+    </div>
+    <div id="b-pzone">
+      <div class="bspr" id="p-spr" style="transform:scaleX(-1)"></div>
+      <div class="bcard" id="p-card">
+        <div class="bnrow"><span class="bname" id="p-name">???</span><span class="blv">Lv <span id="p-lv">1</span></span></div>
+        <div class="bhpt"><div class="bhpf h" id="p-hpf" style="width:100%"></div></div>
+        <div class="bhtxt"><span id="p-hpv">0</span>/<span id="p-hpm">0</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="b-ui">
+    <div id="b-ui-inner">
+      <div id="bmsg">バトル かいし！</div>
+      <div id="bcmds">
+        <button class="bcmd cf" onclick="bCmd('fight')">⚔️ たたかう</button>
+        <button class="bcmd cc" onclick="bCmd('bag')">🎒 バッグ</button>
+        <button class="bcmd cb" onclick="bCmd('switch')">🔄 こうたい</button>
+        <button class="bcmd cr" onclick="bCmd('run')">💨 にげる</button>
+      </div>
+      <div id="mpanel"></div>
+      <div id="bagpanel"></div>
+      <div id="swpanel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MENU -->
+<div class="ov" id="ov-menu">
+  <div class="mu-title">メニュー</div>
+  <div class="scroll">
+    <div class="mu-section">バッジ</div>
+    <div class="mu-badges-row" id="mu-badges"></div>
+    <div class="mu-section">パーティ（タップで先頭に変更）</div>
+    <div id="party-list"></div>
+    <div class="mu-section">アイテム</div>
+    <div id="mu-items" style="color:#94a3b8;font-size:13px;font-weight:700;margin-bottom:14px"></div>
+    <div class="mu-section">進捗</div>
+    <div id="mu-prog" style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:18px;line-height:1.8"></div>
+  </div>
+  <button class="mu-close" onclick="closeMenu()">とじる</button>
+</div>
+
+<!-- EVO -->
+<div class="ov" id="ov-evo">
+  <div class="evo-label">✨ EVOLUTION ✨</div>
+  <div id="evo-sfx">💫</div>
+  <div id="evo-spr" style="margin:16px auto;width:120px;height:120px"></div>
+  <div class="evo-name" id="evo-name"></div>
+  <div class="evo-desc" id="evo-desc"></div>
+  <button class="evo-ok" onclick="closeEvo()">つぎへ ▶</button>
+</div>
+
+<!-- WIN/LOSE -->
+<div class="ov" id="ov-win">
+  <div class="win-icon" id="win-icon">🏆</div>
+  <div class="win-title" id="win-title">しょうり！</div>
+  <div class="win-sub" id="win-sub"></div>
+  <div class="win-reward" id="win-reward"></div>
+  <button class="win-ok" onclick="closeWin()">つぎへ ▶</button>
+</div>
+
+<div id="trainer-banner"></div>
 
 <script>
-// ════════════════════════════════════
-//  MONSTER DEFINITIONS
-// ════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  MONSTER DEFINITIONS (all from caring.html)
+// ═══════════════════════════════════════════════
 const M = {
-  egg:{name:'たまご',anim:'anim-pulse',draw:()=>`<defs><radialGradient id="ge" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="70%" stop-color="#FFF5E8"/><stop offset="100%" stop-color="#EDE0C4"/></radialGradient></defs><ellipse cx="100" cy="110" rx="46" ry="56" fill="url(#ge)" stroke="#DDD0AA" stroke-width="1.5"/><circle cx="82" cy="88" r="5.5" fill="#CCAAE0" opacity="0.55"/><circle cx="115" cy="98" r="4" fill="#CCAAE0" opacity="0.5"/>`},
-  A:{name:'パフモ',anim:'anim-bounce',draw:()=>`<circle cx="100" cy="118" r="44" fill="#FFE5F0" stroke="#FFB8D8" stroke-width="1"/><circle cx="87" cy="111" r="10" fill="#1A0810"/><circle cx="113" cy="111" r="10" fill="#1A0810"/><circle cx="90" cy="108" r="3" fill="white"/><circle cx="116" cy="108" r="3" fill="white"/>`},
-  B:{name:'イグニク',anim:'anim-wobble',draw:()=>`<path d="M100 78 Q136 78 147 110 Q150 132 136 150 Q120 164 100 164 Q80 164 64 150 Q50 132 53 110 Q64 78 100 78Z" fill="#00AACC" stroke="#009AB8" stroke-width="1.5"/><ellipse cx="86" cy="107" rx="10" ry="7" fill="#001820"/><ellipse cx="114" cy="107" rx="10" ry="7" fill="#001820"/><ellipse cx="89" cy="105" rx="4" ry="3" fill="white"/><ellipse cx="117" cy="105" rx="4" ry="3" fill="white"/>`},
-  C:{name:'ルメッシュ',anim:'anim-float',draw:()=>`<path d="M100 68 Q132 66 144 90 Q158 118 150 144 Q140 165 120 164 Q104 172 86 162 Q62 152 56 130 Q48 106 62 86 Q73 66 100 68Z" fill="#A888EE" opacity="0.93"/><circle cx="87" cy="108" r="14" fill="#180A28"/><circle cx="114" cy="113" r="9" fill="#180A28"/><circle cx="91" cy="103" r="5" fill="#fff"/><circle cx="117" cy="109" r="3" fill="#fff"/>`},
-  AA:{name:'フラッフィア',anim:'anim-bounce',draw:()=>`<circle cx="100" cy="118" r="48" fill="#FFE0EE"/><path d="M70 75 Q60 50 74 46 Q82 55 78 72Z" fill="#FFD0E8"/><path d="M130 75 Q140 50 126 46 Q118 55 122 72Z" fill="#FFD0E8"/><circle cx="86" cy="110" r="12" fill="#180A10"/><circle cx="114" cy="110" r="12" fill="#180A10"/><circle cx="89" cy="106" r="4" fill="white"/><circle cx="117" cy="106" r="4" fill="white"/>`},
-  AB:{name:'スカルドフワ',anim:'anim-wobble',draw:()=>`<circle cx="100" cy="118" r="46" fill="#FFEACC"/><path d="M105 105 Q112 98 120 105 Q113 112 105 105Z" fill="#FFAA44"/><circle cx="88" cy="111" r="11" fill="#1A0800"/><circle cx="112" cy="111" r="11" fill="#1A0800"/><circle cx="91" cy="108" r="4" fill="white"/><circle cx="115" cy="108" r="4" fill="white"/>`},
-  AC:{name:'ミストパフ',anim:'anim-float',draw:()=>`<circle cx="100" cy="115" r="44" fill="rgba(200,220,255,0.75)" stroke="rgba(160,185,255,0.5)"/><circle cx="88" cy="111" r="11" fill="#2244AA"/><circle cx="112" cy="111" r="11" fill="#2244AA"/><circle cx="91" cy="108" r="3" fill="white"/><circle cx="115" cy="108" r="3" fill="white"/>`},
-  BA:{name:'カールスケイル',anim:'anim-wobble',draw:()=>`<path d="M100 76 Q136 76 148 110 Q151 134 136 150 Q120 164 100 164 Q80 164 64 150 Q49 134 52 110 Q64 76 100 76Z" fill="#44BBAA"/><ellipse cx="86" cy="106" rx="10" ry="8" fill="#001818"/><ellipse cx="114" cy="106" rx="10" ry="8" fill="#001818"/><ellipse cx="89" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="117" cy="104" rx="4" ry="3" fill="white"/>`},
-  BB:{name:'ブレイザー',anim:'anim-dance',draw:()=>`<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 162 100 162 Q80 162 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="#FF5500"/><ellipse cx="85" cy="106" rx="11" ry="8" fill="#220800"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#220800"/><ellipse cx="88" cy="104" rx="4.5" ry="3" fill="#FF8844"/><ellipse cx="118" cy="104" rx="4.5" ry="3" fill="#FF8844"/>`},
-  BC:{name:'ヴァイアスケイル',anim:'anim-wobble',draw:()=>`<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="#88CC66"/><ellipse cx="85" cy="106" rx="11" ry="8" fill="#0A1800"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#0A1800"/><ellipse cx="85" cy="106" rx="3" ry="7" fill="#88FF44"/><ellipse cx="115" cy="106" rx="3" ry="7" fill="#88FF44"/>`},
-  CA:{name:'スターウィッシュ',anim:'anim-float',draw:()=>`<path d="M100 68 Q132 66 144 90 Q158 118 150 144 Q140 165 120 164 Q104 172 86 162 Q62 152 56 130 Q48 106 62 86 Q73 66 100 68Z" fill="#AA88EE"/><text x="87" y="62" font-size="22" fill="#FFDD88">★</text><circle cx="88" cy="110" r="13" fill="#180A28"/><circle cx="114" cy="113" r="10" fill="#180A28"/><circle cx="91" cy="106" r="5" fill="#fff"/><circle cx="117" cy="110" r="3.5" fill="#fff"/>`},
-  CB:{name:'スペクトレル',anim:'anim-float',draw:()=>`<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="#8899DD"/><circle cx="88" cy="110" r="13" fill="#08001A"/><circle cx="113" cy="113" r="9" fill="#08001A"/><circle cx="91" cy="106" r="5" fill="#fff"/><circle cx="116" cy="110" r="3" fill="#fff"/>`},
-  CC:{name:'ドレッドリング',anim:'anim-float',draw:()=>`<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="#2A1055"/><circle cx="88" cy="110" r="14" fill="#08001A"/><circle cx="112" cy="112" r="10" fill="#08001A"/><circle cx="88" cy="110" r="3" fill="#fff"/><circle cx="112" cy="112" r="2" fill="#fff"/>`},
-  AAA:{name:'セレスタフィン',anim:'anim-float',draw:()=>`<circle cx="100" cy="118" r="48" fill="#FFF5E0"/><circle cx="86" cy="110" r="12" fill="#180A00"/><circle cx="114" cy="110" r="12" fill="#180A00"/><text x="56" y="90" font-size="14" fill="#FFDD44">★</text><text x="128" y="88" font-size="12" fill="#FFDD44">★</text>`},
-  BBB:{name:'インフェルノ',anim:'anim-dance',draw:()=>`<path d="M100 72 Q140 72 152 110 Q155 134 140 154 Q124 170 100 170 Q76 170 60 154 Q45 134 48 110 Q60 72 100 72Z" fill="#CC2200"/><ellipse cx="84" cy="107" rx="12" ry="9" fill="#100000"/><ellipse cx="116" cy="107" rx="12" ry="9" fill="#100000"/>`},
-  CCC:{name:'カオスヴォイド',anim:'anim-pulse',draw:()=>`<path d="M100 60 Q140 58 154 88 Q170 122 158 152 Q148 174 126 173 Q110 181 90 171 Q62 160 56 136 Q48 108 62 84 Q74 60 100 60Z" fill="#0A0420"/><circle cx="88" cy="110" r="15" fill="#040010"/><circle cx="112" cy="110" r="12" fill="#040010"/>`},
+egg:{name:'たまご',desc:'ふしぎなたまご',type:'normal',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g0" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="70%" stop-color="#FFF5E8"/><stop offset="100%" stop-color="#EDE0C4"/></radialGradient><filter id="g0f"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="52" ry="63" fill="rgba(255,240,200,0.3)" filter="url(#g0f)"/>
+<ellipse cx="100" cy="110" rx="46" ry="56" fill="url(#g0)" stroke="#DDD0AA" stroke-width="1.5"/>
+<circle cx="82" cy="88" r="5.5" fill="#CCAAE0" opacity="0.55"/><circle cx="115" cy="98" r="4" fill="#CCAAE0" opacity="0.5"/>
+<circle cx="90" cy="118" r="3.5" fill="#CCAAE0" opacity="0.45"/><circle cx="112" cy="128" r="3" fill="#BBAADD" opacity="0.4"/>
+<ellipse cx="88" cy="90" rx="13" ry="8" fill="rgba(255,255,255,0.5)" transform="rotate(-22,88,90)"/>
+`},
+A:{name:'パフモ',desc:'まんまる ふわふわ',type:'normal',anim:'anim-bounce',draw:()=>`
+<defs><radialGradient id="gA" cx="38%" cy="32%"><stop offset="0%" stop-color="#FFF"/><stop offset="65%" stop-color="#FFE5F0"/><stop offset="100%" stop-color="#FFC8DE"/></radialGradient></defs>
+<ellipse cx="62" cy="118" rx="16" ry="10" fill="#FFD5EB" opacity="0.7" transform="rotate(-30,62,118)"/>
+<ellipse cx="138" cy="118" rx="16" ry="10" fill="#FFD5EB" opacity="0.7" transform="rotate(30,138,118)"/>
+<circle cx="100" cy="118" r="44" fill="url(#gA)" stroke="#FFB8D8" stroke-width="1"/>
+<ellipse cx="100" cy="128" rx="26" ry="21" fill="rgba(255,255,255,0.75)"/>
+<circle cx="74" cy="84" r="13" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/><circle cx="126" cy="84" r="13" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/>
+<circle cx="87" cy="111" r="10" fill="#1A0810"/><circle cx="113" cy="111" r="10" fill="#1A0810"/>
+<circle cx="90" cy="108" r="3.5" fill="white"/><circle cx="116" cy="108" r="3.5" fill="white"/>
+<circle cx="76" cy="119" r="9" fill="#FFB0CC" opacity="0.45"/><circle cx="124" cy="119" r="9" fill="#FFB0CC" opacity="0.45"/>
+<path d="M93 123 Q100 129 107 123" stroke="#CC6688" stroke-width="2" fill="none" stroke-linecap="round"/>
+`},
+B:{name:'イグニク',desc:'ちいさなドラゴン',type:'fire',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="gB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88EEDD"/><stop offset="100%" stop-color="#00AACC"/></linearGradient></defs>
+<path d="M100 165 Q130 176 148 163 Q152 143 136 137" fill="#00AACC" opacity="0.8"/>
+<path d="M100 78 Q136 78 147 110 Q150 132 136 150 Q120 164 100 164 Q80 164 64 150 Q50 132 53 110 Q64 78 100 78Z" fill="url(#gB)" stroke="#009AB8" stroke-width="1.5"/>
+<ellipse cx="100" cy="133" rx="28" ry="23" fill="rgba(200,255,245,0.7)"/>
+<polygon points="82,80 77,61 88,78" fill="#00CCEE"/><polygon points="100,77 100,55 108,76" fill="#00DDFF"/><polygon points="118,80 123,61 112,78" fill="#00CCEE"/>
+<ellipse cx="86" cy="107" rx="10" ry="7" fill="#001820"/><ellipse cx="114" cy="107" rx="10" ry="7" fill="#001820"/>
+<ellipse cx="89" cy="105" rx="4" ry="3" fill="white"/><ellipse cx="117" cy="105" rx="4" ry="3" fill="white"/>
+`},
+C:{name:'ルメッシュ',desc:'ふわっと 浮かんでる',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gC" cx="42%" cy="38%"><stop offset="0%" stop-color="#DDD0FF"/><stop offset="60%" stop-color="#A888EE"/><stop offset="100%" stop-color="#7755CC"/></radialGradient><filter id="gCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M78 150 Q64 172 55 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 158 Q98 176 94 188" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.48"/>
+<path d="M122 150 Q136 172 145 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 68 Q132 66 144 90 Q158 118 150 144 Q140 165 120 164 Q104 172 86 162 Q62 152 56 130 Q48 106 62 86 Q73 66 100 68Z" fill="url(#gC)" opacity="0.93"/>
+<circle cx="87" cy="108" r="14" fill="#180A28"/><circle cx="114" cy="113" r="9" fill="#180A28"/>
+<circle cx="91" cy="103" r="5" fill="rgba(220,180,255,0.9)"/><circle cx="117" cy="109" r="3" fill="rgba(220,180,255,0.9)"/>
+<path d="M58 108 Q43 103 38 112 Q43 122 56 118" fill="#8866BB" opacity="0.65"/>
+<path d="M142 122 Q157 117 162 126 Q157 135 146 130" fill="#8866BB" opacity="0.65"/>
+`},
+AA:{name:'フラッフィア',desc:'天使型 ふわふわ',type:'normal',anim:'anim-bounce',draw:()=>`
+<defs><radialGradient id="gAA" cx="36%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFE0EE"/><stop offset="100%" stop-color="#FFC0D8"/></radialGradient><filter id="gAAf"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 108 Q30 88 22 72 Q35 68 50 82 Q56 90 58 104Z" fill="rgba(255,230,245,0.9)" stroke="#FFD0E8" stroke-width="1"/>
+<path d="M148 108 Q170 88 178 72 Q165 68 150 82 Q144 90 142 104Z" fill="rgba(255,230,245,0.9)" stroke="#FFD0E8" stroke-width="1"/>
+<circle cx="100" cy="118" r="48" fill="url(#gAA)" stroke="#FFB0D0" stroke-width="1"/>
+<ellipse cx="100" cy="128" rx="30" ry="26" fill="rgba(255,255,255,0.8)"/>
+<path d="M70 75 Q60 50 74 46 Q82 55 78 72Z" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/>
+<path d="M130 75 Q140 50 126 46 Q118 55 122 72Z" fill="#FFD0E8" stroke="#FFB8D8" stroke-width="1"/>
+<ellipse cx="100" cy="68" rx="22" ry="7" fill="none" stroke="#FFDD88" stroke-width="3" opacity="0.8" filter="url(#gAAf)"/>
+<circle cx="86" cy="110" r="12" fill="#180A10"/><circle cx="114" cy="110" r="12" fill="#180A10"/>
+<circle cx="89" cy="106" r="4.5" fill="white"/><circle cx="117" cy="106" r="4.5" fill="white"/>
+<circle cx="72" cy="120" r="11" fill="#FFB0CC" opacity="0.4"/><circle cx="128" cy="120" r="11" fill="#FFB0CC" opacity="0.4"/>
+<path d="M92 124 Q100 131 108 124" stroke="#CC5577" stroke-width="2" fill="none" stroke-linecap="round"/>
+<text x="64" y="86" font-size="10" fill="#FFDD88" opacity="0.8">★</text><text x="128" y="86" font-size="10" fill="#FFDD88" opacity="0.8">★</text>
+`},
+AB:{name:'スカルドフワ',desc:'ウロコと ふわふわ',type:'normal',anim:'anim-wobble',draw:()=>`
+<defs><radialGradient id="gAB" cx="38%" cy="32%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFEACC"/><stop offset="100%" stop-color="#FFCC88"/></radialGradient></defs>
+<path d="M130 150 Q158 165 162 148 Q155 130 138 135Z" fill="#FFBB66"/>
+<circle cx="100" cy="118" r="46" fill="url(#gAB)" stroke="#FFCC88" stroke-width="1.5"/>
+<path d="M75 105 Q82 98 90 105 Q83 112 75 105Z" fill="#FFAA44" opacity="0.4"/>
+<circle cx="75" cy="83" r="13" fill="#FFCC88" stroke="#FFAA66" stroke-width="1"/>
+<circle cx="125" cy="83" r="13" fill="#FFCC88" stroke="#FFAA66" stroke-width="1"/>
+<polygon points="100,68 94,82 106,82" fill="#FFAA44" stroke="#FF8822" stroke-width="1"/>
+<circle cx="88" cy="111" r="11" fill="#1A0800"/><circle cx="112" cy="111" r="11" fill="#1A0800"/>
+<circle cx="91" cy="108" r="4" fill="white"/><circle cx="115" cy="108" r="4" fill="white"/>
+<path d="M93 124 Q100 130 107 124" stroke="#CC7733" stroke-width="2" fill="none" stroke-linecap="round"/>
+`},
+AC:{name:'ミストパフ',desc:'半透明で ふしぎ',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gAC" cx="40%" cy="35%"><stop offset="0%" stop-color="rgba(255,255,255,0.95)"/><stop offset="60%" stop-color="rgba(200,220,255,0.75)"/><stop offset="100%" stop-color="rgba(160,190,255,0.6)"/></radialGradient><filter id="gACf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 148 Q62 165 54 174" stroke="rgba(180,200,255,0.6)" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 155 Q100 170 96 180" stroke="rgba(180,200,255,0.5)" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M124 148 Q138 165 146 174" stroke="rgba(180,200,255,0.6)" stroke-width="10" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="115" r="52" fill="rgba(180,200,255,0.15)" filter="url(#gACf)"/>
+<circle cx="100" cy="115" r="44" fill="url(#gAC)" stroke="rgba(160,185,255,0.5)" stroke-width="1.5"/>
+<circle cx="74" cy="80" r="13" fill="rgba(200,215,255,0.6)"/>
+<circle cx="126" cy="80" r="13" fill="rgba(200,215,255,0.6)"/>
+<circle cx="88" cy="111" r="11" fill="#2244AA" opacity="0.85"/><circle cx="112" cy="111" r="11" fill="#2244AA" opacity="0.85"/>
+<circle cx="91" cy="108" r="3" fill="white"/><circle cx="115" cy="108" r="3" fill="white"/>
+`},
+BA:{name:'カールスケイル',desc:'おだやかな ドラゴン',type:'water',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="gBA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#AAEEDD"/><stop offset="100%" stop-color="#44BBAA"/></linearGradient></defs>
+<path d="M134 148 Q165 152 168 138 Q168 122 150 122 Q140 122 138 134" fill="none" stroke="#44BBAA" stroke-width="10" stroke-linecap="round"/>
+<path d="M100 76 Q136 76 148 110 Q151 134 136 150 Q120 164 100 164 Q80 164 64 150 Q49 134 52 110 Q64 76 100 76Z" fill="url(#gBA)" stroke="#33AAAA" stroke-width="1.5"/>
+<ellipse cx="100" cy="134" rx="30" ry="25" fill="rgba(200,255,245,0.6)"/>
+<path d="M85,78 Q82,62 88,60 Q94,68 92,78Z" fill="#55CCAA"/><path d="M100,74 Q100,56 106,55 Q110,65 108,74Z" fill="#66DDBB"/>
+<ellipse cx="86" cy="106" rx="10" ry="8" fill="#001818"/><ellipse cx="114" cy="106" rx="10" ry="8" fill="#001818"/>
+<ellipse cx="89" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="117" cy="104" rx="4" ry="3" fill="white"/>
+`},
+BB:{name:'ブレイザー',desc:'もえるドラゴン',type:'fire',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="gBB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FFCC66"/><stop offset="100%" stop-color="#FF5500"/></linearGradient><filter id="gBBf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 108 Q28 80 20 55 Q38 55 58 78 Q62 92 60 108Z" fill="#FF9922" opacity="0.85"/>
+<path d="M148 108 Q172 80 180 55 Q162 55 142 78 Q138 92 140 108Z" fill="#FF9922" opacity="0.85"/>
+<path d="M100 162 Q130 178 148 168 Q152 148 135 142" fill="#FF6600"/>
+<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 162 100 162 Q80 162 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="url(#gBB)" stroke="#EE5500" stroke-width="1.5"/>
+<ellipse cx="100" cy="132" rx="30" ry="23" fill="rgba(255,230,150,0.6)"/>
+<path d="M82,74 Q79,56 84,46 Q90,58 88,72Z" fill="#FF4400"/><path d="M100,70 Q100,48 106,38 Q112,52 108,70Z" fill="#FF6600"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#220800"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#220800"/>
+<ellipse cx="88" cy="104" rx="4.5" ry="3" fill="#FF8844"/><ellipse cx="118" cy="104" rx="4.5" ry="3" fill="#FF8844"/>
+`},
+BC:{name:'ヴァイアスケイル',desc:'どく どくしてる',type:'poison',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="gBC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88CC66"/><stop offset="100%" stop-color="#336622"/></linearGradient></defs>
+<circle cx="74" cy="168" r="5" fill="#88CC44" opacity="0.7"/><circle cx="100" cy="172" r="6" fill="#99DD44" opacity="0.6"/>
+<path d="M130 155 Q165 168 168 150 Q162 132 145 138" fill="#446622"/>
+<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="url(#gBC)" stroke="#335511" stroke-width="1.5"/>
+<ellipse cx="100" cy="132" rx="28" ry="23" fill="rgba(200,255,150,0.5)"/>
+<polygon points="84,78 80,58 90,76" fill="#66AA33"/><polygon points="100,74 100,52 108,73" fill="#77BB44"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#0A1800"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#0A1800"/>
+<ellipse cx="85" cy="106" rx="3" ry="7" fill="#88FF44" opacity="0.7"/><ellipse cx="115" cy="106" rx="3" ry="7" fill="#88FF44" opacity="0.7"/>
+`},
+CA:{name:'スターウィッシュ',desc:'星が好きな ゆうれい',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gCA" cx="44%" cy="38%"><stop offset="0%" stop-color="#DDD0FF"/><stop offset="55%" stop-color="#AA88EE"/><stop offset="100%" stop-color="#7744CC"/></radialGradient><filter id="gCAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M80 152 Q66 172 58 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M100 158 Q99 175 95 186" stroke="#9977CC" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.48"/>
+<path d="M120 152 Q134 172 142 182" stroke="#9977CC" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.55"/>
+<text x="87" y="62" font-size="22" fill="#FFDD88" filter="url(#gCAf)">★</text>
+<path d="M100 68 Q132 66 144 90 Q158 118 150 144 Q140 165 120 164 Q104 172 86 162 Q62 152 56 130 Q48 106 62 86 Q73 66 100 68Z" fill="url(#gCA)" opacity="0.93"/>
+<circle cx="88" cy="110" r="13" fill="#180A28"/><circle cx="114" cy="113" r="10" fill="#180A28"/>
+<circle cx="91" cy="106" r="5" fill="rgba(240,200,255,0.95)"/><circle cx="117" cy="110" r="3.5" fill="rgba(240,200,255,0.95)"/>
+<text x="55" y="100" font-size="11" fill="#FFDD88" opacity="0.7">★</text>
+`},
+CB:{name:'スペクトレル',desc:'竜の霊',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gCB" cx="44%" cy="38%"><stop offset="0%" stop-color="#D0DAFF"/><stop offset="55%" stop-color="#8899DD"/><stop offset="100%" stop-color="#4455BB"/></radialGradient></defs>
+<path d="M52 100 Q30 78 22 56 Q42 60 56 82 Q58 92 56 104Z" fill="rgba(136,153,221,0.45)"/>
+<path d="M148 100 Q170 78 178 56 Q158 60 144 82 Q142 92 144 104Z" fill="rgba(136,153,221,0.45)"/>
+<path d="M78 152 Q65 170 57 180" stroke="#8899DD" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M100 158 Q100 174 96 184" stroke="#8899DD" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.45"/>
+<path d="M122 152 Q135 170 143 180" stroke="#8899DD" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="url(#gCB)" opacity="0.88"/>
+<circle cx="88" cy="110" r="13" fill="#08001A"/><circle cx="113" cy="113" r="9" fill="#08001A"/>
+<circle cx="91" cy="106" r="5" fill="rgba(180,200,255,0.9)"/><circle cx="116" cy="110" r="3" fill="rgba(180,200,255,0.9)"/>
+`},
+CC:{name:'ドレッドリング',desc:'くらやみから 来た',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="gCC" cx="44%" cy="38%"><stop offset="0%" stop-color="#4A2880"/><stop offset="55%" stop-color="#2A1055"/><stop offset="100%" stop-color="#100520"/></radialGradient><filter id="gCCf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<ellipse cx="100" cy="110" rx="62" ry="70" fill="rgba(80,20,140,0.15)" filter="url(#gCCf)"/>
+<path d="M76 152 Q62 174 52 186" stroke="#4A2280" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 160 Q98 178 92 190" stroke="#4A2280" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M124 152 Q138 174 148 186" stroke="#4A2280" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#gCC)" opacity="0.96"/>
+<path d="M82,67 L78,48 L86,58 L92,42 L98,58 L104,42 L110,58 L118,67Z" fill="#3A1870" stroke="#220E58" stroke-width="1"/>
+<circle cx="88" cy="110" r="14" fill="#08001A"/><circle cx="112" cy="112" r="10" fill="#08001A"/>
+<circle cx="88" cy="110" r="3" fill="rgba(180,130,255,0.6)"/><circle cx="112" cy="112" r="2" fill="rgba(180,130,255,0.5)"/>
+`},
+AAA:{name:'セレスタフィン',desc:'天使の最終形態',type:'normal',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3AAA" cx="36%" cy="30%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFF5E0"/><stop offset="100%" stop-color="#FFE0AA"/></radialGradient><filter id="g3AAAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M42 108 Q12 78 6 46 Q28 44 50 72 Q56 88 56 108Z" fill="rgba(255,248,220,0.95)" stroke="#FFDD88" stroke-width="1.5"/>
+<path d="M158 108 Q188 78 194 46 Q172 44 150 72 Q144 88 144 108Z" fill="rgba(255,248,220,0.95)" stroke="#FFDD88" stroke-width="1.5"/>
+<circle cx="100" cy="118" r="48" fill="url(#g3AAA)" stroke="#FFD888" stroke-width="1.5"/>
+<ellipse cx="100" cy="128" rx="32" ry="28" fill="rgba(255,255,255,0.85)"/>
+<path d="M70 74 Q60 48 72 44 Q82 54 80 72Z" fill="#FFE8AA"/><path d="M130 74 Q140 48 128 44 Q118 54 120 72Z" fill="#FFE8AA"/>
+<ellipse cx="100" cy="64" rx="30" ry="9" fill="none" stroke="#FFDD44" stroke-width="4" opacity="0.9" filter="url(#g3AAAf)"/>
+<circle cx="86" cy="110" r="12" fill="#180A00"/><circle cx="114" cy="110" r="12" fill="#180A00"/>
+<circle cx="89" cy="106" r="5" fill="white"/><circle cx="117" cy="106" r="5" fill="white"/>
+<text x="56" y="90" font-size="14" fill="#FFDD44" opacity="0.8" filter="url(#g3AAAf)">★</text><text x="128" y="88" font-size="12" fill="#FFDD44" opacity="0.75" filter="url(#g3AAAf)">★</text>
+`},
+AAB:{name:'パイロスタフィン',desc:'炎の神',type:'fire',anim:'anim-dance',draw:()=>`
+<defs><radialGradient id="g3AAB" cx="38%" cy="32%"><stop offset="0%" stop-color="#FFF"/><stop offset="60%" stop-color="#FFEEDD"/><stop offset="100%" stop-color="#FFCC99"/></radialGradient><filter id="g3AABf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 108 Q32 82 26 60 Q44 62 56 84 Q60 96 58 110Z" fill="#FF8822" opacity="0.8"/>
+<path d="M148 108 Q168 82 174 60 Q156 62 144 84 Q140 96 142 110Z" fill="#FF8822" opacity="0.8"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3AAB)" stroke="#FFBB77" stroke-width="1"/>
+<path d="M70 74 Q60 48 72 44 Q82 54 80 72Z" fill="#FFE0AA"/><path d="M130 74 Q140 48 128 44 Q118 54 120 72Z" fill="#FFE0AA"/>
+<path d="M78,72 Q74,50 80,36 Q88,52 86,70Z" fill="#FF3300"/><path d="M100,68 Q100,44 106,30 Q112,48 110,68Z" fill="#FF5500"/>
+<circle cx="86" cy="110" r="12" fill="#1A0600"/><circle cx="114" cy="110" r="12" fill="#1A0600"/>
+<circle cx="89" cy="106" r="5" fill="#FF8844"/><circle cx="117" cy="106" r="5" fill="#FF8844"/>
+`},
+AAC:{name:'ファントスタフィン',desc:'天使の幽霊',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3AAC" cx="38%" cy="32%"><stop offset="0%" stop-color="rgba(255,255,255,0.95)"/><stop offset="60%" stop-color="rgba(230,220,255,0.8)"/><stop offset="100%" stop-color="rgba(190,175,255,0.65)"/></radialGradient><filter id="g3AACf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M78 152 Q64 172 56 182" stroke="rgba(180,165,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M122 152 Q136 172 144 182" stroke="rgba(180,165,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3AAC)"/>
+<ellipse cx="100" cy="128" rx="29" ry="25" fill="rgba(255,255,255,0.7)"/>
+<path d="M70 74 Q60 50 72 44 Q82 54 78 72Z" fill="#FFD0E8"/>
+<path d="M130 74 Q140 50 128 44 Q118 54 122 72Z" fill="#FFD0E8"/>
+<ellipse cx="100" cy="65" rx="28" ry="8" fill="none" stroke="rgba(200,185,255,0.7)" stroke-width="3.5" filter="url(#g3AACf)"/>
+<circle cx="86" cy="110" r="12" fill="#150828"/><circle cx="114" cy="110" r="12" fill="#150828"/>
+<circle cx="89" cy="106" r="4" fill="rgba(230,215,255,0.9)"/><circle cx="117" cy="106" r="4" fill="rgba(230,215,255,0.9)"/>
+`},
+ABA:{name:'グリムスケイル',desc:'黄金の鎧竜',type:'normal',anim:'anim-wobble',draw:()=>`
+<defs><radialGradient id="g3ABA" cx="38%" cy="30%"><stop offset="0%" stop-color="#FFFCE0"/><stop offset="60%" stop-color="#FFE866"/><stop offset="100%" stop-color="#FFB800"/></radialGradient><filter id="g3ABAf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M100 74 Q138 74 150 110 Q153 133 138 152 Q122 166 100 166 Q78 166 62 152 Q47 133 50 110 Q62 74 100 74Z" fill="url(#g3ABA)" stroke="#CC9900" stroke-width="2"/>
+<ellipse cx="100" cy="135" rx="32" ry="27" fill="rgba(255,255,200,0.6)"/>
+<path d="M80,76 L76,56 L86,66 L92,50 L100,62 L108,50 L114,66 L124,56 L120,76Z" fill="#FFD700" stroke="#CC9900" stroke-width="1.5" filter="url(#g3ABAf)"/>
+<circle cx="74" cy="82" r="13" fill="#FFE066"/><circle cx="126" cy="82" r="13" fill="#FFE066"/>
+<circle cx="87" cy="111" r="12" fill="#1A0A00"/><circle cx="113" cy="111" r="12" fill="#1A0A00"/>
+<circle cx="90" cy="107" r="5" fill="#FFD700"/><circle cx="116" cy="107" r="5" fill="#FFD700"/>
+`},
+ABB:{name:'フレアウィング',desc:'炎の翼竜',type:'fire',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3ABB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FFCC66"/><stop offset="50%" stop-color="#FF6600"/><stop offset="100%" stop-color="#CC2200"/></linearGradient><filter id="g3ABBf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 106 Q14 72 8 38 Q32 38 56 68 Q62 88 58 110Z" fill="#FF6600" opacity="0.9"/>
+<path d="M154 106 Q186 72 192 38 Q168 38 144 68 Q138 88 142 110Z" fill="#FF6600" opacity="0.9"/>
+<path d="M100 74 Q136 74 148 110 Q151 133 136 152 Q120 166 100 166 Q80 166 64 152 Q49 133 52 110 Q64 74 100 74Z" fill="url(#g3ABB)" stroke="#AA2200" stroke-width="2"/>
+<ellipse cx="100" cy="134" rx="30" ry="24" fill="rgba(255,200,100,0.5)"/>
+<path d="M82,76 Q77,52 83,38 Q90,54 88,74Z" fill="#FF2200"/><path d="M100,70 Q100,44 107,30 Q114,48 110,70Z" fill="#FF4400"/>
+<ellipse cx="85" cy="107" rx="11" ry="8" fill="#200400"/><ellipse cx="115" cy="107" rx="11" ry="8" fill="#200400"/>
+<ellipse cx="88" cy="105" rx="4.5" ry="3" fill="#FF6622"/><ellipse cx="118" cy="105" rx="4.5" ry="3" fill="#FF6622"/>
+`},
+ABC:{name:'シャドウクロウ',desc:'闇の爪竜',type:'ghost',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3ABC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#553388"/><stop offset="100%" stop-color="#1A0832"/></linearGradient><filter id="g3ABCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M48 108 Q22 78 16 50 Q40 52 58 78 Q62 93 58 110Z" fill="rgba(80,30,120,0.7)"/>
+<path d="M152 108 Q178 78 184 50 Q160 52 142 78 Q138 93 142 110Z" fill="rgba(80,30,120,0.7)"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 151 Q120 165 100 165 Q80 165 64 151 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3ABC)" stroke="#441066" stroke-width="1.5"/>
+<ellipse cx="85" cy="107" rx="11" ry="8" fill="#0A0014"/><ellipse cx="115" cy="107" rx="11" ry="8" fill="#0A0014"/>
+<ellipse cx="85" cy="107" rx="7" ry="5" fill="#AA44FF" opacity="0.6" filter="url(#g3ABCf)"/><ellipse cx="115" cy="107" rx="7" ry="5" fill="#AA44FF" opacity="0.6" filter="url(#g3ABCf)"/>
+<ellipse cx="88" cy="105" rx="3.5" ry="2.5" fill="rgba(200,150,255,0.9)"/><ellipse cx="118" cy="105" rx="3.5" ry="2.5" fill="rgba(200,150,255,0.9)"/>
+`},
+ACA:{name:'ルナフォーム',desc:'月の門番',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3ACA" cx="38%" cy="32%"><stop offset="0%" stop-color="rgba(255,255,255,0.98)"/><stop offset="60%" stop-color="rgba(230,225,255,0.85)"/><stop offset="100%" stop-color="rgba(200,190,255,0.7)"/></radialGradient><filter id="g3ACAf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 153 Q62 174 54 184" stroke="rgba(190,175,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 153 Q138 174 146 184" stroke="rgba(190,175,255,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3ACA)"/>
+<circle cx="74" cy="81" r="13" fill="rgba(220,210,255,0.6)"/><circle cx="126" cy="81" r="13" fill="rgba(220,210,255,0.6)"/>
+<circle cx="86" cy="111" r="12" fill="#1A0828"/><circle cx="114" cy="111" r="12" fill="#1A0828"/>
+<circle cx="86" cy="111" r="8" fill="#7755AA" opacity="0.6" filter="url(#g3ACAf)"/><circle cx="114" cy="111" r="8" fill="#7755AA" opacity="0.6" filter="url(#g3ACAf)"/>
+<circle cx="89" cy="107" r="4.5" fill="rgba(230,220,255,0.95)"/><circle cx="117" cy="107" r="4.5" fill="rgba(230,220,255,0.95)"/>
+`},
+ACB:{name:'ゴーストクロウ',desc:'幽霊竜',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3ACB" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(220,228,250,0.92)"/><stop offset="55%" stop-color="rgba(160,175,230,0.75)"/><stop offset="100%" stop-color="rgba(100,120,200,0.6)"/></radialGradient><filter id="g3ACBf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M50 104 Q26 78 20 54 Q42 57 58 80 Q62 94 58 108Z" fill="rgba(160,175,230,0.4)"/>
+<path d="M150 104 Q174 78 180 54 Q158 57 142 80 Q138 94 142 108Z" fill="rgba(160,175,230,0.4)"/>
+<path d="M78 152 Q64 172 56 182" stroke="rgba(140,160,220,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M122 152 Q136 172 144 182" stroke="rgba(140,160,220,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="url(#g3ACB)" opacity="0.88"/>
+<circle cx="87" cy="110" r="13" fill="#060A18"/><circle cx="113" cy="113" r="9" fill="#060A18"/>
+<circle cx="87" cy="110" r="8" fill="#3366FF" opacity="0.6" filter="url(#g3ACBf)"/>
+<circle cx="90" cy="106" r="4.5" fill="rgba(180,200,255,0.9)"/>
+`},
+ACC:{name:'ヴォイドパフ',desc:'虚無の存在',type:'ghost',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g3ACC" cx="38%" cy="32%"><stop offset="0%" stop-color="#3A1C70"/><stop offset="55%" stop-color="#1E0A44"/><stop offset="100%" stop-color="#080418"/></radialGradient><filter id="g3ACCf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 152 Q62 174 54 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round"/>
+<circle cx="100" cy="118" r="47" fill="url(#g3ACC)"/>
+<circle cx="74" cy="81" r="13" fill="#1E0A38"/><circle cx="126" cy="81" r="13" fill="#1E0A38"/>
+<circle cx="86" cy="111" r="13" fill="#0A0420"/><circle cx="86" cy="111" r="9" fill="rgba(255,255,255,0.9)" filter="url(#g3ACCf)"/><circle cx="86" cy="111" r="5" fill="white"/>
+<circle cx="114" cy="111" r="13" fill="#0A0420"/><circle cx="114" cy="111" r="9" fill="rgba(255,255,255,0.9)" filter="url(#g3ACCf)"/><circle cx="114" cy="111" r="5" fill="white"/>
+`},
+BAA:{name:'タイドウォーデン',desc:'海の守護竜',type:'water',anim:'anim-float',draw:()=>`
+<defs><linearGradient id="g3BAA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#AAFFEE"/><stop offset="100%" stop-color="#22CCAA"/></linearGradient><filter id="g3BAAf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 104 Q24 82 16 58 Q38 62 54 84 Q58 95 56 108Z" fill="rgba(100,220,200,0.55)"/>
+<path d="M154 104 Q176 82 184 58 Q162 62 146 84 Q142 95 144 108Z" fill="rgba(100,220,200,0.55)"/>
+<path d="M100 74 Q136 74 148 110 Q151 133 136 151 Q120 165 100 165 Q80 165 64 151 Q49 133 52 110 Q64 74 100 74Z" fill="url(#g3BAA)" stroke="#11BBAA" stroke-width="1.5"/>
+<ellipse cx="100" cy="134" rx="30" ry="25" fill="rgba(200,255,245,0.65)"/>
+<path d="M82,76 L78,58 L86,68 L92,54 L98,66 L104,54 L110,66 L118,58 L120,76Z" fill="#AAFFEE" stroke="#22BBAA" stroke-width="1.5" filter="url(#g3BAAf)"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#001414"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#001414"/>
+<ellipse cx="88" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="118" cy="104" rx="4" ry="3" fill="white"/>
+`},
+BAB:{name:'ウェーブクレスト',desc:'波乗り竜',type:'water',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3BAB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88CCFF"/><stop offset="100%" stop-color="#2266DD"/></linearGradient></defs>
+<path d="M78,76 Q72,54 82,44 Q90,58 88,74Z" fill="#4499FF"/><path d="M100,70 Q100,46 108,36 Q114,52 110,70Z" fill="#55AAFF"/>
+<path d="M100 76 Q136 76 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 76 100 76Z" fill="url(#g3BAB)"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#001428"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#001428"/>
+<ellipse cx="88" cy="104" rx="4" ry="3" fill="white"/><ellipse cx="118" cy="104" rx="4" ry="3" fill="white"/>
+`},
+BAC:{name:'ネブラスケイル',desc:'星雲竜',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><linearGradient id="g3BAC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#8866CC"/><stop offset="100%" stop-color="#331166"/></linearGradient><filter id="g3BACf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 104 Q28 80 20 56 Q42 58 58 80 Q62 93 58 107Z" fill="rgba(88,55,155,0.5)"/>
+<path d="M148 104 Q172 80 180 56 Q158 58 142 80 Q138 93 142 107Z" fill="rgba(88,55,155,0.5)"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 150 Q120 164 100 164 Q80 164 64 150 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BAC)"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#080010"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#080010"/>
+<ellipse cx="85" cy="106" rx="6" ry="5" fill="#8844FF" opacity="0.55" filter="url(#g3BACf)"/><ellipse cx="115" cy="106" rx="6" ry="5" fill="#8844FF" opacity="0.55" filter="url(#g3BACf)"/>
+<ellipse cx="88" cy="104" rx="3" ry="2" fill="rgba(200,180,255,0.9)"/><ellipse cx="118" cy="104" rx="3" ry="2" fill="rgba(200,180,255,0.9)"/>
+`},
+BBA:{name:'サンダーウィング',desc:'雷竜',type:'fire',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3BBA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FFFF88"/><stop offset="100%" stop-color="#BBAA00"/></linearGradient><filter id="g3BBAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 104 Q16 72 10 40 Q34 40 56 68 Q62 88 58 108Z" fill="#DDCC00" opacity="0.85"/>
+<path d="M154 104 Q184 72 190 40 Q166 40 144 68 Q138 88 142 108Z" fill="#DDCC00" opacity="0.85"/>
+<path d="M90,48 L82,68 L92,65 L84,84" stroke="#FFFF00" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#g3BBAf)"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 152 Q120 166 100 166 Q80 166 64 152 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BBA)"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#181400"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#181400"/>
+<ellipse cx="88" cy="104" rx="4.5" ry="3" fill="#FFFF44"/><ellipse cx="118" cy="104" rx="4.5" ry="3" fill="#FFFF44"/>
+`},
+BBB:{name:'インフェルノ',desc:'最強の炎竜',type:'fire',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3BBB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#FF8844"/><stop offset="50%" stop-color="#CC2200"/><stop offset="100%" stop-color="#880000"/></linearGradient><filter id="g3BBBf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M40 105 Q8 68 4 30 Q30 30 54 64 Q60 86 56 108Z" fill="#CC4400" opacity="0.9"/>
+<path d="M160 105 Q192 68 196 30 Q170 30 146 64 Q140 86 144 108Z" fill="#CC4400" opacity="0.9"/>
+<path d="M74,74 Q68,46 76,28 Q86,48 84,72Z" fill="#FF1100"/><path d="M100,66 Q100,36 108,18 Q116,40 112,66Z" fill="#FF4400"/>
+<path d="M100 72 Q140 72 152 110 Q155 134 140 154 Q124 170 100 170 Q76 170 60 154 Q45 134 48 110 Q60 72 100 72Z" fill="url(#g3BBB)"/>
+<ellipse cx="84" cy="107" rx="12" ry="9" fill="#100000"/>
+<ellipse cx="84" cy="107" rx="8" ry="6" fill="#FF2200" opacity="0.7" filter="url(#g3BBBf)"/>
+<ellipse cx="84" cy="107" rx="4.5" ry="3.5" fill="#FF6622"/>
+<ellipse cx="116" cy="107" rx="12" ry="9" fill="#100000"/>
+<ellipse cx="116" cy="107" rx="8" ry="6" fill="#FF2200" opacity="0.7" filter="url(#g3BBBf)"/>
+<ellipse cx="116" cy="107" rx="4.5" ry="3.5" fill="#FF6622"/>
+`},
+BBC:{name:'ポイズンフレア',desc:'毒炎竜',type:'poison',anim:'anim-dance',draw:()=>`
+<defs><linearGradient id="g3BBC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88CC00"/><stop offset="50%" stop-color="#446600"/><stop offset="100%" stop-color="#223300"/></linearGradient><filter id="g3BBCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M46 106 Q18 74 12 42 Q36 44 56 72 Q62 90 58 109Z" fill="#448800" opacity="0.85"/>
+<path d="M154 106 Q182 74 188 42 Q164 44 144 72 Q138 90 142 109Z" fill="#448800" opacity="0.85"/>
+<path d="M80,74 Q75,52 82,38 Q88,54 87,72Z" fill="#66BB00"/><path d="M100,70 Q100,46 107,32 Q113,50 110,70Z" fill="#77CC00"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 151 Q120 165 100 165 Q80 165 64 151 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BBC)"/>
+<ellipse cx="85" cy="107" rx="11" ry="8" fill="#0A1400"/><ellipse cx="115" cy="107" rx="11" ry="8" fill="#0A1400"/>
+<ellipse cx="85" cy="107" rx="4" ry="7" fill="#AAFF22" opacity="0.65"/><ellipse cx="115" cy="107" rx="4" ry="7" fill="#AAFF22" opacity="0.65"/>
+`},
+BCA:{name:'クリスタルスケイル',desc:'宝石竜',type:'water',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3BCA" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#88EEFF"/><stop offset="50%" stop-color="#44AACC"/><stop offset="100%" stop-color="#0066AA"/></linearGradient><filter id="g3BCAf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M48 104 Q22 78 16 50 Q38 54 56 78 Q60 92 58 108Z" fill="rgba(100,200,240,0.6)"/>
+<path d="M152 104 Q178 78 184 50 Q162 54 144 78 Q140 92 142 108Z" fill="rgba(100,200,240,0.6)"/>
+<path d="M82,76 L78,56 L84,64 L90,50 L96,62 L102,50 L108,62 L114,50 L120,64 L126,56 L122,76Z" fill="#88EEFF" stroke="#0088CC" stroke-width="1.5" filter="url(#g3BCAf)"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 152 Q120 166 100 166 Q80 166 64 152 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BCA)"/>
+<ellipse cx="85" cy="106" rx="10" ry="8" fill="#001828"/><ellipse cx="115" cy="106" rx="10" ry="8" fill="#001828"/>
+<ellipse cx="88" cy="104" rx="4" ry="3" fill="rgba(180,240,255,0.9)"/><ellipse cx="118" cy="104" rx="4" ry="3" fill="rgba(180,240,255,0.9)"/>
+`},
+BCB:{name:'ファングウィング',desc:'毒翼竜',type:'poison',anim:'anim-wobble',draw:()=>`
+<defs><linearGradient id="g3BCB" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#66CC44"/><stop offset="100%" stop-color="#224400"/></linearGradient><filter id="g3BCBf"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M44 104 Q18 78 12 50 Q36 52 56 76 Q60 92 58 107Z" fill="rgba(70,140,50,0.65)"/>
+<path d="M156 104 Q182 78 188 50 Q164 52 144 76 Q140 92 142 107Z" fill="rgba(70,140,50,0.65)"/>
+<path d="M100 74 Q136 74 148 110 Q151 132 136 151 Q120 165 100 165 Q80 165 64 151 Q49 132 52 110 Q64 74 100 74Z" fill="url(#g3BCB)"/>
+<polygon points="85,76 80,54 90,74" fill="#66CC33"/><polygon points="100,72 100,48 109,71" fill="#77DD44"/>
+<ellipse cx="85" cy="106" rx="11" ry="8" fill="#0A1400"/><ellipse cx="115" cy="106" rx="11" ry="8" fill="#0A1400"/>
+<ellipse cx="85" cy="106" rx="3" ry="7" fill="#99FF44" opacity="0.7"/><ellipse cx="115" cy="106" rx="3" ry="7" fill="#99FF44" opacity="0.7"/>
+`},
+BCC:{name:'デスリンク',desc:'毒の幽霊竜',type:'poison',anim:'anim-float',draw:()=>`
+<defs><linearGradient id="g3BCC" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#446633"/><stop offset="100%" stop-color="#0A1A00"/></linearGradient><filter id="g3BCCf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 152 Q62 174 54 184" stroke="#335522" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 158 Q98 176 93 187" stroke="#335522" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.5"/>
+<path d="M124 152 Q138 174 146 184" stroke="#335522" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 68 Q134 66 146 92 Q158 120 150 146 Q140 166 120 165 Q104 173 86 163 Q62 153 56 130 Q48 106 62 86 Q74 66 100 68Z" fill="url(#g3BCC)"/>
+<circle cx="87" cy="110" r="13" fill="#040A00"/><circle cx="113" cy="113" r="9" fill="#040A00"/>
+<circle cx="87" cy="110" r="8" fill="#55AA22" opacity="0.55" filter="url(#g3BCCf)"/>
+<ellipse cx="87" cy="110" rx="3" ry="7" fill="#AAFF44" opacity="0.5"/>
+<circle cx="76" cy="166" r="5" fill="#88CC44" opacity="0.7" filter="url(#g3BCCf)"/>
+`},
+CAA:{name:'スターブライト',desc:'流れ星の神',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CAA" cx="44%" cy="38%"><stop offset="0%" stop-color="#FFFEF0"/><stop offset="55%" stop-color="#EEE880"/><stop offset="100%" stop-color="#CCCC00"/></radialGradient><filter id="g3CAAf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M78 152 Q64 174 56 184" stroke="rgba(220,220,50,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M122 152 Q136 174 144 184" stroke="rgba(220,220,50,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CAA)" opacity="0.93"/>
+<text x="85" y="58" font-size="28" fill="#FFEE44" filter="url(#g3CAAf)">★</text>
+<text x="44" y="90" font-size="14" fill="#FFEE44" opacity="0.7" filter="url(#g3CAAf)">★</text>
+<circle cx="88" cy="110" r="13" fill="#180A00"/><circle cx="114" cy="113" r="10" fill="#180A00"/>
+<circle cx="91" cy="106" r="5" fill="rgba(255,240,150,0.95)"/>
+`},
+CAB:{name:'ドラゴンスター',desc:'龍の星神',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CAB" cx="44%" cy="38%"><stop offset="0%" stop-color="#664422"/><stop offset="55%" stop-color="#331108"/><stop offset="100%" stop-color="#100400"/></radialGradient><filter id="g3CABf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M52 100 Q28 76 20 52 Q42 55 58 78 Q62 92 58 104Z" fill="rgba(140,60,20,0.4)"/>
+<path d="M148 100 Q172 76 180 52 Q158 55 142 78 Q138 92 142 104Z" fill="rgba(140,60,20,0.4)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#441100" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M124 152 Q138 174 146 184" stroke="#441100" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CAB)" opacity="0.95"/>
+<text x="85" y="60" font-size="24" fill="#FF8844" filter="url(#g3CABf)">★</text>
+<polygon points="84,68 80,50 90,66" fill="rgba(200,100,50,0.5)"/>
+<circle cx="88" cy="110" r="13" fill="#0A0400"/><circle cx="88" cy="110" r="8" fill="#FF6622" opacity="0.55" filter="url(#g3CABf)"/>
+<circle cx="91" cy="106" r="4.5" fill="rgba(255,200,150,0.9)"/>
+<circle cx="113" cy="113" r="9" fill="#0A0400"/>
+`},
+CAC:{name:'コズミックソウル',desc:'宇宙の魂',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CAC" cx="44%" cy="38%"><stop offset="0%" stop-color="#2A1855"/><stop offset="55%" stop-color="#150830"/><stop offset="100%" stop-color="#050210"/></radialGradient><filter id="g3CACf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 152 Q62 174 54 184" stroke="#180830" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="#180830" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 63 Q137 61 150 90 Q164 122 154 150 Q144 170 122 169 Q106 177 86 167 Q60 156 54 132 Q46 106 60 83 Q72 63 100 63Z" fill="url(#g3CAC)" opacity="0.97"/>
+<text x="80" y="58" font-size="30" fill="#8888FF" filter="url(#g3CACf)">✦</text>
+<circle cx="88" cy="110" r="14" fill="#030108"/>
+<circle cx="88" cy="110" r="10" fill="#5533AA" opacity="0.6" filter="url(#g3CACf)"/>
+<circle cx="88" cy="110" r="5" fill="rgba(200,180,255,0.85)"/>
+<circle cx="112" cy="112" r="10" fill="#030108"/>
+<circle cx="112" cy="112" r="6" fill="#5533AA" opacity="0.55" filter="url(#g3CACf)"/>
+<circle cx="112" cy="112" r="3" fill="rgba(200,180,255,0.8)"/>
+`},
+CBA:{name:'ファントムタイド',desc:'幻影の海竜',type:'water',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CBA" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(200,250,255,0.9)"/><stop offset="55%" stop-color="rgba(100,210,230,0.75)"/><stop offset="100%" stop-color="rgba(50,170,200,0.6)"/></radialGradient><filter id="g3CBAf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M50 100 Q24 76 16 52 Q38 56 56 80 Q60 92 57 105Z" fill="rgba(100,210,230,0.38)"/>
+<path d="M150 100 Q176 76 184 52 Q162 56 144 80 Q140 92 143 105Z" fill="rgba(100,210,230,0.38)"/>
+<path d="M76 152 Q62 174 54 184" stroke="rgba(80,190,210,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="rgba(80,190,210,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CBA)" opacity="0.9"/>
+<path d="M82,68 L78,50 L86,60 L92,46 L98,58 L104,46 L110,58 L118,60 L122,50 L120,68Z" fill="rgba(100,220,240,0.8)" stroke="#0099BB" stroke-width="1.5" filter="url(#g3CBAf)"/>
+<circle cx="88" cy="110" r="13" fill="#001820"/>
+<circle cx="88" cy="110" r="8" fill="#0099CC" opacity="0.65" filter="url(#g3CBAf)"/>
+<circle cx="91" cy="107" r="4" fill="rgba(180,240,255,0.9)"/>
+<circle cx="113" cy="113" r="9" fill="#001820"/>
+`},
+CBB:{name:'フレアスペクター',desc:'炎の幽霊竜',type:'fire',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CBB" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(180,70,30,0.85)"/><stop offset="55%" stop-color="rgba(100,20,10,0.7)"/><stop offset="100%" stop-color="rgba(40,5,0,0.6)"/></radialGradient><filter id="g3CBBf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M50 100 Q24 74 16 48 Q38 52 56 76 Q60 91 57 104Z" fill="rgba(200,60,0,0.4)"/>
+<path d="M150 100 Q176 74 184 48 Q162 52 144 76 Q140 91 143 104Z" fill="rgba(200,60,0,0.4)"/>
+<path d="M76 152 Q62 174 54 184" stroke="rgba(200,60,0,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="rgba(200,60,0,0.55)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CBB)" opacity="0.95"/>
+<path d="M83,68 Q78,48 83,36 Q90,52 88,66Z" fill="rgba(220,80,0,0.5)"/><path d="M100,65 Q100,42 107,30 Q113,48 110,65Z" fill="rgba(230,90,0,0.55)"/>
+<circle cx="88" cy="110" r="13" fill="#0A0200"/>
+<circle cx="88" cy="110" r="8" fill="#FF3300" opacity="0.6" filter="url(#g3CBBf)"/>
+<circle cx="91" cy="107" r="4" fill="rgba(255,200,150,0.85)"/>
+<circle cx="113" cy="113" r="9" fill="#0A0200"/>
+`},
+CBC:{name:'ポイズンスペクター',desc:'毒霧の幽霊竜',type:'poison',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CBC" cx="44%" cy="38%"><stop offset="0%" stop-color="rgba(100,180,60,0.8)"/><stop offset="55%" stop-color="rgba(50,100,20,0.65)"/><stop offset="100%" stop-color="rgba(15,35,5,0.55)"/></radialGradient><filter id="g3CBCf"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M50 100 Q24 76 16 52 Q38 56 56 80 Q60 92 57 104Z" fill="rgba(60,140,30,0.35)"/>
+<path d="M150 100 Q176 76 184 52 Q162 56 144 80 Q140 92 143 104Z" fill="rgba(60,140,30,0.35)"/>
+<path d="M76 152 Q62 174 54 184" stroke="rgba(60,140,30,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="rgba(60,140,30,0.5)" stroke-width="9" fill="none" stroke-linecap="round"/>
+<path d="M100 65 Q135 63 148 90 Q162 120 152 148 Q142 168 120 167 Q104 175 84 165 Q58 154 52 130 Q44 104 58 83 Q70 63 100 65Z" fill="url(#g3CBC)" opacity="0.93"/>
+<polygon points="84,68 80,48 90,66" fill="rgba(100,200,40,0.45)"/>
+<circle cx="88" cy="110" r="13" fill="#040800"/>
+<circle cx="88" cy="110" r="8" fill="#44BB00" opacity="0.55" filter="url(#g3CBCf)"/>
+<ellipse cx="88" cy="110" rx="3" ry="8" fill="#AAFF44" opacity="0.6"/>
+<circle cx="113" cy="113" r="9" fill="#040800"/>
+`},
+CCA:{name:'ヴォイドスター',desc:'虚無の星神',type:'ghost',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g3CCA" cx="44%" cy="38%"><stop offset="0%" stop-color="#2A1855"/><stop offset="55%" stop-color="#130835"/><stop offset="100%" stop-color="#050215"/></radialGradient><filter id="g3CCAf"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M76 152 Q62 174 54 184" stroke="#1E0840" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M124 152 Q138 174 146 184" stroke="#1E0840" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M100 63 Q137 61 150 90 Q164 122 154 150 Q144 170 122 169 Q106 177 86 167 Q60 156 54 132 Q46 106 60 83 Q72 63 100 63Z" fill="url(#g3CCA)" opacity="0.97"/>
+<text x="80" y="55" font-size="32" fill="rgba(150,100,255,0.7)" filter="url(#g3CCAf)">★</text>
+<circle cx="88" cy="110" r="14" fill="#030108"/>
+<circle cx="88" cy="110" r="10" fill="rgba(180,120,255,0.6)" filter="url(#g3CCAf)"/>
+<circle cx="88" cy="110" r="5" fill="rgba(255,255,255,0.9)" filter="url(#g3CCAf)"/>
+<circle cx="112" cy="112" r="10" fill="#030108"/>
+<circle cx="112" cy="112" r="6" fill="rgba(180,120,255,0.55)" filter="url(#g3CCAf)"/>
+<circle cx="112" cy="112" r="3" fill="rgba(255,255,255,0.85)" filter="url(#g3CCAf)"/>
+`},
+CCB:{name:'アビスドレイク',desc:'深淵の竜霊',type:'ghost',anim:'anim-float',draw:()=>`
+<defs><radialGradient id="g3CCB" cx="44%" cy="38%"><stop offset="0%" stop-color="#2A1055"/><stop offset="55%" stop-color="#140830"/><stop offset="100%" stop-color="#080415"/></radialGradient><filter id="g3CCBf"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M48 100 Q20 72 12 44 Q36 48 56 74 Q62 90 58 104Z" fill="rgba(50,20,100,0.55)"/>
+<path d="M152 100 Q180 72 188 44 Q164 48 144 74 Q138 90 142 104Z" fill="rgba(50,20,100,0.55)"/>
+<path d="M76 152 Q62 174 54 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M124 152 Q138 174 146 184" stroke="#2A0A4A" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M100 63 Q137 61 150 90 Q164 122 154 150 Q144 170 122 169 Q106 177 86 167 Q60 156 54 132 Q46 106 60 83 Q72 63 100 63Z" fill="url(#g3CCB)" opacity="0.97"/>
+<path d="M80,67 L76,46 L84,57 L90,40 L98,54 L106,40 L114,54 L120,57 L124,46 L120,67Z" fill="#2A0A55" stroke="#1A0640" stroke-width="1.5"/>
+<ellipse cx="86" cy="107" rx="12" ry="9" fill="#040010"/>
+<ellipse cx="86" cy="107" rx="8" ry="6" fill="#6622CC" opacity="0.65" filter="url(#g3CCBf)"/>
+<ellipse cx="86" cy="107" rx="4" ry="3" fill="rgba(200,160,255,0.9)"/>
+<ellipse cx="114" cy="107" rx="12" ry="9" fill="#040010"/>
+<ellipse cx="114" cy="107" rx="8" ry="6" fill="#6622CC" opacity="0.65" filter="url(#g3CCBf)"/>
+<ellipse cx="114" cy="107" rx="4" ry="3" fill="rgba(200,160,255,0.9)"/>
+`},
+CCC:{name:'カオスヴォイド',desc:'すべての終わり',type:'ghost',anim:'anim-pulse',draw:()=>`
+<defs><radialGradient id="g3CCC" cx="44%" cy="38%"><stop offset="0%" stop-color="#1A0840"/><stop offset="50%" stop-color="#0A0420"/><stop offset="100%" stop-color="#020108"/></radialGradient><filter id="g3CCCf"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<circle cx="100" cy="110" r="72" fill="rgba(50,10,120,0.18)" filter="url(#g3CCCf)"/>
+<path d="M52 98 Q24 70 14 40 Q38 44 58 72 Q63 89 59 104Z" fill="rgba(40,10,90,0.6)"/>
+<path d="M148 98 Q176 70 186 40 Q162 44 142 72 Q137 89 141 104Z" fill="rgba(40,10,90,0.6)"/>
+<path d="M72 152 Q56 176 46 188" stroke="#1A0838" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.7"/>
+<path d="M100 160 Q98 180 93 192" stroke="#1A0838" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.6"/>
+<path d="M128 152 Q144 176 154 188" stroke="#1A0838" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.7"/>
+<path d="M100 60 Q140 58 154 88 Q170 122 158 152 Q148 174 126 173 Q110 181 90 171 Q62 160 56 136 Q48 108 62 84 Q74 60 100 60Z" fill="url(#g3CCC)" opacity="0.98"/>
+<path d="M76,64 L70,40 L80,54 L86,34 L94,52 L100,28 L106,52 L114,34 L120,54 L130,40 L124,64Z" fill="#1E0844" stroke="#120530" stroke-width="1.5"/>
+<circle cx="88" cy="110" r="15" fill="#040010"/>
+<circle cx="88" cy="110" r="12" fill="rgba(80,30,200,0.5)" filter="url(#g3CCCf)"/>
+<circle cx="88" cy="110" r="7" fill="rgba(150,80,255,0.7)" filter="url(#g3CCCf)"/>
+<circle cx="88" cy="110" r="3" fill="white" filter="url(#g3CCCf)"/>
+<circle cx="112" cy="110" r="12" fill="#040010"/>
+<circle cx="112" cy="110" r="9" fill="rgba(80,30,200,0.5)" filter="url(#g3CCCf)"/>
+<circle cx="112" cy="110" r="5" fill="rgba(150,80,255,0.65)" filter="url(#g3CCCf)"/>
+<circle cx="112" cy="110" r="2" fill="white" filter="url(#g3CCCf)"/>
+`}
 };
-// 補完
-const KEYS = ['AAB','AAC','ABA','ABB','ABC','ACA','ACB','ACC','BAA','BAB','BAC','BBA','BBC','BCA','BCB','BCC','CAA','CAB','CAC','CBA','CBB','CBC','CCA','CCB'];
-KEYS.forEach(k => { if(!M[k]) M[k] = {name:'モンスタ'+k, anim:'anim-pulse', draw:M.A.draw}; });
 
-const EVO_LEVELS = { stage1: 10, stage2: 25 };
-const EVO_TREE = {
-  egg: ['A','B','C'], A: ['AA','AB','AC'], B: ['BA','BB','BC'], C: ['CA','CB','CC'],
-  AA: ['AAA','AAB','AAC'], AB: ['ABA','ABB','ABC'], AC: ['ACA','ACB','ACC'],
-  BA: ['BAA','BAB','BAC'], BB: ['BBA','BBB','BBC'], BC: ['BCA','BCB','BCC'],
-  CA: ['CAA','CAB','CAC'], CB: ['CBA','CBB','CBC'], CC: ['CCA','CCB','CCC']
+// ═══════════════════════════════════════════════
+//  MOVES SYSTEM
+// ═══════════════════════════════════════════════
+const TYPE_COLOR = {normal:'#9ca3af',fire:'#f97316',water:'#3b82f6',ghost:'#7c3aed',poison:'#a855f7'};
+const TYPE_BG = {normal:'#374151',fire:'#7c2d12',water:'#1e3a5f',ghost:'#3b0764',poison:'#581c87'};
+
+const MOVES = {
+  // Normal
+  tackle:{name:'たいあたり',type:'normal',power:40,pp:35,cat:'physical'},
+  slam:{name:'たたきつける',type:'normal',power:80,pp:20,cat:'physical'},
+  swift:{name:'スウィフト',type:'normal',power:60,pp:20,cat:'special'},
+  // Fire
+  ember:{name:'ひのこ',type:'fire',power:40,pp:25,cat:'special'},
+  flamethrower:{name:'かえんほうしゃ',type:'fire',power:90,pp:15,cat:'special'},
+  fireblast:{name:'だいもんじ',type:'fire',power:120,pp:5,cat:'special'},
+  // Water
+  watergun:{name:'みずでっぽう',type:'water',power:40,pp:25,cat:'special'},
+  surf:{name:'なみのり',type:'water',power:90,pp:15,cat:'special'},
+  hydropump:{name:'ハイドロポンプ',type:'water',power:110,pp:5,cat:'special'},
+  // Ghost
+  lick:{name:'したでなめる',type:'ghost',power:30,pp:30,cat:'physical'},
+  shadowball:{name:'シャドーボール',type:'ghost',power:80,pp:15,cat:'special'},
+  voidstrike:{name:'ヴォイドストライク',type:'ghost',power:100,pp:5,cat:'special'},
+  // Poison
+  poisonsting:{name:'どくばり',type:'poison',power:15,pp:35,cat:'physical'},
+  sludgebomb:{name:'ヘドロばくだん',type:'poison',power:90,pp:10,cat:'special'},
+  toxicbite:{name:'どくがみ',type:'poison',power:50,pp:20,cat:'physical'},
 };
 
-function getStats(stage, level) {
-    let base = { hp: 20, atk: 5, def: 5, spd: 5 };
-    if(stage.length === 1 && stage !== 'egg') base = { hp: 45, atk: 15, def: 15, spd: 15 };
-    else if(stage.length === 2) base = { hp: 70, atk: 35, def: 35, spd: 35 };
-    else if(stage.length === 3) base = { hp: 110, atk: 65, def: 65, spd: 65 };
-
-    return {
-        hp: Math.floor((base.hp * 2 * level) / 100 + level + 10),
-        atk: Math.floor((base.atk * 2 * level) / 100 + 5),
-        def: Math.floor((base.def * 2 * level) / 100 + 5),
-        spd: Math.floor((base.spd * 2 * level) / 100 + 5),
-    }
+function getMoves(stage){
+  if(stage==='egg') return [MOVES.tackle];
+  const m=M[stage];const t=m?m.type:'normal';
+  const stage_len=stage.length;
+  if(stage_len===1){
+    if(t==='fire')return[MOVES.tackle,MOVES.ember];
+    if(t==='water')return[MOVES.tackle,MOVES.watergun];
+    if(t==='ghost')return[MOVES.tackle,MOVES.lick];
+    if(t==='poison')return[MOVES.tackle,MOVES.poisonsting];
+    return[MOVES.tackle,MOVES.swift];
+  }
+  if(stage_len===2){
+    if(t==='fire')return[MOVES.tackle,MOVES.ember,MOVES.flamethrower,MOVES.slam];
+    if(t==='water')return[MOVES.tackle,MOVES.watergun,MOVES.surf,MOVES.slam];
+    if(t==='ghost')return[MOVES.lick,MOVES.shadowball,MOVES.swift,MOVES.tackle];
+    if(t==='poison')return[MOVES.poisonsting,MOVES.toxicbite,MOVES.sludgebomb,MOVES.tackle];
+    return[MOVES.tackle,MOVES.swift,MOVES.slam,MOVES.tackle];
+  }
+  // stage3
+  if(t==='fire')return[MOVES.flamethrower,MOVES.fireblast,MOVES.slam,MOVES.ember];
+  if(t==='water')return[MOVES.surf,MOVES.hydropump,MOVES.slam,MOVES.watergun];
+  if(t==='ghost')return[MOVES.shadowball,MOVES.voidstrike,MOVES.lick,MOVES.swift];
+  if(t==='poison')return[MOVES.sludgebomb,MOVES.toxicbite,MOVES.poisonsting,MOVES.voidstrike];
+  return[MOVES.swift,MOVES.slam,MOVES.tackle,MOVES.tackle];
 }
 
-// ════════════════════════════════════
-//  GAME STATE & SAVE
-// ════════════════════════════════════
-let gameState = 'title'; // title, map, battle, menu, dialog
-let keys = { up: false, down: false, left: false, right: false };
+function typeColor(t){return TYPE_COLOR[t]||'#9ca3af';}
+function typeBg(t){return TYPE_BG[t]||'#374151';}
 
-let p = {
-    x: 1, y: 1, px: 1, py: 1, moving: false, face: 'down',
-    party: [
-        { id: generateId(), stage: 'egg', level: 5, exp: 0, currentHp: 20 }
-    ],
-    items: { ball: 10, potion: 5 },
-    seen: ['egg']
+// ═══════════════════════════════════════════════
+//  EVO TREE
+// ═══════════════════════════════════════════════
+const EVO_TREE={
+  egg:['A','B','C'],
+  A:['AA','AB','AC'],B:['BA','BB','BC'],C:['CA','CB','CC'],
+  AA:['AAA','AAB','AAC'],AB:['ABA','ABB','ABC'],AC:['ACA','ACB','ACC'],
+  BA:['BAA','BAB','BAC'],BB:['BBA','BBB','BBC'],BC:['BCA','BCB','BCC'],
+  CA:['CAA','CAB','CAC'],CB:['CBA','CBB','CBC'],CC:['CCA','CCB','CCC']
 };
+const EVO_LV={egg:5,1:15,2:36}; // lv to evolve at stage depth
 
-function generateId() { return Math.random().toString(36).substr(2, 9); }
-
-function saveGame(showMsg = false) {
-    localStorage.setItem('mon_rpg_save', JSON.stringify(p));
-    if(showMsg) {
-        document.getElementById('status-text').innerText = 'SAVED';
-        setTimeout(()=>document.getElementById('status-text').innerText='EXPLORING', 2000);
-    }
+function getStats(stage,level){
+  let base;
+  if(stage==='egg') base={hp:20,atk:6,def:4,spd:4,spc:4};
+  else if(stage.length===1) base={hp:45,atk:18,def:14,spd:16,spc:16};
+  else if(stage.length===2) base={hp:75,atk:40,def:35,spd:38,spc:38};
+  else base={hp:115,atk:75,def:65,spd:70,spc:70};
+  // slight variance per monster
+  const code=stage.charCodeAt(0)+(stage.charCodeAt(1)||0);
+  const fac=0.9+(code%20)/100;
+  return {
+    hp:Math.floor(((base.hp*2*level)/100+level+10)*fac),
+    atk:Math.floor(((base.atk*2*level)/100+5)*fac),
+    def:Math.floor(((base.def*2*level)/100+5)*fac),
+    spd:Math.floor(((base.spd*2*level)/100+5)*fac),
+    spc:Math.floor(((base.spc*2*level)/100+5)*fac),
+  };
 }
 
-function loadGame() {
-    const s = localStorage.getItem('mon_rpg_save');
-    if(s) {
-        try { p = JSON.parse(s); } catch(e){}
-    }
-    p.party.forEach(m => {
-        m.maxHp = getStats(m.stage, m.level).hp;
-        if(m.currentHp === undefined) m.currentHp = m.maxHp;
-    });
-    // 座標の不正チェック（壁の中にいたらリセット）
-    if(mapData[p.y] && mapData[p.y][p.x] === 1) {
-        p.x = 1; p.y = 1; p.px = 1; p.py = 1;
-    }
-}
-
-// ════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  MAP SYSTEM
-// ════════════════════════════════════
-const TS = 32; 
-const VIEW_W = 160; const VIEW_H = 160;
+// ═══════════════════════════════════════════════
+// Tile types:
+// 0=path, 1=wall/tree, 2=tall grass, 3=water,
+// 4=healspot(pokemon center), 5=trainer trigger
+// 6=gym, 7=town tile, 8=sign, 9=cave, 10=elite4, 11=champion
 
-// 新しい広大な森のマップ（全体が繋がっている）
-const MAP_STR = `
-111111111111111111111111111111
-140000000112222222100000022221
-100000000002222222100000022221
-100000000112222222000000022221
-111110011111111111001111111111
-100000000012222222001000000001
-100000000012222222001000000001
-100111100000000000001000000001
-122222100011110011111000000001
-122222100010000000001000000001
-122222100010000000001000000001
-122222100010011110001000000001
-111111100010012210000000000001
-100000000000012210001111111111
-100000000000011110000000000041
-111111111111111111111111111111
-`;
-const mapData = MAP_STR.trim().split('\n').map(row => row.split('').map(Number));
-const mapW = mapData[0].length;
-const mapH = mapData.length;
+const MAPS = {
+  start:{
+    name:'はじまりの町',
+    width:25,height:20,
+    grassMons:['A','B','C'],
+    data:`
+1111111111111111111111111
+1770777777777700000000001
+1770777707707700000000001
+1770707707707700222222001
+1110007707711110222222001
+1000000000000000222222001
+1000000000000007222222001
+1002222000070007000000001
+1002222000070007000000001
+1002222110070007000000001
+1001111110070047000000001
+1000000000070007000000001
+1000000000070007000000001
+1111111100000007000000001
+1000000000000007000000001
+1000000000000007111111111
+1000055500000000000000001
+1000000000000000000000001
+1999900000000066600000001
+1111111111111111111111111`,
+    warps:[
+      {x:19,y:3,map:'forest',tx:1,ty:1},
+      {x:3,y:18,map:'cave',tx:1,ty:1},
+      {x:13,y:18,map:'volcano',tx:1,ty:1},
+    ],
+    trainers:[
+      {id:'t_ryou',x:5,y:16,dir:'down',defeated:false,
+       name:'リョウ',title:'ライバル',icon:'🧒',
+       party:[{stage:'A',level:7}],
+       preDialog:['やあ！ 君も モンスターと冒険してるのか？','ぼくの パフモに勝てると思うか？','いくよ！'],
+       winDialog:['なかなかやるな！','ぼくも もっと強くなるぞ！'],
+       loseDialog:['ぼく の かち！','もっと 修行が 必要だね！'],
+       reward:{gold:200,exp:80}},
+      {id:'t_kana',x:7,y:16,dir:'down',defeated:false,
+       name:'カナ',title:'見習いトレーナー',icon:'👧',
+       party:[{stage:'B',level:6},{stage:'A',level:5}],
+       preDialog:['わたし、まだ 見習いだけど！','でも 負けないよ！'],
+       winDialog:['すごい！ また 勝負しようね！'],
+       loseDialog:['あたしの かち！ えへへ！'],
+       reward:{gold:150,exp:60}},
+    ],
+    gym:{x:13,y:18,badge:'🌱',badgeIdx:0,
+         leaderName:'タケシ',leaderTitle:'クサのジムリーダー',
+         leaderIcon:'💪',
+         party:[{stage:'BA',level:14},{stage:'BC',level:16}],
+         preDialog:['ここは くさのジムだ！','わたしが タケシ、このジムのリーダーだ！','あなたの 実力を 見せてもらおう！'],
+         winDialog:['負けた！ 君の モンスターは 強い！','クサバッジを 受け取れ！'],
+         reward:{gold:1500,exp:500,badge:0}},
+    signs:[
+      {x:8,y:10,text:'ダンジョンは 危険！ Lv10以上の\nモンスターを 連れていこう。'},
+      {x:14,y:14,text:'このさきに ジムがある。\nバッジをあつめて チャンピオンに\nちょうせんしよう！'},
+    ]
+  },
+  forest:{
+    name:'もりの道',
+    width:24,height:22,
+    grassMons:['AA','AB','BA','BB','CA'],
+    data:`
+111111111111111111111111
+100000000011111100000001
+100000000012222200000001
+100022220012222200022201
+100022220001111100022201
+100000000000000000000001
+100000000000000000000001
+100011000000000000000001
+100011000055500000110001
+100000000000000000000001
+100022222200000000000001
+100022222200000000000001
+100000000000044000000001
+100000000000000000000001
+111110000000000011111111
+100000111111000000000001
+100000000000000000000001
+100000000055500000000001
+100000000000000000000001
+100000999000000066000001
+100000000000000000000001
+111111111111111111111111`,
+    warps:[
+      {x:1,y:1,map:'start',tx:19,ty:3},
+      {x:9,y:19,map:'cave',tx:5,ty:5},
+      {x:17,y:19,map:'volcano',tx:4,ty:4},
+    ],
+    trainers:[
+      {id:'t_jun',x:5,y:8,dir:'right',defeated:false,
+       name:'ジュン',title:'ねっけつトレーナー',icon:'🧑',
+       party:[{stage:'AA',level:18},{stage:'BB',level:16}],
+       preDialog:['ぼくの すばやさに ついてこれるか？','ゆくぞ！'],
+       winDialog:['はやい！ 君はすごい！'],
+       loseDialog:['ぼくの かちだ！ はは！'],
+       reward:{gold:800,exp:300}},
+      {id:'t_mai',x:5,y:17,dir:'up',defeated:false,
+       name:'マイ',title:'きれいなおねえさん',icon:'👩',
+       party:[{stage:'CA',level:20},{stage:'AC',level:18}],
+       preDialog:['わたしの ゴーストたちに 勝てるかな？','うふふ、かかってきて！'],
+       winDialog:['まあ！ あなた 強いのね！'],
+       loseDialog:['わたしの かちね！ うふふ！'],
+       reward:{gold:900,exp:350}},
+    ],
+    gym:{x:17,y:19,badge:'🔥',badgeIdx:1,
+         leaderName:'カスミ',leaderTitle:'みずのジムリーダー',
+         leaderIcon:'🌊',
+         party:[{stage:'BA',level:21},{stage:'CA',level:23},{stage:'BAA',level:25}],
+         preDialog:['わたしが カスミ！ みずのジムリーダーよ！','みずタイプには 誰も 勝てないわ！','覚悟して かかってきなさい！'],
+         winDialog:['信じられない！ 負けたわ！','あなたに みずバッジを あげる！'],
+         reward:{gold:2500,exp:800,badge:1}},
+    signs:[
+      {x:10,y:12,text:'じゃくてん に 気をつけろ！\nほのおは みずに よわい。'},
+    ]
+  },
+  cave:{
+    name:'いにしえの洞窟',
+    width:20,height:18,
+    grassMons:['BB','BC','CC','AB','BAA'],
+    data:`
+11111111111111111111
+10000000000000000001
+10009900000000000001
+10000000001111111111
+10000000001000000001
+10055500001000000001
+10000000001000000001
+10011111111000222001
+10000000000000222001
+10000000000000222001
+11111100000000000001
+10000000000000000001
+10000000000000000001
+10099900000000000001
+10000000000000000001
+10000011100000000001
+10000000000000000001
+11111111111111111111`,
+    warps:[
+      {x:1,y:1,map:'start',tx:3,ty:18},
+      {x:1,y:13,map:'forest',tx:9,ty:19},
+      {x:1,y:15,map:'volcano',tx:8,ty:3},
+    ],
+    trainers:[
+      {id:'t_geo',x:4,y:5,dir:'right',defeated:false,
+       name:'ゲオ',title:'どうくつたんけんか',icon:'🧔',
+       party:[{stage:'BB',level:28},{stage:'BBB',level:22}],
+       preDialog:['ここは わたしの なわばりだ！','帰れ！ それとも 戦うか？'],
+       winDialog:['まいった！ 先に 進んでくれ！'],
+       loseDialog:['どうだ！ ここから 先には 行かせん！'],
+       reward:{gold:1200,exp:500}},
+    ],
+    gym:{x:13,y:4,badge:'⚡',badgeIdx:2,
+         leaderName:'マチス',leaderTitle:'いわのジムリーダー',
+         leaderIcon:'🗿',
+         party:[{stage:'BBA',level:30},{stage:'BAC',level:33},{stage:'BBB',level:35}],
+         preDialog:['わしが マチス！','岩のように 揺るぎない わしに 挑むか！','よし！ きなさい！'],
+         winDialog:['これほどの 強さとは！','いわバッジを 受け取れ！'],
+         reward:{gold:3500,exp:1200,badge:2}},
+    signs:[
+      {x:4,y:1,text:'かいちゅうでんとうを\nわすれずに！ ここは くらい。'},
+    ]
+  },
+  volcano:{
+    name:'えんの山',
+    width:22,height:20,
+    grassMons:['BBB','BBC','BCA','CCA','CCB'],
+    data:`
+1111111111111111111111
+1000000000000000000001
+1000000000000000000001
+1000099000000000000001
+1000000000000000000001
+1002222200000002222001
+1002222200000002222001
+1002222200055500000001
+1000000000000000000001
+1000000000000000000001
+1000000000000000001001
+1001111100000000000001
+1000000000000000000001
+1000000000000000000001
+1111111100000001111111
+1000000000000000000001
+1000000555000000000001
+1000000000000000000001
+1000000000000006600001
+1111111111111111111111`,
+    warps:[
+      {x:1,y:1,map:'start',tx:13,ty:18},
+      {x:4,y:3,map:'cave',tx:8,ty:15},
+      {x:1,y:18,map:'elite4',tx:2,ty:2},
+    ],
+    trainers:[
+      {id:'t_agi',x:7,y:16,dir:'up',defeated:false,
+       name:'アギ',title:'ほのおトレーナー',icon:'🔥',
+       party:[{stage:'BBB',level:40},{stage:'ABB',level:38}],
+       preDialog:['このさきには いかせない！','わたしの ほのおで 燃え尽きろ！'],
+       winDialog:['こんなに 強いとは！ 先へ 行け！'],
+       loseDialog:['どけ！ ここは わたしの なわばりだ！'],
+       reward:{gold:2000,exp:900}},
+      {id:'t_void',x:17,y:16,dir:'left',defeated:false,
+       name:'ヴォイド',title:'なぞのトレーナー',icon:'🌑',
+       party:[{stage:'CCA',level:42},{stage:'CCC',level:40}],
+       preDialog:['…','…お前は 強いのか？','見せてみろ。'],
+       winDialog:['…なるほど。 先へ 行け。'],
+       loseDialog:['…やはり まだだ。'],
+       reward:{gold:2500,exp:1100}},
+    ],
+    gym:{x:18,y:18,badge:'🌋',badgeIdx:3,
+         leaderName:'カツラ',leaderTitle:'ほのおのジムリーダー',
+         leaderIcon:'🐉',
+         party:[{stage:'BBB',level:45},{stage:'BBA',level:43},{stage:'ABB',level:47}],
+         preDialog:['よく ここまで 来たな！','わたしが カツラ！ ほのおのジムリーダー！','あなたの 実力を 見せてもらおう！'],
+         winDialog:['信じられない… わたしが 負けるとは！','ほのおバッジを 授けよう。 先へ 進め！'],
+         reward:{gold:5000,exp:2000,badge:3}},
+    signs:[
+      {x:10,y:7,text:'この山の むこうには\nよっつのてん王が まつ\nでんどうの間がある！'},
+    ]
+  },
+  elite4:{
+    name:'でんどうの間',
+    width:20,height:18,
+    grassMons:['CCC','CCB','CCA','CAC'],
+    data:`
+11111111111111111111
+10000000000000000001
+10000006600000000001
+10000000000000000001
+10066600000000066001
+10000000000000000001
+10000000000000000001
+10000000000044000001
+10000000000000000001
+10000000000000000001
+10066600000000066001
+10000000000000000001
+10000000000000000001
+10000000000000000001
+10000000000000000001
+10000000000000000001
+10000000000000000001
+11111111111111111111`,
+    warps:[
+      {x:1,y:1,map:'volcano',tx:1,ty:18},
+    ],
+    trainers:[],
+    gym:null,
+    signs:[
+      {x:10,y:7,text:'チャンピオンへの みち。\nよっつのてん王を\nたおせるか！？'},
+    ],
+    elites:[
+      {id:'elite1',x:3,y:2,dir:'down',defeated:false,
+       name:'ロレン',title:'四天王 第一の壁 / ほのお使い',icon:'🔴',
+       party:[{stage:'BBB',level:50},{stage:'CBB',level:52},{stage:'ABB',level:54}],
+       preDialog:['私が 四天王 第一の壁、ロレン！','ほのおの 力で 貴方を 打ち砕く！','進む 覚悟は できているか！？'],
+       winDialog:['…こんなに 強いとは！ 先へ 進め！'],
+       loseDialog:['わたしの かち！ 引き返せ！'],
+       reward:{gold:8000,exp:3000}},
+      {id:'elite2',x:16,y:4,dir:'down',defeated:false,
+       name:'ミスティ',title:'四天王 第二の壁 / みず使い',icon:'🔵',
+       party:[{stage:'BAA',level:52},{stage:'CBA',level:55},{stage:'BAC',level:57}],
+       preDialog:['四天王 第二 ミスティよ！','みずの 精霊たちが あなたを 待っている！'],
+       winDialog:['これほどの 使い手に 会えるとは！'],
+       loseDialog:['わたしの みずに 飲み込まれろ！'],
+       reward:{gold:9000,exp:3500}},
+      {id:'elite3',x:3,y:10,dir:'up',defeated:false,
+       name:'カゲロウ',title:'四天王 第三の壁 / どく使い',icon:'🟢',
+       party:[{stage:'BCC',level:54},{stage:'CBC',level:57},{stage:'BBC',level:60}],
+       preDialog:['静かに… 私が 第三 カゲロウ。','毒は 全てを 蝕む…','逃げることは できないよ。'],
+       winDialog:['…素晴らしい。 先に 行け。'],
+       loseDialog:['毒が 全てを 溶かす…'],
+       reward:{gold:10000,exp:4000}},
+      {id:'elite4',x:16,y:10,dir:'up',defeated:false,
+       name:'ゴウスト',title:'四天王 第四の壁 / ゴースト使い',icon:'🟣',
+       party:[{stage:'CCC',level:57},{stage:'CAC',level:60},{stage:'CCB',level:63}],
+       preDialog:['…ここまで 来たか。','私が 最後の 四天王、ゴウスト。','あなたの 魂を いただこう！'],
+       winDialog:['まさか…!　チャンピオンのもとへ 行け。'],
+       loseDialog:['暗闇に 消えろ！'],
+       reward:{gold:12000,exp:5000}},
+    ],
+    champion:{id:'champion',x:10,y:7,dir:'down',defeated:false,
+       name:'アオイ',title:'チャンピオン',icon:'👑',
+       party:[{stage:'CCC',level:65},{stage:'CAC',level:63},{stage:'BBB',level:64},{stage:'BAA',level:62},{stage:'ABC',level:65},{stage:'AAA',level:67}],
+       preDialog:['…よく 来た。','わたしが チャンピオン アオイだ。','四天王を 全員 倒したか。','ならば お前は 本当の 強さを 持っている。','全力で 行く… 準備は いいか？'],
+       winDialog:['信じられない…','お前が 新しい チャンピオンだ！','モンスターとの 絆の 勝利！','おめでとう！！！'],
+       loseDialog:['フフ…チャンピオンへの 道は まだ 遠い。','また 来い。'],
+       reward:{gold:30000,exp:20000,ending:true}}
+  }
+};
 
-let ctx;
-function initMap() {
-    const canvas = document.getElementById('gameCanvas');
-    ctx = canvas.getContext('2d');
-    requestAnimationFrame(gameLoop);
+// ═══════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════
+let gs = 'title'; // title, starter, map, battle, menu, dialog, win, evo
+let curMap = 'start';
+let p = {
+  x:1,y:1,px:1,py:1,moving:false,face:'down',
+  party:[],
+  items:{ball:15,potion:8,superpotion:3,revive:2},
+  gold:500,
+  badges:[],
+  defeated:{}, // trainer ids defeated
+  flags:{},    // story flags
+  steps:0,
+};
+let activeMonIdx=0;
+let enemy=null;
+let battleIsTrainer=false;
+let currentTrainer=null;
+let keys={up:false,down:false,left:false,right:false};
+let dlgQueue=[];
+let dlgIdx=0;
+let dlgCb=null;
+let dlgChoiceCb=null;
+let evoCallback=null;
+let winCallback=null;
+let starterChoice=null;
+
+const SAVE_KEY='mq_v2_save';
+
+function saveGame(){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({p,curMap,activeMonIdx}));}catch(e){}
+}
+function loadGame(){
+  try{
+    const s=localStorage.getItem(SAVE_KEY);
+    if(s){const d=JSON.parse(s);p=d.p;curMap=d.curMap||'start';activeMonIdx=d.activeMonIdx||0;}
+    p.party.forEach(m=>{if(!m.maxHp)m.maxHp=getStats(m.stage,m.level).hp;});
+    return true;
+  }catch(e){return false;}
 }
 
-function gameLoop() {
-    if(gameState === 'map') {
-        updateMap();
-        drawMap();
+// ═══════════════════════════════════════════════
+//  MAP RENDERING
+// ═══════════════════════════════════════════════
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d');
+
+// Responsive tile size
+function getTileSize(){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const mapW=MAPS[curMap].width,mapH=MAPS[curMap].height;
+  const ts=Math.min(Math.floor(vw/mapW*1.4),Math.floor(vh/mapH*1.4),64);
+  return Math.max(ts,16);
+}
+
+let animFrame=0;
+function gameLoop(){
+  if(gs==='map')updateMap();
+  if(gs==='map'||gs==='dialog')drawMap();
+  animFrame++;
+  requestAnimationFrame(gameLoop);
+}
+
+const MOVE_SPEED=0.14;
+function updateMap(){
+  if(p.moving){
+    const dx=p.x-p.px,dy=p.y-p.py;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<MOVE_SPEED){p.px=p.x;p.py=p.y;p.moving=false;onArrived();}
+    else{p.px+=dx/dist*MOVE_SPEED;p.py+=dy/dist*MOVE_SPEED;}
+    return;
+  }
+  let nx=p.x,ny=p.y;
+  if(keys.up){ny--;p.face='up';}
+  else if(keys.down){ny++;p.face='down';}
+  else if(keys.left){nx--;p.face='left';}
+  else if(keys.right){nx++;p.face='right';}
+  if(nx!==p.x||ny!==p.y){
+    const map=MAPS[curMap];
+    if(nx>=0&&nx<map.width&&ny>=0&&ny<map.height){
+      const tile=getMapTile(curMap,nx,ny);
+      if(tile!==1&&tile!==3){p.x=nx;p.y=ny;p.moving=true;p.steps++;}
     }
-    requestAnimationFrame(gameLoop);
+  }
 }
 
-function updateMap() {
-    if (p.moving) {
-        const speed = 0.15;
-        if (p.px < p.x) p.px = Math.min(p.x, p.px + speed);
-        else if (p.px > p.x) p.px = Math.max(p.x, p.px - speed);
-        if (p.py < p.y) p.py = Math.min(p.y, p.py + speed);
-        else if (p.py > p.y) p.py = Math.max(p.y, p.py - speed);
+function getMapData(mapId){
+  const m=MAPS[mapId];
+  if(!m._parsed){
+    m._parsed=m.data.trim().split('\n').map(row=>row.trim().split('').map(Number));
+  }
+  return m._parsed;
+}
+function getMapTile(mapId,x,y){
+  const d=getMapData(mapId);
+  if(!d[y])return 1;
+  return d[y][x]??1;
+}
 
-        if (p.px === p.x && p.py === p.y) {
-            p.moving = false;
-            checkTile();
-        }
-    } else {
-        let nx = p.x, ny = p.y;
-        if (keys.up) { ny--; p.face = 'up'; }
-        else if (keys.down) { ny++; p.face = 'down'; }
-        else if (keys.left) { nx--; p.face = 'left'; }
-        else if (keys.right) { nx++; p.face = 'right'; }
+const TILE_COLORS={
+  0:'#7ec850',1:'#2d5a27',2:'#3ea832',3:'#3b82f6',
+  4:'#e0e0ff',5:'#f0f0d0',6:'#d4af37',7:'#c8a96e',
+  8:'#8b7355',9:'#4a4a6a',10:'#6a0dad',11:'#ffd700'
+};
+const TILE_ACCENT={
+  1:'#1e3d1a',2:'#2d8022',3:'#1d4ed8',7:'#b08050',
+  9:'#303050',10:'#4a0080'
+};
 
-        if (nx !== p.x || ny !== p.y) {
-            if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH && mapData[ny][nx] !== 1) {
-                p.x = nx; p.y = ny;
-                p.moving = true;
-            }
+function drawMap(){
+  const vw=canvas.width,vh=canvas.height;
+  const TS=getTileSize();
+  const map=MAPS[curMap];
+  ctx.fillStyle='#222';
+  ctx.fillRect(0,0,vw,vh);
+
+  const ox=Math.round(vw/2-p.px*TS-TS/2);
+  const oy=Math.round(vh/2-p.py*TS-TS/2);
+  const data=getMapData(curMap);
+
+  for(let y=0;y<map.height;y++){
+    for(let x=0;x<map.width;x++){
+      const sx=ox+x*TS,sy=oy+y*TS;
+      if(sx<-TS||sx>vw||sy<-TS||sy>vh)continue;
+      const t=data[y][x];
+      ctx.fillStyle=TILE_COLORS[t]||'#7ec850';
+      ctx.fillRect(sx,sy,TS,TS);
+      // Details
+      if(t===1){
+        ctx.fillStyle=TILE_ACCENT[1];
+        ctx.fillRect(sx+2,sy+2,TS-4,TS-4);
+        // Tree top
+        if(TS>=24){
+          ctx.fillStyle='#185228';
+          ctx.beginPath();ctx.arc(sx+TS/2,sy+TS*0.35,TS*0.3,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#1f6b32';
+          ctx.beginPath();ctx.arc(sx+TS/2,sy+TS*0.28,TS*0.22,0,Math.PI*2);ctx.fill();
         }
+      } else if(t===2){
+        // Tall grass
+        ctx.fillStyle='#2a9020';
+        if(TS>=16){
+          for(let i=0;i<4;i++){
+            ctx.fillRect(sx+2+i*((TS-4)/4),sy+TS*0.3,2,TS*0.6);
+          }
+        }
+      } else if(t===3){
+        // Water shimmer
+        const wt=(animFrame+x*3+y*2)%40;
+        ctx.fillStyle=wt<20?'#2563eb':'#1d4ed8';
+        ctx.fillRect(sx,sy,TS,TS);
+        if(TS>=20){
+          ctx.fillStyle='rgba(255,255,255,0.15)';
+          ctx.fillRect(sx+TS*0.1,sy+TS*0.3,TS*0.3,2);
+          ctx.fillRect(sx+TS*0.5,sy+TS*0.6,TS*0.3,2);
+        }
+      } else if(t===4){
+        // Heal spot (pokemon center)
+        ctx.fillStyle='#c0c0ff';
+        ctx.fillRect(sx,sy,TS,TS);
+        if(TS>=24){
+          ctx.fillStyle='#fff';
+          ctx.fillRect(sx+TS*0.4,sy+TS*0.15,TS*0.2,TS*0.7);
+          ctx.fillRect(sx+TS*0.15,sy+TS*0.38,TS*0.7,TS*0.2);
+        }
+      } else if(t===5){
+        // Trainer tile
+        ctx.fillStyle='#e0e0c0';ctx.fillRect(sx,sy,TS,TS);
+      } else if(t===6){
+        // Gym
+        ctx.fillStyle='#b8960c';ctx.fillRect(sx,sy,TS,TS);
+        if(TS>=20){
+          ctx.fillStyle='#ffd700';
+          ctx.fillRect(sx+TS*0.2,sy+TS*0.1,TS*0.6,TS*0.8);
+          ctx.fillStyle='#b8960c';
+          ctx.fillRect(sx+TS*0.35,sy+TS*0.25,TS*0.3,TS*0.55);
+        }
+      } else if(t===7){
+        // Town path
+        ctx.fillStyle='#c8a96e';ctx.fillRect(sx,sy,TS,TS);
+        ctx.fillStyle='rgba(0,0,0,0.05)';
+        if((x+y)%2===0)ctx.fillRect(sx,sy,TS,TS);
+      } else if(t===9){
+        // Cave
+        ctx.fillStyle='#3a3a5a';ctx.fillRect(sx,sy,TS,TS);
+        if(TS>=20){ctx.fillStyle='#4a4a7a';ctx.beginPath();ctx.arc(sx+TS/2,sy+TS/2,TS*0.35,0,Math.PI*2);ctx.fill();}
+      } else if(t===10){
+        // Elite4
+        ctx.fillStyle='#5a0090';ctx.fillRect(sx,sy,TS,TS);
+        if(TS>=20){ctx.fillStyle='#8800cc';ctx.fillRect(sx+TS*0.2,sy+TS*0.1,TS*0.6,TS*0.8);}
+      } else if(t===11){
+        // Champion
+        ctx.fillStyle='#886600';ctx.fillRect(sx,sy,TS,TS);
+        if(TS>=20){
+          ctx.fillStyle='#ffdd00';
+          ctx.font=`${TS*0.7}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillText('★',sx+TS/2,sy+TS/2);
+        }
+      }
+      // Signs
+      const map_obj=MAPS[curMap];
+      if(t===8&&TS>=20){
+        ctx.fillStyle='#6b5230';ctx.fillRect(sx,sy,TS,TS);
+        ctx.fillStyle='#8b7a50';ctx.fillRect(sx+TS*0.15,sy+TS*0.1,TS*0.7,TS*0.55);
+        ctx.fillStyle='#5a3e20';ctx.fillRect(sx+TS*0.4,sy+TS*0.65,TS*0.2,TS*0.3);
+      }
+      // Grid line
+      ctx.strokeStyle='rgba(0,0,0,0.04)';ctx.lineWidth=0.5;
+      ctx.strokeRect(sx,sy,TS,TS);
     }
-}
+  }
 
-function checkTile() {
-    const tile = mapData[p.y][p.x];
-    if (tile === 4) { // Heal
-        p.party.forEach(m => m.currentHp = m.maxHp);
-        saveGame();
-        showDialog('かいふく！', '手持ちの モンス が ぜんかいふく した！', '<div class="text-4xl">✨</div>');
-    } else if (tile === 2) { // Bush
-        if (Math.random() < 0.15) {
-            startBattle();
-        }
+  // Draw trainers
+  const trs=[...(MAPS[curMap].trainers||[]),...(MAPS[curMap].elites||[])];
+  if(MAPS[curMap].champion)trs.push(MAPS[curMap].champion);
+  for(const tr of trs){
+    if(p.defeated[tr.id])continue;
+    const sx=ox+tr.x*TS,sy=oy+tr.y*TS;
+    if(sx<-TS||sx>vw||sy<-TS||sy>vh)continue;
+    ctx.fillStyle='#fbbf24';ctx.fillRect(sx+TS*0.1,sy+TS*0.05,TS*0.8,TS*0.7);
+    ctx.fillStyle='#1e293b';ctx.fillRect(sx+TS*0.1,sy+TS*0.55,TS*0.8,TS*0.4);
+    ctx.fillStyle='#fde68a';ctx.fillRect(sx+TS*0.3,sy+TS*0.1,TS*0.4,TS*0.4);
+    if(TS>=20){
+      ctx.fillStyle='#1e293b';
+      ctx.fillRect(sx+TS*0.35,sy+TS*0.2,TS*0.1,TS*0.1);
+      ctx.fillRect(sx+TS*0.55,sy+TS*0.2,TS*0.1,TS*0.1);
     }
-}
-
-function drawMap() {
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-
-    const cx = Math.floor(VIEW_W/2 - p.px * TS - TS/2);
-    const cy = Math.floor(VIEW_H/2 - p.py * TS - TS/2);
-
-    for(let y=0; y<mapH; y++){
-        for(let x=0; x<mapW; x++){
-            const px = cx + x * TS;
-            const py = cy + y * TS;
-            if(px < -TS || px > VIEW_W || py < -TS || py > VIEW_H) continue;
-
-            const t = mapData[y][x];
-            ctx.fillStyle = '#4ade80'; 
-            ctx.fillRect(px, py, TS, TS);
-            
-            if(t === 1) { 
-                ctx.fillStyle = '#14532d';
-                ctx.fillRect(px, py, TS, TS);
-                ctx.fillStyle = '#166534';
-                ctx.fillRect(px+4, py+4, TS-8, TS-8);
-            } else if (t === 2) { 
-                ctx.fillStyle = '#22c55e';
-                ctx.fillRect(px, py, TS, TS);
-                ctx.fillStyle = '#16a34a';
-                ctx.fillRect(px+4, py+8, 4, 8);
-                ctx.fillRect(px+20, py+12, 4, 8);
-            } else if (t === 4) { 
-                ctx.fillStyle = '#60a5fa';
-                ctx.fillRect(px, py, TS, TS);
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(px+TS/2-2, py+8, 4, TS-16);
-                ctx.fillRect(px+8, py+TS/2-2, TS-16, 4);
-            }
-        }
+  }
+  // Gym
+  if(MAPS[curMap].gym){
+    const gym=MAPS[curMap].gym;
+    if(!p.badges.includes(gym.badgeIdx)){
+      // Already drawn as tile 6
     }
+  }
 
-    const ppx = cx + p.px * TS;
-    const ppy = cy + p.py * TS;
-    
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath(); ctx.ellipse(ppx+TS/2, ppy+TS-4, 8, 4, 0, 0, Math.PI*2); ctx.fill();
-    
-    ctx.fillStyle = '#ef4444'; 
-    ctx.fillRect(ppx+6, ppy+4, TS-12, TS-12);
-    ctx.fillStyle = '#fca5a5'; 
-    ctx.fillRect(ppx+8, ppy+10, TS-16, TS-16);
-    
-    ctx.fillStyle = '#000';
-    if(p.face === 'down') { ctx.fillRect(ppx+10, ppy+14, 4, 4); ctx.fillRect(ppx+18, ppy+14, 4, 4); }
-    else if(p.face === 'left') { ctx.fillRect(ppx+8, ppy+14, 4, 4); }
-    else if(p.face === 'right') { ctx.fillRect(ppx+20, ppy+14, 4, 4); }
+  // Player
+  const psx=ox+p.px*TS,psy=oy+p.py*TS;
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.beginPath();ctx.ellipse(psx+TS/2,psy+TS-TS*0.1,TS*0.28,TS*0.1,0,0,Math.PI*2);ctx.fill();
+  // Body
+  ctx.fillStyle='#3b82f6';ctx.fillRect(psx+TS*0.2,psy+TS*0.38,TS*0.6,TS*0.5);
+  // Head
+  ctx.fillStyle='#fde68a';ctx.beginPath();ctx.arc(psx+TS/2,psy+TS*0.3,TS*0.24,0,Math.PI*2);ctx.fill();
+  // Hair
+  ctx.fillStyle='#92400e';ctx.fillRect(psx+TS*0.22,psy+TS*0.06,TS*0.56,TS*0.18);
+  // Eyes
+  ctx.fillStyle='#1e293b';
+  if(p.face==='down'||p.face==='up'){
+    ctx.fillRect(psx+TS*0.35,psy+TS*0.25,TS*0.1,TS*0.08);
+    ctx.fillRect(psx+TS*0.55,psy+TS*0.25,TS*0.1,TS*0.08);
+  } else {
+    const ex=p.face==='left'?0.32:0.58;
+    ctx.fillRect(psx+TS*ex,psy+TS*0.25,TS*0.1,TS*0.08);
+  }
+  // Walk anim
+  if(p.moving&&TS>=20){
+    const wa=Math.sin(animFrame*0.4)*3;
+    ctx.fillStyle='#2563eb';
+    ctx.fillRect(psx+TS*0.2,psy+TS*0.75+wa,TS*0.22,TS*0.2);
+    ctx.fillRect(psx+TS*0.58,psy+TS*0.75-wa,TS*0.22,TS*0.2);
+  }
+
+  // Party leader small icon top-left of screen
+  updateStripUI();
 }
 
-// ════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  ON ARRIVE TILE
+// ═══════════════════════════════════════════════
+function onArrived(){
+  const tile=getMapTile(curMap,p.x,p.y);
+  const map=MAPS[curMap];
+  // Warps
+  const warp=(map.warps||[]).find(w=>w.x===p.x&&w.y===p.y);
+  if(warp){
+    curMap=warp.map;
+    p.x=warp.tx;p.y=warp.ty;p.px=warp.tx;p.py=warp.ty;
+    document.getElementById('hud-loc').textContent=MAPS[curMap].name;
+    saveGame();
+    return;
+  }
+  // Heal
+  if(tile===4){
+    p.party.forEach(m=>{m.currentHp=m.maxHp;});
+    saveGame();
+    showDialog('ポケセン','てもちの モンスが ぜんかいふく した！✨',null,()=>{});
+    return;
+  }
+  // Sign
+  const sign=(map.signs||[]).find(s=>s.x===p.x&&s.y===p.y);
+  if(sign){showDialog('たてふだ',sign.text,null,()=>{});return;}
+  // Trainers
+  const tr=(map.trainers||[]).find(t=>t.x===p.x&&t.y===p.y&&!p.defeated[t.id]);
+  if(tr){startTrainerBattle(tr);return;}
+  // Elites
+  if(map.elites){
+    const el=map.elites.find(e=>e.x===p.x&&e.y===p.y&&!p.defeated[e.id]);
+    if(el){
+      // Check prev elite defeated
+      const idx=map.elites.indexOf(el);
+      if(idx>0&&!p.defeated[map.elites[idx-1].id]){
+        showDialog('??','まだ 前の てん王を たおしていない！',null,()=>{});return;
+      }
+      startTrainerBattle(el);return;
+    }
+  }
+  // Champion
+  if(map.champion&&map.champion.x===p.x&&map.champion.y===p.y&&!p.defeated[map.champion.id]){
+    if(map.elites&&map.elites.some(e=>!p.defeated[e.id])){
+      showDialog('??','まだ 四天王を 全員 たおしていない！',null,()=>{});return;
+    }
+    startTrainerBattle(map.champion);return;
+  }
+  // Gym
+  if(map.gym&&tile===6&&!p.badges.includes(map.gym.badgeIdx)&&!p.defeated[`gym_${curMap}`]){
+    startGymBattle(map.gym);return;
+  }
+  // Wild encounter
+  if(tile===2&&Math.random()<0.12){startWildBattle();}
+}
+
+// ═══════════════════════════════════════════════
 //  BATTLE SYSTEM
-// ════════════════════════════════════
-let enemy = null;
-let activeMonIdx = 0;
+// ═══════════════════════════════════════════════
+function startWildBattle(){
+  const map=MAPS[curMap];
+  const pLv=p.party[activeMonIdx]?.level||1;
+  const eLv=Math.max(1,pLv+Math.floor(Math.random()*6)-2);
+  const stages=map.grassMons||['A'];
+  const stage=stages[Math.floor(Math.random()*stages.length)];
+  const stats=getStats(stage,eLv);
+  enemy={stage,level:eLv,currentHp:stats.hp,maxHp:stats.hp,stats,isWild:true};
+  battleIsTrainer=false;
+  currentTrainer=null;
+  startBattle();
+}
 
-function startBattle() {
-    changeState('battle');
-    document.getElementById('status-text').innerText = 'BATTLE';
-    
-    const flash = document.createElement('div');
-    flash.className = 'enc-flash';
-    document.querySelector('.game-screen-wrapper').appendChild(flash);
-    setTimeout(()=>flash.remove(), 1000);
+function startTrainerBattle(tr){
+  currentTrainer=tr;
+  battleIsTrainer=true;
+  // Show pre-dialog then battle
+  const lines=tr.preDialog||[`${tr.name}が 勝負を しかけてきた！`];
+  let idx=0;
+  function next(){
+    if(idx<lines.length){showDialog(tr.title,lines[idx++],null,next);}
+    else{
+      document.getElementById('trainer-banner').textContent=`${tr.icon} ${tr.title} ${tr.name} の 挑戦！`;
+      document.getElementById('trainer-banner').classList.add('show');
+      setTimeout(()=>document.getElementById('trainer-banner').classList.remove('show'),2000);
+      const first=tr.party[0];
+      const stats=getStats(first.stage,first.level);
+      enemy={stage:first.stage,level:first.level,currentHp:stats.hp,maxHp:stats.hp,stats,
+             party:tr.party.map((m,i)=>({...m,...(i===0?{currentHp:stats.hp,maxHp:stats.hp}:{})})),
+             partyIdx:0,isWild:false,trainer:tr};
+      battleIsTrainer=true;
+      startBattle();
+    }
+  }
+  next();
+}
 
-    const stages = Object.keys(M);
-    const pLv = p.party[activeMonIdx].level;
-    let elv = Math.max(1, pLv + Math.floor(Math.random()*5) - 2);
-    
-    let possibleStages = ['egg','A','B','C'];
-    if(elv > EVO_LEVELS.stage1) possibleStages = possibleStages.concat(['AA','AB','AC','BA','BB','BC','CA','CB','CC']);
-    if(elv > EVO_LEVELS.stage2) possibleStages = stages;
+function startGymBattle(gym){
+  currentTrainer=gym;
+  battleIsTrainer=true;
+  const lines=gym.preDialog||[`${gym.leaderName}が 立ちふさがった！`];
+  let idx=0;
+  function next(){
+    if(idx<lines.length){showDialog(gym.leaderTitle,lines[idx++],null,next);}
+    else{
+      document.getElementById('trainer-banner').textContent=`⚔️ ジムリーダー ${gym.leaderName} との バトル！`;
+      document.getElementById('trainer-banner').classList.add('show');
+      setTimeout(()=>document.getElementById('trainer-banner').classList.remove('show'),2000);
+      const first=gym.party[0];
+      const stats=getStats(first.stage,first.level);
+      enemy={stage:first.stage,level:first.level,currentHp:stats.hp,maxHp:stats.hp,stats,
+             party:gym.party.map(m=>{const s=getStats(m.stage,m.level);return{...m,currentHp:s.hp,maxHp:s.hp};}),
+             partyIdx:0,isWild:false,isGym:true,trainer:gym};
+      battleIsTrainer=true;
+      startBattle();
+    }
+  }
+  next();
+}
 
-    const estage = possibleStages[Math.floor(Math.random()*possibleStages.length)];
-    const estats = getStats(estage, elv);
-
-    enemy = { stage: estage, level: elv, currentHp: estats.hp, maxHp: estats.hp, stats: estats };
-    if(!p.seen.includes(estage)) p.seen.push(estage);
-
+function startBattle(){
+  // Choose active mon (first alive)
+  activeMonIdx=p.party.findIndex(m=>m.currentHp>0);
+  if(activeMonIdx<0){activeMonIdx=0;p.party[0].currentHp=1;}
+  setGs('battle');
+  document.getElementById('bcmds').style.display='grid';
+  document.getElementById('mpanel').style.display='none';
+  document.getElementById('bagpanel').style.display='none';
+  document.getElementById('swpanel').style.display='none';
+  showEncFlash();
+  setTimeout(()=>{
     updateBattleUI();
-    setBattleMsg(`あ！ やせいの ${M[enemy.stage].name} が とびだしてきた！`);
+    const ename=M[enemy.stage]?.name||enemy.stage;
+    if(enemy.isWild){setBmsg(`やせいの ${ename} が とびだしてきた！`);}
+    else{setBmsg(`${enemy.trainer?.leaderName||enemy.trainer?.name||'トレーナー'} の ${ename}！\nかかってこい！`);}
+  },800);
 }
 
-function updateBattleUI() {
-    const myMon = p.party[activeMonIdx];
-    const myStats = getStats(myMon.stage, myMon.level);
-    myMon.maxHp = myStats.hp;
-
-    document.getElementById('enemy-name').innerText = M[enemy.stage].name;
-    document.getElementById('enemy-lvl').innerText = enemy.level;
-    const epct = Math.max(0, (enemy.currentHp / enemy.maxHp) * 100);
-    const ebar = document.getElementById('enemy-hp-bar');
-    ebar.style.width = epct + '%';
-    ebar.className = 'hp-bar-fill ' + (epct<20?'low':epct<50?'mid':'');
-    document.getElementById('enemy-sprite').innerHTML = `<svg width="100%" height="100%" viewBox="0 0 200 200" class="${M[enemy.stage].anim}">${M[enemy.stage].draw()}</svg>`;
-
-    document.getElementById('player-name').innerText = M[myMon.stage].name;
-    document.getElementById('player-lvl').innerText = myMon.level;
-    document.getElementById('player-hp-val').innerText = myMon.currentHp;
-    document.getElementById('player-hp-max').innerText = myMon.maxHp;
-    const ppct = Math.max(0, (myMon.currentHp / myMon.maxHp) * 100);
-    const pbar = document.getElementById('player-hp-bar');
-    pbar.style.width = ppct + '%';
-    pbar.className = 'hp-bar-fill ' + (ppct<20?'low':ppct<50?'mid':'');
-    document.getElementById('player-sprite').innerHTML = `<svg width="100%" height="100%" viewBox="0 0 200 200" class="${M[myMon.stage].anim}">${M[myMon.stage].draw()}</svg>`;
+function updateBattleUI(){
+  const mon=p.party[activeMonIdx];
+  const sts=getStats(mon.stage,mon.level);
+  mon.maxHp=sts.hp;
+  // Enemy
+  document.getElementById('e-name').textContent=M[enemy.stage]?.name||enemy.stage;
+  document.getElementById('e-lv').textContent=enemy.level;
+  const epct=Math.max(0,enemy.currentHp/enemy.maxHp*100);
+  const ef=document.getElementById('e-hpf');
+  ef.style.width=epct+'%';
+  ef.className='bhpf '+(epct<20?'l':epct<50?'m':'h');
+  document.getElementById('e-spr').innerHTML=`<svg width="130" height="130" viewBox="0 0 200 200" class="${M[enemy.stage]?.anim||'anim-pulse'}">${M[enemy.stage]?.draw()||''}</svg>`;
+  // Player
+  document.getElementById('p-name').textContent=M[mon.stage]?.name||mon.stage;
+  document.getElementById('p-lv').textContent=mon.level;
+  const ppct=Math.max(0,mon.currentHp/mon.maxHp*100);
+  const pf=document.getElementById('p-hpf');
+  pf.style.width=ppct+'%';
+  pf.className='bhpf '+(ppct<20?'l':ppct<50?'m':'h');
+  document.getElementById('p-hpv').textContent=mon.currentHp;
+  document.getElementById('p-hpm').textContent=mon.maxHp;
+  document.getElementById('p-spr').innerHTML=`<svg width="120" height="120" viewBox="0 0 200 200" class="${M[mon.stage]?.anim||'anim-pulse'}">${M[mon.stage]?.draw()||''}</svg>`;
 }
 
-function setBattleMsg(msg) {
-    document.getElementById('battle-msg').innerText = msg;
-}
+function setBmsg(t){document.getElementById('bmsg').textContent=t;}
+let battleBusy=false;
 
-async function battleCmd(cmd) {
-    if(gameState !== 'battle') return;
-    const btns = document.getElementById('battle-cmds');
-    btns.style.pointerEvents = 'none';
-    btns.style.opacity = '0.5';
-
-    const myMon = p.party[activeMonIdx];
-    const myStats = getStats(myMon.stage, myMon.level);
-
-    if (cmd === 'run') {
-        if(Math.random() < 0.7 || myStats.spd > enemy.stats.spd) {
-            setBattleMsg('うまく にげきれた！');
-            await wait(1000);
-            endBattle();
-        } else {
-            setBattleMsg('にげられなかった！');
-            await wait(1000);
-            await enemyTurn();
-        }
-    } else if (cmd === 'attack') {
-        setBattleMsg(`${M[myMon.stage].name} の こうげき！`);
-        document.getElementById('player-sprite').classList.add('attack-up');
-        await wait(300);
-        document.getElementById('player-sprite').classList.remove('attack-up');
-        
-        let dmg = Math.floor(((myMon.level * 2 / 5 + 2) * 40 * (myStats.atk / enemy.stats.def) / 50 + 2) * (0.85 + Math.random()*0.15));
-        enemy.currentHp = Math.max(0, enemy.currentHp - dmg);
-        
-        document.getElementById('enemy-sprite').classList.add('battle-blink');
-        updateBattleUI();
-        await wait(800);
-        document.getElementById('enemy-sprite').classList.remove('battle-blink');
-
-        if(enemy.currentHp <= 0) {
-            await winBattle();
-        } else {
-            await enemyTurn();
-        }
-    } else if (cmd === 'catch') {
-        setBattleMsg('ボール を なげた！');
-        await wait(1000);
-        const catchRate = ((1 - enemy.currentHp / enemy.maxHp) * 0.5 + 0.1);
-        if(Math.random() < catchRate) {
-            if(p.party.length < 6) {
-                setBattleMsg(`やったー！ ${M[enemy.stage].name} を つかまえた！`);
-                p.party.push({ id: generateId(), stage: enemy.stage, level: enemy.level, exp: 0, currentHp: enemy.currentHp });
-                await wait(1500);
-                endBattle();
-            } else {
-                setBattleMsg('てもち が いっぱい だ！');
-                await wait(1000);
-                await enemyTurn();
-            }
-        } else {
-            setBattleMsg('ああっ！ つかまらない！');
-            await wait(1000);
-            await enemyTurn();
-        }
-    } else if (cmd === 'party') {
-        const nextIdx = p.party.findIndex((m, i) => i !== activeMonIdx && m.currentHp > 0);
-        if(nextIdx !== -1) {
-            setBattleMsg(`もどれ！ ${M[myMon.stage].name}！`);
-            await wait(1000);
-            activeMonIdx = nextIdx;
-            setBattleMsg(`ゆけっ！ ${M[p.party[activeMonIdx].stage].name}！`);
-            updateBattleUI();
-            await wait(1000);
-            await enemyTurn(); 
-        } else {
-            setBattleMsg('ほかに たたかえる モンスがいない！');
-            await wait(1000);
-        }
+async function bCmd(cmd){
+  if(battleBusy)return;
+  const cmds=document.getElementById('bcmds');
+  const mpan=document.getElementById('mpanel');
+  const bpan=document.getElementById('bagpanel');
+  const span=document.getElementById('swpanel');
+  if(cmd==='fight'){
+    cmds.style.display='none';
+    mpan.style.display='grid';
+    bpan.style.display='none';
+    span.style.display='none';
+    const moves=getMoves(p.party[activeMonIdx].stage);
+    mpan.innerHTML=moves.map((mv,i)=>`
+      <button class="mcmd" style="background:${typeBg(mv.type)};border-color:${typeColor(mv.type)}"
+        onclick="useMoveIdx(${i})">
+        <div style="font-size:11px;color:${typeColor(mv.type)};margin-bottom:2px">${mv.type.toUpperCase()}</div>
+        <div>${mv.name}</div>
+        <div style="font-size:10px;opacity:0.7;margin-top:2px">威力 ${mv.power}</div>
+      </button>`).join('');
+  } else if(cmd==='bag'){
+    cmds.style.display='none';
+    bpan.style.display='grid';
+    mpan.style.display='none';
+    span.style.display='none';
+    bpan.innerHTML=`
+      <button class="bagbtn" onclick="useBagItem('ball')">🎯 モンスボール<br><small>残り ${p.items.ball}個</small></button>
+      <button class="bagbtn" onclick="useBagItem('potion')">💊 ポーション<br><small>残り ${p.items.potion}個</small></button>
+      <button class="bagbtn" onclick="useBagItem('superpotion')">💉 スーパーポーション<br><small>残り ${p.items.superpotion}個</small></button>
+      <button class="bagbtn" onclick="useBagItem('revive')">⭐ げんきのかけら<br><small>残り ${p.items.revive}個</small></button>
+    `;
+  } else if(cmd==='switch'){
+    const alive=p.party.filter((_,i)=>i!==activeMonIdx&&p.party[i].currentHp>0);
+    if(alive.length===0){setBmsg('こうたい できる モンスが いない！');return;}
+    cmds.style.display='none';
+    span.style.display='flex';
+    mpan.style.display='none';
+    bpan.style.display='none';
+    span.innerHTML=p.party.map((m,i)=>{
+      if(i===activeMonIdx||m.currentHp<=0)return'';
+      const pct=m.currentHp/m.maxHp*100;
+      return`<div class="swrow" onclick="switchMon(${i})">
+        <svg width="36" height="36" viewBox="0 0 200 200">${M[m.stage]?.draw()||''}</svg>
+        <div><div class="swname">${M[m.stage]?.name||m.stage}</div><div class="swlv">Lv ${m.level} — HP ${m.currentHp}/${m.maxHp}</div>
+        <div class="prow-hpbar" style="width:100px"><div class="prow-hpf" style="width:${pct}%;background:${pct>50?'#22c55e':pct>20?'#eab308':'#ef4444'}"></div></div></div>
+      </div>`;
+    }).join('');
+  } else if(cmd==='run'){
+    if(battleIsTrainer){setBmsg('トレーナーバトルは にげられない！');return;}
+    battleBusy=true;
+    const myspd=getStats(p.party[activeMonIdx].stage,p.party[activeMonIdx].level).spd;
+    if(Math.random()<0.6||myspd>enemy.stats.spd){
+      setBmsg('うまく にげきれた！');
+      await wait(1000);
+      endBattle(false);
+    } else {
+      setBmsg('にげられなかった！');
+      await wait(800);
+      await enemyTurn();
     }
-
-    if(gameState === 'battle') {
-        btns.style.pointerEvents = 'auto';
-        btns.style.opacity = '1';
-    }
+    battleBusy=false;
+    restoreMainBtns();
+  }
 }
 
-async function enemyTurn() {
-    const myMon = p.party[activeMonIdx];
-    const myStats = getStats(myMon.stage, myMon.level);
+function restoreMainBtns(){
+  document.getElementById('bcmds').style.display='grid';
+  document.getElementById('mpanel').style.display='none';
+  document.getElementById('bagpanel').style.display='none';
+  document.getElementById('swpanel').style.display='none';
+}
 
-    setBattleMsg(`${M[enemy.stage].name} の こうげき！`);
-    document.getElementById('enemy-sprite').classList.add('attack-down');
-    await wait(300);
-    document.getElementById('enemy-sprite').classList.remove('attack-down');
+async function useMoveIdx(idx){
+  if(battleBusy)return;
+  battleBusy=true;
+  restoreMainBtns();
+  const mon=p.party[activeMonIdx];
+  const moves=getMoves(mon.stage);
+  const mv=moves[idx]||moves[0];
+  const myStats=getStats(mon.stage,mon.level);
+  // Player attack
+  setBmsg(`${M[mon.stage]?.name} の ${mv.name}！`);
+  document.getElementById('p-spr').classList.add('atk-up');
+  await wait(300);
+  document.getElementById('p-spr').classList.remove('atk-up');
+  // Type effectiveness (simple)
+  const typeEff=calcTypeEff(mv.type,M[enemy.stage]?.type||'normal');
+  let dmg=Math.floor(((mon.level*2/5+2)*mv.power*(myStats.atk/enemy.stats.def)/50+2)*(0.85+Math.random()*0.15)*typeEff);
+  dmg=Math.max(1,dmg);
+  enemy.currentHp=Math.max(0,enemy.currentHp-dmg);
+  document.getElementById('e-spr').classList.add('dmg-fl');
+  updateBattleUI();
+  await wait(300);
+  document.getElementById('e-spr').classList.remove('dmg-fl');
+  if(typeEff>1)setBmsg(`こうかは ばつぐんだ！ (${dmg}ダメージ)`);
+  else if(typeEff<1)setBmsg(`こうかは いまひとつ… (${dmg}ダメージ)`);
+  else setBmsg(`${dmg} ダメージ！`);
+  await wait(700);
+  if(enemy.currentHp<=0){
+    await winBattle();
+    battleBusy=false;
+    return;
+  }
+  await enemyTurn();
+  battleBusy=false;
+  restoreMainBtns();
+}
 
-    let dmg = Math.floor(((enemy.level * 2 / 5 + 2) * 40 * (enemy.stats.atk / myStats.def) / 50 + 2) * (0.85 + Math.random()*0.15));
-    myMon.currentHp = Math.max(0, myMon.currentHp - dmg);
-    
-    document.getElementById('player-sprite').classList.add('battle-shake');
+function calcTypeEff(atkType,defType){
+  const chart={
+    fire:{water:0.5,fire:0.5,normal:1,ghost:1,poison:1},
+    water:{fire:2,water:0.5,normal:1,ghost:1,poison:1},
+    ghost:{ghost:2,normal:0.5,fire:1,water:1,poison:1},
+    poison:{ghost:1,normal:1,fire:1,water:1,poison:0.5},
+    normal:{ghost:0.5,fire:1,water:1,poison:1,normal:1},
+  };
+  return (chart[atkType]&&chart[atkType][defType])||1;
+}
+
+async function enemyTurn(){
+  const mon=p.party[activeMonIdx];
+  const myStats=getStats(mon.stage,mon.level);
+  const emoves=getMoves(enemy.stage);
+  const emv=emoves[Math.floor(Math.random()*emoves.length)];
+  const typeEff=calcTypeEff(emv.type,M[mon.stage]?.type||'normal');
+  setBmsg(`${M[enemy.stage]?.name} の ${emv.name}！`);
+  document.getElementById('e-spr').classList.add('atk-dn');
+  await wait(300);
+  document.getElementById('e-spr').classList.remove('atk-dn');
+  let dmg=Math.floor(((enemy.level*2/5+2)*emv.power*(enemy.stats.atk/myStats.def)/50+2)*(0.85+Math.random()*0.15)*typeEff);
+  dmg=Math.max(1,dmg);
+  mon.currentHp=Math.max(0,mon.currentHp-dmg);
+  document.getElementById('p-spr').classList.add('b-shake');
+  updateBattleUI();
+  await wait(350);
+  document.getElementById('p-spr').classList.remove('b-shake');
+  setBmsg(`${dmg} ダメージ！`);
+  await wait(700);
+  if(mon.currentHp<=0){
+    await monFainted(mon);
+  }
+}
+
+async function monFainted(mon){
+  setBmsg(`${M[mon.stage]?.name} は たおれた！`);
+  await wait(1500);
+  const nextIdx=p.party.findIndex((m,i)=>i!==activeMonIdx&&m.currentHp>0);
+  if(nextIdx>=0){
+    activeMonIdx=nextIdx;
+    setBmsg(`ゆけっ！ ${M[p.party[activeMonIdx].stage]?.name}！`);
     updateBattleUI();
-    await wait(800);
-    document.getElementById('player-sprite').classList.remove('battle-shake');
-
-    if(myMon.currentHp <= 0) {
-        setBattleMsg(`${M[myMon.stage].name} は たおれた！`);
-        await wait(1500);
-        const nextIdx = p.party.findIndex(m => m.currentHp > 0);
-        if(nextIdx !== -1) {
-            activeMonIdx = nextIdx;
-            setBattleMsg(`ゆけっ！ ${M[p.party[activeMonIdx].stage].name}！`);
-            updateBattleUI();
-            await wait(1000);
-        } else {
-            setBattleMsg('めのまえが まっくら になった...');
-            await wait(1500);
-            // Respawn
-            p.x = 1; p.y = 1; p.px = 1; p.py = 1;
-            p.party.forEach(m => m.currentHp = getStats(m.stage, m.level).hp);
-            endBattle();
-        }
-    }
-}
-
-async function winBattle() {
-    const myMon = p.party[activeMonIdx];
-    setBattleMsg(`${M[enemy.stage].name} を たおした！`);
-    document.getElementById('enemy-sprite').style.opacity = '0';
     await wait(1000);
-    
-    const expGained = enemy.level * 10;
-    setBattleMsg(`${M[myMon.stage].name} は ${expGained} EXP をてにいれた！`);
-    myMon.exp += expGained;
+  } else {
+    // All fainted
+    setBmsg('めのまえが まっくらに なった…');
     await wait(1500);
-
-    const nextLvExp = Math.pow(myMon.level, 3);
-    if(myMon.exp >= nextLvExp) {
-        myMon.level++;
-        const newStats = getStats(myMon.stage, myMon.level);
-        myMon.maxHp = newStats.hp;
-        myMon.currentHp = myMon.maxHp; // レベルアップで全回復
-        
-        showDialog('レベルアップ！', `${M[myMon.stage].name} は Lv ${myMon.level} になった！`, `<svg viewBox="0 0 200 200" width="100%" height="100%">${M[myMon.stage].draw()}</svg>`);
-        await waitForState('battle'); 
-        
-        let evolved = false;
-        if(myMon.stage === 'egg' && myMon.level >= EVO_LEVELS.stage1) evolved = true;
-        else if(myMon.stage.length === 1 && myMon.level >= EVO_LEVELS.stage2) evolved = true;
-        
-        if(evolved) {
-            const evos = EVO_TREE[myMon.stage] || [];
-            if(evos.length > 0) {
-                const nextStage = evos[Math.floor(Math.random()*evos.length)];
-                showDialog('おや...？', `${M[myMon.stage].name} の ようすが...`, `<svg viewBox="0 0 200 200" width="100%" height="100%" class="anim-pulse" style="filter:brightness(0) sepia(1) hue-rotate(50deg) saturate(5);">${M[myMon.stage].draw()}</svg>`);
-                await waitForState('battle');
-                
-                myMon.stage = nextStage;
-                if(!p.seen.includes(nextStage)) p.seen.push(nextStage);
-                showDialog('おめでとう！', `${M[myMon.stage].name} に しんか した！`, `<svg viewBox="0 0 200 200" width="100%" height="100%" class="anim-bounce">${M[myMon.stage].draw()}</svg>`);
-                await waitForState('battle');
-            }
-        }
-    }
-    
-    endBattle();
-}
-
-function endBattle() {
-    document.getElementById('enemy-sprite').style.opacity = '1';
-    document.getElementById('battle-cmds').style.pointerEvents = 'auto';
-    document.getElementById('battle-cmds').style.opacity = '1';
-    changeState('map');
-    document.getElementById('status-text').innerText = 'EXPLORING';
+    p.party.forEach(m=>{m.currentHp=Math.max(1,Math.floor(m.maxHp*0.3));});
+    p.gold=Math.max(0,p.gold-200);
     saveGame();
+    endBattle(false);
+  }
 }
 
-function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-function waitForState(state) {
-    return new Promise(resolve => {
-        const check = setInterval(()=>{
-            if(gameState === state) { clearInterval(check); resolve(); }
-        }, 100);
-    });
-}
-
-// ════════════════════════════════════
-//  UI CONTROLS
-// ════════════════════════════════════
-function changeState(state) {
-    gameState = state;
-    document.getElementById('view-title').classList.toggle('hidden', state !== 'title');
-    document.getElementById('gameCanvas').style.display = state === 'map' || state === 'menu' || state === 'dialog' ? 'block' : 'none';
-    document.getElementById('view-battle').style.display = state === 'battle' ? 'flex' : 'none';
-    document.getElementById('view-menu').classList.toggle('hidden', state !== 'menu');
-    document.getElementById('view-dialog').classList.toggle('hidden', state !== 'dialog');
-}
-
-function startGame() {
-    loadGame();
-    initMap();
-    changeState('map');
-    
-    // 戦闘開始時に生存している最初のモンスターをアクティブに
-    activeMonIdx = p.party.findIndex(m => m.currentHp > 0);
-    if(activeMonIdx === -1) {
-        p.party.forEach(m => m.currentHp = getStats(m.stage, m.level).hp);
-        activeMonIdx = 0;
+async function useBagItem(item){
+  if(battleBusy)return;
+  battleBusy=true;
+  restoreMainBtns();
+  const mon=p.party[activeMonIdx];
+  if(item==='ball'){
+    if(p.items.ball<=0){setBmsg('モンスボールが ない！');battleBusy=false;return;}
+    if(!enemy.isWild){setBmsg('トレーナーの モンスは つかまえられない！');battleBusy=false;restoreMainBtns();return;}
+    p.items.ball--;
+    setBmsg('モンスボールを なげた！ ●…●…●…');
+    await wait(1800);
+    const rate=Math.max(0.05,(1-enemy.currentHp/enemy.maxHp)*0.7+0.1);
+    if(Math.random()<rate){
+      if(p.party.length<6){
+        setBmsg(`やったー！ ${M[enemy.stage]?.name} を つかまえた！`);
+        const ns=getStats(enemy.stage,enemy.level);
+        p.party.push({stage:enemy.stage,level:enemy.level,exp:0,currentHp:enemy.currentHp,maxHp:ns.hp});
+        await wait(1500);
+        endBattle(true);
+      } else {
+        setBmsg('てもちが いっぱい！ モンスを はずして！');
+        await wait(1500);
+        await enemyTurn();
+      }
+    } else {
+      setBmsg('あっ！ はずれた！');
+      await wait(1000);
+      await enemyTurn();
     }
+  } else if(item==='potion'){
+    if(p.items.potion<=0){setBmsg('ポーションが ない！');battleBusy=false;restoreMainBtns();return;}
+    p.items.potion--;
+    const heal=Math.min(20,mon.maxHp-mon.currentHp);
+    mon.currentHp+=heal;
+    setBmsg(`${M[mon.stage]?.name} の HPが 20 かいふく した！`);
+    updateBattleUI();
+    await wait(1200);
+    await enemyTurn();
+  } else if(item==='superpotion'){
+    if(p.items.superpotion<=0){setBmsg('スーパーポーションが ない！');battleBusy=false;restoreMainBtns();return;}
+    p.items.superpotion--;
+    const heal=Math.min(50,mon.maxHp-mon.currentHp);
+    mon.currentHp+=heal;
+    setBmsg(`${M[mon.stage]?.name} の HPが 50 かいふく した！`);
+    updateBattleUI();
+    await wait(1200);
+    await enemyTurn();
+  } else if(item==='revive'){
+    const dead=p.party.find(m=>m.currentHp<=0);
+    if(!dead||p.items.revive<=0){setBmsg(p.items.revive<=0?'げんきのかけら が ない！':'げんきを うしなった モンスが いない！');battleBusy=false;restoreMainBtns();return;}
+    p.items.revive--;
+    dead.currentHp=Math.floor(dead.maxHp*0.5);
+    setBmsg(`${M[dead.stage]?.name} が よみがえった！`);
+    await wait(1200);
+    await enemyTurn();
+  }
+  battleBusy=false;
+  restoreMainBtns();
 }
 
-function inputDir(dir, isDown) { keys[dir] = isDown; }
-
-function btnA() {
-    if(gameState === 'title') startGame();
-    else if(gameState === 'dialog') closeDialog();
-}
-function btnB() {
-    if(gameState === 'map') openMenu();
-    else if(gameState === 'menu') closeMenu();
-}
-
-function openMenu() {
-    if(gameState !== 'map') return;
-    changeState('menu');
-    document.getElementById('status-text').innerText = 'MENU';
-    
-    const list = document.getElementById('party-list');
-    list.innerHTML = '';
-    p.party.forEach((m, idx) => {
-        const pct = Math.max(0, m.currentHp / m.maxHp * 100);
-        const isLeader = idx === 0;
-        list.innerHTML += `
-            <div onclick="swapToFront(${idx})" class="bg-white/10 rounded-xl p-3 flex items-center gap-3 border ${isLeader ? 'border-blue-400' : 'border-white/5'} cursor-pointer active:scale-95 transition-transform">
-                <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-                    <svg width="40" height="40" viewBox="0 0 200 200">${M[m.stage].draw()}</svg>
-                </div>
-                <div class="flex-1">
-                    <div class="text-sm font-black flex justify-between"><span>${M[m.stage].name}</span><span class="text-zinc-400 text-xs">Lv ${m.level}</span></div>
-                    <div class="hp-bar-bg mt-1 h-1.5"><div class="hp-bar-fill ${pct<20?'low':pct<50?'mid':''}" style="width: ${pct}%"></div></div>
-                    <div class="text-[10px] text-right mt-0.5">${m.currentHp}/${m.maxHp}</div>
-                </div>
-                ${isLeader ? '<div class="text-xs font-bold text-blue-400">先頭</div>' : ''}
-            </div>
-        `;
-    });
+async function switchMon(idx){
+  if(battleBusy)return;
+  battleBusy=true;
+  restoreMainBtns();
+  setBmsg(`もどれ！ ${M[p.party[activeMonIdx].stage]?.name}！`);
+  await wait(800);
+  activeMonIdx=idx;
+  setBmsg(`ゆけっ！ ${M[p.party[activeMonIdx].stage]?.name}！`);
+  updateBattleUI();
+  await wait(1000);
+  await enemyTurn();
+  battleBusy=false;
+  restoreMainBtns();
 }
 
-function swapToFront(idx) {
-    if(idx === 0) return;
-    const temp = p.party[0];
-    p.party[0] = p.party[idx];
-    p.party[idx] = temp;
-    activeMonIdx = 0;
-    saveGame();
-    openMenu(); // 再描画
+async function winBattle(){
+  const mon=p.party[activeMonIdx];
+  const ename=M[enemy.stage]?.name||enemy.stage;
+  setBmsg(`${ename} を たおした！`);
+  document.getElementById('e-spr').style.opacity='0';
+  await wait(1000);
+  // Trainer: next mon?
+  if(battleIsTrainer&&enemy.party){
+    enemy.partyIdx++;
+    if(enemy.partyIdx<enemy.party.length){
+      const next=enemy.party[enemy.partyIdx];
+      const ns=getStats(next.stage,next.level);
+      enemy.stage=next.stage;enemy.level=next.level;
+      enemy.currentHp=ns.hp;enemy.maxHp=ns.hp;enemy.stats=ns;
+      document.getElementById('e-spr').style.opacity='1';
+      setBmsg(`${enemy.trainer?.leaderName||enemy.trainer?.name} の ${M[next.stage]?.name}！`);
+      updateBattleUI();
+      await wait(1200);
+      return; // continue battle
+    }
+  }
+  // Battle won
+  const expGain=Math.floor(enemy.level*12*(battleIsTrainer?1.5:1));
+  const goldGain=currentTrainer?.reward?.gold||Math.floor(enemy.level*18);
+  setBmsg(`${M[mon.stage]?.name} は ${expGain} EXP を てにいれた！`);
+  mon.exp=(mon.exp||0)+expGain;
+  p.gold+=goldGain;
+  await wait(1500);
+  // Level up
+  let leveled=false;
+  const lvExpNeeded=()=>Math.pow(mon.level,3);
+  while((mon.exp||0)>=lvExpNeeded()){
+    mon.exp-=lvExpNeeded();
+    mon.level++;
+    leveled=true;
+    const ns=getStats(mon.stage,mon.level);
+    const hpGain=ns.hp-mon.maxHp;
+    mon.maxHp=ns.hp;
+    mon.currentHp=Math.min(mon.currentHp+hpGain,mon.maxHp);
+    setBmsg(`${M[mon.stage]?.name} は Lv ${mon.level} に なった！`);
+    await wait(1000);
+    // Evo check
+    const depth=mon.stage==='egg'?0:mon.stage.length;
+    const evoLv=depth===0?5:depth===1?15:36;
+    if(mon.level>=evoLv&&EVO_TREE[mon.stage]){
+      const next=EVO_TREE[mon.stage];
+      const nextStage=next[Math.floor(Math.random()*next.length)];
+      await doEvo(mon,nextStage);
+    }
+  }
+  // Trainer badge / reward
+  if(battleIsTrainer&&currentTrainer){
+    p.defeated[currentTrainer.id||`gym_${curMap}`]=true;
+    if(currentTrainer.reward?.badge!==undefined){
+      p.badges.push(currentTrainer.reward.badge);
+    }
+    if(currentTrainer.reward?.ending){
+      saveGame();
+      endBattle(true);
+      showEnding();
+      return;
+    }
+    const wd=currentTrainer.winDialog||['よく やった！'];
+    let wi=0;
+    function nextWd(){
+      if(wi<wd.length){showDialog(currentTrainer.leaderTitle||currentTrainer.title||'トレーナー',wd[wi++],null,nextWd);}
+      else{endBattle(true);}
+    }
+    nextWd();
+    return;
+  }
+  saveGame();
+  endBattle(true);
 }
 
-function closeMenu() {
-    if(gameState !== 'menu') return;
-    changeState('map');
-    document.getElementById('status-text').innerText = 'EXPLORING';
+async function doEvo(mon,nextStage){
+  setGs('evo');
+  document.getElementById('evo-sfx').textContent='💫';
+  document.getElementById('evo-name').textContent=`→ ${M[nextStage]?.name}`;
+  document.getElementById('evo-desc').textContent=M[nextStage]?.desc||'しんかした！';
+  document.getElementById('evo-spr').innerHTML=`<svg width="120" height="120" viewBox="0 0 200 200" class="anim-bounce">${M[nextStage]?.draw()||''}</svg>`;
+  await new Promise(r=>{evoCallback=()=>{evoCallback=null;r();};});
+  mon.stage=nextStage;
+  const ns=getStats(nextStage,mon.level);
+  mon.maxHp=ns.hp;mon.currentHp=Math.min(mon.currentHp,mon.maxHp);
+  setGs('battle');
+  updateBattleUI();
 }
 
-let prevState = '';
-function showDialog(title, desc, imgHtml) {
-    if(gameState !== 'dialog') prevState = gameState;
-    changeState('dialog');
-    document.getElementById('dialog-title').innerText = title;
-    document.getElementById('dialog-desc').innerText = desc;
-    document.getElementById('dialog-img').innerHTML = imgHtml;
-}
-function closeDialog() {
-    changeState(prevState);
+function closeEvo(){if(evoCallback)evoCallback();}
+
+function endBattle(won){
+  document.getElementById('e-spr').style.opacity='1';
+  setGs('map');
+  saveGame();
+  updateHud();
 }
 
-// PC Keys
-window.addEventListener('keydown', e => {
-    if(e.key === 'ArrowUp') keys.up = true;
-    if(e.key === 'ArrowDown') keys.down = true;
-    if(e.key === 'ArrowLeft') keys.left = true;
-    if(e.key === 'ArrowRight') keys.right = true;
-    if(e.key === 'z' || e.key === 'Z') btnA();
-    if(e.key === 'x' || e.key === 'X') btnB();
+function showEnding(){
+  setGs('win');
+  document.getElementById('win-icon').textContent='👑';
+  document.getElementById('win-title').textContent='チャンピオン！！！';
+  document.getElementById('win-sub').textContent='あなたは 新しい チャンピオンに なった！\nモンスターとの 絆が 奇跡を 起こした！';
+  document.getElementById('win-reward').innerHTML=`<div>🏆 チャンピオンに なった！</div><div>⭐ ゲームクリア おめでとう！</div>`;
+  winCallback=()=>{setGs('map');};
+}
+
+function closeWin(){if(winCallback)winCallback();}
+
+// ═══════════════════════════════════════════════
+//  DIALOG SYSTEM
+// ═══════════════════════════════════════════════
+function showDialog(name,text,img,cb){
+  const el=document.getElementById('dlg');
+  el.style.display='block';
+  document.getElementById('dlg-name').textContent=name||'';
+  document.getElementById('dlg-txt').textContent=text||'';
+  document.getElementById('dlg-choices').innerHTML='';
+  dlgCb=cb;
+  dlgChoiceCb=null;
+}
+
+function closeDialogNow(){
+  const el=document.getElementById('dlg');
+  el.style.display='none';
+  const cb=dlgCb;
+  dlgCb=null;
+  if(cb)cb();
+}
+
+// ═══════════════════════════════════════════════
+//  MENU
+// ═══════════════════════════════════════════════
+function openMenu(){
+  if(gs!=='map')return;
+  setGs('menu');
+  // Badges
+  const badgeIcons=['🌱','🔥','⚡','🌋'];
+  document.getElementById('mu-badges').innerHTML=badgeIcons.map((b,i)=>`
+    <div class="mu-badge ${p.badges.includes(i)?'':'empty'}">${b}</div>`).join('');
+  document.getElementById('hud-badges').innerHTML=badgeIcons.filter((_,i)=>p.badges.includes(i)).map(b=>`<span class="badge-icon">${b}</span>`).join('');
+  // Party
+  const list=document.getElementById('party-list');
+  list.innerHTML=p.party.map((m,i)=>{
+    const pct=m.currentHp/m.maxHp*100;
+    const col=pct>50?'#22c55e':pct>20?'#eab308':'#ef4444';
+    return`<div class="prow ${i===0?'lead':''}" onclick="swapLead(${i})">
+      <svg width="44" height="44" viewBox="0 0 200 200">${M[m.stage]?.draw()||''}</svg>
+      <div style="flex:1">
+        <div class="prow-name">${M[m.stage]?.name||m.stage} ${i===0?'<span style="font-size:9px;color:#60a5fa;margin-left:4px">先頭</span>':''}</div>
+        <div class="prow-lv">Lv ${m.level} — ${m.stage.length===0||m.stage==='egg'?'たまご':m.stage.length===1?'ステージ1':m.stage.length===2?'ステージ2':'最終形態'}</div>
+        <div class="prow-hpbar"><div class="prow-hpf" style="width:${pct}%;background:${col}"></div></div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px">${m.currentHp}/${m.maxHp}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // Items
+  document.getElementById('mu-items').innerHTML=`
+    🎯 モンスボール: ${p.items.ball}　💊 ポーション: ${p.items.potion}<br>
+    💉 スーパーポーション: ${p.items.superpotion}　⭐ げんきのかけら: ${p.items.revive}`;
+  // Progress
+  document.getElementById('mu-prog').innerHTML=`
+    💰 ゴールド: ${p.gold}G<br>
+    🏆 バッジ: ${p.badges.length}/4<br>
+    👥 パーティ: ${p.party.length}/6<br>
+    🦶 歩数: ${p.steps}`;
+}
+
+function swapLead(idx){
+  if(idx===0)return;
+  const t=p.party[0];p.party[0]=p.party[idx];p.party[idx]=t;
+  activeMonIdx=0;
+  saveGame();
+  openMenu();
+}
+
+function closeMenu(){
+  if(gs!=='menu')return;
+  setGs('map');
+}
+
+// ═══════════════════════════════════════════════
+//  UI STATE
+// ═══════════════════════════════════════════════
+function setGs(state){
+  gs=state;
+  document.getElementById('ov-title').classList.toggle('on',state==='title');
+  document.getElementById('ov-starter').classList.toggle('on',state==='starter');
+  document.getElementById('ov-battle').classList.toggle('on',state==='battle');
+  document.getElementById('ov-menu').classList.toggle('on',state==='menu');
+  document.getElementById('ov-evo').classList.toggle('on',state==='evo');
+  document.getElementById('ov-win').classList.toggle('on',state==='win');
+  const showCanvas=state==='map'||state==='dialog';
+  document.getElementById('gc').style.display=showCanvas?'block':'none';
+  document.getElementById('controls').style.display=(state==='map'||state==='dialog')?'flex':'none';
+  document.getElementById('btn-menu').style.display=state==='map'?'block':'none';
+  document.getElementById('strip').style.display=(state==='map'||state==='dialog')?'':'none';
+  document.getElementById('hud').style.display=(state==='map'||state==='dialog')?'':'none';
+  if(state==='dialog'){
+    document.getElementById('dlg').style.display='block';
+  } else if(state!=='dialog'){
+    // only hide dialog if not in dialog
+    if(state!=='dialog')document.getElementById('dlg').style.display='none';
+  }
+}
+
+function updateHud(){
+  document.getElementById('hud-loc').textContent=MAPS[curMap]?.name||'';
+  document.getElementById('hud-gold').textContent=p.gold;
+  const badgeIcons=['🌱','🔥','⚡','🌋'];
+  document.getElementById('hud-badges').innerHTML=badgeIcons.filter((_,i)=>p.badges.includes(i)).map(b=>`<span class="badge-icon">${b}</span>`).join('');
+}
+
+function updateStripUI(){
+  const mon=p.party[activeMonIdx];
+  if(!mon)return;
+  document.getElementById('si-party').textContent=`${p.party.length}/6`;
+  document.getElementById('si-leader').textContent=M[mon.stage]?.name||mon.stage;
+  document.getElementById('si-lv').textContent=mon.level;
+  document.getElementById('si-hp').textContent=`${mon.currentHp}/${mon.maxHp}`;
+}
+
+function showEncFlash(){
+  const f=document.createElement('div');
+  f.className='enc-flash';
+  document.body.appendChild(f);
+  setTimeout(()=>f.remove(),800);
+}
+
+// ═══════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════
+function btnA(){
+  if(gs==='title'){showStarterSelect();return;}
+  if(gs==='dialog'){closeDialogNow();return;}
+  if(gs==='evo'){closeEvo();return;}
+}
+function btnB(){
+  if(gs==='map'){openMenu();return;}
+  if(gs==='menu'){closeMenu();return;}
+  if(gs==='dialog'){closeDialogNow();return;}
+  if(gs==='battle'){
+    // Back to main cmds
+    restoreMainBtns();
+  }
+}
+
+function setupDpad(){
+  const dirs={up:'up',down:'down','dp-l':'left','dp-r':'right'};
+  ['dp-u','dp-d','dp-l','dp-r'].forEach((id,i)=>{
+    const dir=['up','down','left','right'][i];
+    const el=document.getElementById(id);
+    const on=()=>{keys[dir]=true;el.classList.add('on');};
+    const off=()=>{keys[dir]=false;el.classList.remove('on');};
+    el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
+    el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false});
+    el.addEventListener('mousedown',on);
+    el.addEventListener('mouseup',off);
+    el.addEventListener('mouseleave',off);
+  });
+}
+
+// Keyboard
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp')keys.up=true;
+  if(e.key==='ArrowDown')keys.down=true;
+  if(e.key==='ArrowLeft')keys.left=true;
+  if(e.key==='ArrowRight')keys.right=true;
+  if(e.key==='z'||e.key==='Z'||e.key===' ')btnA();
+  if(e.key==='x'||e.key==='X'||e.key==='Escape')btnB();
 });
-window.addEventListener('keyup', e => {
-    if(e.key === 'ArrowUp') keys.up = false;
-    if(e.key === 'ArrowDown') keys.down = false;
-    if(e.key === 'ArrowLeft') keys.left = false;
-    if(e.key === 'ArrowRight') keys.right = false;
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowUp')keys.up=false;
+  if(e.key==='ArrowDown')keys.down=false;
+  if(e.key==='ArrowLeft')keys.left=false;
+  if(e.key==='ArrowRight')keys.right=false;
 });
 
-window.onload = () => { lucide.createIcons(); };
+// ═══════════════════════════════════════════════
+//  STARTER SELECT
+// ═══════════════════════════════════════════════
+const STARTERS=[
+  {stage:'A',label:'ノーマルタイプ',color:'#f9a8d4'},
+  {stage:'B',label:'ほのおタイプ',color:'#fb923c'},
+  {stage:'C',label:'ゴーストタイプ',color:'#c084fc'},
+];
+
+function showStarterSelect(){
+  // Check for existing save
+  const saved=localStorage.getItem(SAVE_KEY);
+  if(saved){
+    try{
+      const d=JSON.parse(saved);
+      if(d.p&&d.p.party&&d.p.party.length>0){
+        // Resume
+        p=d.p;curMap=d.curMap||'start';activeMonIdx=d.activeMonIdx||0;
+        p.party.forEach(m=>{m.maxHp=getStats(m.stage,m.level).hp;if(!m.currentHp)m.currentHp=m.maxHp;});
+        startAdventure();
+        return;
+      }
+    }catch(e){}
+  }
+  // New game
+  const grid=document.getElementById('s-grid');
+  grid.innerHTML=STARTERS.map((s,i)=>`
+    <div class="s-card" id="sc-${i}" onclick="selectStarter(${i})" style="border-color:rgba(${hexToRgb(s.color)},0.3)">
+      <svg width="80" height="80" viewBox="0 0 200 200" class="${M[s.stage].anim}">${M[s.stage].draw()}</svg>
+      <div class="s-cname">${M[s.stage].name}</div>
+      <div class="s-ctype" style="color:${s.color}">${s.label}</div>
+    </div>`).join('');
+  setGs('starter');
+}
+
+function hexToRgb(hex){
+  const r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r?`${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}`:'255,255,255';
+}
+
+function selectStarter(idx){
+  starterChoice=idx;
+  document.querySelectorAll('.s-card').forEach((el,i)=>{
+    el.classList.toggle('sel',i===idx);
+  });
+  const conf=document.getElementById('s-confirm');
+  conf.classList.add('on');
+}
+
+function confirmStarter(){
+  if(starterChoice===null)return;
+  const s=STARTERS[starterChoice];
+  const stats=getStats(s.stage,5);
+  p.party=[{stage:s.stage,level:5,exp:0,currentHp:stats.hp,maxHp:stats.hp}];
+  p.gold=500;p.badges=[];p.defeated={};p.flags={};p.steps=0;
+  p.items={ball:15,potion:8,superpotion:3,revive:2};
+  curMap='start';p.x=1;p.y=1;p.px=1;p.py=1;
+  saveGame();
+  startAdventure();
+}
+
+function startAdventure(){
+  setGs('map');
+  updateHud();
+  document.getElementById('hud-loc').textContent=MAPS[curMap].name;
+  // Opening story dialog for new players
+  if(!p.flags.intro_done){
+    p.flags.intro_done=true;
+    const lines=[
+      ['博士','ようこそ！ モンスタークエストの せかいへ！'],
+      ['博士','ここは モンスターたちが すむ せかい。'],
+      ['博士','きみも つよい トレーナーを めざして\nぼうけんに でかけよう！'],
+      ['博士','バッジを あつめて よっつのてん王と\nチャンピオンを たおすのが きみの めあてだ！'],
+      ['博士','いい ぼうけんを！'],
+    ];
+    let i=0;
+    function next(){if(i<lines.length){showDialog(lines[i][0],lines[i][1],null,()=>{i++;next();});}else{document.getElementById('dlg').style.display='none';}}
+    setTimeout(next,400);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════
+function resizeCanvas(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+window.onload=function(){
+  // Parse all maps
+  Object.keys(MAPS).forEach(k=>getMapData(k));
+  setupDpad();
+  resizeCanvas();
+  setTimeout(()=>{
+    document.getElementById('loading').style.display='none';
+    setGs('title');
+  },800);
+  requestAnimationFrame(gameLoop);
+};
 </script>
 </body>
 </html>
