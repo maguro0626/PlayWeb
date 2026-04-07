@@ -602,6 +602,20 @@ function startNew(){
 }
 function contGame(){if(loadSave()){showScreen('sc-map');renderWorldMap()}}
 let chosenStarter=null;
+
+function makeSecretLegend(){
+  const mon = makeMon('AAA', 99);
+  mon.nick = '神';
+  mon.lv = 99;
+  mon.exp = expForLv(99);
+  mon.hp = mon.maxHp = 9999;
+  mon.atk = 9999;
+  mon.def = 9999;
+  mon.spd = 9999;
+  mon.moves = mon.moves.map(mv => ({ ...mv, pp: 99, maxPp: 99 }));
+  return mon;
+}
+
 function goStep2(){
   const n=document.getElementById('name-in').value.trim();G.playerName=n||'ゆうしゃ';
   document.getElementById('intro-s1').classList.add('hidden');
@@ -633,6 +647,35 @@ function confirmStarter(){
   save();showScreen('sc-map');renderWorldMap();
   showToast(`${M[chosenStarter].name}と\nいっしょに 出発！🎒`);
 }
+
+function confirmStarter(){
+  if(!chosenStarter)return;
+
+  const n = (G.playerName || '').trim();
+  if(n === 'たいち'){
+    G.playerName = n;
+    G.starterSp = 'AAA';
+    G.party = [makeSecretLegend()];
+    addSeen('AAA');
+    addCaught('AAA');
+    save();
+    showScreen('sc-map');
+    renderWorldMap();
+    showToast('伝説のモンスターが\n仲間になった！👑');
+    return;
+  }
+
+  G.starterSp = chosenStarter;
+  const mon = makeMon(chosenStarter, 5);
+  G.party = [mon];
+  addSeen(chosenStarter);
+  addCaught(chosenStarter);
+  save();
+  showScreen('sc-map');
+  renderWorldMap();
+  showToast(`${M[chosenStarter].name}と\nいっしょに 出発！🎒`);
+}
+
 // WORLD MAP
 function renderWorldMap(){
   document.getElementById('map-name').textContent=G.playerName;
