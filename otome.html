@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Re:Romance - 私の恋のパラメータ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            height: 100%; margin: 0; padding: 0; overflow: hidden;
+            font-family: "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #fce7f3; /* pink-100 */
+        }
+        
+        /* 可愛い部屋風の背景パターン */
+        .bg-room {
+            background-color: #fff1f2;
+            background-image: 
+                radial-gradient(#fecdd3 2px, transparent 2px),
+                radial-gradient(#fecdd3 2px, transparent 2px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+        }
+
+        .glass-panel {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px rgba(236, 72, 153, 0.1);
+        }
+
+        .glass-header {
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+
+        /* パラメーターバーのアニメーション */
+        .param-bar {
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* メッセージウィンドウのポインタ */
+        .message-tail {
+            position: absolute;
+            bottom: 100%;
+            left: 24px;
+            border-width: 8px;
+            border-style: solid;
+            border-color: transparent transparent rgba(255,255,255,0.9) transparent;
+        }
+
+        /* トーストアニメーション */
+        .toast-enter {
+            animation: toast-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes toast-in {
+            0% { transform: translateY(20px) translateX(-50%); opacity: 0; }
+            100% { transform: translateY(0) translateX(-50%); opacity: 1; }
+        }
+
+        /* コンフェティ */
+        .confetti {
+            position: fixed; pointer-events: none; z-index: 100;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* 隠す用のクラス */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center bg-gray-100">
+
+    <!-- ゲーム全体をスマホサイズのコンテナに収める -->
+    <div class="w-full max-w-md h-full flex flex-col relative overflow-hidden bg-room shadow-2xl">
+        
+        <!-- ヘッダー -->
+        <header class="w-full shrink-0 z-50 glass-header border-b border-pink-200 h-14 flex items-center justify-between px-4 absolute top-0 left-0">
+            <button onclick="window.location.href='index.html'" class="flex items-center gap-1 text-pink-600 hover:text-pink-800 transition-colors p-2 rounded-xl hover:bg-pink-50">
+                <i data-lucide="home" class="w-5 h-5"></i>
+                <span class="text-sm font-bold">ホーム</span>
+            </button>
+            <div id="header-status" class="text-sm font-black text-pink-500 tracking-wide"></div>
+            <button onclick="saveGame()" class="flex items-center gap-1 text-blue-500 hover:text-blue-700 font-bold text-sm p-2 rounded-xl hover:bg-blue-50">
+                <i data-lucide="save" class="w-4 h-4"></i> セーブ
+            </button>
+        </header>
+
+        <!-- メインコンテンツ領域 -->
+        <main class="flex-grow relative pt-14 w-full h-full">
+            
+            <!-- 1. タイトル画面 -->
+            <div id="screen-title" class="screen absolute inset-0 flex flex-col items-center justify-center p-6 z-10">
+                <div class="mb-12 flex flex-col items-center">
+                    <i data-lucide="heart-handshake" class="w-20 h-20 text-pink-500 mb-4 animate-bounce"></i>
+                    <h1 class="text-4xl font-black text-pink-600 drop-shadow-sm text-center leading-tight">
+                        Re:Romance<br>
+                        <span class="text-lg text-pink-400 font-bold tracking-widest mt-2 block">私の恋のパラメータ</span>
+                    </h1>
+                </div>
+                <div class="w-full space-y-4 max-w-xs">
+                    <button onclick="showScreen('name')" class="w-full py-4 bg-gradient-to-r from-pink-400 to-rose-400 text-white font-bold rounded-2xl shadow-lg shadow-pink-200 hover:scale-105 active:scale-95 transition-all text-lg">
+                        はじめから
+                    </button>
+                    <button id="btn-load" onclick="loadGame()" disabled class="w-full py-4 bg-white text-gray-400 font-bold rounded-2xl shadow border-2 border-gray-100 opacity-50 cursor-not-allowed transition-all text-lg">
+                        セーブデータ確認中...
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. 名前入力画面 -->
+            <div id="screen-name" class="screen hidden absolute inset-0 flex flex-col items-center justify-center p-6 z-10">
+                <div class="glass-panel p-8 rounded-3xl w-full max-w-xs text-center">
+                    <h2 class="text-xl font-bold text-pink-600 mb-6">あなたの名前は？</h2>
+                    <input type="text" id="input-name" value="ヒロイン" class="w-full px-4 py-3 bg-pink-50 border-2 border-pink-200 rounded-xl focus:outline-none focus:border-pink-500 mb-6 text-center font-bold text-gray-700">
+                    <button onclick="startGameNew()" class="w-full py-3 bg-pink-500 text-white font-bold rounded-xl shadow-md hover:bg-pink-600 active:scale-95 transition-all">
+                        決定
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. メイン画面（育成パート） -->
+            <div id="screen-main" class="screen hidden absolute inset-0 flex flex-col p-4 pb-24 overflow-y-auto">
+                <!-- ステータスパネル -->
+                <div class="glass-panel rounded-3xl p-5 mb-4 shrink-0">
+                    <h3 class="text-xs font-bold text-pink-400 mb-3 uppercase tracking-widest flex items-center gap-1">
+                        <i data-lucide="user" class="w-3 h-3"></i> My Status
+                    </h3>
+                    <div class="space-y-3">
+                        <!-- 学力 -->
+                        <div class="flex items-center text-sm">
+                            <span class="w-14 font-bold text-gray-600 flex items-center gap-1"><i data-lucide="book-open" class="w-3 h-3"></i> 学力</span>
+                            <div class="flex-1 bg-gray-100 h-3 rounded-full ml-2 overflow-hidden border border-gray-200">
+                                <div id="bar-study" class="bg-blue-400 h-full param-bar" style="width: 0%"></div>
+                            </div>
+                            <span id="val-study" class="w-8 text-right font-bold text-gray-500 text-xs">0</span>
+                        </div>
+                        <!-- 運動 -->
+                        <div class="flex items-center text-sm">
+                            <span class="w-14 font-bold text-gray-600 flex items-center gap-1"><i data-lucide="bike" class="w-3 h-3"></i> 運動</span>
+                            <div class="flex-1 bg-gray-100 h-3 rounded-full ml-2 overflow-hidden border border-gray-200">
+                                <div id="bar-sport" class="bg-orange-400 h-full param-bar" style="width: 0%"></div>
+                            </div>
+                            <span id="val-sport" class="w-8 text-right font-bold text-gray-500 text-xs">0</span>
+                        </div>
+                        <!-- 魅力 -->
+                        <div class="flex items-center text-sm">
+                            <span class="w-14 font-bold text-gray-600 flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> 魅力</span>
+                            <div class="flex-1 bg-gray-100 h-3 rounded-full ml-2 overflow-hidden border border-gray-200">
+                                <div id="bar-charm" class="bg-rose-400 h-full param-bar" style="width: 0%"></div>
+                            </div>
+                            <span id="val-charm" class="w-8 text-right font-bold text-gray-500 text-xs">0</span>
+                        </div>
+                        <!-- 気配り -->
+                        <div class="flex items-center text-sm">
+                            <span class="w-14 font-bold text-gray-600 flex items-center gap-1"><i data-lucide="smile" class="w-3 h-3"></i> 気配り</span>
+                            <div class="flex-1 bg-gray-100 h-3 rounded-full ml-2 overflow-hidden border border-gray-200">
+                                <div id="bar-care" class="bg-green-400 h-full param-bar" style="width: 0%"></div>
+                            </div>
+                            <span id="val-care" class="w-8 text-right font-bold text-gray-500 text-xs">0</span>
+                        </div>
+                        <!-- ストレス -->
+                        <div class="flex items-center text-sm pt-1 mt-1 border-t border-gray-100">
+                            <span class="w-14 font-bold text-gray-600 flex items-center gap-1"><i data-lucide="frown" class="w-3 h-3"></i> 疲労</span>
+                            <div class="flex-1 bg-gray-100 h-3 rounded-full ml-2 overflow-hidden border border-gray-200">
+                                <div id="bar-stress" class="bg-purple-500 h-full param-bar" style="width: 0%"></div>
+                            </div>
+                            <span id="val-stress" class="w-8 text-right font-bold text-gray-500 text-xs">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- コマンドパネル -->
+                <div class="glass-panel rounded-3xl p-5 flex-grow flex flex-col">
+                    <h3 id="command-title" class="text-center font-black text-lg text-pink-600 mb-4">平日の行動を選んでね</h3>
+                    
+                    <!-- 平日用コマンド -->
+                    <div id="cmd-weekday" class="grid grid-cols-2 gap-3 mb-auto">
+                        <button onclick="execWeekday('study')" class="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 active:scale-95 transition-all border border-blue-100 font-bold">
+                            <i data-lucide="book" class="w-6 h-6 mb-1"></i>勉強する
+                        </button>
+                        <button onclick="execWeekday('sport')" class="flex flex-col items-center justify-center p-4 bg-orange-50 text-orange-600 rounded-2xl hover:bg-orange-100 active:scale-95 transition-all border border-orange-100 font-bold">
+                            <i data-lucide="activity" class="w-6 h-6 mb-1"></i>運動する
+                        </button>
+                        <button onclick="execWeekday('charm')" class="flex flex-col items-center justify-center p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 active:scale-95 transition-all border border-rose-100 font-bold">
+                            <i data-lucide="scissors" class="w-6 h-6 mb-1"></i>おしゃれ
+                        </button>
+                        <button onclick="execWeekday('care')" class="flex flex-col items-center justify-center p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 active:scale-95 transition-all border border-green-100 font-bold">
+                            <i data-lucide="coffee" class="w-6 h-6 mb-1"></i>手伝い
+                        </button>
+                    </div>
+
+                    <!-- 休日用コマンド -->
+                    <div id="cmd-holiday" class="hidden grid-cols-1 gap-3 mb-auto">
+                        <button onclick="showScreen('date-select')" class="flex items-center justify-center gap-2 p-5 bg-gradient-to-r from-pink-400 to-rose-400 text-white rounded-2xl hover:shadow-lg active:scale-95 transition-all font-bold text-lg">
+                            <i data-lucide="heart" class="w-6 h-6 fill-current"></i>デートに誘う
+                        </button>
+                        <button onclick="execHoliday('rest')" class="flex items-center justify-center gap-2 p-4 bg-gray-50 text-gray-600 border border-gray-200 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all font-bold">
+                            <i data-lucide="bed-double" class="w-5 h-5"></i>一日休む (疲労回復)
+                        </button>
+                    </div>
+
+                    <!-- 平日用休むボタン（下部固定） -->
+                    <button id="cmd-rest-weekday" onclick="execWeekday('rest')" class="w-full mt-4 p-3 bg-gray-50 text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-100 active:scale-95 transition-all font-bold text-sm">
+                        休む (疲労回復)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. デート相手選択画面 -->
+            <div id="screen-date-select" class="screen hidden absolute inset-0 glass-panel p-4 pb-20 overflow-y-auto z-20 flex flex-col">
+                <div class="flex items-center mb-6 pt-4">
+                    <button onclick="showScreen('main')" class="p-2 text-gray-400 hover:text-gray-600"><i data-lucide="chevron-left"></i></button>
+                    <h2 class="text-xl font-bold text-pink-600 flex-1 text-center pr-8">誰を誘う？</h2>
+                </div>
+                <div id="target-list" class="space-y-3 flex-grow">
+                    <!-- JSでリストを生成 -->
+                </div>
+            </div>
+
+            <!-- 5. エンディング画面 -->
+            <div id="screen-ending" class="screen hidden absolute inset-0 z-50 flex flex-col items-center justify-center p-8 text-center bg-gray-900 text-white overflow-hidden">
+                <!-- JSでコンテンツを注入 -->
+            </div>
+
+            <!-- --- オーバーレイ系コンポーネント --- -->
+
+            <!-- キャラクターカード (立ち絵の代わり) -->
+            <div id="overlay-character" class="absolute inset-0 z-30 hidden bg-black/20 backdrop-blur-sm flex items-center justify-center p-6">
+                <div id="card-bg" class="w-full max-w-[280px] aspect-[3/4] rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col items-center justify-center p-6 text-center transform transition-all duration-500 scale-95 opacity-0">
+                    <div class="absolute inset-0 bg-black/10"></div> <!-- 質感を出すためのオーバーレイ -->
+                    <i id="card-icon" data-lucide="sun" class="w-24 h-24 text-white mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"></i>
+                    <h2 id="card-name" class="text-3xl font-black text-white tracking-widest drop-shadow-md mb-2 relative z-10">太陽</h2>
+                    <p id="card-desc" class="text-white/90 text-sm font-medium drop-shadow-sm relative z-10">幼馴染</p>
+                </div>
+            </div>
+
+            <!-- メッセージウィンドウ -->
+            <div id="overlay-message" class="absolute bottom-6 left-4 right-4 z-40 hidden">
+                <div class="bg-white/95 backdrop-blur-md border border-pink-200 rounded-2xl p-5 shadow-2xl relative cursor-pointer" onclick="handleMessageClick()">
+                    <div class="message-tail"></div>
+                    <div id="msg-name" class="font-black text-pink-600 mb-2 text-sm tracking-widest"></div>
+                    <div id="msg-text" class="text-gray-800 text-sm leading-relaxed min-h-[3rem] font-medium"></div>
+                </div>
+                <!-- 選択肢 -->
+                <div id="msg-choices" class="mt-4 flex flex-col gap-2 hidden">
+                    <!-- JSでボタンを追加 -->
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // Firebase Setup & State
+        // ==========================================
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'otome-game-1';
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let currentUser = null;
+
+        // ==========================================
+        // Game Data & Config
+        // ==========================================
+        const MAX_WEEKS = 12; // 12週（約3ヶ月）でエンディング
+        
+        const CHARACTERS = {
+            taiyo: {
+                id: 'taiyo', name: '日向 太陽',
+                color: 'bg-gradient-to-br from-orange-400 via-red-500 to-rose-600',
+                icon: 'sun',
+                desc: '明るく元気な幼馴染',
+                reqParam: 'sport', reqVal: 80,
+                encounters: [
+                    "「おっ！今日も頑張ってんな！俺も負けねーぞ！」",
+                    "「なんだよ、疲れた顔して。ほら、ジュース奢ってやるよ！」",
+                    "「一緒に帰ろうぜ！今日こそかけっこで勝負だ！」"
+                ],
+                date: {
+                    text: "「よっしゃ！今日は思いっきり遊ぶぞ！どこ行く？」",
+                    choices: [
+                        { text: "スポッチャで対決！", score: 20, reply: "「おっ、いいぜ！俺に勝てるとでも思ってんのか？」" },
+                        { text: "映画館でまったり", score: 5, reply: "「えー、俺すぐ寝ちゃうかも……まぁお前と一緒ならいっか。」" }
+                    ]
+                },
+                ending: [
+                    "「あのさ……俺たち、ずっと幼馴染として一緒にいたけど。」",
+                    "「最近、お前が他のヤツと話してるのを見ると、すげー胸がモヤモヤするんだ。」",
+                    "「これからは、俺だけの特別になってくれないか？……大好きだ。」"
+                ]
+            },
+            tsukishiro: {
+                id: 'tsukishiro', name: '月白 蒼',
+                color: 'bg-gradient-to-br from-blue-400 via-indigo-500 to-slate-800',
+                icon: 'moon',
+                desc: 'クールな生徒会長',
+                reqParam: 'study', reqVal: 80,
+                encounters: [
+                    "「君か。廊下は走らないように。……少し顔色が悪いな、休んだらどうだ？」",
+                    "「図書館に行くのか？奇遇だな、私もだ。……隣、いいか？」",
+                    "「やれやれ、また君か。騒がしい日常にも少し慣れてきたよ。」"
+                ],
+                date: {
+                    text: "「休日に君と出かけることになるとはな。……さて、どうする？」",
+                    choices: [
+                        { text: "静かな美術館", score: 20, reply: "「君も絵画に興味が？……ふむ、悪くない選択だ。」" },
+                        { text: "賑やかな遊園地", score: 5, reply: "「……私は絶叫系はパスさせてもらうぞ。荷物持ちなら引き受けよう。」" }
+                    ]
+                },
+                ending: [
+                    "「君のペースに巻き込まれるのは、計算外で……本当に不本意だったんだが。」",
+                    "「もう、君がいない静かな日常は、私には耐えられそうにない。」",
+                    "「……私と、付き合ってくれないか。大切にするよ。」"
+                ]
+            },
+            seiya: {
+                id: 'seiya', name: '星夜 奏',
+                color: 'bg-gradient-to-br from-yellow-400 via-amber-500 to-purple-600',
+                icon: 'star',
+                desc: 'チャラい先輩',
+                reqParam: 'charm', reqVal: 80,
+                encounters: [
+                    "「やっほー、名前ちゃん！今日も可愛いね〜。俺と遊ばない？」",
+                    "「あれ、ちょっと雰囲気変わった？似合ってるじゃん。俺そういうの気づくタイプだからさ。」",
+                    "「ねえねえ、放課後あいてる？俺のおすすめのカフェ、行かない？」"
+                ],
+                date: {
+                    text: "「週末あいてるっしょ？俺と最高のデートしようよ！どこ行きたい？」",
+                    choices: [
+                        { text: "話題のおしゃれカフェ", score: 20, reply: "「さすが名前ちゃん、わかってる〜！あそこのパンケーキ美味しいんだよね。」" },
+                        { text: "近所の公園で散歩", score: 5, reply: "「えっ、意外と地味！？……ま、まぁ名前ちゃんと一緒ならどこでも楽しいけどさ！」" }
+                    ]
+                },
+                ending: [
+                    "「俺、今まで色んな子と遊んできたけど……本気になったのは名前ちゃんが初めてだよ。」",
+                    "「他の男と話してるとこ見るだけで、こんなに嫉妬するなんて思わなかった。」",
+                    "「俺の、たった一人の特別な子になってよ。……愛してる。」"
+                ]
+            },
+            daichi: {
+                id: 'daichi', name: '大地 樹',
+                color: 'bg-gradient-to-br from-green-400 via-emerald-500 to-teal-700',
+                icon: 'leaf',
+                desc: 'ワンコ系後輩',
+                reqParam: 'care', reqVal: 80,
+                encounters: [
+                    "「あ、先輩！奇遇ですね！えへへ、会えて嬉しいです！」",
+                    "「先輩、荷物重くないですか？俺が持ちますよ！任せてください！」",
+                    "「先輩〜！さっき見かけたんで走ってきちゃいました！えへへ。」"
+                ],
+                date: {
+                    text: "「先輩先輩！一緒にお出かけできて、俺すっごく嬉しいです！どこ行きますか？」",
+                    choices: [
+                        { text: "動物園でふれあい", score: 20, reply: "「わぁ！俺、動物大好きなんです！先輩と一緒に見られるなんて最高です！」" },
+                        { text: "高級レストラン", score: 5, reply: "「こ、高級……！？俺、テーブルマナーとか自信ないです……緊張します〜！」" }
+                    ]
+                },
+                ending: [
+                    "「俺、先輩にとってはずっと『可愛い後輩』かもしれないけど……」",
+                    "「本当は、先輩を守れるくらい、頼もしい男になりたいんです。」",
+                    "「男として、見てほしいです。先輩のことが、ずっと大好きでした！」"
+                ]
+            },
+            shion: {
+                id: 'shion', name: '紫苑 先生',
+                color: 'bg-gradient-to-br from-fuchsia-600 via-purple-700 to-black',
+                icon: 'flower-2',
+                desc: 'ミステリアスな教師',
+                reqParam: 'all', reqVal: 40, // 全パラメータ40以上
+                encounters: [
+                    "「おや、こんな時間まで残っているのかい？暗くなる前に帰るんだよ。」",
+                    "「ふふ……君は本当に面白い子だ。大人の男をからかうものではないよ。」",
+                    "「勉強で分からないところがあるのかい？……いいだろう、放課後、準備室においで。」"
+                ],
+                date: {
+                    text: "「休日に生徒と出歩くなんて、私も焼きが回ったな。……で、どこへ案内してくれるんだい？」",
+                    choices: [
+                        { text: "夜景の見える水族館", score: 20, reply: "「ロマンチックな場所を選ぶんだね。……水槽の光に照らされた君の横顔、綺麗だよ。」" },
+                        { text: "賑やかなゲームセンター", score: 5, reply: "「ふふ、若者の遊びは私には少し眩しいな。お手柔らかに頼むよ。」" }
+                    ]
+                },
+                ending: [
+                    "「先生と生徒、という安全な境界線を……今日で終わりにしよう。」",
+                    "「これ以上、自分の気持ちに嘘をつくのは限界だ。君のすべてが愛おしい。」",
+                    "「君を、私のものにしたい。……もう、逃がさないよ。」"
+                ]
+            }
+        };
+
+        // デフォルトステート
+        let gameState = {
+            week: 1,
+            phase: 'weekday', // 'weekday' or 'holiday'
+            playerName: "ヒロイン",
+            params: { study: 0, sport: 0, charm: 0, care: 0, stress: 0 },
+            affection: { taiyo: 0, tsukishiro: 0, seiya: 0, daichi: 0, shion: 0 }
+        };
+
+        // UI状態
+        let isTyping = false;
+        let typeTimeout = null;
+        let currentFullText = "";
+        let onMessageComplete = null;
+
+        // ==========================================
+        // Initialization
+        // ==========================================
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+
+        initAuth().then(() => {
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                if (user) {
+                    checkSaveData();
+                }
+            });
+            lucide.createIcons();
+        });
+
+        // ==========================================
+        // Save / Load
+        // ==========================================
+        async function checkSaveData() {
+            if (!currentUser) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saves', 'save1');
+                const docSnap = await getDoc(docRef);
+                const btnLoad = document.getElementById('btn-load');
+                if (docSnap.exists()) {
+                    btnLoad.disabled = false;
+                    btnLoad.classList.remove('opacity-50', 'cursor-not-allowed', 'text-gray-400');
+                    btnLoad.classList.add('text-pink-500', 'hover:bg-pink-50', 'active:scale-95');
+                    btnLoad.innerText = "つづきから";
+                } else {
+                    btnLoad.innerText = "セーブデータなし";
+                }
+            } catch(e) {
+                console.error("Save check error", e);
+                document.getElementById('btn-load').innerText = "通信エラー";
+            }
+        }
+
+        window.saveGame = async () => {
+            if (!currentUser) {
+                showToast("認証されていません", "bg-red-500");
+                return;
+            }
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saves', 'save1');
+                await setDoc(docRef, gameState);
+                showToast("セーブしました！", "bg-blue-500");
+                checkSaveData(); // ボタン状態更新
+            } catch (e) {
+                console.error(e);
+                showToast("セーブに失敗しました", "bg-red-500");
+            }
+        };
+
+        window.loadGame = async () => {
+            if (!currentUser) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saves', 'save1');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    gameState = docSnap.data();
+                    showToast("ロードしました", "bg-blue-500");
+                    updateUI();
+                    showScreen('main');
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        };
+
+        // ==========================================
+        // Core Game Logic
+        // ==========================================
+        window.showScreen = (id) => {
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`screen-${id}`).classList.remove('hidden');
+        };
+
+        window.startGameNew = () => {
+            const name = document.getElementById('input-name').value.trim() || "ヒロイン";
+            gameState = {
+                week: 1, phase: 'weekday', playerName: name,
+                params: { study: 0, sport: 0, charm: 0, care: 0, stress: 0 },
+                affection: { taiyo: 0, tsukishiro: 0, seiya: 0, daichi: 0, shion: 0 }
+            };
+            updateUI();
+            showScreen('main');
+            showToast("ゲームスタート！", "bg-pink-500");
+        };
+
+        function updateUI() {
+            // Header
+            document.getElementById('header-status').innerText = `${Math.ceil(gameState.week / 4)}月 第${((gameState.week - 1) % 4) + 1}週 (${gameState.phase === 'weekday' ? '平日' : '休日'})`;
+            
+            // Params
+            ['study', 'sport', 'charm', 'care', 'stress'].forEach(p => {
+                const val = Math.min(100, Math.max(0, gameState.params[p]));
+                document.getElementById(`bar-${p}`).style.width = `${val}%`;
+                document.getElementById(`val-${p}`).innerText = val;
+                
+                // ストレス警告色
+                if (p === 'stress') {
+                    const bar = document.getElementById(`bar-stress`);
+                    if (val >= 80) bar.className = "bg-red-500 h-full param-bar";
+                    else if (val >= 50) bar.className = "bg-yellow-500 h-full param-bar";
+                    else bar.className = "bg-purple-500 h-full param-bar";
+                }
+            });
+
+            // Phase UI
+            if (gameState.phase === 'weekday') {
+                document.getElementById('command-title').innerText = "平日の行動を選んでね";
+                document.getElementById('cmd-weekday').classList.remove('hidden');
+                document.getElementById('cmd-rest-weekday').classList.remove('hidden');
+                document.getElementById('cmd-holiday').classList.add('hidden');
+            } else {
+                document.getElementById('command-title').innerText = "休日の行動を選んでね";
+                document.getElementById('cmd-weekday').classList.add('hidden');
+                document.getElementById('cmd-rest-weekday').classList.add('hidden');
+                document.getElementById('cmd-holiday').classList.remove('hidden');
+                document.getElementById('cmd-holiday').style.display = "grid"; // override tailwind hidden
+            }
+        }
+
+        window.execWeekday = (cmd) => {
+            let diff = { study: 0, sport: 0, charm: 0, care: 0, stress: 0 };
+            let cmdName = "";
+            switch(cmd) {
+                case 'study': diff = { study: 15, care: 5, stress: 15 }; cmdName = "勉強"; break;
+                case 'sport': diff = { sport: 15, charm: 5, stress: 15 }; cmdName = "運動"; break;
+                case 'charm': diff = { charm: 15, care: 5, stress: 15 }; cmdName = "おしゃれ"; break;
+                case 'care':  diff = { care: 15, study: 5, stress: 15 }; cmdName = "手伝い"; break;
+                case 'rest':  diff = { stress: -40 }; cmdName = "休む"; break;
+            }
+            
+            // Apply diff
+            for (let k in diff) {
+                gameState.params[k] = Math.max(0, Math.min(100, gameState.params[k] + diff[k]));
+            }
+            
+            showToast(`${cmdName}を実行した！`, "bg-blue-500");
+            updateUI();
+
+            if (gameState.params.stress >= 100) {
+                setTimeout(() => {
+                    showToast("過労で倒れてしまった... パラメータDOWN", "bg-red-500");
+                    ['study', 'sport', 'charm', 'care'].forEach(k => {
+                        gameState.params[k] = Math.max(0, gameState.params[k] - 10);
+                    });
+                    gameState.params.stress = 0;
+                    gameState.phase = 'holiday';
+                    updateUI();
+                }, 800);
+            } else {
+                // Random event (30%) if not rested
+                if (cmd !== 'rest' && Math.random() < 0.3) {
+                    setTimeout(() => triggerRandomEvent(), 800);
+                } else {
+                    setTimeout(() => {
+                        gameState.phase = 'holiday';
+                        updateUI();
+                    }, 800);
+                }
+            }
+        };
+
+        window.execHoliday = (cmd) => {
+            if (cmd === 'rest') {
+                gameState.params.stress = Math.max(0, gameState.params.stress - 30);
+                showToast("一日ゆっくり休んだ", "bg-green-500");
+                updateUI();
+                setTimeout(() => proceedNextWeek(), 800);
+            }
+        };
+
+        // ==========================================
+        // Events & Dates
+        // ==========================================
+        function triggerRandomEvent() {
+            const charIds = Object.keys(CHARACTERS);
+            const rId = charIds[Math.floor(Math.random() * charIds.length)];
+            const char = CHARACTERS[rId];
+            const text = char.encounters[Math.floor(Math.random() * char.encounters.length)];
+            
+            gameState.affection[rId] += 5; // 好感度アップ
+            
+            playScene(rId, text, () => {
+                showToast(`${char.name}の好感度が少し上がった`, "bg-pink-500");
+                gameState.phase = 'holiday';
+                updateUI();
+            });
+        }
+
+        // Generate Date List
+        document.getElementById('screen-date-select').addEventListener('click', (e) => {
+            if(e.target.id === 'screen-date-select') return;
+        });
+
+        // 毎回リストを動的生成（好感度順などにしても良い）
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((m) => {
+                if (m.target.id === 'screen-date-select' && !m.target.classList.contains('hidden')) {
+                    const list = document.getElementById('target-list');
+                    list.innerHTML = '';
+                    Object.values(CHARACTERS).forEach(char => {
+                        const aff = gameState.affection[char.id];
+                        const btn = document.createElement('button');
+                        btn.className = "w-full flex items-center p-4 bg-white rounded-2xl shadow-sm border border-pink-100 hover:shadow-md hover:border-pink-300 active:scale-95 transition-all";
+                        btn.onclick = () => startDate(char.id);
+                        btn.innerHTML = `
+                            <div class="w-12 h-12 rounded-full ${char.color} flex items-center justify-center text-white shadow-inner mr-4 shrink-0">
+                                <i data-lucide="${char.icon}" class="w-6 h-6"></i>
+                            </div>
+                            <div class="text-left flex-grow">
+                                <div class="font-black text-gray-800 text-lg">${char.name}</div>
+                                <div class="text-xs text-gray-400 font-medium">${char.desc}</div>
+                            </div>
+                            <div class="flex items-center gap-1 text-pink-400">
+                                <i data-lucide="heart" class="w-4 h-4 ${aff > 30 ? 'fill-current' : ''}"></i>
+                            </div>
+                        `;
+                        list.appendChild(btn);
+                    });
+                    lucide.createIcons();
+                }
+            });
+        });
+        observer.observe(document.getElementById('screen-date-select'), { attributes: true, attributeFilter: ['class'] });
+
+        window.startDate = (charId) => {
+            showScreen('main'); // 背景をメイン画面にする
+            const char = CHARACTERS[charId];
+            
+            playScene(charId, char.date.text, null, false); // onCompleteはnull, clearAfter=false
+            
+            // Wait for typing to finish, then show choices
+            const checkDone = setInterval(() => {
+                if (!isTyping) {
+                    clearInterval(checkDone);
+                    showChoices(charId, char.date.choices);
+                }
+            }, 100);
+        };
+
+        function showChoices(charId, choices) {
+            const container = document.getElementById('msg-choices');
+            container.innerHTML = '';
+            container.classList.remove('hidden');
+            
+            choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = "w-full p-3 bg-pink-50 border border-pink-200 text-pink-700 font-bold rounded-xl hover:bg-pink-100 active:bg-pink-200 transition-all text-left text-sm";
+                btn.innerText = choice.text;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    container.classList.add('hidden');
+                    gameState.affection[charId] += choice.score;
+                    
+                    // Reply phase
+                    currentFullText = choice.reply.replace(/名前/g, gameState.playerName);
+                    document.getElementById('msg-text').innerText = "";
+                    isTyping = true;
+                    let i = 0;
+                    function typeChar() {
+                        if (!isTyping) return;
+                        if (i < currentFullText.length) {
+                            document.getElementById('msg-text').innerText += currentFullText.charAt(i);
+                            i++;
+                            typeTimeout = setTimeout(typeChar, 30);
+                        } else {
+                            isTyping = false;
+                            // Wait for click to end date
+                            onMessageComplete = () => {
+                                closeScene();
+                                showToast(`${CHARACTERS[charId].name}とデートした！`, "bg-pink-500");
+                                proceedNextWeek();
+                            };
+                        }
+                    }
+                    typeChar();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function proceedNextWeek() {
+            gameState.week++;
+            gameState.phase = 'weekday';
+            
+            if (gameState.week > MAX_WEEKS) {
+                checkEnding();
+            } else {
+                updateUI();
+            }
+        }
+
+        // ==========================================
+        // Visual Novel System
+        // ==========================================
+        function playScene(charId, text, onCompleteCallback, clearAfter = true) {
+            const char = CHARACTERS[charId];
+            const overlayChar = document.getElementById('overlay-character');
+            const overlayMsg = document.getElementById('overlay-message');
+            
+            // Set Card
+            document.getElementById('card-bg').className = `w-full max-w-[280px] aspect-[3/4] rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col items-center justify-center p-6 text-center transform transition-all duration-500 scale-100 opacity-100 ${char.color}`;
+            document.getElementById('card-icon').setAttribute('data-lucide', char.icon);
+            document.getElementById('card-name').innerText = char.name;
+            document.getElementById('card-desc').innerText = char.desc;
+            lucide.createIcons();
+            
+            overlayChar.classList.remove('hidden');
+            overlayMsg.classList.remove('hidden');
+            document.getElementById('msg-choices').classList.add('hidden');
+            
+            // Type Text
+            document.getElementById('msg-name').innerText = char.name;
+            document.getElementById('msg-text').innerText = "";
+            currentFullText = text.replace(/名前/g, gameState.playerName);
+            isTyping = true;
+            let i = 0;
+            
+            if (typeTimeout) clearTimeout(typeTimeout);
+            
+            function typeChar() {
+                if (!isTyping) return;
+                if (i < currentFullText.length) {
+                    document.getElementById('msg-text').innerText += currentFullText.charAt(i);
+                    i++;
+                    typeTimeout = setTimeout(typeChar, 30); // text speed
+                } else {
+                    isTyping = false;
+                    onMessageComplete = () => {
+                        if (clearAfter) closeScene();
+                        if (onCompleteCallback) onCompleteCallback();
+                    };
+                }
+            }
+            typeChar();
+            
+            // Click to skip handled in handleMessageClick
+            onMessageComplete = () => {
+                if (clearAfter) closeScene();
+                if (onCompleteCallback) onCompleteCallback();
+            };
+        }
+
+        window.handleMessageClick = () => {
+            if (isTyping) {
+                // Skip typing
+                isTyping = false;
+                clearTimeout(typeTimeout);
+                document.getElementById('msg-text').innerText = currentFullText;
+            } else {
+                // Next action
+                if (onMessageComplete && document.getElementById('msg-choices').classList.contains('hidden')) {
+                    const cb = onMessageComplete;
+                    onMessageComplete = null;
+                    cb();
+                }
+            }
+        };
+
+        function closeScene() {
+            document.getElementById('card-bg').classList.remove('scale-100', 'opacity-100');
+            document.getElementById('card-bg').classList.add('scale-95', 'opacity-0');
+            document.getElementById('overlay-message').classList.add('hidden');
+            setTimeout(() => {
+                document.getElementById('overlay-character').classList.add('hidden');
+            }, 300);
+        }
+
+        // ==========================================
+        // Ending Logic
+        // ==========================================
+        function checkEnding() {
+            let bestCharId = null;
+            let maxAff = 49; // 最低50必要
+
+            for (const [id, val] of Object.entries(gameState.affection)) {
+                if (val > maxAff) {
+                    maxAff = val;
+                    bestCharId = id;
+                }
+            }
+
+            let isHappyEnd = false;
+            if (bestCharId) {
+                const char = CHARACTERS[bestCharId];
+                if (char.reqParam === 'all') {
+                    if (gameState.params.study >= 40 && gameState.params.sport >= 40 && gameState.params.charm >= 40 && gameState.params.care >= 40) {
+                        isHappyEnd = true;
+                    }
+                } else {
+                    if (gameState.params[char.reqParam] >= char.reqVal) {
+                        isHappyEnd = true;
+                    }
+                }
+            }
+
+            if (isHappyEnd) {
+                playEndingSequence(bestCharId);
+            } else {
+                playNormalEnd();
+            }
+        }
+
+        function playEndingSequence(charId) {
+            const char = CHARACTERS[charId];
+            let lineIdx = 0;
+            
+            function showNext() {
+                if (lineIdx < char.ending.length) {
+                    playScene(charId, char.ending[lineIdx], showNext, false);
+                    lineIdx++;
+                } else {
+                    closeScene();
+                    showClearScreen(charId);
+                }
+            }
+            showNext();
+        }
+
+        function playNormalEnd() {
+            const screen = document.getElementById('screen-ending');
+            screen.innerHTML = `
+                <div class="absolute inset-0 bg-slate-800 flex flex-col items-center justify-center p-8 text-center text-white">
+                    <i data-lucide="wind" class="w-24 h-24 text-slate-500 mb-6"></i>
+                    <h1 class="text-3xl font-black mb-4 text-slate-300">NORMAL END</h1>
+                    <p class="text-lg font-medium mb-8 text-slate-400">平和な日常が続いていく……<br>（好感度またはパラメータが足りませんでした）</p>
+                    <button onclick="location.reload()" class="px-8 py-3 bg-white text-gray-900 font-bold rounded-xl shadow hover:bg-gray-100 active:scale-95 transition-all">タイトルに戻る</button>
+                </div>
+            `;
+            showScreen('ending');
+            lucide.createIcons();
+        }
+
+        function showClearScreen(charId) {
+            const char = CHARACTERS[charId];
+            const screen = document.getElementById('screen-ending');
+            screen.innerHTML = `
+                <div class="absolute inset-0 ${char.color} opacity-90 flex flex-col items-center justify-center p-8 text-center text-white">
+                    <div class="relative w-32 h-32 mb-8 animate-bounce">
+                        <i data-lucide="${char.icon}" class="w-full h-full drop-shadow-2xl"></i>
+                        <i data-lucide="heart" class="absolute -bottom-2 -right-2 w-12 h-12 text-pink-300 fill-current animate-pulse"></i>
+                    </div>
+                    <h1 class="text-5xl font-black mb-2 drop-shadow-lg tracking-widest">HAPPY END</h1>
+                    <p class="text-2xl font-bold mb-10 drop-shadow-md border-b-2 border-white/50 pb-2">${char.name}</p>
+                    <button onclick="location.reload()" class="px-10 py-4 bg-white text-pink-600 font-black rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all tracking-wider">
+                        タイトルに戻る
+                    </button>
+                </div>
+            `;
+            showScreen('ending');
+            lucide.createIcons();
+            spawnConfetti();
+        }
+
+        // ==========================================
+        // Utilities
+        // ==========================================
+        function showToast(msg, colorClass = "bg-gray-800") {
+            const t = document.createElement('div');
+            t.className = `fixed top-20 left-1/2 -translate-x-1/2 ${colorClass} text-white px-6 py-3 rounded-full shadow-lg font-bold text-sm z-[100] toast-enter flex items-center gap-2 border border-white/20`;
+            t.innerHTML = `<i data-lucide="info" class="w-4 h-4"></i> ${msg}`;
+            document.body.appendChild(t);
+            lucide.createIcons();
+            setTimeout(() => {
+                t.style.opacity = '0';
+                t.style.transform = 'translateY(-10px) translateX(-50%)';
+                t.style.transition = 'all 0.3s ease';
+                setTimeout(() => t.remove(), 300);
+            }, 2000);
+        }
+
+        function spawnConfetti() {
+            const colors = ['#fce7f3', '#fbcfe8', '#f9a8d4', '#f472b6', '#ffffff', '#fbbf24'];
+            for (let i = 0; i < 60; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti rounded-sm';
+                el.style.left = Math.random() * 100 + 'vw';
+                el.style.width = (5 + Math.random() * 8) + 'px';
+                el.style.height = (10 + Math.random() * 10) + 'px';
+                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                el.style.animationDuration = (2 + Math.random() * 3) + 's';
+                el.style.animationDelay = (Math.random() * 0.5) + 's';
+                document.body.appendChild(el);
+            }
+        }
+    </script>
+</body>
+</html>
