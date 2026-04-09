@@ -1,1320 +1,850 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ときめき★ルミナンス ～星屑の約束～</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600;700&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --pk1:#fce4ec;--pk2:#f48fb1;--pk3:#c2185b;--rose:#880e4f;
-  --cream:#fff8f0;--gold:#d4a843;--td:#3d1a2e;--tm:#6d3a5a;--tl:#9e6b8a;
-}
-html,body{width:100%;height:100%;overflow:hidden;font-family:'Noto Serif JP',serif;background:var(--pk1);}
-.screen{position:fixed;top:0;left:0;width:100%;height:100%;display:none;overflow:hidden;}
-.screen.active{display:flex;flex-direction:column;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星降る丘のセレナーデ</title>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            serif: ['"Noto Serif JP"', 'serif'],
+          },
+          colors: {
+            rose: { DEFAULT: '#c97a8e', light: '#f5e6ea', dark: '#8a4a5e' },
+            petal: '#e8c4d0',
+            ink: '#1e1a1c',
+            muted: '#7a6870',
+            border: '#e0d4d8',
+            surface: '#ffffff',
+            surface2: '#faf6f7',
+            gold: '#c9a227',
+            navy: '#1a2744',
+            sage: '#2d6a4f',
+            sky: '#1a6fa8',
+            lavender: '#6b5fa5',
+            amber: '#8b5e3c',
+          }
+        }
+      }
+    }
+  </script>
 
-/* TITLE */
-#s-title{background:linear-gradient(160deg,#fff0f5 0%,#ffd6e7 40%,#ffb3d1 100%);justify-content:center;align-items:center;position:relative;}
-.sakura-wrap{position:absolute;width:100%;height:100%;pointer-events:none;overflow:hidden;}
-.petal{position:absolute;top:-20px;border-radius:50% 0;animation:fall linear infinite;}
-@keyframes fall{0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:1}50%{transform:translateY(50vh) rotate(180deg) translateX(30px);opacity:.8}100%{transform:translateY(110vh) rotate(360deg) translateX(-20px);opacity:0}}
-.title-box{text-align:center;z-index:2;padding:2rem;}
-.t-subtitle{font-size:clamp(.75rem,2vw,.95rem);color:var(--tm);font-weight:300;letter-spacing:.35em;margin-bottom:.6rem;}
-.t-logo{font-family:'Cinzel',serif;font-size:clamp(1.8rem,6vw,3.2rem);color:var(--rose);text-shadow:0 2px 20px rgba(136,14,79,.35);letter-spacing:.08em;margin-bottom:.4rem;}
-.t-logo span{color:#c2185b;}
-.deco-row{display:flex;align-items:center;justify-content:center;gap:1rem;margin:1.2rem 0 2rem;}
-.dl{width:60px;height:1px;background:linear-gradient(to right,transparent,var(--pk3));}
-.dl.r{background:linear-gradient(to left,transparent,var(--pk3));}
-.dd{width:8px;height:8px;background:var(--pk3);transform:rotate(45deg);}
-.btns{display:flex;flex-direction:column;gap:.9rem;align-items:center;}
-.btn{padding:.72rem 2.2rem;border:none;border-radius:50px;font-family:'Noto Serif JP',serif;font-size:.95rem;cursor:pointer;transition:all .25s;min-width:200px;}
-.btn-p{background:linear-gradient(135deg,var(--pk3),var(--rose));color:#fff;box-shadow:0 4px 18px rgba(194,24,91,.4);}
-.btn-p:hover,.btn-p:active{transform:translateY(-2px);box-shadow:0 6px 22px rgba(194,24,91,.55);}
-.btn-s{background:#fff;color:var(--rose);border:2px solid var(--pk2);box-shadow:0 2px 10px rgba(244,143,177,.3);}
-.btn-s:hover,.btn-s:active{background:var(--pk1);transform:translateY(-2px);}
-.btn-g{background:transparent;color:var(--tm);border:1.5px solid var(--tl);}
-.btn-g:hover{background:rgba(255,255,255,.5);}
-.hbtn{position:absolute;top:1rem;left:1rem;background:rgba(255,255,255,.82);border:1.5px solid var(--pk2);border-radius:50px;padding:.38rem .9rem;color:var(--rose);font-size:.82rem;cursor:pointer;z-index:10;transition:all .2s;font-family:'Noto Serif JP',serif;}
-.hbtn:hover{background:#fff;transform:translateY(-1px);}
+  <!-- React & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-/* NAME */
-#s-name{background:linear-gradient(160deg,#fff0f5 0%,#ffd6e7 100%);align-items:center;justify-content:center;}
-.name-card{background:rgba(255,255,255,.92);border-radius:20px;padding:2.5rem;max-width:400px;width:90%;text-align:center;box-shadow:0 10px 40px rgba(194,24,91,.18);border:1.5px solid var(--pk2);}
-.name-card h2{font-size:1.4rem;color:var(--rose);margin-bottom:.4rem;}
-.name-card p{color:var(--tm);font-size:.88rem;margin-bottom:1.2rem;}
-.n-input{width:100%;padding:.75rem 1rem;border:2px solid var(--pk2);border-radius:50px;font-size:1.1rem;font-family:'Noto Serif JP',serif;text-align:center;color:var(--td);outline:none;margin-bottom:1.2rem;background:var(--cream);}
-.n-input:focus{border-color:var(--rose);}
-
-/* CHAR SELECT */
-#s-csel{background:linear-gradient(160deg,#fff0f5 0%,#fce4ec 100%);flex-direction:column;}
-.csel-hdr{text-align:center;padding:1.2rem 1rem .7rem;background:rgba(255,255,255,.75);backdrop-filter:blur(10px);flex-shrink:0;}
-.csel-hdr h2{font-size:1.2rem;color:var(--rose);margin-bottom:.2rem;}
-.csel-hdr p{color:var(--tm);font-size:.8rem;}
-.hbtn-rel{display:inline-block;background:rgba(255,255,255,.82);border:1.5px solid var(--pk2);border-radius:50px;padding:.32rem .8rem;color:var(--rose);font-size:.78rem;cursor:pointer;transition:all .2s;font-family:'Noto Serif JP',serif;margin-bottom:.4rem;}
-.hbtn-rel:hover{background:#fff;}
-.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.8rem;padding:.8rem;overflow-y:auto;flex:1;}
-@media(min-width:700px){.cgrid{grid-template-columns:repeat(5,1fr);max-width:860px;margin:0 auto;width:100%;}}
-.ccard{background:#fff;border-radius:16px;overflow:hidden;cursor:pointer;transition:all .3s;border:3px solid transparent;box-shadow:0 4px 15px rgba(0,0,0,.1);position:relative;}
-.ccard:hover,.ccard:active{transform:translateY(-4px);box-shadow:0 8px 25px rgba(0,0,0,.16);}
-.ccard.sel{border-color:var(--rose);}
-.cpa{width:100%;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
-.cinfo{padding:.65rem;text-align:center;}
-.cname{font-size:.88rem;font-weight:700;color:var(--td);margin-bottom:.1rem;}
-.crole{font-size:.7rem;color:var(--tl);margin-bottom:.4rem;}
-.aff-bar{background:#f0e0ea;border-radius:10px;height:5px;overflow:hidden;margin-bottom:.3rem;}
-.aff-fill{height:100%;border-radius:10px;transition:width .5s;}
-.ep-dots{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;}
-.ep-dot{width:7px;height:7px;border-radius:50%;background:#e0c0d0;}
-.ep-dot.done{background:var(--rose);}
-.cbadge{position:absolute;top:.4rem;right:.4rem;background:var(--gold);color:#fff;font-size:.62rem;padding:.1rem .35rem;border-radius:10px;z-index:2;}
-
-/* VN */
-#s-vn{flex-direction:column;position:relative;}
-.vn-bg{position:absolute;top:0;left:0;width:100%;height:100%;transition:background 1.2s;}
-.vn-top{position:relative;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:.65rem 1rem;background:rgba(0,0,0,.18);}
-.mbtn{background:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.5);border-radius:8px;padding:.36rem .65rem;cursor:pointer;font-size:1rem;color:var(--td);line-height:1;font-family:'Noto Serif JP',serif;}
-.aff-chip{display:flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.85);border-radius:20px;padding:.25rem .7rem;font-size:.88rem;color:var(--rose);font-weight:700;}
-.ep-lbl{color:rgba(255,255,255,.9);font-size:.72rem;text-shadow:0 1px 4px rgba(0,0,0,.5);}
-.vn-char{position:relative;z-index:5;flex:1;display:flex;align-items:flex-end;justify-content:center;min-height:0;overflow:hidden;}
-.vn-char svg{max-height:55vh;width:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.4));transition:all .4s;}
-.vn-tbox-wrap{position:relative;z-index:10;padding:.5rem .5rem .65rem;flex-shrink:0;}
-@media(min-width:700px){.vn-tbox-wrap{padding:.7rem 2rem .9rem;max-width:800px;margin:0 auto;width:100%;}}
-.vn-tbox{background:rgba(15,4,14,.87);border-radius:16px;border:1px solid rgba(255,150,200,.28);padding:1rem 1.2rem 1.3rem;position:relative;cursor:pointer;min-height:100px;}
-.vn-spk{display:inline-block;padding:.16rem .82rem;border-radius:20px;font-size:.86rem;font-weight:700;margin-bottom:.42rem;position:absolute;top:-14px;left:1.1rem;color:#fff;}
-.vn-txt{color:#fff;font-size:clamp(.86rem,2.4vw,1rem);line-height:1.9;padding-top:.2rem;}
-.vn-narr{color:#f0d0e8;font-style:italic;font-size:clamp(.8rem,2.2vw,.95rem);line-height:1.85;text-align:center;}
-.vn-nxt{position:absolute;bottom:.65rem;right:.72rem;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:50%;width:27px;height:27px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.78rem;animation:pulse-a 1.4s ease-in-out infinite;}
-@keyframes pulse-a{0%,100%{opacity:.6}50%{opacity:1}}
-.choices{display:flex;flex-direction:column;gap:.42rem;margin-top:.6rem;}
-.cbtn{background:rgba(255,255,255,.11);border:1px solid rgba(255,150,200,.45);border-radius:10px;padding:.6rem .9rem;color:#fff;font-family:'Noto Serif JP',serif;font-size:clamp(.76rem,2vw,.9rem);cursor:pointer;text-align:left;transition:all .2s;}
-.cbtn:hover,.cbtn:active{background:rgba(255,100,170,.28);border-color:rgba(255,180,220,.9);transform:translateX(4px);}
-.q-lbl{color:#f0c0e0;font-size:.8rem;margin-bottom:.48rem;text-align:center;}
-
-/* MENU OVERLAY */
-.m-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.62);z-index:100;align-items:center;justify-content:center;}
-.m-overlay.on{display:flex;}
-.m-panel{background:#fff;border-radius:20px;padding:1.8rem;min-width:268px;max-width:320px;text-align:center;max-height:90vh;overflow-y:auto;}
-.m-panel h3{color:var(--rose);margin-bottom:1.1rem;font-size:1.1rem;}
-.m-panel .btn{width:100%;margin-bottom:.6rem;font-size:.86rem;}
-.slabel{font-size:.76rem;color:var(--tm);margin-bottom:.38rem;text-align:left;}
-.sslot{border:1.5px solid var(--pk2);border-radius:10px;padding:.55rem .78rem;margin-bottom:.38rem;cursor:pointer;transition:all .2s;text-align:left;}
-.sslot:hover{background:var(--pk1);}
-.sslot-n{font-weight:700;color:var(--rose);font-size:.8rem;}
-.sslot-i{color:var(--tm);font-size:.72rem;margin-top:.1rem;}
-
-/* ENDING */
-#s-end{align-items:center;justify-content:center;flex-direction:column;}
-.end-bg{position:absolute;top:0;left:0;width:100%;height:100%;}
-.end-box{position:relative;z-index:2;text-align:center;padding:2rem;max-width:480px;width:95%;overflow-y:auto;max-height:100vh;}
-.end-type{font-size:1rem;letter-spacing:.32em;margin-bottom:.9rem;text-shadow:0 0 20px currentColor;}
-.good-e{color:#ff6b9d;}.bad-e{color:#a0a0d0;}
-.end-cname{font-size:clamp(1.5rem,5vw,2.4rem);font-weight:700;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.5);margin-bottom:.8rem;}
-.end-txt{color:rgba(255,255,255,.92);font-size:clamp(.8rem,2.2vw,.96rem);line-height:1.95;text-shadow:0 1px 5px rgba(0,0,0,.5);background:rgba(0,0,0,.32);border-radius:12px;padding:1.2rem;margin-bottom:1.4rem;white-space:pre-line;}
-.fheart{position:fixed;animation:fh 2.2s ease-out forwards;font-size:1.5rem;pointer-events:none;z-index:5;}
-@keyframes fh{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-80px) scale(.3);opacity:0}}
-
-/* LOAD */
-#s-load{background:linear-gradient(160deg,#fff0f5 0%,#fce4ec 100%);align-items:center;justify-content:center;}
-.lpanel{background:#fff;border-radius:20px;padding:2rem;width:90%;max-width:380px;box-shadow:0 10px 40px rgba(194,24,91,.18);}
-.lpanel h2{color:var(--rose);text-align:center;margin-bottom:1.4rem;font-size:1.2rem;}
-
-/* NOTIF */
-.notif{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(233,30,99,.88);color:#fff;padding:.45rem 1.4rem;border-radius:20px;font-size:1rem;font-weight:700;z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;}
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--pk2);border-radius:10px}
-</style>
+  <style>
+    body {
+      background-color: #faf6f7;
+      color: #1e1a1c;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .game-container {
+      width: 100vw;
+      height: 100vh;
+      max-width: 1280px;
+      margin: 0 auto;
+      position: relative;
+      background: #000;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    /* VN Text Animation */
+    @keyframes type {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+    .vn-text-reveal {
+      display: inline-block;
+      overflow: hidden;
+      white-space: pre-wrap;
+      animation: type 0.5s steps(40, end);
+    }
+    .fade-enter { opacity: 0; }
+    .fade-enter-active { opacity: 1; transition: opacity 500ms; }
+    .fade-exit { opacity: 1; }
+    .fade-exit-active { opacity: 0; transition: opacity 500ms; }
+  </style>
 </head>
 <body>
+  <div id="root"></div>
 
-<!-- TITLE -->
-<div id="s-title" class="screen active">
-  <div class="sakura-wrap" id="sakura"></div>
-  <div class="title-box">
-    <p class="t-subtitle">♦ 恋する星屑の物語 ♦</p>
-    <h1 class="t-logo">ときめき<span>★</span>ルミナンス</h1>
-    <p style="font-size:.78rem;color:var(--tl);letter-spacing:.18em;margin-bottom:.5rem;">～星屑の約束～</p>
-    <div class="deco-row"><div class="dl"></div><div class="dd"></div><div class="dl r"></div></div>
-    <div class="btns">
-      <button class="btn btn-p" onclick="startNew()">✦ はじめから</button>
-      <button class="btn btn-s" onclick="openLoad()">◆ つづきから</button>
-      <button class="btn btn-g" onclick="goHome()" style="min-width:160px;font-size:.82rem;">🏠 ホームに戻る</button>
-    </div>
-    <p style="font-size:.68rem;color:var(--tl);margin-top:1.5rem;opacity:.7;">攻略対象5人 / セーブ機能あり</p>
-  </div>
-</div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
 
-<!-- NAME INPUT -->
-<div id="s-name" class="screen">
-  <button class="hbtn" onclick="show('s-title')">← タイトル</button>
-  <div class="name-card">
-    <h2>✦ 主人公の名前</h2>
-    <p>あなたの名前を入力してください</p>
-    <input type="text" class="n-input" id="pname" placeholder="例：花咲 詩織" maxlength="10">
-    <p style="font-size:.76rem;color:var(--tl);margin-bottom:1.2rem;">未入力は「詩織」になります</p>
-    <button class="btn btn-p" onclick="confirmName()">決定 ✦</button>
-  </div>
-</div>
+    // ==========================================
+    // 1. GAME DATA & CONSTANTS
+    // ==========================================
+    const MONTHS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+    
+    const CHARACTERS = {
+      rinto: { name: "朝比奈 凛斗", color: "bg-navy", text: "text-navy" },
+      souma: { name: "桜井 壮馬", color: "bg-amber", text: "text-amber" },
+      kaito: { name: "風間 海斗", color: "bg-sky", text: "text-sky" },
+      aoi: { name: "白石 蒼", color: "bg-lavender", text: "text-lavender" },
+      hayate: { name: "天宮 颯", color: "bg-sage", text: "text-sage" },
+      rival: { name: "姫宮 柚希", color: "bg-rose", text: "text-rose" }
+    };
 
-<!-- CHAR SELECT -->
-<div id="s-csel" class="screen">
-  <div class="csel-hdr">
-    <button class="hbtn-rel" onclick="show('s-title')">← タイトル</button>
-    <h2 id="csel-title">誰と過ごしますか？</h2>
-    <p id="csel-sub">気になる彼を選んでください</p>
-  </div>
-  <div class="cgrid" id="cgrid"></div>
-</div>
+    const COMMANDS = [
+      { id: "study", label: "図書館で勉強", icon: "📚", cost: 10, effects: { intelligence: [15, 25] }, encounter: ["rinto", "souma"] },
+      { id: "club", label: "運動部活動", icon: "⚽", cost: 20, effects: { sports: [15, 25], maxStamina: [3, 5] }, encounter: ["kaito"] },
+      { id: "shop", label: "ショッピング", icon: "👗", cost: 10, effects: { fashion: [15, 25] }, encounter: ["aoi"] },
+      { id: "music", label: "音楽室練習", icon: "🎵", cost: 10, effects: { music: [15, 25] }, encounter: ["hayate"] },
+      { id: "cook", label: "料理教室", icon: "🍳", cost: 10, effects: { domestic: [15, 25] }, encounter: ["souma", "kaito"] },
+      { id: "rest", label: "休息", icon: "❤️", cost: -40, effects: {}, encounter: [] },
+      { id: "obs", label: "天文台で観測", icon: "🔭", cost: 5, effects: { intelligence: [5, 10], music: [5, 10] }, encounter: ["rinto", "aoi"] },
+      { id: "walk", label: "海岸散歩", icon: "🌊", cost: 0, effects: {}, encounter: ["all"] }
+    ];
 
-<!-- VN SCREEN -->
-<div id="s-vn" class="screen">
-  <div class="vn-bg" id="vn-bg"></div>
-  <div class="vn-top">
-    <button class="mbtn" onclick="toggleMenu()">☰ メニュー</button>
-    <div class="ep-lbl" id="ep-lbl"></div>
-    <div class="aff-chip" id="aff-chip">❤ <span id="aff-num">0</span></div>
-  </div>
-  <div class="vn-char" id="vn-char"></div>
-  <div class="vn-tbox-wrap">
-    <div class="vn-tbox" id="vn-tbox" onclick="advance()">
-      <div class="vn-spk" id="vn-spk" style="display:none;"></div>
-      <div id="vn-body"></div>
-      <div class="vn-nxt" id="vn-nxt">▶</div>
-    </div>
-  </div>
-</div>
+    const INIT_STATE = {
+      date: { year: 1, month: 4, week: 1 },
+      stats: { intelligence: 0, sports: 0, fashion: 0, music: 0, domestic: 0, stamina: 100, maxStamina: 100 },
+      affection: { rinto: 0, souma: 0, kaito: 0, aoi: 0, hayate: 0, rival: 0 },
+      flags: {},
+      actionsLeft: 2
+    };
 
-<!-- ENDING -->
-<div id="s-end" class="screen">
-  <div class="end-bg" id="end-bg"></div>
-  <div class="end-box">
-    <p class="end-type" id="end-type"></p>
-    <p class="end-cname" id="end-cname"></p>
-    <div class="end-txt" id="end-txt"></div>
-    <button class="btn btn-p" onclick="show('s-csel');renderGrid()">キャラクター選択へ</button><br><br>
-    <button class="btn btn-g" style="color:#fff;border-color:rgba(255,255,255,.4);" onclick="show('s-title')">タイトルへ</button>
-  </div>
-</div>
+    const randomRange = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-<!-- LOAD SCREEN -->
-<div id="s-load" class="screen">
-  <button class="hbtn" onclick="show('s-title')">← タイトル</button>
-  <div class="lpanel">
-    <h2>◆ セーブデータ</h2>
-    <div id="lslots"></div>
-    <button class="btn btn-g" style="width:100%;margin-top:.5rem;" onclick="show('s-title')">戻る</button>
-  </div>
-</div>
+    // ==========================================
+    // 2. SCENARIO / EVENTS
+    // ==========================================
+    const EVENTS = {
+      prologue: {
+        bg: "school_entrance",
+        lines: [
+          { speaker: "", text: "港の潮風が心地よい、4月の朝。" },
+          { speaker: "", text: "今日から私は、この丘の上にある『私立星丘学園』の生徒になる。" },
+          { speaker: "", text: "（新しい学校……うまくやっていけるかな）" },
+          { speaker: "souma", char: "souma", text: "あれ？ もしかして……ひよりちゃん？" },
+          { speaker: "player", text: "「あ、壮馬くん！ 久しぶり！」" },
+          { speaker: "souma", char: "souma", text: "やっぱり！ 転校してくるって聞いてたから、会えると思ってたよ。" },
+          { speaker: "", text: "幼なじみの桜井壮馬くん。昔から変わらない、優しい笑顔だ。" },
+          { speaker: "rinto", char: "rinto", text: "そこ、登校の邪魔だ。立ち話なら端でやれ。" },
+          { speaker: "player", text: "「あっ、すみません……！」" },
+          { speaker: "", text: "（冷たい目の人……生徒会の腕章をつけてる）" },
+          { speaker: "souma", char: "souma", text: "ごめんね、生徒会長の朝比奈くん。彼、少し厳しいけど悪い人じゃないんだ。" },
+          { speaker: "", text: "個性豊かな人たちとの、新しい3年間が幕を開ける――。" }
+        ],
+        onEnd: (state) => ({ ...state, flags: { ...state.flags, prologue_cleared: true } })
+      },
+      rinto_starmap: {
+        bg: "observatory_night",
+        lines: [
+          { speaker: "", text: "静かな天文台。放課後、ここで星図を見ていると時間を忘れてしまう。" },
+          { speaker: "rinto", char: "rinto", text: "……お前、またここに来ていたのか。" },
+          { speaker: "player", text: "「朝比奈先輩。はい、星を見るのが好きなので」" },
+          { speaker: "rinto", char: "rinto", text: "ふん。熱心なことだ。……あの星は、ベガだ。こと座の一等星。" },
+          { speaker: "", text: "朝比奈先輩は、ドームの隙間から見える星空を指差した。" },
+          { 
+            type: "choice", 
+            options: [
+              { label: "「織姫星だよね」", next: "starmap_a", affection: { rinto: 10 } },
+              { label: "「…詳しいんだね」", next: "starmap_b", affection: { rinto: 5 } }
+            ]
+          }
+        ]
+      },
+      starmap_a: {
+        bg: "cg_rinto_1",
+        lines: [
+          { speaker: "rinto", char: "rinto", text: "ああ、そうだ。知性が身についてきているようだな。" },
+          { speaker: "", text: "先輩はわずかに口角を上げ、星明かりの中で優しく微笑んだ。" },
+          { speaker: "rinto", char: "rinto", text: "お前となら、静かに星を見られそうだ。" }
+        ],
+        onEnd: (state) => ({ ...state, flags: { ...state.flags, rinto_starmap_cleared: true }, unlockedCG: [...(state.unlockedCG||[]), "cg_rinto_1"] })
+      },
+      starmap_b: {
+        bg: "observatory_night",
+        lines: [
+          { speaker: "rinto", char: "rinto", text: "……天文部の顧問補佐だからな。これくらいは常識だ。" },
+          { speaker: "", text: "少し不機嫌そうに顔を背けられてしまった。" }
+        ],
+        onEnd: (state) => ({ ...state, flags: { ...state.flags, rinto_starmap_cleared: true } })
+      },
+      ending_happy_rinto: {
+        bg: "observatory_night",
+        lines: [
+          { speaker: "", text: "卒業式の日。私は彼に呼ばれて天文台に来た。" },
+          { speaker: "rinto", char: "rinto", text: "……来たか。" },
+          { speaker: "rinto", char: "rinto", text: "完璧な生徒会長でいようとする俺に、お前は本当の自分を見せてくれた。" },
+          { speaker: "rinto", char: "rinto", text: "お前が隣にいると、空がいつもより綺麗に見える。俺のそばにいてくれないか。" },
+          { speaker: "", text: "【朝比奈 凛斗 ハッピーエンド】\n〜星降る丘のセレナーデ〜" }
+        ],
+        onEnd: (state) => ({ ...state, screen: "title" })
+      },
+      ending_normal: {
+        bg: "school_entrance",
+        lines: [
+          { speaker: "", text: "3年間の学園生活が終わった。" },
+          { speaker: "", text: "色々な思い出を胸に、私は新しい道へと進んでいく。" },
+          { speaker: "", text: "【ノーマルエンド】\n〜星降る丘のセレナーデ〜" }
+        ],
+        onEnd: (state) => ({ ...state, screen: "title" })
+      }
+    };
 
-<!-- MENU OVERLAY -->
-<div class="m-overlay" id="moverlay">
-  <div class="m-panel">
-    <h3>☰ メニュー</h3>
-    <p class="slabel">💾 セーブスロット（タップで保存）</p>
-    <div id="mslots"></div>
-    <hr style="border:none;border-top:1px solid #f0d0e0;margin:.8rem 0;">
-    <button class="btn btn-s" onclick="closeMenu();show('s-csel');renderGrid()">← キャラクター選択</button>
-    <button class="btn btn-g" onclick="toTitle()">🏠 タイトルへ</button>
-    <button class="btn btn-p" onclick="closeMenu()">✕ 閉じる</button>
-  </div>
-</div>
+    // ==========================================
+    // 3. SVG ASSETS COMPONENTS
+    // ==========================================
+    const CharRinto = () => (
+      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
+        <defs><linearGradient id="skin1" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fde8d8"/><stop offset="100%" stopColor="#f5d0b8"/></linearGradient></defs>
+        <g transform="translate(0, 10)">
+          <rect x="45" y="160" width="70" height="80" rx="10" fill="#1a2744"/>
+          <rect x="55" y="162" width="50" height="70" rx="6" fill="#0f1a30"/>
+          <polygon points="78,162 82,162 85,195 80,200 75,195" fill="#c9a227" opacity="0.9"/>
+          <polygon points="65,160 80,175 95,160 100,162 80,180 60,162" fill="#e8f0ff" opacity="0.9"/>
+          <rect x="73" y="135" width="14" height="28" rx="7" fill="url(#skin1)"/>
+          <ellipse cx="80" cy="120" rx="35" ry="38" fill="url(#skin1)"/>
+          <ellipse cx="80" cy="88" rx="37" ry="20" fill="#1a1a2e"/>
+          <rect x="43" y="88" width="11" height="40" rx="5" fill="#1a1a2e"/>
+          <rect x="106" y="88" width="11" height="35" rx="5" fill="#1a1a2e"/>
+          <ellipse cx="80" cy="88" rx="35" ry="18" fill="#2a2a40"/>
+          <ellipse cx="68" cy="84" rx="12" ry="5" fill="#4a4a60" opacity="0.6"/>
+          <ellipse cx="66" cy="118" rx="9" ry="8" fill="#1a1a2e"/>
+          <ellipse cx="94" cy="118" rx="9" ry="8" fill="#1a1a2e"/>
+          <ellipse cx="66" cy="117" rx="6" ry="5.5" fill="#2244aa"/>
+          <ellipse cx="94" cy="117" rx="6" ry="5.5" fill="#2244aa"/>
+          <circle cx="68" cy="115" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <circle cx="96" cy="115" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <rect x="58" y="107" width="16" height="3" rx="1.5" fill="#1a1a2e"/>
+          <rect x="86" y="107" width="16" height="3" rx="1.5" fill="#1a1a2e"/>
+          <ellipse cx="80" cy="128" rx="2" ry="1.5" fill="#e0b898" opacity="0.6"/>
+          <path d="M 73 138 Q 80 143 87 138" stroke="#c09080" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+          <rect x="100" y="170" width="24" height="12" rx="3" fill="#c9a227" opacity="0.9"/>
+        </g>
+      </svg>
+    );
 
-<div class="notif" id="notif"></div>
+    const CharSouma = () => (
+      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
+        <defs><linearGradient id="skin2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fde8d8"/><stop offset="100%" stopColor="#f5d0b8"/></linearGradient></defs>
+        <g transform="translate(0, 10)">
+          <rect x="45" y="160" width="70" height="80" rx="10" fill="#2a1a0e"/>
+          <rect x="55" y="162" width="50" height="70" rx="6" fill="#1a0e06"/>
+          <polygon points="65,160 80,175 95,160 100,162 80,180 60,162" fill="#f0e8d0" opacity="0.9"/>
+          <polygon points="78,162 82,162 84,192 80,196 76,192" fill="#8b4513" opacity="0.9"/>
+          <rect x="73" y="135" width="14" height="28" rx="7" fill="url(#skin2)"/>
+          <ellipse cx="80" cy="120" rx="35" ry="38" fill="url(#skin2)"/>
+          <ellipse cx="80" cy="88" rx="36" ry="20" fill="#6b3a1e"/>
+          <rect x="44" y="88" width="10" height="38" rx="5" fill="#6b3a1e"/>
+          <rect x="106" y="88" width="10" height="33" rx="5" fill="#6b3a1e"/>
+          <ellipse cx="80" cy="87" rx="34" ry="17" fill="#8b5a2e"/>
+          <ellipse cx="70" cy="83" rx="14" ry="5" fill="#a87040" opacity="0.5"/>
+          <rect x="54" y="112" width="20" height="13" rx="4" stroke="#6b4226" strokeWidth="1.5" fill="rgba(200,230,255,0.15)"/>
+          <rect x="86" y="112" width="20" height="13" rx="4" stroke="#6b4226" strokeWidth="1.5" fill="rgba(200,230,255,0.15)"/>
+          <line x1="74" y1="118" x2="86" y2="118" stroke="#6b4226" strokeWidth="1.5"/>
+          <ellipse cx="64" cy="118" rx="5" ry="5" fill="#4a2e10"/>
+          <ellipse cx="96" cy="118" rx="5" ry="5" fill="#4a2e10"/>
+          <circle cx="65.5" cy="116.5" r="2" fill="#ffffff" opacity="0.8"/>
+          <circle cx="97.5" cy="116.5" r="2" fill="#ffffff" opacity="0.8"/>
+          <rect x="58" y="108" width="14" height="2.5" rx="1.2" fill="#4a2e10"/>
+          <rect x="88" y="108" width="14" height="2.5" rx="1.2" fill="#4a2e10"/>
+          <ellipse cx="80" cy="128" rx="2" ry="1.5" fill="#e0b898" opacity="0.5"/>
+          <path d="M 74 137 Q 80 142 86 137" stroke="#c09080" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        </g>
+      </svg>
+    );
 
-<script>
-// ════════════════════ DATA ════════════════════
-const CHARS = {
-  rin:{id:'rin',name:'蒼井 凜',short:'凜',age:18,role:'生徒会長',
-    type:'クール王子様系',col:'#4a90d9',dark:'#1a3a70',
-    bg:'linear-gradient(160deg,#060e1e 0%,#0d1e40 50%,#142d60 100%)',
-    ebg:'linear-gradient(160deg,#04080f 0%,#0a1628 60%,#0f2248 100%)'},
-  haruto:{id:'haruto',name:'桐嶋 陽斗',short:'陽斗',age:17,role:'サッカー部エース',
-    type:'元気な太陽系',col:'#e89010',dark:'#8a5000',
-    bg:'linear-gradient(160deg,#180d00 0%,#361a00 50%,#543000 100%)',
-    ebg:'linear-gradient(160deg,#0f0800 0%,#271200 60%,#3c1c00 100%)'},
-  yoru:{id:'yoru',name:'黒瀬 夜',short:'夜',age:18,role:'軽音楽部ギタリスト',
-    type:'謎めいた孤高系',col:'#9b59b6',dark:'#4a1070',
-    bg:'linear-gradient(160deg,#06000e 0%,#120022 50%,#1e0038 100%)',
-    ebg:'linear-gradient(160deg,#03000a 0%,#0a0018 60%,#15002a 100%)'},
-  haruki:{id:'haruki',name:'白鳥 春樹',short:'春樹',age:17,role:'文芸部副部長',
-    type:'純粋ロマンチスト',col:'#27ae60',dark:'#0e5028',
-    bg:'linear-gradient(160deg,#021008 0%,#072814 50%,#0f4020 100%)',
-    ebg:'linear-gradient(160deg,#010a05 0%,#041a0c 60%,#09302a 100%)'},
-  kyo:{id:'kyo',name:'紫藤 京一郎',short:'京一郎',age:19,role:'美術部部長',
-    type:'謎の芸術家系',col:'#5568b0',dark:'#1c2870',
-    bg:'linear-gradient(160deg,#04050e 0%,#0c1028 50%,#141a40 100%)',
-    ebg:'linear-gradient(160deg,#020309 0%,#08100c 60%,#101828 100%)'}
-};
+    const CharKaito = () => (
+      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
+        <defs><linearGradient id="skin3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fdd8c0"/><stop offset="100%" stopColor="#f0c0a0"/></linearGradient></defs>
+        <g transform="translate(0, 10)">
+          <rect x="40" y="158" width="80" height="82" rx="12" fill="#0a3a5a"/>
+          <rect x="50" y="160" width="60" height="72" rx="8" fill="#0a4f7a"/>
+          <text x="80" y="200" textAnchor="middle" fontSize="20" fontWeight="bold" fill="rgba(255,255,255,0.4)">10</text>
+          <ellipse cx="80" cy="162" rx="18" ry="6" fill="#0a3a5a"/>
+          <rect x="73" y="133" width="14" height="30" rx="7" fill="url(#skin3)"/>
+          <ellipse cx="80" cy="118" rx="36" ry="38" fill="url(#skin3)"/>
+          <ellipse cx="80" cy="84" rx="36" ry="18" fill="#4a3010"/>
+          <ellipse cx="60" cy="78" rx="8" ry="12" fill="#5a3a14" transform="rotate(-20 60 78)"/>
+          <ellipse cx="75" cy="74" rx="7" ry="14" fill="#5a3a14" transform="rotate(-5 75 74)"/>
+          <ellipse cx="90" cy="73" rx="7" ry="14" fill="#5a3a14" transform="rotate(5 90 73)"/>
+          <ellipse cx="104" cy="78" rx="7" ry="12" fill="#5a3a14" transform="rotate(18 104 78)"/>
+          <ellipse cx="80" cy="84" rx="35" ry="16" fill="#6b4a20"/>
+          <ellipse cx="72" cy="80" rx="14" ry="5" fill="#8b6a30" opacity="0.5"/>
+          <ellipse cx="65" cy="116" rx="9" ry="9" fill="#1a1a1a"/>
+          <ellipse cx="95" cy="116" rx="9" ry="9" fill="#1a1a1a"/>
+          <ellipse cx="65" cy="115.5" rx="6" ry="6.5" fill="#2a7ab0"/>
+          <ellipse cx="95" cy="115.5" rx="6" ry="6.5" fill="#2a7ab0"/>
+          <circle cx="67.5" cy="113" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <circle cx="97.5" cy="113" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <rect x="57" y="104" width="16" height="3.5" rx="1.5" fill="#3a2010" transform="rotate(-3 65 105.5)"/>
+          <rect x="87" y="104" width="16" height="3.5" rx="1.5" fill="#3a2010" transform="rotate(3 95 105.5)"/>
+          <ellipse cx="80" cy="126" rx="2.5" ry="1.8" fill="#d0a888" opacity="0.5"/>
+          <path d="M 70 136 Q 80 146 90 136" stroke="#c08070" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        </g>
+      </svg>
+    );
 
-// ════════════════════ SPRITES ════════════════════
-function sprite(id, expr){
-  const C = CHARS[id];
-  const c = C.col, d = C.dark;
-  const sprites = {
-    rin:{
-      d:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="sk${id}"><stop offset="0%" stop-color="#fde8d8"/><stop offset="100%" stop-color="#f5c9a8"/></radialGradient></defs>
-        <!-- body/uniform -->
-        <rect x="55" y="170" width="90" height="130" rx="8" fill="#1a2a4a"/>
-        <rect x="70" y="170" width="60" height="20" fill="#fff" opacity=".9"/>
-        <polygon points="100,170 88,195 112,195" fill="${c}" opacity=".8"/>
-        <!-- tie -->
-        <rect x="96" y="190" width="8" height="55" rx="3" fill="${c}"/>
-        <!-- arms -->
-        <rect x="25" y="175" width="32" height="80" rx="12" fill="#1a2a4a"/>
-        <rect x="143" y="175" width="32" height="80" rx="12" fill="#1a2a4a"/>
-        <!-- hands -->
-        <ellipse cx="41" cy="258" rx="13" ry="10" fill="url(#sk${id})"/>
-        <ellipse cx="159" cy="258" rx="13" ry="10" fill="url(#sk${id})"/>
-        <!-- neck -->
-        <rect x="88" y="148" width="24" height="28" rx="8" fill="url(#sk${id})"/>
-        <!-- head -->
-        <ellipse cx="100" cy="110" rx="46" ry="50" fill="url(#sk${id})"/>
-        <!-- silver hair -->
-        <ellipse cx="100" cy="74" rx="48" ry="30" fill="#c8d8f0"/>
-        <rect x="52" y="74" width="22" height="55" rx="11" fill="#c0d0ee"/>
-        <rect x="126" y="74" width="22" height="55" rx="11" fill="#c0d0ee"/>
-        <rect x="70" y="60" width="60" height="20" rx="10" fill="#d0e0f8"/>
-        <rect x="80" y="52" width="40" height="18" rx="9" fill="#c8d8f0"/>
-        <!-- eyes -->
-        <ellipse cx="82" cy="108" rx="9" ry="${expr==='bl'?4:9}" fill="#1a4a8a"/>
-        <ellipse cx="118" cy="108" rx="9" ry="${expr==='bl'?4:9}" fill="#1a4a8a"/>
-        <circle cx="84" cy="106" r="3" fill="#fff" opacity=".7"/>
-        <circle cx="120" cy="106" r="3" fill="#fff" opacity=".7"/>
-        ${expr==='bl'?'<line x1="73" y1="105" x2="91" y2="105" stroke="#c0d0ee" stroke-width="2"/><line x1="109" y1="105" x2="127" y2="105" stroke="#c0d0ee" stroke-width="2"/>':''}
-        <!-- eyebrows -->
-        <path d="M73,97 Q82,93 91,97" stroke="#8090b0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M109,97 Q118,93 127,97" stroke="#8090b0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <!-- mouth -->
-        <path d="${expr==='h'?'M92,130 Q100,136 108,130':'M94,130 Q100,133 106,130'}" stroke="#d08090" stroke-width="2" fill="none" stroke-linecap="round"/>
-        ${expr==='bl'?'<circle cx="76" cy="118" r="7" fill="#ffb0c0" opacity=".4"/><circle cx="124" cy="118" r="7" fill="#ffb0c0" opacity=".4"/>':''}
-        <!-- student council armband -->
-        <rect x="143" y="195" width="30" height="14" rx="3" fill="${c}" opacity=".9"/>
-        <text x="158" y="205" text-anchor="middle" fill="#fff" font-size="5" font-family="sans-serif">生徒会</text>
-      </svg>`,
-      h:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skh${id}"><stop offset="0%" stop-color="#fde8d8"/><stop offset="100%" stop-color="#f5c9a8"/></radialGradient></defs>
-        <rect x="55" y="170" width="90" height="130" rx="8" fill="#1a2a4a"/>
-        <rect x="70" y="170" width="60" height="20" fill="#fff" opacity=".9"/>
-        <polygon points="100,170 88,195 112,195" fill="${c}" opacity=".8"/>
-        <rect x="96" y="190" width="8" height="55" rx="3" fill="${c}"/>
-        <rect x="30" y="175" width="30" height="75" rx="12" fill="#1a2a4a"/>
-        <rect x="140" y="175" width="30" height="75" rx="12" fill="#1a2a4a"/>
-        <ellipse cx="45" cy="253" rx="13" ry="10" fill="url(#skh${id})"/>
-        <ellipse cx="155" cy="253" rx="13" ry="10" fill="url(#skh${id})"/>
-        <rect x="88" y="148" width="24" height="28" rx="8" fill="url(#skh${id})"/>
-        <ellipse cx="100" cy="110" rx="46" ry="50" fill="url(#skh${id})"/>
-        <ellipse cx="100" cy="74" rx="48" ry="30" fill="#c8d8f0"/>
-        <rect x="52" y="74" width="22" height="60" rx="11" fill="#c0d0ee"/>
-        <rect x="126" y="74" width="22" height="60" rx="11" fill="#c0d0ee"/>
-        <rect x="70" y="58" width="60" height="22" rx="11" fill="#d0e0f8"/>
-        <ellipse cx="82" cy="108" rx="9" ry="9" fill="#1a4a8a"/>
-        <ellipse cx="118" cy="108" rx="9" ry="9" fill="#1a4a8a"/>
-        <circle cx="84" cy="106" r="3" fill="#fff" opacity=".7"/>
-        <circle cx="120" cy="106" r="3" fill="#fff" opacity=".7"/>
-        <path d="M73,97 Q82,93 91,97" stroke="#8090b0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M109,97 Q118,93 127,97" stroke="#8090b0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M90,130 Q100,138 110,130" stroke="#d08090" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <rect x="143" y="195" width="30" height="14" rx="3" fill="${c}" opacity=".9"/>
-        <text x="158" y="205" text-anchor="middle" fill="#fff" font-size="5" font-family="sans-serif">生徒会</text>
-      </svg>`
-    },
-    haruto:{
-      d:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skr${id}"><stop offset="0%" stop-color="#fde8c8"/><stop offset="100%" stop-color="#f5c090"/></radialGradient></defs>
-        <!-- jersey -->
-        <rect x="52" y="168" width="96" height="140" rx="10" fill="#e84020"/>
-        <rect x="70" y="168" width="60" height="15" fill="#fff" opacity=".85"/>
-        <text x="100" y="220" text-anchor="middle" fill="#fff" font-size="28" font-weight="bold" font-family="sans-serif" opacity=".6">10</text>
-        <!-- arms raised -->
-        <rect x="18" y="165" width="35" height="75" rx="13" fill="#e84020" transform="rotate(-15,35,165)"/>
-        <rect x="147" y="165" width="35" height="75" rx="13" fill="#e84020" transform="rotate(15,165,165)"/>
-        <ellipse cx="28" cy="238" rx="13" ry="10" fill="url(#skr${id})" transform="rotate(-15,28,238)"/>
-        <ellipse cx="172" cy="238" rx="13" ry="10" fill="url(#skr${id})" transform="rotate(15,172,238)"/>
-        <!-- neck -->
-        <rect x="88" y="148" width="24" height="26" rx="8" fill="url(#skr${id})"/>
-        <!-- head -->
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skr${id})"/>
-        <!-- brown spiky hair -->
-        <ellipse cx="100" cy="72" rx="48" ry="28" fill="#8B4513"/>
-        <polygon points="80,68 90,42 96,68" fill="#7a3a0a"/>
-        <polygon points="92,62 100,35 108,62" fill="#8B4513"/>
-        <polygon points="104,66 114,38 120,66" fill="#7a3a0a"/>
-        <polygon points="68,74 75,50 83,74" fill="#8B4513"/>
-        <rect x="54" y="72" width="20" height="50" rx="10" fill="#8B4513"/>
-        <rect x="126" y="72" width="20" height="50" rx="10" fill="#7a3a0a"/>
-        <!-- eyes -->
-        <ellipse cx="82" cy="107" rx="10" ry="10" fill="#4a2800"/>
-        <ellipse cx="118" cy="107" rx="10" ry="10" fill="#4a2800"/>
-        <circle cx="85" cy="104" r="3.5" fill="#fff" opacity=".75"/>
-        <circle cx="121" cy="104" r="3.5" fill="#fff" opacity=".75"/>
-        <circle cx="88" cy="110" r="1.5" fill="#fff" opacity=".4"/>
-        <!-- eyebrows thick -->
-        <path d="M72,95 Q82,90 92,95" stroke="#5a2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-        <path d="M108,95 Q118,90 128,95" stroke="#5a2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-        <!-- big smile -->
-        <path d="M87,126 Q100,140 113,126" stroke="#c06050" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <line x1="87" y1="126" x2="87" y2="128" stroke="#c06050" stroke-width="2"/>
-        <line x1="113" y1="126" x2="113" y2="128" stroke="#c06050" stroke-width="2"/>
-      </svg>`,
-      h:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skrh${id}"><stop offset="0%" stop-color="#fde8c8"/><stop offset="100%" stop-color="#f5c090"/></radialGradient></defs>
-        <rect x="52" y="168" width="96" height="140" rx="10" fill="#e84020"/>
-        <rect x="70" y="168" width="60" height="15" fill="#fff" opacity=".85"/>
-        <text x="100" y="220" text-anchor="middle" fill="#fff" font-size="28" font-weight="bold" font-family="sans-serif" opacity=".6">10</text>
-        <rect x="30" y="170" width="32" height="72" rx="12" fill="#e84020"/>
-        <rect x="138" y="170" width="32" height="72" rx="12" fill="#e84020"/>
-        <ellipse cx="46" cy="245" rx="13" ry="10" fill="url(#skrh${id})"/>
-        <ellipse cx="154" cy="245" rx="13" ry="10" fill="url(#skrh${id})"/>
-        <rect x="88" y="148" width="24" height="26" rx="8" fill="url(#skrh${id})"/>
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skrh${id})"/>
-        <ellipse cx="100" cy="72" rx="48" ry="28" fill="#8B4513"/>
-        <polygon points="80,68 90,42 96,68" fill="#7a3a0a"/>
-        <polygon points="92,62 100,35 108,62" fill="#8B4513"/>
-        <polygon points="104,66 114,38 120,66" fill="#7a3a0a"/>
-        <rect x="54" y="72" width="20" height="50" rx="10" fill="#8B4513"/>
-        <rect x="126" y="72" width="20" height="50" rx="10" fill="#7a3a0a"/>
-        <ellipse cx="82" cy="107" rx="10" ry="10" fill="#4a2800"/>
-        <ellipse cx="118" cy="107" rx="10" ry="10" fill="#4a2800"/>
-        <circle cx="85" cy="104" r="3.5" fill="#fff" opacity=".75"/>
-        <circle cx="121" cy="104" r="3.5" fill="#fff" opacity=".75"/>
-        <path d="M72,95 Q82,90 92,95" stroke="#5a2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-        <path d="M108,95 Q118,90 128,95" stroke="#5a2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-        <path d="M88,128 Q100,142 112,128" stroke="#c06050" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <circle cx="76" cy="118" r="7" fill="#ffb090" opacity=".45"/>
-        <circle cx="124" cy="118" r="7" fill="#ffb090" opacity=".45"/>
-      </svg>`,
-      bl:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skrb${id}"><stop offset="0%" stop-color="#fde8c8"/><stop offset="100%" stop-color="#f5c090"/></radialGradient></defs>
-        <rect x="52" y="168" width="96" height="140" rx="10" fill="#e84020"/>
-        <text x="100" y="220" text-anchor="middle" fill="#fff" font-size="28" font-weight="bold" font-family="sans-serif" opacity=".6">10</text>
-        <rect x="30" y="170" width="32" height="72" rx="12" fill="#e84020"/>
-        <rect x="138" y="170" width="32" height="72" rx="12" fill="#e84020"/>
-        <ellipse cx="46" cy="245" rx="13" ry="10" fill="url(#skrb${id})"/>
-        <ellipse cx="154" cy="245" rx="13" ry="10" fill="url(#skrb${id})"/>
-        <rect x="88" y="148" width="24" height="26" rx="8" fill="url(#skrb${id})"/>
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skrb${id})"/>
-        <ellipse cx="100" cy="72" rx="48" ry="28" fill="#8B4513"/>
-        <polygon points="80,68 90,42 96,68" fill="#7a3a0a"/>
-        <polygon points="92,62 100,35 108,62" fill="#8B4513"/>
-        <polygon points="104,66 114,38 120,66" fill="#7a3a0a"/>
-        <rect x="54" y="72" width="20" height="50" rx="10" fill="#8B4513"/>
-        <rect x="126" y="72" width="20" height="50" rx="10" fill="#7a3a0a"/>
-        <ellipse cx="82" cy="107" rx="10" ry="4" fill="#4a2800"/>
-        <ellipse cx="118" cy="107" rx="10" ry="4" fill="#4a2800"/>
-        <line x1="72" y1="104" x2="92" y2="104" stroke="#4a2800" stroke-width="2"/>
-        <line x1="108" y1="104" x2="128" y2="104" stroke="#4a2800" stroke-width="2"/>
-        <path d="M72,92 Q82,87 92,92" stroke="#5a2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-        <path d="M108,92 Q118,87 128,92" stroke="#5a2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-        <path d="M90,128 Q100,134 110,128" stroke="#c06050" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <circle cx="76" cy="118" r="7" fill="#ffb090" opacity=".55"/>
-        <circle cx="124" cy="118" r="7" fill="#ffb090" opacity=".55"/>
-      </svg>`
-    },
-    yoru:{
-      d:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="sky${id}"><stop offset="0%" stop-color="#f0e0f0"/><stop offset="100%" stop-color="#dcc0dc"/></radialGradient></defs>
-        <!-- black jacket -->
-        <rect x="50" y="165" width="100" height="145" rx="10" fill="#111118"/>
-        <rect x="85" y="165" width="30" height="30" fill="#1a1a28"/>
-        <!-- shirt under -->
-        <rect x="88" y="180" width="24" height="70" fill="#2a1a3a"/>
-        <!-- chains -->
-        <path d="M88,180 Q80,200 85,220 Q80,240 88,250" stroke="#8868a0" stroke-width="1.5" fill="none"/>
-        <!-- arms -->
-        <rect x="20" y="170" width="33" height="85" rx="13" fill="#111118"/>
-        <rect x="147" y="170" width="33" height="85" rx="13" fill="#111118"/>
-        <!-- guitar pick in hand -->
-        <ellipse cx="33" cy="258" rx="13" ry="10" fill="url(#sky${id})"/>
-        <ellipse cx="167" cy="258" rx="13" ry="10" fill="url(#sky${id})"/>
-        <ellipse cx="167" cy="258" rx="7" ry="8" fill="#9b59b6" opacity=".7"/>
-        <!-- neck -->
-        <rect x="88" y="146" width="24" height="25" rx="8" fill="url(#sky${id})"/>
-        <!-- head -->
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#sky${id})"/>
-        <!-- long black hair -->
-        <rect x="54" y="68" width="92" height="80" rx="20" fill="#14101c"/>
-        <rect x="52" y="80" width="24" height="90" rx="12" fill="#14101c"/>
-        <rect x="124" y="80" width="24" height="90" rx="12" fill="#14101c"/>
-        <rect x="70" y="52" width="60" height="30" rx="15" fill="#1a141e"/>
-        <!-- hair parted revealing eye -->
-        <rect x="115" y="68" width="30" height="50" rx="10" fill="#14101c"/>
-        <!-- eyes purple -->
-        <ellipse cx="82" cy="108" rx="9" ry="9" fill="#5a2080"/>
-        <ellipse cx="118" cy="108" rx="6" ry="8" fill="#5a2080"/>
-        <circle cx="84" cy="106" r="2.5" fill="#fff" opacity=".65"/>
-        <circle cx="119" cy="106" r="2" fill="#fff" opacity=".65"/>
-        <!-- left eye partially hidden -->
-        <rect x="108" y="98" width="20" height="12" rx="4" fill="#14101c"/>
-        <!-- eyebrows -->
-        <path d="M73,97 Q82,93 90,97" stroke="#5050a0" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <!-- earring -->
-        <circle cx="54" cy="122" r="4" fill="#9b59b6" stroke="#7a40a0" stroke-width="1.5"/>
-        <!-- mouth -->
-        <path d="M94,130 Q100,133 106,130" stroke="#c090c0" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-        <!-- choker -->
-        <rect x="80" y="148" width="40" height="6" rx="3" fill="#3a1050"/>
-        <circle cx="100" cy="151" r="3" fill="#9b59b6"/>
-      </svg>`,
-      h:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skyh${id}"><stop offset="0%" stop-color="#f0e0f0"/><stop offset="100%" stop-color="#dcc0dc"/></radialGradient></defs>
-        <rect x="50" y="165" width="100" height="145" rx="10" fill="#111118"/>
-        <rect x="88" y="180" width="24" height="70" fill="#2a1a3a"/>
-        <path d="M88,180 Q80,200 85,220 Q80,240 88,250" stroke="#8868a0" stroke-width="1.5" fill="none"/>
-        <rect x="20" y="170" width="33" height="85" rx="13" fill="#111118"/>
-        <rect x="147" y="170" width="33" height="85" rx="13" fill="#111118"/>
-        <ellipse cx="33" cy="258" rx="13" ry="10" fill="url(#skyh${id})"/>
-        <ellipse cx="167" cy="258" rx="13" ry="10" fill="url(#skyh${id})"/>
-        <rect x="88" y="146" width="24" height="25" rx="8" fill="url(#skyh${id})"/>
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skyh${id})"/>
-        <rect x="54" y="68" width="92" height="80" rx="20" fill="#14101c"/>
-        <rect x="52" y="80" width="24" height="90" rx="12" fill="#14101c"/>
-        <rect x="124" y="80" width="24" height="90" rx="12" fill="#14101c"/>
-        <rect x="70" y="52" width="60" height="30" rx="15" fill="#1a141e"/>
-        <ellipse cx="82" cy="108" rx="9" ry="9" fill="#5a2080"/>
-        <ellipse cx="118" cy="108" rx="9" ry="9" fill="#5a2080"/>
-        <circle cx="84" cy="106" r="2.5" fill="#fff" opacity=".65"/>
-        <circle cx="120" cy="106" r="2.5" fill="#fff" opacity=".65"/>
-        <path d="M73,97 Q82,93 90,97" stroke="#5050a0" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M110,97 Q118,93 126,97" stroke="#5050a0" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M91,129 Q100,136 109,129" stroke="#c090c0" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <circle cx="54" cy="122" r="4" fill="#9b59b6" stroke="#7a40a0" stroke-width="1.5"/>
-        <rect x="80" y="148" width="40" height="6" rx="3" fill="#3a1050"/>
-        <circle cx="100" cy="151" r="3" fill="#9b59b6"/>
-        <circle cx="78" cy="120" r="7" fill="#d090d0" opacity=".3"/>
-        <circle cx="122" cy="120" r="7" fill="#d090d0" opacity=".3"/>
-      </svg>`,
-      bl:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skyb${id}"><stop offset="0%" stop-color="#f0e0f0"/><stop offset="100%" stop-color="#dcc0dc"/></radialGradient></defs>
-        <rect x="50" y="165" width="100" height="145" rx="10" fill="#111118"/>
-        <rect x="88" y="180" width="24" height="70" fill="#2a1a3a"/>
-        <rect x="20" y="170" width="33" height="85" rx="13" fill="#111118"/>
-        <rect x="147" y="170" width="33" height="85" rx="13" fill="#111118"/>
-        <ellipse cx="33" cy="258" rx="13" ry="10" fill="url(#skyb${id})"/>
-        <ellipse cx="167" cy="258" rx="13" ry="10" fill="url(#skyb${id})"/>
-        <rect x="88" y="146" width="24" height="25" rx="8" fill="url(#skyb${id})"/>
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skyb${id})"/>
-        <rect x="54" y="68" width="92" height="80" rx="20" fill="#14101c"/>
-        <rect x="52" y="80" width="24" height="90" rx="12" fill="#14101c"/>
-        <rect x="124" y="80" width="24" height="90" rx="12" fill="#14101c"/>
-        <rect x="70" y="52" width="60" height="30" rx="15" fill="#1a141e"/>
-        <ellipse cx="82" cy="108" rx="9" ry="5" fill="#5a2080"/>
-        <ellipse cx="118" cy="108" rx="9" ry="5" fill="#5a2080"/>
-        <circle cx="84" cy="107" r="2.5" fill="#fff" opacity=".55"/>
-        <circle cx="120" cy="107" r="2.5" fill="#fff" opacity=".55"/>
-        <path d="M73,97 Q82,93 90,97" stroke="#5050a0" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M110,97 Q118,93 126,97" stroke="#5050a0" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M93,130 Q100,135 107,130" stroke="#c090c0" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-        <circle cx="78" cy="120" r="9" fill="#c090d0" opacity=".5"/>
-        <circle cx="122" cy="120" r="9" fill="#c090d0" opacity=".5"/>
-        <circle cx="54" cy="122" r="4" fill="#9b59b6" stroke="#7a40a0" stroke-width="1.5"/>
-        <rect x="80" y="148" width="40" height="6" rx="3" fill="#3a1050"/>
-        <circle cx="100" cy="151" r="3" fill="#9b59b6"/>
-      </svg>`
-    },
-    haruki:{
-      d:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skk${id}"><stop offset="0%" stop-color="#fef5e0"/><stop offset="100%" stop-color="#f5ddb0"/></radialGradient></defs>
-        <!-- cardigan/blazer -->
-        <rect x="52" y="165" width="96" height="140" rx="10" fill="#2d5a3a"/>
-        <rect x="74" y="165" width="52" height="140" fill="#3a7050"/>
-        <rect x="93" y="165" width="14" height="140" fill="#4a8860"/>
-        <!-- book in arm -->
-        <rect x="22" y="200" width="28" height="38" rx="3" fill="#8B6914"/>
-        <rect x="22" y="200" width="5" height="38" rx="2" fill="#6a4f10"/>
-        <line x1="26" y1="208" x2="46" y2="208" stroke="#fff" stroke-width=".8" opacity=".5"/>
-        <line x1="26" y1="215" x2="46" y2="215" stroke="#fff" stroke-width=".8" opacity=".5"/>
-        <!-- arms -->
-        <rect x="25" y="170" width="30" height="75" rx="12" fill="#2d5a3a"/>
-        <rect x="145" y="170" width="30" height="75" rx="12" fill="#2d5a3a"/>
-        <ellipse cx="40" cy="248" rx="13" ry="10" fill="url(#skk${id})"/>
-        <ellipse cx="160" cy="248" rx="13" ry="10" fill="url(#skk${id})"/>
-        <!-- neck -->
-        <rect x="88" y="148" width="24" height="25" rx="8" fill="url(#skk${id})"/>
-        <!-- head -->
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skk${id})"/>
-        <!-- soft wavy light brown hair -->
-        <ellipse cx="100" cy="72" rx="48" ry="30" fill="#c8a060"/>
-        <rect x="54" y="74" width="20" height="55" rx="10" fill="#c0983a"/>
-        <rect x="126" y="74" width="20" height="55" rx="10" fill="#c8a060"/>
-        <path d="M60,88 Q70,75 85,82 Q95,70 105,78 Q115,68 130,80 Q138,72 148,85" fill="#c8a060" stroke="none"/>
-        <rect x="68" y="52" width="64" height="25" rx="12" fill="#d0a860"/>
-        <!-- glasses -->
-        <rect x="68" y="102" width="26" height="18" rx="5" fill="none" stroke="#8B6000" stroke-width="2"/>
-        <rect x="106" y="102" width="26" height="18" rx="5" fill="none" stroke="#8B6000" stroke-width="2"/>
-        <line x1="94" y1="111" x2="106" y2="111" stroke="#8B6000" stroke-width="1.5"/>
-        <line x1="68" y1="111" x2="60" y2="115" stroke="#8B6000" stroke-width="1.5"/>
-        <line x1="132" y1="111" x2="140" y2="115" stroke="#8B6000" stroke-width="1.5"/>
-        <!-- eyes behind glasses -->
-        <ellipse cx="81" cy="111" rx="7" ry="7" fill="#3a6040"/>
-        <ellipse cx="119" cy="111" rx="7" ry="7" fill="#3a6040"/>
-        <circle cx="83" cy="109" r="2.5" fill="#fff" opacity=".7"/>
-        <circle cx="121" cy="109" r="2.5" fill="#fff" opacity=".7"/>
-        <!-- eyebrows gentle -->
-        <path d="M74,99 Q82,95 90,99" stroke="#8a6020" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M110,99 Q118,95 126,99" stroke="#8a6020" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <!-- gentle smile -->
-        <path d="M91,129 Q100,136 109,129" stroke="#c08070" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <!-- scarf/collar -->
-        <path d="M82,148 Q100,158 118,148" stroke="#c8d8b0" stroke-width="4" fill="none" stroke-linecap="round"/>
-      </svg>`,
-      h:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skkh${id}"><stop offset="0%" stop-color="#fef5e0"/><stop offset="100%" stop-color="#f5ddb0"/></radialGradient></defs>
-        <rect x="52" y="165" width="96" height="140" rx="10" fill="#2d5a3a"/>
-        <rect x="74" y="165" width="52" height="140" fill="#3a7050"/>
-        <rect x="22" y="200" width="28" height="38" rx="3" fill="#8B6914"/>
-        <rect x="22" y="200" width="5" height="38" rx="2" fill="#6a4f10"/>
-        <rect x="25" y="170" width="30" height="75" rx="12" fill="#2d5a3a"/>
-        <rect x="145" y="170" width="30" height="75" rx="12" fill="#2d5a3a"/>
-        <ellipse cx="40" cy="248" rx="13" ry="10" fill="url(#skkh${id})"/>
-        <ellipse cx="160" cy="248" rx="13" ry="10" fill="url(#skkh${id})"/>
-        <rect x="88" y="148" width="24" height="25" rx="8" fill="url(#skkh${id})"/>
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skkh${id})"/>
-        <ellipse cx="100" cy="72" rx="48" ry="30" fill="#c8a060"/>
-        <rect x="54" y="74" width="20" height="55" rx="10" fill="#c0983a"/>
-        <rect x="126" y="74" width="20" height="55" rx="10" fill="#c8a060"/>
-        <rect x="68" y="52" width="64" height="25" rx="12" fill="#d0a860"/>
-        <rect x="68" y="102" width="26" height="18" rx="5" fill="none" stroke="#8B6000" stroke-width="2"/>
-        <rect x="106" y="102" width="26" height="18" rx="5" fill="none" stroke="#8B6000" stroke-width="2"/>
-        <line x1="94" y1="111" x2="106" y2="111" stroke="#8B6000" stroke-width="1.5"/>
-        <ellipse cx="81" cy="111" rx="7" ry="7" fill="#3a6040"/>
-        <ellipse cx="119" cy="111" rx="7" ry="7" fill="#3a6040"/>
-        <circle cx="83" cy="109" r="2.5" fill="#fff" opacity=".7"/>
-        <circle cx="121" cy="109" r="2.5" fill="#fff" opacity=".7"/>
-        <path d="M74,99 Q82,95 90,99" stroke="#8a6020" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M110,99 Q118,95 126,99" stroke="#8a6020" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M89,130 Q100,140 111,130" stroke="#c08070" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <circle cx="76" cy="120" r="7" fill="#f0c080" opacity=".35"/>
-        <circle cx="124" cy="120" r="7" fill="#f0c080" opacity=".35"/>
-        <path d="M82,148 Q100,158 118,148" stroke="#c8d8b0" stroke-width="4" fill="none" stroke-linecap="round"/>
-      </svg>`,
-      bl:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skkb${id}"><stop offset="0%" stop-color="#fef5e0"/><stop offset="100%" stop-color="#f5ddb0"/></radialGradient></defs>
-        <rect x="52" y="165" width="96" height="140" rx="10" fill="#2d5a3a"/>
-        <rect x="74" y="165" width="52" height="140" fill="#3a7050"/>
-        <rect x="25" y="170" width="30" height="75" rx="12" fill="#2d5a3a"/>
-        <rect x="145" y="170" width="30" height="75" rx="12" fill="#2d5a3a"/>
-        <ellipse cx="40" cy="248" rx="13" ry="10" fill="url(#skkb${id})"/>
-        <ellipse cx="160" cy="248" rx="13" ry="10" fill="url(#skkb${id})"/>
-        <rect x="88" y="148" width="24" height="25" rx="8" fill="url(#skkb${id})"/>
-        <ellipse cx="100" cy="108" rx="46" ry="50" fill="url(#skkb${id})"/>
-        <ellipse cx="100" cy="72" rx="48" ry="30" fill="#c8a060"/>
-        <rect x="54" y="74" width="20" height="55" rx="10" fill="#c0983a"/>
-        <rect x="126" y="74" width="20" height="55" rx="10" fill="#c8a060"/>
-        <rect x="68" y="52" width="64" height="25" rx="12" fill="#d0a860"/>
-        <rect x="68" y="102" width="26" height="18" rx="5" fill="none" stroke="#8B6000" stroke-width="2"/>
-        <rect x="106" y="102" width="26" height="18" rx="5" fill="none" stroke="#8B6000" stroke-width="2"/>
-        <line x1="94" y1="111" x2="106" y2="111" stroke="#8B6000" stroke-width="1.5"/>
-        <ellipse cx="81" cy="111" rx="7" ry="4" fill="#3a6040"/>
-        <ellipse cx="119" cy="111" rx="7" ry="4" fill="#3a6040"/>
-        <circle cx="83" cy="109" r="2" fill="#fff" opacity=".6"/>
-        <circle cx="121" cy="109" r="2" fill="#fff" opacity=".6"/>
-        <path d="M74,99 Q82,95 90,99" stroke="#8a6020" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M110,99 Q118,95 126,99" stroke="#8a6020" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M93,130 Q100,135 107,130" stroke="#c08070" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-        <circle cx="76" cy="120" r="9" fill="#f0c880" opacity=".45"/>
-        <circle cx="124" cy="120" r="9" fill="#f0c880" opacity=".45"/>
-        <path d="M82,148 Q100,158 118,148" stroke="#c8d8b0" stroke-width="4" fill="none" stroke-linecap="round"/>
-      </svg>`
-    },
-    kyo:{
-      d:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skky${id}"><stop offset="0%" stop-color="#f8eaf8"/><stop offset="100%" stop-color="#e8c8e8"/></radialGradient></defs>
-        <!-- artist smock/coat -->
-        <rect x="48" y="160" width="104" height="150" rx="12" fill="#1c1c3c"/>
-        <rect x="60" y="160" width="80" height="150" fill="#222248"/>
-        <!-- paint smears on coat -->
-        <rect x="65" y="200" width="18" height="6" rx="3" fill="#5568b0" opacity=".7"/>
-        <rect x="75" y="230" width="12" height="5" rx="2" fill="#e84020" opacity=".6"/>
-        <rect x="110" y="210" width="20" height="5" rx="2" fill="#27ae60" opacity=".5"/>
-        <rect x="100" y="245" width="15" height="6" rx="3" fill="#e8b030" opacity=".6"/>
-        <!-- arms long elegant -->
-        <rect x="18" y="165" width="33" height="90" rx="13" fill="#1c1c3c"/>
-        <rect x="149" y="165" width="33" height="90" rx="13" fill="#1c1c3c"/>
-        <!-- hands with paint -->
-        <ellipse cx="34" cy="258" rx="13" ry="10" fill="url(#skky${id})"/>
-        <ellipse cx="166" cy="258" rx="13" ry="10" fill="url(#skky${id})"/>
-        <circle cx="30" cy="255" r="3" fill="#5568b0" opacity=".5"/>
-        <!-- paintbrush -->
-        <rect x="160" y="225" width="4" height="40" rx="2" fill="#8B6014"/>
-        <rect x="158" y="258" width="8" height="12" rx="1" fill="#e84020" opacity=".7"/>
-        <!-- neck -->
-        <rect x="88" y="146" width="24" height="22" rx="8" fill="url(#skky${id})"/>
-        <!-- head -->
-        <ellipse cx="100" cy="106" rx="46" ry="50" fill="url(#skky${id})"/>
-        <!-- dark indigo hair with natural waves, longer on side -->
-        <ellipse cx="100" cy="70" rx="48" ry="28" fill="#1a1840"/>
-        <rect x="54" y="72" width="22" height="70" rx="11" fill="#1a1840"/>
-        <rect x="124" y="72" width="22" height="70" rx="11" fill="#1a1840"/>
-        <rect x="68" y="52" width="64" height="28" rx="14" fill="#22204c"/>
-        <!-- flowing fringe -->
-        <path d="M60,80 Q72,65 84,78 Q92,60 100,75 Q108,58 116,74 Q128,62 140,80" fill="#1c1a46" stroke="none"/>
-        <!-- amber eyes - distinctive -->
-        <ellipse cx="82" cy="108" rx="10" ry="10" fill="#6a3800"/>
-        <ellipse cx="118" cy="108" rx="10" ry="10" fill="#6a3800"/>
-        <ellipse cx="82" cy="108" rx="7" ry="7" fill="#c07020"/>
-        <ellipse cx="118" cy="108" rx="7" ry="7" fill="#c07020"/>
-        <circle cx="79" cy="105" r="3" fill="#fff" opacity=".7"/>
-        <circle cx="115" cy="105" r="3" fill="#fff" opacity=".7"/>
-        <!-- sharp eyebrows -->
-        <path d="M71,95 L88,92" stroke="#1a1840" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M112,92 L129,95" stroke="#1a1840" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <!-- slight smirk -->
-        <path d="M93,130 Q102,133 108,128" stroke="#b07880" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <!-- earring artistic -->
-        <circle cx="148" cy="116" r="2.5" fill="#d4a843"/>
-        <line x1="148" y1="118" x2="148" y2="126" stroke="#d4a843" stroke-width="1.5"/>
-        <circle cx="148" cy="127" r="3" fill="#5568b0"/>
-      </svg>`,
-      h:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skkyh${id}"><stop offset="0%" stop-color="#f8eaf8"/><stop offset="100%" stop-color="#e8c8e8"/></radialGradient></defs>
-        <rect x="48" y="160" width="104" height="150" rx="12" fill="#1c1c3c"/>
-        <rect x="60" y="160" width="80" height="150" fill="#222248"/>
-        <rect x="65" y="200" width="18" height="6" rx="3" fill="#5568b0" opacity=".7"/>
-        <rect x="75" y="230" width="12" height="5" rx="2" fill="#e84020" opacity=".6"/>
-        <rect x="110" y="210" width="20" height="5" rx="2" fill="#27ae60" opacity=".5"/>
-        <rect x="18" y="165" width="33" height="90" rx="13" fill="#1c1c3c"/>
-        <rect x="149" y="165" width="33" height="90" rx="13" fill="#1c1c3c"/>
-        <ellipse cx="34" cy="258" rx="13" ry="10" fill="url(#skkyh${id})"/>
-        <ellipse cx="166" cy="258" rx="13" ry="10" fill="url(#skkyh${id})"/>
-        <rect x="160" y="225" width="4" height="40" rx="2" fill="#8B6014"/>
-        <rect x="158" y="258" width="8" height="12" rx="1" fill="#e84020" opacity=".7"/>
-        <rect x="88" y="146" width="24" height="22" rx="8" fill="url(#skkyh${id})"/>
-        <ellipse cx="100" cy="106" rx="46" ry="50" fill="url(#skkyh${id})"/>
-        <ellipse cx="100" cy="70" rx="48" ry="28" fill="#1a1840"/>
-        <rect x="54" y="72" width="22" height="70" rx="11" fill="#1a1840"/>
-        <rect x="124" y="72" width="22" height="70" rx="11" fill="#1a1840"/>
-        <rect x="68" y="52" width="64" height="28" rx="14" fill="#22204c"/>
-        <path d="M60,80 Q72,65 84,78 Q92,60 100,75 Q108,58 116,74 Q128,62 140,80" fill="#1c1a46" stroke="none"/>
-        <ellipse cx="82" cy="108" rx="10" ry="10" fill="#6a3800"/>
-        <ellipse cx="118" cy="108" rx="10" ry="10" fill="#6a3800"/>
-        <ellipse cx="82" cy="108" rx="7" ry="7" fill="#c07020"/>
-        <ellipse cx="118" cy="108" rx="7" ry="7" fill="#c07020"/>
-        <circle cx="79" cy="105" r="3" fill="#fff" opacity=".7"/>
-        <circle cx="115" cy="105" r="3" fill="#fff" opacity=".7"/>
-        <path d="M71,95 L88,92" stroke="#1a1840" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M112,92 L129,95" stroke="#1a1840" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M90,130 Q100,138 110,132" stroke="#b07880" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <circle cx="76" cy="120" r="8" fill="#e0a8f0" opacity=".3"/>
-        <circle cx="124" cy="120" r="8" fill="#e0a8f0" opacity=".3"/>
-        <circle cx="148" cy="116" r="2.5" fill="#d4a843"/>
-        <line x1="148" y1="118" x2="148" y2="126" stroke="#d4a843" stroke-width="1.5"/>
-        <circle cx="148" cy="127" r="3" fill="#5568b0"/>
-      </svg>`,
-      bl:`<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-        <defs><radialGradient id="skkyb${id}"><stop offset="0%" stop-color="#f8eaf8"/><stop offset="100%" stop-color="#e8c8e8"/></radialGradient></defs>
-        <rect x="48" y="160" width="104" height="150" rx="12" fill="#1c1c3c"/>
-        <rect x="60" y="160" width="80" height="150" fill="#222248"/>
-        <rect x="18" y="165" width="33" height="90" rx="13" fill="#1c1c3c"/>
-        <rect x="149" y="165" width="33" height="90" rx="13" fill="#1c1c3c"/>
-        <ellipse cx="34" cy="258" rx="13" ry="10" fill="url(#skkyb${id})"/>
-        <ellipse cx="166" cy="258" rx="13" ry="10" fill="url(#skkyb${id})"/>
-        <rect x="88" y="146" width="24" height="22" rx="8" fill="url(#skkyb${id})"/>
-        <ellipse cx="100" cy="106" rx="46" ry="50" fill="url(#skkyb${id})"/>
-        <ellipse cx="100" cy="70" rx="48" ry="28" fill="#1a1840"/>
-        <rect x="54" y="72" width="22" height="70" rx="11" fill="#1a1840"/>
-        <rect x="124" y="72" width="22" height="70" rx="11" fill="#1a1840"/>
-        <rect x="68" y="52" width="64" height="28" rx="14" fill="#22204c"/>
-        <ellipse cx="82" cy="108" rx="10" ry="5" fill="#6a3800"/>
-        <ellipse cx="118" cy="108" rx="10" ry="5" fill="#6a3800"/>
-        <ellipse cx="82" cy="108" rx="7" ry="3.5" fill="#c07020"/>
-        <ellipse cx="118" cy="108" rx="7" ry="3.5" fill="#c07020"/>
-        <circle cx="79" cy="107" r="2.5" fill="#fff" opacity=".6"/>
-        <circle cx="115" cy="107" r="2.5" fill="#fff" opacity=".6"/>
-        <path d="M71,95 L88,92" stroke="#1a1840" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M112,92 L129,95" stroke="#1a1840" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M93,131 Q101,135 108,130" stroke="#b07880" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-        <circle cx="78" cy="120" r="10" fill="#d0a0f0" opacity=".5"/>
-        <circle cx="122" cy="120" r="10" fill="#d0a0f0" opacity=".5"/>
-        <circle cx="148" cy="116" r="2.5" fill="#d4a843"/>
-        <line x1="148" y1="118" x2="148" y2="126" stroke="#d4a843" stroke-width="1.5"/>
-        <circle cx="148" cy="127" r="3" fill="#5568b0"/>
-      </svg>`
-    }
-  };
-  const sp = sprites[id];
-  if(!sp) return '<svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="380" fill="#444"/></svg>';
-  return sp[expr] || sp['d'] || sp[Object.keys(sp)[0]];
-}
+    const CharAoi = () => (
+      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
+        <defs><linearGradient id="skin4" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#f8e8f0"/><stop offset="100%" stopColor="#f0d8e8"/></linearGradient></defs>
+        <g transform="translate(0, 10)">
+          <rect x="40" y="155" width="80" height="85" rx="12" fill="#e8e0f0"/>
+          <rect x="50" y="158" width="60" height="74" rx="8" fill="#f0eaf8"/>
+          <polygon points="68,158 80,172 92,158 96,160 80,177 64,160" fill="#f8f4fc" opacity="0.9"/>
+          <rect x="74" y="132" width="12" height="26" rx="6" fill="url(#skin4)"/>
+          <ellipse cx="80" cy="115" rx="35" ry="38" fill="url(#skin4)"/>
+          <ellipse cx="80" cy="82" rx="37" ry="20" fill="#c8c0e0"/>
+          <rect x="43" y="82" width="12" height="55" rx="6" fill="#c8c0e0"/>
+          <rect x="105" y="82" width="12" height="50" rx="6" fill="#c8c0e0"/>
+          <ellipse cx="80" cy="82" rx="35" ry="18" fill="#d8d0f0"/>
+          <ellipse cx="70" cy="78" rx="14" ry="5" fill="#e8e4f8" opacity="0.7"/>
+          <ellipse cx="65" cy="116" rx="10" ry="9" fill="#1a1a1a"/>
+          <ellipse cx="95" cy="116" rx="10" ry="9" fill="#1a1a1a"/>
+          <ellipse cx="65" cy="116" rx="7" ry="7" fill="#7060b0"/>
+          <ellipse cx="95" cy="116" rx="7" ry="7" fill="#7060b0"/>
+          <circle cx="62" cy="113" r="3" fill="#ffffff" opacity="0.9"/>
+          <circle cx="92" cy="113" r="3" fill="#ffffff" opacity="0.9"/>
+          <path d="M 57 105 Q 65 102 73 105" stroke="#9080b0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+          <path d="M 87 105 Q 95 102 103 105" stroke="#9080b0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+          <ellipse cx="80" cy="125" rx="1.5" ry="1.2" fill="#d8b8c8" opacity="0.4"/>
+          <path d="M 76 134 Q 80 137 84 134" stroke="#c0a0b0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        </g>
+      </svg>
+    );
 
-// ════════════════════ SCENES ════════════════════
-const SCENES = {
-prologue:[
-  {t:'n',v:'──春。桜ヶ丘学院への転校初日。'},
-  {t:'n',v:'校門をくぐると、満開の桜が出迎えてくれた。深呼吸して──よし、新しいスタートだ。'},
-  {t:'n',v:'廊下を歩いていると、次々と不思議な出会いが待っていた……'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「転入生か。廊下の真ん中に立つな。邪魔だ」'},
-  {t:'n',v:'銀髪の少年が冷ややかに言い放った。生徒会長の腕章が光っている。整いすぎた顔が、かえって近寄りがたい。'},
-  {t:'c',c:'haruto',e:'h',sp:'桐嶋 陽斗',v:'「あっ！転校生だよね？俺、桐嶋陽斗！よろしくね！」'},
-  {t:'n',v:'どこからともなく現れた茶髪の少年が、眩しい笑顔で手を差し出してきた。'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「……うるさい」'},
-  {t:'n',v:'廊下の端の窓に寄りかかり、長い黒髪の少年が呟いた。こちらを一瞥し、すぐに視線を外す。'},
-  {t:'c',c:'haruki',e:'h',sp:'白鳥 春樹',v:'「こんにちは。転校初日は緊張しますよね。何かあれば声をかけてください」'},
-  {t:'n',v:'薄茶色の柔らかい髪をした少年が、穏やかに微笑んでいた。手には分厚い詩集が抱えられている。'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「……面白い顔をしている。描かせてもらっていいか？」'},
-  {t:'n',v:'美術室の前、背の高い男性がじっとこちらを見つめていた。琥珀色の瞳が、絵を鑑賞するような眼差しで私を映している。'},
-  {t:'n',v:'こうして、桜ヶ丘学院での私の新しい生活が始まった。どんな恋が待っているのか、まだ知らない。──ただ、心がときめいていた。'}
-],
-rin_ep1:[
-  {t:'n',v:'放課後、廊下の張り紙を見つけた。「転入生は必ず生徒会室へ出頭すること」──蒼井凜の名前が添えられている。'},
-  {t:'n',v:'ドアをノックして開けると、彼は書類を整理しながら振り向いた。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「来るのが遅い。連絡から5分経過している」'},
-  {t:'ch',q:'どう返す？',cs:[
-    {v:'「すみません、場所が分からなくて」',a:5},
-    {v:'「待っていてくれたんですか？」',a:10},
-    {v:'「5分くらい大したことないですよ」',a:0}
-  ]},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「……転入初日だ。場所が分からないのは仕方ない。この件は不問にする」'},
-  {t:'n',v:'ほんのわずか、声が柔らかくなった気がした。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「生徒会では転入生への校内案内を行っている。私が担当だ。今から始める。施設の場所、緊急連絡先、校則の要点。30分で終わらせる」'},
-  {t:'n',v:'テキパキと説明を始める凜くん。横顔が────本当に綺麗だ。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「聞いているか。目が泳いでいるぞ」'},
-  {t:'ch',q:'何と答える？',cs:[
-    {v:'「ごめんなさい、つい顔を見てしまって」',a:10},
-    {v:'「はい！ちゃんと聞いてます」',a:5},
-    {v:'「先輩……モデルになれますよね」',a:5}
-  ]},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「…………余計なことを言うな」'},
-  {t:'n',v:'彼の耳が、ほんのわずかに赤くなった。気のせいかな。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「説明を続ける。ついてこい」'},
-  {t:'n',v:'素っ気ない言葉の中に、どこか温かみが感じられた。気のせい──かもしれないけれど。'}
-],
-rin_ep2:[
-  {t:'n',v:'放課後、書類を届けに屋上へ。ドアを開けると、凜くんが一人で夕空を眺めていた。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「……なぜここにいる」'},
-  {t:'p',v:'「書類のお届けに来ました。でも……こんなところに来るんですね」'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「たまに来る。頭を空っぽにするために」'},
-  {t:'n',v:'珍しく、少し表情が柔らかい。そのとき急に空が暗くなり、雨が降り始めた。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「傘は」'},
-  {t:'p',v:'「……ないです」'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「仕方ない。小屋の軒で雨宿りしろ」'},
-  {t:'n',v:'屋上の小さな屋根の下、二人で雨音を聞いた。静かな沈黙が続く。'},
-  {t:'ch',q:'何か話しかける？',cs:[
-    {v:'「先輩って、甘いもの好きって聞いたんですけど本当ですか？」',a:10},
-    {v:'「先輩と一緒にいると、なんか落ち着くんですよね」',a:10},
-    {v:'「先輩はいつも完璧に見えますね」',a:5}
-  ]},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「っ……誰から聞いた。そういう噂を広める奴は──……否定はしない。だが秘密だ」'},
-  {t:'n',v:'ポツリと、本音が溢れたような一言。雨音がその言葉を包んだ。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「お前と話していると……なぜか、余計なことを喋ってしまう」'},
-  {t:'ch',q:'返事は？',cs:[
-    {v:'「それって……嬉しいことですか？」',a:10},
-    {v:'「私も同じです」',a:10},
-    {v:'「先輩の素の部分、すごく好きです」',a:5}
-  ]},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「……馬鹿なことを言うな」'},
-  {t:'n',v:'彼は雨を見つめたまま、ほんの少しだけ微笑んでいた。'}
-],
-rin_ep3:[
-  {t:'n',v:'文化祭前夜。生徒会室で最後の準備をしていると、気づけば凜くんと二人きりになっていた。'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「まだいたのか」'},
-  {t:'p',v:'「先輩こそ、もう帰っていいのに」'},
-  {t:'c',c:'rin',e:'d',sp:'蒼井 凜',v:'「……お前がいるから、残ったんだ」'},
-  {t:'n',v:'え──？彼は窓の外を向いたまま、静かに続けた。'},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「転校してきてから、ずっとおかしい。集中できない。夜も眠れない。完璧でなければならないのに……お前のことを考えてしまう」'},
-  {t:'ch',q:'気持ちは？',cs:[
-    {v:'「先輩……私も、同じです」',a:15},
-    {v:'「完璧じゃない先輩も、好きです」',a:15},
-    {v:'「それって……もしかして」',a:10}
-  ]},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「馬鹿にするな。私は完璧な告白の言葉を持ち合わせていない」'},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「だが───お前のことが、好きだ」'},
-  {t:'n',v:'その一言は、どんな完璧な言葉よりも、胸に響いた。'},
-  {t:'c',c:'rin',e:'bl',sp:'蒼井 凜',v:'「返事は文化祭が終わってからでいい。今は──ここにいてくれ」'},
-  {t:'n',v:'夜の生徒会室。並んで座り、明日を待ちながら。──これが、始まりだった。'}
-],
-haruto_ep1:[
-  {t:'n',v:'転校初日の昼休み。どこへ行けばいいか迷っていると、グラウンドから声がかかった。'},
-  {t:'c',c:'haruto',e:'h',sp:'桐嶋 陽斗',v:'「転校生！昼ごはんどこで食べるか迷ってる？俺らと一緒に食べない？」'},
-  {t:'ch',q:'どうする？',cs:[
-    {v:'「ありがとう！ぜひ！」',a:10},
-    {v:'「迷惑じゃないかな……？」',a:5},
-    {v:'「一人のほうが楽かも……」',a:0}
-  ]},
-  {t:'c',c:'haruto',e:'h',sp:'桐嶋 陽斗',v:'「全然！てかせっかくだし学校案内もしようか？めちゃ詳しいよ俺」'},
-  {t:'n',v:'わあわあと楽しそうに喋る陽斗くん。本当に太陽みたいだ。'},
-  {t:'n',v:'グラウンド沿いを歩いていると、植え込みの陰に積み上げられた本が目に入った。'},
-  {t:'p',v:'「あの本……陽斗くんの？」'},
-  {t:'c',c:'haruto',e:'d',sp:'桐嶋 陽斗',v:'「っ！あ、ち、ちがっ──そうなんだけど！あんまり言わないでほしいんだけど」'},
-  {t:'ch',q:'返事は？',cs:[
-    {v:'「読書好きなの？私も好き！」',a:10},
-    {v:'「内緒にしておくね」',a:5},
-    {v:'「意外！でもなんかすごく嬉しい」',a:10}
-  ]},
-  {t:'c',c:'haruto',e:'bl',sp:'桐嶋 陽斗',v:'「……なんかさ、お前にだけは隠せない気がする。なんでだろ」'},
-  {t:'n',v:'不思議そうに頭をかく陽斗くん。その素直さが、なんだか好きだと思った。'}
-],
-haruto_ep2:[
-  {t:'n',v:'部活後、一緒に帰ることになった。夕焼けが空を染めている。'},
-  {t:'c',c:'haruto',e:'h',sp:'桐嶋 陽斗',v:'「今日の練習見てた？最後のシュート、決まったじゃん！」'},
-  {t:'p',v:'「見てたよ。すごかった！」'},
-  {t:'c',c:'haruto',e:'bl',sp:'桐嶋 陽斗',v:'「照れるな〜。でもまじ嬉しい」'},
-  {t:'n',v:'橋のたもとで陽斗くんが立ち止まった。'},
-  {t:'c',c:'haruto',e:'d',sp:'桐嶋 陽斗',v:'「なあ……俺が読書好きなの、なんで隠してるか分かる？」'},
-  {t:'ch',q:'答えは？',cs:[
-    {v:'「みんなのイメージと違うから？」',a:5},
-    {v:'「あなたが思うほど、みんな気にしないと思うけど」',a:10},
-    {v:'「恥ずかしいから？」',a:5}
-  ]},
-  {t:'c',c:'haruto',e:'d',sp:'桐嶋 陽斗',v:'「俺ってさ、いつも元気で明るいキャラじゃん。それが崩れたらどうなるかって、たまに考えるんだよね」'},
-  {t:'n',v:'静かな声。夕日が彼の横顔を金色に照らしている。'},
-  {t:'ch',q:'何と言う？',cs:[
-    {v:'「どんな陽斗くんでも、私は好きだよ」',a:15},
-    {v:'「本が好きな陽斗くん、すごく素敵だと思う」',a:10},
-    {v:'「ありのままでいいじゃん」',a:10}
-  ]},
-  {t:'c',c:'haruto',e:'bl',sp:'桐嶋 陽斗',v:'「……お前って、さらっとすごいこと言うよな」'},
-  {t:'c',c:'haruto',e:'bl',sp:'桐嶋 陽斗',v:'「ありがとな。もっとお前のそばにいたくなる」'},
-  {t:'n',v:'夕焼けが、二人を優しく包んでいた。'}
-],
-haruto_ep3:[
-  {t:'n',v:'県大会決勝。陽斗くんのチームが逆転勝利した。試合後、スタンドに陽斗くんが一人でやってきた。'},
-  {t:'c',c:'haruto',e:'h',sp:'桐嶋 陽斗',v:'「来てくれてたんだ！ありがとな！」'},
-  {t:'p',v:'「すごかったよ……！最後のゴール、鳥肌立った」'},
-  {t:'c',c:'haruto',e:'bl',sp:'桐嶋 陽斗',v:'「あのゴール……決める瞬間、お前の顔が浮かんだんだよね」'},
-  {t:'ch',q:'反応は？',cs:[
-    {v:'「え……それって、どういう意味？」',a:10},
-    {v:'「私が……？」',a:10},
-    {v:'「プレッシャーかけてごめんね（笑）」',a:5}
-  ]},
-  {t:'c',c:'haruto',e:'bl',sp:'桐嶋 陽斗',v:'「俺さ、お前のこと……ずっと好きだったんだよ。うまく言えないけど、お前といると俺らしくいられる気がして」'},
-  {t:'ch',q:'返事は？',cs:[
-    {v:'「私も……陽斗くんのことが好き」',a:15},
-    {v:'「陽斗くんといると、私も楽しい」',a:10},
-    {v:'「……うれしい」',a:10}
-  ]},
-  {t:'c',c:'haruto',e:'h',sp:'桐嶋 陽斗',v:'「……じゃあ、付き合ってくれる？俺と」'},
-  {t:'n',v:'夕焼けのグラウンド。汗と笑顔と、少しの照れ。全部ひっくるめて、この人が好きだと思った。'}
-],
-yoru_ep1:[
-  {t:'n',v:'夜の音楽室から、ギターの音が聞こえてきた。誰もいないはずの時間。引き寄せられるように、ドアを少し開けた。'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「……盗み聞きか」'},
-  {t:'n',v:'振り向かずに言った。長い黒髪が月明かりに揺れている。'},
-  {t:'p',v:'「ごめんなさい。でも……すごく綺麗な音楽で」'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「帰れ」'},
-  {t:'ch',q:'どうする？',cs:[
-    {v:'「もう少し聴かせてもらえませんか？」',a:10},
-    {v:'「……また来てもいいですか？」',a:10},
-    {v:'ドアを静かに閉めて、廊下で待つ',a:5}
-  ]},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「……勝手にしろ」'},
-  {t:'n',v:'それが、彼なりの許可なんだと分かった。静かにドアを開けて入り、壁際に座る。'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「……どんな曲か分かるか」'},
-  {t:'p',v:'「分からないけど……なんか、夜の海みたいだなって思いました」'},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……」'},
-  {t:'n',v:'彼は少し、手を止めた。'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「オリジナルだ。タイトルをずっと考えてた」'},
-  {t:'p',v:'「『夜の海』とかどうですか？」'},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……悪くない」'},
-  {t:'n',v:'それだけだったけど、なんだか彼の中に少し入れた気がした。'}
-],
-yoru_ep2:[
-  {t:'n',v:'屋上の縁に腰かけて、夜が一人で星を見ていた。声をかけると、珍しく逃げなかった。'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「……なんで来た」'},
-  {t:'p',v:'「夜くんのことが気になって」'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「気にするな。面倒になる」'},
-  {t:'ch',q:'返す言葉は？',cs:[
-    {v:'「もう手遅れです」',a:15},
-    {v:'「面倒でも、気になってしまうんです」',a:10},
-    {v:'「夜くんが気になって欲しくないの？」',a:5}
-  ]},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……っ」'},
-  {t:'n',v:'少し沈黙が続いた後、彼はゆっくり口を開いた。'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「俺は……誰かに近づくのが怖い。ちゃんと見たら、失望されると思ってる」'},
-  {t:'p',v:'「失望なんてしないよ。夜くんの音楽も、こういうところも、全部好きだから」'},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……お前は、変な奴だな」'},
-  {t:'n',v:'でも、その口元は──かすかに、やわらいでいた。'}
-],
-yoru_ep3:[
-  {t:'n',v:'ライブ当日。黒瀬夜のソロ演奏。ステージ袖で、珍しく手が震えているのを見た。'},
-  {t:'p',v:'「緊張してるの？」'},
-  {t:'c',c:'yoru',e:'d',sp:'黒瀬 夜',v:'「……するわけない」'},
-  {t:'ch',q:'どうする？',cs:[
-    {v:'そっと手を握る',a:15},
-    {v:'「絶対大丈夫。私が信じてる」',a:10},
-    {v:'「夜くんの音楽は、みんなに届くよ」',a:10}
-  ]},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……放せ」'},
-  {t:'p',v:'「イヤです」'},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……バカ」'},
-  {t:'n',v:'でも、手は離さなかった。ステージに上がる直前、彼は振り返った。'},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「今日の曲……お前に捧げる。タイトルは──『夜明け』にした」'},
-  {t:'n',v:'暗い中から、光を見つけた。そんな演奏だった。終わった後、彼はこう言った。'},
-  {t:'c',c:'yoru',e:'bl',sp:'黒瀬 夜',v:'「……そばにいてくれ。お前だけでいい」'}
-],
-haruki_ep1:[
-  {t:'n',v:'図書室で迷子になっていると、棚の間から声がかかった。'},
-  {t:'c',c:'haruki',e:'h',sp:'白鳥 春樹',v:'「探している本はありますか？僕、ここの配置はだいたい覚えてるので」'},
-  {t:'p',v:'「じゃあ……恋愛小説のおすすめを教えてもらえますか？」'},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「恋愛……っ！それは、その……喜んで」'},
-  {t:'n',v:'少し頬を染めながらも、棚へと案内してくれた。'},
-  {t:'c',c:'haruki',e:'h',sp:'白鳥 春樹',v:'「これはどうでしょう。主人公の心情描写がとても繊細で──」'},
-  {t:'n',v:'目を輝かせながら語る春樹くん。その言葉が、詩のように綺麗だと思った。'},
-  {t:'ch',q:'感想は？',cs:[
-    {v:'「春樹くんの説明、すごく詩みたいで好きです」',a:10},
-    {v:'「なんか、先生より分かりやすいかも」',a:5},
-    {v:'「春樹くんも小説書くの？」',a:10}
-  ]},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「詩……そう言ってもらえると、嬉しいです。実は、ちょっとだけ書いてます」'},
-  {t:'n',v:'照れたように笑う姿が、どこかページの中の人みたいで、好きだなと思った。'}
-],
-haruki_ep2:[
-  {t:'n',v:'放課後の文芸部。春樹くんが詩を書いているのを、そっと覗いた。'},
-  {t:'c',c:'haruki',e:'d',sp:'白鳥 春樹',v:'「あ……見てましたか？」'},
-  {t:'p',v:'「ちょっとだけ。読んでもいいですか？」'},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「……恥ずかしいけど、あなたにだけなら」'},
-  {t:'n',v:'差し出されたノートには、柔らかい言葉が並んでいた。どこかに私を感じる詩だった。'},
-  {t:'ch',q:'感想は？',cs:[
-    {v:'「これ……私のことを書いてくれてるんですか？」',a:15},
-    {v:'「すごく綺麗な詩。春樹くんらしい」',a:10},
-    {v:'「こんな風に想ってもらえたら、幸せですね」',a:10}
-  ]},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「……気づいてたんですか」'},
-  {t:'p',v:'「なんとなく」'},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「そうか……恥ずかしいな。でも、嬉しいです。あなたに伝わったなら」'},
-  {t:'n',v:'夕日の差し込む部室。詩の中に生きているような、不思議な午後だった。'}
-],
-haruki_ep3:[
-  {t:'n',v:'秋の朗読会。春樹くんが書き下ろした詩を朗読した。その詩は、明らかに私のことだった。'},
-  {t:'n',v:'終わった後、中庭で春樹くんを見つけた。'},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「……聴いてくれましたか」'},
-  {t:'p',v:'「聴いたよ。すごく……すごく綺麗だった」'},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「あの詩は、あなたへの気持ちそのままです。ずっと言えなかったけれど」'},
-  {t:'ch',q:'気持ちは？',cs:[
-    {v:'「私も……春樹くんのことが好きです」',a:15},
-    {v:'「あなたの言葉が、好きです。あなたが好きです」',a:15},
-    {v:'「詩で告白なんて、春樹くんらしい」',a:10}
-  ]},
-  {t:'c',c:'haruki',e:'bl',sp:'白鳥 春樹',v:'「……本当に？」'},
-  {t:'p',v:'「本当に」'},
-  {t:'c',c:'haruki',e:'h',sp:'白鳥 春樹',v:'「よかった……一緒に、たくさんの物語を作りましょう。僕たちの物語を」'},
-  {t:'n',v:'秋の中庭。金木犀の香りの中で、私たちの物語が始まった。'}
-],
-kyo_ep1:[
-  {t:'n',v:'美術室の前を通ると、中から呼び止められた。'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「君だ。待っていた。座れ」'},
-  {t:'n',v:'キャンバスの前に椅子が置かれている。どうやら、モデルにされるようだ。'},
-  {t:'ch',q:'どうする？',cs:[
-    {v:'「……分かりました、描いてください」',a:10},
-    {v:'「急すぎますよ」',a:5},
-    {v:'「なぜ私なんですか？」',a:10}
-  ]},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「なぜ、か。君の目に、何かが宿っている。俺にはそれが見えた」'},
-  {t:'n',v:'しばらく、彼は無言で描き続けた。時々、じっとこちらを見つめてくる。'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「動くな。……今の表情がいい」'},
-  {t:'p',v:'「どんな表情ですか？」'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「不思議な色をしている。不安と、好奇心と、微かな期待。三色が混ざり合っている」'},
-  {t:'n',v:'絵を見せてもらうと──確かに、今の自分がそこにいた。'},
-  {t:'c',c:'kyo',e:'bl',sp:'紫藤 京一郎',v:'「また来てくれ。……続きを描きたい」'},
-  {t:'n',v:'その言葉が、なぜかとても嬉しかった。'}
-],
-kyo_ep2:[
-  {t:'n',v:'特別に案内してもらったアトリエ。壁一面に絵が飾られている。'},
-  {t:'p',v:'「すごい……全部、京一郎さんが描いたんですか？」'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「そうだ。だがここに飾るのは、俺が本当に描きたかったものだけだ」'},
-  {t:'n',v:'一枚の絵の前で足が止まった。夜の海に一人で立つ少女の絵。'},
-  {t:'p',v:'「この絵……なんか切ない」'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「俺の母を描いた。もういない」'},
-  {t:'ch',q:'返す言葉は？',cs:[
-    {v:'「……ごめんなさい。大切な絵を見せてくれて、ありがとうございます」',a:10},
-    {v:'「お母さんのこと、大切にしてたんですね」',a:10},
-    {v:'「絵の中に、愛情が溢れてます」',a:15}
-  ]},
-  {t:'c',c:'kyo',e:'bl',sp:'紫藤 京一郎',v:'「……誰にも言ったことがなかった。なぜ君には言えるんだろうな」'},
-  {t:'n',v:'彼は窓の外を見た。夕日が長い影を作っている。'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「君を描いていると……俺の中の何かが、動く」'}
-],
-kyo_ep3:[
-  {t:'n',v:'展覧会の前夜。アトリエに呼ばれると、そこには大きなキャンバスがあった。'},
-  {t:'n',v:'描かれていたのは──私だった。あの日の、窓際に座った私。'},
-  {t:'p',v:'「……これ、私？」'},
-  {t:'c',c:'kyo',e:'d',sp:'紫藤 京一郎',v:'「そうだ。出会った日から描き続けた。君に見せたくて、展覧会のメインにした」'},
-  {t:'ch',q:'気持ちは？',cs:[
-    {v:'「……なんで、私なんですか」',a:10},
-    {v:'「嬉しい……すごく嬉しい」',a:10},
-    {v:'「私のことを、そんなふうに見てたんですか？」',a:15}
-  ]},
-  {t:'c',c:'kyo',e:'bl',sp:'紫藤 京一郎',v:'「君が来てから、俺の中の色が増えた。今まで見えなかった色が」'},
-  {t:'c',c:'kyo',e:'bl',sp:'紫藤 京一郎',v:'「俺には絵しかなかった。だが今は……君がいる。それが、俺の一番の傑作だ」'},
-  {t:'n',v:'言葉は不器用だけれど、まっすぐだった。'},
-  {t:'p',v:'「私も……あなたのことが、好きです」'},
-  {t:'c',c:'kyo',e:'bl',sp:'紫藤 京一郎',v:'「……俺もだ。ずっと前から」'},
-  {t:'n',v:'アトリエに二人きり。油絵の香りとともに、永遠みたいな夜が始まった。'}
-]
-};
+    const CharHayate = () => (
+      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
+        <defs><linearGradient id="skin5" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fde8d8"/><stop offset="100%" stopColor="#f5d0b8"/></linearGradient></defs>
+        <g transform="translate(0, 10)">
+          <rect x="40" y="155" width="80" height="85" rx="12" fill="#1a2a20"/>
+          <rect x="50" y="158" width="60" height="74" rx="8" fill="#243830"/>
+          <polygon points="68,156 80,172 92,156 97,159 80,177 63,159" fill="#e8f0e8" opacity="0.85"/>
+          <rect x="74" y="133" width="12" height="26" rx="6" fill="url(#skin5)"/>
+          <ellipse cx="80" cy="116" rx="36" ry="38" fill="url(#skin5)"/>
+          <ellipse cx="80" cy="83" rx="37" ry="20" fill="#2a2228"/>
+          <rect x="43" y="83" width="11" height="44" rx="5" fill="#2a2228"/>
+          <rect x="106" y="83" width="11" height="38" rx="5" fill="#2a2228"/>
+          <ellipse cx="80" cy="83" rx="35" ry="18" fill="#3a3040"/>
+          <ellipse cx="72" cy="79" rx="13" ry="5" fill="#4a4060" opacity="0.5"/>
+          <ellipse cx="65" cy="115" rx="9" ry="8" fill="#1a1a1a"/>
+          <ellipse cx="95" cy="115" rx="9" ry="8" fill="#1a1a1a"/>
+          <ellipse cx="65" cy="115" rx="6.5" ry="6" fill="#3a6a40"/>
+          <ellipse cx="95" cy="115" rx="6.5" ry="6" fill="#3a6a40"/>
+          <circle cx="67" cy="112.5" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <circle cx="97" cy="112.5" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <path d="M 57 106 Q 65 103 73 107" stroke="#2a1e10" strokeWidth="2" fill="none" strokeLinecap="round"/>
+          <path d="M 87 107 Q 95 103 103 106" stroke="#2a1e10" strokeWidth="2" fill="none" strokeLinecap="round"/>
+          <ellipse cx="80" cy="126" rx="2" ry="1.5" fill="#d8a888" opacity="0.5"/>
+          <path d="M 73 136 Q 80 141 87 136" stroke="#b87860" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+        </g>
+      </svg>
+    );
 
-// ════════════════════ ENDINGS ════════════════════
-const ENDS = {
-  rin:{
-    good:{type:'GOOD END',bg:'linear-gradient(160deg,#0a1830 0%,#1a3060 50%,#2a4a90 100%)',
-      txt:`「──あの雨の夜、屋上で。凜は言った。\n「完璧でなくていい。お前の隣にいたい」と。\n\n文化祭が終わった翌日、彼は生徒会室の前で待っていた。\n誰もいない廊下で、少し赤い顔をしながら。\n\n「返事を聞かせてくれ」\n\n──もちろん、答えは決まっていた。\n\n完璧な彼の、完璧じゃない部分を知っている。\nそれが、私だけの特等席。` },
-    bad:{type:'FRIEND END',bg:'linear-gradient(160deg,#1a1a2e 0%,#2a2a4e 100%)',
-      txt:`凜くんとは、良き友人のままだ。\n時々、屋上で話す。それだけで十分──\nそう思うことにした。\n\nいつか、もっと近づける日が来るかもしれない。`}
-  },
-  haruto:{
-    good:{type:'HAPPY END',bg:'linear-gradient(160deg,#2a1000 0%,#5a3000 50%,#8a5a00 100%)',
-      txt:`「もっとそばにいたい」と言ってくれた陽斗は、\nグラウンドの夕焼けの中で、少し照れながら手を差し出した。\n\n「一緒に帰ろう。毎日」\n\nサッカーも読書も全力な彼が、\n私にも全力でいてくれる。\n\nその笑顔がまぶしくて──\n私もぜったい、全力で好きでいようと思った。` },
-    bad:{type:'FRIEND END',bg:'linear-gradient(160deg,#1e1000 0%,#3a2000 100%)',
-      txt:`「友達でいようぜ！」って言ってくれた陽斗の笑顔は、\n今日も太陽みたいだ。\n\n……少しだけ、眩しくて苦しい。`}
-  },
-  yoru:{
-    good:{type:'PRECIOUS END',bg:'linear-gradient(160deg,#0a001a 0%,#1a0030 50%,#2a0050 100%)',
-      txt:`「夜明け」を演奏し終えた夜は、\n袖に戻ってきて、静かに言った。\n\n「俺の隣にいてくれ。音楽と、お前だけがいれば十分だ」\n\n不器用な言葉だけど、\nこれが彼の全力の愛情だと分かる。\n\n暗い夜の向こうに、夜明けがある。\nそれを教えてくれたのは、私のほうだったかもしれない。` },
-    bad:{type:'DISTANT END',bg:'linear-gradient(160deg,#050010 0%,#100020 100%)',
-      txt:`夜はまた、音楽室に一人でいる。\nドアの向こうから聞こえるギターの音。\n\n──いつか、開けてもらえる日が来るといい。`}
-  },
-  haruki:{
-    good:{type:'STORY END',bg:'linear-gradient(160deg,#021008 0%,#082a14 50%,#104528 100%)',
-      txt:`「僕たちの物語を書きましょう」と春樹くんは言った。\n\n金木犀の香りの中庭で、\n彼は私の手を取って、ゆっくりと歩き出した。\n\n「この瞬間を、詩にしていいですか」\n\nもちろん。だってこれは、私たちの物語だから。\n\n──続きは、これから二人で。` },
-    bad:{type:'READER END',bg:'linear-gradient(160deg,#04180c 0%,#082818 100%)',
-      txt:`春樹くんとは、読書の友だ。\n図書室で並んで本を読む午後が続く。\n\n彼の書く詩は、今日も美しい。\nいつか、私のことを書いてくれる日が来るかな。`}
-  },
-  kyo:{
-    good:{type:'MASTERPIECE END',bg:'linear-gradient(160deg,#080818 0%,#101828 50%,#1a2840 100%)',
-      txt:`「君が俺の一番の傑作だ」\n\n展覧会の夜、アトリエに二人きり。\n油絵の香りの中で、京一郎さんは私の手を取った。\n\n「描き続けていいか。ずっと」\n\nその手は絵の具だらけで、少し不器用で、\n温かかった。\n\n──この人の隣で、永遠の絵の中に生きていたい。` },
-    bad:{type:'CANVAS END',bg:'linear-gradient(160deg,#06080e 0%,#0e1020 100%)',
-      txt:`京一郎さんは今日も絵を描いている。\n\nあの大きなキャンバスに、私の姿が残っている。\nそれだけで──十分かな。\n\n……本当は、もっと近くにいたかったけれど。`}
-  }
-};
+    const CHAR_COMPONENTS = { rinto: CharRinto, souma: CharSouma, kaito: CharKaito, aoi: CharAoi, hayate: CharHayate };
 
-// ════════════════════ STATE ════════════════════
-let G = {name:'詩織',cid:null,ep:0,step:0,aff:{rin:0,haruto:0,yoru:0,haruki:0,kyo:0},cleared:{}};
-let sceneQueue=[],inChoice=false;
+    const Background = ({ bgId }) => {
+      switch(bgId) {
+        case 'school_entrance':
+          return (
+            <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+              <rect width="1920" height="1080" fill="#e0f2fe" />
+              <rect y="700" width="1920" height="380" fill="#d4d4d8" />
+              <path d="M200,700 L200,300 L600,200 L1700,200 L1700,700 Z" fill="#fff" stroke="#cbd5e1" strokeWidth="4"/>
+              <rect x="800" y="500" width="300" height="200" fill="#38bdf8" opacity="0.2"/>
+              <circle cx="1600" cy="200" r="100" fill="#fde047" opacity="0.8"/>
+            </svg>
+          );
+        case 'observatory_night':
+          return (
+            <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+              <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0f172a"/><stop offset="100%" stopColor="#1e1b4b"/></linearGradient></defs>
+              <rect width="1920" height="1080" fill="url(#sky)" />
+              <circle cx="1500" cy="300" r="120" fill="#f8fafc" opacity="0.9" />
+              <path d="M400,1080 L1520,1080 L1300,500 L600,500 Z" fill="#0f172a" opacity="0.9" />
+              <polygon points="960,300 1100,500 820,500" fill="#334155" />
+              <circle cx="200" cy="150" r="2" fill="#fff" opacity="0.8"/><circle cx="500" cy="250" r="3" fill="#fff" opacity="0.6"/><circle cx="800" cy="100" r="2" fill="#fff" opacity="0.9"/><circle cx="1200" cy="200" r="1.5" fill="#fff" opacity="0.5"/>
+            </svg>
+          );
+        case 'cg_rinto_1':
+          return (
+            <div className="absolute inset-0 w-full h-full bg-navy flex items-center justify-center text-white">
+              <svg className="absolute inset-0 w-full h-full object-cover opacity-30" viewBox="0 0 1920 1080"><rect width="1920" height="1080" fill="#0f172a"/><circle cx="960" cy="540" r="400" fill="#fde047" opacity="0.1"/></svg>
+              <div className="z-10 text-center">
+                <div className="text-4xl font-serif text-gold mb-4 border-b border-gold pb-2">CG: 天文台の星図</div>
+                <p className="text-lg opacity-80">凛斗が優しく微笑みかけるスチルイラスト</p>
+              </div>
+            </div>
+          );
+        default:
+          return <div className="absolute inset-0 w-full h-full bg-surface2" />;
+      }
+    };
 
-function initG(){G={name:'詩織',cid:null,ep:0,step:0,aff:{rin:0,haruto:0,yoru:0,haruki:0,kyo:0},cleared:{}};}
+    // ==========================================
+    // 4. MAIN COMPONENT & STATE
+    // ==========================================
+    const App = () => {
+      const [screen, setScreen] = useState('title'); // title, main, vn, status
+      const [gameState, setGameState] = useState(INIT_STATE);
+      const [currentEvent, setCurrentEvent] = useState(null);
+      const [showToast, setShowToast] = useState(null);
 
-// ════════════════════ SAVE ════════════════════
-const SLOTS=3;
-function saves(){try{return JSON.parse(localStorage.getItem('otome_saves')||'[]')||[];}catch{return [];}}
-function writeSave(i,d){const s=saves();s[i]=d;localStorage.setItem('otome_saves',JSON.stringify(s));}
-function saveState(i){
-  const d={...G,ts:new Date().toLocaleString('ja-JP')};
-  writeSave(i,d);
-  notify('SAVE '+(i+1)+' に保存しました');
-  renderMenuSlots();
-}
-function loadState(d){
-  G={...d};
-  closeMenu();
-  if(G.cid)startEpisode(G.cid,G.ep);
-  else{show('s-csel');renderGrid();}
-}
+      const triggerToast = (msg) => {
+        setShowToast(msg);
+        setTimeout(() => setShowToast(null), 3000);
+      };
 
-function renderSlots(el,onSave){
-  const sl=saves();el.innerHTML='';
-  for(let i=0;i<SLOTS;i++){
-    const s=sl[i];
-    const d=document.createElement('div');
-    d.className='sslot';
-    d.innerHTML=`<div class="sslot-n">SLOT ${i+1}</div><div class="sslot-i">${s?`${s.ts}　${s.cid?CHARS[s.cid].name:'タイトル画面'} Ep.${(s.ep||0)+1}`:'── 空き ──'}</div>`;
-    if(onSave){d.onclick=()=>saveState(i);}
-    else if(s){d.onclick=()=>loadState(s);}
-    el.appendChild(d);
-  }
-}
-function renderMenuSlots(){renderSlots(document.getElementById('mslots'),true);}
-function renderLoadSlots(){renderSlots(document.getElementById('lslots'),false);}
-function openLoad(){renderLoadSlots();show('s-load');}
+      const checkEvents = (state) => {
+        // イベント発生条件の判定
+        if (!state.flags.prologue_cleared) return "prologue";
+        
+        // 凛斗の天文台イベント
+        if (!state.flags.rinto_starmap_cleared && state.date.year === 1 && state.date.month >= 7 && state.stats.intelligence >= 200) {
+          return "rinto_starmap";
+        }
 
-// ════════════════════ UI HELPERS ════════════════════
-function show(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-function notify(msg){
-  const n=document.getElementById('notif');
-  n.textContent=msg;n.style.opacity='1';
-  setTimeout(()=>n.style.opacity='0',1800);
-}
-function toggleMenu(){document.getElementById('moverlay').classList.toggle('on');renderMenuSlots();}
-function closeMenu(){document.getElementById('moverlay').classList.remove('on');}
-function toTitle(){closeMenu();show('s-title');}
-function goHome(){
-  const h=window.location.href.replace(/\/[^\/]*$/,'/');
-  window.location.href=h+'index.html';
-}
+        // エンディング判定 (3年3月4週を越えたら)
+        if (state.date.year === 4 || (state.date.year === 3 && state.date.month === 4)) {
+           if (state.affection.rinto >= 80) return "ending_happy_rinto";
+           return "ending_normal";
+        }
+        
+        return null;
+      };
 
-// ════════════════════ TITLE / NAME ════════════════════
-function startNew(){initG();show('s-name');document.getElementById('pname').value='';}
-function confirmName(){
-  const v=document.getElementById('pname').value.trim();
-  G.name=v||'詩織';
-  // play prologue then char select
-  G.cid=null;
-  sceneQueue=SCENES.prologue;G.step=0;
-  show('s-vn');
-  document.getElementById('ep-lbl').textContent='プロローグ';
-  document.getElementById('aff-chip').style.display='none';
-  document.getElementById('vn-bg').style.background='linear-gradient(160deg,#0a0610 0%,#100820 50%,#180c30 100%)';
-  document.getElementById('vn-char').innerHTML='';
-  advanceScene();
-}
+      const advanceTime = (state) => {
+        let { year, month, week } = state.date;
+        week += 1;
+        if (week > 4) {
+          week = 1;
+          let monthIdx = MONTHS.indexOf(month) + 1;
+          if (monthIdx >= MONTHS.length) {
+            monthIdx = 0;
+            year += 1;
+          }
+          month = MONTHS[monthIdx];
+        }
+        return { year, month, week };
+      };
 
-// ════════════════════ CHAR SELECT ════════════════════
-function renderGrid(){
-  const g=document.getElementById('cgrid');
-  g.innerHTML='';
-  document.getElementById('csel-title').textContent=`${G.name}の恋物語`;
-  document.getElementById('csel-sub').textContent='誰と過ごしますか？';
-  Object.values(CHARS).forEach(C=>{
-    const ep=G.cleared[C.id]||0;
-    const aff=G.aff[C.id]||0;
-    const pct=Math.min(100,Math.round(aff/60*100));
-    const cleared=ep>=3;
-    const div=document.createElement('div');
-    div.className='ccard'+(cleared?' sel':'');
-    div.innerHTML=`
-      ${cleared?'<div class="cbadge">✦ 攻略済み</div>':''}
-      <div class="cpa">${sprite(C.id,'d')}</div>
-      <div class="cinfo">
-        <div class="cname">${C.name}</div>
-        <div class="crole">${C.role}</div>
-        <div class="aff-bar"><div class="aff-fill" style="width:${pct}%;background:${C.col}"></div></div>
-        <div class="ep-dots">${[0,1,2].map(i=>`<div class="ep-dot${i<ep?' done':''}"></div>`).join('')}</div>
-      </div>`;
-    div.onclick=()=>selectChar(C.id);
-    g.appendChild(div);
-  });
-}
+      const executeCommand = (cmd) => {
+        if (gameState.actionsLeft <= 0) return;
+        if (gameState.stats.stamina + cmd.cost < 0) {
+          triggerToast("体力が足りません！ 休息してください。");
+          return;
+        }
 
-function selectChar(cid){
-  G.cid=cid;
-  const ep=G.cleared[cid]||0;
-  if(ep>=3){showEnd(cid);return;}
-  startEpisode(cid,ep);
-}
+        let newState = { ...gameState };
+        
+        // パラメータ変動
+        newState.stats.stamina += cmd.cost;
+        if (newState.stats.stamina > newState.stats.maxStamina) newState.stats.stamina = newState.stats.maxStamina;
+        
+        let changes = [];
+        if (cmd.effects) {
+          for (let key in cmd.effects) {
+            const [min, max] = cmd.effects[key];
+            const val = randomRange(min, max);
+            newState.stats[key] += val;
+            if(newState.stats[key] > 999 && key !== 'maxStamina') newState.stats[key] = 999;
+            changes.push(`${key === 'intelligence' ? '知性' : key === 'sports' ? '運動' : key === 'fashion' ? 'ファッション' : key === 'music' ? '音楽' : key === 'domestic' ? '家事' : '最大体力'} +${val}`);
+          }
+        }
+        triggerToast(`${cmd.label}を実行: ${changes.join(', ')}`);
 
-// ════════════════════ EPISODE ════════════════════
-function startEpisode(cid,ep){
-  G.cid=cid;G.ep=ep;G.step=0;
-  const C=CHARS[cid];
-  const key=`${cid}_ep${ep+1}`;
-  sceneQueue=SCENES[key]||[];
-  show('s-vn');
-  document.getElementById('vn-bg').style.background=C.bg;
-  document.getElementById('ep-lbl').textContent=`${C.name} ／ Ep.${ep+1}`;
-  document.getElementById('aff-chip').style.display='flex';
-  document.getElementById('aff-num').textContent=G.aff[cid]||0;
-  advanceScene();
-}
+        // ランダム遭遇
+        if (cmd.encounter && cmd.encounter.length > 0 && Math.random() < 0.4) {
+          let charId = cmd.encounter[Math.floor(Math.random() * cmd.encounter.length)];
+          if (charId === "all") charId = Object.keys(CHARACTERS)[Math.floor(Math.random() * 5)];
+          if (charId && charId !== 'rival') {
+            newState.affection[charId] += randomRange(3, 8);
+            setTimeout(() => triggerToast(`${CHARACTERS[charId].name}を見かけた！好感度UP`), 1000);
+          }
+        }
 
-// ════════════════════ SCENE ENGINE ════════════════════
-function advance(){if(!inChoice)advanceScene();}
+        newState.actionsLeft -= 1;
+        
+        // ターン終了処理
+        if (newState.actionsLeft <= 0) {
+          newState.date = advanceTime(newState);
+          newState.actionsLeft = 2; // 簡略化のため常に2回
+          
+          // ボム増加処理 (放置キャラの好感度が少し下がり、ライバルが上がる等)
+          // 割愛
+        }
 
-function advanceScene(){
-  if(G.step>=sceneQueue.length){
-    endEpisode();return;
-  }
-  const sc=sceneQueue[G.step++];
-  renderScene(sc);
-}
+        setGameState(newState);
 
-function renderScene(sc){
-  const body=document.getElementById('vn-body');
-  const spk=document.getElementById('vn-spk');
-  const nxt=document.getElementById('vn-nxt');
-  const charDiv=document.getElementById('vn-char');
-  inChoice=false;
-  nxt.style.display='flex';
+        const evId = checkEvents(newState);
+        if (evId) {
+          setCurrentEvent(evId);
+          setScreen('vn');
+        }
+      };
 
-  if(sc.t==='n'){
-    spk.style.display='none';
-    body.innerHTML=`<div class="vn-narr">${sc.v}</div>`;
-    charDiv.innerHTML='';
-  } else if(sc.t==='p'){
-    spk.style.display='inline-block';
-    spk.textContent=G.name;
-    spk.style.background='linear-gradient(135deg,#c2185b,#880e4f)';
-    body.innerHTML=`<div class="vn-txt">${sc.v}</div>`;
-    charDiv.innerHTML='';
-  } else if(sc.t==='c'){
-    const C=CHARS[sc.c];
-    spk.style.display='inline-block';
-    spk.textContent=sc.sp||C.name;
-    spk.style.background=`linear-gradient(135deg,${C.col},${C.dark})`;
-    body.innerHTML=`<div class="vn-txt">${sc.v}</div>`;
-    charDiv.innerHTML=sprite(sc.c,sc.e||'d');
-  } else if(sc.t==='ch'){
-    inChoice=true;
-    nxt.style.display='none';
-    spk.style.display='none';
-    body.innerHTML=`<div class="q-lbl">${sc.q}</div><div class="choices">${sc.cs.map((c,i)=>`<button class="cbtn" onclick="choose(${i})">${c.v}</button>`).join('')}</div>`;
-  }
-}
+      // デバッグ用関数
+      const debugAdvanceTime = () => {
+        let newState = { ...gameState };
+        newState.date = advanceTime(newState);
+        setGameState(newState);
+        const evId = checkEvents(newState);
+        if (evId) { setCurrentEvent(evId); setScreen('vn'); }
+      };
+      
+      const debugMaxParams = () => {
+        setGameState(s => ({
+          ...s,
+          stats: { intelligence: 500, sports: 500, fashion: 500, music: 500, domestic: 500, stamina: 200, maxStamina: 200 },
+          affection: { rinto: 80, souma: 80, kaito: 80, aoi: 80, hayate: 80, rival: 0 }
+        }));
+        triggerToast("パラメータMAX化しました");
+      };
 
-function choose(i){
-  const sc=sceneQueue[G.step-1];
-  if(sc.t!=='ch')return;
-  const chosen=sc.cs[i];
-  G.aff[G.cid]=(G.aff[G.cid]||0)+(chosen.a||0);
-  document.getElementById('aff-num').textContent=G.aff[G.cid];
-  if(chosen.a>=10) spawnHeart();
-  inChoice=false;
-  advanceScene();
-}
+      return (
+        <div className="game-container font-sans text-ink flex flex-col">
+          {screen === 'title' && <TitleScreen setScreen={setScreen} setGameState={setGameState} INIT_STATE={INIT_STATE} setCurrentEvent={setCurrentEvent} checkEvents={checkEvents} />}
+          {screen === 'main' && (
+             <MainScreen 
+               state={gameState} 
+               setScreen={setScreen} 
+               executeCommand={executeCommand} 
+               debugAdvanceTime={debugAdvanceTime}
+               debugMaxParams={debugMaxParams}
+             />
+          )}
+          {screen === 'vn' && currentEvent && (
+             <VNScreen 
+               eventId={currentEvent} 
+               eventsDef={EVENTS} 
+               state={gameState} 
+               setState={setGameState} 
+               setScreen={setScreen} 
+               setCurrentEvent={setCurrentEvent} 
+             />
+          )}
+          {screen === 'status' && <StatusScreen state={gameState} setScreen={setScreen} />}
 
-function endEpisode(){
-  const ep=G.ep;
-  G.cleared[G.cid]=(G.cleared[G.cid]||0)+1;
-  G.ep++;
-  if(G.ep>=3){showEnd(G.cid);}
-  else{
-    notify(`Ep.${ep+1} クリア！ ❤ +好感度獲得`);
-    setTimeout(()=>{show('s-csel');renderGrid();},1200);
-  }
-}
+          {/* Toast Notification */}
+          {showToast && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-ink/80 text-white px-6 py-3 rounded-full text-sm font-bold z-50 animate-bounce">
+              {showToast}
+            </div>
+          )}
+        </div>
+      );
+    };
 
-function showEnd(cid){
-  const C=CHARS[cid];
-  const aff=G.aff[cid]||0;
-  const isGood=aff>=35;
-  const e=ENDS[cid][isGood?'good':'bad'];
-  document.getElementById('end-bg').style.background=e.bg;
-  document.getElementById('end-type').textContent=e.type;
-  document.getElementById('end-type').className='end-type '+(isGood?'good-e':'bad-e');
-  document.getElementById('end-cname').textContent=C.name;
-  document.getElementById('end-txt').textContent=e.txt;
-  show('s-end');
-  if(isGood){for(let i=0;i<12;i++)setTimeout(()=>spawnHeart(true),i*200);}
-}
+    // ==========================================
+    // TITLE SCREEN
+    // ==========================================
+    const TitleScreen = ({ setScreen, setGameState, INIT_STATE, setCurrentEvent, checkEvents }) => {
+      const handleStart = () => {
+        setGameState(INIT_STATE);
+        const evId = checkEvents(INIT_STATE);
+        if(evId) {
+          setCurrentEvent(evId);
+          setScreen('vn');
+        } else {
+          setScreen('main');
+        }
+      };
 
-function spawnHeart(big=false){
-  const h=document.createElement('div');
-  h.className='fheart';
-  h.textContent=big?'💖':'❤';
-  h.style.left=Math.random()*80+10+'vw';
-  h.style.top=Math.random()*60+20+'vh';
-  if(big)h.style.fontSize='2.5rem';
-  document.body.appendChild(h);
-  setTimeout(()=>h.remove(),2200);
-}
+      return (
+        <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-br from-navy via-rose-dark to-ink">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute top-[20%] left-[80%] w-64 h-64 bg-gold rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse"></div>
+            <div className="absolute top-[60%] left-[20%] w-96 h-96 bg-rose rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+          </div>
+          
+          <div className="z-10 text-center px-8 py-12 bg-surface/10 backdrop-blur-md rounded-2xl border border-surface/20 w-[90%] max-w-md">
+            <p className="text-gold tracking-widest text-xs mb-4 font-serif uppercase">Serenade on the Starlit Hill</p>
+            <h1 className="text-4xl md:text-5xl font-serif text-white font-bold mb-12 drop-shadow-lg">星降る丘のセレナーデ</h1>
+            
+            <div className="flex flex-col gap-4 w-64 mx-auto">
+              <button onClick={handleStart} className="py-3 px-6 bg-rose text-white rounded-full font-bold shadow-lg hover:bg-rose-dark transition-all transform hover:scale-105">
+                はじめから
+              </button>
+              <button className="py-3 px-6 bg-surface/20 text-white rounded-full font-bold hover:bg-surface/30 transition-all border border-surface/30">
+                つづきから (未実装)
+              </button>
+<a href="index.html" className="py-3 px-6 bg-surface/20 text-white rounded-full font-bold hover:bg-surface/30 transition-all border border-surface/30 block text-center">
+    ホームに戻る
+  </a>
+            </div>
+          </div>
+        </div>
+      );
+    };
 
-// ════════════════════ SAKURA ════════════════════
-function makeSakura(){
-  const wrap=document.getElementById('sakura');
-  const colors=['#ffb7c5','#ffd0db','#ff8fab','#ffc2d4','#ffafc7'];
-  for(let i=0;i<18;i++){
-    const p=document.createElement('div');
-    p.className='petal';
-    const sz=Math.random()*10+6;
-    p.style.cssText=`width:${sz}px;height:${sz*.7}px;background:${colors[Math.floor(Math.random()*colors.length)]};opacity:${Math.random()*.6+.4};left:${Math.random()*110-5}%;animation-duration:${Math.random()*6+5}s;animation-delay:${Math.random()*5}s;`;
-    wrap.appendChild(p);
-  }
-}
+    // ==========================================
+    // MAIN SCREEN (Command Selection)
+    // ==========================================
+    const MainScreen = ({ state, setScreen, executeCommand, debugAdvanceTime, debugMaxParams }) => {
+      const { year, month, week } = state.date;
+      
+      return (
+        <div className="w-full h-full bg-surface2 flex flex-col">
+          {/* Header */}
+          <div className="bg-surface border-b border-border p-4 flex justify-between items-center shadow-sm z-10">
+            <div>
+              <h2 className="text-xl font-serif font-bold text-rose-dark">
+                {year}年 {month}月 第{week}週
+              </h2>
+              <p className="text-xs text-muted">残り行動回数: {state.actionsLeft}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setScreen('status')} className="p-2 bg-rose-light text-rose-dark rounded-full hover:bg-petal transition">
+                <i className="ph ph-user text-xl"></i>
+              </button>
+              {/* Debug Menu */}
+              <div className="group relative">
+                <button className="p-2 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition">
+                  <i className="ph ph-bug text-xl"></i>
+                </button>
+                <div className="absolute right-0 top-12 bg-white border border-gray-200 p-2 rounded shadow-lg hidden group-hover:block w-32 z-50">
+                  <button onClick={debugAdvanceTime} className="block w-full text-left text-xs p-2 hover:bg-gray-100">1週進める</button>
+                  <button onClick={debugMaxParams} className="block w-full text-left text-xs p-2 hover:bg-gray-100">パラMAX化</button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-// ════════════════════ BOOT ════════════════════
-window.onload=()=>{
-  makeSakura();
-  // load persistent affinity/progress
-  try{
-    const sv=localStorage.getItem('otome_G');
-    if(sv){const d=JSON.parse(sv);G.aff=d.aff||G.aff;G.cleared=d.cleared||G.cleared;G.name=d.name||G.name;}
-  }catch{}
-};
-// auto-persist on advance
-setInterval(()=>{
-  try{localStorage.setItem('otome_G',JSON.stringify({aff:G.aff,cleared:G.cleared,name:G.name}));}catch{}
-},3000);
-</script>
+          {/* Status Bar Quick View */}
+          <div className="bg-ink text-white p-2 flex items-center justify-center gap-4 text-xs font-bold shadow-inner">
+            <div className="flex items-center gap-1">❤️ 体力 <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-rose" style={{width: `${(state.stats.stamina/state.stats.maxStamina)*100}%`}}></div></div></div>
+          </div>
+
+          {/* Affection Quick View */}
+          <div className="flex justify-center gap-4 py-3 bg-surface border-b border-border">
+            {['rinto','souma','kaito','aoi','hayate'].map(c => (
+               <div key={c} className="flex flex-col items-center">
+                 <div className={`w-8 h-8 rounded-full ${CHARACTERS[c].color} flex items-center justify-center text-white font-serif text-xs border-2 border-white shadow-sm`}>
+                   {CHARACTERS[c].name.split(' ')[1][0]}
+                 </div>
+                 <div className="text-[10px] text-muted mt-1 font-bold">♥ {state.affection[c]}</div>
+               </div>
+            ))}
+          </div>
+
+          {/* Commands Grid */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-surface2">
+            <h3 className="text-sm font-bold text-muted mb-4 uppercase tracking-wider">行動コマンド選択</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {COMMANDS.map(cmd => (
+                <button 
+                  key={cmd.id}
+                  onClick={() => executeCommand(cmd)}
+                  disabled={state.actionsLeft <= 0}
+                  className={`relative p-4 rounded-xl border ${state.actionsLeft > 0 ? 'bg-surface border-border hover:border-rose hover:shadow-md cursor-pointer' : 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed'} transition-all flex flex-col items-center justify-center gap-2 group`}
+                >
+                  <div className="text-3xl bg-surface2 p-3 rounded-full group-hover:bg-rose-light transition-colors">{cmd.icon}</div>
+                  <div className="font-bold text-sm text-ink">{cmd.label}</div>
+                  <div className="text-[10px] text-muted">体力 {cmd.cost > 0 ? `-${cmd.cost}` : `+${-cmd.cost}`}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // STATUS SCREEN
+    // ==========================================
+    const StatusScreen = ({ state, setScreen }) => {
+      const STATS_MAP = {
+        intelligence: { label: "知性", icon: "📚", color: "bg-blue-400" },
+        sports: { label: "運動", icon: "⚽", color: "bg-orange-400" },
+        fashion: { label: "ファッション", icon: "👗", color: "bg-pink-400" },
+        music: { label: "音楽", icon: "🎵", color: "bg-green-400" },
+        domestic: { label: "家事", icon: "🍳", color: "bg-yellow-400" },
+      };
+
+      return (
+        <div className="w-full h-full bg-surface2 flex flex-col z-20">
+          <div className="bg-surface p-4 flex items-center border-b border-border shadow-sm">
+            <button onClick={() => setScreen('main')} className="p-2 bg-surface2 rounded-full hover:bg-border transition mr-4">
+              <i className="ph ph-arrow-left text-xl"></i>
+            </button>
+            <h2 className="text-xl font-serif font-bold text-ink">ステータス</h2>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
+            <div className="bg-surface rounded-xl border border-border p-6 shadow-sm mb-6">
+              <h3 className="text-sm font-bold text-rose-dark mb-4 border-b border-rose-light pb-2">主人公パラメータ</h3>
+              <div className="space-y-4">
+                {Object.entries(STATS_MAP).map(([key, info]) => (
+                  <div key={key} className="flex items-center gap-3 text-sm">
+                    <span className="w-6 text-center">{info.icon}</span>
+                    <span className="w-24 text-muted font-bold">{info.label}</span>
+                    <div className="flex-1 h-3 bg-surface2 rounded-full overflow-hidden border border-border">
+                      <div className={`h-full ${info.color}`} style={{width: `${Math.min(100, (state.stats[key]/999)*100)}%`}}></div>
+                    </div>
+                    <span className="w-10 text-right font-mono text-ink">{state.stats[key]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-surface rounded-xl border border-border p-6 shadow-sm">
+              <h3 className="text-sm font-bold text-rose-dark mb-4 border-b border-rose-light pb-2">好感度</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(CHARACTERS).filter(([k]) => k!=='rival').map(([key, info]) => (
+                  <div key={key} className="flex items-center gap-3 p-3 bg-surface2 rounded-lg border border-border">
+                    <div className={`w-10 h-10 rounded-full ${info.color} flex items-center justify-center text-white font-serif shadow-sm`}>
+                      {info.name.split(' ')[1][0]}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-ink">{info.name}</div>
+                      <div className="text-lg font-mono text-rose flex items-center gap-1">
+                        <i className="ph-fill ph-heart"></i> {state.affection[key]}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // VISUAL NOVEL SCREEN
+    // ==========================================
+    const VNScreen = ({ eventId, eventsDef, state, setState, setScreen, setCurrentEvent }) => {
+      const [currentBlock, setCurrentBlock] = useState(eventId);
+      const [lineIdx, setLineIdx] = useState(0);
+      const [animating, setAnimating] = useState(false);
+      
+      const ev = eventsDef[currentBlock];
+      
+      useEffect(() => {
+        setAnimating(true);
+        const timer = setTimeout(() => setAnimating(false), 500); // text animation time
+        return () => clearTimeout(timer);
+      }, [lineIdx, currentBlock]);
+
+      if (!ev) {
+        setScreen('main');
+        return null;
+      }
+
+      const line = ev.lines[lineIdx];
+
+      const handleNext = () => {
+        if (animating) {
+          setAnimating(false); // skip animation
+          return;
+        }
+        if (line.type === 'choice') return; // wait for choice
+
+        if (lineIdx + 1 < ev.lines.length) {
+          setLineIdx(lineIdx + 1);
+        } else {
+          // Event end
+          if (ev.onEnd) {
+            const nextState = ev.onEnd(state);
+            setState(nextState);
+            // onEnd might have changed screen
+            if (nextState.screen === 'title') return; 
+          }
+          setCurrentEvent(null);
+          setScreen('main');
+        }
+      };
+
+      const handleChoice = (opt) => {
+        if (opt.affection) {
+          let nextState = {...state};
+          for(let char in opt.affection) {
+            nextState.affection[char] += opt.affection[char];
+          }
+          setState(nextState);
+        }
+        setCurrentBlock(opt.next);
+        setLineIdx(0);
+      };
+
+      // Extract character to show
+      let charToShow = null;
+      if (line && line.char && CHAR_COMPONENTS[line.char]) {
+         const CharComp = CHAR_COMPONENTS[line.char];
+         charToShow = <CharComp />;
+      }
+
+      return (
+        <div className="w-full h-full relative flex flex-col bg-black overflow-hidden" onClick={handleNext}>
+          {/* Background */}
+          <Background bgId={ev.bg} />
+
+          {/* Character */}
+          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90%] max-w-[400px] h-[80%] pointer-events-none transition-opacity duration-500">
+             {charToShow}
+          </div>
+
+          {/* Choice Overlay */}
+          {line && line.type === 'choice' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/40 z-20 backdrop-blur-sm">
+              {line.options.map((opt, i) => (
+                <button 
+                  key={i} 
+                  onClick={(e) => { e.stopPropagation(); handleChoice(opt); }}
+                  className="w-4/5 max-w-md py-4 px-6 bg-surface/90 border-2 border-rose rounded-xl text-rose-dark font-bold text-lg hover:bg-rose hover:text-white transition-all shadow-lg transform hover:-translate-y-1"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Text Window */}
+          {line && line.type !== 'choice' && (
+            <div className="absolute bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-3xl z-30">
+              <div className="bg-surface/90 backdrop-blur-md border border-white/40 rounded-xl shadow-2xl p-4 md:p-6 min-h-[140px] relative">
+                {/* Speaker Name */}
+                {line.speaker && (
+                  <div className={`absolute -top-4 left-4 px-4 py-1 rounded-md font-bold text-sm text-white shadow-md ${CHARACTERS[line.speaker] ? CHARACTERS[line.speaker].color : 'bg-gray-600'}`}>
+                    {CHARACTERS[line.speaker] ? CHARACTERS[line.speaker].name : line.speaker}
+                  </div>
+                )}
+                {/* Text */}
+                <div className="text-ink text-base md:text-lg leading-relaxed pt-2 font-serif">
+                  {animating ? (
+                     <span className="vn-text-reveal">{line.text}</span>
+                  ) : (
+                     <span>{line.text}</span>
+                  )}
+                </div>
+                {/* Next Indicator */}
+                {!animating && (
+                  <div className="absolute bottom-4 right-4 text-rose animate-bounce">
+                    <i className="ph-fill ph-caret-down text-xl"></i>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Debug skip */}
+          <div className="absolute top-4 right-4 z-40">
+            <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="bg-black/50 text-white text-xs px-2 py-1 rounded">Skip</button>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
