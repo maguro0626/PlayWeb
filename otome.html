@@ -1,850 +1,3048 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>星降る丘のセレナーデ</title>
-  
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Noto Sans JP"', 'sans-serif'],
-            serif: ['"Noto Serif JP"', 'serif'],
-          },
-          colors: {
-            rose: { DEFAULT: '#c97a8e', light: '#f5e6ea', dark: '#8a4a5e' },
-            petal: '#e8c4d0',
-            ink: '#1e1a1c',
-            muted: '#7a6870',
-            border: '#e0d4d8',
-            surface: '#ffffff',
-            surface2: '#faf6f7',
-            gold: '#c9a227',
-            navy: '#1a2744',
-            sage: '#2d6a4f',
-            sky: '#1a6fa8',
-            lavender: '#6b5fa5',
-            amber: '#8b5e3c',
-          }
-        }
-      }
-    }
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>星降る丘のセレナーデ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   ROOT VARIABLES
+══════════════════════════════════════════ */
+:root {
+  --rose: #c97a8e;
+  --rose-light: #f5e6ea;
+  --rose-dark: #8a4a5e;
+  --petal: #e8c4d0;
+  --ink: #1e1a1c;
+  --muted: #7a6870;
+  --border: #e0d4d8;
+  --surface: #ffffff;
+  --surface2: #faf6f7;
+  --gold: #c9a227;
+  --navy: #1a2744;
+  --sage: #2d6a4f;
+  --sky: #1a6fa8;
+  --lavender: #6b5fa5;
+  --amber: #8b5e3c;
+  --vn-bg: #0d0d1a;
+  --text-box-bg: rgba(10,10,25,0.82);
+  --text-box-border: rgba(201,162,39,0.35);
+  --name-box-bg: linear-gradient(135deg,rgba(26,39,68,0.95),rgba(45,34,85,0.95));
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 
-  <!-- React & Babel -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-  
-  <!-- Phosphor Icons -->
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+html,body {
+  width:100%; height:100%;
+  background:#060610;
+  overflow:hidden;
+  font-family:'Noto Sans JP',sans-serif;
+  color:#fff;
+  touch-action:manipulation;
+}
 
-  <style>
-    body {
-      background-color: #faf6f7;
-      color: #1e1a1c;
-      overflow: hidden;
-      touch-action: none;
-    }
-    .game-container {
-      width: 100vw;
-      height: 100vh;
-      max-width: 1280px;
-      margin: 0 auto;
-      position: relative;
-      background: #000;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    /* VN Text Animation */
-    @keyframes type {
-      from { width: 0; }
-      to { width: 100%; }
-    }
-    .vn-text-reveal {
-      display: inline-block;
-      overflow: hidden;
-      white-space: pre-wrap;
-      animation: type 0.5s steps(40, end);
-    }
-    .fade-enter { opacity: 0; }
-    .fade-enter-active { opacity: 1; transition: opacity 500ms; }
-    .fade-exit { opacity: 1; }
-    .fade-exit-active { opacity: 0; transition: opacity 500ms; }
-  </style>
+/* ══════════════════════════════════════════
+   GAME CONTAINER — スマホ縦長
+══════════════════════════════════════════ */
+#game-wrap {
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background:#060610;
+}
+#game {
+  position:relative;
+  width:100%; max-width:480px;
+  height:100%; height:100dvh;
+  overflow:hidden;
+  background:var(--vn-bg);
+  box-shadow:0 0 80px rgba(0,0,0,0.9);
+}
+
+/* ══════════════════════════════════════════
+   SCREEN BASE
+══════════════════════════════════════════ */
+.screen {
+  position:absolute; inset:0;
+  display:none; opacity:0;
+  transition:opacity 0.4s ease;
+}
+.screen.active { display:flex; flex-direction:column; }
+.screen.fade-in { opacity:1; }
+
+/* ══════════════════════════════════════════
+   STAR CANVAS
+══════════════════════════════════════════ */
+.stars-canvas {
+  position:absolute; inset:0;
+  pointer-events:none; z-index:0;
+}
+
+/* ══════════════════════════════════════════
+   TITLE SCREEN
+══════════════════════════════════════════ */
+#screen-title {
+  background:radial-gradient(ellipse at 50% 30%,#1a1060 0%,#0d0d2a 40%,#080810 100%);
+  align-items:center; justify-content:center; z-index:10;
+}
+.title-content {
+  position:relative; z-index:2;
+  text-align:center;
+  animation:fadeInUp 1.2s ease both;
+  animation-delay:0.5s;
+  padding:0 24px;
+}
+.title-logo-jp {
+  font-family:'Noto Serif JP',serif;
+  font-size:clamp(22px,7vw,40px);
+  font-weight:700; color:#fff;
+  text-shadow:0 0 40px rgba(201,162,39,0.6),0 2px 10px rgba(0,0,0,0.8);
+  letter-spacing:0.08em; line-height:1.4;
+}
+.title-logo-en {
+  font-size:11px; letter-spacing:0.25em;
+  color:rgba(201,162,39,0.8); margin-top:0.4em; font-weight:300;
+}
+.title-deco {
+  width:200px; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,162,39,0.5),transparent);
+  margin:18px auto;
+}
+.title-menu {
+  display:flex; flex-direction:column;
+  align-items:center; gap:10px; margin-top:4px;
+}
+.title-btn {
+  font-family:'Noto Serif JP',serif;
+  font-size:15px; letter-spacing:0.2em;
+  padding:11px 0;
+  background:transparent;
+  border:1px solid rgba(201,162,39,0.4);
+  color:rgba(255,255,255,0.9);
+  cursor:pointer; transition:all 0.25s ease; border-radius:2px;
+  width:220px;
+}
+.title-btn:hover,.title-btn:focus {
+  background:rgba(201,162,39,0.15);
+  border-color:rgba(201,162,39,0.8); color:#fff;
+  box-shadow:0 0 20px rgba(201,162,39,0.2);
+}
+.title-btn:disabled { opacity:0.35; cursor:default; }
+.title-btn.primary { border-color:rgba(201,162,39,0.7); background:rgba(201,162,39,0.1); }
+
+/* ══════════════════════════════════════════
+   NAME INPUT
+══════════════════════════════════════════ */
+#screen-name {
+  background:radial-gradient(ellipse at 50% 40%,#1a0e2a 0%,#0d0d20 60%,#080810 100%);
+  align-items:center; justify-content:center; z-index:10;
+}
+.name-box {
+  position:relative; z-index:2;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(201,162,39,0.3); border-radius:12px;
+  padding:28px 28px; text-align:center;
+  backdrop-filter:blur(12px);
+  width:88%; max-width:360px;
+  animation:fadeInUp 0.8s ease both;
+}
+.name-title {
+  font-family:'Noto Serif JP',serif; font-size:15px;
+  color:var(--gold); margin-bottom:0.8em; letter-spacing:0.1em;
+}
+.name-subtitle { font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:1.5em; }
+.name-input-field {
+  font-family:'Noto Serif JP',serif; font-size:22px; text-align:center;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(201,162,39,0.4);
+  border-radius:6px; color:#fff; padding:0.5em 1em; width:100%;
+  outline:none; letter-spacing:0.15em; transition:border-color 0.2s;
+}
+.name-input-field:focus { border-color:rgba(201,162,39,0.8); }
+.name-input-field::placeholder { color:rgba(255,255,255,0.25); font-size:0.75em; }
+.name-hint { font-size:10px; color:rgba(255,255,255,0.35); margin-top:0.6em; }
+.name-confirm-btn {
+  margin-top:1.5em; font-family:'Noto Serif JP',serif; font-size:15px;
+  padding:0.7em 3em;
+  background:linear-gradient(135deg,rgba(201,162,39,0.2),rgba(201,162,39,0.1));
+  border:1px solid rgba(201,162,39,0.6); color:rgba(255,255,255,0.9);
+  cursor:pointer; border-radius:4px; letter-spacing:0.15em; transition:all 0.25s;
+}
+.name-confirm-btn:hover { background:rgba(201,162,39,0.25); box-shadow:0 0 20px rgba(201,162,39,0.3); }
+
+/* ══════════════════════════════════════════
+   VN SCREEN — 縦長＋上下帯装飾
+══════════════════════════════════════════ */
+#screen-vn {
+  background:#0d0d1a; z-index:20;
+  user-select:none; flex-direction:column;
+}
+
+/* ── 上下の帯 ── */
+.vn-band {
+  flex-shrink:0;
+  height:10%;
+  min-height:48px; max-height:76px;
+  background:linear-gradient(135deg,#08081c 0%,#12102e 50%,#080818 100%);
+  position:relative; overflow:hidden;
+  display:flex; align-items:center;
+  justify-content:space-between; padding:0 14px;
+  z-index:10;
+  border-bottom:1px solid rgba(201,162,39,0.14);
+}
+.vn-band-bottom {
+  border-bottom:none;
+  border-top:1px solid rgba(201,162,39,0.14);
+}
+.vn-band::before {
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse at 15% 50%,rgba(201,162,39,0.07) 0%,transparent 55%),
+    radial-gradient(ellipse at 85% 50%,rgba(138,74,94,0.09) 0%,transparent 55%);
+  pointer-events:none;
+}
+.vn-band-stars {
+  position:absolute; inset:0; pointer-events:none;
+  opacity:0.6;
+}
+.vn-band-title {
+  font-family:'Noto Serif JP',serif;
+  font-size:9px; letter-spacing:0.2em;
+  color:rgba(201,162,39,0.5);
+  white-space:nowrap; position:relative; z-index:1;
+}
+.vn-band-right {
+  display:flex; align-items:center; gap:0;
+  position:relative; z-index:1;
+}
+.vn-band-deco {
+  font-size:10px; color:rgba(201,162,39,0.3); letter-spacing:0.1em;
+}
+.vn-controls {
+  display:flex; gap:0; pointer-events:auto;
+  position:relative; z-index:1;
+}
+.vn-ctrl-btn {
+  font-size:10px; padding:5px 9px;
+  background:transparent; border:none;
+  border-left:1px solid rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.5); cursor:pointer;
+  transition:color 0.2s; letter-spacing:0.05em; white-space:nowrap;
+}
+.vn-ctrl-btn:hover { color:#fff; }
+.vn-ctrl-btn.active { color:var(--gold); }
+
+/* ── VNステージ（演出エリア） ── */
+.vn-stage {
+  flex:1; position:relative; overflow:hidden;
+  cursor:pointer;
+}
+.vn-bg {
+  position:absolute; inset:0;
+  /* 背景：高さを画面に合わせ、横は中央揃え */
+  background-size:auto 100%;
+  background-position:center center;
+  background-repeat:no-repeat;
+  transition:opacity 0.4s ease; z-index:0;
+}
+.vn-bg-color {
+  position:absolute; inset:0;
+  z-index:0; transition:background 0.5s;
+}
+
+/* CG オーバーレイ */
+.vn-cg-overlay {
+  position:absolute; inset:0; z-index:4;
+  display:none;
+  background-size:contain;
+  background-position:center; background-repeat:no-repeat;
+  background-color:#000; cursor:pointer;
+}
+.vn-cg-overlay.visible { display:block; animation:fadeIn 0.5s ease; }
+
+/* ── 立ち絵 — 上半分表示 ── */
+
+/* 元のコード
+.vn-sprites {
+  position:absolute;
+  top:0; left:0; right:0; bottom:30%;
+  display:flex; align-items:flex-start; justify-content:center;
+  z-index:2; pointer-events:none; overflow:hidden;
+}
+.vn-sprite {
+  position:absolute; top:0; height:100%;
+  overflow:hidden;
+  display:flex; align-items:flex-start; justify-content:center;
+  transition:filter 0.3s,transform 0.3s,opacity 0.4s;
+}
+.vn-sprite.pos-left { left:-8%; }
+.vn-sprite.pos-center { left:50%; transform:translateX(-50%); }
+.vn-sprite.pos-right { right:-8%; }
+.vn-sprite.dimmed { filter:brightness(0.5); }
+/* 上半分が映るように：height:200%でコンテナの2倍、overflow:hiddenで上半分のみ表示 */
+.vn-sprite img {
+  position:absolute; top:0;
+  left:50%; transform:translateX(-50%);
+  height:200%; width:auto; max-width:none;
+  display:block;
+  object-fit:contain; object-position:top center;
+  image-rendering:auto;
+}
+.vn-sprite img[src=""],.vn-sprite img:not([src]) { display:none; }
+*/
+
+/* ── 立ち絵 ── */
+.vn-sprites {
+  position: absolute;
+  top: 0; left: 0; right: 0; 
+  bottom: 0;             /* 30%から0に変更：画面の一番下までキャラが表示されるように */
+  display: flex; align-items: flex-end; /* 下（テキストボックスの裏）を基準に配置 */
+  justify-content: center;
+  z-index: 2;            /* テキスト(z-index:5)より小さい数値なので、キャラが下に潜ります */
+  pointer-events: none; 
+  overflow: hidden;
+}
+
+.vn-sprite {
+  position: absolute; 
+  bottom: 0;             /* topからbottomに変更：足元（画像の下端）を基準にする */
+  height: 100%;
+  display: flex; 
+  align-items: flex-end; /* 下揃え */
+  justify-content: center;
+  transition: filter 0.3s, transform 0.3s, opacity 0.4s;
+}
+
+/* 位置調整：デフォルトのまま（必要に応じて左右位置は微調整してください） */
+.vn-sprite.pos-left { left: 10%; }
+.vn-sprite.pos-center { left: 50%; transform: translateX(-50%); }
+.vn-sprite.pos-right { right: 10%; }
+
+.vn-sprite.dimmed { filter: brightness(0.5); }
+
+/* キャラクター画像本体の設定 */
+.vn-sprite img {
+  position: absolute; 
+  bottom: 0;             /* 下端を基準に表示 */
+  left: 50%; 
+  transform: translateX(-50%);
+  
+  /* --- サイズをデフォルトにする修正 --- */
+  height: auto;          /* 200%からautoに変更 */
+  width: auto;           /* 元の幅を維持 */
+  max-width: none;
+  /* ---------------------------------- */
+  
+  display: block;
+  image-rendering: auto;
+}
+
+.vn-sprite img[src=""],.vn-sprite img:not([src]) { display:none; }
+
+
+/* ── テキストボックス ── */
+.vn-textbox {
+  position:absolute; bottom:0; left:0; right:0; height:30%;
+  z-index:5; padding:8px 12px 10px;
+  display:flex; flex-direction:column; pointer-events:none;
+}
+.vn-namebox {
+  display:inline-flex; align-items:center;
+  padding:0.2em 1em 0.2em 0.7em;
+  background:var(--name-box-bg);
+  border:1px solid rgba(201,162,39,0.5); border-bottom:none;
+  border-radius:4px 4px 0 0;
+  min-width:80px; max-width:55%;
+  margin-bottom:-1px; position:relative; z-index:1;
+}
+.vn-speaker {
+  font-family:'Noto Serif JP',serif;
+  font-size:13px; font-weight:600;
+  color:var(--gold); letter-spacing:0.1em;
+}
+.vn-textpanel {
+  flex:1; background:var(--text-box-bg);
+  border:1px solid var(--text-box-border);
+  border-radius:0 6px 6px 6px;
+  padding:10px 14px; display:flex;
+  flex-direction:column; justify-content:center;
+  backdrop-filter:blur(6px); position:relative;
+}
+.vn-text {
+  font-family:'Noto Serif JP',serif;
+  font-size:14px; line-height:1.9;
+  color:rgba(255,255,255,0.93);
+  white-space:pre-wrap;
+  text-shadow:0 1px 4px rgba(0,0,0,0.9);
+}
+.vn-next-arrow {
+  position:absolute; bottom:6px; right:10px;
+  font-size:11px; color:rgba(201,162,39,0.7);
+  animation:blink 1.2s infinite;
+}
+
+/* ── 選択肢 ── */
+.vn-choices {
+  position:absolute; inset:0; z-index:8;
+  display:none; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.45);
+  flex-direction:column; gap:8px; padding:8%;
+  pointer-events:none;
+}
+.vn-choices.visible { display:flex; pointer-events:auto; }
+.vn-choice-btn {
+  font-family:'Noto Serif JP',serif; font-size:14px;
+  padding:12px 16px;
+  background:rgba(20,15,40,0.9);
+  border:1px solid rgba(201,162,39,0.5);
+  color:rgba(255,255,255,0.92); cursor:pointer; border-radius:4px;
+  width:100%; text-align:center; letter-spacing:0.05em; line-height:1.5;
+  transition:all 0.2s; pointer-events:auto;
+}
+.vn-choice-btn:active { background:rgba(201,162,39,0.2); border-color:rgba(201,162,39,0.9); }
+
+/* ── バックログ ── */
+.vn-backlog {
+  position:absolute; inset:0; z-index:15;
+  background:rgba(5,5,20,0.96);
+  display:none; flex-direction:column;
+  padding:16px; overflow-y:auto;
+}
+.vn-backlog.open { display:flex; }
+.backlog-header {
+  font-family:'Noto Serif JP',serif; font-size:15px; color:var(--gold);
+  margin-bottom:1em; padding-bottom:0.5em;
+  border-bottom:1px solid rgba(201,162,39,0.3);
+  display:flex; justify-content:space-between; align-items:center;
+  flex-shrink:0;
+}
+.backlog-entry { padding:0.5em 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+.backlog-speaker { font-size:11px; color:var(--gold); margin-bottom:0.2em; }
+.backlog-text {
+  font-family:'Noto Serif JP',serif; font-size:13px;
+  color:rgba(255,255,255,0.75); line-height:1.7;
+}
+
+/* ══════════════════════════════════════════
+   COMMAND SCREEN
+══════════════════════════════════════════ */
+#screen-command {
+  background:linear-gradient(160deg,#0f1a2e 0%,#1a1230 60%,#0e1018 100%);
+  flex-direction:column; z-index:10; overflow-y:auto; overflow-x:hidden;
+}
+.cmd-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px;
+  border-bottom:1px solid rgba(201,162,39,0.2);
+  background:rgba(0,0,0,0.3); flex-shrink:0;
+}
+.cmd-title-logo {
+  font-family:'Noto Serif JP',serif; font-size:11px;
+  color:var(--gold); letter-spacing:0.08em;
+}
+.cmd-date { font-size:11px; color:rgba(255,255,255,0.8); letter-spacing:0.05em; }
+.cmd-menu-btns { display:flex; gap:4px; }
+.cmd-menu-btn {
+  font-size:10px; padding:4px 8px;
+  background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.7); cursor:pointer; border-radius:3px;
+  transition:all 0.2s; white-space:nowrap;
+}
+.cmd-menu-btn:hover { background:rgba(255,255,255,0.14); color:#fff; }
+
+/* Hero section */
+.cmd-hero {
+  display:flex; gap:12px; padding:10px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  flex-shrink:0; background:rgba(255,255,255,0.02);
+  align-items:center;
+}
+.cmd-hero-avatar {
+  width:44px; height:44px; border-radius:50%;
+  background:linear-gradient(135deg,var(--rose-dark),#3d1a2e);
+  border:2px solid rgba(201,162,39,0.4);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Noto Serif JP',serif; font-size:16px; color:var(--gold);
+  flex-shrink:0; overflow:hidden;
+}
+.cmd-hero-avatar img {
+  width:100%; height:100%; object-fit:cover; object-position:top;
+}
+.cmd-stats-grid {
+  flex:1; display:grid; grid-template-columns:1fr 1fr;
+  gap:4px; align-content:center;
+}
+.stat-row { display:flex; align-items:center; gap:5px; }
+.stat-icon { font-size:12px; width:18px; text-align:center; }
+.stat-track { flex:1; height:5px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; }
+.stat-fill { height:100%; border-radius:4px; transition:width 0.6s ease; }
+.stat-val { font-size:10px; color:rgba(255,255,255,0.7); min-width:28px; text-align:right; }
+
+/* Affection bar */
+.cmd-affection {
+  display:flex; align-items:center; gap:8px;
+  padding:7px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  flex-shrink:0; overflow-x:auto;
+}
+.aff-label {
+  font-size:9px; color:rgba(255,255,255,0.4);
+  white-space:nowrap; flex-shrink:0;
+}
+.aff-char {
+  display:flex; flex-direction:column; align-items:center;
+  gap:3px; flex-shrink:0; cursor:pointer; transition:transform 0.2s;
+  min-width:40px;
+}
+.aff-char:hover { transform:translateY(-2px); }
+.aff-icon {
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Noto Serif JP',serif; font-size:12px; font-weight:700; color:#fff;
+  border:2px solid rgba(255,255,255,0.2); position:relative;
+}
+.aff-icon.bomb-warning { animation:bombPulse 1s infinite; }
+.aff-bar-wrap { width:36px; height:4px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; }
+.aff-bar { height:100%; border-radius:3px; transition:width 0.6s ease; }
+.aff-name { font-size:9px; color:rgba(255,255,255,0.55); }
+.aff-val { font-size:9px; color:rgba(255,255,255,0.4); }
+.aff-heart-rank {
+  font-size:8px; position:absolute; bottom:-1px; right:-1px;
+  background:rgba(0,0,0,0.7); border-radius:50%;
+  width:14px; height:14px; display:flex; align-items:center; justify-content:center;
+}
+
+/* Calendar bar */
+.cmd-calendar-bar {
+  display:flex; gap:0; padding:5px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  overflow-x:auto; flex-shrink:0;
+}
+.cal-dot {
+  flex:1; min-width:5px; max-width:14px;
+  height:6px; border-radius:1px;
+  background:rgba(255,255,255,0.08); transition:background 0.3s;
+}
+.cal-dot.current { background:var(--gold); }
+.cal-dot.passed { background:rgba(255,255,255,0.2); }
+.cal-dot.event { background:var(--rose); }
+
+/* Command section */
+.cmd-section-label {
+  padding:6px 14px 3px;
+  font-size:10px; color:rgba(255,255,255,0.4);
+  display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+.cmd-section-label::after {
+  content:''; flex:1; height:1px; background:rgba(255,255,255,0.08);
+}
+.cmd-action-count { font-size:10px; color:var(--gold); font-weight:600; }
+.cmd-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:6px; padding:6px 12px; flex-shrink:0;
+}
+.cmd-card {
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  border-radius:6px; padding:10px 6px;
+  cursor:pointer; transition:all 0.2s ease;
+  text-align:center; display:flex; flex-direction:column;
+  align-items:center; gap:3px;
+}
+.cmd-card:hover,.cmd-card:active {
+  background:rgba(201,162,39,0.1); border-color:rgba(201,162,39,0.5);
+  transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.3);
+}
+.cmd-card.disabled { opacity:0.35; cursor:not-allowed; pointer-events:none; }
+.cmd-card-icon { font-size:22px; }
+.cmd-card-name {
+  font-family:'Noto Serif JP',serif; font-size:11px;
+  color:rgba(255,255,255,0.85); line-height:1.3;
+}
+.cmd-card-effect { font-size:9px; color:rgba(255,255,255,0.4); line-height:1.3; }
+.cmd-card-stamina { font-size:9px; color:rgba(201,162,39,0.6); }
+
+.cmd-footer {
+  display:flex; justify-content:flex-end; padding:8px 14px;
+  border-top:1px solid rgba(255,255,255,0.06);
+  flex-shrink:0; margin-top:auto; gap:8px;
+}
+.cmd-next-btn {
+  font-family:'Noto Serif JP',serif; font-size:13px;
+  padding:9px 20px;
+  background:linear-gradient(135deg,rgba(26,39,68,0.8),rgba(45,34,85,0.8));
+  border:1px solid rgba(201,162,39,0.5); color:rgba(255,255,255,0.9);
+  cursor:pointer; border-radius:4px; transition:all 0.25s; letter-spacing:0.1em;
+}
+.cmd-next-btn:hover {
+  background:linear-gradient(135deg,rgba(201,162,39,0.2),rgba(45,34,85,0.8));
+  border-color:rgba(201,162,39,0.9);
+}
+
+/* ══════════════════════════════════════════
+   EVENT RESULT
+══════════════════════════════════════════ */
+#screen-event-result {
+  background:rgba(0,0,0,0.88); z-index:25;
+  align-items:center; justify-content:center; cursor:pointer;
+}
+.event-result-box {
+  background:rgba(10,10,30,0.9); border:1px solid rgba(201,162,39,0.4);
+  border-radius:12px; padding:24px 28px;
+  text-align:center; max-width:340px; width:88%;
+  animation:fadeInUp 0.5s ease;
+}
+.event-result-icon { font-size:40px; margin-bottom:0.3em; }
+.event-result-cmd {
+  font-family:'Noto Serif JP',serif; font-size:17px; color:var(--gold); margin-bottom:0.5em;
+}
+.event-result-effects {
+  display:flex; flex-wrap:wrap; gap:7px;
+  justify-content:center; margin:0.8em 0;
+}
+.effect-pill {
+  font-size:13px; padding:0.3em 0.8em; border-radius:999px;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.85); animation:popIn 0.4s ease both;
+}
+.effect-pill.positive { color:#7de88a; border-color:rgba(125,232,138,0.3); }
+.effect-pill.negative { color:#e88070; border-color:rgba(232,128,112,0.3); }
+.event-result-encounter {
+  margin-top:0.8em; padding-top:0.8em;
+  border-top:1px solid rgba(255,255,255,0.08);
+  font-family:'Noto Serif JP',serif; font-size:13px; color:rgba(255,255,255,0.6);
+}
+.encounter-name { color:var(--petal); font-weight:600; }
+.event-result-tap {
+  margin-top:1em; font-size:10px; color:rgba(255,255,255,0.3);
+  letter-spacing:0.1em; animation:blink 1.5s infinite;
+}
+
+/* ══════════════════════════════════════════
+   STATUS SCREEN
+══════════════════════════════════════════ */
+#screen-status {
+  background:linear-gradient(160deg,#0f1a2e 0%,#1a1230 100%);
+  z-index:15; overflow-y:auto; padding:16px;
+}
+.status-header {
+  font-family:'Noto Serif JP',serif; font-size:17px; color:var(--gold);
+  text-align:center; margin-bottom:1em; padding-bottom:0.5em;
+  border-bottom:1px solid rgba(201,162,39,0.3); letter-spacing:0.1em;
+}
+.status-section-title {
+  font-size:10px; color:rgba(255,255,255,0.4);
+  letter-spacing:0.15em; margin-bottom:0.5em; text-transform:uppercase;
+}
+.status-params { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:1.2em; }
+.status-param-card {
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px; padding:10px 12px;
+}
+.spc-header { display:flex; align-items:center; gap:6px; margin-bottom:0.5em; }
+.spc-icon { font-size:18px; }
+.spc-name { font-family:'Noto Serif JP',serif; font-size:12px; color:rgba(255,255,255,0.85); }
+.spc-val { margin-left:auto; font-size:16px; font-weight:700; color:var(--gold); }
+.spc-track { height:5px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; }
+.spc-fill { height:100%; border-radius:4px; transition:width 0.8s ease; }
+.status-affections {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+  gap:8px; margin-bottom:1.2em;
+}
+.aff-card {
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px; padding:10px; text-align:center;
+  cursor:default; transition:all 0.25s;
+}
+.aff-card:hover { background:rgba(255,255,255,0.07); transform:translateY(-2px); }
+.aff-card-portrait {
+  width:44px; height:44px; border-radius:50%;
+  margin:0 auto 0.5em; display:flex; align-items:center; justify-content:center;
+  font-family:'Noto Serif JP',serif; font-size:17px; font-weight:700; color:#fff;
+  border:2px solid rgba(255,255,255,0.2);
+}
+.aff-card-name { font-family:'Noto Serif JP',serif; font-size:12px; color:rgba(255,255,255,0.85); margin-bottom:0.3em; }
+.aff-card-rank { font-size:10px; margin-bottom:0.4em; }
+.aff-card-bar-wrap { height:4px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin:0.4em 0; }
+.aff-card-bar { height:100%; border-radius:3px; transition:width 0.6s; }
+.aff-card-num { font-size:10px; color:rgba(255,255,255,0.4); }
+.aff-card.bomb { border-color:rgba(220,50,50,0.4); animation:bombPulse 1.5s infinite; }
+.status-close-btn {
+  display:block; margin:0.5em auto 0;
+  font-family:'Noto Serif JP',serif; font-size:14px;
+  padding:0.6em 2.5em; background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.7);
+  cursor:pointer; border-radius:4px; transition:all 0.2s;
+}
+.status-close-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+
+/* ══════════════════════════════════════════
+   DATE SELECT
+══════════════════════════════════════════ */
+#screen-date {
+  background:linear-gradient(160deg,#1a0e2a 0%,#0d1a2e 100%);
+  z-index:15; align-items:center; justify-content:center;
+}
+.date-box {
+  background:rgba(10,10,30,0.9); border:1px solid rgba(201,162,39,0.35);
+  border-radius:12px; padding:22px 22px; width:90%; max-width:380px;
+  animation:fadeInUp 0.5s ease;
+}
+.date-char-info { text-align:center; margin-bottom:1.2em; }
+.date-char-icon {
+  width:60px; height:60px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Noto Serif JP',serif; font-size:22px; font-weight:700; color:#fff;
+  margin:0 auto 0.5em; border:3px solid rgba(255,255,255,0.2);
+}
+.date-char-name { font-family:'Noto Serif JP',serif; font-size:16px; color:#fff; }
+.date-prompt { font-size:12px; color:rgba(255,255,255,0.6); margin-top:0.3em; }
+.date-spots { display:flex; flex-direction:column; gap:7px; margin:1em 0; }
+.date-spot-btn {
+  display:flex; align-items:center; gap:0.8em;
+  padding:10px 14px;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+  border-radius:6px; cursor:pointer; transition:all 0.2s;
+  text-align:left; color:rgba(255,255,255,0.85);
+}
+.date-spot-btn:hover,.date-spot-btn:active {
+  background:rgba(201,162,39,0.1); border-color:rgba(201,162,39,0.5); transform:translateX(3px);
+}
+.date-spot-icon { font-size:18px; }
+.date-spot-name { font-family:'Noto Serif JP',serif; font-size:13px; }
+.date-spot-desc { font-size:10px; color:rgba(255,255,255,0.4); }
+.date-skip-btn {
+  font-size:11px; padding:0.5em 1.5em;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.4); cursor:pointer; border-radius:4px;
+  display:block; width:100%; text-align:center; font-family:'Noto Sans JP',sans-serif;
+  transition:color 0.2s;
+}
+.date-skip-btn:hover { color:rgba(255,255,255,0.7); }
+
+/* ══════════════════════════════════════════
+   PRESENT SCREEN (overlay)
+══════════════════════════════════════════ */
+#screen-present {
+  background:rgba(0,0,0,0.75); z-index:20;
+  align-items:center; justify-content:center;
+}
+.present-box {
+  background:rgba(10,10,30,0.95); border:1px solid rgba(201,162,39,0.35);
+  border-radius:12px; padding:20px 20px; width:92%; max-width:380px;
+  max-height:80dvh; display:flex; flex-direction:column;
+  animation:fadeInUp 0.4s ease;
+}
+.present-title {
+  font-family:'Noto Serif JP',serif; font-size:16px; color:var(--gold);
+  text-align:center; margin-bottom:1em; padding-bottom:0.5em;
+  border-bottom:1px solid rgba(201,162,39,0.2); flex-shrink:0;
+}
+.present-char-tabs {
+  display:flex; gap:5px; flex-wrap:wrap; margin-bottom:0.8em; flex-shrink:0;
+}
+.present-tab {
+  font-size:11px; padding:4px 10px;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.55); cursor:pointer; border-radius:99px; transition:all 0.2s;
+}
+.present-tab.active,.present-tab:hover {
+  background:rgba(201,162,39,0.15); border-color:rgba(201,162,39,0.5); color:rgba(255,255,255,0.9);
+}
+.present-items { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px; }
+.present-item-btn {
+  display:flex; align-items:center; gap:10px; padding:10px 12px;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  border-radius:6px; cursor:pointer; transition:all 0.2s; text-align:left;
+}
+.present-item-btn:hover,.present-item-btn:active {
+  background:rgba(201,162,39,0.1); border-color:rgba(201,162,39,0.4);
+}
+.present-item-icon { font-size:20px; flex-shrink:0; }
+.present-item-name { font-family:'Noto Serif JP',serif; font-size:13px; color:rgba(255,255,255,0.85); }
+.present-item-info { font-size:10px; color:rgba(255,255,255,0.4); }
+.present-close { margin-top:10px; flex-shrink:0; }
+
+/* ══════════════════════════════════════════
+   ALBUM SCREEN
+══════════════════════════════════════════ */
+#screen-album {
+  background:linear-gradient(160deg,#0f1a2e 0%,#1a1230 100%);
+  z-index:15; flex-direction:column; overflow-y:auto; padding:14px;
+}
+.album-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:1em; padding-bottom:0.5em;
+  border-bottom:1px solid rgba(201,162,39,0.3); flex-shrink:0;
+}
+.album-title { font-family:'Noto Serif JP',serif; font-size:17px; color:var(--gold); letter-spacing:0.1em; }
+.album-close-btn {
+  font-size:11px; padding:0.4em 1em;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.6); cursor:pointer; border-radius:3px; transition:all 0.2s;
+}
+.album-close-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+.album-char-tabs {
+  display:flex; gap:5px; margin-bottom:1em; flex-wrap:wrap; flex-shrink:0;
+}
+.album-tab {
+  font-size:11px; padding:0.4em 1em;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.55); cursor:pointer; border-radius:99px; transition:all 0.2s;
+}
+.album-tab:hover,.album-tab.active {
+  background:rgba(201,162,39,0.15); border-color:rgba(201,162,39,0.5); color:rgba(255,255,255,0.9);
+}
+.album-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+}
+.album-cg-thumb {
+  aspect-ratio:4/3; border-radius:6px; overflow:hidden;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+  cursor:pointer; transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; position:relative;
+}
+.album-cg-thumb:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.5); border-color:rgba(201,162,39,0.4); }
+.album-cg-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.album-cg-thumb.locked { cursor:default; }
+.album-cg-thumb.locked:hover { transform:none; box-shadow:none; }
+.album-lock-icon { font-size:22px; color:rgba(255,255,255,0.2); }
+.album-cg-label {
+  position:absolute; bottom:0; left:0; right:0;
+  font-size:9px; padding:0.3em 0.4em;
+  background:rgba(0,0,0,0.65); color:rgba(255,255,255,0.6); text-align:center;
+}
+.album-viewer {
+  position:absolute; inset:0; z-index:20;
+  background:#000; display:none;
+  align-items:center; justify-content:center; cursor:pointer;
+}
+.album-viewer.open { display:flex; }
+.album-viewer img { max-width:100%; max-height:100%; object-fit:contain; }
+
+/* ══════════════════════════════════════════
+   SAVE / LOAD
+══════════════════════════════════════════ */
+#screen-save {
+  background:linear-gradient(160deg,#0f1a2e 0%,#1a1230 100%);
+  z-index:20; flex-direction:column; overflow-y:auto; padding:16px;
+}
+.save-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:1em; padding-bottom:0.5em;
+  border-bottom:1px solid rgba(201,162,39,0.3); flex-shrink:0;
+}
+.save-title { font-family:'Noto Serif JP',serif; font-size:17px; color:var(--gold); }
+.save-mode-tabs {
+  display:flex; gap:0; border:1px solid rgba(255,255,255,0.15);
+  border-radius:4px; overflow:hidden; margin-bottom:1em; flex-shrink:0;
+}
+.save-mode-tab {
+  flex:1; font-size:13px; padding:0.5em 1em;
+  background:transparent; border:none; color:rgba(255,255,255,0.5); cursor:pointer; transition:all 0.2s;
+}
+.save-mode-tab.active { background:rgba(201,162,39,0.15); color:rgba(255,255,255,0.9); }
+.save-slots { display:flex; flex-direction:column; gap:8px; }
+.save-slot {
+  display:flex; align-items:center; gap:12px; padding:10px 14px;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px; cursor:pointer; transition:all 0.2s;
+}
+.save-slot:hover { background:rgba(255,255,255,0.08); border-color:rgba(201,162,39,0.4); }
+.save-slot.auto-slot { border-color:rgba(100,150,255,0.2); }
+.save-slot-thumb {
+  width:64px; height:44px; border-radius:4px;
+  background:rgba(255,255,255,0.08); flex-shrink:0; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.save-slot-thumb img { width:100%; height:100%; object-fit:cover; }
+.save-slot-info { flex:1; }
+.save-slot-num { font-size:10px; color:rgba(255,255,255,0.3); margin-bottom:0.2em; }
+.save-slot-date-in-game { font-family:'Noto Serif JP',serif; font-size:14px; color:rgba(255,255,255,0.85); margin-bottom:0.2em; }
+.save-slot-saved-at { font-size:10px; color:rgba(255,255,255,0.3); }
+.save-slot-empty { font-family:'Noto Serif JP',serif; font-size:13px; color:rgba(255,255,255,0.25); }
+.save-slot-playtime { font-size:10px; color:rgba(255,255,255,0.35); }
+.save-close-btn {
+  display:block; width:100%; margin-top:1em;
+  font-family:'Noto Serif JP',serif; font-size:13px; padding:0.6em 2em;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.6); cursor:pointer; border-radius:4px; transition:all 0.2s; flex-shrink:0;
+}
+.save-close-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+
+/* ══════════════════════════════════════════
+   SETTINGS
+══════════════════════════════════════════ */
+#screen-settings {
+  background:linear-gradient(160deg,#0f1a2e 0%,#1a1230 100%);
+  z-index:20; flex-direction:column; overflow-y:auto; padding:16px;
+}
+.settings-header {
+  font-family:'Noto Serif JP',serif; font-size:17px; color:var(--gold);
+  text-align:center; margin-bottom:1.2em; padding-bottom:0.5em;
+  border-bottom:1px solid rgba(201,162,39,0.3); flex-shrink:0;
+}
+.settings-group {
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px; overflow:hidden; margin-bottom:12px; flex-shrink:0;
+}
+.settings-group-title {
+  font-size:10px; color:rgba(255,255,255,0.4); letter-spacing:0.15em;
+  padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.06);
+  background:rgba(255,255,255,0.02);
+}
+.settings-row {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.settings-row:last-child { border-bottom:none; }
+.settings-label { font-size:13px; color:rgba(255,255,255,0.75); flex:1; }
+.settings-slider {
+  -webkit-appearance:none; width:120px; height:5px; border-radius:4px;
+  background:rgba(255,255,255,0.1); outline:none; cursor:pointer;
+}
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:var(--gold); cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.4);
+}
+.settings-select {
+  font-size:12px; padding:0.3em 0.8em;
+  background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.8); border-radius:4px; cursor:pointer; outline:none;
+}
+.settings-select option { background:#1a1a2e; }
+.settings-toggle {
+  position:relative; width:44px; height:24px; cursor:pointer;
+}
+.settings-toggle input { opacity:0; width:0; height:0; }
+.settings-toggle-slider {
+  position:absolute; inset:0; background:rgba(255,255,255,0.15); border-radius:999px; transition:background 0.3s;
+}
+.settings-toggle-slider::before {
+  content:''; position:absolute; left:3px; top:50%; transform:translateY(-50%);
+  width:18px; height:18px; border-radius:50%; background:#fff;
+  transition:transform 0.3s; box-shadow:0 2px 6px rgba(0,0,0,0.3);
+}
+.settings-toggle input:checked + .settings-toggle-slider { background:var(--rose); }
+.settings-toggle input:checked + .settings-toggle-slider::before { transform:translateY(-50%) translateX(20px); }
+.settings-val-display { font-size:12px; color:rgba(255,255,255,0.5); min-width:30px; text-align:right; }
+.settings-danger-btn {
+  font-size:12px; padding:0.4em 1em;
+  background:rgba(220,50,50,0.12); border:1px solid rgba(220,50,50,0.3);
+  color:rgba(220,120,120,0.8); cursor:pointer; border-radius:4px; transition:all 0.2s;
+}
+.settings-danger-btn:hover { background:rgba(220,50,50,0.2); color:rgba(255,150,150,0.9); }
+.settings-close-btn {
+  display:block; width:100%; margin-top:1em;
+  font-family:'Noto Serif JP',serif; font-size:13px; padding:0.7em 2em;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.7); cursor:pointer; border-radius:4px; transition:all 0.2s;
+}
+.settings-close-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+
+/* ══════════════════════════════════════════
+   ENDING SCREEN
+══════════════════════════════════════════ */
+#screen-ending {
+  background:#000; z-index:30;
+  align-items:center; justify-content:center; flex-direction:column;
+}
+.ending-bg {
+  position:absolute; inset:0;
+  background-size:auto 100%; background-position:center; opacity:0;
+  transition:opacity 2s ease; z-index:0;
+}
+.ending-bg.visible { opacity:1; }
+.ending-content {
+  position:relative; z-index:2; text-align:center;
+  padding:24px 22px; animation:fadeInUp 1.5s ease both; animation-delay:1s;
+}
+.ending-badge {
+  font-size:11px; letter-spacing:0.25em; color:var(--gold); margin-bottom:0.8em; opacity:0.8;
+}
+.ending-title {
+  font-family:'Noto Serif JP',serif; font-size:clamp(22px,7vw,36px);
+  color:#fff; text-shadow:0 0 40px rgba(255,255,255,0.3);
+  margin-bottom:0.5em; line-height:1.3;
+}
+.ending-char-name { font-size:15px; color:var(--petal); margin-bottom:1em; }
+.ending-text {
+  font-family:'Noto Serif JP',serif; font-size:14px;
+  color:rgba(255,255,255,0.8); line-height:2; margin:0 auto 1.5em;
+  text-shadow:0 1px 8px rgba(0,0,0,0.9); white-space:pre-wrap;
+}
+.ending-to-title-btn {
+  font-family:'Noto Serif JP',serif; font-size:13px; padding:0.7em 2.5em;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3);
+  color:rgba(255,255,255,0.8); cursor:pointer; border-radius:4px;
+  letter-spacing:0.1em; transition:all 0.3s;
+}
+.ending-to-title-btn:hover { background:rgba(255,255,255,0.2); }
+.staffroll {
+  position:absolute; inset:0; z-index:5; overflow:hidden; display:none;
+}
+.staffroll.active { display:block; }
+.staffroll-inner {
+  text-align:center; animation:scrollUp 20s linear forwards;
+  padding:100% 2em 100%; font-family:'Noto Serif JP',serif;
+}
+.staffroll-section { margin-bottom:3em; }
+.staffroll-role { font-size:11px; color:rgba(255,255,255,0.4); letter-spacing:0.2em; margin-bottom:0.3em; }
+.staffroll-name { font-size:16px; color:rgba(255,255,255,0.85); letter-spacing:0.08em; }
+
+/* ══════════════════════════════════════════
+   MONTH EVENT BANNER
+══════════════════════════════════════════ */
+.month-banner {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  z-index:50; text-align:center; pointer-events:none; display:none;
+}
+.month-banner.visible { display:block; }
+.month-banner-text {
+  font-family:'Noto Serif JP',serif; font-size:clamp(18px,6vw,32px);
+  color:#fff; letter-spacing:0.15em;
+  text-shadow:0 0 30px rgba(201,162,39,0.6),0 2px 10px rgba(0,0,0,0.8);
+  animation:fadeInOut 3s ease forwards;
+}
+.month-banner-event {
+  font-size:14px; color:var(--gold); letter-spacing:0.1em; margin-top:0.3em;
+  animation:fadeInOut 3s ease 0.3s both;
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+.toast {
+  position:absolute; bottom:44px; left:50%; transform:translateX(-50%);
+  z-index:60; background:rgba(10,10,30,0.95);
+  border:1px solid rgba(201,162,39,0.35); border-radius:8px;
+  padding:10px 20px; font-family:'Noto Serif JP',serif; font-size:13px;
+  color:rgba(255,255,255,0.9); white-space:normal; text-align:center;
+  pointer-events:none; opacity:0; transition:opacity 0.3s; max-width:88%;
+}
+.toast.show { opacity:1; }
+.toast.heart { border-color:rgba(201,100,142,0.5); color:var(--petal); }
+.toast.warning { border-color:rgba(220,50,50,0.5); color:#e88080; }
+
+/* ══════════════════════════════════════════
+   CONFIRM MODAL
+══════════════════════════════════════════ */
+.modal-overlay {
+  position:absolute; inset:0; z-index:70;
+  background:rgba(0,0,0,0.65); display:none; align-items:center; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal-box {
+  background:rgba(10,10,30,0.97); border:1px solid rgba(201,162,39,0.35);
+  border-radius:10px; padding:24px 28px; max-width:320px; width:88%; text-align:center;
+}
+.modal-text { font-family:'Noto Serif JP',serif; font-size:15px; color:rgba(255,255,255,0.9); margin-bottom:1.2em; line-height:1.6; }
+.modal-btns { display:flex; gap:10px; justify-content:center; }
+.modal-btn {
+  font-family:'Noto Serif JP',serif; font-size:13px;
+  padding:0.6em 1.8em; border-radius:4px; cursor:pointer;
+  transition:all 0.2s; letter-spacing:0.05em; border:1px solid transparent;
+}
+.modal-btn-confirm { background:rgba(201,162,39,0.2); border-color:rgba(201,162,39,0.5); color:rgba(255,255,255,0.9); }
+.modal-btn-confirm:hover { background:rgba(201,162,39,0.35); }
+.modal-btn-cancel { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.55); border-color:rgba(255,255,255,0.1); }
+.modal-btn-cancel:hover { background:rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); }
+
+/* ══════════════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════════════ */
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInOut { 0%{opacity:0;transform:translateY(-8px)} 20%{opacity:1;transform:translateY(0)} 70%{opacity:1} 100%{opacity:0} }
+@keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
+@keyframes popIn { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
+@keyframes bombPulse { 0%,100%{box-shadow:0 0 0 rgba(220,50,50,0)} 50%{box-shadow:0 0 12px rgba(220,50,50,0.7)} }
+@keyframes scrollUp { from{transform:translateY(0)} to{transform:translateY(-100%)} }
+@keyframes twinkle { 0%,100%{opacity:0.1} 50%{opacity:0.8} }
+</style>
 </head>
 <body>
-  <div id="root"></div>
+<div id="game-wrap">
+<div id="game">
 
-  <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
-
-    // ==========================================
-    // 1. GAME DATA & CONSTANTS
-    // ==========================================
-    const MONTHS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
-    
-    const CHARACTERS = {
-      rinto: { name: "朝比奈 凛斗", color: "bg-navy", text: "text-navy" },
-      souma: { name: "桜井 壮馬", color: "bg-amber", text: "text-amber" },
-      kaito: { name: "風間 海斗", color: "bg-sky", text: "text-sky" },
-      aoi: { name: "白石 蒼", color: "bg-lavender", text: "text-lavender" },
-      hayate: { name: "天宮 颯", color: "bg-sage", text: "text-sage" },
-      rival: { name: "姫宮 柚希", color: "bg-rose", text: "text-rose" }
-    };
-
-    const COMMANDS = [
-      { id: "study", label: "図書館で勉強", icon: "📚", cost: 10, effects: { intelligence: [15, 25] }, encounter: ["rinto", "souma"] },
-      { id: "club", label: "運動部活動", icon: "⚽", cost: 20, effects: { sports: [15, 25], maxStamina: [3, 5] }, encounter: ["kaito"] },
-      { id: "shop", label: "ショッピング", icon: "👗", cost: 10, effects: { fashion: [15, 25] }, encounter: ["aoi"] },
-      { id: "music", label: "音楽室練習", icon: "🎵", cost: 10, effects: { music: [15, 25] }, encounter: ["hayate"] },
-      { id: "cook", label: "料理教室", icon: "🍳", cost: 10, effects: { domestic: [15, 25] }, encounter: ["souma", "kaito"] },
-      { id: "rest", label: "休息", icon: "❤️", cost: -40, effects: {}, encounter: [] },
-      { id: "obs", label: "天文台で観測", icon: "🔭", cost: 5, effects: { intelligence: [5, 10], music: [5, 10] }, encounter: ["rinto", "aoi"] },
-      { id: "walk", label: "海岸散歩", icon: "🌊", cost: 0, effects: {}, encounter: ["all"] }
-    ];
-
-    const INIT_STATE = {
-      date: { year: 1, month: 4, week: 1 },
-      stats: { intelligence: 0, sports: 0, fashion: 0, music: 0, domestic: 0, stamina: 100, maxStamina: 100 },
-      affection: { rinto: 0, souma: 0, kaito: 0, aoi: 0, hayate: 0, rival: 0 },
-      flags: {},
-      actionsLeft: 2
-    };
-
-    const randomRange = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-    // ==========================================
-    // 2. SCENARIO / EVENTS
-    // ==========================================
-    const EVENTS = {
-      prologue: {
-        bg: "school_entrance",
-        lines: [
-          { speaker: "", text: "港の潮風が心地よい、4月の朝。" },
-          { speaker: "", text: "今日から私は、この丘の上にある『私立星丘学園』の生徒になる。" },
-          { speaker: "", text: "（新しい学校……うまくやっていけるかな）" },
-          { speaker: "souma", char: "souma", text: "あれ？ もしかして……ひよりちゃん？" },
-          { speaker: "player", text: "「あ、壮馬くん！ 久しぶり！」" },
-          { speaker: "souma", char: "souma", text: "やっぱり！ 転校してくるって聞いてたから、会えると思ってたよ。" },
-          { speaker: "", text: "幼なじみの桜井壮馬くん。昔から変わらない、優しい笑顔だ。" },
-          { speaker: "rinto", char: "rinto", text: "そこ、登校の邪魔だ。立ち話なら端でやれ。" },
-          { speaker: "player", text: "「あっ、すみません……！」" },
-          { speaker: "", text: "（冷たい目の人……生徒会の腕章をつけてる）" },
-          { speaker: "souma", char: "souma", text: "ごめんね、生徒会長の朝比奈くん。彼、少し厳しいけど悪い人じゃないんだ。" },
-          { speaker: "", text: "個性豊かな人たちとの、新しい3年間が幕を開ける――。" }
-        ],
-        onEnd: (state) => ({ ...state, flags: { ...state.flags, prologue_cleared: true } })
-      },
-      rinto_starmap: {
-        bg: "observatory_night",
-        lines: [
-          { speaker: "", text: "静かな天文台。放課後、ここで星図を見ていると時間を忘れてしまう。" },
-          { speaker: "rinto", char: "rinto", text: "……お前、またここに来ていたのか。" },
-          { speaker: "player", text: "「朝比奈先輩。はい、星を見るのが好きなので」" },
-          { speaker: "rinto", char: "rinto", text: "ふん。熱心なことだ。……あの星は、ベガだ。こと座の一等星。" },
-          { speaker: "", text: "朝比奈先輩は、ドームの隙間から見える星空を指差した。" },
-          { 
-            type: "choice", 
-            options: [
-              { label: "「織姫星だよね」", next: "starmap_a", affection: { rinto: 10 } },
-              { label: "「…詳しいんだね」", next: "starmap_b", affection: { rinto: 5 } }
-            ]
-          }
-        ]
-      },
-      starmap_a: {
-        bg: "cg_rinto_1",
-        lines: [
-          { speaker: "rinto", char: "rinto", text: "ああ、そうだ。知性が身についてきているようだな。" },
-          { speaker: "", text: "先輩はわずかに口角を上げ、星明かりの中で優しく微笑んだ。" },
-          { speaker: "rinto", char: "rinto", text: "お前となら、静かに星を見られそうだ。" }
-        ],
-        onEnd: (state) => ({ ...state, flags: { ...state.flags, rinto_starmap_cleared: true }, unlockedCG: [...(state.unlockedCG||[]), "cg_rinto_1"] })
-      },
-      starmap_b: {
-        bg: "observatory_night",
-        lines: [
-          { speaker: "rinto", char: "rinto", text: "……天文部の顧問補佐だからな。これくらいは常識だ。" },
-          { speaker: "", text: "少し不機嫌そうに顔を背けられてしまった。" }
-        ],
-        onEnd: (state) => ({ ...state, flags: { ...state.flags, rinto_starmap_cleared: true } })
-      },
-      ending_happy_rinto: {
-        bg: "observatory_night",
-        lines: [
-          { speaker: "", text: "卒業式の日。私は彼に呼ばれて天文台に来た。" },
-          { speaker: "rinto", char: "rinto", text: "……来たか。" },
-          { speaker: "rinto", char: "rinto", text: "完璧な生徒会長でいようとする俺に、お前は本当の自分を見せてくれた。" },
-          { speaker: "rinto", char: "rinto", text: "お前が隣にいると、空がいつもより綺麗に見える。俺のそばにいてくれないか。" },
-          { speaker: "", text: "【朝比奈 凛斗 ハッピーエンド】\n〜星降る丘のセレナーデ〜" }
-        ],
-        onEnd: (state) => ({ ...state, screen: "title" })
-      },
-      ending_normal: {
-        bg: "school_entrance",
-        lines: [
-          { speaker: "", text: "3年間の学園生活が終わった。" },
-          { speaker: "", text: "色々な思い出を胸に、私は新しい道へと進んでいく。" },
-          { speaker: "", text: "【ノーマルエンド】\n〜星降る丘のセレナーデ〜" }
-        ],
-        onEnd: (state) => ({ ...state, screen: "title" })
-      }
-    };
-
-    // ==========================================
-    // 3. SVG ASSETS COMPONENTS
-    // ==========================================
-    const CharRinto = () => (
-      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-        <defs><linearGradient id="skin1" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fde8d8"/><stop offset="100%" stopColor="#f5d0b8"/></linearGradient></defs>
-        <g transform="translate(0, 10)">
-          <rect x="45" y="160" width="70" height="80" rx="10" fill="#1a2744"/>
-          <rect x="55" y="162" width="50" height="70" rx="6" fill="#0f1a30"/>
-          <polygon points="78,162 82,162 85,195 80,200 75,195" fill="#c9a227" opacity="0.9"/>
-          <polygon points="65,160 80,175 95,160 100,162 80,180 60,162" fill="#e8f0ff" opacity="0.9"/>
-          <rect x="73" y="135" width="14" height="28" rx="7" fill="url(#skin1)"/>
-          <ellipse cx="80" cy="120" rx="35" ry="38" fill="url(#skin1)"/>
-          <ellipse cx="80" cy="88" rx="37" ry="20" fill="#1a1a2e"/>
-          <rect x="43" y="88" width="11" height="40" rx="5" fill="#1a1a2e"/>
-          <rect x="106" y="88" width="11" height="35" rx="5" fill="#1a1a2e"/>
-          <ellipse cx="80" cy="88" rx="35" ry="18" fill="#2a2a40"/>
-          <ellipse cx="68" cy="84" rx="12" ry="5" fill="#4a4a60" opacity="0.6"/>
-          <ellipse cx="66" cy="118" rx="9" ry="8" fill="#1a1a2e"/>
-          <ellipse cx="94" cy="118" rx="9" ry="8" fill="#1a1a2e"/>
-          <ellipse cx="66" cy="117" rx="6" ry="5.5" fill="#2244aa"/>
-          <ellipse cx="94" cy="117" rx="6" ry="5.5" fill="#2244aa"/>
-          <circle cx="68" cy="115" r="2.5" fill="#ffffff" opacity="0.9"/>
-          <circle cx="96" cy="115" r="2.5" fill="#ffffff" opacity="0.9"/>
-          <rect x="58" y="107" width="16" height="3" rx="1.5" fill="#1a1a2e"/>
-          <rect x="86" y="107" width="16" height="3" rx="1.5" fill="#1a1a2e"/>
-          <ellipse cx="80" cy="128" rx="2" ry="1.5" fill="#e0b898" opacity="0.6"/>
-          <path d="M 73 138 Q 80 143 87 138" stroke="#c09080" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-          <rect x="100" y="170" width="24" height="12" rx="3" fill="#c9a227" opacity="0.9"/>
-        </g>
-      </svg>
-    );
-
-    const CharSouma = () => (
-      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-        <defs><linearGradient id="skin2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fde8d8"/><stop offset="100%" stopColor="#f5d0b8"/></linearGradient></defs>
-        <g transform="translate(0, 10)">
-          <rect x="45" y="160" width="70" height="80" rx="10" fill="#2a1a0e"/>
-          <rect x="55" y="162" width="50" height="70" rx="6" fill="#1a0e06"/>
-          <polygon points="65,160 80,175 95,160 100,162 80,180 60,162" fill="#f0e8d0" opacity="0.9"/>
-          <polygon points="78,162 82,162 84,192 80,196 76,192" fill="#8b4513" opacity="0.9"/>
-          <rect x="73" y="135" width="14" height="28" rx="7" fill="url(#skin2)"/>
-          <ellipse cx="80" cy="120" rx="35" ry="38" fill="url(#skin2)"/>
-          <ellipse cx="80" cy="88" rx="36" ry="20" fill="#6b3a1e"/>
-          <rect x="44" y="88" width="10" height="38" rx="5" fill="#6b3a1e"/>
-          <rect x="106" y="88" width="10" height="33" rx="5" fill="#6b3a1e"/>
-          <ellipse cx="80" cy="87" rx="34" ry="17" fill="#8b5a2e"/>
-          <ellipse cx="70" cy="83" rx="14" ry="5" fill="#a87040" opacity="0.5"/>
-          <rect x="54" y="112" width="20" height="13" rx="4" stroke="#6b4226" strokeWidth="1.5" fill="rgba(200,230,255,0.15)"/>
-          <rect x="86" y="112" width="20" height="13" rx="4" stroke="#6b4226" strokeWidth="1.5" fill="rgba(200,230,255,0.15)"/>
-          <line x1="74" y1="118" x2="86" y2="118" stroke="#6b4226" strokeWidth="1.5"/>
-          <ellipse cx="64" cy="118" rx="5" ry="5" fill="#4a2e10"/>
-          <ellipse cx="96" cy="118" rx="5" ry="5" fill="#4a2e10"/>
-          <circle cx="65.5" cy="116.5" r="2" fill="#ffffff" opacity="0.8"/>
-          <circle cx="97.5" cy="116.5" r="2" fill="#ffffff" opacity="0.8"/>
-          <rect x="58" y="108" width="14" height="2.5" rx="1.2" fill="#4a2e10"/>
-          <rect x="88" y="108" width="14" height="2.5" rx="1.2" fill="#4a2e10"/>
-          <ellipse cx="80" cy="128" rx="2" ry="1.5" fill="#e0b898" opacity="0.5"/>
-          <path d="M 74 137 Q 80 142 86 137" stroke="#c09080" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-        </g>
-      </svg>
-    );
-
-    const CharKaito = () => (
-      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-        <defs><linearGradient id="skin3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fdd8c0"/><stop offset="100%" stopColor="#f0c0a0"/></linearGradient></defs>
-        <g transform="translate(0, 10)">
-          <rect x="40" y="158" width="80" height="82" rx="12" fill="#0a3a5a"/>
-          <rect x="50" y="160" width="60" height="72" rx="8" fill="#0a4f7a"/>
-          <text x="80" y="200" textAnchor="middle" fontSize="20" fontWeight="bold" fill="rgba(255,255,255,0.4)">10</text>
-          <ellipse cx="80" cy="162" rx="18" ry="6" fill="#0a3a5a"/>
-          <rect x="73" y="133" width="14" height="30" rx="7" fill="url(#skin3)"/>
-          <ellipse cx="80" cy="118" rx="36" ry="38" fill="url(#skin3)"/>
-          <ellipse cx="80" cy="84" rx="36" ry="18" fill="#4a3010"/>
-          <ellipse cx="60" cy="78" rx="8" ry="12" fill="#5a3a14" transform="rotate(-20 60 78)"/>
-          <ellipse cx="75" cy="74" rx="7" ry="14" fill="#5a3a14" transform="rotate(-5 75 74)"/>
-          <ellipse cx="90" cy="73" rx="7" ry="14" fill="#5a3a14" transform="rotate(5 90 73)"/>
-          <ellipse cx="104" cy="78" rx="7" ry="12" fill="#5a3a14" transform="rotate(18 104 78)"/>
-          <ellipse cx="80" cy="84" rx="35" ry="16" fill="#6b4a20"/>
-          <ellipse cx="72" cy="80" rx="14" ry="5" fill="#8b6a30" opacity="0.5"/>
-          <ellipse cx="65" cy="116" rx="9" ry="9" fill="#1a1a1a"/>
-          <ellipse cx="95" cy="116" rx="9" ry="9" fill="#1a1a1a"/>
-          <ellipse cx="65" cy="115.5" rx="6" ry="6.5" fill="#2a7ab0"/>
-          <ellipse cx="95" cy="115.5" rx="6" ry="6.5" fill="#2a7ab0"/>
-          <circle cx="67.5" cy="113" r="2.5" fill="#ffffff" opacity="0.9"/>
-          <circle cx="97.5" cy="113" r="2.5" fill="#ffffff" opacity="0.9"/>
-          <rect x="57" y="104" width="16" height="3.5" rx="1.5" fill="#3a2010" transform="rotate(-3 65 105.5)"/>
-          <rect x="87" y="104" width="16" height="3.5" rx="1.5" fill="#3a2010" transform="rotate(3 95 105.5)"/>
-          <ellipse cx="80" cy="126" rx="2.5" ry="1.8" fill="#d0a888" opacity="0.5"/>
-          <path d="M 70 136 Q 80 146 90 136" stroke="#c08070" strokeWidth="2" fill="none" strokeLinecap="round"/>
-        </g>
-      </svg>
-    );
-
-    const CharAoi = () => (
-      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-        <defs><linearGradient id="skin4" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#f8e8f0"/><stop offset="100%" stopColor="#f0d8e8"/></linearGradient></defs>
-        <g transform="translate(0, 10)">
-          <rect x="40" y="155" width="80" height="85" rx="12" fill="#e8e0f0"/>
-          <rect x="50" y="158" width="60" height="74" rx="8" fill="#f0eaf8"/>
-          <polygon points="68,158 80,172 92,158 96,160 80,177 64,160" fill="#f8f4fc" opacity="0.9"/>
-          <rect x="74" y="132" width="12" height="26" rx="6" fill="url(#skin4)"/>
-          <ellipse cx="80" cy="115" rx="35" ry="38" fill="url(#skin4)"/>
-          <ellipse cx="80" cy="82" rx="37" ry="20" fill="#c8c0e0"/>
-          <rect x="43" y="82" width="12" height="55" rx="6" fill="#c8c0e0"/>
-          <rect x="105" y="82" width="12" height="50" rx="6" fill="#c8c0e0"/>
-          <ellipse cx="80" cy="82" rx="35" ry="18" fill="#d8d0f0"/>
-          <ellipse cx="70" cy="78" rx="14" ry="5" fill="#e8e4f8" opacity="0.7"/>
-          <ellipse cx="65" cy="116" rx="10" ry="9" fill="#1a1a1a"/>
-          <ellipse cx="95" cy="116" rx="10" ry="9" fill="#1a1a1a"/>
-          <ellipse cx="65" cy="116" rx="7" ry="7" fill="#7060b0"/>
-          <ellipse cx="95" cy="116" rx="7" ry="7" fill="#7060b0"/>
-          <circle cx="62" cy="113" r="3" fill="#ffffff" opacity="0.9"/>
-          <circle cx="92" cy="113" r="3" fill="#ffffff" opacity="0.9"/>
-          <path d="M 57 105 Q 65 102 73 105" stroke="#9080b0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-          <path d="M 87 105 Q 95 102 103 105" stroke="#9080b0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-          <ellipse cx="80" cy="125" rx="1.5" ry="1.2" fill="#d8b8c8" opacity="0.4"/>
-          <path d="M 76 134 Q 80 137 84 134" stroke="#c0a0b0" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-        </g>
-      </svg>
-    );
-
-    const CharHayate = () => (
-      <svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-        <defs><linearGradient id="skin5" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fde8d8"/><stop offset="100%" stopColor="#f5d0b8"/></linearGradient></defs>
-        <g transform="translate(0, 10)">
-          <rect x="40" y="155" width="80" height="85" rx="12" fill="#1a2a20"/>
-          <rect x="50" y="158" width="60" height="74" rx="8" fill="#243830"/>
-          <polygon points="68,156 80,172 92,156 97,159 80,177 63,159" fill="#e8f0e8" opacity="0.85"/>
-          <rect x="74" y="133" width="12" height="26" rx="6" fill="url(#skin5)"/>
-          <ellipse cx="80" cy="116" rx="36" ry="38" fill="url(#skin5)"/>
-          <ellipse cx="80" cy="83" rx="37" ry="20" fill="#2a2228"/>
-          <rect x="43" y="83" width="11" height="44" rx="5" fill="#2a2228"/>
-          <rect x="106" y="83" width="11" height="38" rx="5" fill="#2a2228"/>
-          <ellipse cx="80" cy="83" rx="35" ry="18" fill="#3a3040"/>
-          <ellipse cx="72" cy="79" rx="13" ry="5" fill="#4a4060" opacity="0.5"/>
-          <ellipse cx="65" cy="115" rx="9" ry="8" fill="#1a1a1a"/>
-          <ellipse cx="95" cy="115" rx="9" ry="8" fill="#1a1a1a"/>
-          <ellipse cx="65" cy="115" rx="6.5" ry="6" fill="#3a6a40"/>
-          <ellipse cx="95" cy="115" rx="6.5" ry="6" fill="#3a6a40"/>
-          <circle cx="67" cy="112.5" r="2.5" fill="#ffffff" opacity="0.9"/>
-          <circle cx="97" cy="112.5" r="2.5" fill="#ffffff" opacity="0.9"/>
-          <path d="M 57 106 Q 65 103 73 107" stroke="#2a1e10" strokeWidth="2" fill="none" strokeLinecap="round"/>
-          <path d="M 87 107 Q 95 103 103 106" stroke="#2a1e10" strokeWidth="2" fill="none" strokeLinecap="round"/>
-          <ellipse cx="80" cy="126" rx="2" ry="1.5" fill="#d8a888" opacity="0.5"/>
-          <path d="M 73 136 Q 80 141 87 136" stroke="#b87860" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
-        </g>
-      </svg>
-    );
-
-    const CHAR_COMPONENTS = { rinto: CharRinto, souma: CharSouma, kaito: CharKaito, aoi: CharAoi, hayate: CharHayate };
-
-    const Background = ({ bgId }) => {
-      switch(bgId) {
-        case 'school_entrance':
-          return (
-            <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 1920 1080" preserveAspectRatio="none">
-              <rect width="1920" height="1080" fill="#e0f2fe" />
-              <rect y="700" width="1920" height="380" fill="#d4d4d8" />
-              <path d="M200,700 L200,300 L600,200 L1700,200 L1700,700 Z" fill="#fff" stroke="#cbd5e1" strokeWidth="4"/>
-              <rect x="800" y="500" width="300" height="200" fill="#38bdf8" opacity="0.2"/>
-              <circle cx="1600" cy="200" r="100" fill="#fde047" opacity="0.8"/>
-            </svg>
-          );
-        case 'observatory_night':
-          return (
-            <svg className="absolute inset-0 w-full h-full object-cover" viewBox="0 0 1920 1080" preserveAspectRatio="none">
-              <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0f172a"/><stop offset="100%" stopColor="#1e1b4b"/></linearGradient></defs>
-              <rect width="1920" height="1080" fill="url(#sky)" />
-              <circle cx="1500" cy="300" r="120" fill="#f8fafc" opacity="0.9" />
-              <path d="M400,1080 L1520,1080 L1300,500 L600,500 Z" fill="#0f172a" opacity="0.9" />
-              <polygon points="960,300 1100,500 820,500" fill="#334155" />
-              <circle cx="200" cy="150" r="2" fill="#fff" opacity="0.8"/><circle cx="500" cy="250" r="3" fill="#fff" opacity="0.6"/><circle cx="800" cy="100" r="2" fill="#fff" opacity="0.9"/><circle cx="1200" cy="200" r="1.5" fill="#fff" opacity="0.5"/>
-            </svg>
-          );
-        case 'cg_rinto_1':
-          return (
-            <div className="absolute inset-0 w-full h-full bg-navy flex items-center justify-center text-white">
-              <svg className="absolute inset-0 w-full h-full object-cover opacity-30" viewBox="0 0 1920 1080"><rect width="1920" height="1080" fill="#0f172a"/><circle cx="960" cy="540" r="400" fill="#fde047" opacity="0.1"/></svg>
-              <div className="z-10 text-center">
-                <div className="text-4xl font-serif text-gold mb-4 border-b border-gold pb-2">CG: 天文台の星図</div>
-                <p className="text-lg opacity-80">凛斗が優しく微笑みかけるスチルイラスト</p>
-              </div>
-            </div>
-          );
-        default:
-          return <div className="absolute inset-0 w-full h-full bg-surface2" />;
-      }
-    };
-
-    // ==========================================
-    // 4. MAIN COMPONENT & STATE
-    // ==========================================
-    const App = () => {
-      const [screen, setScreen] = useState('title'); // title, main, vn, status
-      const [gameState, setGameState] = useState(INIT_STATE);
-      const [currentEvent, setCurrentEvent] = useState(null);
-      const [showToast, setShowToast] = useState(null);
-
-      const triggerToast = (msg) => {
-        setShowToast(msg);
-        setTimeout(() => setShowToast(null), 3000);
-      };
-
-      const checkEvents = (state) => {
-        // イベント発生条件の判定
-        if (!state.flags.prologue_cleared) return "prologue";
-        
-        // 凛斗の天文台イベント
-        if (!state.flags.rinto_starmap_cleared && state.date.year === 1 && state.date.month >= 7 && state.stats.intelligence >= 200) {
-          return "rinto_starmap";
-        }
-
-        // エンディング判定 (3年3月4週を越えたら)
-        if (state.date.year === 4 || (state.date.year === 3 && state.date.month === 4)) {
-           if (state.affection.rinto >= 80) return "ending_happy_rinto";
-           return "ending_normal";
-        }
-        
-        return null;
-      };
-
-      const advanceTime = (state) => {
-        let { year, month, week } = state.date;
-        week += 1;
-        if (week > 4) {
-          week = 1;
-          let monthIdx = MONTHS.indexOf(month) + 1;
-          if (monthIdx >= MONTHS.length) {
-            monthIdx = 0;
-            year += 1;
-          }
-          month = MONTHS[monthIdx];
-        }
-        return { year, month, week };
-      };
-
-      const executeCommand = (cmd) => {
-        if (gameState.actionsLeft <= 0) return;
-        if (gameState.stats.stamina + cmd.cost < 0) {
-          triggerToast("体力が足りません！ 休息してください。");
-          return;
-        }
-
-        let newState = { ...gameState };
-        
-        // パラメータ変動
-        newState.stats.stamina += cmd.cost;
-        if (newState.stats.stamina > newState.stats.maxStamina) newState.stats.stamina = newState.stats.maxStamina;
-        
-        let changes = [];
-        if (cmd.effects) {
-          for (let key in cmd.effects) {
-            const [min, max] = cmd.effects[key];
-            const val = randomRange(min, max);
-            newState.stats[key] += val;
-            if(newState.stats[key] > 999 && key !== 'maxStamina') newState.stats[key] = 999;
-            changes.push(`${key === 'intelligence' ? '知性' : key === 'sports' ? '運動' : key === 'fashion' ? 'ファッション' : key === 'music' ? '音楽' : key === 'domestic' ? '家事' : '最大体力'} +${val}`);
-          }
-        }
-        triggerToast(`${cmd.label}を実行: ${changes.join(', ')}`);
-
-        // ランダム遭遇
-        if (cmd.encounter && cmd.encounter.length > 0 && Math.random() < 0.4) {
-          let charId = cmd.encounter[Math.floor(Math.random() * cmd.encounter.length)];
-          if (charId === "all") charId = Object.keys(CHARACTERS)[Math.floor(Math.random() * 5)];
-          if (charId && charId !== 'rival') {
-            newState.affection[charId] += randomRange(3, 8);
-            setTimeout(() => triggerToast(`${CHARACTERS[charId].name}を見かけた！好感度UP`), 1000);
-          }
-        }
-
-        newState.actionsLeft -= 1;
-        
-        // ターン終了処理
-        if (newState.actionsLeft <= 0) {
-          newState.date = advanceTime(newState);
-          newState.actionsLeft = 2; // 簡略化のため常に2回
-          
-          // ボム増加処理 (放置キャラの好感度が少し下がり、ライバルが上がる等)
-          // 割愛
-        }
-
-        setGameState(newState);
-
-        const evId = checkEvents(newState);
-        if (evId) {
-          setCurrentEvent(evId);
-          setScreen('vn');
-        }
-      };
-
-      // デバッグ用関数
-      const debugAdvanceTime = () => {
-        let newState = { ...gameState };
-        newState.date = advanceTime(newState);
-        setGameState(newState);
-        const evId = checkEvents(newState);
-        if (evId) { setCurrentEvent(evId); setScreen('vn'); }
-      };
-      
-      const debugMaxParams = () => {
-        setGameState(s => ({
-          ...s,
-          stats: { intelligence: 500, sports: 500, fashion: 500, music: 500, domestic: 500, stamina: 200, maxStamina: 200 },
-          affection: { rinto: 80, souma: 80, kaito: 80, aoi: 80, hayate: 80, rival: 0 }
-        }));
-        triggerToast("パラメータMAX化しました");
-      };
-
-      return (
-        <div className="game-container font-sans text-ink flex flex-col">
-          {screen === 'title' && <TitleScreen setScreen={setScreen} setGameState={setGameState} INIT_STATE={INIT_STATE} setCurrentEvent={setCurrentEvent} checkEvents={checkEvents} />}
-          {screen === 'main' && (
-             <MainScreen 
-               state={gameState} 
-               setScreen={setScreen} 
-               executeCommand={executeCommand} 
-               debugAdvanceTime={debugAdvanceTime}
-               debugMaxParams={debugMaxParams}
-             />
-          )}
-          {screen === 'vn' && currentEvent && (
-             <VNScreen 
-               eventId={currentEvent} 
-               eventsDef={EVENTS} 
-               state={gameState} 
-               setState={setGameState} 
-               setScreen={setScreen} 
-               setCurrentEvent={setCurrentEvent} 
-             />
-          )}
-          {screen === 'status' && <StatusScreen state={gameState} setScreen={setScreen} />}
-
-          {/* Toast Notification */}
-          {showToast && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-ink/80 text-white px-6 py-3 rounded-full text-sm font-bold z-50 animate-bounce">
-              {showToast}
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    // ==========================================
-    // TITLE SCREEN
-    // ==========================================
-    const TitleScreen = ({ setScreen, setGameState, INIT_STATE, setCurrentEvent, checkEvents }) => {
-      const handleStart = () => {
-        setGameState(INIT_STATE);
-        const evId = checkEvents(INIT_STATE);
-        if(evId) {
-          setCurrentEvent(evId);
-          setScreen('vn');
-        } else {
-          setScreen('main');
-        }
-      };
-
-      return (
-        <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-br from-navy via-rose-dark to-ink">
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute top-[20%] left-[80%] w-64 h-64 bg-gold rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse"></div>
-            <div className="absolute top-[60%] left-[20%] w-96 h-96 bg-rose rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
-          </div>
-          
-          <div className="z-10 text-center px-8 py-12 bg-surface/10 backdrop-blur-md rounded-2xl border border-surface/20 w-[90%] max-w-md">
-            <p className="text-gold tracking-widest text-xs mb-4 font-serif uppercase">Serenade on the Starlit Hill</p>
-            <h1 className="text-4xl md:text-5xl font-serif text-white font-bold mb-12 drop-shadow-lg">星降る丘のセレナーデ</h1>
-            
-            <div className="flex flex-col gap-4 w-64 mx-auto">
-              <button onClick={handleStart} className="py-3 px-6 bg-rose text-white rounded-full font-bold shadow-lg hover:bg-rose-dark transition-all transform hover:scale-105">
-                はじめから
-              </button>
-              <button className="py-3 px-6 bg-surface/20 text-white rounded-full font-bold hover:bg-surface/30 transition-all border border-surface/30">
-                つづきから (未実装)
-              </button>
-<a href="index.html" className="py-3 px-6 bg-surface/20 text-white rounded-full font-bold hover:bg-surface/30 transition-all border border-surface/30 block text-center">
+<!-- ══════ TITLE ══════ -->
+<div id="screen-title" class="screen">
+  <canvas class="stars-canvas" id="stars-canvas"></canvas>
+  <div class="title-content">
+    <div class="title-logo-jp">星降る丘のセレナーデ</div>
+    <div class="title-logo-en">Serenade on the Starlit Hill</div>
+    <div class="title-deco"></div>
+    <nav class="title-menu">
+      <button class="title-btn primary" id="btn-new-game">はじめから</button>
+      <button class="title-btn" id="btn-continue">つづきから</button>
+      <button class="title-btn" id="btn-album">アルバム</button>
+      <button class="title-btn" id="btn-settings">設定</button>
+      <a href="index.html" className="py-3 px-6 bg-surface/20 text-white rounded-full font-bold hover:bg-surface/30 transition-all border border-surface/30 block text-center">
     ホームに戻る
-  </a>
-            </div>
-          </div>
-        </div>
-      );
+      </a>
+    </nav>
+  </div>
+</div>
+
+<!-- ══════ NAME INPUT ══════ -->
+<div id="screen-name" class="screen">
+  <canvas class="stars-canvas" id="stars-canvas-name"></canvas>
+  <div class="name-box">
+    <div class="name-title">主人公の名前を入力してください</div>
+    <div class="name-subtitle">ひらがな・カタカナ・漢字（8文字まで）</div>
+    <input class="name-input-field" id="name-input" type="text" maxlength="8"
+      placeholder="月城 日和" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div class="name-hint">※入力しない場合は「日和」になります</div>
+    <button class="name-confirm-btn" id="name-confirm-btn">決定</button>
+  </div>
+</div>
+
+<!-- ══════ VN SCREEN ══════ -->
+<div id="screen-vn" class="screen">
+  <!-- 上帯 -->
+  <div class="vn-band vn-band-top" id="vn-band-top">
+    <canvas class="vn-band-stars" id="vn-band-stars-top"></canvas>
+    <div class="vn-band-title">★ 星降る丘のセレナーデ</div>
+    <div class="vn-band-right">
+      <div class="vn-band-deco" id="vn-band-date"></div>
+      <div class="vn-controls">
+        <button class="vn-ctrl-btn" id="vn-btn-auto">AUTO</button>
+        <button class="vn-ctrl-btn" id="vn-btn-skip">SKIP</button>
+        <button class="vn-ctrl-btn" id="vn-btn-log">LOG</button>
+        <button class="vn-ctrl-btn" id="vn-btn-save">SAVE</button>
+        <button class="vn-ctrl-btn" id="vn-btn-menu">MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ステージ -->
+  <div class="vn-stage" id="vn-stage">
+    <div class="vn-bg-color" id="vn-bg-color"></div>
+    <div class="vn-bg" id="vn-bg"></div>
+
+    <div class="vn-sprites" id="vn-sprites">
+      <div class="vn-sprite pos-left" id="sprite-left">
+        <img id="sprite-left-img" src="" alt="" onerror="this.style.display='none'">
+      </div>
+      <div class="vn-sprite pos-center" id="sprite-center">
+        <img id="sprite-center-img" src="" alt="" onerror="this.style.display='none'">
+      </div>
+      <div class="vn-sprite pos-right" id="sprite-right">
+        <img id="sprite-right-img" src="" alt="" onerror="this.style.display='none'">
+      </div>
+    </div>
+
+    <div class="vn-cg-overlay" id="vn-cg-overlay"></div>
+
+    <div class="vn-textbox" id="vn-textbox">
+      <div class="vn-namebox" id="vn-namebox">
+        <span class="vn-speaker" id="vn-speaker"></span>
+      </div>
+      <div class="vn-textpanel">
+        <div class="vn-text" id="vn-text"></div>
+        <div class="vn-next-arrow" id="vn-next-arrow">▼</div>
+      </div>
+    </div>
+
+    <div class="vn-choices" id="vn-choices"></div>
+  </div>
+
+  <!-- 下帯 -->
+  <div class="vn-band vn-band-bottom" id="vn-band-bottom">
+    <canvas class="vn-band-stars" id="vn-band-stars-bottom"></canvas>
+    <div class="vn-band-title" id="vn-chapter-title"></div>
+    <div class="vn-band-deco">✦ ✦ ✦</div>
+  </div>
+
+  <!-- バックログ（フルスクリーンオーバーレイ） -->
+  <div class="vn-backlog" id="vn-backlog">
+    <div class="backlog-header">
+      <span>バックログ</span>
+      <button class="vn-ctrl-btn" id="backlog-close-btn">閉じる</button>
+    </div>
+    <div id="backlog-entries"></div>
+  </div>
+</div>
+
+<!-- ══════ COMMAND SCREEN ══════ -->
+<div id="screen-command" class="screen">
+  <header class="cmd-header">
+    <div class="cmd-title-logo">★ 星降る丘のセレナーデ</div>
+    <div class="cmd-date" id="cmd-date-display">1年 4月 第1週</div>
+    <div class="cmd-menu-btns">
+      <button class="cmd-menu-btn" id="cmd-btn-status">ステータス</button>
+      <button class="cmd-menu-btn" id="cmd-btn-save">セーブ</button>
+      <button class="cmd-menu-btn" id="cmd-btn-settings">設定</button>
+    </div>
+  </header>
+
+  <div class="cmd-hero">
+    <div class="cmd-hero-avatar" id="cmd-hero-avatar">
+      <img id="cmd-hero-img" src="otome_images/st_hiyori_01.png" alt="" onerror="this.style.display='none'; this.parentElement.textContent='日';">
+    </div>
+    <div class="cmd-stats-grid" id="cmd-stats-grid"></div>
+  </div>
+
+  <div class="cmd-affection" id="cmd-affection-bar">
+    <div class="aff-label">好感度</div>
+  </div>
+
+  <div class="cmd-calendar-bar" id="cmd-calendar-bar"></div>
+
+  <div class="cmd-section-label">
+    行動コマンド
+    <span class="cmd-action-count" id="cmd-action-count">（残り2回）</span>
+  </div>
+
+  <div class="cmd-grid" id="cmd-grid"></div>
+
+  <div class="cmd-footer">
+    <button class="cmd-menu-btn" id="cmd-btn-present">プレゼント 🎁</button>
+    <button class="cmd-next-btn" id="cmd-next-week-btn">次の週へ ▶</button>
+  </div>
+</div>
+
+<!-- ══════ EVENT RESULT ══════ -->
+<div id="screen-event-result" class="screen">
+  <div class="event-result-box">
+    <div class="event-result-icon" id="er-icon">📚</div>
+    <div class="event-result-cmd" id="er-cmd">図書館で勉強</div>
+    <div class="event-result-effects" id="er-effects"></div>
+    <div class="event-result-encounter" id="er-encounter" style="display:none;"></div>
+    <div class="event-result-tap">タップして続ける</div>
+  </div>
+</div>
+
+<!-- ══════ STATUS ══════ -->
+<div id="screen-status" class="screen">
+  <div class="status-header" id="status-header">ステータス</div>
+  <div class="status-section-title">主人公パラメータ</div>
+  <div class="status-params" id="status-params"></div>
+  <div class="status-section-title" style="margin-top:0.5em;">好感度</div>
+  <div class="status-affections" id="status-affections"></div>
+  <button class="status-close-btn" id="status-close-btn">閉じる</button>
+</div>
+
+<!-- ══════ DATE SELECT ══════ -->
+<div id="screen-date" class="screen">
+  <div class="date-box">
+    <div class="date-char-info">
+      <div class="date-char-icon" id="date-char-icon">凛</div>
+      <div class="date-char-name" id="date-char-name">朝比奈 凛斗</div>
+      <div class="date-prompt">「今週末、どこか行かない?」</div>
+    </div>
+    <div class="date-spots" id="date-spots"></div>
+    <button class="date-skip-btn" id="date-skip-btn">今回は断る（好感度 -10）</button>
+  </div>
+</div>
+
+<!-- ══════ PRESENT ══════ -->
+<div id="screen-present" class="screen">
+  <div class="present-box">
+    <div class="present-title">🎁 プレゼントを贈る</div>
+    <div class="present-char-tabs" id="present-char-tabs"></div>
+    <div class="present-items" id="present-items"></div>
+    <button class="cmd-menu-btn present-close" id="present-close-btn">閉じる</button>
+  </div>
+</div>
+
+<!-- ══════ ALBUM ══════ -->
+<div id="screen-album" class="screen">
+  <div class="album-header">
+    <div class="album-title">🌟 アルバム</div>
+    <button class="album-close-btn" id="album-close-btn">戻る</button>
+  </div>
+  <div class="album-char-tabs" id="album-tabs"></div>
+  <div class="album-grid" id="album-grid"></div>
+  <div class="album-viewer" id="album-viewer">
+    <img id="album-viewer-img" src="" alt="">
+  </div>
+</div>
+
+<!-- ══════ SAVE/LOAD ══════ -->
+<div id="screen-save" class="screen">
+  <div class="save-header">
+    <div class="save-title" id="save-screen-title">セーブ</div>
+    <button class="save-close-btn" id="save-close-btn" style="width:auto;margin-top:0;">戻る</button>
+  </div>
+  <div class="save-mode-tabs">
+    <button class="save-mode-tab active" id="save-tab-save">セーブ</button>
+    <button class="save-mode-tab" id="save-tab-load">ロード</button>
+  </div>
+  <div class="save-slots" id="save-slots"></div>
+</div>
+
+<!-- ══════ SETTINGS ══════ -->
+<div id="screen-settings" class="screen">
+  <div class="settings-header">設定</div>
+  <div class="settings-group">
+    <div class="settings-group-title">テキスト設定</div>
+    <div class="settings-row">
+      <span class="settings-label">テキスト速度</span>
+      <input class="settings-slider" id="setting-text-speed" type="range" min="1" max="5" value="3">
+      <span class="settings-val-display" id="text-speed-val">3</span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">フォントサイズ</span>
+      <select class="settings-select" id="setting-font-size">
+        <option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">既読スキップ</span>
+      <label class="settings-toggle"><input type="checkbox" id="setting-skip-read" checked><div class="settings-toggle-slider"></div></label>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">未読スキップ</span>
+      <label class="settings-toggle"><input type="checkbox" id="setting-skip-unread"><div class="settings-toggle-slider"></div></label>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">オート速度</span>
+      <select class="settings-select" id="setting-auto-speed">
+        <option value="slow">遅い</option><option value="normal" selected>普通</option><option value="fast">速い</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-group">
+    <div class="settings-group-title">音量設定</div>
+    <div class="settings-row">
+      <span class="settings-label">BGM音量</span>
+      <input class="settings-slider" id="setting-bgm-vol" type="range" min="0" max="100" value="70">
+      <span class="settings-val-display" id="bgm-vol-val">70</span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">SE音量</span>
+      <input class="settings-slider" id="setting-se-vol" type="range" min="0" max="100" value="80">
+      <span class="settings-val-display" id="se-vol-val">80</span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">テキスト送り音</span>
+      <label class="settings-toggle"><input type="checkbox" id="setting-text-se" checked><div class="settings-toggle-slider"></div></label>
+    </div>
+  </div>
+  <div class="settings-group">
+    <div class="settings-group-title">表示設定</div>
+    <div class="settings-row">
+      <span class="settings-label">テキストウィンドウ透過度</span>
+      <input class="settings-slider" id="setting-textwin-opacity" type="range" min="40" max="100" value="82">
+      <span class="settings-val-display" id="textwin-opacity-val">82%</span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">カラーフィルター</span>
+      <select class="settings-select" id="setting-color-filter">
+        <option value="none">なし</option><option value="protanopia">第一色覚</option>
+        <option value="deuteranopia">第二色覚</option><option value="tritanopia">第三色覚</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-group">
+    <div class="settings-group-title">データ管理</div>
+    <div class="settings-row">
+      <span class="settings-label">セーブデータを削除</span>
+      <button class="settings-danger-btn" id="setting-delete-save">全データ削除</button>
+    </div>
+  </div>
+  <button class="settings-close-btn" id="settings-close-btn">閉じる</button>
+</div>
+
+<!-- ══════ ENDING ══════ -->
+<div id="screen-ending" class="screen">
+  <div class="ending-bg" id="ending-bg"></div>
+  <div class="ending-content" id="ending-content">
+    <div class="ending-badge" id="ending-badge">HAPPY END ★★★</div>
+    <div class="ending-title" id="ending-title">永遠になれる日に</div>
+    <div class="ending-char-name" id="ending-char-name">朝比奈 凛斗 ルート</div>
+    <div class="ending-text" id="ending-text"></div>
+    <button class="ending-to-title-btn" id="ending-to-title-btn">タイトルへ戻る</button>
+  </div>
+  <div class="staffroll" id="staffroll">
+    <div class="staffroll-inner" id="staffroll-inner"></div>
+  </div>
+</div>
+
+<!-- ══════ SHARED UI ══════ -->
+<div class="toast" id="toast"></div>
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-text" id="modal-text">よろしいですか？</div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-confirm" id="modal-confirm">はい</button>
+      <button class="modal-btn modal-btn-cancel" id="modal-cancel">いいえ</button>
+    </div>
+  </div>
+</div>
+<div class="month-banner" id="month-banner">
+  <div class="month-banner-text" id="month-banner-text"></div>
+  <div class="month-banner-event" id="month-banner-event"></div>
+</div>
+
+</div><!-- /game -->
+</div><!-- /game-wrap -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   GAME DATA
+═══════════════════════════════════════════════════════════════ */
+const GAME_VERSION = '1.0';
+const SAVE_KEY = 'serenata_save_slot_';
+const SETTINGS_KEY = 'serenata_settings';
+const ALBUM_KEY = 'serenata_global_album';
+
+const CHARS = {
+  rinto: { id:'rinto', name:'朝比奈 凛斗', nameShort:'凛斗', initial:'凛', color:'#1a2744', accent:'#c9a227', tag:'生徒会長', route:'rinto' },
+  souma: { id:'souma', name:'桜井 壮馬',   nameShort:'壮馬', initial:'壮', color:'#6b3a1e', accent:'#c8a070', tag:'幼なじみ', route:'souma' },
+  kaito: { id:'kaito', name:'風間 海斗',   nameShort:'海斗', initial:'海', color:'#0a3a6a', accent:'#4aa0e0', tag:'サッカー部', route:'kaito' },
+  aoi:   { id:'aoi',   name:'白石 蒼',     nameShort:'蒼',   initial:'蒼', color:'#2a1f50', accent:'#a090d0', tag:'美術部', route:'aoi' },
+  hayate:{ id:'hayate',name:'天宮 颯',     nameShort:'颯',   initial:'颯', color:'#1a3a2a', accent:'#70c090', tag:'音楽部', route:'hayate' }
+};
+const RIVAL = { id:'rival', name:'姫宮 柚希', color:'#6a1040', accent:'#e08090' };
+const CHAR_ORDER = ['rinto','souma','kaito','aoi','hayate'];
+
+const AFF_RANKS = [
+  { min:0,  max:19, name:'陌', label:'知人未満', emoji:'💭' },
+  { min:20, max:39, name:'友', label:'友人',     emoji:'👫' },
+  { min:40, max:59, name:'親', label:'親友',     emoji:'💛' },
+  { min:60, max:79, name:'恋', label:'恋人候補', emoji:'💗' },
+  { min:80, max:100,name:'愛', label:'恋人',     emoji:'❤️' }
+];
+function getAffRank(val) { return AFF_RANKS.find(r=>val>=r.min&&val<=r.max)||AFF_RANKS[0]; }
+
+const STATS_CONFIG = [
+  { id:'intelligence', label:'知性',        icon:'📚', color:'#4a90d4', max:999 },
+  { id:'sports',       label:'スポーツ',    icon:'⚽', color:'#4abd7a', max:999 },
+  { id:'fashion',      label:'ファッション',icon:'👗', color:'#c97aae', max:999 },
+  { id:'music',        label:'音楽',        icon:'🎵', color:'#e09a40', max:999 },
+  { id:'domestic',     label:'家事',        icon:'🍳', color:'#d4704a', max:999 },
+  { id:'stamina',      label:'体力',        icon:'❤️', color:'#d44a6a', max:200 }
+];
+
+const COMMANDS = [
+  { id:'study_library',label:'図書館で勉強',    icon:'📚', stamina:-10, effects:{intelligence:[15,25]}, desc:'知性 +15〜25', encounter:{rinto:0.30,souma:0.45} },
+  { id:'study_home',   label:'自習（自室）',    icon:'✏️', stamina:-5,  effects:{intelligence:[8,12]},  desc:'知性 +8〜12' },
+  { id:'sports_club',  label:'運動部活動',      icon:'🏃', stamina:-20, effects:{sports:[15,25]},       desc:'スポーツ +15〜25', encounter:{kaito:0.40} },
+  { id:'jogging',      label:'ジョギング',      icon:'💨', stamina:-5,  effects:{sports:[8,8],stamina:[10,10]}, desc:'スポーツ +8  体力 +10' },
+  { id:'shopping',     label:'ショッピング',    icon:'👗', stamina:-10, effects:{fashion:[15,25]},      desc:'ファッション +15〜25', encounter:{aoi:0.20} },
+  { id:'magazine',     label:'雑誌研究',        icon:'📰', stamina:-5,  effects:{fashion:[8,8],intelligence:[3,3]}, desc:'ファッション +8  知性 +3' },
+  { id:'music_room',   label:'音楽室練習',      icon:'🎵', stamina:-10, effects:{music:[15,25]},        desc:'音楽 +15〜25', encounter:{hayate:0.35} },
+  { id:'live',         label:'ライブ鑑賞',      icon:'🎶', stamina:-10, effects:{music:[12,12],fashion:[5,5]}, desc:'音楽 +12  ファッション +5' },
+  { id:'cooking',      label:'料理教室',        icon:'🍳', stamina:-10, effects:{domestic:[15,25]},     desc:'家事 +15〜25' },
+  { id:'crafts',       label:'手芸・クラフト',  icon:'🧵', stamina:-5,  effects:{domestic:[10,10],fashion:[5,5]}, desc:'家事 +10  ファッション +5' },
+  { id:'parttime',     label:'アルバイト',      icon:'💼', stamina:-25, effects:{intelligence:[5,5],sports:[5,5],fashion:[5,5],music:[5,5],domestic:[5,5]}, desc:'全パラ +5', availableFrom:{year:2,month:4} },
+  { id:'rest',         label:'休息',            icon:'💤', stamina:40,  effects:{}, desc:'体力 +40（回復）' },
+  { id:'observatory',  label:'天文台で観測',    icon:'🔭', stamina:-5,  effects:{intelligence:[5,5],music:[5,5]}, desc:'知性 +5  音楽 +5', encounter:{rinto:0.25,hayate:0.15}, availableFrom:{year:1,month:6} },
+  { id:'beach_walk',   label:'海岸散歩',        icon:'🌊', stamina:15,  effects:{}, desc:'体力 +15  出会い率UP', encounterBonus:0.20 }
+];
+
+const DATE_SPOTS = [
+  { id:'observatory', label:'天文台',         icon:'🔭', desc:'夜空を眺める神秘的なデート', bonus:{rinto:15,hayate:12,souma:8,kaito:5,aoi:10} },
+  { id:'beach',       label:'海岸',           icon:'🌊', desc:'潮風薫る開放的なデート',     bonus:{kaito:15,hayate:10,souma:8,rinto:5,aoi:8} },
+  { id:'cafe',        label:'市街カフェ',     icon:'☕', desc:'ゆったり語り合うカフェデート', bonus:{souma:12,hayate:12,rinto:10,aoi:8,kaito:8} },
+  { id:'cinema',      label:'映画館',         icon:'🎬', desc:'隣り合って映画を楽しむ',      bonus:{aoi:12,souma:10,hayate:8,rinto:8,kaito:10} },
+  { id:'library',     label:'図書館',         icon:'📖', desc:'静かな空間で過ごす',          bonus:{rinto:15,souma:15,aoi:10,hayate:8,kaito:5} },
+  { id:'park',        label:'公園',           icon:'🌸', desc:'ゆっくり散歩するデート',      bonus:{souma:10,kaito:10,hayate:8,rinto:8,aoi:10} },
+  { id:'shopping_mall',label:'ショッピングモール',icon:'🛍️',desc:'一緒に買い物を楽しむ', bonus:{aoi:10,kaito:10,souma:8,rinto:5,hayate:8} },
+  { id:'rooftop',     label:'学校屋上',       icon:'⭐', desc:'二人だけの秘密の場所',       bonus:{rinto:12,aoi:15,souma:10,hayate:12,kaito:8} }
+];
+
+const PRESENTS = [
+  { id:'cookies',     label:'手作りクッキー', icon:'🍪', price:0, cost_domestic:150, desc:'家事150必要', base:12, bonus:{rinto:20,souma:22,kaito:20,aoi:15,hayate:22} },
+  { id:'handkerchief',label:'ハンカチ',       icon:'🎀', price:800,  base:8, bonus:{rinto:15,souma:12,kaito:8,aoi:10,hayate:15} },
+  { id:'book',        label:'本（ジャンル別）',icon:'📚', price:1200, base:10, bonus:{rinto:25,souma:25,kaito:10,aoi:20,hayate:18} },
+  { id:'sports',      label:'スポーツ用品',   icon:'⚽', price:3000, base:12, bonus:{kaito:28,rinto:12,souma:10,aoi:8,hayate:12} },
+  { id:'accessory',   label:'アクセサリー',   icon:'💍', price:5000, base:15, bonus:{aoi:30,hayate:20,souma:15,rinto:15,kaito:15} },
+  { id:'tea',         label:'星丘市特産の紅茶',icon:'🍵', price:2000, base:18, bonus:{hayate:28,souma:28,rinto:18,kaito:12,aoi:15} }
+];
+
+const CALENDAR = {
+  4: {label:'4月',events:['入学式・転入イベント'],flags:['school_april']},
+  5: {label:'5月',events:['春の遠足'],flags:['school_picnic']},
+  6: {label:'6月',events:['体育祭'],flags:['school_sports_day']},
+  7: {label:'7月',events:['期末試験・終業式'],flags:['school_exams']},
+  8: {label:'8月',events:['夏期講習・海水浴'],flags:['summer_vacation']},
+  9: {label:'9月',events:['夏休み明け・始業式'],flags:['school_sept']},
+  10:{label:'10月',events:['学園祭（2日間）'],flags:['school_festival']},
+  11:{label:'11月',events:['美術展覧会'],flags:['art_exhibition']},
+  12:{label:'12月',events:['音楽発表会・冬休み'],flags:['music_concert']},
+  1: {label:'1月',events:['初詣イベント'],flags:['new_year']},
+  2: {label:'2月',events:['バレンタイン'],flags:['valentine']},
+  3: {label:'3月',events:['卒業式・修了式'],flags:['graduation']}
+};
+
+const CHAR_EVENTS = [
+  { id:'souma_reunion', char:'souma', title:'図書館の裏側', bg:'school_library', bgColor:'#1e2820',
+    year:1, month:4, forced:true, conditions:{flags:['met_all_characters']},
+    lines:[
+      {type:'narrative',text:'転入した翌週、図書館で本を探していると、聞き慣れた声がした。'},
+      {type:'sprite',char:'souma',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、ひより。こんなところで会うね。'},
+      {type:'dialogue',speaker:'日和',text:'壮馬くん、ここでよく本を読んでるの？'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'うん。図書委員でもあるから。……この棚の奥に、面白い本があるんだ。一緒に来る？'},
+      {type:'choice',options:[
+        {text:'「うん、見せて！」',aff:{souma:8},flag:'souma_library_flag',next:'souma_reunion_a'},
+        {text:'「また今度にするね」',aff:{souma:3},next:'souma_reunion_b'}
+      ]}
+    ],
+    branches:{
+      souma_reunion_a:[
+        {type:'sprite',char:'souma',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'ほら、これ。星についての本なんだけど、図解が綺麗で……'},
+        {type:'dialogue',speaker:'日和',text:'わあ……本当に綺麗。星好きなの？'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……昔から、夜空が好きだった。ひよりは今でも、空を見てる？'},
+        {type:'dialogue',speaker:'日和',text:'うん！　毎晩見てるよ。'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……それは、よかった。変わってないね。'},
+        {type:'narrative',text:'幼なじみとの再会は、思いがけずあたたかな時間になった。\n（好感度 ▲8）'},
+        {type:'end',flag:'souma_reunion_done'}
+      ],
+      souma_reunion_b:[
+        {type:'sprite',char:'souma',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……そうか。また来てよ。いつでもいるから。'},
+        {type:'narrative',text:'少し寂しそうに見えた気がした。\n（好感度 ▲3）'},
+        {type:'end',flag:'souma_reunion_done'}
+      ]
+    }
+  },
+  { id:'rinto_council', char:'rinto', title:'放課後の生徒会室', bg:'school_council_room', bgColor:'#10182a',
+    year:1, month:5, forced:false, conditions:{affection:{rinto:20},stats:{intelligence:100}},
+    lines:[
+      {type:'narrative',text:'放課後、迷子になった廊下の先に、ひっそりとした部屋があった。'},
+      {type:'dialogue',speaker:'日和',text:'（ここが……生徒会室かな）'},
+      {type:'sprite',char:'rinto',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……何か用か。'},
+      {type:'dialogue',speaker:'日和',text:'あ！　すみません、迷ってしまって。'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……まあいい。入れ。暗いところに立ってると目が疲れる。'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'お前は……転入生だな。勉強の調子はどうだ。'},
+      {type:'dialogue',speaker:'日和',text:'まあ……頑張ってます。図書館で毎日勉強してて。'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……そうか。感心だな。'},
+      {type:'choice',options:[
+        {text:'「効率的な勉強法、教えてもらえますか？」',aff:{rinto:8},next:'rinto_council_a'},
+        {text:'「凛斗くんはどこで勉強するんですか？」',aff:{rinto:5},next:'rinto_council_b'}
+      ]}
+    ],
+    branches:{
+      rinto_council_a:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……珍しいことを聞く。まあ、教えてやってもいいが。'},
+        {type:'narrative',text:'それから30分、丁寧に学習法を教えてくれた。\nクールに見えて、教えるのが上手だった。'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'以上だ。実践してみろ。……また困ったことがあれば、来い。'},
+        {type:'narrative',text:'ぶっきらぼうだけど、思いやりを感じる。\n（好感度 ▲8）'},
+        {type:'end',flag:'rinto_council_done'}
+      ],
+      rinto_council_b:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……主に、ここか天文台だ。静かな場所が合う。'},
+        {type:'dialogue',speaker:'日和',text:'天文台！　星が見えるんですか？'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……そうだ。お前も星が好きなのか。'},
+        {type:'dialogue',speaker:'日和',text:'大好きです！'},
+        {type:'narrative',text:'一瞬、彼の目が柔らかくなった気がした。\n（好感度 ▲5）'},
+        {type:'end',flag:'rinto_council_done'}
+      ]
+    }
+  },
+  { id:'rinto_starmap', char:'rinto', title:'天文台の星図', bg:'observatory_night', bgColor:'#050810',
+    cg:'rinto_cg1', year:1, month:7, forced:false,
+    conditions:{affection:{rinto:40},stats:{intelligence:200},flags:['rinto_council_done']},
+    lines:[
+      {type:'bgm',value:'starlight_waltz'},
+      {type:'narrative',text:'期末試験が終わった夜、天文台に足を運んだ。\n静かな夜空に、星が満ち溢れていた。'},
+      {type:'sprite',char:'rinto',position:'right',expression:'default'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……また来たのか。'},
+      {type:'dialogue',speaker:'日和',text:'あ……邪魔でしたか？'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……いや。まあいい。こっちに来い。'},
+      {type:'narrative',text:'大きな望遠鏡の前に、古い星図が広げられていた。'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'あの星は、ベガだ。こと座の一等星。'},
+      {type:'choice',options:[
+        {text:'「織姫星だよね」',aff:{rinto:8},cg:'rinto_cg1',next:'rinto_starmap_a'},
+        {text:'「……詳しいんだね」',aff:{rinto:4},next:'rinto_starmap_b'}
+      ]}
+    ],
+    branches:{
+      rinto_starmap_a:[
+        {type:'cg',cgId:'rinto_cg1'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……知ってたか。七夕の星だ。'},
+        {type:'dialogue',speaker:'日和',text:'彦星と、一年に一度しか会えない……。'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……お前は変わってるな。そういう話を、ちゃんと聞く奴は少ない。'},
+        {type:'dialogue',speaker:'日和',text:'変わってますか？'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……悪い意味じゃない。'},
+        {type:'narrative',text:'星図の光に照らされた彼の顔は、いつもより穏やかだった。\n（好感度 ▲8  CG解放）'},
+        {type:'end',flag:'rinto_starmap_done',cg:'rinto_cg1'}
+      ],
+      rinto_starmap_b:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……子供の頃から好きだ。星は嘘をつかない。'},
+        {type:'dialogue',speaker:'日和',text:'嘘をつかない……素敵な言葉だね。'},
+        {type:'narrative',text:'少しだけ、彼の素顔を見た気がした。\n（好感度 ▲4）'},
+        {type:'end',flag:'rinto_starmap_done'}
+      ]
+    }
+  },
+  { id:'souma_bookmark', char:'souma', title:'手作りのしおり', bg:'school_library', bgColor:'#1e2820',
+    cg:'souma_cg1', year:1, month:9, forced:false,
+    conditions:{affection:{souma:35},stats:{domestic:80},flags:['souma_reunion_done']},
+    lines:[
+      {type:'narrative',text:'夏休みが終わり、図書館に顔を出すと、壮馬がいつものように本に囲まれていた。'},
+      {type:'sprite',char:'souma',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、ひより。夏休みどうだった？'},
+      {type:'dialogue',speaker:'日和',text:'楽しかった！　料理をたくさん練習したよ。'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'えっ……それ、食べさせてほしかったな。'},
+      {type:'dialogue',speaker:'日和',text:'……じゃあ、これ。料理の練習のついでに作ったんだけど。'},
+      {type:'narrative',text:'渡したのは、手作りのしおりだった。\n押し花を使った、丁寧な作品。'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'……え、これ、ひよりが作ったの？'},
+      {type:'choice',options:[
+        {text:'「うん、壮馬くんに似合うかなって」',aff:{souma:12},cg:'souma_cg1',next:'souma_bookmark_a'},
+        {text:'「試作品なんだけど……嫌なら別にいいよ」',aff:{souma:8},next:'souma_bookmark_b'}
+      ]}
+    ],
+    branches:{
+      souma_bookmark_a:[
+        {type:'cg',cgId:'souma_cg1'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……嬉しい。ありがとう、ひより。'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'大事に、使う。……ちゃんと、本に挟んで。'},
+        {type:'narrative',text:'彼は丁寧にしおりを手のひらで包んだ。\nその姿が、とても優しかった。\n（好感度 ▲12  CG解放）'},
+        {type:'end',flag:'souma_bookmark_done',cg:'souma_cg1'}
+      ],
+      souma_bookmark_b:[
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……嫌なわけないよ。嬉しいよ、すごく。'},
+        {type:'narrative',text:'照れながら受け取ってくれた。\n（好感度 ▲8）'},
+        {type:'end',flag:'souma_bookmark_done'}
+      ]
+    }
+  },
+  { id:'kaito_ground', char:'kaito', title:'グラウンドの向こう', bg:'school_ground', bgColor:'#1a2a30',
+    year:1, month:5, forced:false, conditions:{affection:{kaito:15},stats:{sports:80}},
+    lines:[
+      {type:'narrative',text:'体育の授業後、一人グラウンドに残っていると、放課後の練習を終えた海斗が駆け寄ってきた。'},
+      {type:'sprite',char:'kaito',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'おっ！　ひより！　まだいたの？'},
+      {type:'dialogue',speaker:'日和',text:'うん、夕焼けが見たくて。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'わかる！　俺も好きなんだよねー、グラウンドの夕焼け！'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'なあ、今度一緒に走らない？　一人より楽しいし！'},
+      {type:'choice',options:[
+        {text:'「一緒に走ってみたいな」',aff:{kaito:8},next:'kaito_ground_a'},
+        {text:'「私、足遅いよ？」',aff:{kaito:5},next:'kaito_ground_b'}
+      ]}
+    ],
+    branches:{
+      kaito_ground_a:[
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'やった！　じゃあ今週末！　海岸沿いのコースがあるんだけど！'},
+        {type:'narrative',text:'目を輝かせる海斗に、つい笑顔になってしまった。\n（好感度 ▲8）'},
+        {type:'end',flag:'kaito_ground_done'}
+      ],
+      kaito_ground_b:[
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'そんなの関係ない！　俺がペース合わせるから！'},
+        {type:'narrative',text:'その無邪気な言葉が、なんだか嬉しかった。\n（好感度 ▲5）'},
+        {type:'end',flag:'kaito_ground_done'}
+      ]
+    }
+  },
+  { id:'kaito_beach', char:'kaito', title:'海岸の夕焼け', bg:'beach', bgColor:'#1a2a3a',
+    cg:'kaito_cg1', year:1, month:8, forced:false,
+    conditions:{affection:{kaito:50},stats:{sports:150},flags:['kaito_ground_done']},
+    lines:[
+      {type:'bgm',value:'summer_breeze'},
+      {type:'narrative',text:'夏休み、海斗と一緒に海岸へ来た。\n空が燃えるような夕焼けに染まり始めていた。'},
+      {type:'sprite',char:'kaito',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'はあ……やっぱり海岸の夕焼けは最高だな……。'},
+      {type:'dialogue',speaker:'日和',text:'本当に……綺麗だね。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……なあ、ひより。俺さ……サッカーでプロ目指してるんだ。'},
+      {type:'dialogue',speaker:'日和',text:'うん、知ってるよ。海斗くんすごいよね。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……親は反対してて。でも、諦めたくなくて。'},
+      {type:'choice',options:[
+        {text:'「絶対できるよ、応援してる！」',aff:{kaito:10},cg:'kaito_cg1',next:'kaito_beach_a'},
+        {text:'「……辛かったんだね」',aff:{kaito:8},next:'kaito_beach_b'}
+      ]}
+    ],
+    branches:{
+      kaito_beach_a:[
+        {type:'cg',cgId:'kaito_cg1'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……ありがとう。ひよりがそう言ってくれたら、なんか頑張れる気がする。'},
+        {type:'narrative',text:'夕焼けの中で、海斗は笑った。\nその笑顔は、どこかいつもより少しだけ大人びて見えた。\n（好感度 ▲10  CG解放）'},
+        {type:'end',flag:'kaito_beach_done',cg:'kaito_cg1'}
+      ],
+      kaito_beach_b:[
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……うん。でも、ひよりに話したら、少し楽になった。'},
+        {type:'narrative',text:'静かな波の音の中で、二人は並んでいた。\n（好感度 ▲8）'},
+        {type:'end',flag:'kaito_beach_done'}
+      ]
+    }
+  },
+  { id:'aoi_artroom', char:'aoi', title:'美術棟の奥', bg:'school_art_room', bgColor:'#1a1530',
+    year:1, month:11, forced:false, conditions:{affection:{aoi:0},stats:{fashion:100},flags:['school_festival']},
+    lines:[
+      {type:'narrative',text:'美術展覧会を観に行った帰り、美術棟の奥の部屋で、蒼が一人で大きなキャンバスに向かっていた。'},
+      {type:'sprite',char:'aoi',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……なぜ、いつもここに来るんですか。'},
+      {type:'dialogue',speaker:'日和',text:'え、えと……展覧会を見て、もっと蒼くんの絵が見たくなって。'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……そうですか。'},
+      {type:'narrative',text:'少しの沈黙。キャンバスには、見たことのない青が広がっていた。'},
+      {type:'dialogue',speaker:'日和',text:'その色……すごく深い青ですね。'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……夜の海の色です。きみは、海が好きですか？'},
+      {type:'choice',options:[
+        {text:'「うん。夜の海って神秘的で好きです」',aff:{aoi:8},next:'aoi_artroom_a'},
+        {text:'「見てるのが好きです、入るのは少し怖いけど」',aff:{aoi:6},next:'aoi_artroom_b'}
+      ]}
+    ],
+    branches:{
+      aoi_artroom_a:[
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……そうですか。ぼくも、海の底に何があるか考えるのが好きです。'},
+        {type:'narrative',text:'それだけ言って、また絵に向かった。\nでも、その横顔は少しだけ和らいで見えた。\n（好感度 ▲8）'},
+        {type:'end',flag:'aoi_artroom_done'}
+      ],
+      aoi_artroom_b:[
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……正直な人ですね。'},
+        {type:'narrative',text:'少しだけ、口元が緩んだ気がした。\n（好感度 ▲6）'},
+        {type:'end',flag:'aoi_artroom_done'}
+      ]
+    }
+  },
+  { id:'hayate_music', char:'hayate', title:'音楽室の鍵', bg:'school_music_room', bgColor:'#101820',
+    year:1, month:12, forced:false, conditions:{affection:{hayate:0},stats:{music:100},flags:['music_concert']},
+    lines:[
+      {type:'bgm',value:'heartbeat'},
+      {type:'narrative',text:'音楽発表会が終わった夜。\n音楽棟の廊下を歩いていると、音楽室のドアが少し開いていた。'},
+      {type:'sprite',char:'hayate',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'……あれ。まだいたんだ。'},
+      {type:'dialogue',speaker:'日和',text:'発表会、すごく良かったです。先輩の指導の成果ですよね。'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ、相変わらずだね。……今日の演奏、どこが好きだった？'},
+      {type:'dialogue',speaker:'日和',text:'ピアノソロの部分……音が、語りかけてくるみたいで。'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'……それは、嬉しい言葉だ。'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'実は……感情のない演奏だって言われたことがあって。技巧はあるけど、何も伝わらないって。'},
+      {type:'choice',options:[
+        {text:'「そんなことない。ちゃんと伝わってたよ」',aff:{hayate:10},next:'hayate_music_a'},
+        {text:'「……その人は、間違ってると思います」',aff:{hayate:8},next:'hayate_music_b'}
+      ]}
+    ],
+    branches:{
+      hayate_music_a:[
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……そういう顔、好きだよ。本気で言ってるって、わかる。'},
+        {type:'narrative',text:'音楽室の窓から星が見えた。\nその静けさの中に、二人だけの言葉が残った。\n（好感度 ▲10）'},
+        {type:'end',flag:'hayate_music_done'}
+      ],
+      hayate_music_b:[
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……ふふ。それ、本気で言ってる？'},
+        {type:'dialogue',speaker:'日和',text:'本気です。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……ありがとう。少し、楽になった気がする。'},
+        {type:'narrative',text:'夜の音楽室で、先輩は静かに笑った。\n（好感度 ▲8）'},
+        {type:'end',flag:'hayate_music_done'}
+      ]
+    }
+  },
+  { id:'festival_event', char:null, title:'学園祭の出店', bg:'school_hallway', bgColor:'#1a1020',
+    year:1, month:10, forced:true, conditions:{flags:['school_festival']},
+    lines:[
+      {type:'bgm',value:'school_day'},
+      {type:'narrative',text:'星丘学園の学園祭当日。\n廊下は生徒たちの熱気でいっぱいだ。'},
+      {type:'dialogue',speaker:'日和',text:'（誰と出店を手伝おうかな……）'},
+      {type:'choice',options:[
+        {text:'凛斗の出店を手伝う（生徒会ブース）',aff:{rinto:20},flag:'festival_rinto',next:'festival_rinto'},
+        {text:'壮馬の出店を手伝う（本の展示）',aff:{souma:20},flag:'festival_souma',next:'festival_souma'},
+        {text:'海斗の出店を手伝う（スポーツ体験）',aff:{kaito:20},flag:'festival_kaito',next:'festival_kaito'},
+        {text:'蒼の出店を手伝う（アート展）',aff:{aoi:20},flag:'festival_aoi',next:'festival_aoi'}
+      ]}
+    ],
+    branches:{
+      festival_rinto:[
+        {type:'sprite',char:'rinto',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……来てくれたのか。手伝いはここに書いてある。正確に頼む。'},
+        {type:'narrative',text:'ぶっきらぼうだけど、隣にいると心強い。\n一緒に学園祭を乗り越えた。\n（好感度 ▲20）'},
+        {type:'end',flag:'festival_rinto_done'}
+      ],
+      festival_souma:[
+        {type:'sprite',char:'souma',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'来てくれたんだ！　本の魅力を伝えるの、一緒に頑張ろう！'},
+        {type:'narrative',text:'壮馬と一緒に、本の魅力を伝えた一日。\n（好感度 ▲20）'},
+        {type:'end',flag:'festival_souma_done'}
+      ],
+      festival_kaito:[
+        {type:'sprite',char:'kaito',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'待ってた！！　一緒にやろうな！！！'},
+        {type:'narrative',text:'海斗の元気に引っ張られて、楽しい一日になった。\n（好感度 ▲20）'},
+        {type:'end',flag:'festival_kaito_done'}
+      ],
+      festival_aoi:[
+        {type:'sprite',char:'aoi',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……来てくれたんですか。……少し、嬉しいです。'},
+        {type:'narrative',text:'蒼がそう言うのは珍しい。\n静かな時間を共に過ごした。\n（好感度 ▲20）'},
+        {type:'end',flag:'festival_aoi_done'}
+      ]
+    }
+  }
+];
+
+const RANDOM_ENCOUNTERS = {
+  rinto:[
+    {text:'「……また勉強しているのか。まあいい、その調子で。」',aff:3},
+    {text:'「非効率なことをするな。効率よくやれ。」',aff:2},
+    {text:'「……今日の空は綺麗だな。」（と言って去っていった）',aff:4},
+    {text:'「体調は問題ないか。倒れられると困る。」',aff:3}
+  ],
+  souma:[
+    {text:'「あ、ひより。最近どう？　ごはん、ちゃんと食べてる？」',aff:4},
+    {text:'「新しい本、入ったよ。読む？」',aff:3},
+    {text:'「……なんか、疲れてる？　話ならいつでも聞くよ。」',aff:5},
+    {text:'「ひより……だんだん、うちの学校に馴染んできたね。良かった。」',aff:4}
+  ],
+  kaito:[
+    {text:'「おーい！！　今日も元気？！　練習付き合ってくれない？！」',aff:4},
+    {text:'「俺、今日のシュート決まって超テンション上がってる！！」',aff:3},
+    {text:'「あー疲れた〜……でも楽しかったな！」',aff:3},
+    {text:'「一緒にお昼食べよーぜ！　俺のから揚げあげるよ！」',aff:5}
+  ],
+  aoi:[
+    {text:'「……。（じっと見てくる）……何でもないです。」',aff:2},
+    {text:'「きみは、不思議な色をしている。」（そのまま去った）',aff:4},
+    {text:'「……最近、よく見かけますね。」',aff:3},
+    {text:'「この雲の形、絵になると思いませんか。」',aff:4}
+  ],
+  hayate:[
+    {text:'「ふふ、相変わらずだね。最近どう？」',aff:4},
+    {text:'「今日の昼、音楽室で弾いてたんだけど、聴いてた？」',aff:3},
+    {text:'「……それ、本気で言ってる？　（笑）冗談だよ。」',aff:4},
+    {text:'「今度、一緒に星を見に行かない？　天文台、静かで良いよ。」',aff:6}
+  ]
+};
+
+const ENDINGS = {
+  rinto:{
+    happy:{title:'星の約束',badge:'HAPPY END ★★★',bg:'observatory_night',cg:'rinto_cg_happy',
+      text:'卒業式の夜、天文台で二人きりになった。\n\n「……お前が隣にいると、空がいつもより綺麗に見える。」\n\n彼は不器用に、でも確かに、初めて自分の言葉で伝えてくれた。\n星降る丘の上で、私たちの物語が、新しく始まった。',staffroll:true},
+    good:{title:'また会う日まで',badge:'GOOD END ★★',bg:'school_entrance',text:'卒業式の後、「……達者でな。また、たまには連絡しろ。」\n不器用な別れの言葉だったけれど、その意味は、ちゃんとわかった気がした。'},
+    normal:{title:'思い出の中に',badge:'NORMAL END ★',bg:'school_classroom',text:'3年間の思い出を胸に、それぞれの道へ。\n彼の背中は、いつも凛としていた。'},
+    bad:{title:'遠ざかる背中',badge:'BAD END',bg:'school_entrance',text:'卒業式の日、彼は他の誰かと笑っていた。\n3年間が、静かに終わった。'}
+  },
+  souma:{
+    happy:{title:'季節外れの桜',badge:'HAPPY END ★★★',bg:'school_library',cg:'souma_cg_happy',
+      text:'図書館の窓から、遅咲きの桜が見えた。\n\n「……ひより。ずっと、そばにいてほしい。ずっと前から、そう思ってた。」\n\n7年越しの言葉が、やっと届いた。\n幼なじみが、一番大切な人になった瞬間。',staffroll:true},
+    good:{title:'また明日',badge:'GOOD END ★★',bg:'school_library',text:'「また来てよ、いつでも待ってるから」\n変わらない笑顔で見送ってくれた。\nきっとまた、会える。'},
+    normal:{title:'本の贈り物',badge:'NORMAL END ★',bg:'school_library',text:'最後に好きな本を一冊プレゼントしてくれた。\n表紙の裏に、小さな文字が書いてあった。「ありがとう」'},
+    bad:{title:'変わらない距離',badge:'BAD END',bg:'school_library',text:'卒業式の日、壮馬は別の誰かの隣にいた。\n7年越しの再会は、そのまま終わった。'}
+  },
+  kaito:{
+    happy:{title:'俺のサポーター',badge:'HAPPY END ★★★',bg:'school_ground',cg:'kaito_cg_happy',
+      text:'最後の試合後、夕焼けのグラウンドで。\n\n「……俺の一番のサポーターになってくれよ、ずっと。」\n\n涙をこらえながら告白した彼を、精一杯抱きしめた。\n夕焼けが、二人を包んでいた。',staffroll:true},
+    good:{title:'頑張れって言ってくれ',badge:'GOOD END ★★',bg:'school_ground',text:'「また頑張れって言ってくれ。それだけで、俺は走れるから。」'},
+    normal:{title:'エールを送って',badge:'NORMAL END ★',bg:'school_ground',text:'試合のたびに応援した。\n「ありがとう！」と満面の笑みで手を振る彼の姿が、忘れられない。'},
+    bad:{title:'スタンドの向こうで',badge:'BAD END',bg:'school_ground',text:'最後の試合を、一人で観戦した。\n海斗は眩しすぎて、遠かった。'}
+  },
+  aoi:{
+    happy:{title:'きみの色を描き続ける',badge:'HAPPY END ★★★',bg:'school_art_room',cg:'aoi_cg_happy',
+      text:'卒業記念作品展で、大きなキャンバスに私の姿があった。\n\n「……きみの色を、ずっと描き続けたい。」\n\n絵筆を置いて、初めて言葉で伝えてくれた。',staffroll:true},
+    good:{title:'静かな場所で',badge:'GOOD END ★★',bg:'school_art_room',text:'「……また、見に来てください。」\n短い言葉だけど、その重みが分かるようになっていた。'},
+    normal:{title:'不思議な色',badge:'NORMAL END ★',bg:'school_art_room',text:'「……きみは、不思議な色をしている。」\nその言葉の意味を、ずっと考え続けた。'},
+    bad:{title:'見えない距離',badge:'BAD END',bg:'school_art_room',text:'美術部の展覧会に行けなかった。\n彼の絵の前で、誰かが長い時間立っていた。'}
+  },
+  hayate:{
+    happy:{title:'この曲の名前は、君の名前だよ',badge:'HAPPY END ★★★',bg:'school_music_room',cg:'hayate_cg_happy',
+      text:'卒業式の夜、音楽室で私だけのためにピアノを弾いてくれた。\n\n「……この曲の名前は、君の名前だよ。」\n\n最後の音が消える前に、そっと告げてくれた言葉。\n夜の音楽室が、星明かりに満ちていた。',staffroll:true},
+    good:{title:'また聴きに来ていいよ',badge:'GOOD END ★★',bg:'school_music_room',text:'「……また聴きに来ていいよ、いつでも。」\n穏やかな笑顔が、ずっと忘れられなかった。'},
+    normal:{title:'音楽の意味',badge:'NORMAL END ★',bg:'school_music_room',text:'先輩に教わった音楽の意味を、ずっと考えながら生きていく気がした。'},
+    bad:{title:'遠い音色',badge:'BAD END',bg:'school_music_room',text:'音楽室からピアノの音が聴こえる。\nでも、もうその音を聴きに行く理由がなかった。'}
+  },
+  none:{
+    normal:{title:'旅立ちの朝',badge:'NORMAL END',bg:'school_entrance',text:'3年間が、静かに終わった。\n誰かを特別に想う気持ちは芽生えなかったけれど、この学校で過ごした日々は、確かに宝物になった。'}
+  }
+};
+
+const CG_DEFS = [
+  {id:'rinto_cg1',    char:'rinto',  title:'天文台の星図'},
+  {id:'rinto_cg2',    char:'rinto',  title:'雨の昇降口'},
+  {id:'rinto_cg_happy',char:'rinto', title:'星の約束'},
+  {id:'souma_cg1',    char:'souma',  title:'手作りのしおり'},
+  {id:'souma_cg2',    char:'souma',  title:'季節外れの桜'},
+  {id:'souma_cg_happy',char:'souma', title:'幼なじみの告白'},
+  {id:'kaito_cg1',    char:'kaito',  title:'海岸の夕焼け'},
+  {id:'kaito_cg2',    char:'kaito',  title:'試合前夜'},
+  {id:'kaito_cg_happy',char:'kaito', title:'夕焼けのグラウンド'},
+  {id:'aoi_cg1',      char:'aoi',    title:'絵の中の君'},
+  {id:'aoi_cg2',      char:'aoi',    title:'満月の夜に'},
+  {id:'aoi_cg_happy', char:'aoi',    title:'卒業記念作品展'},
+  {id:'hayate_cg1',   char:'hayate', title:'静かな演奏会'},
+  {id:'hayate_cg_happy',char:'hayate',title:'この曲の名前は'}
+];
+
+/* ──  PROLOGUE ── */
+const PROLOGUE_SCRIPT = [
+  {type:'bg',value:'school_entrance',bgColor:'#1a2040'},
+  {type:'bgm',value:'title_theme'},
+  {type:'narrative',text:'春の光が差し込む、星丘市の街並み。\n潮の香りを運ぶ海風が、丘の上の学校へと吹き上がる。'},
+  {type:'narrative',text:'私立星丘学園——港沿いの丘に建つ中高一貫の進学校。\n天文台と音楽棟が有名な、歴史ある学校。'},
+  {type:'narrative',text:'父の転勤で、この港町「星丘市」に越してきた私は、\n今日からここで3年間を過ごすことになる。'},
+  {type:'dialogue',speaker:'日和',text:'（どきどきする……でも、大丈夫。ここでも、きっと素敵な出会いがある）'},
+  {type:'bg',value:'school_hallway',bgColor:'#1a2030'},
+  {type:'narrative',text:'昇降口を入ると、廊下がずっと奥まで続いている。\n朝の光が窓から差し込み、ほこりのない廊下を照らしていた。'},
+  {type:'sprite',char:'souma',position:'center',expression:'default'},
+  {type:'dialogue',speaker:'壮馬',char:'souma',text:'……ひより？　月城 日和……？'},
+  {type:'dialogue',speaker:'日和',text:'えっ……！　壮馬くん？！　壮馬くんもここの学校なの？！'},
+  {type:'dialogue',speaker:'壮馬',char:'souma',text:'ふふ。驚いた？　僕も今朝知ったんだ。転入生の名前を見て。'},
+  {type:'dialogue',speaker:'日和',text:'信じられない……小学校以来だから、もう7年ぶり？'},
+  {type:'dialogue',speaker:'壮馬',char:'souma',text:'うん。……でも、変わってないね。目が同じだ。'},
+  {type:'narrative',text:'幼なじみとの再会に、不安だった気持ちが少しほぐれた。'},
+  {type:'sprite',char:'souma',position:'center',expression:'default',hide:true},
+  {type:'bg',value:'school_classroom',bgColor:'#1e2040'},
+  {type:'narrative',text:'教室に案内してもらい、担任の先生に紹介された。\nクラスメートたちの視線が一斉に集まる。'},
+  {type:'dialogue',speaker:'日和',text:'（こんな大勢の前で……緊張する）'},
+  {type:'sprite',char:'rinto',position:'right',expression:'default'},
+  {type:'dialogue',speaker:'???',text:'……転入生か。遅刻しないようにな。'},
+  {type:'dialogue',speaker:'日和',text:'えっ……？'},
+  {type:'dialogue',speaker:'凛斗',char:'rinto',text:'朝比奈 凛斗。生徒会長だ。何か困ったことがあれば生徒会室へ。\n……笑うな。脅してるわけじゃない。'},
+  {type:'narrative',text:'クールな物言いに、教室がくすくすと笑いに包まれた。\n怖い人……と思いきや、どこか不器用な感じがした。'},
+  {type:'sprite',char:'rinto',position:'right',expression:'default',hide:true},
+  {type:'bg',value:'school_ground',bgColor:'#1a2830'},
+  {type:'narrative',text:'昼休み。校庭を歩いていると、突然ボールが飛んできた。'},
+  {type:'dialogue',speaker:'日和',text:'わっ！'},
+  {type:'sprite',char:'kaito',position:'center',expression:'default'},
+  {type:'dialogue',speaker:'???',text:'あぶなっ！！　ごめん！！　大丈夫？！'},
+  {type:'dialogue',speaker:'日和',text:'は、はい……びっくりしましたけど。'},
+  {type:'dialogue',speaker:'海斗',char:'kaito',text:'風間 海斗！　サッカー部！　えっとボール、キャッチできた？'},
+  {type:'dialogue',speaker:'日和',text:'あ、はい。なんとか。'},
+  {type:'dialogue',speaker:'海斗',char:'kaito',text:'すごい！　転入生の子、反射神経いいじゃん！！'},
+  {type:'narrative',text:'笑顔が太陽みたいな男の子だった。\nその明るさに、思わず笑い返していた。'},
+  {type:'sprite',char:'kaito',position:'center',expression:'default',hide:true},
+  {type:'bg',value:'school_art_room',bgColor:'#1a1530'},
+  {type:'narrative',text:'放課後、偶然迷い込んだ美術室に、一人で絵を描いている人がいた。'},
+  {type:'sprite',char:'aoi',position:'center',expression:'default'},
+  {type:'dialogue',speaker:'???',text:'……入ってくるなら、静かにしてください。'},
+  {type:'dialogue',speaker:'日和',text:'す、すみません……！　迷ってしまって。'},
+  {type:'dialogue',speaker:'蒼',char:'aoi',text:'……白石 蒼。ここは、いつも静かです。'},
+  {type:'narrative',text:'銀白の髪に、藤色の目。どこかこの世界じゃないような雰囲気。\nキャンバスには、まるで本物みたいな星空が広がっていた。'},
+  {type:'dialogue',speaker:'日和',text:'その絵……綺麗ですね。'},
+  {type:'dialogue',speaker:'蒼',char:'aoi',text:'……そうですか。'},
+  {type:'narrative',text:'短い返事。でもその一瞬、彼の指先が少し止まった気がした。'},
+  {type:'sprite',char:'aoi',position:'center',expression:'default',hide:true},
+  {type:'bg',value:'school_music_room',bgColor:'#101820'},
+  {type:'narrative',text:'帰り道に通りかかった音楽棟から、美しいピアノの音色が聞こえてきた。\n吸い込まれるように、足が止まる。'},
+  {type:'sprite',char:'hayate',position:'center',expression:'default'},
+  {type:'dialogue',speaker:'???',text:'……聴いてたの？'},
+  {type:'dialogue',speaker:'日和',text:'す、すみません！　素敵な音だったから、つい……！'},
+  {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ。怒ってないよ。……転入生の子でしょ、今日来た。'},
+  {type:'dialogue',speaker:'日和',text:'あ、はい。天宮……さん、ですか？'},
+  {type:'dialogue',speaker:'颯',char:'hayate',text:'天宮 颯。もう卒業した先輩だけど、まだよく来るんだ。\n……その顔、音楽好きでしょ。'},
+  {type:'dialogue',speaker:'日和',text:'え……どうして？'},
+  {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ、そういう顔をしてた。……また聴きにきていいよ。'},
+  {type:'narrative',text:'穏やかで、でもどこか謎めいた先輩。\n夕暮れの音楽室に、ピアノの余韻がしばらく残った。'},
+  {type:'sprite',char:'hayate',position:'center',expression:'default',hide:true},
+  {type:'bg',value:'protagonist_room',bgColor:'#0a1020'},
+  {type:'narrative',text:'その夜、自室の窓から星空を見上げた。\n転入初日に、こんなにたくさんの人に会えるなんて思っていなかった。'},
+  {type:'dialogue',speaker:'日和',text:'（幼なじみの壮馬くん、生徒会長の凛斗くん、元気な海斗くん、\n不思議な蒼くん、音楽の颯先輩……）'},
+  {type:'dialogue',speaker:'日和',text:'（ここでの3年間、どんな毎日になるんだろう）'},
+  {type:'narrative',text:'満天の星が、静かに輝いていた。\n\n——ここから、あなたの物語が始まる。'},
+  {type:'end',nextScreen:'command',flag:'met_all_characters'}
+];
+
+/* ══════════════════════════════════════════
+   GAME STATE
+══════════════════════════════════════════ */
+const INITIAL_STATE = ()=>({
+  version:GAME_VERSION,
+  playerName:'日和',
+  gameDate:{year:1,month:4,week:1},
+  playTime:0,
+  stats:{intelligence:0,sports:0,fashion:0,music:0,domestic:0,stamina:100},
+  affection:{rinto:0,souma:0,kaito:0,aoi:0,hayate:0,rival:0},
+  flags:{},
+  unlockedCG:[],
+  unlockedEndings:[],
+  pendingEvents:[],
+  actionsLeft:2,
+  actionsUsed:0,
+  currentBg:'',
+  money:5000,
+  readLines:{}
+});
+let GS = INITIAL_STATE();
+let returnScreen = 'command';
+let saveMode = 'save';
+let currentDateChar = null;
+let gameStartTime = Date.now();
+
+/* ══════════════════════════════════════════
+   SETTINGS
+══════════════════════════════════════════ */
+const DEFAULT_SETTINGS = {
+  textSpeed:3,fontSize:'medium',skipRead:true,skipUnread:false,autoSpeed:'normal',
+  bgmVolume:70,seVolume:80,textSe:true,textWinOpacity:82,colorFilter:'none'
+};
+let SETTINGS = {...DEFAULT_SETTINGS};
+
+function loadSettings() {
+  try { const s=localStorage.getItem(SETTINGS_KEY); if(s) SETTINGS={...DEFAULT_SETTINGS,...JSON.parse(s)}; } catch(e){}
+  applySettings();
+}
+function saveSettings() { localStorage.setItem(SETTINGS_KEY,JSON.stringify(SETTINGS)); }
+function applySettings() {
+  const fsMap={small:'0.85em',medium:'1em',large:'1.15em'};
+  document.getElementById('vn-text').style.fontSize = fsMap[SETTINGS.fontSize]||'1em';
+  document.documentElement.style.setProperty('--text-box-bg',`rgba(10,10,25,${SETTINGS.textWinOpacity/100})`);
+  const cfMap={none:'',protanopia:'sepia(0.5) hue-rotate(-30deg)',deuteranopia:'sepia(0.4) hue-rotate(15deg)',tritanopia:'sepia(0.3) hue-rotate(90deg)'};
+  document.getElementById('game').style.filter = cfMap[SETTINGS.colorFilter]||'';
+  // BGM volume
+  if(currentBgmAudio) currentBgmAudio.volume = SETTINGS.bgmVolume/100;
+}
+
+/* ══════════════════════════════════════════
+   BGM / SE — otome_sounds フォルダ
+══════════════════════════════════════════ */
+let currentBgmAudio = null;
+let currentBgmId = null;
+
+function playBgm(id) {
+  if (currentBgmId === id) return;
+  stopBgm();
+  const exts = ['mp3','ogg','wav'];
+  function tryNext(i) {
+    if (i >= exts.length) return;
+    const a = new Audio(`otome_sounds/${id}.${exts[i]}`);
+    a.loop = true;
+    a.volume = SETTINGS.bgmVolume / 100;
+    a.play().then(()=>{
+      currentBgmAudio = a;
+      currentBgmId = id;
+    }).catch(()=>{ tryNext(i+1); });
+  }
+  tryNext(0);
+}
+
+function stopBgm() {
+  if (currentBgmAudio) {
+    currentBgmAudio.pause();
+    currentBgmAudio.currentTime = 0;
+    currentBgmAudio = null;
+  }
+  currentBgmId = null;
+}
+
+function playSe(id) {
+  const exts = ['mp3','ogg','wav'];
+  function tryNext(i) {
+    if (i >= exts.length) return;
+    const a = new Audio(`otome_sounds/${id}.${exts[i]}`);
+    a.volume = SETTINGS.seVolume / 100;
+    a.play().catch(()=>{ tryNext(i+1); });
+  }
+  tryNext(0);
+}
+
+/* ══════════════════════════════════════════
+   IMAGE PATH HELPERS
+══════════════════════════════════════════ */
+function getBgPath(bgId) {
+  return `otome_images/bg_${bgId}_01.png`;
+}
+
+// 表情→差分番号マッピング
+const EXPR_MAP = {default:'01',smile:'02',surprise:'03',sad:'04',blush:'05',happy:'02',angry:'03'};
+function getSpritePath(charId, expression) {
+  const num = EXPR_MAP[expression] || '01';
+  return `otome_images/st_${charId}_${num}.png`;
+}
+
+function getProtagonistSpritePath() {
+  return 'otome_images/st_hiyori_01.png';
+}
+
+function getCgPath(cgId) {
+  const def = CG_DEFS.find(c=>c.id===cgId);
+  if (!def) return `otome_images/${cgId}.png`;
+  const charCgs = CG_DEFS.filter(c=>c.char===def.char);
+  const idx = charCgs.findIndex(c=>c.id===cgId) + 1;
+  return `otome_images/cg_${def.char}_${String(idx).padStart(2,'0')}.png`;
+}
+
+/* ══════════════════════════════════════════
+   SAVE MANAGER
+══════════════════════════════════════════ */
+function saveGame(slot) {
+  try {
+    const data = {...GS, savedAt:new Date().toISOString(), playTime:GS.playTime+Math.floor((Date.now()-gameStartTime)/1000)};
+    localStorage.setItem(SAVE_KEY+slot, JSON.stringify(data));
+    return true;
+  } catch(e) { showToast('⚠ セーブに失敗しました','warning'); return false; }
+}
+function loadGame(slot) {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY+slot);
+    if (!raw) return false;
+    GS = {...INITIAL_STATE(),...JSON.parse(raw)};
+    gameStartTime = Date.now();
+    return true;
+  } catch(e) {
+    showToast('⚠ セーブデータが破損しています','warning');
+    localStorage.removeItem(SAVE_KEY+slot);
+    return false;
+  }
+}
+function getSaveSlot(slot) {
+  try { const raw=localStorage.getItem(SAVE_KEY+slot); if(!raw)return null; return JSON.parse(raw); } catch(e){return null;}
+}
+function autoSave() { saveGame('auto'); }
+
+/* ══════════════════════════════════════════
+   STAR CANVAS
+══════════════════════════════════════════ */
+function initStars(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const stars = [];
+  function resize() { canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  for (let i=0;i<180;i++) stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.4+0.3,alpha:Math.random(),speed:Math.random()*0.01+0.003,phase:Math.random()*Math.PI*2});
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const t=Date.now()/1000;
+    stars.forEach(s=>{
+      const a=0.1+0.9*(0.5+0.5*Math.sin(t*s.speed*6+s.phase));
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${a})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// 帯の星アニメーション（小さめ）
+function initBandStars(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const stars = [];
+  function resize() { canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight; }
+  resize();
+  for (let i=0;i<30;i++) stars.push({x:Math.random()*2000,y:Math.random()*80,r:Math.random()*0.8+0.2,phase:Math.random()*Math.PI*2,speed:Math.random()*0.008+0.002});
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const t=Date.now()/1000;
+    stars.forEach(s=>{
+      const a=0.05+0.45*(0.5+0.5*Math.sin(t*s.speed*6+s.phase));
+      ctx.beginPath(); ctx.arc(s.x%canvas.width,s.y%canvas.height,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(201,162,39,${a})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ══════════════════════════════════════════
+   SCREEN MANAGER
+══════════════════════════════════════════ */
+function showScreen(id, instant) {
+  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active','fade-in'); s.style.display='none'; });
+  const el = document.getElementById('screen-'+id);
+  if (!el) return;
+  el.style.display='flex'; el.classList.add('active');
+  if (instant) el.classList.add('fade-in');
+  else requestAnimationFrame(()=>el.classList.add('fade-in'));
+}
+
+/* ══════════════════════════════════════════
+   TOAST / MODAL
+══════════════════════════════════════════ */
+let toastTimer = null;
+function showToast(msg, type, duration) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className='toast show'+(type?' '+type:'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), duration||2800);
+}
+function showModal(text, onConfirm, onCancel) {
+  document.getElementById('modal-text').textContent = text;
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('open');
+  document.getElementById('modal-confirm').onclick = ()=>{ overlay.classList.remove('open'); if(onConfirm)onConfirm(); };
+  document.getElementById('modal-cancel').onclick  = ()=>{ overlay.classList.remove('open'); if(onCancel)onCancel(); };
+}
+
+/* ══════════════════════════════════════════
+   GAME DATE UTILS
+══════════════════════════════════════════ */
+function dateLabel(d) { return `${d.year}年 ${d.month}月 第${d.week}週`; }
+function nextWeek(d) {
+  let {year,month,week}=d; week++;
+  if(week>4){week=1;month++;} if(month>12){month=1;year++;} return{year,month,week};
+}
+function isGameEnd(d) { return d.year>=3&&d.month>=3&&d.week>=4; }
+
+/* ══════════════════════════════════════════
+   STAT / AFFECTION UTILS
+══════════════════════════════════════════ */
+function clampStat(key,val) { const cfg=STATS_CONFIG.find(s=>s.id===key); return Math.max(0,Math.min(cfg?cfg.max:999,val)); }
+function clampAff(val) { return Math.max(0,Math.min(100,val)); }
+function applyStatChange(effects) {
+  const changes={};
+  for(const[key,range]of Object.entries(effects)){
+    if(!Array.isArray(range)){const prev=GS.stats[key]||0;GS.stats[key]=clampStat(key,prev+range);changes[key]=range;}
+    else{const[min,max]=range;const delta=Math.floor(Math.random()*(max-min+1))+min;const prev=GS.stats[key]||0;GS.stats[key]=clampStat(key,prev+delta);changes[key]=delta;}
+  }
+  return changes;
+}
+function applyAffChange(charId,delta) { GS.affection[charId]=clampAff((GS.affection[charId]||0)+delta); }
+function getActionsMax() { return GS.stats.stamina>=100?2:1; }
+
+/* ══════════════════════════════════════════
+   VN ENGINE
+══════════════════════════════════════════ */
+let vnScript=[], vnIndex=0, vnTyping=false, vnAutoPlay=false, vnSkip=false;
+let vnAutoTimer=null, vnSkipTimer=null, vnBacklog=[];
+let vnBranches={}, vnOnComplete=null, vnPendingCg=null;
+let vnActiveSprites={left:null,center:null,right:null};
+const AUTO_SPEED_MS={slow:4000,normal:2500,fast:1200};
+const TEXT_CHAR_MS=[60,40,28,18,8];
+
+function vnSetBg(bgId, color) {
+  const bgEl=document.getElementById('vn-bg');
+  const bgColor=document.getElementById('vn-bg-color');
+  bgColor.style.background = color||'#0d0d1a';
+  // 背景画像：高さを画面いっぱい、横は中央揃え
+  if (bgId) {
+    const path = getBgPath(bgId);
+    bgEl.style.backgroundImage = `url(${path})`;
+    bgEl.style.backgroundSize  = 'auto 100%';
+    bgEl.style.backgroundPosition = 'center center';
+  } else {
+    bgEl.style.backgroundImage = 'none';
+  }
+  GS.currentBg = bgId||'';
+}
+
+function vnSetSprite(position, charId, expression) {
+  const imgEl=document.getElementById('sprite-'+position+'-img');
+  if (!imgEl) return;
+  if (charId) {
+    const src = getSpritePath(charId, expression);
+    imgEl.src = src;
+    imgEl.style.display = '';
+    vnActiveSprites[position] = charId;
+  }
+}
+
+// 主人公立ち絵：左ポジションに表示
+function vnSetProtagonistSprite(show) {
+  // 主人公は専用スロット(pos-left)に表示。ただし他キャラがleftにいる場合は重ならないよう調整
+  const imgEl = document.getElementById('sprite-left-img');
+  if (!imgEl) return;
+  if (show && !vnActiveSprites['left']) {
+    imgEl.src = getProtagonistSpritePath();
+    imgEl.style.display = '';
+    // ちょっと暗くして背景に馴染ませる
+    document.getElementById('sprite-left').style.filter = 'brightness(0.85)';
+  } else if (!show && vnActiveSprites['left']==='hiyori') {
+    imgEl.src=''; imgEl.style.display='none';
+    vnActiveSprites['left'] = null;
+  }
+}
+
+function vnHideSprite(position) {
+  const imgEl=document.getElementById('sprite-'+position+'-img');
+  if (imgEl) { imgEl.src=''; imgEl.style.display='none'; }
+  vnActiveSprites[position]=null;
+  if(position==='left') document.getElementById('sprite-left').style.filter='';
+}
+function vnHideAllSprites() { ['left','center','right'].forEach(p=>vnHideSprite(p)); }
+function vnHighlightSprite(activeChar) {
+  ['left','center','right'].forEach(p=>{
+    const el=document.getElementById('sprite-'+p);
+    if(!el)return;
+    if(activeChar&&vnActiveSprites[p]===activeChar) el.classList.remove('dimmed');
+    else if(activeChar&&vnActiveSprites[p]) el.classList.add('dimmed');
+    else el.classList.remove('dimmed');
+  });
+}
+
+let typewriterTimer=null;
+function typewriterText(text, onDone) {
+  const el=document.getElementById('vn-text');
+  const arrow=document.getElementById('vn-next-arrow');
+  arrow.style.opacity='0'; el.textContent=''; vnTyping=true;
+  let i=0;
+  const delay=TEXT_CHAR_MS[Math.max(0,Math.min(4,SETTINGS.textSpeed-1))];
+  clearInterval(typewriterTimer);
+  if(vnSkip){el.textContent=text;vnTyping=false;arrow.style.opacity='1';if(onDone)onDone();return;}
+  typewriterTimer=setInterval(()=>{
+    if(i<text.length){
+      el.textContent+=text[i]; i++;
+      if(SETTINGS.textSe&&i%4===0) playSe('text_advance');
+    } else {
+      clearInterval(typewriterTimer); vnTyping=false; arrow.style.opacity='1';
+      if(onDone)onDone();
+    }
+  },delay);
+}
+
+function vnShowText(speaker, text, charId) {
+  const namebox=document.getElementById('vn-namebox');
+  const speakerEl=document.getElementById('vn-speaker');
+  if(speaker){
+    namebox.style.display='';
+    speakerEl.textContent=speaker;
+    const c=CHARS[charId];
+    speakerEl.style.color = c?c.accent:'var(--gold)';
+  } else {
+    namebox.style.display='none'; speakerEl.textContent='';
+  }
+  vnHighlightSprite(charId||null);
+  const processed=text.replace(/\{playerName\}/g,GS.playerName);
+  typewriterText(processed,()=>{
+    vnBacklog.push({speaker,text:processed});
+    if(vnBacklog.length>50)vnBacklog.shift();
+    if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
+  });
+}
+
+function vnShowChoices(options) {
+  const container=document.getElementById('vn-choices');
+  container.innerHTML=''; container.classList.add('visible');
+  options.forEach((opt,i)=>{
+    const btn=document.createElement('button');
+    btn.className='vn-choice-btn'; btn.textContent=opt.text;
+    btn.onclick=()=>vnSelectChoice(opt,i);
+    container.appendChild(btn);
+  });
+  playSe('choice_appear');
+}
+function vnHideChoices() {
+  document.getElementById('vn-choices').classList.remove('visible');
+}
+function vnSelectChoice(opt, idx) {
+  vnHideChoices(); playSe('choice_select');
+  if(opt.aff){for(const[id,delta]of Object.entries(opt.aff)){applyAffChange(id,delta);if(delta>0)showToast(`💗 ${CHARS[id]?.nameShort||id} 好感度 +${delta}`,'heart');}}
+  if(opt.flag) GS.flags[opt.flag]=true;
+  if(opt.cg) vnPendingCg=opt.cg;
+  if(opt.next&&vnBranches&&vnBranches[opt.next]){vnScript=vnBranches[opt.next];vnIndex=0;vnAdvance();}
+  else vnAdvance();
+}
+
+function vnShowCG(cgId) {
+  const overlay=document.getElementById('vn-cg-overlay');
+  const path=getCgPath(cgId);
+  overlay.style.backgroundImage=`url(${path})`;
+  overlay.classList.add('visible');
+  if(!GS.unlockedCG.includes(cgId)){
+    GS.unlockedCG.push(cgId);
+    const def=CG_DEFS.find(c=>c.id===cgId);
+    showToast(`📷 CG「${def?.title||cgId}」を解放しました`,'heart',3500);
+    saveGlobalAlbum();
+  }
+}
+function vnHideCG() { document.getElementById('vn-cg-overlay').classList.remove('visible'); }
+
+function vnPlayLine(line) {
+  clearTimeout(vnAutoTimer);
+  if(line.type==='bg')    { vnSetBg(line.value,line.bgColor); vnAdvance(); return; }
+  if(line.type==='bgm')   { playBgm(line.value); vnAdvance(); return; }
+  if(line.type==='se')    { playSe(line.value); vnAdvance(); return; }
+  if(line.type==='sprite'){
+    if(line.hide) vnHideSprite(line.position||'center');
+    else vnSetSprite(line.position||'center',line.char,line.expression||'default');
+    vnAdvance(); return;
+  }
+  if(line.type==='cg')    { vnShowCG(line.cgId); vnAdvance(); return; }
+  if(line.type==='flag')  { GS.flags[line.value]=true; vnAdvance(); return; }
+  if(line.type==='affection') { if(line.char&&line.delta)applyAffChange(line.char,line.delta); vnAdvance(); return; }
+  if(line.type==='choice'){ vnShowChoices(line.options); return; }
+  if(line.type==='narrative') {
+    // 地の文：主人公立ち絵を非表示
+    vnSetProtagonistSprite(false);
+    vnShowText('',line.text,null); return;
+  }
+  if(line.type==='dialogue') {
+    let speaker=line.speaker;
+    const isProtagonist = (speaker==='日和'||speaker===GS.playerName||speaker==='ひより');
+    if(isProtagonist) speaker=GS.playerName;
+    // 主人公が話すとき立ち絵表示
+    if(isProtagonist) vnSetProtagonistSprite(true);
+    else vnSetProtagonistSprite(false);
+    vnShowText(speaker,line.text,line.char); return;
+  }
+  if(line.type==='end') {
+    if(line.flag) GS.flags[line.flag]=true;
+    if(line.cg&&!GS.unlockedCG.includes(line.cg)){GS.unlockedCG.push(line.cg);saveGlobalAlbum();}
+    vnEnd(line.nextScreen); return;
+  }
+  vnAdvance();
+}
+
+function vnAdvance() {
+  clearTimeout(vnAutoTimer);
+  if(vnTyping){
+    clearInterval(typewriterTimer);
+    vnTyping=false;
+    document.getElementById('vn-next-arrow').style.opacity='1';
+    if(vnAutoPlay) vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]);
+    return;
+  }
+  if(vnIndex>=vnScript.length){ vnEnd(null); return; }
+  const line=vnScript[vnIndex]; vnIndex++;
+  vnPlayLine(line);
+}
+
+function vnEnd(nextScreen) {
+  vnHideCG(); vnHideAllSprites();
+  vnAutoPlay=false; vnSkip=false; clearInterval(vnSkipTimer);
+  document.getElementById('vn-btn-auto').classList.remove('active');
+  document.getElementById('vn-btn-skip').classList.remove('active');
+  autoSave();
+  const target = nextScreen||returnScreen;
+  showScreen(target);
+  if(target==='command') renderCommandScreen();
+  if(vnOnComplete){const cb=vnOnComplete;vnOnComplete=null;cb();}
+}
+
+function startVN(script, branches, bgId, bgColor, onComplete, chapterTitle) {
+  vnScript=script||[]; vnBranches=branches||{}; vnIndex=0;
+  vnTyping=false; vnAutoPlay=false; vnSkip=false;
+  vnOnComplete=onComplete||null; vnBacklog=[];
+  vnActiveSprites={left:null,center:null,right:null};
+  vnHideChoices(); vnHideCG(); vnHideAllSprites();
+  vnSetBg(bgId,bgColor);
+  document.getElementById('vn-text').textContent='';
+  document.getElementById('vn-speaker').textContent='';
+  document.getElementById('vn-namebox').style.display='none';
+  document.getElementById('vn-band-date').textContent = dateLabel(GS.gameDate);
+  document.getElementById('vn-chapter-title').textContent = chapterTitle||'';
+  showScreen('vn');
+  setTimeout(()=>vnAdvance(),200);
+}
+
+// VNステージクリック
+document.getElementById('vn-stage').addEventListener('click',e=>{
+  if(e.target.classList.contains('vn-choice-btn'))return;
+  if(e.target.closest('#vn-choices'))return;
+  const cgOverlay=document.getElementById('vn-cg-overlay');
+  if(cgOverlay.classList.contains('visible')){vnHideCG();return;}
+  if(document.getElementById('vn-backlog').classList.contains('open'))return;
+  vnAdvance();
+});
+
+document.getElementById('vn-btn-auto').onclick=e=>{
+  e.stopPropagation(); vnAutoPlay=!vnAutoPlay;
+  document.getElementById('vn-btn-auto').classList.toggle('active',vnAutoPlay);
+  if(vnAutoPlay&&!vnTyping) vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]);
+};
+document.getElementById('vn-btn-skip').onclick=e=>{
+  e.stopPropagation(); vnSkip=!vnSkip;
+  document.getElementById('vn-btn-skip').classList.toggle('active',vnSkip);
+  if(vnSkip){clearInterval(typewriterTimer);vnTyping=false;vnSkipTimer=setInterval(()=>{if(document.getElementById('screen-vn').classList.contains('active'))vnAdvance();},80);}
+  else clearInterval(vnSkipTimer);
+};
+document.getElementById('vn-btn-log').onclick=e=>{
+  e.stopPropagation(); renderBacklog();
+  document.getElementById('vn-backlog').classList.add('open');
+};
+document.getElementById('backlog-close-btn').onclick=e=>{
+  e.stopPropagation(); document.getElementById('vn-backlog').classList.remove('open');
+};
+document.getElementById('vn-btn-save').onclick=e=>{
+  e.stopPropagation(); returnScreen='vn'; openSaveScreen('save');
+};
+document.getElementById('vn-btn-menu').onclick=e=>{
+  e.stopPropagation();
+  showModal('コマンド画面に戻りますか？（進行は失われます）',()=>{
+    vnAutoPlay=false;vnSkip=false;clearInterval(vnSkipTimer);
+    showScreen('command');renderCommandScreen();
+  });
+};
+function renderBacklog() {
+  const container=document.getElementById('backlog-entries');
+  container.innerHTML='';
+  vnBacklog.slice().reverse().forEach(entry=>{
+    const div=document.createElement('div'); div.className='backlog-entry';
+    if(entry.speaker){const sp=document.createElement('div');sp.className='backlog-speaker';sp.textContent=entry.speaker===GS.playerName?GS.playerName:entry.speaker;div.appendChild(sp);}
+    const tx=document.createElement('div');tx.className='backlog-text';tx.textContent=entry.text;div.appendChild(tx);
+    container.appendChild(div);
+  });
+}
+
+/* ══════════════════════════════════════════
+   COMMAND SCREEN
+══════════════════════════════════════════ */
+function renderCommandScreen() {
+  document.getElementById('cmd-date-display').textContent = dateLabel(GS.gameDate);
+  document.getElementById('cmd-hero-avatar').querySelector('img') && (() => {
+    const img = document.getElementById('cmd-hero-img');
+    if (img) img.src = getProtagonistSpritePath();
+  })();
+  // フォールバック
+  const avatar = document.getElementById('cmd-hero-avatar');
+  if (avatar) avatar.setAttribute('data-name', GS.playerName[0]||'日');
+
+  const actLeft = getActionsMax() - GS.actionsUsed;
+  const tired = GS.stats.stamina < 50;
+  document.getElementById('cmd-action-count').textContent = `（残り${actLeft}回${tired?' 🔴疲労':''}）`;
+
+  // Stats
+  const statsGrid=document.getElementById('cmd-stats-grid');
+  statsGrid.innerHTML='';
+  STATS_CONFIG.forEach(sc=>{
+    const val=GS.stats[sc.id]||0;
+    const pct=Math.min(100,val/sc.max*100);
+    statsGrid.innerHTML+=`<div class="stat-row"><span class="stat-icon">${sc.icon}</span><div class="stat-track"><div class="stat-fill" style="width:${pct}%;background:${sc.color}"></div></div><span class="stat-val">${val}</span></div>`;
+  });
+
+  // Affection
+  const affBar=document.getElementById('cmd-affection-bar');
+  affBar.innerHTML='<div class="aff-label">好感度</div>';
+  CHAR_ORDER.forEach(id=>{
+    const ch=CHARS[id]; const aff=GS.affection[id]||0;
+    const rank=getAffRank(aff); const rivalAff=GS.affection.rival||0;
+    const isBomb=rivalAff>aff&&aff>0;
+    const div=document.createElement('div'); div.className='aff-char';
+    div.title=`${ch.name}：${rank.label} (${aff})`; div.onclick=()=>openStatusScreen();
+    div.innerHTML=`<div class="aff-icon ${isBomb?'bomb-warning':''}" style="background:${ch.color}">${ch.initial}${isBomb?'<span style="position:absolute;top:-3px;right:-3px;font-size:9px;">💣</span>':''}<span class="aff-heart-rank">${rank.emoji}</span></div><div class="aff-bar-wrap"><div class="aff-bar" style="width:${aff}%;background:${ch.accent}"></div></div><div class="aff-name">${ch.nameShort}</div><div class="aff-val">${aff}</div>`;
+    affBar.appendChild(div);
+  });
+
+  renderCalendarBar();
+  renderCommandGrid();
+}
+
+function renderCalendarBar() {
+  const bar=document.getElementById('cmd-calendar-bar'); bar.innerHTML='';
+  const totalWeeks=36*4;
+  const cur=((GS.gameDate.year-1)*12+(GS.gameDate.month-1))*4+GS.gameDate.week-1;
+  const eventWeeks=new Set();
+  Object.keys(CALENDAR).forEach(m=>{const mi=parseInt(m);for(let y=0;y<3;y++)eventWeeks.add((y*12+(mi-1))*4);});
+  for(let w=0;w<totalWeeks;w++){
+    const dot=document.createElement('div');
+    let cls='cal-dot';
+    if(w<cur) cls+=' passed';
+    else if(w===cur) cls+=' current';
+    else if(eventWeeks.has(w)) cls+=' event';
+    dot.className=cls; dot.title=`第${w+1}週`; bar.appendChild(dot);
+  }
+}
+
+function renderCommandGrid() {
+  const grid=document.getElementById('cmd-grid'); grid.innerHTML='';
+  const actLeft=getActionsMax()-GS.actionsUsed;
+  COMMANDS.forEach(cmd=>{
+    if(cmd.availableFrom){
+      const af=cmd.availableFrom;const gd=GS.gameDate;
+      if(gd.year<af.year||(gd.year===af.year&&gd.month<af.month))return;
+    }
+    const staminaAfter=GS.stats.stamina+(cmd.stamina||0);
+    const canUse=actLeft>0&&(cmd.stamina>=0||staminaAfter>=0);
+    const card=document.createElement('div');
+    card.className='cmd-card'+(canUse?'':' disabled');
+    card.innerHTML=`<div class="cmd-card-icon">${cmd.icon}</div><div class="cmd-card-name">${cmd.label}</div><div class="cmd-card-effect">${cmd.desc}</div><div class="cmd-card-stamina">${cmd.stamina>=0?'体力 +'+cmd.stamina:'体力 '+cmd.stamina}</div>`;
+    if(canUse) card.onclick=()=>executeCommand(cmd);
+    grid.appendChild(card);
+  });
+}
+
+/* ══════════════════════════════════════════
+   EXECUTE COMMAND
+══════════════════════════════════════════ */
+function executeCommand(cmd) {
+  if(GS.actionsUsed>=getActionsMax())return;
+  GS.stats.stamina=clampStat('stamina',GS.stats.stamina+(cmd.stamina||0));
+  const changes=applyStatChange(cmd.effects||{});
+
+  // 遭遇チェック
+  let encounterChar=null;
+  const encounterChances=cmd.encounter||{};
+  const bonus=cmd.encounterBonus||0;
+  for(const[charId,chance]of Object.entries(encounterChances)){
+    if(Math.random()<(chance+bonus)){encounterChar=charId;break;}
+  }
+  if(!encounterChar&&bonus>0&&Math.random()<bonus){
+    encounterChar=CHAR_ORDER[Math.floor(Math.random()*CHAR_ORDER.length)];
+  }
+  if(encounterChar) applyAffChange(encounterChar,3);
+
+  // ライバル好感度じわじわ上昇
+  if(Math.random()<0.15) GS.affection.rival=clampAff((GS.affection.rival||0)+2);
+
+  GS.actionsUsed++;
+  playSe('command_select');
+  autoSave();
+  showEventResultScreen(cmd,changes,encounterChar);
+}
+
+function showEventResultScreen(cmd,changes,encounterChar) {
+  document.getElementById('er-icon').textContent=cmd.icon;
+  document.getElementById('er-cmd').textContent=cmd.label;
+  const efEl=document.getElementById('er-effects');
+  efEl.innerHTML='';
+  STATS_CONFIG.forEach(sc=>{
+    if(changes[sc.id]!=null){
+      const v=changes[sc.id];
+      const pill=document.createElement('div');
+      pill.className='effect-pill'+(v>0?' positive':v<0?' negative':'');
+      pill.textContent=`${sc.icon} ${sc.label} ${v>0?'+':''}${v}`;
+      efEl.appendChild(pill);
+    }
+  });
+  // スタミナ変化
+  if(cmd.stamina!==0){
+    const pill=document.createElement('div');
+    pill.className='effect-pill'+(cmd.stamina>0?' positive':' negative');
+    pill.textContent=`❤️ 体力 ${cmd.stamina>0?'+':''}${cmd.stamina}`;
+    efEl.appendChild(pill);
+  }
+  const encEl=document.getElementById('er-encounter');
+  if(encounterChar&&CHARS[encounterChar]){
+    encEl.style.display='';
+    encEl.innerHTML=`💗 <span class="encounter-name">${CHARS[encounterChar].name}</span>と出会った！（好感度 +3）`;
+  } else encEl.style.display='none';
+  showScreen('event-result');
+}
+
+document.getElementById('screen-event-result').addEventListener('click',()=>{
+  const actLeft=getActionsMax()-GS.actionsUsed;
+  if(actLeft<=0){
+    // アクション消費後：週末チェック → 次の週へ
+    checkWeeklyEvents();
+  } else {
+    showScreen('command'); renderCommandScreen();
+  }
+});
+
+/* ══════════════════════════════════════════
+   WEEK ADVANCE
+══════════════════════════════════════════ */
+function checkWeeklyEvents() {
+  // 週末：デート誘いチェック
+  if(GS.gameDate.week===4){
+    const dateChars=CHAR_ORDER.filter(id=>(GS.affection[id]||0)>=40);
+    if(dateChars.length>0){
+      // 最も好感度が高いキャラが誘ってくる
+      const topChar=dateChars.sort((a,b)=>(GS.affection[b]||0)-(GS.affection[a]||0))[0];
+      currentDateChar=topChar;
+      openDateScreen(topChar);
+      return;
+    }
+  }
+  proceedToNextWeek();
+}
+
+function proceedToNextWeek() {
+  GS.actionsUsed=0;
+  const oldMonth=GS.gameDate.month;
+  GS.gameDate=nextWeek(GS.gameDate);
+
+  // ゲームエンド判定
+  if(isGameEnd(GS.gameDate)){
+    triggerEnding(); return;
+  }
+
+  // 月が変わった
+  if(GS.gameDate.month!==oldMonth){
+    showMonthBanner();
+    // カレンダーイベントのフラグ設定
+    const cal=CALENDAR[GS.gameDate.month];
+    if(cal) cal.flags.forEach(f=>{ GS.flags[f]=true; });
+    // ライバル好感度上昇
+    if(Math.random()<0.3) GS.affection.rival=clampAff((GS.affection.rival||0)+5);
+  }
+
+  autoSave();
+
+  // キャラクターイベント確認
+  const triggerEvent=checkCharEvents();
+  if(triggerEvent){
+    setTimeout(()=>triggerCharEvent(triggerEvent), GS.gameDate.month!==oldMonth?3200:200);
+  } else {
+    setTimeout(()=>{showScreen('command');renderCommandScreen();},GS.gameDate.month!==oldMonth?3200:200);
+  }
+}
+
+function showMonthBanner() {
+  const cal=CALENDAR[GS.gameDate.month];
+  const banner=document.getElementById('month-banner');
+  document.getElementById('month-banner-text').textContent = `${GS.gameDate.month}月`;
+  document.getElementById('month-banner-event').textContent = cal?cal.events[0]:'';
+  banner.classList.add('visible');
+  playSe('event_chime');
+  setTimeout(()=>banner.classList.remove('visible'),3200);
+}
+
+function checkCharEvents() {
+  // 強制イベントを優先
+  for(const ev of CHAR_EVENTS){
+    if(GS.flags['event_'+ev.id]) continue; // 発生済み
+    if(ev.year!==GS.gameDate.year||ev.month!==GS.gameDate.month) continue;
+    if(!checkEventConditions(ev)) continue;
+    return ev;
+  }
+  return null;
+}
+
+function checkEventConditions(ev) {
+  const cond=ev.conditions||{};
+  if(cond.flags) for(const f of cond.flags){if(!GS.flags[f])return false;}
+  if(cond.affection) for(const[id,min]of Object.entries(cond.affection)){if((GS.affection[id]||0)<min)return false;}
+  if(cond.stats) for(const[id,min]of Object.entries(cond.stats)){if((GS.stats[id]||0)<min)return false;}
+  return true;
+}
+
+function triggerCharEvent(ev) {
+  GS.flags['event_'+ev.id]=true;
+  if(ev.forced) playSe('event_chime');
+  startVN(ev.lines, ev.branches, ev.bg, ev.bgColor, ()=>{
+    showScreen('command'); renderCommandScreen();
+  }, ev.title);
+}
+
+/* 「次の週へ」ボタン */
+document.getElementById('cmd-next-week-btn').onclick=()=>{
+  if(GS.actionsUsed<getActionsMax()){
+    showModal('まだ行動できます。このまま次の週へ進みますか？',()=>proceedToNextWeek());
+  } else proceedToNextWeek();
+};
+
+/* ══════════════════════════════════════════
+   DATE SYSTEM
+══════════════════════════════════════════ */
+function openDateScreen(charId) {
+  const ch=CHARS[charId];
+  document.getElementById('date-char-icon').textContent=ch.initial;
+  document.getElementById('date-char-icon').style.background=ch.color;
+  document.getElementById('date-char-name').textContent=ch.name;
+  const spotsEl=document.getElementById('date-spots'); spotsEl.innerHTML='';
+  DATE_SPOTS.forEach(spot=>{
+    const btn=document.createElement('div'); btn.className='date-spot-btn';
+    btn.innerHTML=`<span class="date-spot-icon">${spot.icon}</span><div><div class="date-spot-name">${spot.label}</div><div class="date-spot-desc">${spot.desc}</div></div>`;
+    btn.onclick=()=>goOnDate(charId,spot);
+    spotsEl.appendChild(btn);
+  });
+  showScreen('date');
+}
+function goOnDate(charId, spot) {
+  const bonus=(spot.bonus[charId]||0);
+  applyAffChange(charId,bonus);
+  showToast(`💗 ${CHARS[charId].name}との${spot.label}デート！ 好感度 +${bonus}`,'heart',3500);
+  playSe('date_event');
+  // デートのVNシーン（簡易版）
+  const dateLine=[
+    {type:'bg',value:spot.id,bgColor:'#101828'},
+    {type:'bgm',value:'heartbeat'},
+    {type:'sprite',char:charId,position:'center',expression:'default'},
+    {type:'narrative',text:`${CHARS[charId].name}と${spot.label}でのデート。\n${spot.desc}。\n好感度が上がった！ (+${bonus})`},
+    {type:'end'}
+  ];
+  startVN(dateLine,{},spot.id,'#101828',()=>{proceedToNextWeek();},`${CHARS[charId].nameShort}とのデート`);
+}
+document.getElementById('date-skip-btn').onclick=()=>{
+  if(currentDateChar) applyAffChange(currentDateChar,-10);
+  showToast('デートを断った……','warning');
+  proceedToNextWeek();
+};
+
+/* ══════════════════════════════════════════
+   STATUS SCREEN
+══════════════════════════════════════════ */
+function openStatusScreen() {
+  returnScreen='command';
+  document.getElementById('status-header').textContent=`ステータス — ${GS.playerName}`;
+  const paramsEl=document.getElementById('status-params'); paramsEl.innerHTML='';
+  STATS_CONFIG.forEach(sc=>{
+    const val=GS.stats[sc.id]||0; const pct=Math.min(100,val/sc.max*100);
+    paramsEl.innerHTML+=`<div class="status-param-card"><div class="spc-header"><span class="spc-icon">${sc.icon}</span><span class="spc-name">${sc.label}</span><span class="spc-val">${val}</span></div><div class="spc-track"><div class="spc-fill" style="width:${pct}%;background:${sc.color}"></div></div></div>`;
+  });
+  const affEl=document.getElementById('status-affections'); affEl.innerHTML='';
+  CHAR_ORDER.forEach(id=>{
+    const ch=CHARS[id]; const aff=GS.affection[id]||0; const rank=getAffRank(aff);
+    const rivalAff=GS.affection.rival||0; const isBomb=rivalAff>aff&&aff>0;
+    const card=document.createElement('div'); card.className='aff-card'+(isBomb?' bomb':'');
+    card.innerHTML=`<div class="aff-card-portrait" style="background:${ch.color}">${ch.initial}</div><div class="aff-card-name">${ch.name}</div><div class="aff-card-rank">${rank.emoji} ${rank.label}</div><div class="aff-card-bar-wrap"><div class="aff-card-bar" style="width:${aff}%;background:${ch.accent}"></div></div><div class="aff-card-num">${aff}/100${isBomb?' 💣':''}</div>`;
+    affEl.appendChild(card);
+  });
+  showScreen('status');
+}
+document.getElementById('cmd-btn-status').onclick=()=>openStatusScreen();
+document.getElementById('status-close-btn').onclick=()=>{showScreen('command');renderCommandScreen();};
+
+/* ══════════════════════════════════════════
+   ALBUM
+══════════════════════════════════════════ */
+function saveGlobalAlbum() {
+  try { localStorage.setItem(ALBUM_KEY,JSON.stringify(GS.unlockedCG)); } catch(e){}
+}
+function loadGlobalAlbum() {
+  try { const raw=localStorage.getItem(ALBUM_KEY); if(raw){const arr=JSON.parse(raw);arr.forEach(id=>{if(!GS.unlockedCG.includes(id))GS.unlockedCG.push(id);});}} catch(e){}
+}
+
+let albumCurrentChar='all';
+function openAlbumScreen() {
+  albumCurrentChar='all';
+  // タブ
+  const tabsEl=document.getElementById('album-tabs'); tabsEl.innerHTML='';
+  const allBtn=document.createElement('button'); allBtn.className='album-tab active'; allBtn.textContent='すべて';
+  allBtn.onclick=()=>{albumCurrentChar='all';renderAlbumGrid();document.querySelectorAll('.album-tab').forEach(t=>t.classList.remove('active'));allBtn.classList.add('active');};
+  tabsEl.appendChild(allBtn);
+  CHAR_ORDER.forEach(id=>{
+    const ch=CHARS[id]; const btn=document.createElement('button'); btn.className='album-tab'; btn.textContent=ch.nameShort;
+    btn.onclick=()=>{albumCurrentChar=id;renderAlbumGrid();document.querySelectorAll('.album-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');};
+    tabsEl.appendChild(btn);
+  });
+  renderAlbumGrid();
+  showScreen('album');
+}
+function renderAlbumGrid() {
+  const grid=document.getElementById('album-grid'); grid.innerHTML='';
+  const filtered = albumCurrentChar==='all'?CG_DEFS:CG_DEFS.filter(c=>c.char===albumCurrentChar);
+  filtered.forEach(def=>{
+    const unlocked=GS.unlockedCG.includes(def.id);
+    const thumb=document.createElement('div'); thumb.className='album-cg-thumb'+(unlocked?'':' locked');
+    if(unlocked){
+      const img=document.createElement('img'); img.src=getCgPath(def.id); img.alt=def.title; img.onerror=()=>{};
+      thumb.appendChild(img);
+      const label=document.createElement('div'); label.className='album-cg-label'; label.textContent=def.title; thumb.appendChild(label);
+      thumb.onclick=()=>openCgViewer(def.id);
+    } else {
+      const lock=document.createElement('div'); lock.className='album-lock-icon'; lock.textContent='🔒'; thumb.appendChild(lock);
+    }
+    grid.appendChild(thumb);
+  });
+}
+function openCgViewer(cgId) {
+  const viewer=document.getElementById('album-viewer');
+  document.getElementById('album-viewer-img').src=getCgPath(cgId);
+  viewer.classList.add('open');
+}
+document.getElementById('album-viewer').onclick=()=>document.getElementById('album-viewer').classList.remove('open');
+document.getElementById('album-close-btn').onclick=()=>{showScreen('command');renderCommandScreen();};
+
+/* ══════════════════════════════════════════
+   PRESENT SYSTEM
+══════════════════════════════════════════ */
+let presentTargetChar = CHAR_ORDER[0];
+function openPresentScreen() {
+  returnScreen='command';
+  presentTargetChar=CHAR_ORDER[0];
+  // タブ
+  const tabsEl=document.getElementById('present-char-tabs'); tabsEl.innerHTML='';
+  CHAR_ORDER.forEach((id,i)=>{
+    const ch=CHARS[id]; const btn=document.createElement('button'); btn.className='present-tab'+(i===0?' active':'');
+    btn.textContent=ch.nameShort; btn.style.borderColor=i===0?ch.color:'';
+    btn.onclick=()=>{presentTargetChar=id;renderPresentItems();document.querySelectorAll('.present-tab').forEach(t=>{t.classList.remove('active');t.style.borderColor='';});btn.classList.add('active');btn.style.borderColor=ch.color;};
+    tabsEl.appendChild(btn);
+  });
+  renderPresentItems();
+  showScreen('present');
+}
+function renderPresentItems() {
+  const itemsEl=document.getElementById('present-items'); itemsEl.innerHTML='';
+  PRESENTS.forEach(p=>{
+    const canAfford = p.cost_domestic?GS.stats.domestic>=p.cost_domestic:GS.money>=p.price;
+    const affBonus=(p.bonus[presentTargetChar]||p.base);
+    const btn=document.createElement('div'); btn.className='present-item-btn';
+    if(!canAfford) btn.style.opacity='0.4';
+    btn.innerHTML=`<span class="present-item-icon">${p.icon}</span><div><div class="present-item-name">${p.label}</div><div class="present-item-info">${p.cost_domestic?`家事${p.cost_domestic}必要`:`¥${p.price.toLocaleString()}`} / 好感度 +${affBonus}</div></div>`;
+    if(canAfford) btn.onclick=()=>givePresent(p);
+    itemsEl.appendChild(btn);
+  });
+}
+function givePresent(p) {
+  const affBonus=(p.bonus[presentTargetChar]||p.base);
+  if(p.cost_domestic){GS.stats.domestic=clampStat('domestic',GS.stats.domestic-p.cost_domestic);}
+  else{GS.money-=p.price;}
+  applyAffChange(presentTargetChar,affBonus);
+  playSe('present_give');
+  showToast(`🎁 ${CHARS[presentTargetChar].name}に${p.label}を渡した！ 好感度 +${affBonus}`,'heart',3500);
+  showScreen('command'); renderCommandScreen();
+}
+document.getElementById('present-close-btn').onclick=()=>{showScreen('command');renderCommandScreen();};
+document.getElementById('cmd-btn-present').onclick=()=>openPresentScreen();
+
+/* ══════════════════════════════════════════
+   SAVE / LOAD
+══════════════════════════════════════════ */
+function openSaveScreen(mode) {
+  saveMode=mode||'save';
+  document.getElementById('save-screen-title').textContent=mode==='load'?'ロード':'セーブ';
+  document.getElementById('save-tab-save').classList.toggle('active',mode==='save');
+  document.getElementById('save-tab-load').classList.toggle('active',mode==='load');
+  renderSaveSlots();
+  showScreen('save');
+}
+function renderSaveSlots() {
+  const slotsEl=document.getElementById('save-slots'); slotsEl.innerHTML='';
+  // オートセーブ
+  const autoData=getSaveSlot('auto');
+  const autoSlot=createSaveSlotEl('auto',autoData,true);
+  slotsEl.appendChild(autoSlot);
+  // 手動セーブ 1〜5
+  for(let i=1;i<=5;i++){
+    const data=getSaveSlot(i);
+    slotsEl.appendChild(createSaveSlotEl(i,data,false));
+  }
+}
+function createSaveSlotEl(slot, data, isAuto) {
+  const div=document.createElement('div'); div.className='save-slot'+(isAuto?' auto-slot':'');
+  if(data){
+    div.innerHTML=`<div class="save-slot-thumb"><div style="font-size:20px;text-align:center">${data.flags?.met_all_characters?'📖':'🌸'}</div></div><div class="save-slot-info"><div class="save-slot-num">${isAuto?'オートセーブ':'スロット '+slot}</div><div class="save-slot-date-in-game">${data.gameDate?dateLabel(data.gameDate):'---'}</div><div class="save-slot-saved-at">${data.savedAt?new Date(data.savedAt).toLocaleString('ja-JP'):'---'}</div></div>`;
+    div.onclick=()=>{
+      if(saveMode==='save'&&!isAuto){showModal('上書きしますか？',()=>{if(saveGame(slot)){showToast('💾 セーブしました');renderSaveSlots();}});}
+      else if(saveMode==='load'){showModal('このデータをロードしますか？',()=>{if(loadGame(slot)){loadSettings();showScreen('command');renderCommandScreen();showToast('📂 ロードしました');}});}
     };
+  } else {
+    div.innerHTML=`<div class="save-slot-thumb"></div><div class="save-slot-info"><div class="save-slot-num">${isAuto?'オートセーブ':'スロット '+slot}</div><div class="save-slot-empty">--- 空き ---</div></div>`;
+    if(saveMode==='save'&&!isAuto){div.onclick=()=>{if(saveGame(slot)){showToast('💾 セーブしました');renderSaveSlots();}};}
+  }
+  return div;
+}
+document.getElementById('save-tab-save').onclick=()=>openSaveScreen('save');
+document.getElementById('save-tab-load').onclick=()=>openSaveScreen('load');
+document.getElementById('save-close-btn').onclick=()=>{showScreen(returnScreen);if(returnScreen==='command')renderCommandScreen();};
+document.getElementById('cmd-btn-save').onclick=()=>{returnScreen='command';openSaveScreen('save');};
 
-    // ==========================================
-    // MAIN SCREEN (Command Selection)
-    // ==========================================
-    const MainScreen = ({ state, setScreen, executeCommand, debugAdvanceTime, debugMaxParams }) => {
-      const { year, month, week } = state.date;
-      
-      return (
-        <div className="w-full h-full bg-surface2 flex flex-col">
-          {/* Header */}
-          <div className="bg-surface border-b border-border p-4 flex justify-between items-center shadow-sm z-10">
-            <div>
-              <h2 className="text-xl font-serif font-bold text-rose-dark">
-                {year}年 {month}月 第{week}週
-              </h2>
-              <p className="text-xs text-muted">残り行動回数: {state.actionsLeft}</p>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setScreen('status')} className="p-2 bg-rose-light text-rose-dark rounded-full hover:bg-petal transition">
-                <i className="ph ph-user text-xl"></i>
-              </button>
-              {/* Debug Menu */}
-              <div className="group relative">
-                <button className="p-2 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition">
-                  <i className="ph ph-bug text-xl"></i>
-                </button>
-                <div className="absolute right-0 top-12 bg-white border border-gray-200 p-2 rounded shadow-lg hidden group-hover:block w-32 z-50">
-                  <button onClick={debugAdvanceTime} className="block w-full text-left text-xs p-2 hover:bg-gray-100">1週進める</button>
-                  <button onClick={debugMaxParams} className="block w-full text-left text-xs p-2 hover:bg-gray-100">パラMAX化</button>
-                </div>
-              </div>
-            </div>
-          </div>
+/* ══════════════════════════════════════════
+   SETTINGS SCREEN
+══════════════════════════════════════════ */
+function initSettingsScreen() {
+  const bindSlider=(id,key,displayId,suffix)=>{
+    const el=document.getElementById(id);
+    el.value=SETTINGS[key];
+    document.getElementById(displayId).textContent=SETTINGS[key]+(suffix||'');
+    el.oninput=()=>{SETTINGS[key]=parseInt(el.value);document.getElementById(displayId).textContent=SETTINGS[key]+(suffix||'');applySettings();saveSettings();};
+  };
+  bindSlider('setting-text-speed','textSpeed','text-speed-val');
+  bindSlider('setting-bgm-vol','bgmVolume','bgm-vol-val');
+  bindSlider('setting-se-vol','seVolume','se-vol-val');
+  bindSlider('setting-textwin-opacity','textWinOpacity','textwin-opacity-val','%');
+  const bindSelect=(id,key)=>{
+    const el=document.getElementById(id); el.value=SETTINGS[key];
+    el.onchange=()=>{SETTINGS[key]=el.value;applySettings();saveSettings();};
+  };
+  bindSelect('setting-font-size','fontSize');
+  bindSelect('setting-auto-speed','autoSpeed');
+  bindSelect('setting-color-filter','colorFilter');
+  const bindCheck=(id,key)=>{
+    const el=document.getElementById(id); el.checked=SETTINGS[key];
+    el.onchange=()=>{SETTINGS[key]=el.checked;saveSettings();};
+  };
+  bindCheck('setting-skip-read','skipRead');
+  bindCheck('setting-skip-unread','skipUnread');
+  bindCheck('setting-text-se','textSe');
+  document.getElementById('setting-delete-save').onclick=()=>{
+    showModal('全セーブデータを削除しますか？\nこの操作は取り消せません。',()=>{
+      for(let i=1;i<=5;i++)localStorage.removeItem(SAVE_KEY+i);
+      localStorage.removeItem(SAVE_KEY+'auto');
+      localStorage.removeItem(ALBUM_KEY);
+      showToast('🗑 セーブデータを削除しました','warning');
+    });
+  };
+}
+document.getElementById('cmd-btn-settings').onclick=()=>{returnScreen='command';showScreen('settings');};
+document.getElementById('btn-settings').onclick=()=>{returnScreen='title';showScreen('settings');};
+document.getElementById('settings-close-btn').onclick=()=>{showScreen(returnScreen);if(returnScreen==='command')renderCommandScreen();};
 
-          {/* Status Bar Quick View */}
-          <div className="bg-ink text-white p-2 flex items-center justify-center gap-4 text-xs font-bold shadow-inner">
-            <div className="flex items-center gap-1">❤️ 体力 <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-rose" style={{width: `${(state.stats.stamina/state.stats.maxStamina)*100}%`}}></div></div></div>
-          </div>
+/* ══════════════════════════════════════════
+   ENDING SYSTEM
+══════════════════════════════════════════ */
+function triggerEnding() {
+  stopBgm();
+  // 最高好感度キャラ判定
+  let topChar=null; let topAff=0;
+  CHAR_ORDER.forEach(id=>{
+    const aff=GS.affection[id]||0;
+    if(aff>topAff){topAff=aff;topChar=id;}
+  });
 
-          {/* Affection Quick View */}
-          <div className="flex justify-center gap-4 py-3 bg-surface border-b border-border">
-            {['rinto','souma','kaito','aoi','hayate'].map(c => (
-               <div key={c} className="flex flex-col items-center">
-                 <div className={`w-8 h-8 rounded-full ${CHARACTERS[c].color} flex items-center justify-center text-white font-serif text-xs border-2 border-white shadow-sm`}>
-                   {CHARACTERS[c].name.split(' ')[1][0]}
-                 </div>
-                 <div className="text-[10px] text-muted mt-1 font-bold">♥ {state.affection[c]}</div>
-               </div>
-            ))}
-          </div>
+  let route, endType;
+  if(!topChar||topAff<30){route='none';endType='normal';}
+  else{
+    route=topChar;
+    if(topAff>=80)endType='happy';
+    else if(topAff>=60)endType='good';
+    else if(topAff>=40)endType='normal';
+    else endType='bad';
+  }
 
-          {/* Commands Grid */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-surface2">
-            <h3 className="text-sm font-bold text-muted mb-4 uppercase tracking-wider">行動コマンド選択</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {COMMANDS.map(cmd => (
-                <button 
-                  key={cmd.id}
-                  onClick={() => executeCommand(cmd)}
-                  disabled={state.actionsLeft <= 0}
-                  className={`relative p-4 rounded-xl border ${state.actionsLeft > 0 ? 'bg-surface border-border hover:border-rose hover:shadow-md cursor-pointer' : 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed'} transition-all flex flex-col items-center justify-center gap-2 group`}
-                >
-                  <div className="text-3xl bg-surface2 p-3 rounded-full group-hover:bg-rose-light transition-colors">{cmd.icon}</div>
-                  <div className="font-bold text-sm text-ink">{cmd.label}</div>
-                  <div className="text-[10px] text-muted">体力 {cmd.cost > 0 ? `-${cmd.cost}` : `+${-cmd.cost}`}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    };
+  const ending=ENDINGS[route]?.[endType]||ENDINGS.none.normal;
+  if(!GS.unlockedEndings.includes(route+'_'+endType)){
+    GS.unlockedEndings.push(route+'_'+endType);
+  }
+  autoSave();
+  showEndingScreen(ending, topChar, route);
+}
 
-    // ==========================================
-    // STATUS SCREEN
-    // ==========================================
-    const StatusScreen = ({ state, setScreen }) => {
-      const STATS_MAP = {
-        intelligence: { label: "知性", icon: "📚", color: "bg-blue-400" },
-        sports: { label: "運動", icon: "⚽", color: "bg-orange-400" },
-        fashion: { label: "ファッション", icon: "👗", color: "bg-pink-400" },
-        music: { label: "音楽", icon: "🎵", color: "bg-green-400" },
-        domestic: { label: "家事", icon: "🍳", color: "bg-yellow-400" },
-      };
+function showEndingScreen(ending, charId, route) {
+  const bgEl=document.getElementById('ending-bg');
+  bgEl.style.backgroundImage=`url(${getBgPath(ending.bg||'school_entrance')})`;
+  bgEl.style.backgroundSize='auto 100%';
+  bgEl.style.backgroundPosition='center';
 
-      return (
-        <div className="w-full h-full bg-surface2 flex flex-col z-20">
-          <div className="bg-surface p-4 flex items-center border-b border-border shadow-sm">
-            <button onClick={() => setScreen('main')} className="p-2 bg-surface2 rounded-full hover:bg-border transition mr-4">
-              <i className="ph ph-arrow-left text-xl"></i>
-            </button>
-            <h2 className="text-xl font-serif font-bold text-ink">ステータス</h2>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
-            <div className="bg-surface rounded-xl border border-border p-6 shadow-sm mb-6">
-              <h3 className="text-sm font-bold text-rose-dark mb-4 border-b border-rose-light pb-2">主人公パラメータ</h3>
-              <div className="space-y-4">
-                {Object.entries(STATS_MAP).map(([key, info]) => (
-                  <div key={key} className="flex items-center gap-3 text-sm">
-                    <span className="w-6 text-center">{info.icon}</span>
-                    <span className="w-24 text-muted font-bold">{info.label}</span>
-                    <div className="flex-1 h-3 bg-surface2 rounded-full overflow-hidden border border-border">
-                      <div className={`h-full ${info.color}`} style={{width: `${Math.min(100, (state.stats[key]/999)*100)}%`}}></div>
-                    </div>
-                    <span className="w-10 text-right font-mono text-ink">{state.stats[key]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+  document.getElementById('ending-badge').textContent=ending.badge||'END';
+  document.getElementById('ending-title').textContent=ending.title||'---';
+  document.getElementById('ending-char-name').textContent=charId?`${CHARS[charId]?.name||''} ルート`:'';
+  document.getElementById('ending-text').textContent=ending.text||'';
 
-            <div className="bg-surface rounded-xl border border-border p-6 shadow-sm">
-              <h3 className="text-sm font-bold text-rose-dark mb-4 border-b border-rose-light pb-2">好感度</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {Object.entries(CHARACTERS).filter(([k]) => k!=='rival').map(([key, info]) => (
-                  <div key={key} className="flex items-center gap-3 p-3 bg-surface2 rounded-lg border border-border">
-                    <div className={`w-10 h-10 rounded-full ${info.color} flex items-center justify-center text-white font-serif shadow-sm`}>
-                      {info.name.split(' ')[1][0]}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-ink">{info.name}</div>
-                      <div className="text-lg font-mono text-rose flex items-center gap-1">
-                        <i className="ph-fill ph-heart"></i> {state.affection[key]}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    };
+  showScreen('ending');
+  setTimeout(()=>bgEl.classList.add('visible'),100);
 
-    // ==========================================
-    // VISUAL NOVEL SCREEN
-    // ==========================================
-    const VNScreen = ({ eventId, eventsDef, state, setState, setScreen, setCurrentEvent }) => {
-      const [currentBlock, setCurrentBlock] = useState(eventId);
-      const [lineIdx, setLineIdx] = useState(0);
-      const [animating, setAnimating] = useState(false);
-      
-      const ev = eventsDef[currentBlock];
-      
-      useEffect(() => {
-        setAnimating(true);
-        const timer = setTimeout(() => setAnimating(false), 500); // text animation time
-        return () => clearTimeout(timer);
-      }, [lineIdx, currentBlock]);
+  // ハッピーエンドBGM・スタッフロール
+  if(ending.staffroll){
+    playSe('event_chime');
+    playBgm('happy_end');
+    setTimeout(()=>showStaffRoll(),3000);
+  } else {
+    playBgm('melancholy');
+  }
+  // CGを解放
+  if(ending.cg&&!GS.unlockedCG.includes(ending.cg)){
+    GS.unlockedCG.push(ending.cg); saveGlobalAlbum();
+    setTimeout(()=>showToast(`📷 CG「${CG_DEFS.find(c=>c.id===ending.cg)?.title||ending.cg}」を解放しました`,'heart',3500),2000);
+  }
+}
 
-      if (!ev) {
-        setScreen('main');
-        return null;
-      }
+function showStaffRoll() {
+  const staffroll=document.getElementById('staffroll');
+  document.getElementById('staffroll-inner').innerHTML=`
+    <div class="staffroll-section"><div class="staffroll-role">TITLE</div><div class="staffroll-name">星降る丘のセレナーデ</div></div>
+    <div class="staffroll-section"><div class="staffroll-role">SCENARIO</div><div class="staffroll-name">あなたの物語</div></div>
+    <div class="staffroll-section"><div class="staffroll-role">CHARACTER DESIGN</div><div class="staffroll-name">星丘学園の仲間たち</div></div>
+    <div class="staffroll-section"><div class="staffroll-role">MUSIC</div><div class="staffroll-name">星明かりの調べ</div></div>
+    <div class="staffroll-section"><div class="staffroll-role">SYSTEM</div><div class="staffroll-name">星降る丘のセレナーデ</div></div>
+    <div class="staffroll-section" style="margin-top:60px"><div class="staffroll-name" style="font-size:22px;color:var(--gold)">Thank you for playing</div></div>
+  `;
+  staffroll.classList.add('active');
+}
 
-      const line = ev.lines[lineIdx];
+document.getElementById('ending-to-title-btn').onclick=()=>{
+  stopBgm(); showScreen('title'); playBgm('title_theme');
+};
 
-      const handleNext = () => {
-        if (animating) {
-          setAnimating(false); // skip animation
-          return;
-        }
-        if (line.type === 'choice') return; // wait for choice
+/* ══════════════════════════════════════════
+   TITLE SCREEN BUTTONS
+══════════════════════════════════════════ */
+document.getElementById('btn-new-game').onclick=()=>{
+  GS=INITIAL_STATE(); gameStartTime=Date.now();
+  showScreen('name');
+};
+document.getElementById('btn-continue').onclick=()=>{
+  // セーブがあればそこから、なければタイトルに留まる
+  const autoData=getSaveSlot('auto');
+  if(autoData){openSaveScreen('load');}
+  else{showToast('セーブデータがありません','warning');}
+};
+document.getElementById('btn-album').onclick=()=>{
+  loadGlobalAlbum(); returnScreen='title'; openAlbumScreen();
+};
+document.getElementById('name-confirm-btn').onclick=()=>{
+  const input=document.getElementById('name-input').value.trim();
+  const sanitized=input.replace(/[<>&"']/g,'').slice(0,8);
+  GS.playerName=sanitized||'日和';
+  showScreen('command');
+  renderCommandScreen();
+  // プロローグ開始
+  setTimeout(()=>startVN(PROLOGUE_SCRIPT,{},null,'#080810',()=>{showScreen('command');renderCommandScreen();},'プロローグ'),200);
+};
+document.getElementById('name-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter') document.getElementById('name-confirm-btn').click();
+});
 
-        if (lineIdx + 1 < ev.lines.length) {
-          setLineIdx(lineIdx + 1);
-        } else {
-          // Event end
-          if (ev.onEnd) {
-            const nextState = ev.onEnd(state);
-            setState(nextState);
-            // onEnd might have changed screen
-            if (nextState.screen === 'title') return; 
-          }
-          setCurrentEvent(null);
-          setScreen('main');
-        }
-      };
+/* ══════════════════════════════════════════
+   INITIALIZATION
+══════════════════════════════════════════ */
+function initGame() {
+  loadSettings();
+  initSettingsScreen();
+  loadGlobalAlbum();
+  initStars('stars-canvas');
+  initStars('stars-canvas-name');
+  initBandStars('vn-band-stars-top');
+  initBandStars('vn-band-stars-bottom');
+  showScreen('title',true);
+  playBgm('title_theme');
+}
 
-      const handleChoice = (opt) => {
-        if (opt.affection) {
-          let nextState = {...state};
-          for(let char in opt.affection) {
-            nextState.affection[char] += opt.affection[char];
-          }
-          setState(nextState);
-        }
-        setCurrentBlock(opt.next);
-        setLineIdx(0);
-      };
-
-      // Extract character to show
-      let charToShow = null;
-      if (line && line.char && CHAR_COMPONENTS[line.char]) {
-         const CharComp = CHAR_COMPONENTS[line.char];
-         charToShow = <CharComp />;
-      }
-
-      return (
-        <div className="w-full h-full relative flex flex-col bg-black overflow-hidden" onClick={handleNext}>
-          {/* Background */}
-          <Background bgId={ev.bg} />
-
-          {/* Character */}
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90%] max-w-[400px] h-[80%] pointer-events-none transition-opacity duration-500">
-             {charToShow}
-          </div>
-
-          {/* Choice Overlay */}
-          {line && line.type === 'choice' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/40 z-20 backdrop-blur-sm">
-              {line.options.map((opt, i) => (
-                <button 
-                  key={i} 
-                  onClick={(e) => { e.stopPropagation(); handleChoice(opt); }}
-                  className="w-4/5 max-w-md py-4 px-6 bg-surface/90 border-2 border-rose rounded-xl text-rose-dark font-bold text-lg hover:bg-rose hover:text-white transition-all shadow-lg transform hover:-translate-y-1"
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Text Window */}
-          {line && line.type !== 'choice' && (
-            <div className="absolute bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-3xl z-30">
-              <div className="bg-surface/90 backdrop-blur-md border border-white/40 rounded-xl shadow-2xl p-4 md:p-6 min-h-[140px] relative">
-                {/* Speaker Name */}
-                {line.speaker && (
-                  <div className={`absolute -top-4 left-4 px-4 py-1 rounded-md font-bold text-sm text-white shadow-md ${CHARACTERS[line.speaker] ? CHARACTERS[line.speaker].color : 'bg-gray-600'}`}>
-                    {CHARACTERS[line.speaker] ? CHARACTERS[line.speaker].name : line.speaker}
-                  </div>
-                )}
-                {/* Text */}
-                <div className="text-ink text-base md:text-lg leading-relaxed pt-2 font-serif">
-                  {animating ? (
-                     <span className="vn-text-reveal">{line.text}</span>
-                  ) : (
-                     <span>{line.text}</span>
-                  )}
-                </div>
-                {/* Next Indicator */}
-                {!animating && (
-                  <div className="absolute bottom-4 right-4 text-rose animate-bounce">
-                    <i className="ph-fill ph-caret-down text-xl"></i>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Debug skip */}
-          <div className="absolute top-4 right-4 z-40">
-            <button onClick={(e) => { e.stopPropagation(); handleNext(); }} className="bg-black/50 text-white text-xs px-2 py-1 rounded">Skip</button>
-          </div>
-        </div>
-      );
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+initGame();
+</script>
 </body>
 </html>
