@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>大富豪 Pro</title>
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -122,11 +123,11 @@
 <body class="flex flex-col transition-colors duration-700">
 
     <!-- Header -->
-    <header class="glass-header z-50 border-b border-zinc-200/50 flex-none relative transition-colors duration-700">
-        <div class="px-4 h-14 flex items-center justify-between max-w-5xl mx-auto w-full">
-            <button onclick="window.location.href='index.html'" class="p-2 -ml-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-full transition-colors active:scale-95">
-                <i data-lucide="chevron-left" class="w-6 h-6"></i>
-            </button>
+    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
+        <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-sm font-bold">ホーム</span>
+        </button>
             <h1 class="font-bold text-lg tracking-tight flex items-center gap-2">
                 <i data-lucide="crown" class="w-5 h-5 text-amber-500"></i>大富豪
             </h1>
@@ -273,6 +274,16 @@
     </div>
 
     <script>
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Service Worker registered!');
+    });
+  });
+}
+
         // --- Constants & Data ---
         const SUITS = ['S', 'H', 'D', 'C'];
         const SUIT_SYMBOLS = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣', 'J': 'JOKER' };

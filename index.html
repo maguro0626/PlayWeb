@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PlayWeb</title>
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -30,6 +31,16 @@
     <div id="app" class="flex-1 flex flex-col w-full"></div>
 
     <script>
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Service Worker registered!');
+    });
+  });
+}
+
         /**
          * アップデート情報
          */
@@ -37,6 +48,7 @@
             date: '2026/04/13 17:20',
             logs: [
                 '修正：乙女ゲーム(不具合修正、ボリュームアップ)'
+                '修正：全ゲームのキャッシュ化(初回のみデータのダウンロードが行われますが、次以降はオフラインで楽しめます。)'
             ]
         };
 

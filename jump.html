@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jump & Dash Pro</title>
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -199,6 +200,16 @@
     </main>
 
     <script>
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Service Worker registered!');
+    });
+  });
+}
+
         // --- データ定義 ---
         const CHARACTERS = [
             { id: 'ninja', name: 'ニンジャ', desc: '標準。2段ジャンプ可。', color: '#3b82f6', maxJumps: 2, jumpForce: -13, gravity: 0.6, size: 40, shield: 0 },

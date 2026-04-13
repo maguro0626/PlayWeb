@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>星降る丘のセレナーデ</title>
+    <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════════════
@@ -1384,6 +1385,16 @@ html,body {
 </div><!-- /game-wrap -->
 
 <script>
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Service Worker registered!');
+    });
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════════
    GAME DATA
 ═══════════════════════════════════════════════════════════════ */
@@ -4212,6 +4223,11 @@ function initGame() {
 }
 
 initGame();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
 </script>
 </body>
 </html>

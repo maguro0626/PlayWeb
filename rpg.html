@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>モンスターライズ</title>
+    <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -384,6 +385,16 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
   </div>
 </div>
 <script>
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Service Worker registered!');
+    });
+  });
+}
+
 const TC_DATA={normal:{bg:'#7a7a60',t:'#fff'},fairy:{bg:'#d878a0',t:'#fff'},dragon:{bg:'#6a28e8',t:'#fff'},ghost:{bg:'#5a4078',t:'#fff'},fire:{bg:'#d06010',t:'#fff'},water:{bg:'#3870d8',t:'#fff'},electric:{bg:'#b89000',t:'#111'},grass:{bg:'#48a030',t:'#fff'},poison:{bg:'#882888',t:'#fff'}};
 function tcol(tp){return TC_DATA[tp]||{bg:'#666',t:'#fff'}}
 const TYPE_CHART={normal:{ghost:0,rock:.5},fairy:{dragon:2,ghost:2,fire:.5,poison:.5,steel:.5,dark:2},dragon:{fairy:0,dragon:2,steel:.5},ghost:{normal:0,dark:.5,ghost:2},fire:{grass:2,bug:2,fire:.5,water:.5,rock:.5,dragon:.5},water:{fire:2,ground:2,rock:2,water:.5,grass:.5,dragon:.5},electric:{water:2,electric:.5,grass:.5,ground:0,dragon:.5},grass:{water:2,ground:2,rock:2,fire:.5,grass:.5,poison:.5,dragon:.5,flying:.5},poison:{fairy:2,grass:2,poison:.5,ground:.5,ghost:.5,rock:.5}};
