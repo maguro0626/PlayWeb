@@ -1054,6 +1054,8 @@ html,body {
 @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
 @keyframes popIn { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
 @keyframes bombPulse { 0%,100%{box-shadow:0 0 0 rgba(220,50,50,0)} 50%{box-shadow:0 0 12px rgba(220,50,50,0.7)} }
+@keyframes rivalPulse { 0%,100%{opacity:0.7;} 50%{opacity:1;} }
+.rival-warning { animation:rivalPulse 2s infinite; color:rgba(220,100,130,0.9); }
 @keyframes scrollUp { from{transform:translateY(0)} to{transform:translateY(-100%)} }
 @keyframes twinkle { 0%,100%{opacity:0.1} 50%{opacity:0.8} }
 </style>
@@ -1197,6 +1199,7 @@ html,body {
     <button class="cmd-menu-btn" id="cmd-btn-present">プレゼント 🎁</button>
     <button class="cmd-next-btn" id="cmd-next-week-btn">次の週へ ▶</button>
   </div>
+  <div id="cmd-rival-status" style="text-align:center;font-size:10px;color:rgba(220,100,130,0.7);padding:3px 0 5px;display:none;">⚠️ ライバルの影が近づいています</div>
 </div>
 
 <!-- ══════ EVENT RESULT ══════ -->
@@ -1217,6 +1220,10 @@ html,body {
   <div class="status-params" id="status-params"></div>
   <div class="status-section-title" style="margin-top:0.5em;">好感度</div>
   <div class="status-affections" id="status-affections"></div>
+  <div style="margin-top:0.5em;padding:8px 12px;background:rgba(106,16,64,0.2);border:1px solid rgba(220,100,130,0.3);border-radius:8px;font-size:12px;color:rgba(220,150,160,0.9);">
+    ⚠️ <span id="rival-aff-display">ライバル度 0</span>
+    <span style="font-size:10px;color:rgba(255,255,255,0.4);margin-left:0.5em;">— 姫宮 柚希の影響力。高いとボム発生率UP</span>
+  </div>
   <button class="status-close-btn" id="status-close-btn">閉じる</button>
 </div>
 
@@ -1393,7 +1400,28 @@ const CHARS = {
   hayate:{ id:'hayate',name:'天宮 颯',     nameShort:'颯',   initial:'颯', color:'#1a3a2a', accent:'#70c090', tag:'音楽部', route:'hayate' }
 };
 const RIVAL = { id:'rival', name:'姫宮 柚希', color:'#6a1040', accent:'#e08090' };
+// ライバルキャラ（立ち絵表示用にCHARSにも追加）
+CHARS.yuzuki = { id:'yuzuki', name:'姫宮 柚希', nameShort:'柚希', initial:'柚', color:'#6a1040', accent:'#e08090', tag:'ライバル', route:null };
 const CHAR_ORDER = ['rinto','souma','kaito','aoi','hayate'];
+
+/* ── サブキャラクター（立ち絵準備中・将来実装予定） ── */
+const SUB_CHARS = {
+  haruko: { id:'haruko',  name:'月城 晴子', nameShort:'晴子先生', initial:'晴', color:'#3a5a2a', accent:'#88cc66', tag:'主人公の母', spriteReady:false },
+  haruka: { id:'haruka',  name:'椎名 遥',   nameShort:'遥',       initial:'遥', color:'#5a2a5a', accent:'#cc88cc', tag:'親友',     spriteReady:false },
+  kurosaki:{ id:'kurosaki',name:'黒崎 先生',nameShort:'黒崎先生', initial:'崎', color:'#2a2a4a', accent:'#8888cc', tag:'担任教師',  spriteReady:false }
+};
+// サブキャラ立ち絵プレースホルダー（立ち絵は今後実装）
+function getSubCharPortrait(subId) {
+  const sc = SUB_CHARS[subId];
+  if (!sc) return '';
+  // SVGでプレースホルダーポートレートを生成
+  return `<svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+    <rect width="120" height="180" fill="${sc.color}" rx="8"/>
+    <text x="60" y="80" text-anchor="middle" font-size="36" fill="rgba(255,255,255,0.5)">${sc.initial}</text>
+    <text x="60" y="110" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.4)">${sc.nameShort}</text>
+    <text x="60" y="130" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.25)">立ち絵 実装予定</text>
+  </svg>`;
+}
 
 const AFF_RANKS = [
   { min:0,  max:19, name:'陌', label:'知人未満', emoji:'💭' },
@@ -1414,18 +1442,18 @@ const STATS_CONFIG = [
 ];
 
 const COMMANDS = [
-  { id:'study_library',label:'図書館で勉強',    icon:'📚', stamina:-10, effects:{intelligence:[15,25]}, desc:'知性 +15〜25', encounter:{rinto:0.30,souma:0.45} },
-  { id:'study_home',   label:'自習（自室）',    icon:'✏️', stamina:-5,  effects:{intelligence:[8,12]},  desc:'知性 +8〜12' },
+  { id:'study_library',label:'図書館で勉強',    icon:'📚', stamina:-10, effects:{intelligence:[15,25]}, desc:'知性 +15〜25', encounter:{rinto:0.30,souma:0.45,yuzuki:0.12} },
+  { id:'study_home',   label:'自習（自室）',    icon:'✏️', stamina:-5,  effects:{intelligence:[8,12]},  desc:'知性 +8〜12', encounter:{haruko:0.35,haruka:0.20} },
   { id:'sports_club',  label:'運動部活動',      icon:'🏃', stamina:-20, effects:{sports:[15,25]},       desc:'スポーツ +15〜25', encounter:{kaito:0.40} },
-  { id:'jogging',      label:'ジョギング',      icon:'💨', stamina:-5,  effects:{sports:[8,8],stamina:[10,10]}, desc:'スポーツ +8  体力 +10' },
-  { id:'shopping',     label:'ショッピング',    icon:'👗', stamina:-10, effects:{fashion:[15,25]},      desc:'ファッション +15〜25', encounter:{aoi:0.20} },
-  { id:'magazine',     label:'雑誌研究',        icon:'📰', stamina:-5,  effects:{fashion:[8,8],intelligence:[3,3]}, desc:'ファッション +8  知性 +3' },
+  { id:'jogging',      label:'ジョギング',      icon:'💨', stamina:-5,  effects:{sports:[8,8],stamina:[10,10]}, desc:'スポーツ +8  体力 +10', encounter:{kaito:0.25} },
+  { id:'shopping',     label:'ショッピング',    icon:'👗', stamina:-10, effects:{fashion:[15,25]},      desc:'ファッション +15〜25', encounter:{aoi:0.20,yuzuki:0.18,haruka:0.25} },
+  { id:'magazine',     label:'雑誌研究',        icon:'📰', stamina:-5,  effects:{fashion:[8,8],intelligence:[3,3]}, desc:'ファッション +8  知性 +3', encounter:{haruka:0.30} },
   { id:'music_room',   label:'音楽室練習',      icon:'🎵', stamina:-10, effects:{music:[15,25]},        desc:'音楽 +15〜25', encounter:{hayate:0.35} },
   { id:'live',         label:'ライブ鑑賞',      icon:'🎶', stamina:-10, effects:{music:[12,12],fashion:[5,5]}, desc:'音楽 +12  ファッション +5' },
-  { id:'cooking',      label:'料理教室',        icon:'🍳', stamina:-10, effects:{domestic:[15,25]},     desc:'家事 +15〜25' },
+  { id:'cooking',      label:'料理教室',        icon:'🍳', stamina:-10, effects:{domestic:[15,25]},     desc:'家事 +15〜25', encounter:{haruko:0.40} },
   { id:'crafts',       label:'手芸・クラフト',  icon:'🧵', stamina:-5,  effects:{domestic:[10,10],fashion:[5,5]}, desc:'家事 +10  ファッション +5' },
-  { id:'parttime',     label:'アルバイト',      icon:'💼', stamina:-25, effects:{intelligence:[5,5],sports:[5,5],fashion:[5,5],music:[5,5],domestic:[5,5]}, desc:'全パラ +5', availableFrom:{year:2,month:4} },
-  { id:'rest',         label:'休息',            icon:'💤', stamina:40,  effects:{}, desc:'体力 +40（回復）' },
+  { id:'parttime',     label:'アルバイト',      icon:'💼', stamina:-25, effects:{intelligence:[5,5],sports:[5,5],fashion:[5,5],music:[5,5],domestic:[5,5]}, desc:'全パラ +5', availableFrom:{year:2,month:4}, encounter:{kurosaki:0.25} },
+  { id:'rest',         label:'休息',            icon:'💤', stamina:40,  effects:{}, desc:'体力 +40（回復）', encounter:{haruko:0.50} },
   { id:'observatory',  label:'天文台で観測',    icon:'🔭', stamina:-5,  effects:{intelligence:[5,5],music:[5,5]}, desc:'知性 +5  音楽 +5', encounter:{rinto:0.25,hayate:0.15}, availableFrom:{year:1,month:6} },
   { id:'beach_walk',   label:'海岸散歩',        icon:'🌊', stamina:15,  effects:{}, desc:'体力 +15  出会い率UP', encounterBonus:0.20 }
 ];
@@ -1471,7 +1499,7 @@ const CHAR_EVENTS = [
     lines:[
       {type:'narrative',text:'転入した翌週、図書館で本を探していると、聞き慣れた声がした。'},
       {type:'sprite',char:'souma',position:'center',expression:'default'},
-      {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、ひより。こんなところで会うね。'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、{playerName}。こんなところで会うね。'},
       {type:'dialogue',speaker:'日和',text:'壮馬くん、ここでよく本を読んでるの？'},
       {type:'dialogue',speaker:'壮馬',char:'souma',text:'うん。図書委員でもあるから。……この棚の奥に、面白い本があるんだ。一緒に来る？'},
       {type:'choice',options:[
@@ -1484,7 +1512,7 @@ const CHAR_EVENTS = [
         {type:'sprite',char:'souma',position:'center',expression:'default'},
         {type:'dialogue',speaker:'壮馬',char:'souma',text:'ほら、これ。星についての本なんだけど、図解が綺麗で……'},
         {type:'dialogue',speaker:'日和',text:'わあ……本当に綺麗。星好きなの？'},
-        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……昔から、夜空が好きだった。ひよりは今でも、空を見てる？'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……昔から、夜空が好きだった。{playerName}は今でも、空を見てる？'},
         {type:'dialogue',speaker:'日和',text:'うん！　毎晩見てるよ。'},
         {type:'dialogue',speaker:'壮馬',char:'souma',text:'……それは、よかった。変わってないね。'},
         {type:'narrative',text:'幼なじみとの再会は、思いがけずあたたかな時間になった。\n（好感度 ▲8）'},
@@ -1575,12 +1603,12 @@ const CHAR_EVENTS = [
     lines:[
       {type:'narrative',text:'夏休みが終わり、図書館に顔を出すと、壮馬がいつものように本に囲まれていた。'},
       {type:'sprite',char:'souma',position:'center',expression:'default'},
-      {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、ひより。夏休みどうだった？'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、{playerName}。夏休みどうだった？'},
       {type:'dialogue',speaker:'日和',text:'楽しかった！　料理をたくさん練習したよ。'},
       {type:'dialogue',speaker:'壮馬',char:'souma',text:'えっ……それ、食べさせてほしかったな。'},
       {type:'dialogue',speaker:'日和',text:'……じゃあ、これ。料理の練習のついでに作ったんだけど。'},
       {type:'narrative',text:'渡したのは、手作りのしおりだった。\n押し花を使った、丁寧な作品。'},
-      {type:'dialogue',speaker:'壮馬',char:'souma',text:'……え、これ、ひよりが作ったの？'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'……え、これ、{playerName}が作ったの？'},
       {type:'choice',options:[
         {text:'「うん、壮馬くんに似合うかなって」',aff:{souma:12},cg:'souma_cg1',next:'souma_bookmark_a'},
         {text:'「試作品なんだけど……嫌なら別にいいよ」',aff:{souma:8},next:'souma_bookmark_b'}
@@ -1589,7 +1617,7 @@ const CHAR_EVENTS = [
     branches:{
       souma_bookmark_a:[
         {type:'cg',cgId:'souma_cg1'},
-        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……嬉しい。ありがとう、ひより。'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……嬉しい。ありがとう、{playerName}。'},
         {type:'dialogue',speaker:'壮馬',char:'souma',text:'大事に、使う。……ちゃんと、本に挟んで。'},
         {type:'narrative',text:'彼は丁寧にしおりを手のひらで包んだ。\nその姿が、とても優しかった。\n（好感度 ▲12  CG解放）'},
         {type:'end',flag:'souma_bookmark_done',cg:'souma_cg1'}
@@ -1606,7 +1634,7 @@ const CHAR_EVENTS = [
     lines:[
       {type:'narrative',text:'体育の授業後、一人グラウンドに残っていると、放課後の練習を終えた海斗が駆け寄ってきた。'},
       {type:'sprite',char:'kaito',position:'center',expression:'default'},
-      {type:'dialogue',speaker:'海斗',char:'kaito',text:'おっ！　ひより！　まだいたの？'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'おっ！　{playerName}！　まだいたの？'},
       {type:'dialogue',speaker:'日和',text:'うん、夕焼けが見たくて。'},
       {type:'dialogue',speaker:'海斗',char:'kaito',text:'わかる！　俺も好きなんだよねー、グラウンドの夕焼け！'},
       {type:'dialogue',speaker:'海斗',char:'kaito',text:'なあ、今度一緒に走らない？　一人より楽しいし！'},
@@ -1637,7 +1665,7 @@ const CHAR_EVENTS = [
       {type:'sprite',char:'kaito',position:'center',expression:'default'},
       {type:'dialogue',speaker:'海斗',char:'kaito',text:'はあ……やっぱり海岸の夕焼けは最高だな……。'},
       {type:'dialogue',speaker:'日和',text:'本当に……綺麗だね。'},
-      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……なあ、ひより。俺さ……サッカーでプロ目指してるんだ。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……なあ、{playerName}。俺さ……サッカーでプロ目指してるんだ。'},
       {type:'dialogue',speaker:'日和',text:'うん、知ってるよ。海斗くんすごいよね。'},
       {type:'dialogue',speaker:'海斗',char:'kaito',text:'……親は反対してて。でも、諦めたくなくて。'},
       {type:'choice',options:[
@@ -1648,12 +1676,12 @@ const CHAR_EVENTS = [
     branches:{
       kaito_beach_a:[
         {type:'cg',cgId:'kaito_cg1'},
-        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……ありがとう。ひよりがそう言ってくれたら、なんか頑張れる気がする。'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……ありがとう。{playerName}がそう言ってくれたら、なんか頑張れる気がする。'},
         {type:'narrative',text:'夕焼けの中で、海斗は笑った。\nその笑顔は、どこかいつもより少しだけ大人びて見えた。\n（好感度 ▲10  CG解放）'},
         {type:'end',flag:'kaito_beach_done',cg:'kaito_cg1'}
       ],
       kaito_beach_b:[
-        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……うん。でも、ひよりに話したら、少し楽になった。'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……うん。でも、{playerName}に話したら、少し楽になった。'},
         {type:'narrative',text:'静かな波の音の中で、二人は並んでいた。\n（好感度 ▲8）'},
         {type:'end',flag:'kaito_beach_done'}
       ]
@@ -1760,6 +1788,591 @@ const CHAR_EVENTS = [
       ]
     }
   }
+,
+  // ══════════════════════════════════
+  // ■ 2年目：凛斗・卒業後の約束（2年12月）
+  // ══════════════════════════════════
+  { id:'rinto_future', char:'rinto', title:'未来の話', bg:'observatory_night', bgColor:'#050810',
+    year:2, month:12, forced:false,
+    conditions:{affection:{rinto:70},flags:['rinto_study_done']},
+    lines:[
+      {type:'bgm',value:'starlight_waltz'},
+      {type:'narrative',text:'2年の終わり。天文台で二人、星を眺めていた。'},
+      {type:'sprite',char:'rinto',position:'right',expression:'default'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……卒業まで、あと1年か。'},
+      {type:'dialogue',speaker:'日和',text:'早いですね。凛斗くんは、卒業後どこへ？'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……東京の法科大学院を考えている。遠くなるが——'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（少し間）……それでも、連絡を取りたいと思う相手がいる。'},
+      {type:'choice',options:[
+        {text:'「……私もそう思います」',aff:{rinto:15},next:'future_rinto_a'},
+        {text:'「……その人、誰ですか」',aff:{rinto:10},next:'future_rinto_b'}
+      ]}
+    ],
+    branches:{
+      future_rinto_a:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（長い沈黙。でも確かな声で）そうか。'},
+        {type:'narrative',text:'星明かりの下で、言葉以上のものを交わした気がした。\n（好感度 ▲15）'},
+        {type:'end',flag:'rinto_future_done'}
+      ],
+      future_rinto_b:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（少し間）……決まってるだろう。お前だ。'},
+        {type:'dialogue',speaker:'日和',text:'（胸がどきっとする）'},
+        {type:'narrative',text:'彼は星を見たまま、静かに笑った。\n（好感度 ▲10）'},
+        {type:'end',flag:'rinto_future_done'}
+      ]
+    }
+  },
+
+  // ══════════════════════════════════
+  // ■ 2年目：海斗・プロへの壁（2年10月）
+  // ══════════════════════════════════
+  { id:'kaito_pro_dream', char:'kaito', title:'プロへの壁', bg:'school_ground', bgColor:'#0a1218',
+    year:2, month:10, forced:false,
+    conditions:{affection:{kaito:55},flags:['kaito_injury_done']},
+    lines:[
+      {type:'bgm',value:'melancholy'},
+      {type:'narrative',text:'2年の秋。海斗の様子がいつもと違った。\n放課後、一人でグラウンドに残っていた。'},
+      {type:'sprite',char:'kaito',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'日和',text:'海斗くん、どうしたの？'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……（少し間）……スカウトが来たんだ。ジュニアチームから。'},
+      {type:'dialogue',speaker:'日和',text:'すごいじゃん！！'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……でも、親が反対してて。「勉強を優先しろ」って。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'俺さ……ずっとサッカーしかしてこなかったから。\nこれを諦めたら、何が残るのか分からなくて。'},
+      {type:'choice',options:[
+        {text:'「諦めなくていいよ。一緒に考えよう」',aff:{kaito:15},next:'pro_kaito_a'},
+        {text:'「……辛いね。一人にしないよ」',aff:{kaito:12},next:'pro_kaito_b'}
+      ]}
+    ],
+    branches:{
+      pro_kaito_a:[
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……{playerName}……（目が潤む）ありがとう。'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'お前がいてくれるから、頑張れる気がする。'},
+        {type:'narrative',text:'夜のグラウンドで、海斗がやっと笑った。\n（好感度 ▲15）'},
+        {type:'end',flag:'kaito_pro_done'}
+      ],
+      pro_kaito_b:[
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……うん。{playerName}がそう言ってくれるだけで、楽になる。'},
+        {type:'narrative',text:'二人で並んで夜のグラウンドを見た。\n（好感度 ▲12）'},
+        {type:'end',flag:'kaito_pro_done'}
+      ]
+    }
+  },
+
+  // ══════════════════════════════════
+  // ■ 3年目：颯・最後の演奏会（3年12月）
+  // ══════════════════════════════════
+  { id:'hayate_last_concert', char:'hayate', title:'最後の演奏会', bg:'school_music_room', bgColor:'#0a1018',
+    year:3, month:12, forced:false,
+    conditions:{affection:{hayate:70},flags:['hayate_letter_done']},
+    lines:[
+      {type:'bgm',value:'heartbeat'},
+      {type:'narrative',text:'3年目の冬。颯先輩がOBとして最後の演奏会に参加することになった。'},
+      {type:'sprite',char:'hayate',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'今日、来てくれるんだね。'},
+      {type:'dialogue',speaker:'日和',text:'もちろんです。先輩の演奏、楽しみにしてました。'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'……ありがとう。今日は……特別な曲を弾くつもりで。'},
+      {type:'dialogue',speaker:'日和',text:'特別？'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'……（微笑む）曲の名前、もう決めてあるんだ。'},
+      {type:'narrative',text:'演奏会が始まった。\n颯先輩のピアノが奏でるその曲は、どこか懐かしくて、どこか切なくて。\n——どうしてこんなに、胸に刺さるのだろう。'},
+      {type:'choice',options:[
+        {text:'（涙をこらえながら聴く）',aff:{hayate:15},next:'concert_hayate_a'},
+        {text:'（先輩の顔を見つめる）',aff:{hayate:12},next:'concert_hayate_b'}
+      ]}
+    ],
+    branches:{
+      concert_hayate_a:[
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……（演奏後、近づいて）泣いてた？'},
+        {type:'dialogue',speaker:'日和',text:'……すごく、良かったから。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……それは、嬉しい。この曲の名前——{playerName}って言うんだ。'},
+        {type:'protagonist_sprite',show:true},
+        {type:'dialogue',speaker:'日和',text:'……（長い間）……先輩。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ。ずっと言いたかったんだ。'},
+        {type:'narrative',text:'音楽室に、静かな余韻が残った。\n（好感度 ▲15）'},
+        {type:'end',flag:'hayate_concert_done'}
+      ],
+      concert_hayate_b:[
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……どうだった？'},
+        {type:'dialogue',speaker:'日和',text:'先輩の表情が、演奏中すごく好きでした。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……（少し照れて）そういうこと、さらっと言うんだね。'},
+        {type:'narrative',text:'先輩が穏やかに笑った。\n（好感度 ▲12）'},
+        {type:'end',flag:'hayate_concert_done'}
+      ]
+    }
+  },
+
+  // ══════════════════════════════════
+  // ■ 3年目：壮馬・幼なじみの告白前（3年2月）
+  // ══════════════════════════════════
+  { id:'souma_final_talk', char:'souma', title:'桜の前の話', bg:'school_library', bgColor:'#1e2010',
+    year:3, month:2, forced:false,
+    conditions:{affection:{souma:70},flags:['souma_tanabata_done']},
+    lines:[
+      {type:'bgm',value:'starlight_waltz'},
+      {type:'narrative',text:'3年目の2月。卒業まで残り1ヶ月。\n図書館で、壮馬が大切そうに何かを読んでいた。'},
+      {type:'sprite',char:'souma',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'{playerName}。……卒業したら、どうする？'},
+      {type:'dialogue',speaker:'日和',text:'まだ迷ってる。壮馬くんは？'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'……進学先が、この市内にある。正直、{playerName}がいるからかなって……ずっと思ってた。'},
+      {type:'choice',options:[
+        {text:'「……私もそれで嬉しい」',aff:{souma:18},next:'final_souma_a'},
+        {text:'「壮馬くん……」と名前を呼ぶ',aff:{souma:13},next:'final_souma_b'}
+      ]}
+    ],
+    branches:{
+      final_souma_a:[
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……（長い間）……{playerName}。僕、ちゃんと言う。好きだ。'},
+        {type:'protagonist_sprite',show:true},
+        {type:'dialogue',speaker:'日和',text:'……（胸がいっぱいになる）……私も。壮馬くんが好き。'},
+        {type:'narrative',text:'図書館に差し込む冬の光の中で、幼なじみに告白された。\n7年越しの気持ちが、やっと形になった。\n（好感度 ▲18）'},
+        {type:'end',flag:'souma_final_done'}
+      ],
+      final_souma_b:[
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……そう呼んでくれるだけで、うれしい。\nもう少しだけ、勇気ちょうだい。'},
+        {type:'narrative',text:'彼の手が、少しだけ震えていた気がした。\n（好感度 ▲13）'},
+        {type:'end',flag:'souma_final_done'}
+      ]
+    }
+  },
+
+  // ══════════════════════════════════
+  // ■ 未実装イベント追加分
+  // ══════════════════════════════════
+
+  // ── 凛斗：雨の昇降口（2年6月）
+  { id:'rinto_rain', char:'rinto', title:'雨の昇降口', bg:'school_entrance', bgColor:'#0a1220',
+    year:2, month:6, forced:false,
+    conditions:{affection:{rinto:60},flags:['rinto_starmap_done','rinto_council_done']},
+    lines:[
+      {type:'bgm',value:'melancholy'},
+      {type:'narrative',text:'雨の体育祭が終わった昼下がり。\n昇降口で傘を広げていると、凛斗が静かに隣に来た。'},
+      {type:'sprite',char:'rinto',position:'right',expression:'default'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……傘、一本しかないのか。'},
+      {type:'dialogue',speaker:'日和',text:'あ、はい。今日、折りたたみ忘れてきて。'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（少し間）……貸してやる。明日返せ。'},
+      {type:'narrative',text:'彼は自分の傘を差し出した。\n「でも凛斗くんは？」と聞くと——'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……教員用玄関に別の傘がある。そちらを使う。'},
+      {type:'choice',options:[
+        {text:'「……ありがとう、凛斗くん」と素直に受け取る',aff:{rinto:12},next:'rain_rinto_a'},
+        {text:'「一緒に走って帰ろうよ」と提案する',aff:{rinto:10},next:'rain_rinto_b'}
+      ]}
+    ],
+    branches:{
+      rain_rinto_a:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（少し間）……雨は、割と好きだ。静かになる。'},
+        {type:'narrative',text:'彼は雨の中に歩いていった。\nその後ろ姿が、どこか穏やかに見えた。\n（好感度 ▲12）'},
+        {type:'end',flag:'rinto_rain_done'}
+      ],
+      rain_rinto_b:[
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（驚いた顔）……非効率だ。（でも少し笑った）'},
+        {type:'dialogue',speaker:'日和',text:'たまにはいいでしょ！'},
+        {type:'narrative',text:'二人で雨の中を走った。\nその瞬間だけは、凛斗がとても楽しそうに見えた。\n（好感度 ▲10）'},
+        {type:'end',flag:'rinto_rain_done'}
+      ]
+    }
+  },
+
+  // ── 蒼：絵の中の君（2年4月）
+  { id:'aoi_painting', char:'aoi', title:'絵の中の君', bg:'school_art_room', bgColor:'#0e1020',
+    year:2, month:4, forced:false,
+    conditions:{affection:{aoi:45},stats:{fashion:200,intelligence:150},flags:['aoi_artroom_done']},
+    lines:[
+      {type:'bgm',value:'starlight_waltz'},
+      {type:'narrative',text:'2年目の春。美術室に差し込む柔らかな光の中で、蒼が大きなキャンバスに向かっていた。'},
+      {type:'sprite',char:'aoi',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……また来たんですね。'},
+      {type:'dialogue',speaker:'日和',text:'今日の絵、何を描いてるんですか？'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（少し間）……見てわかりませんか。'},
+      {type:'narrative',text:'キャンバスを覗き込むと、そこには——\nどこかで見たような女の子の横顔があった。'},
+      {type:'dialogue',speaker:'日和',text:'……これ、もしかして……？'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……気に入らなければ、消します。'},
+      {type:'choice',options:[
+        {text:'「……消さないで。すごく綺麗です」',aff:{aoi:15},next:'painting_aoi_a'},
+        {text:'（黙って蒼を見つめる）',aff:{aoi:12},next:'painting_aoi_b'}
+      ]}
+    ],
+    branches:{
+      painting_aoi_a:[
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（筆を下ろして）……そうですか。'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（ひとりごとのように）きみを描くと、色が変わる気がする。'},
+        {type:'narrative',text:'春の光の中で、蒼の横顔は少しだけ柔らかかった。\n（好感度 ▲15）'},
+        {type:'end',flag:'aoi_painting_done'}
+      ],
+      painting_aoi_b:[
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（じっと見返して）……何か、言いたいことは？'},
+        {type:'dialogue',speaker:'日和',text:'……ただ、すごいと思って。'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（かすかに口元がゆるんで）……そうですか。'},
+        {type:'narrative',text:'沈黙が、会話よりも深かった。\n（好感度 ▲12）'},
+        {type:'end',flag:'aoi_painting_done'}
+      ]
+    }
+  },
+
+  // ── 蒼：満月の夜に（3年1月）
+  { id:'aoi_fullmoon', char:'aoi', title:'満月の夜に', bg:'observatory_night', bgColor:'#060815',
+    cg:'aoi_cg2', year:3, month:1, forced:false,
+    conditions:{affection:{aoi:70},flags:['aoi_painting_done','aoi_artroom_done']},
+    lines:[
+      {type:'bgm',value:'starlight_waltz'},
+      {type:'narrative',text:'3年目の1月。初詣から帰る夜道で、空を見上げると満月が輝いていた。\n美術棟の窓に灯りが見えた。'},
+      {type:'sprite',char:'aoi',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……こんな時間に、どこに行ってたんですか。'},
+      {type:'dialogue',speaker:'日和',text:'初詣。蒼くんは？'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……月を描いていました。でも、どうしても足りないものがあって。'},
+      {type:'dialogue',speaker:'日和',text:'足りないもの？'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（静かに）……きみです。'},
+      {type:'choice',options:[
+        {text:'「……私が、必要なの？」',aff:{aoi:18},cg:'aoi_cg2',next:'fullmoon_aoi_a'},
+        {text:'「一緒に描いてもいいですか」',aff:{aoi:14},next:'fullmoon_aoi_b'}
+      ]}
+    ],
+    branches:{
+      fullmoon_aoi_a:[
+        {type:'cg',cgId:'aoi_cg2'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（長い間、満月を見て）……ぼくの絵の中に、ずっといてほしい。'},
+        {type:'protagonist_sprite',show:true},
+        {type:'dialogue',speaker:'日和',text:'……（胸が震える）……蒼くん。'},
+        {type:'narrative',text:'満月の光の中で、蒼がやっと自分の言葉で伝えてくれた。\n（好感度 ▲18  CG解放）'},
+        {type:'end',flag:'aoi_fullmoon_done',cg:'aoi_cg2'}
+      ],
+      fullmoon_aoi_b:[
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（少し考えて）……いいですよ。あなたが隣にいると、色が変わるから。'},
+        {type:'narrative',text:'夜中の美術室で、二人で月を描いた。\nその夜の色は、今まで見たことのない美しさだった。\n（好感度 ▲14）'},
+        {type:'end',flag:'aoi_fullmoon_done'}
+      ]
+    }
+  },
+
+  // ── 颯：静かな演奏会（2年2月）
+  { id:'hayate_concert2', char:'hayate', title:'静かな演奏会', bg:'school_music_room', bgColor:'#0a1018',
+    cg:'hayate_cg1', year:2, month:2, forced:false,
+    conditions:{affection:{hayate:40},stats:{music:180},flags:['hayate_music_done']},
+    lines:[
+      {type:'bgm',value:'heartbeat'},
+      {type:'narrative',text:'2年目のバレンタイン前日。\n颯先輩から「ちょっと来て」とメッセージが届いた。'},
+      {type:'sprite',char:'hayate',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'……来てくれたんだ。実は、新しい曲を練習してて。'},
+      {type:'dialogue',speaker:'日和',text:'聴かせてもらえるんですか？'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'最初の聴衆が君で良かったと思えたら、発表しようと思ってる。'},
+      {type:'narrative',text:'先輩がピアノの前に座った。\n音楽室に、静かで美しい音が満ちていった。\n——胸の奥が、じわじわと温かくなる。'},
+      {type:'choice',options:[
+        {text:'「……もう一度、聴かせてください」',aff:{hayate:15},cg:'hayate_cg1',next:'concert2_hayate_a'},
+        {text:'「……ありがとう。特別な気持ちになりました」',aff:{hayate:12},next:'concert2_hayate_b'}
+      ]}
+    ],
+    branches:{
+      concert2_hayate_a:[
+        {type:'cg',cgId:'hayate_cg1'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……（嬉しそうに微笑む）それ、最高の感想だよ。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'この曲、君のために作ったんだ。……まだ、名前がないけど。'},
+        {type:'narrative',text:'夜の音楽室で、先輩がそっと笑った。\n（好感度 ▲15  CG解放）'},
+        {type:'end',flag:'hayate_concert2_done',cg:'hayate_cg1'}
+      ],
+      concert2_hayate_b:[
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……そういう素直なところ、君らしいよ。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ。発表、することにするよ。'},
+        {type:'narrative',text:'穏やかな笑顔に、胸がどきっとした。\n（好感度 ▲12）'},
+        {type:'end',flag:'hayate_concert2_done'}
+      ]
+    }
+  },
+
+  // ── 海斗：最後の試合前夜（3年10月）
+  { id:'kaito_finals', char:'kaito', title:'最後の試合前夜', bg:'school_ground', bgColor:'#050e14',
+    cg:'kaito_cg2', year:3, month:10, forced:false,
+    conditions:{affection:{kaito:65},flags:['kaito_pro_done']},
+    lines:[
+      {type:'bgm',value:'melancholy'},
+      {type:'narrative',text:'3年目の秋。最後の県大会決勝前夜。\n暗くなったグラウンドで、海斗が一人ボールを蹴っていた。'},
+      {type:'sprite',char:'kaito',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'日和',text:'……海斗くん、まだいたの？'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……{playerName}か。（ボールを止めて）眠れなくて。'},
+      {type:'dialogue',speaker:'日和',text:'緊張してるの？'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'……うん。正直に言うと。\nこれが終わったら、俺の高校サッカーが終わる。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'スカウトが来てるのも知ってる。でも……怖いんだよな。失敗したら、って。'},
+      {type:'choice',options:[
+        {text:'「絶対大丈夫。私が見てるよ」',aff:{kaito:18},cg:'kaito_cg2',next:'finals_kaito_a'},
+        {text:'「怖くて当然だよ。それでも走れるんでしょ？」',aff:{kaito:15},next:'finals_kaito_b'}
+      ]}
+    ],
+    branches:{
+      finals_kaito_a:[
+        {type:'cg',cgId:'kaito_cg2'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……（長い間）……{playerName}。\n……好きだ。試合後に、ちゃんと言う。待ってて。'},
+        {type:'protagonist_sprite',show:true},
+        {type:'dialogue',speaker:'日和',text:'……うん。待ってるよ。'},
+        {type:'narrative',text:'夜のグラウンドに、二人の声だけが響いた。\n（好感度 ▲18  CG解放）'},
+        {type:'end',flag:'kaito_finals_done',cg:'kaito_cg2'}
+      ],
+      finals_kaito_b:[
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……（目を見開いて）……そう、だよな。'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'怖くても走るのが俺じゃんか。……ありがとう、{playerName}。'},
+        {type:'narrative',text:'海斗が、夜空に向かって深呼吸した。\n（好感度 ▲15）'},
+        {type:'end',flag:'kaito_finals_done'}
+      ]
+    }
+  },
+
+  // ── 共通：春の遠足（1年5月 強制）
+  { id:'school_picnic_event', char:null, title:'春の遠足', bg:'beach', bgColor:'#1a2830',
+    year:1, month:5, forced:true, conditions:{flags:['school_picnic']},
+    lines:[
+      {type:'bgm',value:'afternoon_walk'},
+      {type:'narrative',text:'春の遠足で、クラス全員が海岸公園へ。\n穏やかな潮風が気持ちいい日だった。'},
+      {type:'dialogue',speaker:'遥',text:'（遥の声）{playerName}ちゃーん！！一緒にお弁当食べよ！'},
+      {type:'dialogue',speaker:'日和',text:'（椎名さん……いつも元気だなあ）'},
+      {type:'choice',options:[
+        {text:'凛斗のグループに混じる',aff:{rinto:8},next:'picnic_rinto'},
+        {text:'壮馬の隣に座る',aff:{souma:8},next:'picnic_souma'},
+        {text:'海斗と走り回る',aff:{kaito:8},next:'picnic_kaito'},
+        {text:'蒼を探して一人の場所へ行く',aff:{aoi:8},next:'picnic_aoi'}
+      ]}
+    ],
+    branches:{
+      picnic_rinto:[
+        {type:'sprite',char:'rinto',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……来るなら座れ。（弁当を少し横にずらす）'},
+        {type:'narrative',text:'不器用な気遣いが、なんだかあたたかかった。\n（好感度 ▲8）'},
+        {type:'end',flag:'picnic_done'}
+      ],
+      picnic_souma:[
+        {type:'sprite',char:'souma',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、{playerName}！こっちの眺め、すごくいいんだよ。'},
+        {type:'narrative',text:'海を見ながら、壮馬と穏やかなお昼を過ごした。\n（好感度 ▲8）'},
+        {type:'end',flag:'picnic_done'}
+      ],
+      picnic_kaito:[
+        {type:'sprite',char:'kaito',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'おっ！！来た！！砂浜でミニサッカーするんだけど来る？！'},
+        {type:'narrative',text:'海斗と走り回って、遠足を全力で楽しんだ。\n（好感度 ▲8）'},
+        {type:'end',flag:'picnic_done'}
+      ],
+      picnic_aoi:[
+        {type:'sprite',char:'aoi',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（遠くで海を眺めている）……来るんですか。'},
+        {type:'dialogue',speaker:'日和',text:'一緒にいてもいいですか？'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（少し間）……別に、嫌いじゃないです。'},
+        {type:'narrative',text:'静かな場所で、二人で海を見た。\n（好感度 ▲8）'},
+        {type:'end',flag:'picnic_done'}
+      ]
+    }
+  },
+
+  // ── 共通：体育祭（1年6月 強制）
+  { id:'school_sports_event', char:null, title:'体育祭', bg:'school_ground', bgColor:'#1a2010',
+    year:1, month:6, forced:true, conditions:{flags:['school_sports_day']},
+    lines:[
+      {type:'bgm',value:'school_day'},
+      {type:'narrative',text:'晴れた6月の体育祭。\n熱気に包まれたグラウンドで、クラス全員が熱くなっていた。'},
+      {type:'dialogue',speaker:'日和',text:'（さあ、どの種目を頑張ろう……）'},
+      {type:'choice',options:[
+        {text:'リレーに出る（運動委員・海斗と同チーム）',aff:{kaito:10},next:'sports_kaito'},
+        {text:'応援団に参加（凛斗が仕切っている）',aff:{rinto:10},next:'sports_rinto'},
+        {text:'スケッチをする（蒼と一緒に）',aff:{aoi:10},next:'sports_aoi'},
+        {text:'準備係でテキパキ動く',aff:{souma:8,hayate:8},next:'sports_general'}
+      ]}
+    ],
+    branches:{
+      sports_kaito:[
+        {type:'sprite',char:'kaito',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'よし！！バトン絶対渡すから受け取ってくれよ！！'},
+        {type:'narrative',text:'息を切らしながらも、ゴールテープを切った。\n海斗が大喜びで抱きついてきた。\n（好感度 ▲10）'},
+        {type:'end',flag:'sports_done'}
+      ],
+      sports_rinto:[
+        {type:'sprite',char:'rinto',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……声量が足りない。もっとはっきり出せ。'},
+        {type:'dialogue',speaker:'日和',text:'はい！（精一杯声を出す）'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（少し口角を上げて）それでいい。'},
+        {type:'narrative',text:'厳しいけれど、認めてもらえた気がした。\n（好感度 ▲10）'},
+        {type:'end',flag:'sports_done'}
+      ],
+      sports_aoi:[
+        {type:'sprite',char:'aoi',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（絵を描きながら）体育祭より、この光の方が面白い。'},
+        {type:'dialogue',speaker:'日和',text:'私も……そう思う。スケッチしていい？'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……どうぞ。（少し嬉しそう）'},
+        {type:'narrative',text:'賑やかなグラウンドの隅で、二人で静かに絵を描いた。\n（好感度 ▲10）'},
+        {type:'end',flag:'sports_done'}
+      ],
+      sports_general:[
+        {type:'sprite',char:'souma',position:'left',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'{playerName}、手際いいね。助かるよ。'},
+        {type:'narrative',text:'皆のために動いた体育祭。\nあとでいろんな人にお礼を言われた。\n（壮馬・颯 好感度 各▲8）'},
+        {type:'end',flag:'sports_done'}
+      ]
+    }
+  },
+
+  // ── 共通：初詣（1年1月 強制）
+  { id:'school_hatsumode', char:null, title:'初詣の夜', bg:'protagonist_room', bgColor:'#05090f',
+    year:1, month:1, forced:true, conditions:{flags:['new_year']},
+    lines:[
+      {type:'bgm',value:'starlight_waltz'},
+      {type:'narrative',text:'新年。星丘神社の初詣へ行くと、思わぬ人と鉢合わせた。'},
+      {type:'choice',options:[
+        {text:'凛斗に声をかける',aff:{rinto:8},next:'hatsu_rinto'},
+        {text:'壮馬を見かける',aff:{souma:8},next:'hatsu_souma'},
+        {text:'海斗グループと合流',aff:{kaito:8},next:'hatsu_kaito'},
+        {text:'蒼が一人で来ていた',aff:{aoi:8},next:'hatsu_aoi'}
+      ]}
+    ],
+    branches:{
+      hatsu_rinto:[
+        {type:'sprite',char:'rinto',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……なぜここに。まあ、せっかくだからおみくじを引いてみろ。'},
+        {type:'dialogue',speaker:'日和',text:'大吉でした！'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（珍しく苦笑）俺は中吉だった。……悔しいな。'},
+        {type:'narrative',text:'ぽつりと漏らした言葉が、なんだか可愛かった。\n（好感度 ▲8）'},
+        {type:'end',flag:'hatsumode_done'}
+      ],
+      hatsu_souma:[
+        {type:'sprite',char:'souma',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'あ、{playerName}！今年もよろしくね。（照れて）'},
+        {type:'dialogue',speaker:'日和',text:'よろしく！壮馬くんは何をお願いしたの？'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……（うつむいて）内緒。'},
+        {type:'narrative',text:'新年の夜、並んで星を見た。\n（好感度 ▲8）'},
+        {type:'end',flag:'hatsumode_done'}
+      ],
+      hatsu_kaito:[
+        {type:'sprite',char:'kaito',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'あけおめ！！{playerName}も初詣！？一緒に屋台行こ！！'},
+        {type:'narrative',text:'海斗に引っ張られて屋台を全部まわった。\n楽しい元旦になった。\n（好感度 ▲8）'},
+        {type:'end',flag:'hatsumode_done'}
+      ],
+      hatsu_aoi:[
+        {type:'sprite',char:'aoi',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（静かにおみくじを見ている）……何が書いてあるか、聞きますか。'},
+        {type:'dialogue',speaker:'日和',text:'うん。'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……「思わぬ縁があなたを変える」（静かに微笑む）……きみかもしれない。'},
+        {type:'narrative',text:'新年の夜、蒼が珍しく笑った。\n（好感度 ▲8）'},
+        {type:'end',flag:'hatsumode_done'}
+      ]
+    }
+  },
+
+  // ── 共通：バレンタイン（1年2月 強制）
+  { id:'school_valentine', char:null, title:'バレンタイン', bg:'school_hallway', bgColor:'#1a0818',
+    year:1, month:2, forced:true, conditions:{flags:['valentine']},
+    lines:[
+      {type:'bgm',value:'heartbeat'},
+      {type:'narrative',text:'バレンタイン当日。\n放課後、誰かにチョコレートを渡すことにした。'},
+      {type:'dialogue',speaker:'日和',text:'（誰に渡そう……）'},
+      {type:'choice',options:[
+        {text:'凛斗へ義理チョコを渡す',aff:{rinto:12},next:'vday_rinto'},
+        {text:'壮馬へこっそり渡す',aff:{souma:12},next:'vday_souma'},
+        {text:'海斗へ元気よく渡す',aff:{kaito:12},next:'vday_kaito'},
+        {text:'蒼へそっと置いておく',aff:{aoi:12},next:'vday_aoi'},
+        {text:'颯先輩へ渡しに行く',aff:{hayate:12},next:'vday_hayate'}
+      ]}
+    ],
+    branches:{
+      vday_rinto:[
+        {type:'sprite',char:'rinto',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（表情が微妙に動く）……義理、か。'},
+        {type:'dialogue',speaker:'日和',text:'は、はい。一応……'},
+        {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……（静かに受け取って）ありがとう。大切に食べる。'},
+        {type:'narrative',text:'珍しく素直なお礼に、胸がどきっとした。\n（好感度 ▲12）'},
+        {type:'end',flag:'valentine_done'}
+      ],
+      vday_souma:[
+        {type:'sprite',char:'souma',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'え……っ（顔が赤くなって）……これ、本当に？'},
+        {type:'dialogue',speaker:'日和',text:'義理……だよ？'},
+        {type:'dialogue',speaker:'壮馬',char:'souma',text:'……（それでも嬉しそうに）……ありがとう。もったいなくて食べられないかも。'},
+        {type:'narrative',text:'幼なじみが照れてくれる姿が、可愛かった。\n（好感度 ▲12）'},
+        {type:'end',flag:'valentine_done'}
+      ],
+      vday_kaito:[
+        {type:'sprite',char:'kaito',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'えっ！！　マジ！？！？　俺に！？！？'},
+        {type:'dialogue',speaker:'日和',text:'うん、はい！'},
+        {type:'dialogue',speaker:'海斗',char:'kaito',text:'……（顔が真っ赤）……ありがとう……！！！うれしい……！！！'},
+        {type:'narrative',text:'海斗が珍しく照れた顔で受け取った。\n（好感度 ▲12）'},
+        {type:'end',flag:'valentine_done'}
+      ],
+      vday_aoi:[
+        {type:'sprite',char:'aoi',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（机の上に置かれた包みを見て）……これは。'},
+        {type:'dialogue',speaker:'日和',text:'バレンタインだから。受け取ってもらえたら、嬉しいな。'},
+        {type:'dialogue',speaker:'蒼',char:'aoi',text:'……（長い間）……絵の中に、描いてもいいですか。'},
+        {type:'narrative',text:'それが蒼の「ありがとう」だった。\n（好感度 ▲12）'},
+        {type:'end',flag:'valentine_done'}
+      ],
+      vday_hayate:[
+        {type:'sprite',char:'hayate',position:'center',expression:'default'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ。わざわざ来てくれたんだ。'},
+        {type:'dialogue',speaker:'日和',text:'先輩にどうしても渡したくて。'},
+        {type:'dialogue',speaker:'颯',char:'hayate',text:'……嬉しいよ、本当に。（少し照れて）来年も期待していいかな。'},
+        {type:'narrative',text:'先輩の穏やかな笑顔が、忘れられない。\n（好感度 ▲12）'},
+        {type:'end',flag:'valentine_done'}
+      ]
+    }
+  },
+
+  // ── サブキャラ：椎名 遥 ミニイベント（1年5月）
+  { id:'haruka_talk', char:null, title:'遥ちゃんのアドバイス', bg:'school_hallway', bgColor:'#1a1030',
+    year:1, month:5, forced:true, conditions:{flags:['school_picnic']},
+    lines:[
+      {type:'bgm',value:'school_day'},
+      {type:'narrative',text:'遠足の翌日。椎名 遥が隣の席でニヤニヤしていた。'},
+      {type:'dialogue',speaker:'遥',text:'ねえねえ{playerName}ちゃん！　昨日誰と仲良くしてたか、バレてるよ？'},
+      {type:'dialogue',speaker:'日和',text:'え、えっ！？'},
+      {type:'dialogue',speaker:'遥',text:'ふふふ。うちの学校、いい人多いでしょ？\nあ、あと黒崎先生が{playerName}ちゃんのこと気にかけてたよ。'},
+      {type:'dialogue',speaker:'日和',text:'そうなんだ。遥ちゃんって、情報通だね。'},
+      {type:'dialogue',speaker:'遥',text:'お役に立てて光栄です！\n——困ったことがあればなんでも聞いて！'},
+      {type:'narrative',text:'明るくて頼りになる親友ができた気がした。'},
+      {type:'end',flag:'haruka_first_done'}
+    ],
+    branches:{}
+  },
+
+  // ── サブキャラ：黒崎先生 ミニイベント（1年6月）
+  { id:'kurosaki_talk', char:null, title:'担任との面談', bg:'school_classroom', bgColor:'#10182a',
+    year:1, month:6, forced:true, conditions:{flags:['school_sports_day']},
+    lines:[
+      {type:'bgm',value:'school_day'},
+      {type:'narrative',text:'体育祭が終わった翌週。放課後、黒崎先生に呼ばれた。'},
+      {type:'dialogue',speaker:'黒崎',text:'月城。最近のお前の様子を見てきたが、随分馴染んできたな。'},
+      {type:'dialogue',speaker:'日和',text:'はい、ありがとうございます。'},
+      {type:'dialogue',speaker:'黒崎',text:'努力している姿は見えている。\nただ、勉強も大切だ。内申点に関わるから、試験対策はしっかりな。'},
+      {type:'dialogue',speaker:'日和',text:'はい、頑張ります。'},
+      {type:'dialogue',speaker:'黒崎',text:'……何か困ったことがあれば、いつでも来い。'},
+      {type:'narrative',text:'厳しいけれど、温かい先生だった。'},
+      {type:'end',flag:'kurosaki_first_done'}
+    ],
+    branches:{}
+  },
+
+  // ── サブキャラ：月城 晴子（お母さん） ミニイベント（1年8月）
+  { id:'haruko_summer', char:null, title:'お母さんからの言葉', bg:'protagonist_room', bgColor:'#0a1020',
+    year:1, month:8, forced:true, conditions:{flags:['summer_vacation']},
+    lines:[
+      {type:'bgm',value:'afternoon_walk'},
+      {type:'narrative',text:'夏休みのある日。台所からいい匂いがして、お母さんが声をかけてきた。'},
+      {type:'dialogue',speaker:'晴子',text:'日和ー！　ご飯できたよー。最近学校どう？'},
+      {type:'dialogue',speaker:'日和',text:'まあまあかな。友達もできてきたし。'},
+      {type:'dialogue',speaker:'晴子',text:'そっか！　よかった！\nあの、こんなこと言うのもなんだけど——好きな人とかできた？（にっこり）'},
+      {type:'choice',options:[
+        {text:'「……いるかも」と素直に答える',aff:{},next:'haruko_a'},
+        {text:'「まだわからない」とごまかす',aff:{},next:'haruko_b'}
+      ]}
+    ],
+    branches:{
+      haruko_a:[
+        {type:'dialogue',speaker:'晴子',text:'えっ！！！！だれだれだれ！！！！'},
+        {type:'dialogue',speaker:'日和',text:'お母さん落ち着いて！'},
+        {type:'dialogue',speaker:'晴子',text:'ごめんごめん……でも嬉しくて！　応援してるよ！'},
+        {type:'narrative',text:'お母さんのパワーに押されながら、なんだか元気が出た。'},
+        {type:'end',flag:'haruko_summer_done'}
+      ],
+      haruko_b:[
+        {type:'dialogue',speaker:'晴子',text:'そっかそっか。焦らなくていいよ。\nでも好きな人ができたら……こっそり教えてね。'},
+        {type:'dialogue',speaker:'日和',text:'（……うん）'},
+        {type:'narrative',text:'お母さんの温かさに、少し勇気が出た。'},
+        {type:'end',flag:'haruko_summer_done'}
+      ]
+    }
+  }
 ];
 
 const RANDOM_ENCOUNTERS = {
@@ -1770,10 +2383,10 @@ const RANDOM_ENCOUNTERS = {
     {text:'「体調は問題ないか。倒れられると困る。」',aff:3}
   ],
   souma:[
-    {text:'「あ、ひより。最近どう？　ごはん、ちゃんと食べてる？」',aff:4},
+    {text:'「あ、{playerName}。最近どう？　ごはん、ちゃんと食べてる？」',aff:4},
     {text:'「新しい本、入ったよ。読む？」',aff:3},
     {text:'「……なんか、疲れてる？　話ならいつでも聞くよ。」',aff:5},
-    {text:'「ひより……だんだん、うちの学校に馴染んできたね。良かった。」',aff:4}
+    {text:'「{playerName}……だんだん、うちの学校に馴染んできたね。良かった。」',aff:4}
   ],
   kaito:[
     {text:'「おーい！！　今日も元気？！　練習付き合ってくれない？！」',aff:4},
@@ -1792,6 +2405,29 @@ const RANDOM_ENCOUNTERS = {
     {text:'「今日の昼、音楽室で弾いてたんだけど、聴いてた？」',aff:3},
     {text:'「……それ、本気で言ってる？　（笑）冗談だよ。」',aff:4},
     {text:'「今度、一緒に星を見に行かない？　天文台、静かで良いよ。」',aff:6}
+  ],
+  yuzuki:[
+    {text:'「あら、{playerName}ちゃん。また頑張ってるの？　ご苦労さま♡」（意味深な笑み）',rivalAff:3},
+    {text:'「朝比奈くん、最近{playerName}ちゃんと話してるのね。面白いじゃない。」',rivalAff:2},
+    {text:'「{playerName}ちゃんって、意外と諦めないのね。嫌いじゃないわ。」',rivalAff:2},
+    {text:'「ねえ、桜井くんって{playerName}ちゃんの幼なじみなの？　へえ……。」',rivalAff:3}
+  ],
+  /* ── サブキャラ遭遇セリフ（立ち絵準備中） ── */
+  haruka:[
+    {text:'「{playerName}ちゃーん！　今日のお昼、一緒に食べよ！！」',aff:0,subChar:true},
+    {text:'「ねえ聞いて！　あのイケメン、{playerName}ちゃんのこと見てたよ！？」',aff:0,subChar:true},
+    {text:'「{playerName}ちゃんって最近輝いてるよね！？なにかあった？（キラキラ）」',aff:0,subChar:true},
+    {text:'「テスト勉強、一緒にしようよ！」',aff:0,subChar:true}
+  ],
+  haruko:[
+    {text:'（夕食の準備をしながら）「今日の学校、どうだった？」',aff:0,subChar:true},
+    {text:'「{playerName}、最近ちょっと大人っぽくなった気がするよ。お母さん嬉しい。」',aff:0,subChar:true},
+    {text:'「今日ね、パートで良いことがあってね〜。あ、ごはんできたよ！」',aff:0,subChar:true}
+  ],
+  kurosaki:[
+    {text:'（廊下で）「月城、最近授業で積極的だな。その調子だ。」',aff:0,subChar:true},
+    {text:'「月城。テストが近い。ちゃんと準備しているか？」',aff:0,subChar:true},
+    {text:'「……何か困ったことがあれば、職員室に来なさい。」',aff:0,subChar:true}
   ]
 };
 
@@ -1805,7 +2441,7 @@ const ENDINGS = {
   },
   souma:{
     happy:{title:'季節外れの桜',badge:'HAPPY END ★★★',bg:'school_library',cg:'souma_cg_happy',
-      text:'図書館の窓から、遅咲きの桜が見えた。\n\n「……ひより。ずっと、そばにいてほしい。ずっと前から、そう思ってた。」\n\n7年越しの言葉が、やっと届いた。\n幼なじみが、一番大切な人になった瞬間。',staffroll:true},
+      text:'図書館の窓から、遅咲きの桜が見えた。\n\n「……{playerName}。ずっと、そばにいてほしい。ずっと前から、そう思ってた。」\n\n7年越しの言葉が、やっと届いた。\n幼なじみが、一番大切な人になった瞬間。',staffroll:true},
     good:{title:'また明日',badge:'GOOD END ★★',bg:'school_library',text:'「また来てよ、いつでも待ってるから」\n変わらない笑顔で見送ってくれた。\nきっとまた、会える。'},
     normal:{title:'本の贈り物',badge:'NORMAL END ★',bg:'school_library',text:'最後に好きな本を一冊プレゼントしてくれた。\n表紙の裏に、小さな文字が書いてあった。「ありがとう」'},
     bad:{title:'変わらない距離',badge:'BAD END',bg:'school_library',text:'卒業式の日、壮馬は別の誰かの隣にいた。\n7年越しの再会は、そのまま終わった。'}
@@ -1864,7 +2500,7 @@ const PROLOGUE_SCRIPT = [
   {type:'bg',value:'school_hallway',bgColor:'#1a2030'},
   {type:'narrative',text:'昇降口を入ると、廊下がずっと奥まで続いている。\n朝の光が窓から差し込み、ほこりのない廊下を照らしていた。'},
   {type:'sprite',char:'souma',position:'center',expression:'default'},
-  {type:'dialogue',speaker:'壮馬',char:'souma',text:'……ひより？　月城 日和……？'},
+  {type:'dialogue',speaker:'壮馬',char:'souma',text:'……{playerName}？'},
   {type:'dialogue',speaker:'日和',text:'えっ……！　壮馬くん？！　壮馬くんもここの学校なの？！'},
   {type:'dialogue',speaker:'壮馬',char:'souma',text:'ふふ。驚いた？　僕も今朝知ったんだ。転入生の名前を見て。'},
   {type:'dialogue',speaker:'日和',text:'信じられない……小学校以来だから、もう7年ぶり？'},
@@ -1917,6 +2553,7 @@ const PROLOGUE_SCRIPT = [
   {type:'bg',value:'protagonist_room',bgColor:'#0a1020'},
   {type:'narrative',text:'その夜、自室の窓から星空を見上げた。\n転入初日に、こんなにたくさんの人に会えるなんて思っていなかった。'},
   {type:'dialogue',speaker:'日和',text:'（幼なじみの壮馬くん、生徒会長の凛斗くん、元気な海斗くん、\n不思議な蒼くん、音楽の颯先輩……）'},
+  {type:'protagonist_sprite',show:true},
   {type:'dialogue',speaker:'日和',text:'（ここでの3年間、どんな毎日になるんだろう）'},
   {type:'narrative',text:'満天の星が、静かに輝いていた。\n\n——ここから、あなたの物語が始まる。'},
   {type:'end',nextScreen:'command',flag:'met_all_characters'}
@@ -1973,29 +2610,52 @@ function applySettings() {
 }
 
 /* ══════════════════════════════════════════
-   BGM / SE — otome_sounds フォルダ
+   BGM / SE — BGMはファイル方式, SEはWeb Audio API合成
 ══════════════════════════════════════════ */
 let currentBgmAudio = null;
 let currentBgmId = null;
+let _bgmFadeTimer = null;
 
 function playBgm(id) {
   if (currentBgmId === id) return;
-  stopBgm();
   const exts = ['mp3','ogg','wav'];
-  function tryNext(i) {
-    if (i >= exts.length) return;
-    const a = new Audio(`otome_sounds/${id}.${exts[i]}`);
-    a.loop = true;
-    a.volume = SETTINGS.bgmVolume / 100;
-    a.play().then(()=>{
-      currentBgmAudio = a;
-      currentBgmId = id;
-    }).catch(()=>{ tryNext(i+1); });
+  const vol = SETTINGS.bgmVolume / 100;
+
+  function startNew() {
+    function tryNext(i) {
+      if (i >= exts.length) return; // ファイルが無ければ無音
+      const a = new Audio(`otome_sounds/${id}.${exts[i]}`);
+      a.loop = true;
+      a.volume = 0;
+      a.play().then(()=>{
+        currentBgmAudio = a;
+        currentBgmId = id;
+        // フェードイン
+        let step=0; const steps=20;
+        const fi=setInterval(()=>{ step++; a.volume=Math.min(vol,vol*step/steps); if(step>=steps)clearInterval(fi); },40);
+      }).catch(()=>{ tryNext(i+1); });
+    }
+    tryNext(0);
   }
-  tryNext(0);
+
+  // 旧BGMをフェードアウトしてから新BGMを開始
+  if (currentBgmAudio) {
+    clearInterval(_bgmFadeTimer);
+    const old = currentBgmAudio;
+    const startVol = old.volume;
+    let step = 0; const steps = 15;
+    _bgmFadeTimer = setInterval(()=>{
+      step++;
+      old.volume = Math.max(0, startVol*(1-step/steps));
+      if(step >= steps){ clearInterval(_bgmFadeTimer); old.pause(); currentBgmAudio=null; currentBgmId=null; startNew(); }
+    }, 40);
+  } else {
+    startNew();
+  }
 }
 
 function stopBgm() {
+  clearInterval(_bgmFadeTimer);
   if (currentBgmAudio) {
     currentBgmAudio.pause();
     currentBgmAudio.currentTime = 0;
@@ -2004,15 +2664,186 @@ function stopBgm() {
   currentBgmId = null;
 }
 
-function playSe(id) {
-  const exts = ['mp3','ogg','wav'];
-  function tryNext(i) {
-    if (i >= exts.length) return;
-    const a = new Audio(`otome_sounds/${id}.${exts[i]}`);
-    a.volume = SETTINGS.seVolume / 100;
-    a.play().catch(()=>{ tryNext(i+1); });
+/* ── BGMコンテキスト切替ヘルパー ── */
+function updateContextBgm(screenId) {
+  const bgmMap = {
+    title:   'title_theme',
+    name:    'title_theme',
+    command: 'school_day',
+    status:  'school_day',
+    'event-result': null, // イベント結果画面はBGM維持
+    date:    'heartbeat',
+    present: 'school_day',
+    album:   'title_theme',
+    save:    'school_day',
+    settings:'school_day',
+    ending:  null, // エンディング画面は専用処理
+    vn:      null  // VN内のbgm命令で制御
+  };
+  if (!(screenId in bgmMap)) return;
+  const target = bgmMap[screenId];
+  if (target) playBgm(target);
+  // nullのときはBGMを維持（切替なし）
+}
+
+/* ══════════════════════════════════════════
+   SE — Web Audio APIによるコード内合成
+   （ファイル不要・ブラウザだけで完結）
+══════════════════════════════════════════ */
+let _audioCtx = null;
+function _getCtx() {
+  if (!_audioCtx) {
+    try { _audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return null; }
   }
-  tryNext(0);
+  // スリープ復帰時などにsuspendされる場合がある
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+// 汎用オシレーター+エンベロープ
+function _synth({freq=440,freq2=null,type='sine',duration=0.12,attack=0.005,decay=0.05,vol=0.18,noise=false}={}) {
+  const ctx = _getCtx(); if(!ctx) return;
+  const masterGain = ctx.createGain();
+  masterGain.connect(ctx.destination);
+  masterGain.gain.setValueAtTime(0, ctx.currentTime);
+  masterGain.gain.linearRampToValueAtTime(vol, ctx.currentTime+attack);
+  masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+attack+decay);
+  setTimeout(()=>{ try{masterGain.disconnect();}catch(e){} }, (attack+decay)*1000+50);
+
+  function makeOsc(f) {
+    if(noise){
+      const bufLen=ctx.sampleRate*0.1;
+      const buf=ctx.createBuffer(1,bufLen,ctx.sampleRate);
+      const data=buf.getChannelData(0);
+      for(let i=0;i<bufLen;i++) data[i]=(Math.random()*2-1);
+      const src=ctx.createBufferSource();
+      src.buffer=buf;
+      src.connect(masterGain);
+      src.start(ctx.currentTime);
+      src.stop(ctx.currentTime+duration);
+      return;
+    }
+    const osc=ctx.createOscillator();
+    osc.type=type; osc.frequency.value=f;
+    osc.connect(masterGain);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime+duration);
+  }
+  makeOsc(freq);
+  if(freq2) makeOsc(freq2);
+}
+
+// シーケンス音（連続音）
+function _sequence(notes, interval=0.08, vol=0.15) {
+  const ctx=_getCtx(); if(!ctx) return;
+  notes.forEach((n,i)=>{
+    const t = ctx.currentTime + i*interval;
+    const osc=ctx.createOscillator();
+    const g=ctx.createGain();
+    osc.type='sine'; osc.frequency.value=n;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(vol,t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.001,t+interval*0.9);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t+interval);
+  });
+}
+
+// ベル系（きれいな倍音）
+function _bell(freq=880, dur=0.7, vol=0.2) {
+  const ctx=_getCtx(); if(!ctx) return;
+  [1,2,3,4].forEach((h,i)=>{
+    const osc=ctx.createOscillator();
+    const g=ctx.createGain();
+    const hv=vol/(i+1)*0.8;
+    osc.type='sine'; osc.frequency.value=freq*h;
+    g.gain.setValueAtTime(hv,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur*(1/(i+1)*1.5));
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+dur+0.1);
+  });
+}
+
+// 各SEの合成定義
+const SE_DEFS = {
+  // テキスト送り：ごく短いソフトクリック
+  text_advance: ()=>_synth({freq:900+Math.random()*200,type:'sine',duration:0.035,attack:0.003,decay:0.025,vol:0.06}),
+
+  // 選択肢出現：上昇する3音
+  choice_appear: ()=>_sequence([523,659,784],0.07,0.12),
+
+  // 選択肢クリック：クリック+確認音
+  choice_select: ()=>{
+    _synth({freq:660,type:'square',duration:0.06,attack:0.002,decay:0.04,vol:0.12});
+    setTimeout(()=>_synth({freq:880,type:'sine',duration:0.1,attack:0.003,decay:0.07,vol:0.1}),60);
+  },
+
+  // 好感度上昇：ハート音（2回の低い拍動）
+  heart: ()=>{
+    _synth({freq:180,freq2:90,type:'sine',duration:0.12,attack:0.01,decay:0.1,vol:0.18});
+    setTimeout(()=>_synth({freq:150,freq2:75,type:'sine',duration:0.18,attack:0.01,decay:0.15,vol:0.14}),180);
+  },
+
+  // イベント発生チャイム：美しいベル3音
+  event_chime: ()=>{
+    setTimeout(()=>_bell(880,0.8,0.16),0);
+    setTimeout(()=>_bell(1108,0.7,0.12),150);
+    setTimeout(()=>_bell(1320,0.9,0.1),300);
+  },
+
+  // ボム警告音：不穏な下降音
+  bomb_warning: ()=>{
+    _synth({freq:600,type:'sawtooth',duration:0.15,attack:0.01,decay:0.1,vol:0.18});
+    setTimeout(()=>_synth({freq:450,type:'sawtooth',duration:0.15,attack:0.01,decay:0.12,vol:0.18}),180);
+    setTimeout(()=>_synth({freq:300,type:'sawtooth',duration:0.2,attack:0.01,decay:0.18,vol:0.20}),360);
+  },
+
+  // ページめくり：ホワイトノイズ
+  page_turn: ()=>_synth({noise:true,duration:0.06,attack:0.002,decay:0.055,vol:0.09}),
+
+  // コマンド選択：短いクリック
+  command_select: ()=>_synth({freq:440,type:'triangle',duration:0.06,attack:0.003,decay:0.045,vol:0.12}),
+
+  // デートイベント：きらきら4音
+  date_event: ()=>{
+    _sequence([1047,1319,1568,2093],0.09,0.13);
+    setTimeout(()=>_bell(1760,0.5,0.1),400);
+  },
+
+  // プレゼント：3音上昇+ベル
+  present_give: ()=>{
+    _sequence([523,659,784],0.1,0.14);
+    setTimeout(()=>_bell(1046,0.6,0.12),350);
+  },
+
+  // セーブ完了：確認音
+  save_done: ()=>_sequence([784,880],0.1,0.14),
+
+  // ライバル遭遇：少し不穏なクリック
+  rival_encounter: ()=>{
+    _synth({freq:320,type:'sawtooth',duration:0.1,attack:0.005,decay:0.08,vol:0.13});
+    setTimeout(()=>_synth({freq:280,type:'sawtooth',duration:0.12,attack:0.005,decay:0.1,vol:0.10}),130);
+  },
+
+  // スタート/確定ボタン：クリア音
+  confirm: ()=>_sequence([659,784,880],0.07,0.13),
+
+  // キャンセル/戻る
+  cancel: ()=>_synth({freq:300,type:'triangle',duration:0.1,attack:0.005,decay:0.08,vol:0.10})
+};
+
+function playSe(id) {
+  if (id==='text_advance' && !SETTINGS.textSe) return;
+  const seVol = SETTINGS.seVolume / 100;
+  if (seVol <= 0) return;
+  try {
+    const fn = SE_DEFS[id];
+    if (fn) {
+      // ボリューム係数を一時設定（AudioContextはAPIが違うので関数内で係数調整済み）
+      fn();
+    }
+    // フォールバック：ファイルが用意されていれば再生を試みる
+  } catch(e) {}
 }
 
 /* ══════════════════════════════════════════
@@ -2126,6 +2957,8 @@ function showScreen(id, instant) {
   el.style.display='flex'; el.classList.add('active');
   if (instant) el.classList.add('fade-in');
   else requestAnimationFrame(()=>el.classList.add('fade-in'));
+  // BGMコンテキスト切替
+  updateContextBgm(id);
 }
 
 /* ══════════════════════════════════════════
@@ -2202,6 +3035,19 @@ function vnSetSprite(position, charId, expression) {
   const imgEl=document.getElementById('sprite-'+position+'-img');
   if (!imgEl) return;
   if (charId) {
+    // サブキャラクター（立ち絵なし）：プレースホルダーSVGを使用
+    if (SUB_CHARS[charId] && !SUB_CHARS[charId].spriteReady) {
+      const placeholder = getSubCharPortrait(charId);
+      const blob = new Blob([placeholder], {type:'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      imgEl.src = url;
+      imgEl.style.display = '';
+      imgEl.style.opacity = '0.6'; // プレースホルダーは少し薄く
+      imgEl.onerror = ()=>{ imgEl.style.display='none'; };
+      vnActiveSprites[position] = charId;
+      return;
+    }
+    imgEl.style.opacity = '';
     const src = getSpritePath(charId, expression);
     imgEl.src = src;
     imgEl.style.display = '';
@@ -2243,20 +3089,23 @@ function vnHighlightSprite(activeChar) {
 }
 
 let typewriterTimer=null;
+let _typingFullText=''; let _typingOnDone=null;
 function typewriterText(text, onDone) {
   const el=document.getElementById('vn-text');
   const arrow=document.getElementById('vn-next-arrow');
+  _typingFullText=text; _typingOnDone=onDone;
   arrow.style.opacity='0'; el.textContent=''; vnTyping=true;
   let i=0;
   const delay=TEXT_CHAR_MS[Math.max(0,Math.min(4,SETTINGS.textSpeed-1))];
   clearInterval(typewriterTimer);
-  if(vnSkip){el.textContent=text;vnTyping=false;arrow.style.opacity='1';if(onDone)onDone();return;}
+  if(vnSkip){el.textContent=text;vnTyping=false;arrow.style.opacity='1';_typingOnDone=null;if(onDone)onDone();return;}
   typewriterTimer=setInterval(()=>{
     if(i<text.length){
       el.textContent+=text[i]; i++;
       if(SETTINGS.textSe&&i%4===0) playSe('text_advance');
     } else {
       clearInterval(typewriterTimer); vnTyping=false; arrow.style.opacity='1';
+      _typingOnDone=null;
       if(onDone)onDone();
     }
   },delay);
@@ -2298,7 +3147,7 @@ function vnHideChoices() {
 }
 function vnSelectChoice(opt, idx) {
   vnHideChoices(); playSe('choice_select');
-  if(opt.aff){for(const[id,delta]of Object.entries(opt.aff)){applyAffChange(id,delta);if(delta>0)showToast(`💗 ${CHARS[id]?.nameShort||id} 好感度 +${delta}`,'heart');}}
+  if(opt.aff){for(const[id,delta]of Object.entries(opt.aff)){applyAffChange(id,delta);if(delta>0){showToast(`💗 ${CHARS[id]?.nameShort||id} 好感度 +${delta}`,'heart');playSe('heart');}}}
   if(opt.flag) GS.flags[opt.flag]=true;
   if(opt.cg) vnPendingCg=opt.cg;
   if(opt.next&&vnBranches&&vnBranches[opt.next]){vnScript=vnBranches[opt.next];vnIndex=0;vnAdvance();}
@@ -2336,14 +3185,43 @@ function vnPlayLine(line) {
   if(line.type==='narrative') {
     // 地の文：主人公立ち絵を非表示
     vnSetProtagonistSprite(false);
-    vnShowText('',line.text,null); return;
+    // 地の文は括弧内独白でも speaker を出さない
+    const _narText=line.text.replace(/\{playerName\}/g,GS.playerName);
+    const _el=document.getElementById('vn-text');
+    const _arrow=document.getElementById('vn-next-arrow');
+    _typingFullText=_narText; _typingOnDone=null;
+    document.getElementById('vn-namebox').style.display='none';
+    document.getElementById('vn-speaker').textContent='';
+    vnHighlightSprite(null);
+    _arrow.style.opacity='0'; _el.textContent=''; vnTyping=true;
+    let _ni=0;
+    const _delay=TEXT_CHAR_MS[Math.max(0,Math.min(4,SETTINGS.textSpeed-1))];
+    clearInterval(typewriterTimer);
+    if(vnSkip){_el.textContent=_narText;vnTyping=false;_arrow.style.opacity='1';
+      vnBacklog.push({speaker:'',text:_narText});
+      if(vnBacklog.length>50)vnBacklog.shift();
+      if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
+      return;
+    }
+    typewriterTimer=setInterval(()=>{
+      if(_ni<_narText.length){_el.textContent+=_narText[_ni];_ni++;
+        if(SETTINGS.textSe&&_ni%4===0)playSe('text_advance');
+      }else{
+        clearInterval(typewriterTimer);vnTyping=false;_arrow.style.opacity='1';
+        vnBacklog.push({speaker:'',text:_narText});
+        if(vnBacklog.length>50)vnBacklog.shift();
+        if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
+      }
+    },_delay);
+    return;
   }
+  if(line.type==='protagonist_sprite'){ vnSetProtagonistSprite(line.show!==false); vnAdvance(); return; }
   if(line.type==='dialogue') {
     let speaker=line.speaker;
     const isProtagonist = (speaker==='日和'||speaker===GS.playerName||speaker==='ひより');
     if(isProtagonist) speaker=GS.playerName;
-    // 主人公が話すとき立ち絵表示
-    if(isProtagonist) vnSetProtagonistSprite(true);
+    // 主人公立ち絵は line.showProtagonist===true のときのみ表示
+    if(line.showProtagonist===true) vnSetProtagonistSprite(true);
     else vnSetProtagonistSprite(false);
     vnShowText(speaker,line.text,line.char); return;
   }
@@ -2360,7 +3238,11 @@ function vnAdvance() {
   if(vnTyping){
     clearInterval(typewriterTimer);
     vnTyping=false;
+    // タップ時に全文を即時表示する
+    document.getElementById('vn-text').textContent=_typingFullText;
     document.getElementById('vn-next-arrow').style.opacity='1';
+    const _cb=_typingOnDone; _typingOnDone=null;
+    if(_cb)_cb();
     if(vnAutoPlay) vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]);
     return;
   }
@@ -2458,6 +3340,12 @@ function renderCommandScreen() {
   // フォールバック
   const avatar = document.getElementById('cmd-hero-avatar');
   if (avatar) avatar.setAttribute('data-name', GS.playerName[0]||'日');
+  // オートセーブ後の cmd hero テキストフォールバック更新
+  const heroFallbackEl = document.getElementById('cmd-hero-avatar');
+  if(heroFallbackEl) {
+    const existImg = heroFallbackEl.querySelector('img');
+    if(existImg && existImg.style.display==='none') heroFallbackEl.textContent = GS.playerName[0]||'日';
+  }
 
   const actLeft = getActionsMax() - GS.actionsUsed;
   const tired = GS.stats.stamina < 50;
@@ -2480,13 +3368,22 @@ function renderCommandScreen() {
     const rank=getAffRank(aff); const rivalAff=GS.affection.rival||0;
     const isBomb=rivalAff>aff&&aff>0;
     const div=document.createElement('div'); div.className='aff-char';
-    div.title=`${ch.name}：${rank.label} (${aff})`; div.onclick=()=>openStatusScreen();
+    div.title=`${ch.name}：${rank.label} (${aff})${isBomb?' ⚠ ライバルの好感度が上回っています':''}`; div.onclick=()=>openStatusScreen();
     div.innerHTML=`<div class="aff-icon ${isBomb?'bomb-warning':''}" style="background:${ch.color}">${ch.initial}${isBomb?'<span style="position:absolute;top:-3px;right:-3px;font-size:9px;">💣</span>':''}<span class="aff-heart-rank">${rank.emoji}</span></div><div class="aff-bar-wrap"><div class="aff-bar" style="width:${aff}%;background:${ch.accent}"></div></div><div class="aff-name">${ch.nameShort}</div><div class="aff-val">${aff}</div>`;
     affBar.appendChild(div);
   });
 
   renderCalendarBar();
   renderCommandGrid();
+  // ライバルステータス表示
+  const rivalStatus = document.getElementById('cmd-rival-status');
+  if(rivalStatus){
+    const hasAnyBomb = CHAR_ORDER.some(id=>{
+      const aff=GS.affection[id]||0;
+      return aff>0&&(GS.affection.rival||0)>aff;
+    });
+    rivalStatus.style.display = hasAnyBomb ? 'block' : 'none';
+  }
 }
 
 function renderCalendarBar() {
@@ -2531,7 +3428,7 @@ function executeCommand(cmd) {
   GS.stats.stamina=clampStat('stamina',GS.stats.stamina+(cmd.stamina||0));
   const changes=applyStatChange(cmd.effects||{});
 
-  // 遭遇チェック
+  // 遭遇チェック（メインキャラ + サブキャラ）
   let encounterChar=null;
   const encounterChances=cmd.encounter||{};
   const bonus=cmd.encounterBonus||0;
@@ -2541,7 +3438,17 @@ function executeCommand(cmd) {
   if(!encounterChar&&bonus>0&&Math.random()<bonus){
     encounterChar=CHAR_ORDER[Math.floor(Math.random()*CHAR_ORDER.length)];
   }
-  if(encounterChar) applyAffChange(encounterChar,3);
+  if(encounterChar){
+    if(encounterChar==='yuzuki'){
+      playSe('rival_encounter');
+      GS.affection.rival=clampAff((GS.affection.rival||0)+4);
+    } else if(SUB_CHARS[encounterChar]){
+      // サブキャラ遭遇（好感度には影響なし）
+    } else {
+      playSe('heart');
+      applyAffChange(encounterChar,3);
+    }
+  }
 
   // ライバル好感度じわじわ上昇
   if(Math.random()<0.15) GS.affection.rival=clampAff((GS.affection.rival||0)+2);
@@ -2549,7 +3456,15 @@ function executeCommand(cmd) {
   GS.actionsUsed++;
   playSe('command_select');
   autoSave();
-  showEventResultScreen(cmd,changes,encounterChar);
+  // コマンドVNシーン（行動後のミニイベント）
+  const cmdVnScript = getCommandVN(cmd, encounterChar);
+  if(cmdVnScript){
+    startVN(cmdVnScript, {}, cmdVnScript._bg||null, cmdVnScript._bgColor||'#0d0d1a',
+      ()=>{ showEventResultScreen(cmd,changes,encounterChar); },
+      cmd.label);
+  } else {
+    showEventResultScreen(cmd,changes,encounterChar);
+  }
 }
 
 function showEventResultScreen(cmd,changes,encounterChar) {
@@ -2574,9 +3489,22 @@ function showEventResultScreen(cmd,changes,encounterChar) {
     efEl.appendChild(pill);
   }
   const encEl=document.getElementById('er-encounter');
-  if(encounterChar&&CHARS[encounterChar]){
+  if(encounterChar&&(CHARS[encounterChar]||SUB_CHARS[encounterChar])){
     encEl.style.display='';
-    encEl.innerHTML=`💗 <span class="encounter-name">${CHARS[encounterChar].name}</span>と出会った！（好感度 +3）`;
+    const _encList=RANDOM_ENCOUNTERS[encounterChar];
+    let _encLine='';
+    if(_encList&&_encList.length>0){
+      const _e=_encList[Math.floor(Math.random()*_encList.length)];
+      if(_e.aff&&_e.aff>0){applyAffChange(encounterChar,_e.aff);}
+      if(_e.rivalAff){GS.affection.rival=clampAff((GS.affection.rival||0)+_e.rivalAff);}
+      _encLine='<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:0.4em;font-style:italic">'+
+        _e.text.replace(/\{playerName\}/g,GS.playerName)+'</div>';
+    }
+    const _isRival=(encounterChar==='yuzuki');
+    const _isSub=!!SUB_CHARS[encounterChar];
+    const _charInfo = CHARS[encounterChar]||SUB_CHARS[encounterChar];
+    const _subBadge = _isSub?'<span style="font-size:9px;color:rgba(255,255,255,0.4);margin-left:4px;">（立ち絵準備中）</span>':'';
+    encEl.innerHTML=`${_isRival?'⚠️':_isSub?'👤':'💗'} <span class="encounter-name">${_charInfo.name}</span>${_subBadge}に出会った！${_isRival?' ライバル好感度 +4':''}`+_encLine;
   } else encEl.style.display='none';
   showScreen('event-result');
 }
@@ -2591,6 +3519,167 @@ document.getElementById('screen-event-result').addEventListener('click',()=>{
   }
 });
 
+
+/* ══════════════════════════════════════════
+   COMMAND VN MINI SCENES
+   行動後の短いVNシーン（約30%確率）
+══════════════════════════════════════════ */
+const COMMAND_VN_POOL = {
+  study_library:[
+    { bg:'school_library', bgColor:'#1e2820', lines:[
+      {type:'narrative',text:'図書館の静寂の中、集中して本に向かった。'},
+      {type:'dialogue',speaker:'日和',text:'（知識が積み重なっていく感じがする）'}
+    ]},
+    { bg:'school_library', bgColor:'#1e2820', encounterReq:'souma', lines:[
+      {type:'sprite',char:'souma',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'勉強してるの？　その本、面白いよね。'},
+      {type:'dialogue',speaker:'日和',text:'壮馬くん、詳しいの？'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'うん。ここの棚、僕のおすすめだらけだから。'}
+    ]},
+    { bg:'school_library', bgColor:'#1e2820', encounterReq:'rinto', lines:[
+      {type:'sprite',char:'rinto',position:'right',expression:'default'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……また来たのか。感心だな。'},
+      {type:'dialogue',speaker:'日和',text:'凛斗くんも勉強ですか？'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……生徒会の資料だ。（少し間）集中してるなら邪魔しない。'}
+    ]}
+  ],
+  sports_club:[
+    { bg:'school_ground', bgColor:'#1a2a30', lines:[
+      {type:'narrative',text:'汗をかきながら体を動かした。\n練習が終わると、清々しい気分だった。'}
+    ]},
+    { bg:'school_ground', bgColor:'#1a2a30', encounterReq:'kaito', lines:[
+      {type:'sprite',char:'kaito',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'おっ、今日もやってるじゃん！　フォームよくなってきてるよ！'},
+      {type:'dialogue',speaker:'日和',text:'ほんと？　嬉しい！'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'続けることが大事！　一緒に頑張ろうぜ！！'}
+    ]}
+  ],
+  music_room:[
+    { bg:'school_music_room', bgColor:'#101820', lines:[
+      {type:'narrative',text:'音楽室のピアノに向かい、練習を重ねた。\n音が指先に馴染んでいく。'}
+    ]},
+    { bg:'school_music_room', bgColor:'#101820', encounterReq:'hayate', lines:[
+      {type:'sprite',char:'hayate',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'ふふ。今日は音が柔らかくなってきたね。'},
+      {type:'dialogue',speaker:'日和',text:'先輩、聴いてたんですか？'},
+      {type:'dialogue',speaker:'颯',char:'hayate',text:'廊下まで聞こえてたよ。……良くなってる、本当に。'}
+    ]}
+  ],
+  shopping:[
+    { bg:'school_art_room', bgColor:'#1a1030', encounterReq:'aoi', lines:[
+      {type:'sprite',char:'aoi',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'……その色の組み合わせ、好きです。'},
+      {type:'dialogue',speaker:'日和',text:'え、これ？　偶然なんだけど。'},
+      {type:'dialogue',speaker:'蒼',char:'aoi',text:'偶然の方が、面白い色が出る。……センスありますね。'}
+    ]},
+    { bg:'school_hallway', bgColor:'#1a1030', encounterReq:'yuzuki', lines:[
+      {type:'sprite',char:'yuzuki',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'柚希',char:'yuzuki',text:'あら、{playerName}ちゃん。その服、今日も可愛いわね。'},
+      {type:'dialogue',speaker:'日和',text:'……柚希さん、そんなこと言うんですね。'},
+      {type:'dialogue',speaker:'柚希',char:'yuzuki',text:'褒めてるの、本当よ。　侮らないでね♡'}
+    ]}
+  ],
+  observatory:[
+    { bg:'observatory_night', bgColor:'#050810', lines:[
+      {type:'narrative',text:'天文台の望遠鏡を覗くと、満天の星が広がっていた。\nここに来るたびに、自分が小さく感じる。'}
+    ]},
+    { bg:'observatory_night', bgColor:'#050810', encounterReq:'rinto', lines:[
+      {type:'sprite',char:'rinto',position:'right',expression:'default'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……また来たのか。'},
+      {type:'dialogue',speaker:'日和',text:'ここが好きで。凛斗くんも来てたんですね。'},
+      {type:'dialogue',speaker:'凛斗',char:'rinto',text:'……ここは、嘘をつかない場所だ。星は、見ている通りのものを見せてくれる。'}
+    ]}
+  ],
+  cooking:[
+    { bg:'school_hallway', bgColor:'#1a1810', lines:[
+      {type:'narrative',text:'料理教室で新しいレシピを学んだ。\n手際もだんだんよくなってきた気がする。'}
+    ]},
+    { bg:'school_hallway', bgColor:'#1a1810', encounterReq:'souma', lines:[
+      {type:'sprite',char:'souma',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'料理教室から良い匂いがしてた。　作ったもの、今度食べさせてよ。'},
+      {type:'dialogue',speaker:'日和',text:'恥ずかしいな……でも、うん、今度作ってくる。'},
+      {type:'dialogue',speaker:'壮馬',char:'souma',text:'……楽しみにしてる。（嬉しそうに）'}
+    ]}
+  ],
+  jogging:[
+    { bg:'beach', bgColor:'#1a2030', lines:[
+      {type:'narrative',text:'海岸沿いを走った。\n潮風が気持ちよく、体が軽くなる気がした。'}
+    ]},
+    { bg:'beach', bgColor:'#1a2030', encounterReq:'kaito', lines:[
+      {type:'sprite',char:'kaito',position:'center',expression:'default'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'おっ！！　{playerName}もここ走ってるの？！'},
+      {type:'dialogue',speaker:'日和',text:'うん、気持ちいいよね、海岸。'},
+      {type:'dialogue',speaker:'海斗',char:'kaito',text:'でしょ！！　ペース合わせるから一緒に行こ！！'}
+    ]}
+  ],
+  // ── サブキャラ遭遇VNミニシーン ──
+  study_home:[
+    { bg:'protagonist_room', bgColor:'#0a1020', lines:[
+      {type:'narrative',text:'自室で静かに勉強した。\n窓の外に星が見え、集中できた。'}
+    ]},
+    { bg:'school_hallway', bgColor:'#1a1030', encounterReq:'haruka', subChar:true, lines:[
+      {type:'dialogue',speaker:'遥',text:'（電話）{playerName}ちゃーん！　今どこ？　一緒に勉強する？'},
+      {type:'dialogue',speaker:'日和',text:'今日は家で頑張ってみるよ。'},
+      {type:'dialogue',speaker:'遥',text:'えー！　じゃあ頑張ってね！　応援してるよ！'}
+    ]},
+    { bg:'protagonist_room', bgColor:'#0a1020', encounterReq:'haruko', subChar:true, lines:[
+      {type:'dialogue',speaker:'晴子',text:'（ドアをノックして）{playerName}、紅茶持ってきたよ。頑張ってるの？'},
+      {type:'dialogue',speaker:'日和',text:'ありがとう、お母さん。'},
+      {type:'dialogue',speaker:'晴子',text:'えらいねえ。何かあったら呼んでね。（そっとドアを閉める）'}
+    ]}
+  ],
+  rest:[
+    { bg:'protagonist_room', bgColor:'#0a1020', lines:[
+      {type:'narrative',text:'ゆっくり休んだ。\n体の疲れが溶けていくような感覚だった。'}
+    ]},
+    { bg:'protagonist_room', bgColor:'#0a1020', encounterReq:'haruko', subChar:true, lines:[
+      {type:'dialogue',speaker:'晴子',text:'あら、今日は休んでるの？　いいことよ。'},
+      {type:'dialogue',speaker:'日和',text:'うん、ちょっと疲れたから。'},
+      {type:'dialogue',speaker:'晴子',text:'私の手料理で元気出してね！　今日はカレーにしようかな♪'}
+    ]}
+  ],
+  magazine:[
+    { bg:'school_hallway', bgColor:'#1a1030', lines:[
+      {type:'narrative',text:'新しい雑誌で最新のトレンドをチェックした。'}
+    ]},
+    { bg:'school_hallway', bgColor:'#1a1030', encounterReq:'haruka', subChar:true, lines:[
+      {type:'dialogue',speaker:'遥',text:'あっ！　その雑誌！　わたしも読んだ！'},
+      {type:'dialogue',speaker:'日和',text:'遥ちゃんもファッション好きなの？'},
+      {type:'dialogue',speaker:'遥',text:'大好き！　今度一緒に買い物行こ！！'}
+    ]}
+  ],
+  parttime:[
+    { bg:'school_hallway', bgColor:'#1a1818', lines:[
+      {type:'narrative',text:'アルバイトを頑張った。\n少し疲れたが、達成感があった。'}
+    ]},
+    { bg:'school_hallway', bgColor:'#1a1818', encounterReq:'kurosaki', subChar:true, lines:[
+      {type:'dialogue',speaker:'黒崎',text:'月城か。バイトと学業の両立、大変だろうが無理するなよ。'},
+      {type:'dialogue',speaker:'日和',text:'はい、気をつけます。'},
+      {type:'dialogue',speaker:'黒崎',text:'……（少し和らいで）頑張っている姿は、ちゃんと見えている。'}
+    ]}
+  ]
+};
+
+function getCommandVN(cmd, encounterChar) {
+  const pool = COMMAND_VN_POOL[cmd.id];
+  if(!pool || pool.length===0) return null;
+  // 30%の確率でVNを発火（サブキャラ遭遇時は少し上げる）
+  const triggerRate = (encounterChar && SUB_CHARS[encounterChar]) ? 0.45 : 0.30;
+  if(Math.random()>triggerRate) return null;
+  // 遭遇キャラが必要なシーンを優先、なければ汎用を選ぶ
+  let candidates = pool.filter(p=>!p.encounterReq);
+  if(encounterChar){
+    const specific = pool.filter(p=>p.encounterReq===encounterChar);
+    if(specific.length>0) candidates = specific;
+  }
+  if(candidates.length===0) return null;
+  const chosen = candidates[Math.floor(Math.random()*candidates.length)];
+  const script = [...chosen.lines, {type:'end'}];
+  script._bg = chosen.bg;
+  script._bgColor = chosen.bgColor;
+  return script;
+}
+
 /* ══════════════════════════════════════════
    WEEK ADVANCE
 ══════════════════════════════════════════ */
@@ -2599,14 +3688,62 @@ function checkWeeklyEvents() {
   if(GS.gameDate.week===4){
     const dateChars=CHAR_ORDER.filter(id=>(GS.affection[id]||0)>=40);
     if(dateChars.length>0){
-      // 最も好感度が高いキャラが誘ってくる
       const topChar=dateChars.sort((a,b)=>(GS.affection[b]||0)-(GS.affection[a]||0))[0];
       currentDateChar=topChar;
       openDateScreen(topChar);
       return;
     }
   }
+  // ボムチェック：ライバル好感度 > キャラ好感度 のとき警告VN
+  if(GS.gameDate.week===2 && Math.random()<0.25){
+    const bombedChar=CHAR_ORDER.find(id=>{
+      const aff=GS.affection[id]||0;
+      return aff>0 && (GS.affection.rival||0)>aff && !GS.flags['bomb_warn_'+id+'_'+GS.gameDate.month];
+    });
+    if(bombedChar){
+      GS.flags['bomb_warn_'+bombedChar+'_'+GS.gameDate.month]=true;
+      triggerBombWarning(bombedChar);
+      return;
+    }
+  }
   proceedToNextWeek();
+}
+
+function triggerBombWarning(charId) {
+  const ch=CHARS[charId];
+  const rivalAff=GS.affection.rival||0;
+  const charAff=GS.affection[charId]||0;
+  playSe('bomb_warning');
+  const warnScript=[
+    {type:'bgm',value:'rival_theme'},
+    {type:'bg',value:'school_hallway',bgColor:'#1a0818'},
+    {type:'sprite',char:'yuzuki',position:'center',expression:'default'},
+    {type:'narrative',text:`廊下で、${ch.name}と姫宮 柚希が話しているのを見かけた。\n……ライバルの影が、近づいている。`},
+    {type:'dialogue',speaker:'柚希',char:'yuzuki',text:`${ch.nameShort}くん、今週末って空いてる？　一緒に行きたいところがあって♡`},
+    {type:'dialogue',speaker:ch.nameShort,char:charId,text:'……（少し考える顔）'},
+    {type:'choice',options:[
+      {text:'割り込んで声をかける',aff:{[charId]:8},next:'bomb_warn_interrupt'},
+      {text:'見ないふりをする',aff:{[charId]:-3},next:'bomb_warn_ignore'}
+    ]}
+  ];
+  const warnBranches={
+    bomb_warn_interrupt:[
+      {type:'sprite',char:'yuzuki',position:'left',expression:'default'},
+      {type:'sprite',char:charId,position:'right',expression:'default'},
+      {type:'dialogue',speaker:'日和',text:`${ch.nameShort}くん！　ちょうどよかった、聞きたいことがあって。`},
+      {type:'dialogue',speaker:ch.nameShort,char:charId,text:'あ、{playerName}。（少し和らいだ顔）……なに？'},
+      {type:'dialogue',speaker:'柚希',char:'yuzuki',text:'……（{playerName}を見て微笑む）いいタイミングね。じゃあまたね、${ch.nameShort}くん♡'},
+      {type:'narrative',text:`柚希が去っていった。\n——間に合った。\n（${ch.nameShort} 好感度 ▲8）`},
+      {type:'end'}
+    ],
+    bomb_warn_ignore:[
+      {type:'sprite',char:'yuzuki',position:'left',expression:'default',hide:true},
+      {type:'sprite',char:charId,position:'right',expression:'default',hide:true},
+      {type:'narrative',text:'見ないふりをして立ち去った。\n胸の奥に、もやもやしたものが残った。'},
+      {type:'end'}
+    ]
+  };
+  startVN(warnScript,warnBranches,'school_hallway','#1a0818',()=>{proceedToNextWeek();},'ライバルの影');
 }
 
 function proceedToNextWeek() {
@@ -2625,8 +3762,18 @@ function proceedToNextWeek() {
     // カレンダーイベントのフラグ設定
     const cal=CALENDAR[GS.gameDate.month];
     if(cal) cal.flags.forEach(f=>{ GS.flags[f]=true; });
-    // ライバル好感度上昇
+    // ライバル好感度上昇（月替わりは少し強め）
     if(Math.random()<0.3) GS.affection.rival=clampAff((GS.affection.rival||0)+5);
+    // 月替わりのライバル行動フレーバー
+    const _rivalMsgs = {
+      6:'姫宮 柚希が体育祭で目立っていた……',
+      8:'夏休み、姫宮 柚希の近況が耳に入った。',
+      10:'学園祭で、姫宮 柚希の存在感が光っていた。',
+      2:'バレンタイン期間、姫宮 柚希が動いている気配がする。'
+    };
+    if(_rivalMsgs[GS.gameDate.month] && Math.random()<0.5){
+      setTimeout(()=>showToast(`⚠️ ${_rivalMsgs[GS.gameDate.month]}`,'warning',3500),3300);
+    }
   }
 
   autoSave();
@@ -2651,12 +3798,23 @@ function showMonthBanner() {
 }
 
 function checkCharEvents() {
-  // 強制イベントを優先
+  // 強制イベントを最優先（forced:true）
   for(const ev of CHAR_EVENTS){
-    if(GS.flags['event_'+ev.id]) continue; // 発生済み
+    if(!ev.forced) continue;
+    if(GS.flags['event_'+ev.id]) continue;
     if(ev.year!==GS.gameDate.year||ev.month!==GS.gameDate.month) continue;
     if(!checkEventConditions(ev)) continue;
     return ev;
+  }
+  // 任意イベント（forced:false, 週2以降に発火）
+  if(GS.gameDate.week>=2){
+    for(const ev of CHAR_EVENTS){
+      if(ev.forced) continue;
+      if(GS.flags['event_'+ev.id]) continue;
+      if(ev.year!==GS.gameDate.year||ev.month!==GS.gameDate.month) continue;
+      if(!checkEventConditions(ev)) continue;
+      return ev;
+    }
   }
   return null;
 }
@@ -2666,6 +3824,9 @@ function checkEventConditions(ev) {
   if(cond.flags) for(const f of cond.flags){if(!GS.flags[f])return false;}
   if(cond.affection) for(const[id,min]of Object.entries(cond.affection)){if((GS.affection[id]||0)<min)return false;}
   if(cond.stats) for(const[id,min]of Object.entries(cond.stats)){if((GS.stats[id]||0)<min)return false;}
+  // ボム条件: conditions.bomb = [charId, minCharAff]
+  // ライバル好感度 > キャラ好感度、かつキャラ好感度が最低値以上
+  if(cond.bomb){const[bChar,bMin]=cond.bomb;if((GS.affection.rival||0)<=(GS.affection[bChar]||0)||(GS.affection[bChar]||0)<bMin)return false;}
   return true;
 }
 
@@ -2717,6 +3878,7 @@ function goOnDate(charId, spot) {
   startVN(dateLine,{},spot.id,'#101828',()=>{proceedToNextWeek();},`${CHARS[charId].nameShort}とのデート`);
 }
 document.getElementById('date-skip-btn').onclick=()=>{
+  playSe('cancel');
   if(currentDateChar) applyAffChange(currentDateChar,-10);
   showToast('デートを断った……','warning');
   proceedToNextWeek();
@@ -2728,6 +3890,9 @@ document.getElementById('date-skip-btn').onclick=()=>{
 function openStatusScreen() {
   returnScreen='command';
   document.getElementById('status-header').textContent=`ステータス — ${GS.playerName}`;
+  // ライバル好感度を更新
+  const rivalAffDisplay = document.getElementById('rival-aff-display');
+  if(rivalAffDisplay){ rivalAffDisplay.textContent = `ライバル度 ${GS.affection.rival||0}`; }
   const paramsEl=document.getElementById('status-params'); paramsEl.innerHTML='';
   STATS_CONFIG.forEach(sc=>{
     const val=GS.stats[sc.id]||0; const pct=Math.min(100,val/sc.max*100);
@@ -2795,7 +3960,7 @@ function openCgViewer(cgId) {
   viewer.classList.add('open');
 }
 document.getElementById('album-viewer').onclick=()=>document.getElementById('album-viewer').classList.remove('open');
-document.getElementById('album-close-btn').onclick=()=>{showScreen('command');renderCommandScreen();};
+document.getElementById('album-close-btn').onclick=()=>{playSe('cancel');showScreen('command');renderCommandScreen();};
 
 /* ══════════════════════════════════════════
    PRESENT SYSTEM
@@ -2867,19 +4032,19 @@ function createSaveSlotEl(slot, data, isAuto) {
   if(data){
     div.innerHTML=`<div class="save-slot-thumb"><div style="font-size:20px;text-align:center">${data.flags?.met_all_characters?'📖':'🌸'}</div></div><div class="save-slot-info"><div class="save-slot-num">${isAuto?'オートセーブ':'スロット '+slot}</div><div class="save-slot-date-in-game">${data.gameDate?dateLabel(data.gameDate):'---'}</div><div class="save-slot-saved-at">${data.savedAt?new Date(data.savedAt).toLocaleString('ja-JP'):'---'}</div></div>`;
     div.onclick=()=>{
-      if(saveMode==='save'&&!isAuto){showModal('上書きしますか？',()=>{if(saveGame(slot)){showToast('💾 セーブしました');renderSaveSlots();}});}
+      if(saveMode==='save'&&!isAuto){showModal('上書きしますか？',()=>{if(saveGame(slot)){playSe('save_done');showToast('💾 セーブしました');renderSaveSlots();}});}
       else if(saveMode==='load'){showModal('このデータをロードしますか？',()=>{if(loadGame(slot)){loadSettings();showScreen('command');renderCommandScreen();showToast('📂 ロードしました');}});}
     };
   } else {
     div.innerHTML=`<div class="save-slot-thumb"></div><div class="save-slot-info"><div class="save-slot-num">${isAuto?'オートセーブ':'スロット '+slot}</div><div class="save-slot-empty">--- 空き ---</div></div>`;
-    if(saveMode==='save'&&!isAuto){div.onclick=()=>{if(saveGame(slot)){showToast('💾 セーブしました');renderSaveSlots();}};}
+    if(saveMode==='save'&&!isAuto){div.onclick=()=>{if(saveGame(slot)){playSe('save_done');showToast('💾 セーブしました');renderSaveSlots();}};}
   }
   return div;
 }
-document.getElementById('save-tab-save').onclick=()=>openSaveScreen('save');
-document.getElementById('save-tab-load').onclick=()=>openSaveScreen('load');
-document.getElementById('save-close-btn').onclick=()=>{showScreen(returnScreen);if(returnScreen==='command')renderCommandScreen();};
-document.getElementById('cmd-btn-save').onclick=()=>{returnScreen='command';openSaveScreen('save');};
+document.getElementById('save-tab-save').onclick=()=>{playSe('command_select');openSaveScreen('save');};
+document.getElementById('save-tab-load').onclick=()=>{playSe('command_select');openSaveScreen('load');};
+document.getElementById('save-close-btn').onclick=()=>{playSe('cancel');showScreen(returnScreen);if(returnScreen==='command')renderCommandScreen();};
+document.getElementById('cmd-btn-save').onclick=()=>{playSe('page_turn');returnScreen='command';openSaveScreen('save');};
 
 /* ══════════════════════════════════════════
    SETTINGS SCREEN
@@ -2918,9 +4083,9 @@ function initSettingsScreen() {
     });
   };
 }
-document.getElementById('cmd-btn-settings').onclick=()=>{returnScreen='command';showScreen('settings');};
-document.getElementById('btn-settings').onclick=()=>{returnScreen='title';showScreen('settings');};
-document.getElementById('settings-close-btn').onclick=()=>{showScreen(returnScreen);if(returnScreen==='command')renderCommandScreen();};
+document.getElementById('cmd-btn-settings').onclick=()=>{playSe('page_turn');returnScreen='command';showScreen('settings');};
+document.getElementById('btn-settings').onclick=()=>{playSe('page_turn');returnScreen='title';showScreen('settings');};
+document.getElementById('settings-close-btn').onclick=()=>{playSe('cancel');showScreen(returnScreen);if(returnScreen==='command')renderCommandScreen();};
 
 /* ══════════════════════════════════════════
    ENDING SYSTEM
@@ -3002,19 +4167,23 @@ document.getElementById('ending-to-title-btn').onclick=()=>{
    TITLE SCREEN BUTTONS
 ══════════════════════════════════════════ */
 document.getElementById('btn-new-game').onclick=()=>{
+  playSe('confirm');
   GS=INITIAL_STATE(); gameStartTime=Date.now();
   showScreen('name');
 };
 document.getElementById('btn-continue').onclick=()=>{
+  playSe('confirm');
   // セーブがあればそこから、なければタイトルに留まる
   const autoData=getSaveSlot('auto');
   if(autoData){openSaveScreen('load');}
   else{showToast('セーブデータがありません','warning');}
 };
 document.getElementById('btn-album').onclick=()=>{
+  playSe('page_turn');
   loadGlobalAlbum(); returnScreen='title'; openAlbumScreen();
 };
 document.getElementById('name-confirm-btn').onclick=()=>{
+  playSe('confirm');
   const input=document.getElementById('name-input').value.trim();
   const sanitized=input.replace(/[<>&"']/g,'').slice(0,8);
   GS.playerName=sanitized||'日和';
