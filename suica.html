@@ -1,693 +1,918 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suica Puzzle Pro</title>
-    <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <style>
-        :root { --app-height: 100%; }
-        html, body {
-            height: 100%; margin: 0; padding: 0; overflow: hidden;
-            background-color: #f5f5f7;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-        }
-        .glass-header {
-            background-color: rgba(255,255,255,0.7);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-        }
-
-        #board-wrapper {
-            perspective: 1500px;
-            display: flex; align-items: center; justify-content: center;
-            flex-grow: 1; padding: 1rem; min-height: 0;
-        }
-        
-        #board {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            aspect-ratio: 360 / 520;
-            background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
-            border: 8px solid #cbd5e1;
-            border-radius: 24px;
-            box-shadow: 
-                inset 0 0 30px rgba(0,0,0,0.05),
-                0 20px 40px rgba(0,0,0,0.1),
-                0 0 0 2px rgba(255,255,255,0.8);
-            overflow: hidden;
-        }
-
-        #game-canvas {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            touch-action: none; /* スマホのスワイプ防止 */
-            cursor: crosshair;
-        }
-
-        /* ━━━ スコアポップ ━━━ */
-        .score-pop { animation: score-pop 0.45s cubic-bezier(0.175,0.885,0.32,1.6) both; }
-        @keyframes score-pop {
-            0%   { transform: scale(1);    color: inherit; }
-            50%  { transform: scale(1.6);  color: #f59e0b; }
-            100% { transform: scale(1);    color: inherit; }
-        }
-
-        /* ━━━ トースト ━━━ */
-        .toast-pop { animation: toast-anim 2.5s cubic-bezier(0.175,0.885,0.32,1.2) forwards; }
-        @keyframes toast-anim {
-            0%   { transform:translate(-50%,-50%) scale(0.5); opacity:0; }
-            10%  { transform:translate(-50%,-50%) scale(1.05); opacity:1; }
-            20%  { transform:translate(-50%,-50%) scale(1);    opacity:1; }
-            80%  { transform:translate(-50%,-50%) scale(1);    opacity:1; }
-            100% { transform:translate(-50%,-50%) scale(0.8);  opacity:0; }
-        }
-
-        /* ━━━ コンフェティ ━━━ */
-        .confetti {
-            position: fixed; top: -30px;
-            z-index: 100; pointer-events: none;
-            animation: confetti-fall linear forwards;
-        }
-        @keyframes confetti-fall {
-            0%   { transform: translateY(0)     rotate(0deg)              scale(1);   opacity:1; }
-            85%  { opacity:1; }
-            100% { transform: translateY(115vh) rotate(var(--rot,720deg)) scale(0.7); opacity:0; }
-        }
-
-        /* ━━━ 勝利フラッシュ ━━━ */
-        .victory-flash {
-            position: fixed; inset: 0; pointer-events: none; z-index: 90;
-            animation: v-flash 0.8s ease-out forwards;
-        }
-        @keyframes v-flash {
-            0%   { background: rgba(255,255,255,0.8); }
-            100% { background: rgba(255,255,255,0); }
-        }
-        
-        .active-ring {
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>スイカゲーム DX | PlayWeb</title>
+<style>
+  :root{
+    --bg1:#0b1026; --bg2:#1b1140; --bg3:#3b1163;
+    --panel:rgba(255,255,255,.07); --panel2:rgba(255,255,255,.12);
+    --line:rgba(255,255,255,.16);
+    --txt:#f4f2ff; --sub:#b9b3d9; --accent:#ffb340; --accent2:#ff5d8f;
+    --good:#51e6a8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;
+    color:var(--txt);
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(255,93,143,.22), transparent 60%),
+      radial-gradient(900px 700px at -10% 110%, rgba(64,145,255,.20), transparent 60%),
+      linear-gradient(160deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    min-height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    padding:14px 10px 26px;
+    overflow-x:hidden;
+    user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+  header.top{
+    width:100%; max-width:1060px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:12px; flex-wrap:wrap;
+  }
+  .logo{display:flex; align-items:center; gap:10px}
+  .logo .mark{
+    width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:27px;
+    background:linear-gradient(145deg,#2fbf71,#147a45);
+    box-shadow:0 6px 18px rgba(23,180,100,.45), inset 0 2px 3px rgba(255,255,255,.5), inset 0 -6px 10px rgba(0,0,0,.25);
+  }
+  .logo h1{font-size:clamp(19px,4.4vw,27px); letter-spacing:.04em; font-weight:900;
+    background:linear-gradient(90deg,#fff,#ffd9a0 55%,#ff9ec2); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .logo small{display:block; font-size:11px; color:var(--sub); letter-spacing:.22em; font-weight:700}
+  .hbtns{display:flex; gap:8px}
+  button.btn{
+    appearance:none; border:1px solid var(--line); color:var(--txt); cursor:pointer;
+    background:var(--panel); backdrop-filter:blur(8px);
+    padding:9px 14px; border-radius:999px; font-size:13px; font-weight:800; letter-spacing:.05em;
+    transition:.15s; font-family:inherit;
+  }
+  button.btn:hover{background:var(--panel2); transform:translateY(-1px)}
+  button.btn:active{transform:translateY(1px) scale(.98)}
+  button.btn.primary{background:linear-gradient(135deg,#ffb340,#ff7a59); color:#33150a; border-color:transparent;
+    box-shadow:0 6px 16px rgba(255,140,60,.4)}
+  main.layout{
+    width:100%; max-width:1060px;
+    display:flex; gap:14px; align-items:flex-start; justify-content:center;
+  }
+  /* ---------- side panels ---------- */
+  .side{display:flex; flex-direction:column; gap:12px; width:218px; flex:0 0 218px}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    padding:13px 14px; backdrop-filter:blur(10px);
+    box-shadow:0 10px 30px rgba(0,0,0,.28);
+  }
+  .card h2{font-size:11px; letter-spacing:.24em; color:var(--sub); font-weight:900; margin-bottom:9px}
+  .score-num{font-size:34px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums;
+    background:linear-gradient(90deg,#fff,#ffe3ae); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .best-num{font-size:15px; font-weight:800; color:var(--accent); margin-top:5px; font-variant-numeric:tabular-nums}
+  .next-wrap{display:flex; align-items:center; gap:12px}
+  #nextCanvas{width:74px; height:74px; flex:0 0 74px}
+  .next-name{font-size:17px; font-weight:900}
+  .next-hint{font-size:11px; color:var(--sub); margin-top:3px; line-height:1.5}
+  /* evolution */
+  .evo-list{display:flex; flex-direction:column; gap:2px}
+  .evo-row{display:flex; align-items:center; gap:8px; padding:2.5px 6px; border-radius:9px; transition:.2s}
+  .evo-row .dot{
+    border-radius:50%; flex:0 0 auto;
+    box-shadow:inset -2px -3px 5px rgba(0,0,0,.35), inset 2px 3px 4px rgba(255,255,255,.45), 0 2px 4px rgba(0,0,0,.3);
+  }
+  .evo-row .nm{font-size:12.5px; font-weight:700; flex:1}
+  .evo-row .pt{font-size:10.5px; color:var(--sub); font-variant-numeric:tabular-nums}
+  .evo-row.flash{background:rgba(255,179,64,.25); transform:scale(1.04)}
+  .evo-arrow{color:var(--sub); font-size:9px; text-align:center; line-height:.6}
+  .howto{font-size:12px; line-height:1.75; color:#ddd8f5}
+  .howto b{color:var(--accent)}
+  /* ---------- stage ---------- */
+  .stage-col{display:flex; flex-direction:column; align-items:center; gap:10px; flex:0 1 auto}
+  .stage-shell{
+    position:relative; border-radius:22px; padding:10px;
+    background:linear-gradient(165deg, rgba(255,255,255,.13), rgba(255,255,255,.04));
+    border:1px solid var(--line);
+    box-shadow:0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  #game{display:block; border-radius:14px; touch-action:none; cursor:pointer;
+    width:min(92vw, 440px); height:auto;}
+  .overlay{
+    position:absolute; inset:10px; border-radius:14px; z-index:5;
+    background:rgba(8,6,24,.72); backdrop-filter:blur(6px);
+    display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:20px;
+  }
+  .overlay.show{display:flex}
+  .overlay .big{font-size:clamp(28px,7vw,42px); font-weight:900; letter-spacing:.05em}
+  .overlay .fin-score{font-size:19px; color:var(--accent); font-weight:900}
+  .overlay .new-rec{font-size:13px; color:var(--good); font-weight:900; letter-spacing:.15em; display:none}
+  .mobile-bar{display:none; width:100%; max-width:440px; gap:10px}
+  .mobile-bar .card{flex:1; padding:10px 12px}
+  .mobile-bar .score-num{font-size:24px}
+  footer{margin-top:16px; font-size:11px; color:var(--sub); letter-spacing:.12em}
+  @media (max-width:900px){
+    .side{display:none}
+    .mobile-bar{display:flex}
+    main.layout{gap:0}
+  }
+</style>
 </head>
-<body class="flex flex-col">
+<body>
 
-    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
-        <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
-            <i data-lucide="home" class="w-5 h-5"></i>
-            <span class="text-sm font-bold">ホーム</span>
-        </button>
-        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">Match Ready</div>
-        <div class="w-20"></div>
-    </header>
+<header class="top">
+  <div class="logo">
+    <div class="mark">🍉</div>
+    <div>
+      <h1>スイカゲーム DX</h1>
+      <small>PLAYWEB &nbsp;FRUIT MERGE PUZZLE</small>
+    </div>
+  </div>
+  <div class="hbtns">
+    <button class="btn" id="muteBtn" type="button">🔊 サウンド ON</button>
+    <button class="btn primary" id="restartBtn" type="button">↻ リスタート</button>
+  </div>
+</header>
 
-    <main class="flex-grow flex flex-col overflow-hidden max-w-2xl mx-auto w-full">
-        <!-- スコア ＆ ネクスト 表示部 -->
-        <div class="grid grid-cols-2 gap-4 px-6 pt-6 shrink-0">
-            <div class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-amber-400 shadow-lg border-2 border-white flex items-center justify-center text-white">
-                        <i data-lucide="star" class="w-5 h-5 fill-current"></i>
-                    </div>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Score</span>
-                </div>
-                <span id="score-val" class="text-2xl font-black text-zinc-800">0</span>
-            </div>
-            
-            <div id="ui-next" class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300 active-ring">
-                <div class="flex items-center gap-3">
-                    <div id="next-icon" class="w-10 h-10 rounded-full shadow-md border-2 border-white transition-all duration-300"></div>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Next</span>
-                </div>
-                <div class="flex flex-col items-end">
-                    <span id="next-name" class="text-sm font-bold text-zinc-700">-</span>
-                </div>
-            </div>
+<main class="layout">
+  <!-- LEFT -->
+  <aside class="side">
+    <div class="card">
+      <h2>SCORE</h2>
+      <div class="score-num" id="scoreNum">0</div>
+      <div class="best-num">🏆 ハイスコア <span id="bestNum">0</span></div>
+    </div>
+    <div class="card">
+      <h2>NEXT</h2>
+      <div class="next-wrap">
+        <canvas id="nextCanvas" width="148" height="148"></canvas>
+        <div>
+          <div class="next-name" id="nextName">さくらんぼ</div>
+          <div class="next-hint">つぎに落ちてくる<br>フルーツだよ</div>
         </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>HOW TO PLAY</h2>
+      <p class="howto">
+        動かして位置を決め、<b>クリック / 指を離して</b>落下。<br>
+        同じフルーツ同士がくっつくと<b>合体して進化！</b><br>
+        ラインを越えたままになるとゲームオーバー。<br>
+        目指せ、<b>すいか🍉</b>！
+      </p>
+    </div>
+  </aside>
 
-        <!-- 物理ゲームキャンバス -->
-        <div id="board-wrapper">
-            <div id="board">
-                <canvas id="game-canvas" width="360" height="520"></canvas>
-            </div>
-        </div>
+  <!-- STAGE -->
+  <div class="stage-col">
+    <div class="mobile-bar">
+      <div class="card">
+        <h2>SCORE</h2>
+        <div class="score-num" id="scoreNumM">0</div>
+      </div>
+      <div class="card">
+        <h2>BEST / NEXT</h2>
+        <div class="best-num" style="margin-top:0">🏆 <span id="bestNumM">0</span></div>
+        <div style="font-size:13px;font-weight:800;margin-top:4px">NEXT ▶ <span id="nextNameM">さくらんぼ</span></div>
+      </div>
+    </div>
 
-        <div class="px-6 pb-6 shrink-0">
-            <button onclick="resetGame()" class="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-black/20">
-                <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-                ゲームをリセット
-            </button>
-        </div>
-    </main>
+    <div class="stage-shell">
+      <canvas id="game" width="440" height="660"></canvas>
+      <div class="overlay" id="overOverlay">
+        <div style="font-size:52px">🍉</div>
+        <div class="big">ゲームオーバー</div>
+        <div class="new-rec" id="newRec">★ NEW RECORD ★</div>
+        <div class="fin-score">スコア <span id="finScore">0</span></div>
+        <button class="btn primary" id="againBtn" type="button" style="font-size:15px;padding:12px 26px">もう一度あそぶ</button>
+      </div>
+      <div class="overlay show" id="startOverlay">
+        <div style="font-size:52px">🍒</div>
+        <div class="big">スイカゲーム DX</div>
+        <p style="font-size:13.5px; line-height:1.8; color:#ddd8f5">
+          フルーツを落として合体させよう。<br>さくらんぼから育てて、すいかを作れば大成功！
+        </p>
+        <button class="btn primary" id="startBtn" type="button" style="font-size:15px;padding:12px 26px">▶ スタート</button>
+      </div>
+    </div>
+  </div>
 
-    <script>
+  <!-- RIGHT : evolution -->
+  <aside class="side">
+    <div class="card">
+      <h2>EVOLUTION しんか図鑑</h2>
+      <div class="evo-list" id="evoList"></div>
+    </div>
+  </aside>
+</main>
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      console.log('Service Worker registered!');
-    });
-  });
+<footer>© PlayWeb — Suica Game DX</footer>
+
+<script>
+"use strict";
+/* =========================================================
+   スイカゲーム DX — vanilla JS + Canvas 物理演算
+   ========================================================= */
+
+// ---------- 定数・フルーツ定義 ----------
+const W = 440, H = 660;              // 論理座標
+const WALL = 14;                     // 壁の厚み
+const FLOOR_H = 16;                  // 床
+const DROP_Y = 74;                   // 落下位置の高さ
+const LINE_Y = 118;                  // ゲームオーバーライン
+const GRAV = 2300;                   // 重力 px/s^2
+const DROP_COOL = 550;               // 落下クールダウン ms
+const OVER_TIME = 1600;              // ライン超過の確定時間 ms
+const HS_KEY = "suica_dx_highscore";
+
+// 進化チェーン: さくらんぼ→…→すいか
+const FRUITS = [
+  { name:"さくらんぼ", emoji:"🍒", r:16,  c1:"#ff8fa8", c2:"#e02050", dark:"#a31238" },
+  { name:"いちご",     emoji:"🍓", r:23,  c1:"#ff7d8a", c2:"#e83a4e", dark:"#b01e30" },
+  { name:"ぶどう",     emoji:"🍇", r:33,  c1:"#b48ce8", c2:"#7b3fc9", dark:"#4e2385" },
+  { name:"デコポン",   emoji:"🍊", r:43,  c1:"#ffc46b", c2:"#f08c1a", dark:"#b45f06" },
+  { name:"かき",       emoji:"🧡", r:53,  c1:"#ffab63", c2:"#ef6c1a", dark:"#b34a08" },
+  { name:"りんご",     emoji:"🍎", r:64,  c1:"#ff7a72", c2:"#d92432", dark:"#9c1220" },
+  { name:"なし",       emoji:"🍐", r:75,  c1:"#f2e7a1", c2:"#cfc25e", dark:"#96892f" },
+  { name:"もも",       emoji:"🍑", r:87,  c1:"#ffd3c2", c2:"#ff8fab", dark:"#d6577f" },
+  { name:"パイナップル", emoji:"🍍", r:99,  c1:"#ffe066", c2:"#f0a81c", dark:"#b97a08" },
+  { name:"メロン",     emoji:"🍈", r:113, c1:"#d8f0a8", c2:"#8fce62", dark:"#5da23c" },
+  { name:"すいか",     emoji:"🍉", r:128, c1:"#69d97a", c2:"#1f9e44", dark:"#0f6e2c" },
+];
+const MAXT = FRUITS.length - 1;
+const DROP_MAX_TIER = 4;             // 落下するのは かき まで
+const mergeScore = t => (t + 1) * (t + 2) / 2 * 10;  // 進化先tierで得点
+
+// ---------- 状態 ----------
+let fruits = [];        // {x,y,vx,vy,angle,va,tier,r,scale,scaleV,born,dead,seed}
+let particles = [];     // {x,y,vx,vy,life,maxLife,size,color}
+let popups = [];        // {x,y,vy,life,text,color,size}
+let score = 0;
+let best = +(localStorage.getItem(HS_KEY) || 0);
+let curTier = randTier(), nextTier = randTier();
+let dropX = W / 2;
+let lastDrop = 0;
+let overTimer = 0;
+let gameState = "ready";   // ready | play | over
+let combo = 0, comboTimer = 0;
+let shake = 0;
+let muted = false;
+let startTime = 0;
+
+function randTier(){
+  // 小さいものが出やすい重み付き
+  const weights = [34, 27, 19, 12, 8];
+  let sum = weights.reduce((a,b)=>a+b,0), v = Math.random()*sum;
+  for (let i=0;i<weights.length;i++){ v -= weights[i]; if (v<=0) return i; }
+  return 0;
 }
 
-        // --- 設定・定数 ---
-        const C_WIDTH = 360;
-        const C_HEIGHT = 520;
-        const DEAD_LINE = 100;
+// ---------- Canvas ----------
+const cv = document.getElementById("game");
+const ctx = cv.getContext("2d");
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+function fitCanvas(){
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+fitCanvas();
 
-        // フルーツの進化段階とパラメータ（色、サイズ、スコア）
-        const FRUITS = [
-            { name: 'チェリー', r: 14, gradient: ['#fca5a5', '#dc2626'], score: 1 },
-            { name: 'イチゴ',   r: 20, gradient: ['#f87171', '#b91c1c'], score: 3 },
-            { name: 'ブドウ',   r: 28, gradient: ['#c084fc', '#7e22ce'], score: 6 },
-            { name: 'デコポン', r: 38, gradient: ['#fb923c', '#c2410c'], score: 10 },
-            { name: '柿',       r: 48, gradient: ['#fbbf24', '#b45309'], score: 15 },
-            { name: 'リンゴ',   r: 58, gradient: ['#f87171', '#991b1b'], score: 21 },
-            { name: '梨',       r: 70, gradient: ['#fef9c3', '#ca8a04'], score: 28 },
-            { name: '桃',       r: 84, gradient: ['#fbcfe8', '#be185d'], score: 36 },
-            { name: 'パイン',   r: 100, gradient: ['#fde047', '#854d0e'], score: 45 },
-            { name: 'メロン',   r: 116, gradient: ['#bbf7d0', '#15803d'], score: 55 },
-            { name: 'スイカ',   r: 134, gradient: ['#4ade80', '#14532d'], score: 66 }
-        ];
+const nextCv = document.getElementById("nextCanvas");
+const nextCtx = nextCv.getContext("2d");
 
-        // --- 状態管理 ---
-        let gameActive = false;
-        let score = 0;
-        let prevScore = 0;
-        let nextFruitIndex = 0;
-        let canDrop = true;
-        let isTouching = false;
-        let dropX = C_WIDTH / 2;
-        let particles = [];
-        let pairsToMerge = [];
-        let gameOverTimer = 0;
+// ---------- DOM ----------
+const $ = id => document.getElementById(id);
+const scoreNum=$("scoreNum"), scoreNumM=$("scoreNumM");
+const bestNum=$("bestNum"), bestNumM=$("bestNumM");
+const nextName=$("nextName"), nextNameM=$("nextNameM");
 
-        // --- Matter.js モジュール ---
-        const { Engine, Composite, Bodies, Events } = Matter;
-        let engine;
+function refreshHUD(){
+  scoreNum.textContent = score.toLocaleString();
+  scoreNumM.textContent = score.toLocaleString();
+  bestNum.textContent = best.toLocaleString();
+  bestNumM.textContent = best.toLocaleString();
+  nextName.textContent = FRUITS[nextTier].name + " " + FRUITS[nextTier].emoji;
+  nextNameM.textContent = FRUITS[nextTier].name + " " + FRUITS[nextTier].emoji;
+  drawNext();
+}
+function drawNext(){
+  const c = nextCtx, S = 148;
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0,0,S,S);
+  const t = FRUITS[nextTier];
+  const r = Math.min(52, 20 + t.r * 0.42);
+  drawFruitShape(c, S/2, S/2, r, nextTier, 0, 1, 7);
+}
 
-        // --- 初期化 ---
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d', { alpha: false }); // 背景描画するためalpha:falseで最適化
+// 進化図鑑
+const evoRows = [];
+(function buildEvo(){
+  const list = $("evoList");
+  FRUITS.forEach((f,i)=>{
+    if (i>0){
+      const a=document.createElement("div"); a.className="evo-arrow"; a.textContent="▼"; list.appendChild(a);
+    }
+    const row=document.createElement("div"); row.className="evo-row";
+    const d=document.createElement("span"); d.className="dot";
+    const sz = 12 + i*2.1;
+    d.style.width=sz+"px"; d.style.height=sz+"px";
+    d.style.background=`radial-gradient(circle at 32% 28%, ${f.c1}, ${f.c2} 70%, ${f.dark})`;
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=f.emoji+" "+f.name;
+    const pt=document.createElement("span"); pt.className="pt";
+    pt.textContent = i<MAXT ? mergeScore(i+1)+"pt" : "完成！";
+    row.appendChild(d); row.appendChild(nm); row.appendChild(pt);
+    list.appendChild(row); evoRows.push(row);
+  });
+})();
+function flashEvo(tier){
+  const row = evoRows[tier]; if(!row) return;
+  row.classList.add("flash");
+  setTimeout(()=>row.classList.remove("flash"), 420);
+}
 
-        function init() {
-            lucide.createIcons();
-            
-            // エンジンのセットアップ
-            engine = Engine.create({
-                positionIterations: 8,
-                velocityIterations: 6
-            });
-            engine.world.gravity.y = 1.2;
+// ---------- WebAudio 効果音（簡易合成） ----------
+let AC = null;
+function audio(){
+  if (!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if (AC && AC.state === "suspended") AC.resume();
+  return AC;
+}
+function tone(freq, dur, type, vol, slideTo, delay){
+  if (muted) return;
+  const ac = audio(); if (!ac) return;
+  const t0 = ac.currentTime + (delay||0);
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type||"sine";
+  o.frequency.setValueAtTime(freq, t0);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0+dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol||0.16, t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g).connect(ac.destination);
+  o.start(t0); o.stop(t0+dur+0.05);
+}
+function sfxDrop(){ tone(300, .09, "sine", .10, 130); }
+function sfxMerge(tier){
+  const base = 340 + tier*55;
+  tone(base, .12, "triangle", .20);
+  tone(base*1.5, .16, "sine", .18, null, .05);
+  if (tier>=5) tone(base*2, .22, "sine", .14, null, .1);
+  if (tier===MAXT){ [523,659,784,1046].forEach((f,i)=>tone(f,.28,"triangle",.16,null,i*.07)); }
+}
+function sfxOver(){ [392,330,262,196].forEach((f,i)=>tone(f,.3,"sawtooth",.07,null,i*.16)); }
+function sfxClick(){ tone(660,.06,"sine",.08); }
 
-            setupEvents();
-            setupInput();
-            resetGame();
-            
-            // メインループ開始
-            requestAnimationFrame(gameLoop);
+// =========================================================
+//  フルーツ描画（グラデーション球体＋種類ごとの装飾）
+// =========================================================
+function drawFruitShape(c, x, y, r, tier, angle, scale, seed){
+  const f = FRUITS[tier];
+  const R = r * scale;
+  c.save();
+  c.translate(x, y);
+  c.rotate(angle);
+  // 影と本体
+  const g = c.createRadialGradient(-R*0.35, -R*0.4, R*0.15, 0, 0, R*1.05);
+  g.addColorStop(0, f.c1);
+  g.addColorStop(0.55, f.c2);
+  g.addColorStop(1, f.dark);
+  c.beginPath(); c.arc(0, 0, R, 0, Math.PI*2);
+  c.fillStyle = g; c.fill();
+  c.save();
+  c.clip();
+  // 種類別の模様
+  c.lineWidth = Math.max(1.4, R*0.045);
+  if (tier === 10){ // すいか: 縦ストライプ
+    c.strokeStyle = "rgba(8,80,30,.55)";
+    for (let i=-3;i<=3;i++){
+      c.beginPath();
+      c.moveTo(i*R*0.28, -R);
+      c.bezierCurveTo(i*R*0.42, -R*0.3, i*R*0.42, R*0.3, i*R*0.28, R);
+      c.stroke();
+    }
+  } else if (tier === 9){ // メロン: 網目
+    c.strokeStyle = "rgba(255,255,240,.5)";
+    c.lineWidth = Math.max(1, R*0.02);
+    for (let i=-4;i<=4;i++){
+      c.beginPath(); c.moveTo(i*R*0.25, -R); c.lineTo(i*R*0.25 + R*0.18, R); c.stroke();
+      c.beginPath(); c.moveTo(-R, i*R*0.25); c.lineTo(R, i*R*0.25 + R*0.18); c.stroke();
+    }
+  } else if (tier === 8){ // パイナップル: ダイヤ格子
+    c.strokeStyle = "rgba(160,95,5,.5)";
+    for (let i=-4;i<=4;i++){
+      c.beginPath(); c.moveTo(i*R*0.3 - R*0.5, -R); c.lineTo(i*R*0.3 + R*0.5, R); c.stroke();
+      c.beginPath(); c.moveTo(i*R*0.3 + R*0.5, -R); c.lineTo(i*R*0.3 - R*0.5, R); c.stroke();
+    }
+  } else if (tier === 2){ // ぶどう: 粒感
+    c.fillStyle = "rgba(255,255,255,.16)";
+    const offs = [[-.38,-.3],[.1,-.48],[.42,-.12],[-.12,.05],[-.5,.28],[.3,.35],[.02,.55],[-.3,-.62]];
+    offs.forEach(o=>{
+      c.beginPath(); c.arc(o[0]*R, o[1]*R, R*0.30, 0, Math.PI*2); c.fill();
+    });
+  } else if (tier === 1){ // いちご: 種
+    c.fillStyle = "rgba(255,240,200,.85)";
+    const offs = [[-.4,-.2],[0,-.42],[.4,-.18],[-.22,.12],[.24,.14],[-.45,.42],[0,.42],[.46,.44],[-.05,-.05]];
+    offs.forEach(o=>{
+      c.beginPath(); c.ellipse(o[0]*R, o[1]*R, R*0.045, R*0.075, 0, 0, Math.PI*2); c.fill();
+    });
+  } else if (tier === 6){ // なし: 斑点
+    c.fillStyle = "rgba(150,120,40,.35)";
+    for (let i=0;i<14;i++){
+      const a = seed*1.7 + i*2.4, d = ((seed*13 + i*37) % 70)/100;
+      c.beginPath(); c.arc(Math.cos(a)*R*d, Math.sin(a)*R*d, R*0.03, 0, Math.PI*2); c.fill();
+    }
+  } else if (tier === 7){ // もも: 縦の溝
+    c.strokeStyle = "rgba(214,87,127,.5)";
+    c.beginPath();
+    c.moveTo(0, -R*0.92);
+    c.bezierCurveTo(R*0.22, -R*0.3, R*0.22, R*0.3, 0, R*0.92);
+    c.stroke();
+  }
+  // 光沢ハイライト
+  const hl = c.createRadialGradient(-R*0.38, -R*0.45, 0, -R*0.38, -R*0.45, R*0.75);
+  hl.addColorStop(0, "rgba(255,255,255,.5)");
+  hl.addColorStop(0.5, "rgba(255,255,255,.10)");
+  hl.addColorStop(1, "rgba(255,255,255,0)");
+  c.fillStyle = hl;
+  c.fillRect(-R, -R, R*2, R*2);
+  // 下部の反射光
+  c.fillStyle = "rgba(255,255,255,.08)";
+  c.beginPath(); c.ellipse(0, R*0.62, R*0.62, R*0.3, 0, 0, Math.PI*2); c.fill();
+  c.restore();
+  // 輪郭
+  c.beginPath(); c.arc(0, 0, R, 0, Math.PI*2);
+  c.strokeStyle = "rgba(60,10,20,.28)"; c.lineWidth = Math.max(1, R*0.03); c.stroke();
+
+  // ---- へた・葉っぱ等のパーツ（球体の上）----
+  const leaf = (lx, ly, s, rot, col)=>{
+    c.save(); c.translate(lx, ly); c.rotate(rot);
+    c.beginPath();
+    c.moveTo(0,0);
+    c.quadraticCurveTo(s*0.9, -s*0.75, s*1.7, -s*0.15);
+    c.quadraticCurveTo(s*0.9, s*0.35, 0, 0);
+    c.fillStyle = col || "#3fae5a"; c.fill();
+    c.restore();
+  };
+  const stem = (h, col)=>{
+    c.beginPath();
+    c.moveTo(0, -R*0.92);
+    c.quadraticCurveTo(R*0.06, -R*0.92 - h*0.6, R*0.14, -R*0.92 - h);
+    c.strokeStyle = col || "#6b4423"; c.lineWidth = Math.max(1.6, R*0.055); c.lineCap="round"; c.stroke();
+  };
+  if (tier === 0){ stem(R*0.5); leaf(R*0.1, -R*1.28, R*0.42, -0.5); }
+  else if (tier === 1){ // いちご: ヘタ
+    c.fillStyle = "#3fae5a";
+    for (let i=0;i<5;i++){
+      const a = -Math.PI/2 + (i-2)*0.5;
+      c.beginPath();
+      c.ellipse(Math.cos(a)*R*0.34, -R*0.82 + Math.sin(a)*R*0.12, R*0.20, R*0.09, a, 0, Math.PI*2);
+      c.fill();
+    }
+  }
+  else if (tier === 2){ stem(R*0.34); leaf(R*0.08, -R*1.1, R*0.4, -0.4); }
+  else if (tier === 3){ // デコポン: 頭のこぶ
+    c.beginPath(); c.arc(0, -R*0.94, R*0.30, 0, Math.PI*2);
+    c.fillStyle = f.c2; c.fill();
+    c.beginPath(); c.arc(-R*0.08, -R*1.0, R*0.1, 0, Math.PI*2);
+    c.fillStyle = "rgba(255,255,255,.35)"; c.fill();
+    leaf(R*0.12, -R*1.12, R*0.34, -0.3);
+  }
+  else if (tier === 4){ // かき: 茶色いヘタ
+    c.save(); c.translate(0, -R*0.86); c.rotate(0.2);
+    c.fillStyle = "#7a4a21";
+    const s = R*0.34;
+    c.beginPath();
+    c.moveTo(-s, -s*0.4); c.lineTo(s, -s*0.4); c.lineTo(s*0.7, s*0.45); c.lineTo(-s*0.7, s*0.45); c.closePath(); c.fill();
+    c.restore();
+  }
+  else if (tier === 5){ stem(R*0.36); leaf(R*0.1, -R*1.06, R*0.4, -0.35); }
+  else if (tier === 6){ stem(R*0.3, "#8a6d2f"); }
+  else if (tier === 7){ leaf(-R*0.05, -R*0.95, R*0.36, -2.6); }
+  else if (tier === 8){ // パイナップル: 王冠の葉
+    c.fillStyle = "#2f9e4f";
+    for (let i=-2;i<=2;i++){
+      c.save(); c.translate(i*R*0.14, -R*0.9); c.rotate(i*0.34);
+      c.beginPath();
+      c.moveTo(-R*0.09, 0); c.lineTo(0, -R*0.52); c.lineTo(R*0.09, 0); c.closePath(); c.fill();
+      c.restore();
+    }
+  }
+  else if (tier === 9){ stem(R*0.26, "#7a9a4a"); }
+  else if (tier === 10){ stem(R*0.3, "#3d7a2a"); }
+
+  // 目（小さいフルーツだけ可愛く）
+  c.restore();
+}
+
+// =========================================================
+//  物理演算（円同士の衝突・反発・摩擦・回転）
+// =========================================================
+function makeFruit(x, y, tier){
+  const f = FRUITS[tier];
+  return {
+    x, y, vx:0, vy:0, angle: Math.random()*0.6-0.3, va:0,
+    tier, r: f.r, scale: 1, scaleV: 0,
+    born: performance.now(), dead:false,
+    seed: Math.random()*100
+  };
+}
+
+function stepPhysics(dt){
+  const sub = 4, sdt = dt / sub;
+  for (let s=0; s<sub; s++){
+    // 積分
+    for (const b of fruits){
+      b.vy += GRAV * sdt;
+      b.x += b.vx * sdt;
+      b.y += b.vy * sdt;
+      b.angle += b.va * sdt;
+      b.va *= (1 - 0.4*sdt);              // 角速度の減衰
+      // 壁
+      const left = WALL + b.r, right = W - WALL - b.r, fl = H - FLOOR_H - b.r;
+      if (b.x < left){ b.x = left; if (b.vx<0){ b.vx = -b.vx*0.25; b.va += b.vy*0.002; } }
+      if (b.x > right){ b.x = right; if (b.vx>0){ b.vx = -b.vx*0.25; b.va -= b.vy*0.002; } }
+      if (b.y > fl){
+        b.y = fl;
+        if (b.vy > 0){
+          b.vy = -b.vy*0.22;
+          if (Math.abs(b.vy) < 42) b.vy = 0;
         }
-
-        function resetGame() {
-            Composite.clear(engine.world);
-            Engine.clear(engine);
-            
-            // 壁の作成（見えないようにする）
-            const wallOptions = { isStatic: true, render: { visible: false }, friction: 0.5 };
-            const ground = Bodies.rectangle(C_WIDTH/2, C_HEIGHT + 20, C_WIDTH + 100, 40, wallOptions);
-            const leftWall = Bodies.rectangle(-20, C_HEIGHT/2, 40, C_HEIGHT + 100, wallOptions);
-            const rightWall = Bodies.rectangle(C_WIDTH + 20, C_HEIGHT/2, 40, C_HEIGHT + 100, wallOptions);
-            
-            Composite.add(engine.world, [ground, leftWall, rightWall]);
-
-            score = 0;
-            prevScore = 0;
-            updateScoreUI();
-            
-            gameActive = true;
-            canDrop = true;
-            isTouching = false;
-            particles = [];
-            pairsToMerge = [];
-            gameOverTimer = 0;
-            
-            setNextFruit();
-            updateStatus('READY');
-            
-            document.querySelectorAll('.confetti,.toast-pop,.victory-flash').forEach(e => e.remove());
+        // 床摩擦と転がり
+        b.vx *= (1 - 3.2*sdt);
+        const rollVa = b.vx / b.r;
+        b.va += (rollVa - b.va) * Math.min(1, 10*sdt);
+        if (Math.abs(b.vx) < 3) b.vx = 0;
+      }
+      if (b.y < b.r + 2){ b.y = b.r + 2; if (b.vy<0) b.vy = 0; }
+    }
+    // 円同士
+    for (let iter=0; iter<3; iter++){
+      for (let i=0;i<fruits.length;i++){
+        const a = fruits[i]; if (a.dead) continue;
+        for (let j=i+1;j<fruits.length;j++){
+          const b = fruits[j]; if (b.dead) continue;
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const minD = a.r + b.r;
+          const d2 = dx*dx + dy*dy;
+          if (d2 >= minD*minD || d2 === 0) continue;
+          const d = Math.sqrt(d2);
+          const nx = dx/d, ny = dy/d;
+          const overlap = minD - d;
+          const ma = a.r*a.r, mb = b.r*b.r, mt = ma+mb;
+          // 位置補正（質量=面積比）
+          a.x -= nx * overlap * (mb/mt); a.y -= ny * overlap * (mb/mt);
+          b.x += nx * overlap * (ma/mt); b.y += ny * overlap * (ma/mt);
+          // 速度インパルス
+          const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+          const vn = rvx*nx + rvy*ny;
+          if (vn < 0){
+            const e = 0.18;
+            const jimp = -(1+e)*vn;
+            a.vx -= nx * jimp * (mb/mt); a.vy -= ny * jimp * (mb/mt);
+            b.vx += nx * jimp * (ma/mt); b.vy += ny * jimp * (ma/mt);
+            // 接線摩擦 → 回転
+            const tx = -ny, ty = nx;
+            const vt = rvx*tx + rvy*ty;
+            const fimp = -vt * 0.12;
+            a.vx -= tx * fimp * (mb/mt); a.vy -= ty * fimp * (mb/mt);
+            b.vx += tx * fimp * (ma/mt); b.vy += ty * fimp * (ma/mt);
+            a.va -= vt / a.r * 0.012;
+            b.va += vt / b.r * 0.012;
+          }
         }
+      }
+    }
+    tryMerge();
+  }
+}
 
-        // --- 次のフルーツ設定 ---
-        function setNextFruit() {
-            // 初期はインデックス 0(チェリー) 〜 4(柿) までからランダム
-            nextFruitIndex = Math.floor(Math.random() * 5);
-            
-            const nextEl = document.getElementById('next-icon');
-            const nameEl = document.getElementById('next-name');
-            const f = FRUITS[nextFruitIndex];
-            
-            nextEl.style.background = `radial-gradient(circle at 30% 30%, ${f.gradient[0]}, ${f.gradient[1]})`;
-            nameEl.innerText = f.name;
-        }
+// ---------- 合体 ----------
+function tryMerge(){
+  const now = performance.now();
+  for (let i=0;i<fruits.length;i++){
+    const a = fruits[i];
+    if (a.dead || now - a.born < 90) continue;
+    for (let j=i+1;j<fruits.length;j++){
+      const b = fruits[j];
+      if (b.dead || b.tier !== a.tier || now - b.born < 90) continue;
+      const dx = b.x-a.x, dy = b.y-a.y, minD = a.r + b.r;
+      if (dx*dx + dy*dy < minD*minD*0.86){
+        doMerge(a, b);
+        return; // 1サブステップ1合体まで（安定化）
+      }
+    }
+  }
+}
+function doMerge(a, b){
+  a.dead = b.dead = true;
+  const tier = a.tier;
+  const mx = (a.x + b.x)/2, my = (a.y + b.y)/2;
+  // コンボ
+  combo = (performance.now() - comboTimer < 950) ? combo + 1 : 1;
+  comboTimer = performance.now();
 
-        // --- フルーツの生成 ---
-        function createFruit(x, y, index) {
-            const f = FRUITS[index];
-            const body = Bodies.circle(x, y, f.r, {
-                restitution: 0.25, // やや跳ねる
-                friction: 0.5,
-                density: 0.001 + (index * 0.0005), // 大きいほど重い
-                label: 'fruit'
-            });
-            body.fruitIndex = index;
-            // 落下直後はゲームオーバー判定を緩めるためのフラグ
-            body.spawnTime = Date.now(); 
-            return body;
-        }
+  if (tier === MAXT){
+    // すいか同士 → 消滅して大ボーナス
+    const pts = 3000 + combo*200;
+    addScore(pts, mx, my, "#7dff9a", 30);
+    burst(mx, my, 46, FRUITS[MAXT].c2, 320);
+    shake = Math.min(14, shake + 9);
+    sfxMerge(MAXT);
+    return;
+  }
+  const nt = tier + 1;
+  const nf = makeFruit(mx, my, nt);
+  nf.vx = (a.vx + b.vx)/2;
+  nf.vy = Math.min((a.vy + b.vy)/2, 40) - 60;   // 少し跳ねる
+  nf.va = (a.va + b.va)/2;
+  nf.scale = 1.38;                               // ポップ開始値
+  nf.scaleV = 0;
+  nf.born = performance.now() - 200;             // すぐ次合体できるように
+  fruits.push(nf);
 
-        // --- 入力制御 ---
-        function setupInput() {
-            canvas.addEventListener('pointerdown', (e) => {
-                if (!gameActive || !canDrop) return;
-                isTouching = true;
-                updateDropPos(e);
-            });
-            canvas.addEventListener('pointermove', (e) => {
-                if (isTouching) updateDropPos(e);
-            });
-            canvas.addEventListener('pointerup', (e) => {
-                if (!gameActive || !canDrop || !isTouching) return;
-                isTouching = false;
-                triggerDrop();
-            });
-            canvas.addEventListener('pointerleave', (e) => {
-                if (isTouching && gameActive && canDrop) {
-                    isTouching = false;
-                    triggerDrop();
-                }
-            });
-        }
+  const pts = mergeScore(nt) + (combo-1)*15;
+  addScore(pts, mx, my - nf.r*0.4, nt>=7 ? "#ffd34d" : "#ffffff", nt>=7 ? 25 : 19);
+  if (combo >= 2) addPopup(mx, my - nf.r - 16, combo + " コンボ!", "#ffb340", 17);
+  burst(mx, my, 12 + nt*3, FRUITS[nt].c2, 130 + nt*16);
+  if (nt >= 6) shake = Math.min(12, shake + nt - 3);
+  flashEvo(nt);
+  sfxMerge(nt);
+}
+function addScore(pts, x, y, color, size){
+  score += pts;
+  if (score > best){ best = score; localStorage.setItem(HS_KEY, String(best)); }
+  addPopup(x, y, "+" + pts, color, size);
+  refreshHUD();
+}
+function addPopup(x, y, text, color, size){
+  popups.push({ x, y, vy:-66, life:0.95, maxLife:0.95, text, color, size: size||18 });
+}
+function burst(x, y, n, color, speed){
+  for (let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, sp = (0.3 + Math.random()*0.7) * speed;
+    particles.push({
+      x, y,
+      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 60,
+      life: 0, maxLife: 0.45 + Math.random()*0.4,
+      size: 2 + Math.random()*4.5,
+      color: Math.random()<0.3 ? "#ffffff" : color
+    });
+  }
+}
 
-        function updateDropPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            let x = (e.clientX - rect.left) * scaleX;
-            
-            const r = FRUITS[nextFruitIndex].r;
-            // 壁にめり込まないように制限
-            dropX = Math.max(r + 5, Math.min(C_WIDTH - r - 5, x));
-        }
+// ---------- 落下 ----------
+function drop(){
+  if (gameState !== "play") return;
+  const now = performance.now();
+  if (now - lastDrop < DROP_COOL) return;
+  lastDrop = now;
+  const t = FRUITS[curTier];
+  const x = Math.max(WALL + t.r, Math.min(W - WALL - t.r, dropX));
+  const f = makeFruit(x, DROP_Y, curTier);
+  fruits.push(f);
+  burst(x, DROP_Y, 5, "#ffffff", 60);
+  sfxDrop();
+  curTier = nextTier;
+  nextTier = randTier();
+  refreshHUD();
+}
 
-        function triggerDrop() {
-            const newFruit = createFruit(dropX, 40, nextFruitIndex);
-            Composite.add(engine.world, newFruit);
-            
-            canDrop = false;
-            updateStatus('WAIT...');
-            document.getElementById('ui-next').classList.remove('active-ring');
-            document.getElementById('ui-next').classList.add('opacity-50');
+// ---------- ゲームオーバー判定 ----------
+function checkOver(dt){
+  let danger = false;
+  const now = performance.now();
+  for (const b of fruits){
+    if (now - b.born < 900) continue;
+    if (b.y - b.r < LINE_Y && Math.abs(b.vx) + Math.abs(b.vy) < 90){
+      danger = true; break;
+    }
+  }
+  overTimer = danger ? overTimer + dt*1000 : Math.max(0, overTimer - dt*1600);
+  if (overTimer >= OVER_TIME) gameOver();
+}
+function gameOver(){
+  gameState = "over";
+  sfxOver();
+  shake = 12;
+  const isRec = score >= best && score > 0;
+  $("finScore").textContent = score.toLocaleString();
+  $("newRec").style.display = isRec ? "block" : "none";
+  $("overOverlay").classList.add("show");
+  refreshHUD();
+}
 
-            setNextFruit();
+// ---------- リセット ----------
+function resetGame(){
+  fruits = []; particles = []; popups = [];
+  score = 0; combo = 0; overTimer = 0; shake = 0;
+  curTier = randTier(); nextTier = randTier();
+  lastDrop = 0;
+  startTime = performance.now();
+  refreshHUD();
+}
 
-            // クールダウン
-            setTimeout(() => {
-                if (gameActive) {
-                    canDrop = true;
-                    updateStatus('READY');
-                    document.getElementById('ui-next').classList.add('active-ring');
-                    document.getElementById('ui-next').classList.remove('opacity-50');
-                }
-            }, 1000);
-        }
+// =========================================================
+//  描画
+// =========================================================
+function draw(){
+  ctx.save();
+  ctx.clearRect(0,0,W,H);
+  if (shake > 0.2){
+    ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+    shake *= 0.88;
+  }
+  // 容器の背景
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0, "#241d4d");
+  bg.addColorStop(0.6, "#1a1440");
+  bg.addColorStop(1, "#120e30");
+  roundRect(ctx, 2, 2, W-4, H-4, 14); ctx.fillStyle = bg; ctx.fill();
+  // 背景のほのかなグリッド
+  ctx.strokeStyle = "rgba(255,255,255,.045)"; ctx.lineWidth = 1;
+  for (let gx = WALL; gx <= W-WALL; gx += 44){
+    ctx.beginPath(); ctx.moveTo(gx, LINE_Y+16); ctx.lineTo(gx, H-FLOOR_H); ctx.stroke();
+  }
+  // 壁と床
+  const wg = ctx.createLinearGradient(0,0,W,0);
+  wg.addColorStop(0,"#4a3f8f"); wg.addColorStop(0.5,"#6a5acd"); wg.addColorStop(1,"#4a3f8f");
+  ctx.fillStyle = "rgba(122,102,238,.85)";
+  roundRect(ctx, 0, 30, WALL, H-30, 6); ctx.fill();
+  roundRect(ctx, W-WALL, 30, WALL, H-30, 6); ctx.fill();
+  const fg = ctx.createLinearGradient(0,H-FLOOR_H,0,H);
+  fg.addColorStop(0,"#8a76ff"); fg.addColorStop(1,"#5a48c2");
+  roundRect(ctx, 0, H-FLOOR_H, W, FLOOR_H, 6); ctx.fillStyle = fg; ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.35)";
+  ctx.fillRect(WALL, H-FLOOR_H, W-WALL*2, 2);
 
-        // --- 物理イベント (衝突) ---
-        function setupEvents() {
-            Events.on(engine, 'collisionStart', (event) => {
-                event.pairs.forEach(pair => {
-                    const { bodyA, bodyB } = pair;
-                    
-                    // 両方フルーツで、同じ種類の場合
-                    if (bodyA.fruitIndex !== undefined && bodyB.fruitIndex !== undefined 
-                        && bodyA.fruitIndex === bodyB.fruitIndex) {
-                        
-                        // 重複してマージキューに入れないための制御
-                        if (!bodyA.isMerging && !bodyB.isMerging) {
-                            bodyA.isMerging = true;
-                            bodyB.isMerging = true;
-                            pairsToMerge.push({
-                                bodyA, bodyB, index: bodyA.fruitIndex
-                            });
-                        }
-                    }
-                });
-            });
-        }
+  // ゲームオーバーライン
+  const dangerRatio = Math.min(1, overTimer / OVER_TIME);
+  const blink = dangerRatio > 0 && (performance.now() % 400 < 220);
+  ctx.save();
+  ctx.setLineDash([9,7]);
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = blink ? "#ff4d5e" : `rgba(255,110,120,${0.45 + dangerRatio*0.5})`;
+  ctx.beginPath(); ctx.moveTo(WALL, LINE_Y); ctx.lineTo(W-WALL, LINE_Y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = blink ? "#ff4d5e" : "rgba(255,150,160,.75)";
+  ctx.font = "900 10px sans-serif"; ctx.textAlign = "right";
+  ctx.fillText("DANGER LINE", W-WALL-4, LINE_Y-6);
+  if (dangerRatio > 0){
+    ctx.fillStyle = "rgba(255,77,94,.9)";
+    ctx.fillRect(WALL, LINE_Y-3, (W-WALL*2)*dangerRatio, 3);
+  }
+  ctx.restore();
 
-        // --- マージ処理の実行 ---
-        function handleMerges() {
-            if (pairsToMerge.length === 0) return;
+  // 落下ガイド + 照準フルーツ
+  if (gameState === "play"){
+    const t = FRUITS[curTier];
+    const gx = Math.max(WALL + t.r, Math.min(W - WALL - t.r, dropX));
+    const coolOk = performance.now() - lastDrop >= DROP_COOL;
+    ctx.save();
+    ctx.setLineDash([4,9]);
+    ctx.strokeStyle = coolOk ? "rgba(255,255,255,.4)" : "rgba(255,255,255,.14)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(gx, DROP_Y + t.r + 4); ctx.lineTo(gx, H - FLOOR_H); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = coolOk ? 0.95 : 0.45;
+    drawFruitShape(ctx, gx, DROP_Y + Math.sin(performance.now()/300)*2.5, t.r, curTier, 0, 1, 3);
+    ctx.restore();
+    // 上部のレール
+    ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(WALL, 40); ctx.lineTo(W-WALL, 40); ctx.stroke();
+    ctx.beginPath(); ctx.arc(gx, 40, 6, 0, Math.PI*2);
+    ctx.fillStyle = "#ffb340"; ctx.fill();
+  }
 
-            pairsToMerge.forEach(pair => {
-                const { bodyA, bodyB, index } = pair;
-                
-                // すでに削除されていたらスキップ
-                if (!Composite.get(engine.world, bodyA.id, bodyA.type) || 
-                    !Composite.get(engine.world, bodyB.id, bodyB.type)) {
-                    return;
-                }
+  // フルーツ本体（下に落ちた影つき）
+  for (const b of fruits){
+    // 床影
+    const floorY = H - FLOOR_H;
+    const hRatio = Math.max(0, 1 - (floorY - (b.y + b.r)) / 420);
+    ctx.save();
+    ctx.fillStyle = `rgba(0,0,0,${0.26*hRatio})`;
+    ctx.beginPath();
+    ctx.ellipse(b.x, floorY - 3, b.r*0.85*Math.max(0.3,hRatio), b.r*0.16*Math.max(0.3,hRatio), 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    drawFruitShape(ctx, b.x, b.y, b.r, b.tier, b.angle, b.scale, b.seed);
+    // 進化直前の合体ヒント: 同種が近い時にうっすら光る
+  }
 
-                // 中間地点の計算
-                const midX = (bodyA.position.x + bodyB.position.x) / 2;
-                const midY = (bodyA.position.y + bodyB.position.y) / 2;
+  // パーティクル
+  for (const p of particles){
+    const k = 1 - p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, k);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (0.4 + 0.6*k), 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  // スコアポップアップ
+  for (const p of popups){
+    const k = p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, k*1.6);
+    ctx.font = `900 ${p.size}px "Hiragino Maru Gothic ProN", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(30,10,40,.65)";
+    ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.text, p.x, p.y);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function roundRect(c, x, y, w, h, r){
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.arcTo(x+w, y, x+w, y+h, r);
+  c.arcTo(x+w, y+h, x, y+h, r);
+  c.arcTo(x, y+h, x, y, r);
+  c.arcTo(x, y, x+w, y, r);
+  c.closePath();
+}
 
-                // 古いボディを削除
-                Composite.remove(engine.world, [bodyA, bodyB]);
+// =========================================================
+//  メインループ
+// =========================================================
+let prevT = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt = Math.min(0.033, (now - prevT)/1000);
+  prevT = now;
+  if (gameState === "play"){
+    stepPhysics(dt);
+    fruits = fruits.filter(b=>!b.dead);
+    checkOver(dt);
+    // ポップのバネ
+    for (const b of fruits){
+      const k = 180, d = 13;
+      b.scaleV += ((1 - b.scale) * k - b.scaleV * d) * dt;
+      b.scale += b.scaleV * dt;
+    }
+  }
+  // エフェクト更新
+  for (const p of particles){
+    p.life += dt;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += 500 * dt; p.vx *= (1 - 1.6*dt);
+  }
+  particles = particles.filter(p=>p.life < p.maxLife);
+  for (const p of popups){ p.life -= dt; p.y += p.vy * dt; p.vy *= (1-2.2*dt); }
+  popups = popups.filter(p=>p.life > 0);
+  draw();
+}
+requestAnimationFrame(loop);
 
-                const f = FRUITS[index];
-                
-                // エフェクト生成
-                spawnMergeEffect(midX, midY, f.gradient[0], f.r);
+// =========================================================
+//  入力
+// =========================================================
+function pointerX(ev){
+  const rect = cv.getBoundingClientRect();
+  const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX);
+  return (cx - rect.left) * (W / rect.width);
+}
+cv.addEventListener("pointermove", ev=>{ dropX = pointerX(ev); });
+cv.addEventListener("pointerdown", ev=>{
+  audio(); // ユーザー操作でAudioContextを解放
+  dropX = pointerX(ev);
+});
+cv.addEventListener("pointerup", ev=>{
+  dropX = pointerX(ev);
+  drop();
+});
+cv.addEventListener("touchmove", ev=>{ ev.preventDefault(); dropX = pointerX(ev); }, { passive:false });
+window.addEventListener("keydown", ev=>{
+  if (gameState !== "play") return;
+  if (ev.key === "ArrowLeft"){ dropX = Math.max(WALL+10, dropX - 22); }
+  else if (ev.key === "ArrowRight"){ dropX = Math.min(W-WALL-10, dropX + 22); }
+  else if (ev.key === " " || ev.key === "ArrowDown"){ ev.preventDefault(); drop(); }
+});
 
-                // 次の段階へ
-                if (index < FRUITS.length - 1) {
-                    const nextIndex = index + 1;
-                    const newFruit = createFruit(midX, midY, nextIndex);
-                    Composite.add(engine.world, newFruit);
-                    
-                    addScore(FRUITS[nextIndex].score);
-                    
-                    // スイカ（最大サイズ）ができた時の特別演出
-                    if (nextIndex === FRUITS.length - 1) {
-                        showToast('🍉 S U I C A !! 🍉');
-                        spawnConfetti('rainbow');
-                    }
-                } else {
-                    // スイカ同士がぶつかった場合（消滅してボーナス）
-                    addScore(100);
-                    showToast('PERFECT!');
-                    spawnMergeEffect(midX, midY, '#ffffff', 150);
-                }
-            });
-            pairsToMerge = [];
-        }
+// ---------- ボタン ----------
+$("startBtn").addEventListener("click", ()=>{
+  sfxClick(); audio();
+  $("startOverlay").classList.remove("show");
+  resetGame();
+  gameState = "play";
+});
+$("againBtn").addEventListener("click", ()=>{
+  sfxClick();
+  $("overOverlay").classList.remove("show");
+  resetGame();
+  gameState = "play";
+});
+$("restartBtn").addEventListener("click", ()=>{
+  sfxClick();
+  $("overOverlay").classList.remove("show");
+  $("startOverlay").classList.remove("show");
+  resetGame();
+  gameState = "play";
+});
+$("muteBtn").addEventListener("click", function(){
+  muted = !muted;
+  this.textContent = muted ? "🔇 サウンド OFF" : "🔊 サウンド ON";
+  if (!muted) sfxClick();
+});
 
-        // --- スコアとUI ---
-        function addScore(s) {
-            score += s;
-            updateScoreUI();
-            spawnTextEffect(dropX, 80, `+${s}`);
-        }
-
-        function updateScoreUI() {
-            const el = document.getElementById('score-val');
-            el.innerText = score;
-            if (score !== prevScore) {
-                el.classList.remove('score-pop');
-                void el.offsetWidth;
-                el.classList.add('score-pop');
-                prevScore = score;
-            }
-        }
-
-        function updateStatus(text) {
-            document.getElementById('status-text').innerText = text;
-        }
-
-        // --- ゲームオーバー判定 ---
-        function checkGameOver() {
-            if (!gameActive) return;
-
-            let isDanger = false;
-            const bodies = Composite.allBodies(engine.world);
-            
-            for (let body of bodies) {
-                if (body.fruitIndex !== undefined) {
-                    // 生成直後のものは除外（落下中だから）
-                    if (Date.now() - body.spawnTime < 1500) continue;
-
-                    // 一番上の端がデッドラインを超えているか
-                    if (body.position.y - body.circleRadius < DEAD_LINE) {
-                        // かつ、静止状態に近い場合（弾いている最中は許容）
-                        if (Math.abs(body.velocity.y) < 1.0 && Math.abs(body.velocity.x) < 1.0) {
-                            isDanger = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (isDanger) {
-                gameOverTimer++;
-                // 約2秒間（60fps × 2 = 120）ラインを超え続けたら
-                if (gameOverTimer > 120) {
-                    triggerGameOver();
-                }
-            } else {
-                gameOverTimer = 0;
-            }
-        }
-
-        function triggerGameOver() {
-            gameActive = false;
-            canDrop = false;
-            updateStatus('GAME OVER');
-            showToast('GAME OVER\nScore: ' + score);
-            
-            const flash = document.createElement('div');
-            flash.className = 'victory-flash';
-            document.body.appendChild(flash);
-
-            spawnConfetti('gameover');
-        }
-
-        // --- 描画・エフェクト関連 ---
-        function spawnMergeEffect(x, y, color, size) {
-            // 光の輪
-            particles.push({ type: 'ring', x, y, radius: size * 0.5, maxRadius: size * 1.8, color, alpha: 1 });
-            // スパーク
-            for(let i=0; i<8; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 6 + 2;
-                particles.push({
-                    type: 'spark', x, y,
-                    vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
-                    color, alpha: 1, size: Math.random()*5+3
-                });
-            }
-        }
-
-        function spawnTextEffect(x, y, text) {
-            particles.push({ type: 'text', x, y, text, alpha: 1, vy: -1.5 });
-        }
-
-        function updateAndDrawParticles() {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                if (p.type === 'ring') {
-                    p.radius += (p.maxRadius - p.radius) * 0.12;
-                    p.alpha -= 0.06;
-                    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
-                    
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
-                    ctx.strokeStyle = p.color;
-                    ctx.globalAlpha = p.alpha;
-                    ctx.lineWidth = 6;
-                    ctx.stroke();
-                    ctx.globalAlpha = 1.0;
-                } else if (p.type === 'spark') {
-                    p.x += p.vx; p.y += p.vy;
-                    p.vy += 0.25; // 重力
-                    p.alpha -= 0.04;
-                    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
-                    
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-                    ctx.fillStyle = p.color;
-                    ctx.globalAlpha = p.alpha;
-                    ctx.fill();
-                    ctx.globalAlpha = 1.0;
-                } else if (p.type === 'text') {
-                    p.y += p.vy;
-                    p.alpha -= 0.02;
-                    if (p.alpha <= 0) { particles.splice(i, 1); continue; }
-                    
-                    ctx.fillStyle = `rgba(245, 158, 11, ${p.alpha})`; // amber-500
-                    ctx.font = '900 24px "SF Pro Text", sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.shadowColor = 'rgba(255,255,255,0.8)';
-                    ctx.shadowBlur = 4;
-                    ctx.fillText(p.text, p.x, p.y);
-                    ctx.shadowBlur = 0;
-                }
-            }
-        }
-
-        // 可愛い顔を描画する
-        function drawFace(x, y, radius, angle) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-
-            const eyeOffset = radius * 0.35;
-            const eyeSize = Math.max(2, radius * 0.08);
-            
-            ctx.fillStyle = '#1f2937'; // 濃いグレー
-            // 目
-            ctx.beginPath(); ctx.arc(-eyeOffset, -radius*0.1, eyeSize, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(eyeOffset, -radius*0.1, eyeSize, 0, Math.PI*2); ctx.fill();
-            
-            // ほっぺ
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; // 赤
-            ctx.beginPath(); ctx.arc(-eyeOffset*1.3, radius*0.15, eyeSize*1.5, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(eyeOffset*1.3, radius*0.15, eyeSize*1.5, 0, Math.PI*2); ctx.fill();
-            
-            // 口
-            ctx.strokeStyle = '#1f2937';
-            ctx.lineWidth = Math.max(1.5, radius * 0.05);
-            ctx.beginPath();
-            ctx.arc(0, radius*0.1, eyeSize*1.5, 0.2, Math.PI-0.2);
-            ctx.stroke();
-
-            ctx.restore();
-        }
-
-        // --- メインレンダーループ ---
-        function gameLoop() {
-            // 物理エンジンの更新 (60fps固定ステップ)
-            Engine.update(engine, 1000 / 60);
-            
-            handleMerges();
-            checkGameOver();
-
-            // 背景塗りつぶし
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(0, 0, C_WIDTH, C_HEIGHT);
-
-            // デッドライン（警告線）の描画
-            ctx.beginPath();
-            ctx.moveTo(0, DEAD_LINE);
-            ctx.lineTo(C_WIDTH, DEAD_LINE);
-            // ピンチ時は赤く点滅
-            const isDanger = gameOverTimer > 0;
-            ctx.strokeStyle = isDanger ? `rgba(239, 68, 68, ${0.4 + Math.sin(Date.now() / 80) * 0.4})` : 'rgba(203, 213, 225, 0.6)';
-            ctx.setLineDash([8, 8]);
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // ボディ（フルーツ）の描画
-            const bodies = Composite.allBodies(engine.world);
-            for (let body of bodies) {
-                if (body.fruitIndex !== undefined) {
-                    const f = FRUITS[body.fruitIndex];
-                    const r = body.circleRadius;
-                    
-                    ctx.save();
-                    ctx.translate(body.position.x, body.position.y);
-                    ctx.rotate(body.angle);
-                    
-                    // 立体的なグラデーション
-                    const grad = ctx.createRadialGradient(-r*0.3, -r*0.3, r*0.1, 0, 0, r);
-                    grad.addColorStop(0, f.gradient[0]);
-                    grad.addColorStop(1, f.gradient[1]);
-                    
-                    ctx.beginPath();
-                    ctx.arc(0, 0, r, 0, Math.PI*2);
-                    ctx.fillStyle = grad;
-                    ctx.fill();
-                    
-                    // ハイライト（輪郭）
-                    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-                    ctx.lineWidth = Math.max(1, r*0.05);
-                    ctx.stroke();
-                    ctx.restore();
-
-                    // 顔を描画（回転を適用）
-                    drawFace(body.position.x, body.position.y, r, body.angle);
-                }
-            }
-
-            // プレビューの描画
-            if (gameActive && (canDrop || isTouching)) {
-                const f = FRUITS[nextFruitIndex];
-                ctx.globalAlpha = canDrop ? 0.7 : 0.3;
-                
-                // 落下予測線
-                ctx.beginPath();
-                ctx.moveTo(dropX, 40 + f.r);
-                ctx.lineTo(dropX, C_HEIGHT);
-                ctx.strokeStyle = f.gradient[0];
-                ctx.setLineDash([4, 6]);
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                // プレビュー本体
-                const grad = ctx.createRadialGradient(dropX - f.r*0.3, 40 - f.r*0.3, f.r*0.1, dropX, 40, f.r);
-                grad.addColorStop(0, f.gradient[0]);
-                grad.addColorStop(1, f.gradient[1]);
-                
-                ctx.beginPath();
-                ctx.arc(dropX, 40, f.r, 0, Math.PI*2);
-                ctx.fillStyle = grad;
-                ctx.fill();
-                
-                drawFace(dropX, 40, f.r, 0);
-
-                ctx.globalAlpha = 1.0;
-            }
-
-            // パーティクルの描画
-            updateAndDrawParticles();
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // --- 汎用演出 ---
-        function showToast(m) {
-            const t = document.createElement('div');
-            t.className = 'toast-pop fixed top-1/2 left-1/2 bg-zinc-900/95 text-white px-8 py-5 rounded-3xl font-black z-50 text-center whitespace-pre-line shadow-2xl';
-            t.innerText = m;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 2500);
-        }
-
-        function spawnConfetti(type) {
-            const palettes = {
-                rainbow: ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899'],
-                gameover: ['#1f2937','#4b5563','#9ca3af','#ef4444']
-            };
-            const colors = palettes[type] || palettes.rainbow;
-            
-            for (let i = 0; i < 80; i++) {
-                const el = document.createElement('div');
-                el.className = 'confetti';
-                el.style.left = (Math.random() * 105) + 'vw';
-                el.style.top  = (-10 - Math.random() * 50) + 'px';
-                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                el.style.animationDuration = (2 + Math.random() * 3) + 's';
-                el.style.animationDelay   = (Math.random() * 0.5) + 's';
-                el.style.setProperty('--rot', (Math.random() * 1440 - 720) + 'deg');
-                
-                const d = 6 + Math.random() * 10;
-                el.style.width = d+'px'; 
-                el.style.height = d+'px'; 
-                el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-                
-                document.body.appendChild(el);
-                setTimeout(() => el.remove(), 5500);
-            }
-        }
-
-        // 起動
-        window.onload = init;
-    </script>
+refreshHUD();
+</script>
 </body>
 </html>

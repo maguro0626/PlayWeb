@@ -1,447 +1,198 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlayWeb</title>
-    <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
-        .glass-header {
-            background-color: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-        }
-        .fade-in {
-            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlayWeb | 無料ブラウザゲーム集</title>
+<meta name="description" content="テトリス・スイカゲーム・麻雀・将棋・RPGなど、全14作品が遊べる無料ブラウザゲームポータル">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#07080f; --card:rgba(255,255,255,.045); --line:rgba(255,255,255,.09);
+    --txt:#f2f3fa; --sub:#9aa1c0; --acc:#22d3ee;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    background:
+      radial-gradient(1100px 600px at 10% -5%, rgba(56,89,199,.35) 0%, transparent 60%),
+      radial-gradient(900px 600px at 95% 0%, rgba(147,51,234,.28) 0%, transparent 55%),
+      radial-gradient(800px 500px at 50% 115%, rgba(8,145,178,.22) 0%, transparent 60%),
+      var(--bg);
+    color:var(--txt); font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 18px 60px}
+  /* ===== ヒーロー ===== */
+  .hero{text-align:center;padding:54px 10px 26px;position:relative}
+  .hero .badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.28em;color:#a5f3fc;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.35);padding:6px 14px;border-radius:999px;margin-bottom:18px}
+  .hero h1{font-size:clamp(44px,9vw,76px);font-weight:900;letter-spacing:.06em;line-height:1.05;
+    background:linear-gradient(92deg,#67e8f9 0%,#a78bfa 45%,#f472b6 90%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 6px 30px rgba(167,139,250,.35))}
+  .hero p{color:var(--sub);margin-top:14px;font-size:15px;line-height:1.8}
+  .hero .stats{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+  .hero .stat{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:13px;color:var(--sub);backdrop-filter:blur(6px)}
+  .hero .stat b{color:var(--txt);font-size:15px}
+  /* ===== ツールバー ===== */
+  .toolbar{position:sticky;top:0;z-index:20;padding:14px 0 10px;background:linear-gradient(180deg, rgba(7,8,15,.92) 75%, transparent);backdrop-filter:blur(4px)}
+  .search{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 15px}
+  .search input{flex:1;background:none;border:none;outline:none;color:var(--txt);font-size:15px;font-family:inherit}
+  .search input::placeholder{color:#6b7194}
+  .chips{display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--sub);padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.2s}
+  .chip.on{background:linear-gradient(90deg,#0891b2,#7c3aed);color:#fff;border-color:transparent;box-shadow:0 6px 18px rgba(34,211,238,.3)}
+  /* ===== セクション ===== */
+  .secTitle{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:900;letter-spacing:.06em;margin:30px 2px 14px}
+  .secTitle::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+  .secTitle .cnt{color:var(--sub);font-size:12px;font-weight:600}
+  /* ===== カード ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+  @media(min-width:720px){ .grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px} }
+  .card{display:block;text-decoration:none;color:inherit;cursor:pointer;animation:fadeUp .5s both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .thumb{position:relative;aspect-ratio:1/1;border-radius:24px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    box-shadow:0 10px 26px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.25);transition:transform .35s cubic-bezier(.2,.9,.3,1.4), box-shadow .35s}
+  .card:hover .thumb,.card:active .thumb{transform:translateY(-6px) scale(1.02);box-shadow:0 22px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.3)}
+  .thumb::before{content:'';position:absolute;inset:0;background:radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,.35), transparent 55%)}
+  .thumb::after{content:'';position:absolute;width:130%;height:60%;left:-15%;bottom:-32%;background:radial-gradient(50% 100% at 50% 100%, rgba(0,0,0,.35), transparent 70%)}
+  .thumb .emoji{font-size:64px;filter:drop-shadow(0 10px 18px rgba(0,0,0,.4));transition:transform .35s;z-index:1}
+  .card:hover .thumb .emoji{transform:scale(1.14) rotate(-3deg)}
+  @media(min-width:720px){ .thumb .emoji{font-size:80px} }
+  .rbadge{position:absolute;top:10px;left:10px;z-index:2;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;font-size:10px;font-weight:900;letter-spacing:.12em;padding:5px 9px;border-radius:999px;box-shadow:0 6px 14px rgba(239,68,68,.45)}
+  .fav{position:absolute;top:8px;right:8px;z-index:2;width:34px;height:34px;border-radius:50%;border:none;background:rgba(0,0,0,.28);color:#fff;font-size:16px;cursor:pointer;backdrop-filter:blur(4px);line-height:1}
+  .fav.on{color:#fbbf24}
+  .meta{padding:11px 4px 0;text-align:left}
+  .meta h3{font-size:16px;font-weight:800;letter-spacing:.02em}
+  .meta p{color:var(--sub);font-size:12px;line-height:1.55;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tags{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}
+  .tag{font-size:10px;color:#c4b5fd;background:rgba(167,139,250,.13);border:1px solid rgba(167,139,250,.25);padding:2px 8px;border-radius:999px}
+  .empty{color:var(--sub);text-align:center;padding:34px 0;font-size:14px}
+  /* ===== お知らせ ===== */
+  .news{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;backdrop-filter:blur(6px)}
+  .news li{list-style:none;padding:9px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-size:13.5px;line-height:1.7;color:#d6d9ec}
+  .news li:last-child{border-bottom:none}
+  .news .date{color:#67e8f9;font-weight:800;font-size:12px;margin-right:10px;font-variant-numeric:tabular-nums}
+  .news .new{color:#fff;background:linear-gradient(90deg,#f59e0b,#ef4444);font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:2px}
+  footer{text-align:center;color:#5d6284;font-size:12px;margin-top:44px;line-height:2}
+</style>
 </head>
-<body class="bg-[#f5f5f7] text-zinc-900 selection:bg-zinc-200 min-h-screen flex flex-col">
+<body>
+<div class="wrap">
+  <div class="hero">
+    <span class="badge">FREE BROWSER GAMES</span>
+    <h1>PlayWeb</h1>
+    <p>インストール不要、ブラウザですぐ遊べるゲーム集。<br>定番から本格RPG・乙女ゲームまで、全作品無料です。</p>
+    <div class="stats">
+      <span class="stat">🎮 全 <b id="statCount">14</b> 作品</span>
+      <span class="stat">📱 スマホ対応</span>
+      <span class="stat">💾 オフライン可</span>
+    </div>
+  </div>
 
-    <div id="app" class="flex-1 flex flex-col w-full"></div>
+  <div class="toolbar">
+    <div class="search">🔍 <input id="q" type="search" placeholder="ゲームを検索…（例：麻雀、パズル）"></div>
+    <div class="chips" id="chips"></div>
+  </div>
 
-    <script>
+  <div id="recentSec" style="display:none">
+    <div class="secTitle">🕘 最近遊んだゲーム</div>
+    <div class="grid" id="recentGrid"></div>
+  </div>
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      console.log('Service Worker registered!');
+  <div class="secTitle">🎮 ゲーム一覧 <span class="cnt" id="listCnt"></span></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">見つかりませんでした…別のキーワードで試してみてください。</div>
+
+  <div class="secTitle">📢 アップデート</div>
+  <ul class="news">
+    <li><span class="date">2026.11</span>テトリス／スイカゲーム／マインスイーパ／オセロを全面リニューアル。<span class="new">NEW</span><br>グラフィック・ゲーム性・演出を大幅に強化しました。</li>
+    <li><span class="date">2026.11</span>ポータルサイトを刷新。検索・カテゴリ絞り込み・お気に入り機能を追加。</li>
+    <li><span class="date">―</span>全ゲームのキャッシュ化に対応（初回のみダウンロード、次回からはオフラインでも遊べます）。</li>
+  </ul>
+
+  <footer>PlayWeb ― ブラウザで遊べる無料ゲーム集<br>© maguro0626</footer>
+</div>
+
+<script>
+"use strict";
+const GAMES = [
+  { id:'tetris',     title:'テトリス',       emoji:'🧱', grad:'linear-gradient(135deg,#06b6d4,#2563eb)', path:'tetris.html',     cat:'puzzle', tags:['パズル','定番'], renewed:true,  desc:'7種1巡・ホールド・ゴースト表示対応の本格仕様。エフェクトと演出も大幅強化。' },
+  { id:'suica',      title:'スイカゲーム',   emoji:'🍉', grad:'linear-gradient(135deg,#4ade80,#16a34a 55%,#ef4444)', path:'suica.html', cat:'puzzle', tags:['パズル','物理演算'], renewed:true, desc:'物理演算でフルーツが転がる・跳ねる。合体させて大きなスイカを作ろう。' },
+  { id:'minesweeper',title:'マインスイーパ', emoji:'💣', grad:'linear-gradient(135deg,#f43f5e,#881337)', path:'minesweeper.html', cat:'puzzle', tags:['パズル','ロジック'], renewed:true, desc:'初クリック安全＆一括オープンのコード対応。3つの難易度とベストタイム記録。' },
+  { id:'reversi',    title:'オセロ',         emoji:'⚫', grad:'linear-gradient(135deg,#e4e4e7,#71717a)', path:'reversi.html',  cat:'board', tags:['ボード','対CPU'], renewed:true, desc:'本気で強いAI搭載（3段階）。フリップアニメーションと形勢表示で白熱の対局。' },
+  { id:'shogi',      title:'将棋',           emoji:'☗', grad:'linear-gradient(135deg,#fde68a,#d97706)', path:'shogi.html',     cat:'board', tags:['ボード','対CPU'], desc:'持ち駒・成り・王手判定まで備えた本格将棋。CPUとの真剣勝負。' },
+  { id:'majan',      title:'麻雀',           emoji:'🀄', grad:'linear-gradient(135deg,#065f46,#022c22)', path:'majan.html',     cat:'board', tags:['ボード','テーブル'], desc:'役・点数計算まで実装した本格麻雀。じっくり打ち込める一作。' },
+  { id:'daihugou',   title:'大富豪',         emoji:'👑', grad:'linear-gradient(135deg,#facc15,#b45309)', path:'daihugou.html',  cat:'card', tags:['カード','対CPU'], desc:'革命・8切り・ジョーカーあり。CPU相手に大富豪を目指せ。' },
+  { id:'hanahuda',   title:'花札',           emoji:'🎴', grad:'linear-gradient(135deg,#881337,#450a0a)', path:'hanahuda.html',  cat:'card', tags:['カード','和風'], desc:'こいこいルールで遊べる花札。役をそろえて高得点を狙おう。' },
+  { id:'uno',        title:'UNO',            emoji:'🎨', grad:'linear-gradient(135deg,#ef4444,#eab308 55%,#2563eb)', path:'uno.html', cat:'card', tags:['カード','対CPU'], desc:'おなじみのカードゲーム。特殊カードを駆使して最初に上がろう。' },
+  { id:'breakout',   title:'ブロック崩し',   emoji:'🧆', grad:'linear-gradient(135deg,#6366f1,#7e22ce)', path:'blockzushi.html', cat:'action', tags:['アクション'], desc:'パドルでボールを跳ね返すクラシックアクション。' },
+  { id:'jump',       title:'ジャンプラン',   emoji:'👟', grad:'linear-gradient(135deg,#38bdf8,#22c55e)', path:'jump.html',      cat:'action', tags:['アクション'], desc:'障害物をジャンプでかわして走り続けるランゲーム。' },
+  { id:'caring',     title:'育成ゲーム',     emoji:'🥚', grad:'linear-gradient(135deg,#f9a8d4,#ec4899)', path:'caring.html',    cat:'story', tags:['育成','まったり'], desc:'たまごから育てる癒やし系育成ゲーム。成長を見守ろう。' },
+  { id:'rpg',        title:'RPG',            emoji:'⚔️', grad:'linear-gradient(135deg,#dc2626,#7f1d1d)', path:'rpg.html',       cat:'story', tags:['RPG','冒険'], desc:'フィールド探索とコマンドバトルで冒険する本格RPG。' },
+  { id:'otome',      title:'乙女ゲーム',     emoji:'💖', grad:'linear-gradient(135deg,#f472b6,#db2777)', path:'otome.html',     cat:'story', tags:['恋愛','ノベル'], desc:'学園を舞台にした恋愛ビジュアルノベル。彼との物語が始まる。' },
+];
+const CATS = [ ['all','すべて'], ['fav','★ お気に入り'], ['puzzle','パズル'], ['board','ボード'], ['card','カード'], ['action','アクション'], ['story','育成・物語'] ];
+let curCat = 'all', query = '';
+const favs = new Set(JSON.parse(localStorage.getItem('pw_favs')||'[]'));
+const recent = JSON.parse(localStorage.getItem('pw_recent')||'[]');
+const $ = id=>document.getElementById(id);
+
+function cardHtml(g, i){
+  return `<a class="card" href="${g.path}" data-id="${g.id}" style="animation-delay:${Math.min(i*40,400)}ms">
+    <div class="thumb" style="background:${g.grad}">
+      ${g.renewed?'<span class="rbadge">RENEWAL</span>':''}
+      <button class="fav ${favs.has(g.id)?'on':''}" data-fav="${g.id}" title="お気に入り">★</button>
+      <span class="emoji">${g.emoji}</span>
+    </div>
+    <div class="meta"><h3>${g.title}</h3><p>${g.desc}</p>
+      <div class="tags">${g.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    </div></a>`;
+}
+function bindCards(scope){
+  scope.querySelectorAll('[data-fav]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const id = b.dataset.fav;
+      favs.has(id) ? favs.delete(id) : favs.add(id);
+      localStorage.setItem('pw_favs', JSON.stringify([...favs]));
+      render();
+    });
+  });
+  scope.querySelectorAll('.card').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      const id = c.dataset.id;
+      const r = [id, ...recent.filter(x=>x!==id)].slice(0,4);
+      localStorage.setItem('pw_recent', JSON.stringify(r));
     });
   });
 }
-
-        /**
-         * アップデート情報
-         */
-        const UPDATE_INFO = {
-            date: '2026/04/13 17:20',
-            logs: [
-                '修正：乙女ゲーム(不具合修正、ボリュームアップ)',
-                '修正：全ゲームのキャッシュ化(初回のみデータのダウンロードが行われますが、次以降はオフラインで楽しめます。)'
-            ]
-        };
-
-        /**
-         * ゲームカタログのデータ定義
-         */
-        const GAME_CATALOG = [
-            {
-                id: 'reversi',
-                title: 'オセロ',
-                icon: 'circle-dot',
-                gradient: 'from-zinc-200 to-zinc-400',
-                iconColor: 'text-zinc-700',
-                path: 'reversi.html',
-                isPlayable: true
-            },
-            {
-                id: 'shogi',
-                title: '将棋',
-                icon: 'hexagon',
-                gradient: 'from-amber-100 to-orange-200',
-                iconColor: 'text-amber-800',
-                path: 'shogi.html',
-                isPlayable: true
-            },
-            {
-                id: 'minesweeper',
-                title: 'マインスイーパー',
-                icon: 'bomb',
-                gradient: 'from-red-100 to-rose-300',
-                iconColor: 'text-rose-800',
-                path: 'minesweeper.html',
-                isPlayable: true
-            },
-            {
-                id: 'majan',
-                title: '麻雀',
-                icon: 'layout-grid',
-                gradient: 'from-emerald-800 to-green-950',
-                iconColor: 'text-yellow-300',
-                path: 'majan.html',
-                isPlayable: true
-            },
-            { 
-                id: 'daihugou', 
-                title: '大富豪', 
-                icon: 'crown', 
-                iconColor: 'text-amber-800', 
-                gradient: 'from-yellow-300 to-amber-500', 
-                path: 'daihugou.html',
-		isPlayable: true
-            },
-            {
-                id: 'hanahuda',
-                title: '花札',
-                icon: 'flower-2',
-                gradient: 'from-red-900 to-rose-950',
-                iconColor: 'text-rose-200',
-                path: 'hanahuda.html',
-                isPlayable: true
-            },
-            {
-                id: 'tetris',
-                title: 'テトリス',
-                icon: 'blocks',
-                gradient: 'from-cyan-400 to-blue-600',
-                iconColor: 'text-white',
-                path: 'tetris.html',
-                isPlayable: true
-            },
-            {
-                id: 'breakout',
-                title: 'ブロック崩し',
-                icon: 'square-stack',
-                gradient: 'from-indigo-500 to-purple-700',
-                iconColor: 'text-white',
-                path: 'blockzushi.html',
-                isPlayable: true
-            },
-            {
-                id: 'suica',
-                title: 'スイカゲーム',
-  		icon: 'apple', 
-  		gradient: 'from-green-400 to-red-500', 
-  		iconColor: 'text-white',
-                path: 'suica.html',
-                isPlayable: true
-            },
-            {
-                id: 'jump',
-                title: 'ジャンプラン',
-  		icon: 'sportShoe', 
-  		gradient: 'from-blue-400 to-green-500', 
-  		iconColor: 'text-white',
-                path: 'jump.html',
-                isPlayable: true
-            },
-            {
-                id: 'caring',
-                title: '育成ゲーム',
-  		icon: 'egg', 
-  		gradient: 'from-pink-400 to-pink-500', 
-  		iconColor: 'text-white',
-                path: 'caring.html',
-                isPlayable: true
-            },
-            {
-                id: 'uno',
-                title: 'UNO',
-  		icon: 'iteration-ccw', 
-  		gradient: 'from-yellow-500 via-black-400 to-red-500', 
-  		iconColor: 'text-white',
-                path: 'uno.html',
-                isPlayable: true
-            },
-            {
-                id: 'rpg',
-                title: 'RPG',
-  		icon: 'sword', 
-  		gradient: 'from-red-500 to-red-500', 
-  		iconColor: 'text-white',
-                path: 'rpg.html',
-                isPlayable: true
-            },
-            {
-                id: 'otome',
-                title: '乙女ゲーム',
-  		icon: 'heart', 
-  		gradient: 'from-pink-500 to-pink-500', 
-  		iconColor: 'text-white',
-                path: 'otome.html',
-                isPlayable: true
-            }
-        ];
-
-
-        const appContainer = document.getElementById('app');
-
-        /**
-         * ゲーム選択時の処理
-         */
-        function handleGameClick(gameId) {
-            const game = GAME_CATALOG.find(g => g.id === gameId);
-            if (!game) return;
-
-            if (game.isPlayable) {
-                window.location.href = game.path;
-            } else {
-                renderComingSoon(game);
-            }
-        }
-
-        /**
-         * トップページの描画
-         */
-        function renderCatalog() {
-            const cardsHtml = GAME_CATALOG.map(game => `
-                <div onclick="handleGameClick('${game.id}')" class="group cursor-pointer flex flex-col gap-4">
-                    <div class="relative aspect-square rounded-[2rem] overflow-hidden bg-gradient-to-br ${game.gradient} p-6 flex items-center justify-center shadow-sm transition-all duration-500 ease-out group-hover:shadow-xl group-hover:-translate-y-1.5">
-                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500"></div>
-                        
-                        <i data-lucide="${game.icon}" class="w-20 h-20 md:w-28 md:h-28 ${game.iconColor} transition-transform duration-500 ease-out group-hover:scale-110 drop-shadow-sm" stroke-width="1.5"></i>
-                        
-                        ${!game.isPlayable ? `
-                        <div class="absolute top-4 right-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-zinc-500 shadow-sm">
-                            Coming Soon
-                        </div>
-                        ` : ''}
-                    </div>
-                    <div class="text-center px-2">
-                        <h3 class="text-lg md:text-xl font-semibold tracking-tight">${game.title}</h3>
-                    </div>
-                </div>
-            `).join('');
-
-            appContainer.innerHTML = `
-                <header class="sticky top-0 z-50 glass-header border-b border-black/5 h-14 flex items-center px-6">
-                    <div class="flex items-center gap-2 font-bold text-lg tracking-tight">
-                        <i data-lucide="gamepad-2" class="w-5 h-5"></i>
-                        <span>PlayWeb</span>
-                    </div>
-                </header>
-
-                <main class="pb-32 flex-1 fade-in">
-                    <section class="mt-8 px-6 max-w-4xl mx-auto">
-                        <div class="bg-white/60 border border-black/[0.03] rounded-3xl p-5 md:p-6 shadow-sm">
-                            <div class="flex items-center gap-2 mb-3 text-zinc-500">
-                                <i data-lucide="megaphone" class="w-4 h-4"></i>
-                                <span class="text-xs font-bold uppercase tracking-wider">Recent Update</span>
-                            </div>
-                            <ul class="space-y-1.5 text-sm md:text-base text-zinc-700 font-medium">
-                                ${UPDATE_INFO.logs.map(log => `
-                                    <li class="flex items-start gap-2">
-                                        <span class="text-zinc-400 text-xs mt-1.5">●</span>
-                                        <span>${log}</span>
-                                    </li>
-                                `).join('')}
-                            </ul>
-                            <p class="text-[10px] md:text-xs text-zinc-400 mt-4 text-right font-medium">
-                                (${UPDATE_INFO.date})
-                            </p>
-                        </div>
-                    </section>
-
-                    <section class="py-16 md:py-24 flex flex-col items-center justify-center text-center px-6">
-                        <h1 class="text-6xl md:text-8xl font-bold tracking-tighter text-zinc-900">
-                            Arcade.
-                        </h1>
-                    </section>
-
-                    <section class="px-6 md:px-10 max-w-4xl mx-auto">
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10 md:gap-x-12 md:gap-y-16">
-                            ${cardsHtml}
-                        </div>
-                    </section>
-                </main>
-            `;
-            
-            lucide.createIcons();
-        }
-
-        /**
-         * 未実装ゲームの画面（Coming Soon）
-         */
-        function renderComingSoon(game) {
-            appContainer.innerHTML = `
-                <div class="min-h-screen flex flex-col fade-in bg-white">
-                    <header class="sticky top-0 z-50 glass-header border-b border-black/5 h-14 flex items-center px-4">
-                        <button onclick="renderCatalog()" class="flex items-center gap-1 text-zinc-500 hover:text-zinc-900 transition-colors font-medium text-sm">
-                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
-                            <span>Catalog</span>
-                        </button>
-                    </header>
-                    
-                    <main class="flex-1 flex flex-col items-center justify-center p-6 pb-32">
-                        <div class="max-w-xs w-full text-center">
-                            <div class="w-32 h-32 md:w-40 md:h-40 mx-auto rounded-[2.5rem] bg-gradient-to-br ${game.gradient} flex items-center justify-center shadow-lg mb-8">
-                                <i data-lucide="${game.icon}" class="w-16 h-16 md:w-20 md:h-20 ${game.iconColor}" stroke-width="1.5"></i>
-                            </div>
-                            
-                            <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-12">${game.title}</h2>
-                            
-                            <div class="bg-[#f5f5f7] rounded-[2rem] p-6 text-center">
-                                <h3 class="text-lg font-bold text-zinc-900 mb-6">Coming Soon</h3>
-                                <button onclick="renderCatalog()" class="w-full bg-black text-white rounded-full py-3.5 font-semibold text-base hover:bg-zinc-800 transition-colors active:scale-[0.98] duration-200">
-                                    Return
-                                </button>
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            `;
-            lucide.createIcons();
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            renderCatalog();
-        });
-    </script>
-<!-- ここに追加パッチのみ記述（既存HTMLは一切変更しない） -->
-
-<script>
-    // 日付ごとにログをまとめる
-    const PAST_LOGS = [
-        {
-            date: "2026/04/10 19:00",
-            logs: [
-                "修正：乙女ゲーム(大幅パワーアップ)"
-            ]
-        },
-        {
-            date: "2026/04/09 18:00",
-            logs: [
-                "修正：乙女ゲーム(ときメモ風のシステムに変更、調整の余地大あり)"
-            ]
-        },
-        {
-            date: "2026/04/08 14:45",
-            logs: [
-                "追加：乙女ゲーム(調整の余地大あり)",
-                "削除：RPG2(元2を残し、元1を削除)"
-            ]
-        },
-
-            date: "2026/04/07 18:10",
-            logs: [
-                "修正：RPG(クオリティの向上)"
-            ]
-        },
-        {
-            date: "2026/04/07 11:00",
-            logs: [
-                "追加：RPG2",
-                "追加：お問い合わせフォーム"
-            ]
-        },
-        {
-            date: "2026/04/06 16:30",
-            logs: [
-                "追加：RPG(調整の余地大あり)",
-                "修正：テトリス(消したらGAME OVERになる不具合を修正)",
-                "修正：育成ゲーム(リセットしても図鑑は情報を保持するよう修正)"
-            ]
-        }
-    ];
-
-    function renderPastLogs() {
-        const section = document.querySelector('section.mt-8');
-        if (!section) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = "bg-white/60 border border-black/[0.03] rounded-3xl p-5 md:p-6 shadow-sm mt-4";
-
-        wrapper.innerHTML = `
-            <details class="group">
-                <summary class="cursor-pointer flex items-center gap-2 text-zinc-600 text-sm font-bold select-none">
-                    <i data-lucide="archive" class="w-4 h-4"></i>
-                    過去ログ
-                </summary>
-
-                <div class="mt-3 max-h-56 overflow-y-auto pr-2 text-sm text-zinc-700 space-y-4">
-                    ${PAST_LOGS.map(entry => `
-                        <div class="border-b border-zinc-200 pb-2">
-                            <p class="text-xs text-zinc-400 font-semibold mb-1">${entry.date}</p>
-                            ${entry.logs.map(log => `
-                                <div class="flex items-start gap-2">
-                                    <span class="text-zinc-400 text-xs mt-1.5">●</span>
-                                    <span>${log}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `).join('')}
-                </div>
-            </details>
-        `;
-
-        section.appendChild(wrapper);
-        lucide.createIcons();
-    }
-</script>
-
-
-<!-- DOM構築後に追加 -->
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            renderPastLogs();
-            renderInquiryForm();
-        }, 100);
-    });
-</script>
-<!-- Googleフォームお問い合わせ埋め込みパッチ -->
-<script>
-    // Googleフォームの「埋め込み用 iframe URL」をここに貼る
-    const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfKSJ1_do0LiUdYxLgQQ2uWdm5YTHCad5tA82uHeV4HbkhH7w/viewform?usp=header=true";
-
-    function renderGoogleFormSection() {
-        const main = document.querySelector('main');
-        if (!main) return;
-
-        const section = document.createElement('section');
-        section.className = "px-6 md:px-10 max-w-3xl mx-auto mt-20 mb-24";
-
-        section.innerHTML = `
-            <div class="bg-white/70 border border-black/5 rounded-3xl p-6 shadow-sm">
-                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                    <i data-lucide="mail" class="w-5 h-5"></i>
-                    お問い合わせ
-                </h2>
-
-                <iframe 
-                    src="${GOOGLE_FORM_URL}"
-                    width="100%" 
-                    height="700" 
-                    frameborder="0" 
-                    marginheight="0" 
-                    marginwidth="0"
-                    class="rounded-2xl border border-zinc-200"
-                >
-                    読み込んでいます…
-                </iframe>
-            </div>
-        `;
-
-        main.appendChild(section);
-        lucide.createIcons();
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            renderGoogleFormSection();
-        }, 120);
-    });
+function render(){
+  const list = GAMES.filter(g=>{
+    if(curCat==='fav' && !favs.has(g.id)) return false;
+    if(curCat!=='all' && curCat!=='fav' && g.cat!==curCat) return false;
+    if(query && !(g.title+g.desc+g.tags.join('')).toLowerCase().includes(query)) return false;
+    return true;
+  });
+  $('grid').innerHTML = list.map(cardHtml).join('');
+  $('empty').style.display = list.length ? 'none' : 'block';
+  $('listCnt').textContent = list.length + ' 作品';
+  bindCards($('grid'));
+  // 最近遊んだ
+  const rec = recent.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean);
+  if(rec.length && curCat==='all' && !query){
+    $('recentSec').style.display='block';
+    $('recentGrid').innerHTML = rec.map(cardHtml).join('');
+    bindCards($('recentGrid'));
+  } else $('recentSec').style.display='none';
+}
+$('chips').innerHTML = CATS.map(([k,v])=>`<button class="chip ${k==='all'?'on':''}" data-cat="${k}">${v}</button>`).join('');
+document.querySelectorAll('.chip').forEach(ch=>{
+  ch.onclick = ()=>{ document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); ch.classList.add('on'); curCat = ch.dataset.cat; render(); };
+});
+$('q').addEventListener('input', e=>{ query = e.target.value.trim().toLowerCase(); render(); });
+$('statCount').textContent = GAMES.length;
+render();
 </script>
 </body>
 </html>
