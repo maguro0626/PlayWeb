@@ -221,7 +221,7 @@ let phase = 'start'; // start|batter|spread|bake|fill|fold|deco|serve
 let mode = 'free', order = null;
 let batter = BATTERS[0];
 let spreadDone = false, spreadScore = 0;
-let bake = 0, bakeScore = 0, baked = false, bakeLevel = 0;
+let bake = 0, bakeScore = 0, baked = false, bakeLevel = 0, bakeStart = 0;
 let items = [];        // {kind:'fill'|'deco', id, x, z, y, rot, scale, seed, group}
 let strokes = [];      // fill: {stage:'fill', sauceId, color, w, pts:[{px,py}]} / deco: {stage:'deco', sauceId, color, mesh, pts:[{x,y,z}]}
 let fold = FOLDS[0];
@@ -1100,8 +1100,8 @@ function setPhase(p){
   camMode = (p==='deco' || p==='serve') ? 'serve' : 'work';
   renderSteps(); buildPanel(); updatePrice(); updateMascot();
   if(!GL_OK) return;
-  if(p==='spread'){ initSpreadTex(); blobMesh.visible = false; tombo.visible = true; paintSpreadTex(TC, TC, 100); }
-  if(p==='bake'){ bake = 0; baked = false; lastBakeStep = 0; drawBatterBase(0); tombo.visible = false; }
+  if(p==='spread'){ initSpreadTex(); blobMesh.visible = false; tombo.visible = true; paintSpreadTex(TC, TC, 150); }
+  if(p==='bake'){ bake = 0; baked = false; lastBakeStep = 0; bakeStart = performance.now(); drawBatterBase(0); tombo.visible = false; }
   if(p==='fill'){ overlayMesh.visible = true; }
   if(p==='fold'){
     // 包み方を選ぶ間は平らな生地＋具材のまま。「包む！」を押すまで包んだ形は出さない
@@ -1561,14 +1561,14 @@ function animate(){
   // 注ぎアニメ（中心に生地が広がる）
   if(phase==='spread'){
     const el = performance.now() - pourStart;
-    if(el < 750) paintSpreadTex(TC, TC, 26 + (el/750)*88);
+    if(el < 750) paintSpreadTex(TC, TC, 30 + (el/750)*120);
     tombo.position.x += (tomboTarget.x - tombo.position.x) * 0.45;
     tombo.position.z += (tomboTarget.z - tombo.position.z) * 0.45;
     if(painting) tombo.rotation.y += dt * 5;
   }
   // 焼く（14秒ゲージ、適正ゾーン48〜85%）
   if(phase==='bake' && !baked){
-    bake = Math.min(1, bake + dt/14000);
+    bake = Math.min(1, (performance.now() - bakeStart) / 14000); // 実時間ベース（低fps環境でも14秒で満タン）
     paintBakeProgress(bake);
     const bar = $('bakeBar'), lbl = $('bakeLabel');
     if(bar) bar.style.width = (bake*100) + '%';
