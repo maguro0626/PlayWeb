@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>クレープ工房 - PlayWeb</title>
+<title>クレープ工房 3D - PlayWeb</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   :root{ --bg:#17100d; --panel:rgba(255,255,255,.055); --line:rgba(255,255,255,.1); --txt:#fdf6ec; --sub:#cbb9a3; --acc:#fb923c; }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -14,8 +15,9 @@
   .hbtn{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;text-decoration:none;font-family:inherit}
   .hbtn:active{transform:scale(.96)}
   main{display:flex;gap:16px;justify-content:center;align-items:flex-start;padding:10px 12px 8px;width:100%;max-width:1060px;flex-wrap:wrap}
-  #stageWrap{position:relative;border-radius:20px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.55)}
-  #stage{display:block;border-radius:12px;background:#241611;touch-action:none;cursor:crosshair}
+  #stageWrap{position:relative;border-radius:20px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.55);width:min(660px,100%)}
+  #gl{width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#241611;position:relative}
+  #gl canvas{display:block;touch-action:none;cursor:crosshair}
   #side{width:308px;display:flex;flex-direction:column;gap:12px}
   .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:13px 14px;backdrop-filter:blur(8px)}
   .box h3{font-size:11px;letter-spacing:.22em;color:var(--sub);margin-bottom:9px;font-weight:800}
@@ -67,7 +69,7 @@
 </head>
 <body>
 <header>
-  <div class="logo">🥞 クレープ工房</div>
+  <div class="logo">🥞 クレープ工房 3D</div>
   <div style="display:flex;gap:8px">
     <button class="hbtn" id="soundBtn">🔊 サウンド</button>
     <a class="hbtn" href="index.html">← もどる</a>
@@ -76,12 +78,17 @@
 
 <main>
   <div id="stageWrap">
-    <canvas id="stage" width="640" height="640"></canvas>
+    <div id="gl"></div>
     <div id="toast"></div>
 
+    <div class="overlay hidden" id="glFallback">
+      <h2>😢 3D表示できません</h2>
+      <p>お使いのブラウザが WebGL に対応していないか、<br>3Dライブラリの読み込みに失敗しました。<br>最新の Chrome / Safari / Edge / Firefox でお試しください。</p>
+    </div>
+
     <div class="overlay" id="startOv">
-      <h2>🥞 クレープ工房</h2>
-      <p>生地をのばして、焼いて、好きな具材を<b>自由に配置</b>。<br>ソースは指で描けるよ。世界にひとつのクレープを作ろう。</p>
+      <h2>🥞 クレープ工房 3D</h2>
+      <p>3Dの鉄板で生地をのばして、焼いて、好きな具材を<b>自由に配置</b>。<br>ソースは指で描けるよ。世界にひとつのクレープを作ろう。</p>
       <div class="modeBtns">
         <button class="modeBtn" id="freeBtn"><b>🎨 フリーモード</b><span>思いのままに作る。具材もソースも無制限（気分で値段がつく）。</span></button>
         <button class="modeBtn" id="orderBtn"><b>🧾 注文チャレンジ</b><span>お客さんの注文どおりに作って、一致度で採点される職人モード。</span></button>
@@ -135,8 +142,7 @@
 
 <script>
 "use strict";
-/* ================= データ ================= */
-const W = 640, H = 640, CX = 320, CY = 320, CREPE_R = 238, PLATE_R = 292;
+/* ================= データ（2D版から踏襲） ================= */
 const BATTERS = [
   { id:'plain',  name:'プレーン',   em:'🥞', base:'#f2cf96', edge:'#dfa856', spot:'#c98f3d' },
   { id:'matcha', name:'抹茶',       em:'🍵', base:'#b3c078', edge:'#8fa353', spot:'#71823c' },
@@ -196,23 +202,24 @@ const ORDERS = [
 ];
 const STEP_NAMES = ['生地','のばす','焼く','具材','包む','デコ','完成'];
 const BASE_PRICE = 180;
+/* 具材の代表色（ロール断面などの演出用） */
+const FILL_COLORS = { whip:'#fffdf7', custard:'#f5bc3f', chocobanana:'#5a3520', strawberry:'#e0344f', banana:'#f7e08b', kiwi:'#a5d96e', berry:'#3f56a8', mikan:'#ff9f2e', ice_vanilla:'#fff3da', ice_choco:'#8a5a35', ice_matcha:'#b9cc8a', ice_berry:'#ffc2d1', brownie:'#4c2c17', cheesecake:'#fdf3d0', anko:'#642e3a', shiratama:'#ffffff', oreo:'#3a2c22', nuts:'#c89b62', marshmallow:'#ffffff', pudding:'#f2a93b', mint:'#3da35d', sugar:'#ffffff', cocoa_powder:'#4a2410' };
 
 /* ================= 状態 ================= */
-const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
 let phase = 'start'; // start|batter|spread|bake|fill|fold|deco|serve
 let mode = 'free', order = null;
 let batter = BATTERS[0];
-let spreadGrid = null, spreadCount = null, spreadDone = false, spreadScore = 0;
-let bake = 0, bakeTimer = null, bakeScore = 0, baked = false;
-let items = [];        // {kind:'fill'|'deco', id, x, y, rot, scale}
-let strokes = [];      // {stage:'fill'|'deco', color, w, pts:[{x,y}]}
+let spreadDone = false, spreadScore = 0;
+let bake = 0, bakeScore = 0, baked = false, bakeLevel = 0;
+let items = [];        // {kind:'fill'|'deco', id, x, z, y, rot, scale, seed, group}
+let strokes = [];      // fill: {stage:'fill', sauceId, color, w, pts:[{px,py}]} / deco: {stage:'deco', sauceId, color, mesh, pts:[{x,y,z}]}
 let fold = FOLDS[0];
-let tool = null;       // {type:'fill'|'sauce'|'deco'|'eraser', id}
-let pointer = { x:0, y:0, down:false };
-let sizzleGain = null;
+let tool = null;       // {type:'fill'|'sauce'|'deco'|'eraser', stage, id}
+let history = [];      // {type:'item'|'stroke', obj}
+let GL_OK = false;
 
-/* ================= サウンド ================= */
+/* ================= サウンド（2D版から踏襲） ================= */
 let audioCtx = null, soundOn = true;
 function ac(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); return audioCtx; }
 function tone(f, d=0.08, type='sine', v=0.05, delay=0){
@@ -239,7 +246,7 @@ const sfx = {
 };
 $('soundBtn').onclick = ()=>{ soundOn=!soundOn; $('soundBtn').textContent = soundOn?'🔊 サウンド':'🔇 ミュート'; };
 
-/* ================= 描画ユーティリティ ================= */
+/* ================= ユーティリティ ================= */
 function rng(seed){ let t = seed*9301+49297; return ()=>{ t = (t*9301+49297)%233280; return t/233280; }; }
 function shade(hex, amt){
   const n = parseInt(hex.slice(1),16);
@@ -247,204 +254,783 @@ function shade(hex, amt){
   r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
   return `rgb(${r},${g},${b})`;
 }
-function circle(x,y,r,fill){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill(); }
-function drawPlate(){
-  // テーブル
-  const bg = ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#2b1a12'); bg.addColorStop(1,'#1c110b');
-  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
-  // 鉄板
-  const g = ctx.createRadialGradient(CX-60,CY-70,60, CX,CY,PLATE_R);
-  g.addColorStop(0,'#4c4c55'); g.addColorStop(0.75,'#33333c'); g.addColorStop(1,'#232329');
-  circle(CX,CY,PLATE_R, '#111');
-  ctx.beginPath(); ctx.arc(CX,CY,PLATE_R,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-  ctx.lineWidth=5; ctx.strokeStyle='rgba(255,255,255,.14)'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(CX,CY,PLATE_R-14,0,Math.PI*2); ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2; ctx.stroke();
+function defOf(id){ return FILLINGS.find(f=>f.id===id) || DECOS.find(f=>f.id===id); }
+
+/* ================================================================
+   3Dシーン
+   ワールド座標: 鉄板中心が原点、鉄板の調理面が y=GRIDDLE_TOP。
+   生地テクスチャ(1024px) との変換:
+     px = 512 + x * K_TEX,  py = 512 + z * K_TEX
+   (PlaneGeometryのUV: u=0.5+x/(2R), v=0.5-z/(2R), flipYで py=(1-v)*1024)
+================================================================ */
+const TEX = 1024, TC = 512;
+const CREPE_R3 = 2.45;                 // 生地の半径（ワールド）
+const K_TEX = TEX / (CREPE_R3 * 2);    // ワールド→テクスチャpx換算
+const GRIDDLE_TOP = 0.32;
+const BATTER_Y = GRIDDLE_TOP + 0.025;  // 生地メッシュの高さ
+const ITEM_Y = BATTER_Y + 0.015;       // 具材の接地高さ
+const PLATE_POS = { x:0, z:1.6 };      // 盛り付け皿の位置（カウンター手前）
+const PLATE_TOP = 0.15;
+
+let renderer, scene, camera, clock;
+let griddleGroup, cookGroup, fillGroup, decoGroup, plateGroup, foldGroup;
+let batterMesh, overlayMesh, blobMesh, blobMat, tombo, tomboBar;
+let steamGroup, steamSprites = [], glowLight, lampLights = [];
+let camPos, camLook, camGoalPos, camGoalLook;
+const WORK_POS = null, WORK_LOOK = null; // initGL内で設定（THREE依存のため）
+
+const matCache = {};
+function M(color, rough, metal){
+  rough = rough===undefined?0.62:rough; metal = metal||0;
+  const k = color+'|'+rough+'|'+metal;
+  if(!matCache[k]) matCache[k] = new THREE.MeshStandardMaterial({ color:color, roughness:rough, metalness:metal });
+  return matCache[k];
 }
-function bakeColor(level){ // level 0..1 で焼き色を濃く
-  const dark = Math.round(level*46);
-  return { base: shade(batter.base, -dark), edge: shade(batter.edge, -dark-6), spot: batter.spot };
+function mesh(geo, mat, x, y, z, cast, recv){
+  const m = new THREE.Mesh(geo, mat);
+  if(x!==undefined) m.position.set(x, y, z);
+  m.castShadow = !!cast; m.receiveShadow = !!recv;
+  return m;
 }
-function drawCrepeBase(cx, cy, r, level, seedBase){
-  const col = bakeColor(level);
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-  ctx.fillStyle = col.edge; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx,cy,r*0.965,0,Math.PI*2);
-  const g = ctx.createRadialGradient(cx-r*0.3,cy-r*0.35,r*0.2, cx,cy,r);
-  g.addColorStop(0, shade(batter.base, 14-Math.round(level*40))); g.addColorStop(1, col.base);
-  ctx.fillStyle = g; ctx.fill();
-  ctx.clip();
-  // 焼きムラ（斑点）
-  const rnd = rng(seedBase||7);
-  const n = 26 + Math.floor(level*70);
-  for(let i=0;i<n;i++){
-    const a = rnd()*Math.PI*2, d = Math.sqrt(rnd())*r*0.94;
-    const x = cx+Math.cos(a)*d, y = cy+Math.sin(a)*d, sr = 3+rnd()*13*(0.5+level);
-    ctx.beginPath(); ctx.arc(x,y,sr,0,Math.PI*2);
-    ctx.fillStyle = col.spot; ctx.globalAlpha = 0.05 + rnd()*0.13*level + 0.03;
-    ctx.fill();
+function sph(r, mat, w, h){ return new THREE.Mesh(new THREE.SphereGeometry(r, w||20, h||14), mat); }
+function cyl(rt, rb, h, mat, seg, open){ return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg||20, 1, !!open), mat); }
+function box(w, h, d, mat){ return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); }
+
+/* ---------- 2Dキャンバスで作るテクスチャ類 ---------- */
+function makeCanvas(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function woodTexture(){
+  const c = makeCanvas(512, 512), x = c.getContext('2d');
+  x.fillStyle = '#8a5f36'; x.fillRect(0,0,512,512);
+  for(let p=0;p<4;p++){
+    x.fillStyle = `rgba(${60+Math.random()*30|0},${34+Math.random()*18|0},10,${0.10+Math.random()*0.08})`;
+    x.fillRect(0, p*128, 512, 128);
+    x.fillStyle = 'rgba(40,22,8,.55)'; x.fillRect(0, p*128, 512, 3);
   }
-  ctx.globalAlpha = 1;
-  // 焼き目（縁の焦げ）
-  if(level > 0.55){
-    ctx.beginPath(); ctx.arc(cx,cy,r*0.965,0,Math.PI*2);
-    ctx.lineWidth = r*0.05; ctx.strokeStyle = `rgba(90,50,15,${(level-0.55)*0.9})`; ctx.stroke();
+  const r = rng(99);
+  for(let i=0;i<420;i++){
+    x.strokeStyle = `rgba(${Math.random()<0.5?'46,26,10':'214,164,110'},${0.04+r()*0.06})`;
+    x.lineWidth = 1 + r()*1.6;
+    const y = r()*512; x.beginPath(); x.moveTo(0, y);
+    for(let px=0; px<=512; px+=64) x.lineTo(px, y + Math.sin(px*0.02+i)*3 + (r()-0.5)*4);
+    x.stroke();
   }
-  ctx.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.5, 1.6);
+  t.encoding = THREE.sRGBEncoding;
+  return t;
 }
-/* ---- 具材の描画（id別） ---- */
-function drawItem(it){
-  const def = FILLINGS.find(f=>f.id===it.id) || DECOS.find(f=>f.id===it.id);
-  const r = (def?def.r:24) * (it.scale||1);
-  const x = it.x, y = it.y, seed = it.seed||1;
-  ctx.save(); ctx.translate(x,y); ctx.rotate(it.rot||0);
-  ctx.fillStyle = 'rgba(0,0,0,.18)';
-  ctx.beginPath(); ctx.ellipse(2, r*0.55, r*0.85, r*0.3, 0, 0, Math.PI*2); ctx.fill();
-  switch(it.id){
-    case 'whip': {
-      ctx.fillStyle = '#fffdf7';
-      [[0,r*0.42,r*0.78],[0,r*0.1,r*0.6],[0,-r*0.22,r*0.42],[0,-r*0.48,r*0.24]].forEach(([dx,dy,rr])=>{ ctx.beginPath(); ctx.arc(dx,dy,rr,0,Math.PI*2); ctx.fill(); });
-      ctx.beginPath(); ctx.moveTo(-r*0.1,-r*0.6); ctx.quadraticCurveTo(r*0.16,-r*0.95, r*0.3,-r*0.55); ctx.quadraticCurveTo(0,-r*0.42,-r*0.1,-r*0.6); ctx.fill();
-      ctx.fillStyle='rgba(230,220,200,.5)';
-      ctx.beginPath(); ctx.arc(-r*0.2,r*0.3,r*0.5,0.4,2.2); ctx.fill();
-      break; }
-    case 'custard': {
-      ctx.beginPath(); ctx.arc(0,0,r*0.85,0,Math.PI*2);
-      const g=ctx.createRadialGradient(-r*0.3,-r*0.3,r*0.15,0,0,r*0.9); g.addColorStop(0,'#ffe9a3'); g.addColorStop(1,'#f5bc3f');
-      ctx.fillStyle=g; ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(-r*0.28,-r*0.32,r*0.3,r*0.16,-0.6,0,Math.PI*2); ctx.fill();
-      break; }
-    case 'strawberry': {
-      ctx.beginPath(); ctx.moveTo(0,r*0.95);
-      ctx.bezierCurveTo(-r*1.05,r*0.25,-r*0.8,-r*0.7,0,-r*0.62);
-      ctx.bezierCurveTo(r*0.8,-r*0.7,r*1.05,r*0.25,0,r*0.95); ctx.closePath();
-      const g=ctx.createRadialGradient(-r*0.25,-r*0.3,r*0.2,0,0,r*1.05); g.addColorStop(0,'#ff7d92'); g.addColorStop(1,'#e0344f');
-      ctx.fillStyle=g; ctx.fill();
-      ctx.fillStyle='#ffe9a8'; const rnd=rng(seed);
-      for(let i=0;i<9;i++){ const a=rnd()*Math.PI*2, d=rnd()*r*0.55; ctx.beginPath(); ctx.ellipse(Math.cos(a)*d, Math.sin(a)*d+r*0.1, r*0.07, r*0.12, a, 0, Math.PI*2); ctx.fill(); }
-      ctx.fillStyle='#3f9e4d';
-      for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.ellipse(i*r*0.3,-r*0.68, r*0.2, r*0.34, i*0.5, 0, Math.PI*2); ctx.fill(); }
-      break; }
-    case 'banana': case 'chocobanana': {
-      for(let i=-1;i<=1;i++){
-        ctx.beginPath(); ctx.arc(i*r*0.52, (i%2? -r*0.12: r*0.08), r*0.42, 0, Math.PI*2);
-        ctx.fillStyle = it.id==='chocobanana' ? '#5a3520' : '#f7e08b'; ctx.fill();
-        ctx.beginPath(); ctx.arc(i*r*0.52, (i%2? -r*0.12: r*0.08), r*0.3, 0, Math.PI*2); ctx.fillStyle='#fdf3c0'; ctx.fill();
-        ctx.beginPath(); ctx.arc(i*r*0.52, (i%2? -r*0.12: r*0.08), r*0.09, 0, Math.PI*2); ctx.fillStyle='#e8cf7e'; ctx.fill();
-      }
-      break; }
-    case 'kiwi': {
-      circle(0,0,r*0.9,'#79b84a'); circle(0,0,r*0.78,'#a5d96e'); circle(0,0,r*0.34,'#f2f7d8');
-      ctx.fillStyle='#39512a'; const rnd=rng(seed);
-      for(let i=0;i<10;i++){ const a=i/10*Math.PI*2+rnd()*0.3; ctx.beginPath(); ctx.ellipse(Math.cos(a)*r*0.55, Math.sin(a)*r*0.55, r*0.05, r*0.1, a, 0, Math.PI*2); ctx.fill(); }
-      break; }
-    case 'berry': {
-      const rnd=rng(seed);
-      for(let i=0;i<6;i++){ const a=rnd()*Math.PI*2, d=rnd()*r*0.45;
-        const bx=Math.cos(a)*d, by=Math.sin(a)*d;
-        const g=ctx.createRadialGradient(bx-r*0.1,by-r*0.12,r*0.05,bx,by,r*0.34); g.addColorStop(0,'#8ea7e8'); g.addColorStop(1,'#3b4f9e');
-        ctx.beginPath(); ctx.arc(bx,by,r*0.33,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-        circle(bx-r*0.1,by-r*0.13,r*0.07,'rgba(255,255,255,.75)'); }
-      break; }
-    case 'mikan': {
-      circle(0,0,r*0.88,'#ffb347');
-      ctx.strokeStyle='rgba(255,255,255,.65)'; ctx.lineWidth=r*0.07;
-      for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*r*0.8, Math.sin(a)*r*0.8); ctx.stroke(); }
-      circle(0,0,r*0.14,'#ffd9a0');
-      break; }
-    case 'ice_vanilla': case 'ice_choco': case 'ice_matcha': case 'ice_berry': {
-      const cols = { ice_vanilla:['#fff6e6','#f0dcbb'], ice_choco:['#8a5a35','#5f3a1f'], ice_matcha:['#b9cc8a','#87a355'], ice_berry:['#ffc2d1','#f28bab'] };
-      const [c1,c2] = cols[it.id];
-      const g=ctx.createRadialGradient(-r*0.3,-r*0.35,r*0.2,0,0,r);
-      g.addColorStop(0,c1); g.addColorStop(1,c2);
-      ctx.beginPath(); ctx.arc(0,0,r*0.88,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-      ctx.fillStyle=c2;
-      for(let i=0;i<5;i++){ const a=i/5*Math.PI*2+seed; ctx.beginPath(); ctx.arc(Math.cos(a)*r*0.8, Math.sin(a)*r*0.8, r*0.16, 0, Math.PI*2); ctx.fill(); }
-      ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(-r*0.3,-r*0.38,r*0.28,r*0.14,-0.6,0,Math.PI*2); ctx.fill();
-      break; }
-    case 'brownie': {
-      ctx.fillStyle='#4c2c17'; ctx.beginPath(); ctx.roundRect(-r*0.8,-r*0.7,r*1.6,r*1.4,r*0.18); ctx.fill();
-      ctx.fillStyle='#654226'; ctx.beginPath(); ctx.roundRect(-r*0.8,-r*0.7,r*1.6,r*0.5,r*0.18); ctx.fill();
-      ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(-r*0.5,-r*0.1); ctx.lineTo(r*0.1,r*0.25); ctx.lineTo(r*0.55,-r*0.05); ctx.stroke();
-      break; }
-    case 'cheesecake': {
-      ctx.beginPath(); ctx.moveTo(-r*0.9,r*0.6); ctx.lineTo(r*0.9,r*0.6); ctx.lineTo(0,-r*0.85); ctx.closePath();
-      ctx.fillStyle='#fdf3d0'; ctx.fill();
-      ctx.fillStyle='#e8b34b'; ctx.fillRect(-r*0.9, r*0.42, r*1.8, r*0.18);
-      ctx.fillStyle='#c98d3d'; ctx.fillRect(-r*0.9, r*0.6-0.001, r*1.8, r*0.001+0.001);
-      ctx.beginPath(); ctx.moveTo(-r*0.9,r*0.6); ctx.lineTo(r*0.9,r*0.6); ctx.lineTo(r*0.9,r*0.78); ctx.lineTo(-r*0.9,r*0.78); ctx.closePath(); ctx.fillStyle='#b57e2e'; ctx.fill();
-      break; }
-    case 'anko': {
-      const rnd=rng(seed);
-      for(let i=0;i<8;i++){ const a=rnd()*Math.PI*2, d=rnd()*r*0.5;
-        const g=ctx.createRadialGradient(0,0,2,Math.cos(a)*d,Math.sin(a)*d,r*0.42); g.addColorStop(0,'#7d4453'); g.addColorStop(1,'#54262f');
-        ctx.beginPath(); ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*0.4,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); }
-      break; }
-    case 'shiratama': {
-      [[-r*0.45,r*0.15],[r*0.4,r*0.3],[0,-r*0.4]].forEach(([dx,dy])=>{
-        const g=ctx.createRadialGradient(dx-r*0.12,dy-r*0.14,r*0.06,dx,dy,r*0.42); g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#e8e2d4');
-        ctx.beginPath(); ctx.arc(dx,dy,r*0.4,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); });
-      break; }
-    case 'oreo': {
-      circle(0,0,r*0.85,'#3a2c22'); circle(0,0,r*0.6,'#57453a'); circle(0,0,r*0.34,'#f5efe2');
-      ctx.fillStyle='rgba(0,0,0,.25)';
-      for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; ctx.beginPath(); ctx.arc(Math.cos(a)*r*0.72,Math.sin(a)*r*0.72,r*0.07,0,Math.PI*2); ctx.fill(); }
-      break; }
-    case 'nuts': {
-      const rnd=rng(seed);
-      for(let i=0;i<9;i++){ const a=rnd()*Math.PI*2, d=rnd()*r*0.62;
-        ctx.save(); ctx.translate(Math.cos(a)*d, Math.sin(a)*d); ctx.rotate(rnd()*3);
-        ctx.beginPath(); ctx.ellipse(0,0,r*0.2,r*0.13,0,0,Math.PI*2); ctx.fillStyle= i%2? '#c89b62':'#a97a44'; ctx.fill(); ctx.restore(); }
-      break; }
-    case 'marshmallow': {
-      [[-r*0.35,0],[r*0.35,r*0.12],[0,-r*0.35]].forEach(([dx,dy])=>{
-        ctx.beginPath(); ctx.roundRect(dx-r*0.3,dy-r*0.26,r*0.6,r*0.52,r*0.24);
-        const g=ctx.createLinearGradient(dx,dy-r*0.26,dx,dy+r*0.26); g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#f3d9e2');
-        ctx.fillStyle=g; ctx.fill(); });
-      break; }
-    case 'pudding': {
-      ctx.beginPath(); ctx.moveTo(-r*0.55,-r*0.55); ctx.lineTo(r*0.55,-r*0.55); ctx.lineTo(r*0.78,r*0.55); ctx.lineTo(-r*0.78,r*0.55); ctx.closePath();
-      const g=ctx.createLinearGradient(0,-r*0.55,0,r*0.55); g.addColorStop(0,'#ffd873'); g.addColorStop(1,'#f2a93b');
-      ctx.fillStyle=g; ctx.fill();
-      ctx.beginPath(); ctx.ellipse(0,-r*0.55,r*0.55,r*0.16,0,0,Math.PI*2); ctx.fillStyle='#8a4d16'; ctx.fill();
-      break; }
-    case 'mint': {
-      ctx.fillStyle='#3da35d';
-      for(let i=-1;i<=1;i++){ ctx.save(); ctx.rotate(i*0.55); ctx.beginPath(); ctx.ellipse(0,-r*0.3,r*0.26,r*0.55,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
-      ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(0,r*0.5); ctx.lineTo(0,-r*0.75); ctx.stroke();
-      break; }
-    case 'sugar': case 'cocoa_powder': {
-      const rnd=rng(seed); ctx.fillStyle = it.id==='sugar' ? 'rgba(255,255,255,.85)' : 'rgba(74,36,16,.5)';
-      for(let i=0;i<46;i++){ const a=rnd()*Math.PI*2, d=Math.sqrt(rnd())*r;
-        ctx.beginPath(); ctx.arc(Math.cos(a)*d, Math.sin(a)*d, 1+rnd()*1.8, 0, Math.PI*2); ctx.fill(); }
-      break; }
-    default: { circle(0,0,r*0.8,'#ffb347'); }
-  }
-  ctx.restore();
+function menuTexture(){
+  const c = makeCanvas(512, 300), x = c.getContext('2d');
+  x.fillStyle = '#2e2019'; x.fillRect(0,0,512,300);
+  x.strokeStyle = '#c9a86a'; x.lineWidth = 6; x.strokeRect(10,10,492,280);
+  x.fillStyle = '#f5e9d0'; x.textAlign = 'center';
+  x.font = '700 34px sans-serif'; x.fillText('〜 MENU 〜', 256, 58);
+  x.font = '26px sans-serif'; x.textAlign = 'left';
+  const lines = ['プレーンクレープ   ¥500', 'いちごスペシャル   ¥780', '抹茶あずき       ¥720', 'チョコバナナ     ¥680'];
+  lines.forEach((s,i)=> x.fillText(s, 66, 118 + i*44));
+  x.fillStyle = '#ffb36b'; x.font = '700 24px sans-serif'; x.textAlign = 'center';
+  x.fillText('★ 本日のおすすめ ★', 256, 278 - 6);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+  return t;
 }
-function drawStrokes(stageName, clipFn){
-  ctx.save();
-  if(clipFn) clipFn();
-  for(const s of strokes){
-    if(s.stage!==stageName || s.pts.length<2) continue;
-    ctx.beginPath(); ctx.moveTo(s.pts[0].x, s.pts[0].y);
-    for(let i=1;i<s.pts.length;i++) ctx.lineTo(s.pts[i].x, s.pts[i].y);
-    ctx.strokeStyle=s.color; ctx.lineWidth=s.w; ctx.lineCap='round'; ctx.lineJoin='round';
-    ctx.globalAlpha=0.88; ctx.stroke(); ctx.globalAlpha=1;
-  }
-  ctx.restore();
+function steamTexture(){
+  const c = makeCanvas(128, 128), x = c.getContext('2d');
+  const g = x.createRadialGradient(64,64,4, 64,64,62);
+  g.addColorStop(0,'rgba(255,255,255,.85)'); g.addColorStop(0.5,'rgba(255,255,255,.32)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(c);
+}
+function paperTexture(){
+  const c = makeCanvas(256, 256), x = c.getContext('2d');
+  x.fillStyle = '#fdfdf8'; x.fillRect(0,0,256,256);
+  x.fillStyle = 'rgba(229,72,77,.45)';
+  for(let i=0;i<256;i+=64) x.fillRect(i, 0, 26, 256);
+  for(let i=0;i<256;i+=64) x.fillRect(0, i, 256, 26);
+  x.fillStyle = '#e5484d'; x.fillRect(0, 0, 256, 34);
+  x.fillStyle = '#fff'; x.font = '700 22px sans-serif'; x.textAlign = 'center';
+  x.fillText('CREPE', 128, 25);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+  t.wrapS = THREE.RepeatWrapping; t.repeat.set(2,1);
+  return t;
 }
 
-/* ================= UI制御 ================= */
+/* ---------- シーン初期化 ---------- */
+function initGL(){
+  if(typeof THREE === 'undefined') throw new Error('no three');
+  const glDiv = $('gl');
+  renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 1.5));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  glDiv.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1d110a);
+  scene.fog = new THREE.Fog(0x1d110a, 22, 42);
+
+  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
+  camPos = new THREE.Vector3(0, 8.4, 6.6);
+  camLook = new THREE.Vector3(0, 0.1, 0.2);
+  camGoalPos = camPos.clone(); camGoalLook = camLook.clone();
+  camera.position.copy(camPos); camera.lookAt(camLook);
+
+  clock = new THREE.Clock();
+
+  /* 照明: 環境光＋シャドウ付き平行光＋ランプのポイントライト */
+  scene.add(new THREE.AmbientLight(0xffe2bb, 0.5));
+  const sun = new THREE.DirectionalLight(0xffd9a0, 0.95);
+  sun.position.set(5.5, 10, 4.5);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -8; sun.shadow.camera.right = 8;
+  sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8;
+  sun.shadow.camera.near = 2; sun.shadow.camera.far = 30;
+  sun.shadow.bias = -0.0006;
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xbfd4ff, 0.18);
+  fill.position.set(-6, 5, -3); scene.add(fill);
+  glowLight = new THREE.PointLight(0xff6a22, 0, 7, 2);
+  glowLight.position.set(0, 0.4, 0.6); scene.add(glowLight);
+
+  buildKitchen();
+  buildGriddle();
+  buildPlateSet();
+  buildSteam();
+
+  fitRenderer();
+  window.addEventListener('resize', fitRenderer);
+}
+function fitRenderer(){
+  if(!renderer) return;
+  const w = $('gl').clientWidth || 640;
+  renderer.setSize(w, w);
+  camera.aspect = 1; camera.updateProjectionMatrix();
+}
+
+/* ---------- キッチンのセット ---------- */
+function buildKitchen(){
+  const g = new THREE.Group(); scene.add(g);
+  // 木目カウンター
+  const counter = mesh(new THREE.BoxGeometry(30, 1.2, 15), new THREE.MeshStandardMaterial({ map:woodTexture(), roughness:0.8 }), 0, -0.6, 1.5, false, true);
+  g.add(counter);
+  // 奥の壁
+  const wall = mesh(new THREE.BoxGeometry(30, 13, 0.4), M('#e9d7bf', 0.95), 0, 5.6, -5.8, false, false);
+  g.add(wall);
+  const tile = mesh(new THREE.BoxGeometry(30, 1.7, 0.44), M('#a8c8bb', 0.5), 0, 1.75, -5.78, false, false);
+  g.add(tile);
+  // 棚（2段）と瓶・皿
+  const shelfMat = M('#6b4423', 0.8);
+  [3.7, 4.85].forEach(y=>{
+    g.add(mesh(new THREE.BoxGeometry(10, 0.16, 1.15), shelfMat, -2.2, y, -5.05, true, false));
+  });
+  const jarCols = ['#f7f0dd','#5d3a1e','#e58ca1','#87a355','#f2cf96'];
+  jarCols.forEach((col,i)=>{
+    const jx = -6.1 + i*1.55, jy = 3.7 + 0.55;
+    const jar = cyl(0.34, 0.34, 0.85, M(col, 0.35), 18); jar.position.set(jx, jy, -5.05); jar.castShadow = true; g.add(jar);
+    const lid = cyl(0.37, 0.37, 0.1, M('#8a8f99', 0.35, 0.7), 18); lid.position.set(jx, jy+0.48, -5.05); g.add(lid);
+  });
+  for(let i=0;i<3;i++){
+    const p = cyl(0.58, 0.45, 0.07, M('#ffffff', 0.3), 24);
+    p.position.set(-3.4 + i*0.06, 4.85 + 0.12 + i*0.075, -5.05); g.add(p);
+  }
+  const cups = ['#e5486c','#6d8f3e','#4a2410'];
+  cups.forEach((col,i)=>{
+    const cup = cyl(0.26, 0.2, 0.5, M(col, 0.4), 16);
+    cup.position.set(-0.6 + i*0.75, 4.85 + 0.33, -5.05); cup.castShadow = true; g.add(cup);
+  });
+  // メニューボード
+  const menu = mesh(new THREE.BoxGeometry(3.6, 2.1, 0.1), new THREE.MeshStandardMaterial({ map:menuTexture(), roughness:0.85 }), 4.9, 4.35, -5.5, false, false);
+  g.add(menu);
+  // 吊りランプ ×2（ポイントライト付き）
+  [-3.6, 3.6].forEach((lx, idx)=>{
+    const lamp = new THREE.Group();
+    const cord = cyl(0.03, 0.03, 2.4, M('#26221f', 0.6), 8); cord.position.y = 7.6; lamp.add(cord);
+    const shadeM = mesh(new THREE.ConeGeometry(0.92, 0.75, 26, 1, true), new THREE.MeshStandardMaterial({ color:0x2e5e4e, roughness:0.4, metalness:0.55, side:THREE.DoubleSide }), 0, 6.35, 0, true, false);
+    lamp.add(shadeM);
+    const bulb = sph(0.17, new THREE.MeshStandardMaterial({ color:0xffdca8, emissive:0xffb85c, emissiveIntensity:1.6 }), 14, 10);
+    bulb.position.y = 6.05; lamp.add(bulb);
+    const pl = new THREE.PointLight(0xffb36b, 0.5, 17, 2);
+    pl.position.set(0, 5.8, 0); lamp.add(pl); lampLights.push(pl);
+    lamp.position.set(lx, 0, -0.6);
+    g.add(lamp);
+  });
+  // カウンター上の小物: 食材ボウルと皿の束
+  const bowlCols = ['#e0344f', '#87a355', '#5a3520'];
+  bowlCols.forEach((col,i)=>{
+    const bx = 4.7 + (i%2)*1.15, bz = 2.3 - Math.floor(i/2)*1.15;
+    const bowl = cyl(0.52, 0.34, 0.3, M('#f3ede0', 0.3), 20); bowl.position.set(bx, 0.15, bz); bowl.castShadow = true; g.add(bowl);
+    const top = mesh(new THREE.CircleGeometry(0.44, 20), M(col, 0.5), bx, 0.31, bz, false, false);
+    top.rotation.x = -Math.PI/2; g.add(top);
+  });
+  for(let i=0;i<4;i++){
+    const p = cyl(0.82, 0.62, 0.07, M('#ffffff', 0.28), 26);
+    p.position.set(-4.9, 0.05 + i*0.075, 1.9); p.castShadow = true; g.add(p);
+  }
+  // 生地ボウル（左手前）
+  const bb = cyl(0.95, 0.62, 0.55, M('#d8d2c4', 0.35, 0.3), 24);
+  bb.position.set(-4.6, 0.28, 3.6); bb.castShadow = true; g.add(bb);
+  const bbTop = mesh(new THREE.CircleGeometry(0.82, 24), M('#f2cf96', 0.55), -4.6, 0.56, 3.6, false, false);
+  bbTop.rotation.x = -Math.PI/2; g.add(bbTop);
+}
+
+/* ---------- 鉄板と調理グループ ---------- */
+function buildGriddle(){
+  griddleGroup = new THREE.Group(); scene.add(griddleGroup);
+  const steel = new THREE.MeshStandardMaterial({ color:0x8a8f99, roughness:0.32, metalness:0.85 });
+  const darkSteel = new THREE.MeshStandardMaterial({ color:0x35373d, roughness:0.45, metalness:0.7 });
+  const base = cyl(3.18, 3.3, 0.3, steel, 56); base.position.y = 0.15; base.castShadow = true; base.receiveShadow = true; griddleGroup.add(base);
+  const rim = mesh(new THREE.TorusGeometry(3.12, 0.055, 12, 64), steel, 0, 0.3, 0, true, false);
+  rim.rotation.x = Math.PI/2; griddleGroup.add(rim);
+  const top = mesh(new THREE.CircleGeometry(3.05, 56), darkSteel, 0, GRIDDLE_TOP, 0, false, true);
+  top.rotation.x = -Math.PI/2; griddleGroup.add(top);
+  const leg = cyl(0.5, 0.7, 0.06, darkSteel, 20); leg.position.y = 0.03; griddleGroup.add(leg);
+
+  cookGroup = new THREE.Group(); scene.add(cookGroup);
+  // 生地（CanvasTextureを持つ円盤＝PlaneでUVを厳密に管理）
+  const bGeo = new THREE.PlaneGeometry(CREPE_R3*2, CREPE_R3*2);
+  bGeo.rotateX(-Math.PI/2);
+  batterMesh = new THREE.Mesh(bGeo, new THREE.MeshStandardMaterial({ map:batterTex, transparent:true, alphaTest:0.04, roughness:0.6 }));
+  batterMesh.position.y = BATTER_Y; batterMesh.receiveShadow = true;
+  cookGroup.add(batterMesh);
+  // ソース専用オーバーレイ（消しゴム対応のため分離）
+  const oGeo = new THREE.PlaneGeometry(CREPE_R3*2, CREPE_R3*2);
+  oGeo.rotateX(-Math.PI/2);
+  overlayMesh = new THREE.Mesh(oGeo, new THREE.MeshStandardMaterial({ map:overlayTex, transparent:true, depthWrite:false, roughness:0.35 }));
+  overlayMesh.position.y = BATTER_Y + 0.012;
+  overlayMesh.visible = false;
+  cookGroup.add(overlayMesh);
+
+  fillGroup = new THREE.Group(); scene.add(fillGroup);
+
+  // 生地の塊（生地選びフェーズの表示）
+  blobMat = new THREE.MeshStandardMaterial({ color:batter.base, roughness:0.5 });
+  blobMesh = new THREE.Group();
+  const b1 = sph(0.85, blobMat, 24, 18); b1.scale.set(1, 0.45, 1); b1.position.y = 0.1; b1.castShadow = true; blobMesh.add(b1);
+  const b2 = sph(0.5, blobMat, 20, 14); b2.scale.set(1, 0.5, 1); b2.position.y = 0.36; blobMesh.add(b2);
+  blobMesh.position.set(0, GRIDDLE_TOP, 0);
+  scene.add(blobMesh);
+
+  buildTombo();
+}
+function buildTombo(){
+  tombo = new THREE.Group();
+  const wood = M('#c98d4b', 0.7), woodD = M('#a96f33', 0.7);
+  tomboBar = mesh(new THREE.BoxGeometry(1.7, 0.05, 0.14), wood, 0, 0.035, 0, true, false);
+  tombo.add(tomboBar);
+  const post = cyl(0.045, 0.045, 0.34, woodD, 10); post.position.y = 0.22; tombo.add(post);
+  const handle = cyl(0.055, 0.065, 1.15, wood, 12);
+  handle.position.set(0, 0.82, 0.26); handle.rotation.x = 0.42; handle.castShadow = true; tombo.add(handle);
+  const knob = sph(0.085, woodD, 12, 10); knob.position.set(0, 1.32, 0.5); tombo.add(knob);
+  tombo.position.set(0, BATTER_Y + 0.02, 0);
+  tombo.visible = false;
+  scene.add(tombo);
+}
+
+/* ---------- 盛り付け皿セット ---------- */
+function buildPlateSet(){
+  plateGroup = new THREE.Group();
+  plateGroup.position.set(PLATE_POS.x, 0, PLATE_POS.z);
+  const plateMat = new THREE.MeshStandardMaterial({ color:0xfdfbf4, roughness:0.24 });
+  const plate = cyl(2.55, 1.9, 0.13, plateMat, 52); plate.position.y = 0.065; plate.castShadow = true; plate.receiveShadow = true; plateGroup.add(plate);
+  const rim = mesh(new THREE.TorusGeometry(2.42, 0.075, 12, 58), plateMat, 0, 0.13, 0, true, false);
+  rim.rotation.x = Math.PI/2; plateGroup.add(rim);
+  const inner = mesh(new THREE.CircleGeometry(2.0, 48), M('#efe8d8', 0.35), 0, 0.132, 0, false, true);
+  inner.rotation.x = -Math.PI/2; plateGroup.add(inner);
+  foldGroup = new THREE.Group();
+  foldGroup.position.y = PLATE_TOP;
+  plateGroup.add(foldGroup);
+  plateGroup.visible = false;
+  scene.add(plateGroup);
+  decoGroup = new THREE.Group(); scene.add(decoGroup);
+}
+
+/* ---------- 湯気 ---------- */
+function buildSteam(){
+  steamGroup = new THREE.Group(); scene.add(steamGroup);
+  const tex = steamTexture();
+  for(let i=0;i<22;i++){
+    const m = new THREE.SpriteMaterial({ map:tex, transparent:true, opacity:0, depthWrite:false });
+    const s = new THREE.Sprite(m);
+    s.scale.set(0.7, 0.7, 1);
+    steamGroup.add(s);
+    steamSprites.push({ s, life: Math.random()*2, max: 2 + Math.random()*1.6, x:0, z:0, drift:(Math.random()-0.5)*0.2 });
+  }
+  steamGroup.visible = false;
+}
+function updateSteam(dt){
+  const active = (phase==='bake' && bake > 0.1);
+  steamGroup.visible = active;
+  if(!active) return;
+  for(const p of steamSprites){
+    p.life += dt;
+    if(p.life >= p.max){
+      p.life = 0; p.max = 2 + Math.random()*1.6;
+      const a = Math.random()*Math.PI*2, d = Math.sqrt(Math.random())*1.9;
+      p.x = Math.cos(a)*d; p.z = Math.sin(a)*d;
+    }
+    const k = p.life / p.max;
+    p.s.position.set(p.x + p.drift*p.life*2, BATTER_Y + 0.25 + k*2.1, p.z);
+    const sc = 0.55 + k*1.7;
+    p.s.scale.set(sc, sc, 1);
+    p.s.material.opacity = Math.sin(Math.min(1,k)*Math.PI) * 0.34;
+  }
+}
+
+/* ================================================================
+   生地テクスチャ（CanvasTexture 1024px）
+================================================================ */
+let batterCanvas, batterCtx, batterTex, overlayCanvas, overlayCtx, overlayTex;
+function initTextures(){
+  batterCanvas = makeCanvas(TEX, TEX); batterCtx = batterCanvas.getContext('2d');
+  batterTex = new THREE.CanvasTexture(batterCanvas);
+  batterTex.encoding = THREE.sRGBEncoding;
+  batterTex.anisotropy = 4;
+  overlayCanvas = makeCanvas(TEX, TEX); overlayCtx = overlayCanvas.getContext('2d');
+  overlayTex = new THREE.CanvasTexture(overlayCanvas);
+  overlayTex.encoding = THREE.sRGBEncoding;
+  overlayTex.anisotropy = 4;
+}
+function worldToTex(x, z){ return { px: TC + x*K_TEX, py: TC + z*K_TEX }; }
+function discPath(c, r){ c.beginPath(); c.arc(TC, TC, r, 0, Math.PI*2); }
+function bakeTint(level){ return Math.round(level*46); }
+
+/* ---------- のばす（スプレッド） ---------- */
+const CELL_T = 32, GN_T = TEX/CELL_T;
+let spreadGrid = null, spreadCount = 0, pourStart = 0;
+function targetCellsTex(){
+  let n = 0;
+  for(let gy=0; gy<GN_T; gy++) for(let gx=0; gx<GN_T; gx++){
+    const x = gx*CELL_T + CELL_T/2, y = gy*CELL_T + CELL_T/2;
+    if(Math.hypot(x-TC, y-TC) <= TC + 14) n++;
+  }
+  return n;
+}
+const TARGET_TOTAL_T = targetCellsTex();
+function initSpreadTex(){
+  spreadGrid = new Uint16Array(GN_T*GN_T); spreadCount = 0; spreadDone = false; spreadScore = 0;
+  batterCtx.clearRect(0, 0, TEX, TEX);
+  batterTex.needsUpdate = true;
+  overlayCtx.clearRect(0, 0, TEX, TEX);
+  overlayTex.needsUpdate = true;
+  pourStart = performance.now();
+}
+function paintSpreadTex(px, py, stampR){
+  stampR = stampR || 116;
+  const c = batterCtx;
+  const g = c.createRadialGradient(px, py, 4, px, py, stampR);
+  g.addColorStop(0, batter.base); g.addColorStop(0.8, batter.base); g.addColorStop(1, shade(batter.base, -14));
+  c.fillStyle = g;
+  c.beginPath(); c.arc(px, py, stampR, 0, Math.PI*2); c.fill();
+  batterTex.needsUpdate = true;
+  for(let gy=0; gy<GN_T; gy++) for(let gx=0; gx<GN_T; gx++){
+    const cxp = gx*CELL_T + CELL_T/2, cyp = gy*CELL_T + CELL_T/2;
+    if(Math.hypot(cxp-px, cyp-py) <= stampR && Math.hypot(cxp-TC, cyp-TC) <= TC + 14){
+      const idx = gy*GN_T + gx;
+      if(spreadGrid[idx]===0) spreadCount++;
+      if(spreadGrid[idx]<9) spreadGrid[idx]++;
+    }
+  }
+  const pct = Math.floor(spreadCount / TARGET_TOTAL_T * 100);
+  const bar = $('spreadBar'), lbl = $('spreadPct'), btn = $('toBake');
+  if(bar) bar.style.width = Math.min(100, pct) + '%';
+  if(lbl) lbl.textContent = pct + '%';
+  if(pct >= 92 && !spreadDone){
+    spreadDone = true;
+    let sum=0, cnt=0;
+    for(let i=0;i<spreadGrid.length;i++) if(spreadGrid[i]>0){ sum+=spreadGrid[i]; cnt++; }
+    const mean = sum/Math.max(1, cnt);
+    let varSum=0;
+    for(let i=0;i<spreadGrid.length;i++) if(spreadGrid[i]>0) varSum += Math.pow(spreadGrid[i]-mean, 2);
+    const sd = Math.sqrt(varSum/Math.max(1, cnt));
+    spreadScore = Math.round(Math.max(35, 100 - sd*16));
+    if(btn) btn.disabled = false;
+    sfx.good(); toast('きれいに広がった！ 焼こう 🔥');
+  }
+}
+
+/* ---------- 焼き色 ---------- */
+function drawBatterBase(level){
+  const c = batterCtx;
+  c.clearRect(0, 0, TEX, TEX);
+  c.save(); discPath(c, TC); c.clip();
+  c.fillStyle = shade(batter.edge, -bakeTint(level) - 6);
+  c.fillRect(0, 0, TEX, TEX);
+  const g = c.createRadialGradient(TC-150, TC-170, 100, TC, TC, TC);
+  g.addColorStop(0, shade(batter.base, 14 - Math.round(level*40)));
+  g.addColorStop(1, shade(batter.base, -bakeTint(level)));
+  discPath(c, TC*0.965); c.fillStyle = g; c.fill();
+  const rnd = rng(11);
+  const n = 26 + Math.floor(level*70);
+  for(let i=0;i<n;i++){
+    const a = rnd()*Math.PI*2, d = Math.sqrt(rnd())*TC*0.94;
+    const x = TC + Math.cos(a)*d, y = TC + Math.sin(a)*d, sr = (3 + rnd()*13*(0.5+level)) * 1.6;
+    c.beginPath(); c.arc(x, y, sr, 0, Math.PI*2);
+    c.fillStyle = batter.spot;
+    c.globalAlpha = 0.05 + rnd()*0.13*level + 0.03;
+    c.fill();
+  }
+  c.globalAlpha = 1;
+  if(level > 0.55){
+    discPath(c, TC*0.965);
+    c.lineWidth = TC*0.05; c.strokeStyle = `rgba(90,50,15,${(level-0.55)*0.9})`; c.stroke();
+  }
+  c.restore();
+  batterTex.needsUpdate = true;
+}
+let lastBakeStep = 0;
+function paintBakeProgress(level){
+  const step = Math.floor(level * 24);
+  if(step <= lastBakeStep) return;
+  const c = batterCtx;
+  c.save(); discPath(c, TC*0.99); c.clip();
+  while(lastBakeStep < step){
+    lastBakeStep++;
+    // 全体を少しずつ濃く
+    c.fillStyle = 'rgba(150,84,22,0.05)';
+    c.fillRect(0, 0, TEX, TEX);
+    // 焼き斑点を追加
+    for(let i=0;i<4;i++){
+      const a = Math.random()*Math.PI*2, d = Math.sqrt(Math.random())*TC*0.93;
+      const x = TC + Math.cos(a)*d, y = TC + Math.sin(a)*d;
+      c.beginPath(); c.arc(x, y, 5 + Math.random()*17*(0.5+level), 0, Math.PI*2);
+      c.fillStyle = batter.spot;
+      c.globalAlpha = 0.06 + Math.random()*0.12;
+      c.fill();
+    }
+    c.globalAlpha = 1;
+    if(level > 0.55){
+      discPath(c, TC*0.965);
+      c.lineWidth = TC*0.045; c.strokeStyle = 'rgba(90,50,15,0.07)'; c.stroke();
+    }
+  }
+  c.restore();
+  batterTex.needsUpdate = true;
+}
+
+/* ---------- ソース（オーバーレイテクスチャ） ---------- */
+function redrawOverlay(){
+  const c = overlayCtx;
+  c.clearRect(0, 0, TEX, TEX);
+  for(const s of strokes){
+    if(s.stage!=='fill' || s.pts.length<2) continue;
+    c.beginPath(); c.moveTo(s.pts[0].px, s.pts[0].py);
+    for(let i=1;i<s.pts.length;i++) c.lineTo(s.pts[i].px, s.pts[i].py);
+    c.strokeStyle = s.color; c.lineWidth = s.w * 1.6;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.globalAlpha = 0.9; c.stroke(); c.globalAlpha = 1;
+  }
+  overlayTex.needsUpdate = true;
+}
+function drawOverlaySegment(s){
+  if(s.pts.length < 2) return;
+  const c = overlayCtx, a = s.pts[s.pts.length-2], b = s.pts[s.pts.length-1];
+  c.beginPath(); c.moveTo(a.px, a.py); c.lineTo(b.px, b.py);
+  c.strokeStyle = s.color; c.lineWidth = s.w * 1.6;
+  c.lineCap = 'round'; c.lineJoin = 'round'; c.globalAlpha = 0.9; c.stroke(); c.globalAlpha = 1;
+  overlayTex.needsUpdate = true;
+}
+
+/* ================================================================
+   具材の3Dモデル（Three.jsプリミティブの組み合わせ）
+   原点は底面中心、u = 具材の半径（ワールド換算）
+================================================================ */
+const ITEM_K = CREPE_R3 / 238; // 2D版の r(px) → ワールド換算
+const dotGeo = () => new THREE.SphereGeometry(1, 6, 5);
+function buildItemMesh(id, seed){
+  const def = defOf(id) || { r:24 };
+  const u = def.r * ITEM_K;
+  const g = new THREE.Group();
+  const rnd = rng(seed || 1);
+  const add = (m, x, y, z)=>{ if(x!==undefined) m.position.set(x, y, z); g.add(m); return m; };
+  switch(id){
+    case 'whip': {
+      const wm = M('#fffdf7', 0.5);
+      const a = add(sph(u*0.78, wm), 0, u*0.3, 0); a.scale.y = 0.6;
+      const b = add(sph(u*0.6, wm), 0, u*0.64, 0); b.scale.y = 0.58;
+      const c2 = add(sph(u*0.42, wm), 0, u*0.92, 0); c2.scale.y = 0.6;
+      const tip = add(cyl(0.015, u*0.2, u*0.52, wm, 10), u*0.05, u*1.28, 0); tip.rotation.z = 0.28;
+      break; }
+    case 'custard': {
+      const a = add(sph(u*0.85, M('#f5bc3f', 0.5)), 0, u*0.3, 0); a.scale.y = 0.5;
+      const b = add(sph(u*0.52, M('#ffe9a3', 0.45)), 0, u*0.56, 0); b.scale.y = 0.42;
+      break; }
+    case 'banana': case 'chocobanana': {
+      const skin = M(id==='chocobanana' ? '#5a3520' : '#f7e08b', 0.5);
+      for(let i=-1;i<=1;i++){
+        const sg = new THREE.Group();
+        const sl = cyl(u*0.42, u*0.42, u*0.3, skin, 18); sl.position.y = u*0.15; sg.add(sl);
+        const top = mesh(new THREE.CircleGeometry(u*0.31, 18), M('#fdf3c0', 0.5), 0, u*0.305, 0);
+        top.rotation.x = -Math.PI/2; sg.add(top);
+        const core = cyl(u*0.09, u*0.09, 0.02, M('#e8cf7e', 0.6), 10); core.position.y = u*0.3; sg.add(core);
+        sg.position.set(i*u*0.54, 0, (i%2 ? -u*0.1 : u*0.07));
+        sg.rotation.set((rnd()-0.5)*0.22, rnd()*0.8, (rnd()-0.5)*0.22);
+        g.add(sg);
+      }
+      break; }
+    case 'strawberry': {
+      const red = M('#e0344f', 0.32);
+      const body = add(sph(u*0.8, red, 22, 16), 0, u*0.8, 0); body.scale.set(1, 1.22, 1);
+      add(cyl(u*0.48, 0.02, u*0.62, red, 18), 0, u*0.32, 0);
+      const leafM = M('#3f9e4d', 0.55);
+      for(let i=0;i<5;i++){
+        const a = i/5*Math.PI*2;
+        const leaf = add(sph(u*0.3, leafM, 10, 8), Math.cos(a)*u*0.3, u*1.56, Math.sin(a)*u*0.3);
+        leaf.scale.set(1, 0.25, 0.55); leaf.rotation.y = -a; leaf.rotation.z = Math.cos(a)*0.5; leaf.rotation.x = -Math.sin(a)*0.5;
+      }
+      add(cyl(0.02, 0.03, u*0.3, M('#2f7d3c', 0.6), 8), 0, u*1.72, 0);
+      break; }
+    case 'kiwi': {
+      add(cyl(u*0.9, u*0.9, u*0.22, M('#5d8a3c', 0.6), 24), 0, u*0.11, 0);
+      const top = add(mesh(new THREE.CircleGeometry(u*0.8, 24), M('#a5d96e', 0.55), 0, u*0.222, 0)); top.rotation.x = -Math.PI/2;
+      const core = add(mesh(new THREE.CircleGeometry(u*0.32, 18), M('#f2f7d8', 0.55), 0, u*0.226, 0)); core.rotation.x = -Math.PI/2;
+      for(let i=0;i<10;i++){
+        const a = i/10*Math.PI*2 + rnd()*0.3;
+        add(sph(u*0.05, M('#39512a', 0.6), 8, 6), Math.cos(a)*u*0.55, u*0.23, Math.sin(a)*u*0.55);
+      }
+      break; }
+    case 'berry': {
+      const bm = M('#3f56a8', 0.3);
+      for(let i=0;i<5;i++){
+        const a = i/5*Math.PI*2 + rnd()*0.5;
+        add(sph(u*0.34, bm, 14, 10), Math.cos(a)*u*0.42, u*0.3, Math.sin(a)*u*0.42);
+      }
+      add(sph(u*0.36, bm, 14, 10), 0, u*0.62, 0);
+      add(cyl(u*0.07, u*0.07, 0.04, M('#2c3a6e', 0.5), 10), 0, u*0.98, 0);
+      break; }
+    case 'mikan': {
+      const a = add(sph(u*0.88, M('#ff9f2e', 0.5), 22, 16), 0, u*0.62, 0); a.scale.y = 0.72;
+      const top = add(mesh(new THREE.CircleGeometry(u*0.45, 20), M('#ffb85c', 0.5), 0, u*1.16, 0)); top.rotation.x = -Math.PI/2;
+      add(cyl(0.035, 0.045, u*0.2, M('#5d8a3c', 0.6), 8), 0, u*1.3, 0);
+      break; }
+    case 'ice_vanilla': case 'ice_choco': case 'ice_matcha': case 'ice_berry': {
+      const cols = { ice_vanilla:['#fff3da','#f0dcbb'], ice_choco:['#8a5a35','#5f3a1f'], ice_matcha:['#b9cc8a','#87a355'], ice_berry:['#ffc2d1','#f28bab'] };
+      const [c1, c2] = cols[id];
+      add(sph(u*0.88, M(c1, 0.45), 24, 18), 0, u*0.78, 0);
+      const frill = add(mesh(new THREE.TorusGeometry(u*0.74, u*0.19, 10, 24), M(c2, 0.5), 0, u*0.3, 0));
+      frill.rotation.x = Math.PI/2;
+      for(let i=0;i<5;i++){
+        const a = i/5*Math.PI*2 + (seed||0);
+        add(sph(u*0.15, M(c2, 0.5), 10, 8), Math.cos(a)*u*0.76, u*0.3 + (i%2)*u*0.08, Math.sin(a)*u*0.76);
+      }
+      break; }
+    case 'brownie': {
+      add(box(u*1.6, u*0.75, u*1.35, M('#4c2c17', 0.7)), 0, u*0.375, 0);
+      add(box(u*1.44, u*0.2, u*1.18, M('#654226', 0.65)), 0, u*0.85, 0);
+      break; }
+    case 'cheesecake': {
+      const wedge = (r, h, col, y)=>{
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20, 1, false, -0.55, 1.1), M(col, 0.55));
+        m.position.y = y; g.add(m); return m;
+      };
+      wedge(u*0.99, u*0.16, '#b57e2e', u*0.08);
+      wedge(u*0.95, u*0.6, '#fdf3d0', u*0.46);
+      wedge(u*0.95, u*0.05, '#f7e3ac', u*0.78);
+      break; }
+    case 'anko': {
+      const cols = ['#7d4453', '#54262f'];
+      for(let i=0;i<6;i++){
+        const a = i/6*Math.PI*2 + rnd()*0.4;
+        add(sph(u*0.4, M(cols[i%2], 0.38), 14, 10), Math.cos(a)*u*0.42, u*0.3, Math.sin(a)*u*0.42);
+      }
+      add(sph(u*0.42, M(cols[0], 0.38), 14, 10), -u*0.15, u*0.62, u*0.1);
+      add(sph(u*0.38, M(cols[1], 0.38), 14, 10), u*0.25, u*0.6, -u*0.12);
+      break; }
+    case 'shiratama': {
+      const wm = M('#ffffff', 0.32);
+      add(sph(u*0.42, wm, 16, 12), -u*0.45, u*0.42, u*0.1);
+      add(sph(u*0.42, wm, 16, 12), u*0.42, u*0.42, u*0.22);
+      add(sph(u*0.42, wm, 16, 12), 0, u*0.42, -u*0.38);
+      break; }
+    case 'oreo': {
+      add(cyl(u*0.85, u*0.85, u*0.3, M('#3a2c22', 0.55), 24), 0, u*0.15, 0);
+      const top = add(mesh(new THREE.CircleGeometry(u*0.58, 22), M('#57453a', 0.55), 0, u*0.302, 0)); top.rotation.x = -Math.PI/2;
+      add(cyl(u*0.3, u*0.3, u*0.33, M('#f5efe2', 0.5), 16), 0, u*0.16, 0);
+      break; }
+    case 'nuts': {
+      for(let i=0;i<9;i++){
+        const a = rnd()*Math.PI*2, d = rnd()*u*0.6;
+        const n = add(sph(u*0.2, M(i%2 ? '#c89b62' : '#a97a44', 0.6), 10, 8), Math.cos(a)*d, u*0.1, Math.sin(a)*d);
+        n.scale.set(1, 0.62, 0.78); n.rotation.y = rnd()*3;
+      }
+      break; }
+    case 'marshmallow': {
+      const mm = M('#ffffff', 0.85);
+      const pos = [[-u*0.35, u*0.25, 0, 0.3], [u*0.35, u*0.25, u*0.12, -0.4], [0, u*0.72, -u*0.1, 0.9]];
+      pos.forEach(([x, y, z, r])=>{
+        const b = add(box(u*0.62, u*0.5, u*0.62, mm), x, y, z); b.rotation.y = r;
+      });
+      break; }
+    case 'pudding': {
+      add(cyl(u*0.55, u*0.78, u*0.95, M('#f2a93b', 0.45), 24), 0, u*0.475, 0);
+      add(cyl(u*0.57, u*0.57, u*0.1, M('#8a4d16', 0.4), 24), 0, u*0.99, 0);
+      const drip = add(mesh(new THREE.TorusGeometry(u*0.52, u*0.07, 8, 22), M('#8a4d16', 0.4), 0, u*0.93, 0));
+      drip.rotation.x = Math.PI/2;
+      break; }
+    case 'mint': {
+      const lm = M('#3da35d', 0.55);
+      for(let i=-1;i<=1;i++){
+        const leaf = add(sph(u*0.55, lm, 12, 8), i*u*0.3, u*0.14, 0);
+        leaf.scale.set(0.5, 0.14, 1); leaf.rotation.y = i*0.55;
+      }
+      const st = add(cyl(0.025, 0.025, u*0.8, M('#2f7d46', 0.6), 6), 0, u*0.1, u*0.3);
+      st.rotation.x = 1.1;
+      break; }
+    case 'sugar': case 'cocoa_powder': {
+      const dm = M(id==='sugar' ? '#ffffff' : '#4a2410', 0.9);
+      const geo = dotGeo();
+      for(let i=0;i<26;i++){
+        const a = rnd()*Math.PI*2, d = Math.sqrt(rnd())*u*0.95;
+        const dot = new THREE.Mesh(geo, dm);
+        const s = 0.02 + rnd()*0.022;
+        dot.scale.set(s, s*0.6, s);
+        dot.position.set(Math.cos(a)*d, 0.02, Math.sin(a)*d);
+        g.add(dot);
+      }
+      break; }
+    default: { add(sph(u*0.8, M('#ffb347', 0.6)), 0, u*0.5, 0); }
+  }
+  g.traverse(o=>{ if(o.isMesh){ o.castShadow = true; } });
+  return g;
+}
+
+/* ---------- 具材の配置・落下アニメーション ---------- */
+let dropAnims = [];
+function placeItemGroup(kind, id, x, z, baseY){
+  const def = defOf(id);
+  const it = { kind, id, x, z, y: baseY, rot: (Math.random()-0.5)*0.6, scale: 0.92 + Math.random()*0.16, seed: Math.floor(Math.random()*9999), group: null };
+  const grp = buildItemMesh(id, it.seed);
+  grp.scale.setScalar(it.scale);
+  grp.rotation.y = it.rot;
+  grp.position.set(x, baseY + 1.7, z);
+  (kind==='fill' ? fillGroup : decoGroup).add(grp);
+  it.group = grp;
+  items.push(it); history.push({ type:'item', obj: it });
+  dropAnims.push({ grp, from: baseY + 1.7, to: baseY, t: 0, dur: 0.42 });
+  sfx.place(); updatePrice();
+  return it;
+}
+function removeItem(it){
+  const parent = it.kind==='fill' ? fillGroup : decoGroup;
+  if(it.group) parent.remove(it.group);
+  items = items.filter(i=>i!==it);
+  dropAnims = dropAnims.filter(a=>a.grp!==it.group);
+}
+function updateDropAnims(dt){
+  dropAnims = dropAnims.filter(a=>{
+    a.t += dt;
+    const p = Math.min(1, a.t / a.dur);
+    const e = 1 - Math.pow(1-p, 3);
+    a.grp.position.y = a.from + (a.to - a.from) * e;
+    if(p >= 1){
+      // 着地の小さな沈み込み
+      a.grp.scale.y = a.grp.scale.x * 0.88;
+      setTimeout(()=>{ if(a.grp) a.grp.scale.y = a.grp.scale.x; }, 70);
+      return false;
+    }
+    return true;
+  });
+}
+
+/* ================================================================
+   包んだクレープ（3D）
+================================================================ */
+function spiralTexture(){
+  const c = makeCanvas(256, 256), x = c.getContext('2d');
+  x.fillStyle = shade(batter.base, -bakeTint(bakeLevel)); x.fillRect(0,0,256,256);
+  x.strokeStyle = shade(batter.edge, -20); x.lineWidth = 13; x.lineCap = 'round';
+  x.beginPath();
+  for(let t=0; t<=Math.PI*5.2; t+=0.08){
+    const r = 6 + t*6.4, px = 128 + Math.cos(t)*r, py = 128 + Math.sin(t)*r;
+    if(t===0) x.moveTo(px, py); else x.lineTo(px, py);
+  }
+  x.stroke();
+  x.fillStyle = '#fff6e2';
+  x.beginPath(); x.arc(128, 128, 34, 0, Math.PI*2); x.fill();
+  const fills = items.filter(i=>i.kind==='fill').slice(-2);
+  fills.forEach((it,i)=>{
+    x.fillStyle = FILL_COLORS[it.id] || '#f5bc3f';
+    x.beginPath(); x.arc(112 + i*34, 118 + (i%2)*22, 15, 0, Math.PI*2); x.fill();
+  });
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+function buildFold(){
+  while(foldGroup.children.length) foldGroup.remove(foldGroup.children[0]);
+  const fills = items.filter(i=>i.kind==='fill');
+  const batterMat = new THREE.MeshStandardMaterial({ map:batterTex, roughness:0.6 });
+  const tintMat = M(shade(batter.base, -bakeTint(bakeLevel)), 0.62);
+  const peek = (list, positions, s)=>{
+    list.forEach((it,i)=>{
+      if(i >= positions.length) return;
+      const pm = buildItemMesh(it.id, it.seed + 7);
+      pm.scale.setScalar((it.scale||1) * (s||0.78));
+      pm.position.set(positions[i][0], positions[i][1], positions[i][2]);
+      pm.rotation.y = i * 1.3;
+      foldGroup.add(pm);
+    });
+  };
+  if(fold.id==='cone'){
+    const cone = new THREE.Mesh(new THREE.CylinderGeometry(1.02, 0.05, 2.6, 36, 1, true),
+      new THREE.MeshStandardMaterial({ map:batterTex, roughness:0.6, side:THREE.DoubleSide }));
+    cone.position.y = 1.3; cone.castShadow = true; foldGroup.add(cone);
+    const rim = mesh(new THREE.TorusGeometry(1.0, 0.05, 10, 36), M(shade(batter.edge, -bakeTint(bakeLevel)), 0.6), 0, 2.6, 0);
+    rim.rotation.x = Math.PI/2; foldGroup.add(rim);
+    const inner = mesh(new THREE.CircleGeometry(0.94, 30), M('#fff8ec', 0.7), 0, 2.56, 0);
+    inner.rotation.x = -Math.PI/2; foldGroup.add(inner);
+    const pos = fills.slice(-4).map((_,i,arr)=>{
+      const a = i/Math.max(1,arr.length)*Math.PI*2;
+      return [Math.cos(a)*0.42, 2.6, Math.sin(a)*0.42];
+    });
+    peek(fills.slice(-4), pos, 0.75);
+    const paper = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.08, 1.3, 36, 1, true),
+      new THREE.MeshStandardMaterial({ map:paperTexture(), roughness:0.7, side:THREE.DoubleSide }));
+    paper.position.y = 0.65; paper.castShadow = true; foldGroup.add(paper);
+  }
+  else if(fold.id==='half'){
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.2, 48, 1, false, 0, Math.PI), tintMat);
+    body.rotation.y = Math.PI/2; body.position.y = 0.1; body.castShadow = true; foldGroup.add(body);
+    const topGeo = new THREE.CircleGeometry(2.0, 48, 0, Math.PI);
+    const top = new THREE.Mesh(topGeo, batterMat);
+    top.rotation.x = -Math.PI/2; top.position.y = 0.205; foldGroup.add(top);
+    const pos = fills.slice(-3).map((_,i)=>[(i-1)*0.66, 0.2, 0.14]);
+    peek(fills.slice(-3), pos, 0.8);
+  }
+  else if(fold.id==='square'){
+    const sq = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.55, 2.3), batterMat);
+    sq.position.y = 0.275; sq.castShadow = true; foldGroup.add(sq);
+    const seamM = M(shade(batter.edge, -26 - bakeTint(bakeLevel)), 0.65);
+    const s1 = box(2.94, 0.035, 0.08, seamM); s1.position.y = 0.56; foldGroup.add(s1);
+    const s2 = box(0.08, 0.035, 2.34, seamM); s2.position.y = 0.56; foldGroup.add(s2);
+    const s3 = box(2.5, 0.03, 0.06, seamM); s3.position.set(0, 0.555, 0); s3.rotation.y = 0.66; foldGroup.add(s3);
+    const s4 = box(2.5, 0.03, 0.06, seamM); s4.position.set(0, 0.555, 0); s4.rotation.y = -0.66; foldGroup.add(s4);
+  }
+  else { // roll
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 3.4, 36), batterMat);
+    roll.rotation.z = Math.PI/2; roll.position.y = 0.62; roll.castShadow = true; foldGroup.add(roll);
+    const capL = mesh(new THREE.CircleGeometry(0.62, 30), tintMat, -1.71, 0.62, 0);
+    capL.rotation.y = -Math.PI/2; foldGroup.add(capL);
+    const capR = new THREE.Mesh(new THREE.CircleGeometry(0.62, 30),
+      new THREE.MeshStandardMaterial({ map:spiralTexture(), roughness:0.6 }));
+    capR.rotation.y = Math.PI/2; capR.position.set(1.71, 0.62, 0); foldGroup.add(capR);
+    const pos = fills.slice(-2).map((_,i)=>[1.78, 0.55 + (i? 0.22 : -0.05), (i? 0.18 : -0.16)]);
+    peek(fills.slice(-2), pos, 0.55);
+  }
+  foldGroup.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+}
+function decoPlaneY(){
+  return PLATE_TOP + (fold.id==='cone' ? 2.45 : fold.id==='half' ? 0.4 : fold.id==='square' ? 0.62 : 1.15);
+}
+
+/* ================= UI制御（2D版から踏襲） ================= */
 let toastTimer = null;
 function toast(msg, ms=1900){
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), ms);
 }
 const PHASE_IDX = { batter:0, spread:1, bake:2, fill:3, fold:4, deco:5, serve:6 };
+let camMode = 'work'; // 'work' | 'serve'（カメラの目標はループ側で解決）
 function renderSteps(){
   const cur = PHASE_IDX[phase] ?? -1;
   $('steps').innerHTML = STEP_NAMES.map((s,i)=>
@@ -452,7 +1038,7 @@ function renderSteps(){
 }
 function price(){
   let p = BASE_PRICE;
-  for(const it of items){ const d = FILLINGS.find(f=>f.id===it.id) || DECOS.find(f=>f.id===it.id); if(d) p += d.price; }
+  for(const it of items){ const d = defOf(it.id); if(d) p += d.price; }
   return p;
 }
 function updatePrice(){
@@ -476,7 +1062,7 @@ function bindPanel(){
       const t = b.dataset.tool;
       if(t==='sauce') tool = { type:'sauce', stage:b.dataset.stage, id:b.dataset.id };
       else tool = { type:t, id:b.dataset.id };
-      sfx.pop(); refreshPanel();
+      sfx.pop(); refreshPanel(); refreshGhost();
     };
   });
   document.querySelectorAll('#panelBody [data-act]').forEach(b=>{ b.onclick = ()=>doAction(b.dataset.act); });
@@ -484,10 +1070,13 @@ function bindPanel(){
 function refreshPanel(){ buildPanel(); }
 
 function setPhase(p){
-  phase = p; tool = null;
+  phase = p; tool = null; refreshGhost();
+  camMode = (p==='deco' || p==='serve') ? 'serve' : 'work';
   renderSteps(); buildPanel(); updatePrice();
-  if(p==='spread'){ initSpread(); }
-  if(p==='bake'){ bake = 0; baked = false; }
+  if(!GL_OK) return;
+  if(p==='spread'){ initSpreadTex(); blobMesh.visible = false; tombo.visible = true; }
+  if(p==='bake'){ bake = 0; baked = false; lastBakeStep = 0; drawBatterBase(0); tombo.visible = false; }
+  if(p==='fill'){ overlayMesh.visible = true; }
 }
 function buildPanel(){
   const T = $('panelTitle'), B = $('panelBody');
@@ -502,15 +1091,15 @@ function buildPanel(){
   }
   else if(phase==='spread'){
     T.textContent = '② 生地をのばす';
-    B.innerHTML = `<p class="hint">鉄板の上で<b>ドラッグ</b>して、生地を円くのばそう。トンボ（十字の棒）を回すイメージで、まんべんなく広げるのがコツ。</p>
+    B.innerHTML = `<p class="hint">鉄板の上で<b>ドラッグ</b>して、生地を円くのばそう。木のトンボが追いかけてくるよ。まんべんなく広げるのがコツ。</p>
       <div class="gauge" style="margin:12px 0 6px"><i id="spreadBar"></i></div>
       <p class="hint" style="text-align:center">広がり <b id="spreadPct">0%</b>（92%以上で次へ）</p>
       <button class="bigbtn" id="toBake" data-act="toBake" disabled style="margin-top:10px">焼く →</button>`;
   }
   else if(phase==='bake'){
     T.textContent = '③ 焼く（タイミング勝負）';
-    B.innerHTML = `<p class="hint">焼き色がついてきたら<b>緑のゾーン</b>で取り上げよう。早いと生焼け、遅いと焦げちゃう。</p>
-      <div class="gauge" style="margin:14px 0 8px"><div class="zone" style="left:55%;width:25%"></div><i id="bakeBar"></i></div>
+    B.innerHTML = `<p class="hint">焼き色がついてきたら<b>緑のゾーン</b>で取り上げよう。早いと生焼け、遅いと焦げちゃう。湯気と焼き色をよく見て。</p>
+      <div class="gauge" style="margin:14px 0 8px"><div class="zone" style="left:50%;width:32%"></div><i id="bakeBar"></i></div>
       <p class="hint" style="text-align:center" id="bakeLabel">焼きはじめ…</p>
       <button class="bigbtn" data-act="finishBake" style="margin-top:10px">🔥 焼き上がり！</button>`;
   }
@@ -550,10 +1139,10 @@ function buildPanel(){
   else { T.textContent = '完成！'; B.innerHTML = `<p class="hint">おつかれさま！ 審査結果は右のパネルと画面の表示を見てね。</p><button class="bigbtn" data-act="again">↻ もう一枚作る</button>`; }
   bindPanel();
 }
-let history = []; // {type:'item'|'stroke', obj}
 function doAction(act){
+  if(!GL_OK) return;
   const [cmd, arg] = act.split(':');
-  if(cmd==='batter'){ batter = BATTERS.find(b=>b.id===arg); sfx.pop(); buildPanel(); }
+  if(cmd==='batter'){ batter = BATTERS.find(b=>b.id===arg); blobMat.color.set(batter.base); sfx.pop(); buildPanel(); }
   else if(cmd==='pour'){ sfx.flip(); setPhase('spread'); toast('ドラッグで円くのばそう！'); }
   else if(cmd==='toBake'){ if(spreadDone){ setPhase('bake'); toast('焼き色をよく見て！'); } }
   else if(cmd==='finishBake'){ finishBake(); }
@@ -564,68 +1153,35 @@ function doAction(act){
   else if(cmd==='again'){ resetAll(); }
   else if(cmd==='undo'){
     const h = history.pop();
-    if(h){ if(h.type==='item') items = items.filter(i=>i!==h.obj); else strokes = strokes.filter(s=>s!==h.obj); updatePrice(); }
-  }
-  else if(cmd==='clearFill'){
-    items = items.filter(i=>i.kind!=='fill'); strokes = strokes.filter(s=>s.stage!=='fill'); history = []; updatePrice();
-  }
-}
-
-/* ================= のばす ================= */
-const CELL = 16, GN = Math.ceil(W/CELL);
-let spreadCanvas = document.createElement('canvas'); spreadCanvas.width = W; spreadCanvas.height = H;
-let pourStart = 0;
-function initSpread(){
-  spreadGrid = new Uint16Array(GN*GN); spreadCount = 0; spreadDone = false; spreadScore = 0;
-  const c = spreadCanvas.getContext('2d'); c.clearRect(0,0,W,H);
-  pourStart = performance.now();
-}
-function targetCells(){
-  let n = 0; for(let gy=0; gy<GN; gy++) for(let gx=0; gx<GN; gx++){
-    const x = gx*CELL+CELL/2, y = gy*CELL+CELL/2;
-    if(Math.hypot(x-CX, y-CY) <= CREPE_R) n++;
-  } return n;
-}
-const TARGET_TOTAL = targetCells();
-function paintSpread(x, y){
-  if(performance.now() - pourStart < 750) return;
-  const c = spreadCanvas.getContext('2d');
-  const g = c.createRadialGradient(x,y,4, x,y,54);
-  g.addColorStop(0, batter.base); g.addColorStop(0.8, batter.base); g.addColorStop(1, shade(batter.base,-14));
-  c.fillStyle = g; c.beginPath(); c.arc(x,y,54,0,Math.PI*2); c.fill();
-  for(let gy=0; gy<GN; gy++) for(let gx=0; gx<GN; gx++){
-    const cxp = gx*CELL+CELL/2, cyp = gy*CELL+CELL/2;
-    if(Math.hypot(cxp-x, cyp-y) <= 54 && Math.hypot(cxp-CX, cyp-CY) <= CREPE_R+8){
-      const idx = gy*GN+gx;
-      if(spreadGrid[idx]===0) spreadCount++;
-      if(spreadGrid[idx]<9) spreadGrid[idx]++;
+    if(h){
+      if(h.type==='item') removeItem(h.obj);
+      else { removeStroke(h.obj); }
+      updatePrice();
     }
   }
-  const pct = Math.floor(spreadCount / TARGET_TOTAL * 100);
-  const bar = $('spreadBar'), lbl = $('spreadPct'), btn = $('toBake');
-  if(bar) bar.style.width = Math.min(100,pct)+'%';
-  if(lbl) lbl.textContent = pct + '%';
-  if(pct >= 92 && !spreadDone){
-    spreadDone = true;
-    // 均一さスコア: 塗られたセルの塗布回数のばらつき
-    let sum=0, cnt=0; for(let i=0;i<spreadGrid.length;i++) if(spreadGrid[i]>0){ sum+=spreadGrid[i]; cnt++; }
-    const mean = sum/Math.max(1,cnt);
-    let varSum=0; for(let i=0;i<spreadGrid.length;i++) if(spreadGrid[i]>0) varSum += Math.pow(spreadGrid[i]-mean,2);
-    const sd = Math.sqrt(varSum/Math.max(1,cnt));
-    spreadScore = Math.round(Math.max(35, 100 - sd*16));
-    if(btn) btn.disabled = false;
-    sfx.good(); toast('きれいに広がった！ 焼こう 🔥');
+  else if(cmd==='clearFill'){
+    items.filter(i=>i.kind==='fill').slice().forEach(removeItem);
+    strokes.filter(s=>s.stage==='fill').slice().forEach(removeStroke);
+    history = history.filter(h=> (h.type==='item' && h.obj.kind!=='fill') || (h.type==='stroke' && h.obj.stage!=='fill'));
+    redrawOverlay(); updatePrice();
   }
+}
+function removeStroke(s){
+  strokes = strokes.filter(x=>x!==s);
+  if(s.stage==='fill') redrawOverlay();
+  else if(s.mesh) decoGroup.remove(s.mesh);
 }
 
 /* ================= 焼く ================= */
-let bakeLevel = 0;
 function finishBake(){
   if(phase!=='bake' || baked) return;
   baked = true; bakeLevel = bake;
-  const ideal = 0.675;
-  bakeScore = Math.round(Math.max(0, 100 - Math.abs(bake - ideal) * 250));
-  if(bake < 0.4){ toast('ちょっと生焼け… でもこれはこれで', 2200); }
+  paintBakeProgress(bake);
+  // 適正ゾーン 50〜82%（中心0.66）。前版より許容を広げた
+  let sc = 100 - Math.abs(bake - 0.66) * 190;
+  if(bake > 0.9) sc -= (bake - 0.9) * 160;
+  bakeScore = Math.round(Math.max(0, Math.min(100, sc)));
+  if(bake < 0.42){ toast('ちょっと生焼け… でもこれはこれで', 2200); }
   else if(bake > 0.93){ toast('焦げちゃった！ 香ばしい（？）', 2200); sfx.flip(); }
   else if(bakeScore >= 85){ toast('完璧な焼き加減！ ✨', 2200); sfx.good(); }
   else { toast('いい焼き色！', 1800); sfx.pop(); }
@@ -633,29 +1189,39 @@ function finishBake(){
 }
 
 /* ================= 包む・完成 ================= */
-let foldAnim = 0, foldStart = 0;
+let foldStart = 0;
 function startFold(){
-  foldStart = performance.now(); foldAnim = 1;
+  if(!GL_OK) return;
+  // ソースを生地テクスチャへ焼き込んでから包む
+  batterCtx.drawImage(overlayCanvas, 0, 0);
+  batterTex.needsUpdate = true;
+  overlayMesh.visible = false;
+  buildFold();
+  foldStart = performance.now();
   sfx.flip();
-  setTimeout(()=>{ setPhase('deco'); toast('最後にデコレーションしよう ✨'); }, 950);
+  setTimeout(()=>{
+    cookGroup.visible = false; fillGroup.visible = false;
+    plateGroup.visible = true;
+    camMode = 'serve';
+  }, 460);
+  setTimeout(()=>{ setPhase('deco'); toast('最後にデコレーションしよう ✨'); }, 980);
 }
 function serve(){
   setPhase('serve');
   const j = judge();
-  // 審査パネル
   $('judgeBox').style.display = 'block';
   $('judgeBody').innerHTML =
     j.lines.map(l=>`<div class="judgeLine"><span>${l.k}</span><b>${l.v} 点</b></div>`).join('') +
     `<div class="judgeLine" style="border-bottom:none;font-size:15px"><span><b>総合</b></span><b>${j.total} 点</b></div>` +
     `<p class="hint" style="margin-top:8px">${j.comment}</p>`;
-  // 完成オーバーレイ
   $('serveTitle').textContent = j.title;
   $('serveStars').textContent = '★'.repeat(j.stars) + '☆'.repeat(5-j.stars);
   $('nameInput').value = j.autoName;
   $('serveComment').innerHTML = j.comment + `<br><span style="color:#fdba74;font-weight:800">お値段 ¥${price().toLocaleString()}</span>`;
   $('serveOv').classList.remove('hidden');
   sfx.fanfare();
-  saveToGallery(j);
+  // カメラが寄り切ってからサムネイルを撮る
+  setTimeout(()=>saveToGallery(j), 950);
 }
 function judge(){
   const fills = items.filter(i=>i.kind==='fill');
@@ -683,7 +1249,7 @@ function judge(){
     let needTotal = 0, needGot = 0;
     for(const [id, n] of Object.entries(order.needs)){ needTotal += n; needGot += Math.min(n, fills.filter(i=>i.id===id).length); }
     m += needTotal ? Math.round(35 * needGot/needTotal) : 35;
-    if(strokes.some(s=>s.stage==='fill' && SAUCES.find(x=>x.id===s.sauceId)?.id===order.sauce) || strokes.some(s=>s.stage==='fill' && s.sauceId===order.sauce)) m += 15;
+    if(strokes.some(s=>s.stage==='fill' && s.sauceId===order.sauce)) m += 15;
     matchInfo = Math.min(100, m);
     lines.push({ k:'🧾 注文一致度', v: matchInfo });
     total = Math.round(lines.reduce((a,l)=>a+l.v,0) / lines.length);
@@ -691,7 +1257,7 @@ function judge(){
   } else {
     total = Math.round(lines.reduce((a,l)=>a+l.v,0) / lines.length);
     if(bakeLevel > 0.93) comment = '香ばしさ全開のワイルドな一枚。焦げも味のうち！';
-    else if(bakeLevel < 0.4) comment = 'もちもち生焼け食感。これはこれで新しい。';
+    else if(bakeLevel < 0.42) comment = 'もちもち生焼け食感。これはこれで新しい。';
     else if(uniq >= 7) comment = '具材の宝石箱！ どこから食べても楽しい一枚。';
     else if(fills.length === 0) comment = '潔い、素クレープ。生地の味で勝負する通な一枚。';
     else if(total >= 85) comment = 'お店に出せるレベル！ 見た目も味も文句なし。';
@@ -707,7 +1273,7 @@ function judge(){
 function saveToGallery(j){
   try{
     const thumb = document.createElement('canvas'); thumb.width = 220; thumb.height = 220;
-    thumb.getContext('2d').drawImage(cv, 0, 0, 220, 220);
+    thumb.getContext('2d').drawImage(renderer.domElement, 0, 0, 220, 220);
     const name = ($('nameInput').value || j.autoName).slice(0,24);
     const list = JSON.parse(localStorage.getItem('crepe_gallery')||'[]');
     list.unshift({ name, img: thumb.toDataURL('image/jpeg', 0.72), score: j.total, date: new Date().toLocaleDateString('ja-JP') });
@@ -723,19 +1289,33 @@ function renderGallery(){
   $('gallery').innerHTML = list.map(g=>`<figure><img src="${g.img}" alt=""><figcaption>${g.name}<br>${g.score}点・${g.date}</figcaption></figure>`).join('');
 }
 function resetAll(){
-  items = []; strokes = []; history = [];
-  bake = 0; bakeLevel = 0; baked = false; spreadDone = false;
+  items.slice().forEach(removeItem);
+  strokes.slice().forEach(removeStroke);
+  items = []; strokes = []; history = []; dropAnims = [];
+  bake = 0; bakeLevel = 0; baked = false; spreadDone = false; lastBakeStep = 0;
+  if(GL_OK){
+    batterCtx.clearRect(0, 0, TEX, TEX); batterTex.needsUpdate = true;
+    overlayCtx.clearRect(0, 0, TEX, TEX); overlayTex.needsUpdate = true;
+    overlayMesh.visible = false;
+    cookGroup.visible = true; fillGroup.visible = true;
+    plateGroup.visible = false;
+    while(foldGroup.children.length) foldGroup.remove(foldGroup.children[0]);
+    blobMesh.visible = true; blobMat.color.set(batter.base);
+    tombo.visible = false;
+    glowLight.intensity = 0;
+  }
   $('judgeBox').style.display = 'none';
   $('serveOv').classList.add('hidden');
   setPhase('batter');
   toast(mode==='order' ? '注文をよく確認してね' : '新しいクレープを作ろう！');
 }
-$('againBtn').onclick = ()=>{ saveNameOnly(); resetAll(); };
-function saveNameOnly(){ /* 名前はギャラリー保存時に確定済み */ }
+$('againBtn').onclick = ()=>{ resetAll(); };
 $('savePngBtn').onclick = ()=>{
+  if(!GL_OK) return;
+  renderer.render(scene, camera); // 保存直前に再描画して確実にキャプチャ
   const a = document.createElement('a');
   a.download = ($('nameInput').value || 'クレープ') + '.png';
-  a.href = cv.toDataURL('image/png'); a.click();
+  a.href = renderer.domElement.toDataURL('image/png'); a.click();
 };
 $('freeBtn').onclick = ()=>{ mode='free'; order=null; $('orderBox').style.display='none'; $('startOv').classList.add('hidden'); resetAll(); };
 $('orderBtn').onclick = ()=>{
@@ -745,304 +1325,257 @@ $('orderBtn').onclick = ()=>{
   $('startOv').classList.add('hidden'); resetAll();
 };
 
-/* ================= 包んだクレープの描画 ================= */
-function drawFolded(cx, cy, pop){
-  const col = bakeColor(bakeLevel);
-  const s = pop || 1;
-  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
-  const fills = items.filter(i=>i.kind==='fill');
-  if(fold.id==='cone'){
-    // コーン本体
-    const g = ctx.createLinearGradient(cx-110,0,cx+110,0);
-    g.addColorStop(0, shade(batter.edge,-18)); g.addColorStop(0.5, batter.base); g.addColorStop(1, shade(batter.edge,-26));
-    ctx.beginPath();
-    ctx.moveTo(cx-108, cy-118); ctx.quadraticCurveTo(cx-40, cy+60, cx, cy+178);
-    ctx.quadraticCurveTo(cx+40, cy+60, cx+108, cy-118); ctx.closePath();
-    ctx.fillStyle = bakeLevel>0.6 ? shade(batter.base,-20) : g; ctx.fill();
-    ctx.save(); ctx.clip();
-    ctx.strokeStyle='rgba(120,70,20,.25)'; ctx.lineWidth=7;
-    for(let i=-2;i<=2;i++){ ctx.beginPath(); ctx.moveTo(cx+i*44-70, cy-130); ctx.lineTo(cx+i*44+46, cy+180); ctx.stroke(); }
-    ctx.restore();
-    // 口の部分
-    ctx.beginPath(); ctx.ellipse(cx, cy-118, 108, 30, 0, 0, Math.PI*2);
-    ctx.fillStyle = shade(batter.edge,-8); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx, cy-118, 92, 23, 0, 0, Math.PI*2);
-    ctx.fillStyle = '#fff8ec'; ctx.fill();
-    // 具材のはみ出し
-    const peek = fills.slice(-4);
-    peek.forEach((it,i)=>{ drawItem({ ...it, x: cx + (i-(peek.length-1)/2)*44, y: cy-128 + (i%2)*8, scale:(it.scale||1)*0.82 }); });
-    if(!peek.length){ ctx.fillStyle='#f7e3bb'; ctx.beginPath(); ctx.ellipse(cx, cy-120, 70, 15, 0, 0, Math.PI*2); ctx.fill(); }
-    // 紙巻き
-    ctx.beginPath();
-    ctx.moveTo(cx-56, cy+58); ctx.lineTo(cx+56, cy+58); ctx.lineTo(cx, cy+178); ctx.closePath();
-    ctx.fillStyle = '#fdfdf8'; ctx.fill();
-    ctx.fillStyle = '#e5484d';
-    ctx.fillRect(cx-56, cy+58, 112, 10);
-    ctx.save(); ctx.beginPath(); ctx.moveTo(cx-56,cy+58); ctx.lineTo(cx+56,cy+58); ctx.lineTo(cx,cy+178); ctx.closePath(); ctx.clip();
-    ctx.fillStyle='rgba(229,72,77,.55)';
-    for(let i=0;i<4;i++) ctx.fillRect(cx-56+i*30, cy+58, 13, 130);
-    ctx.restore();
-  }
-  else if(fold.id==='half'){
-    const g = ctx.createRadialGradient(cx-50,cy-40,40, cx,cy,210);
-    g.addColorStop(0, shade(batter.base,10)); g.addColorStop(1, shade(batter.base,-24));
-    ctx.beginPath(); ctx.arc(cx, cy-30, 196, 0.08*Math.PI, 0.92*Math.PI); ctx.closePath();
-    ctx.fillStyle = g; ctx.fill();
-    ctx.strokeStyle='rgba(120,70,20,.3)'; ctx.lineWidth=3; ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy-30, 168, 0.15*Math.PI, 0.85*Math.PI);
-    ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=10; ctx.stroke();
-    const peek = fills.slice(-3);
-    peek.forEach((it,i)=>{ drawItem({ ...it, x: cx + (i-1)*62, y: cy-44, scale:(it.scale||1)*0.8 }); });
-    // 焼き斑点
-    const rnd = rng(31); ctx.fillStyle = batter.spot;
-    for(let i=0;i<16;i++){ const a = 0.2+ rnd()*0.6, d = 60+rnd()*110;
-      ctx.globalAlpha = 0.1+rnd()*0.12; ctx.beginPath();
-      ctx.arc(cx+Math.cos(a*Math.PI)*d, cy-30+Math.sin(a*Math.PI)*d*0.8, 4+rnd()*10, 0, Math.PI*2); ctx.fill(); }
-    ctx.globalAlpha = 1;
-  }
-  else if(fold.id==='square'){
-    const g = ctx.createLinearGradient(cx-150,cy-120,cx+150,cy+120);
-    g.addColorStop(0, shade(batter.base,8)); g.addColorStop(1, shade(batter.base,-22));
-    ctx.beginPath(); ctx.roundRect(cx-158, cy-118, 316, 236, 26);
-    ctx.fillStyle = g; ctx.fill();
-    ctx.strokeStyle='rgba(120,70,20,.35)'; ctx.lineWidth=3; ctx.stroke();
-    ctx.strokeStyle='rgba(120,70,20,.28)'; ctx.lineWidth=5;
-    ctx.beginPath(); ctx.moveTo(cx-158,cy-118); ctx.lineTo(cx,cy); ctx.lineTo(cx-158,cy+118); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx+158,cy-118); ctx.lineTo(cx,cy); ctx.lineTo(cx+158,cy+118); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-158,cy); ctx.lineTo(cx+158,cy); ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=12; ctx.stroke();
-    const rnd = rng(47); ctx.fillStyle = batter.spot;
-    for(let i=0;i<14;i++){ ctx.globalAlpha=0.08+rnd()*0.12; ctx.beginPath();
-      ctx.arc(cx-140+rnd()*280, cy-100+rnd()*200, 4+rnd()*11, 0, Math.PI*2); ctx.fill(); }
-    ctx.globalAlpha = 1;
-  }
-  else { // roll
-    const g = ctx.createLinearGradient(0,cy-70,0,cy+70);
-    g.addColorStop(0, shade(batter.base,14)); g.addColorStop(0.55, batter.base); g.addColorStop(1, shade(batter.base,-26));
-    ctx.beginPath(); ctx.roundRect(cx-196, cy-66, 330, 132, 60);
-    ctx.fillStyle = g; ctx.fill();
-    ctx.strokeStyle='rgba(120,70,20,.2)'; ctx.lineWidth=3;
-    for(let i=0;i<3;i++){ ctx.beginPath(); ctx.moveTo(cx-150+i*90, cy-62); ctx.lineTo(cx-150+i*90, cy+62); ctx.stroke(); }
-    // 断面（渦巻き）
-    ctx.beginPath(); ctx.arc(cx+134, cy, 66, 0, Math.PI*2);
-    ctx.fillStyle = shade(batter.base,-6); ctx.fill();
-    ctx.lineWidth=3; ctx.strokeStyle='rgba(120,70,20,.4)'; ctx.stroke();
-    const peek = fills.slice(-2);
-    ctx.save(); ctx.beginPath(); ctx.arc(cx+134, cy, 52, 0, Math.PI*2); ctx.clip();
-    ctx.fillStyle='#fff6e2'; ctx.fillRect(cx+82, cy-52, 104, 104);
-    peek.forEach((it,i)=>{ drawItem({ ...it, x: cx+134+(i? 16:-16), y: cy+(i? 12:-10), scale:0.62 }); });
-    ctx.restore();
-    ctx.beginPath(); ctx.arc(cx+134, cy, 40, 0, Math.PI*2);
-    ctx.strokeStyle = shade(batter.edge,-16); ctx.lineWidth=9; ctx.stroke();
-  }
-  ctx.restore();
-}
-function drawServing(){
-  const bg = ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#3a2317'); bg.addColorStop(1,'#241509');
-  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
-  // テーブルクロスの模様
-  ctx.fillStyle='rgba(255,255,255,.03)';
-  for(let x=0;x<W;x+=44) for(let y=0;y<H;y+=44) if(((x+y)/44)%2===0) ctx.fillRect(x,y,44,44);
-  // お皿
-  ctx.beginPath(); ctx.ellipse(CX, CY+128, 252, 56, 0, 0, Math.PI*2); ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(CX, CY+112, 252, 58, 0, 0, Math.PI*2);
-  const pg = ctx.createRadialGradient(CX,CY+90,40, CX,CY+112,252);
-  pg.addColorStop(0,'#ffffff'); pg.addColorStop(0.8,'#f1ead9'); pg.addColorStop(1,'#d9cfb6');
-  ctx.fillStyle = pg; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(CX, CY+112, 205, 42, 0, 0, Math.PI*2); ctx.fillStyle='rgba(0,0,0,.05)'; ctx.fill();
-  const pop = phase==='fold' ? foldPop() : 1;
-  drawFolded(CX, CY-6, pop);
-  drawStrokes('deco', null);
-  const ds = items.filter(i=>i.kind==='deco').slice().sort((a,b)=>a.y-b.y);
-  ds.forEach(drawItem);
-}
-function foldPop(){
-  if(!foldAnim) return 1;
-  const p = Math.min(1, (performance.now()-foldStart)/950);
-  return 0.86 + 0.14 * (p<0.5 ? p*2 : 1);
-}
-
-/* ================= メイン描画 ================= */
-let steam = [];
-function render(now){
-  if(phase==='batter' || phase==='start'){
-    drawPlate();
-    // おたまの生地ボール
-    const g = ctx.createRadialGradient(CX-16,CY-20,8, CX,CY,66);
-    g.addColorStop(0, shade(batter.base,26)); g.addColorStop(1, batter.edge);
-    ctx.beginPath(); ctx.arc(CX,CY,64,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(CX-20,CY-24,20,10,-0.6,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.75)'; ctx.font='700 17px sans-serif'; ctx.textAlign='center';
-    ctx.fillText(batter.name+'生地', CX, CY+104);
-    return;
-  }
-  if(phase==='spread'){
-    drawPlate();
-    const el = performance.now()-pourStart;
-    if(el < 750){
-      const r = 46 + (el/750)*66;
-      const g = ctx.createRadialGradient(CX-14,CY-16,6, CX,CY,r);
-      g.addColorStop(0, shade(batter.base,22)); g.addColorStop(1, batter.edge);
-      ctx.beginPath(); ctx.arc(CX,CY,r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-    } else {
-      ctx.drawImage(spreadCanvas, 0, 0);
-      // トンボ（広げる道具）
-      if(pointer.inside){
-        ctx.save(); ctx.translate(pointer.x, pointer.y); ctx.rotate(now/600);
-        ctx.fillStyle='#c98d4b'; ctx.fillRect(-4,-58,8,116);
-        ctx.fillStyle='#a96f33'; ctx.fillRect(-34,-5,68,10);
-        ctx.beginPath(); ctx.arc(0,0,9,0,Math.PI*2); ctx.fillStyle='#8a5a24'; ctx.fill();
-        ctx.restore();
-      }
-    }
-    return;
-  }
-  if(phase==='bake'){
-    // 鉄板の熱気
-    ctx.save(); ctx.globalAlpha = 0.12 + bake*0.25;
-    const hg = ctx.createRadialGradient(CX,CY,80, CX,CY,PLATE_R);
-    hg.addColorStop(0,'rgba(255,110,30,0)'); hg.addColorStop(1,'rgba(255,80,20,.55)');
-    ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(CX,CY,PLATE_R,0,Math.PI*2); ctx.fill(); ctx.restore();
-    drawPlate();
-    drawCrepeBase(CX,CY,CREPE_R, bake, 11);
-    // 泡
-    const rnd = rng(1234);
-    const nb = Math.floor(bake*46);
-    for(let i=0;i<nb;i++){
-      const a = rnd()*Math.PI*2, d = Math.sqrt(rnd())*CREPE_R*0.9;
-      const bx = CX+Math.cos(a)*d, by = CY+Math.sin(a)*d;
-      ctx.beginPath(); ctx.arc(bx,by, 2+rnd()*4.5, 0, Math.PI*2);
-      ctx.fillStyle='rgba(255,246,220,.5)'; ctx.fill();
-    }
-    // 湯気
-    steam = steam.filter(p=>p.life>0);
-    if(Math.random()<0.3 && bake>0.15) steam.push({ x:CX+(Math.random()-0.5)*260, y:CY-120-Math.random()*60, vy:-0.7-Math.random()*0.7, life:1, r:12+Math.random()*16 });
-    for(const p of steam){ p.y += p.vy; p.life -= 0.012;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,255,255,${0.10*Math.max(0,p.life)})`; ctx.fill(); }
-    return;
-  }
-  if(phase==='fill'){
-    drawPlate();
-    drawCrepeBase(CX,CY,CREPE_R, bakeLevel, 11);
-    drawStrokes('fill', ()=>{ ctx.beginPath(); ctx.arc(CX,CY,CREPE_R*0.97,0,Math.PI*2); ctx.clip(); });
-    const fs = items.filter(i=>i.kind==='fill').slice().sort((a,b)=>a.y-b.y);
-    fs.forEach(drawItem);
-    // ゴースト表示
-    if(tool && pointer.inside){
-      if(tool.type==='fill'){
-        const def = FILLINGS.find(f=>f.id===tool.id);
-        ctx.save(); ctx.globalAlpha = 0.55;
-        drawItem({ id:tool.id, x:pointer.x, y:pointer.y, rot:0, scale:1, seed:5 });
-        ctx.restore();
-      } else if(tool.type==='eraser'){
-        ctx.beginPath(); ctx.arc(pointer.x, pointer.y, 22, 0, Math.PI*2);
-        ctx.strokeStyle='rgba(255,120,120,.9)'; ctx.lineWidth=2; ctx.stroke();
-      }
-    }
-    return;
-  }
-  if(phase==='fold'){
-    const p = Math.min(1, (performance.now()-foldStart)/950);
-    if(p < 0.45){
-      ctx.save(); ctx.translate(CX,CY); ctx.scale(1-p*0.25, 1-p*0.25); ctx.translate(-CX,-CY);
-      drawPlate(); drawCrepeBase(CX,CY,CREPE_R, bakeLevel, 11);
-      const fs = items.filter(i=>i.kind==='fill').slice().sort((a,b)=>a.y-b.y);
-      fs.forEach(drawItem);
-      ctx.restore();
-    } else drawServing();
-    return;
-  }
-  // deco / serve
-  drawServing();
-  if(phase==='deco' && tool && pointer.inside){
-    if(tool.type==='deco'){
-      ctx.save(); ctx.globalAlpha = 0.55;
-      drawItem({ id:tool.id, x:pointer.x, y:pointer.y, rot:0, scale:1, seed:5 });
-      ctx.restore();
-    } else if(tool.type==='eraser'){
-      ctx.beginPath(); ctx.arc(pointer.x, pointer.y, 22, 0, Math.PI*2);
-      ctx.strokeStyle='rgba(255,120,120,.9)'; ctx.lineWidth=2; ctx.stroke();
-    }
-  }
-}
-
-/* ================= ループ ================= */
-let lastT = performance.now(), sizzleAcc = 0;
-function loop(now){
-  requestAnimationFrame(loop);
-  const dt = Math.min(50, now-lastT); lastT = now;
-  if(phase==='bake' && !baked){
-    bake = Math.min(1, bake + dt/7000);
-    const bar = $('bakeBar'), lbl = $('bakeLabel');
-    if(bar) bar.style.width = (bake*100)+'%';
-    if(lbl) lbl.textContent = bake<0.4 ? 'まだ生焼け…' : bake<0.55 ? 'だんだん色づいてきた' : bake<=0.8 ? '✨ 今が取りどき！' : bake<0.95 ? 'ちょっと焼きすぎ…' : '🔥 焦げてる！';
-    sizzleAcc += dt;
-    if(sizzleAcc > 480){ sizzleAcc = 0; noiseBurst(0.07, 0.02); }
-    if(bake>=1) finishBake();
-  }
-  render(now);
-}
-
-/* ================= 入力 ================= */
-function getPos(e){
-  const r = cv.getBoundingClientRect();
-  return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
-}
-let painting = false, curStroke = null;
-cv.addEventListener('pointerdown', e=>{
-  e.preventDefault();
-  const p = getPos(e); pointer.x = p.x; pointer.y = p.y; pointer.down = true; pointer.inside = true;
-  try{ cv.setPointerCapture(e.pointerId); }catch(err){}
-  if(phase==='spread'){ painting = true; paintSpread(p.x, p.y); return; }
-  if(phase!=='fill' && phase!=='deco') return;
-  if(!tool) { toast('右のパネルから具材やソースを選んでね'); return; }
-  if(tool.type==='sauce'){
+/* ================= ゴースト表示 ================= */
+let ghost = null;
+function refreshGhost(){
+  if(ghost){ scene.remove(ghost); ghost = null; }
+  if(!GL_OK || !tool) return;
+  if(tool.type==='fill' || tool.type==='deco'){
+    ghost = buildItemMesh(tool.id, 5);
+    ghost.traverse(o=>{ if(o.isMesh){ o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.castShadow = false; } });
+  } else if(tool.type==='sauce'){
     const s = SAUCES.find(x=>x.id===tool.id);
-    curStroke = { stage: phase, sauceId: s.id, color: s.color, w: s.w, pts:[{x:p.x, y:p.y}] };
-    strokes.push(curStroke); history.push({ type:'stroke', obj: curStroke });
-    sfx.sauce();
+    ghost = sph(0.075, new THREE.MeshStandardMaterial({ color:s.color, roughness:0.25 }));
+  } else if(tool.type==='eraser'){
+    ghost = mesh(new THREE.TorusGeometry(0.22, 0.02, 8, 26), new THREE.MeshBasicMaterial({ color:0xff7878 }));
+    ghost.rotation.x = Math.PI/2;
   }
-  else if(tool.type==='eraser'){
-    const kind = phase;
-    let bestIt = null, bestD = 1e9;
-    for(const it of items){ if(it.kind!==kind) continue;
-      const d = FILLINGS.find(f=>f.id===it.id) || DECOS.find(f=>f.id===it.id);
-      const dist = Math.hypot(it.x-p.x, it.y-p.y);
-      if(dist < (d?d.r:24)+14 && dist < bestD){ bestD = dist; bestIt = it; } }
-    if(bestIt){ items = items.filter(i=>i!==bestIt); sfx.pop(); updatePrice(); return; }
-    const si = strokes.findIndex(s=> s.stage===kind && s.pts.some(pt=>Math.hypot(pt.x-p.x, pt.y-p.y) < 26));
-    if(si>=0){ strokes.splice(si,1); sfx.pop(); }
+  if(ghost){ ghost.visible = false; scene.add(ghost); }
+}
+
+/* ================= 入力（Pointer Events + レイキャスト） ================= */
+const raycaster = typeof THREE !== 'undefined' ? new THREE.Raycaster() : null;
+const ndc = typeof THREE !== 'undefined' ? new THREE.Vector2() : null;
+const _plane = typeof THREE !== 'undefined' ? new THREE.Plane(new THREE.Vector3(0,1,0), 0) : null;
+const tomboTarget = { x:0, z:0 };
+let painting = false, curStroke = null, lastSpreadTex = null;
+function setNDC(e){
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+}
+function pickPlaneY(e, y){
+  setNDC(e); raycaster.setFromCamera(ndc, camera);
+  _plane.constant = -y;
+  const pt = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(_plane, pt) ? pt : null;
+}
+function pickDecoPoint(e){
+  setNDC(e); raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(plateGroup, true);
+  if(hits.length) return hits[0].point.clone();
+  const pt = pickPlaneY(e, decoPlaneY());
+  if(!pt) return null;
+  const dx = pt.x - PLATE_POS.x, dz = pt.z - PLATE_POS.z, d = Math.hypot(dx, dz);
+  if(d > 2.7){ pt.x = PLATE_POS.x + dx/d*2.7; pt.z = PLATE_POS.z + dz/d*2.7; }
+  return pt;
+}
+function eraseAt(kind, pt){
+  let bestIt = null, bestD = 1e9;
+  for(const it of items){
+    if(it.kind!==kind) continue;
+    const def = defOf(it.id);
+    const dist = Math.hypot(it.x - pt.x, it.z - pt.z);
+    const thr = (def ? def.r * ITEM_K : 0.25) * (it.scale||1) + 0.17;
+    if(dist < thr && dist < bestD){ bestD = dist; bestIt = it; }
   }
-  else {
-    let { x, y } = p;
-    if(phase==='fill'){
-      const d = Math.hypot(x-CX, y-CY);
-      const maxD = CREPE_R - 12;
-      if(d > maxD){ x = CX + (x-CX)/d*maxD; y = CY + (y-CY)/d*maxD; }
+  if(bestIt){ removeItem(bestIt); sfx.pop(); updatePrice(); return; }
+  if(kind==='fill'){
+    const t = worldToTex(pt.x, pt.z);
+    const s = strokes.find(s=> s.stage==='fill' && s.pts.some(p=>Math.hypot(p.px-t.px, p.py-t.py) < 44));
+    if(s){ removeStroke(s); sfx.pop(); }
+  } else {
+    const s = strokes.find(s=> s.stage==='deco' && s.pts.some(p=>Math.hypot(p.x-pt.x, p.z-pt.z) < 0.3));
+    if(s){ removeStroke(s); sfx.pop(); }
+  }
+}
+function buildDecoTube(s){
+  if(s.mesh){ decoGroup.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh = null; }
+  if(!s.pts || s.pts.length < 2) return;
+  const pts = s.pts.map(p=> new THREE.Vector3(p.x, p.y, p.z));
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geo = new THREE.TubeGeometry(curve, Math.min(220, s.pts.length*3), 0.035, 8, false);
+  s.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color:s.color, roughness:0.3 }));
+  s.mesh.castShadow = true;
+  decoGroup.add(s.mesh);
+}
+function attachInput(){
+  const cvs = renderer.domElement;
+  cvs.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    try{ cvs.setPointerCapture(e.pointerId); }catch(err){}
+    if(phase==='spread'){
+      if(performance.now() - pourStart < 750) return;
+      const pt = pickPlaneY(e, BATTER_Y);
+      if(pt){
+        painting = true;
+        tomboTarget.x = pt.x; tomboTarget.z = pt.z;
+        const t = worldToTex(pt.x, pt.z);
+        paintSpreadTex(t.px, t.py);
+        lastSpreadTex = t;
+      }
+      return;
     }
-    const it = { kind: phase, id: tool.id, x, y, rot:(Math.random()-0.5)*0.5, scale: 0.92+Math.random()*0.16, seed: Math.floor(Math.random()*9999) };
-    items.push(it); history.push({ type:'item', obj: it });
-    sfx.place(); updatePrice();
+    if(phase!=='fill' && phase!=='deco') return;
+    if(!tool){ toast('右のパネルから具材やソースを選んでね'); return; }
+    if(phase==='fill'){
+      const pt = pickPlaneY(e, BATTER_Y); if(!pt) return;
+      if(tool.type==='sauce'){
+        const s = SAUCES.find(x=>x.id===tool.id);
+        const t = worldToTex(pt.x, pt.z);
+        curStroke = { stage:'fill', sauceId:s.id, color:s.color, w:s.w, pts:[{ px:t.px, py:t.py }] };
+        strokes.push(curStroke); history.push({ type:'stroke', obj:curStroke });
+        sfx.sauce();
+      }
+      else if(tool.type==='eraser'){ eraseAt('fill', pt); }
+      else {
+        let x = pt.x, z = pt.z;
+        const d = Math.hypot(x, z), maxD = CREPE_R3 - 0.18;
+        if(d > maxD){ x *= maxD/d; z *= maxD/d; }
+        placeItemGroup('fill', tool.id, x, z, ITEM_Y);
+      }
+    } else { // deco
+      const pt = pickDecoPoint(e); if(!pt) return;
+      if(tool.type==='sauce'){
+        const s = SAUCES.find(x=>x.id===tool.id);
+        curStroke = { stage:'deco', sauceId:s.id, color:s.color, w:s.w, pts:[{ x:pt.x, y:pt.y + 0.04, z:pt.z }], mesh:null };
+        strokes.push(curStroke); history.push({ type:'stroke', obj:curStroke });
+        sfx.sauce();
+      }
+      else if(tool.type==='eraser'){ eraseAt('deco', pt); }
+      else { placeItemGroup('deco', tool.id, pt.x, pt.z, pt.y); }
+    }
+  });
+  cvs.addEventListener('pointermove', e=>{
+    if(phase==='spread'){
+      const pt = pickPlaneY(e, BATTER_Y);
+      if(pt){
+        tomboTarget.x = pt.x; tomboTarget.z = pt.z;
+        if(painting){
+          const t = worldToTex(pt.x, pt.z);
+          if(lastSpreadTex){
+            const dist = Math.hypot(t.px - lastSpreadTex.px, t.py - lastSpreadTex.py);
+            const steps = Math.min(8, Math.floor(dist/28));
+            for(let i=1;i<=steps;i++) paintSpreadTex(lastSpreadTex.px + (t.px-lastSpreadTex.px)*i/(steps+1), lastSpreadTex.py + (t.py-lastSpreadTex.py)*i/(steps+1));
+          }
+          paintSpreadTex(t.px, t.py);
+          lastSpreadTex = t;
+        }
+      }
+      return;
+    }
+    if(curStroke && curStroke.stage==='fill'){
+      const pt = pickPlaneY(e, BATTER_Y);
+      if(pt){
+        const t = worldToTex(pt.x, pt.z);
+        const last = curStroke.pts[curStroke.pts.length-1];
+        if(Math.hypot(t.px-last.px, t.py-last.py) > 8){ curStroke.pts.push({ px:t.px, py:t.py }); drawOverlaySegment(curStroke); }
+      }
+    }
+    else if(curStroke && curStroke.stage==='deco'){
+      const pt = pickDecoPoint(e);
+      if(pt){
+        const last = curStroke.pts[curStroke.pts.length-1];
+        if(Math.hypot(pt.x-last.x, pt.z-last.z) > 0.07){
+          curStroke.pts.push({ x:pt.x, y:pt.y + 0.04, z:pt.z });
+          buildDecoTube(curStroke);
+        }
+      }
+    }
+    // ゴースト追従
+    if(ghost && tool){
+      let pt = null, gy = 0;
+      if(phase==='fill'){ pt = pickPlaneY(e, BATTER_Y); gy = tool.type==='fill' ? ITEM_Y : BATTER_Y + 0.07; }
+      else if(phase==='deco'){ pt = pickDecoPoint(e); gy = pt ? pt.y + 0.02 : 0; }
+      if(pt){ ghost.visible = true; ghost.position.set(pt.x, gy, pt.z); }
+      else ghost.visible = false;
+    }
+  });
+  function endPointer(){
+    painting = false; lastSpreadTex = null;
+    if(curStroke){
+      if(curStroke.stage==='fill' && curStroke.pts.length===1){
+        const p = curStroke.pts[0];
+        curStroke.pts.push({ px:p.px + 0.5, py:p.py });
+        drawOverlaySegment(curStroke);
+      }
+      if(curStroke.stage==='deco' && curStroke.pts.length < 2) removeStroke(curStroke);
+      curStroke = null;
+    }
   }
-});
-cv.addEventListener('pointermove', e=>{
-  const p = getPos(e); pointer.x = p.x; pointer.y = p.y; pointer.inside = true;
-  if(painting && phase==='spread') paintSpread(p.x, p.y);
-  if(curStroke){
-    const last = curStroke.pts[curStroke.pts.length-1];
-    if(Math.hypot(p.x-last.x, p.y-last.y) > 5) curStroke.pts.push({x:p.x, y:p.y});
+  cvs.addEventListener('pointerup', endPointer);
+  cvs.addEventListener('pointercancel', endPointer);
+  cvs.addEventListener('pointerleave', ()=>{ if(ghost) ghost.visible = false; });
+}
+
+/* ================= メインループ ================= */
+let _goalPos = null, _goalLook = null, sizzleAcc = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  // カメラ（目標へ滑らかにドリー＋待機時の緩やかな揺れ）
+  const serve = (camMode==='serve');
+  _goalPos.set(0, serve ? 3.6 : 8.4, serve ? 10.2 : 6.6);
+  _goalLook.set(0, serve ? 1.0 : 0.1, serve ? 1.5 : 0.2);
+  const k = 1 - Math.exp(-dt * 2.4);
+  camPos.lerp(_goalPos, k); camLook.lerp(_goalLook, k);
+  camera.position.copy(camPos);
+  if(camMode==='work' && phase!=='spread'){
+    camera.position.x += Math.sin(t*0.3)*0.16;
+    camera.position.y += Math.sin(t*0.23 + 1.2)*0.1;
   }
-});
-function endPointer(){ painting = false; curStroke = null; pointer.down = false; }
-cv.addEventListener('pointerup', endPointer);
-cv.addEventListener('pointercancel', endPointer);
-cv.addEventListener('pointerleave', ()=>{ pointer.inside = false; endPointer(); });
+  camera.lookAt(camLook);
+  // 注ぎアニメ（中心に生地が広がる）
+  if(phase==='spread'){
+    const el = performance.now() - pourStart;
+    if(el < 750) paintSpreadTex(TC, TC, 26 + (el/750)*88);
+    tombo.position.x += (tomboTarget.x - tombo.position.x) * 0.45;
+    tombo.position.z += (tomboTarget.z - tombo.position.z) * 0.45;
+    if(painting) tombo.rotation.y += dt * 5;
+  }
+  // 焼く（11秒ゲージ）
+  if(phase==='bake' && !baked){
+    bake = Math.min(1, bake + dt/11000);
+    paintBakeProgress(bake);
+    const bar = $('bakeBar'), lbl = $('bakeLabel');
+    if(bar) bar.style.width = (bake*100) + '%';
+    if(lbl) lbl.textContent = bake<0.35 ? 'まだ生焼け…' : bake<0.5 ? 'だんだん色づいてきた' : bake<=0.82 ? '✨ 今が取りどき！' : bake<0.93 ? 'ちょっと焼きすぎ…' : '🔥 焦げてる！';
+    sizzleAcc += dt * 1000;
+    if(sizzleAcc > 480){ sizzleAcc = 0; noiseBurst(0.07, 0.02); }
+    glowLight.intensity = 0.35 + bake*0.5 + Math.sin(t*37)*0.06;
+    if(bake>=1) finishBake();
+  } else if(phase!=='bake'){
+    glowLight.intensity *= 0.92;
+  }
+  updateSteam(dt);
+  updateDropAnims(dt);
+  // 包むアニメーション（前半: 生地を持ち上げて返す）
+  if(phase==='fold' && foldStart){
+    const p = Math.min(1, (performance.now() - foldStart) / 460);
+    const rot = -0.45 * Math.sin(p * Math.PI * 0.5), lift = Math.sin(p * Math.PI) * 0.5;
+    cookGroup.rotation.x = rot; cookGroup.position.y = lift;
+    fillGroup.rotation.x = rot; fillGroup.position.y = lift;
+    if(p>=1){ cookGroup.rotation.x = 0; cookGroup.position.y = 0; fillGroup.rotation.x = 0; fillGroup.position.y = 0; }
+  }
+  renderer.render(scene, camera);
+}
 
 /* ================= 初期化 ================= */
+try{
+  initTextures();
+  initGL();
+  _goalPos = new THREE.Vector3(); _goalLook = new THREE.Vector3();
+  GL_OK = true;
+  attachInput();
+}catch(e){
+  GL_OK = false;
+  $('glFallback').classList.remove('hidden');
+  $('startOv').classList.add('hidden');
+}
 phase = 'batter';
 renderSteps(); buildPanel(); updatePrice(); renderGallery();
-requestAnimationFrame(loop);
+if(GL_OK) requestAnimationFrame(animate);
 </script>
 </body>
 </html>
