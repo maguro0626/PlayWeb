@@ -593,7 +593,9 @@ function tryMerge(){
       const b = fruits[j];
       if (b.dead || b.tier !== a.tier || now - b.born < 90) continue;
       const dx = b.x-a.x, dy = b.y-a.y, minD = a.r + b.r;
-      if (dx*dx + dy*dy < minD*minD*0.86){
+      // 接触で合体: 物理ソルバが重なりを解消して「ちょうど接触(minD)」まで離すため、
+      // 重なり量を要求すると永遠に合体しない。minDの2.5%以内の距離なら接触とみなす。
+      if (dx*dx + dy*dy <= minD*minD*1.05){
         doMerge(a, b);
         return; // 1サブステップ1合体まで（安定化）
       }
