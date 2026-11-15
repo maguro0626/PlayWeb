@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v3';
+const CACHE_NAME = 'game-platform-cache-v4';
 
 // ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
 // キャッシュしたいファイルを1つずつ正確に書く必要があります。
@@ -17,6 +17,7 @@ const urlsToCache = [
   'tetris.html',
   'blockzushi.html',
   'suica.html',
+  'crepe.html',
   'jump.html',
   'caring.html',
   'uno.html',
