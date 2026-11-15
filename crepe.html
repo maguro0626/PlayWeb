@@ -47,6 +47,14 @@
   .price small{font-size:11px;color:var(--sub);font-weight:600}
   #toast{position:absolute;left:50%;top:16px;transform:translateX(-50%) translateY(-8px);background:rgba(20,10,5,.88);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 18px;border-radius:999px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.3s;z-index:9;white-space:nowrap}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #bakeCallout{position:absolute;left:50%;top:11%;transform:translateX(-50%);z-index:7;display:none;background:linear-gradient(90deg,#16a34a,#22c55e);color:#fff;font-weight:900;font-size:clamp(20px,4.6vw,32px);letter-spacing:.06em;padding:12px 26px;border-radius:999px;box-shadow:0 12px 32px rgba(34,197,94,.45);pointer-events:none;white-space:nowrap;animation:bakeBlink .7s ease-in-out infinite alternate}
+  @keyframes bakeBlink{from{opacity:1;transform:translateX(-50%) scale(1)}to{opacity:.55;transform:translateX(-50%) scale(1.06)}}
+  #mascot{position:absolute;left:14px;top:14px;display:flex;align-items:flex-start;gap:8px;z-index:6;pointer-events:none;max-width:80%}
+  #mascotFace{width:48px;height:48px;flex:0 0 auto;border-radius:50%;background:linear-gradient(145deg,#fff7e8,#ffd9a8);border:2px solid rgba(255,255,255,.65);box-shadow:0 6px 16px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:27px;line-height:1}
+  #mascotBubble{position:relative;background:rgba(255,251,243,.96);color:#4a2c14;border-radius:14px;padding:9px 13px;font-size:12.5px;font-weight:700;line-height:1.55;box-shadow:0 8px 20px rgba(0,0,0,.3);margin-top:5px}
+  #mascotBubble::before{content:'';position:absolute;left:-7px;top:15px;border:7px solid transparent;border-right-color:rgba(255,251,243,.96);border-left:0}
+  #panelBody{overflow-y:auto;max-height:min(64vh,580px);scrollbar-width:thin}
+  #panelBox .bigbtn{position:sticky;bottom:0;z-index:3}
   .overlay{position:absolute;inset:10px;border-radius:12px;background:rgba(16,8,4,.82);backdrop-filter:blur(5px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;text-align:center;padding:24px;z-index:8}
   .overlay.hidden{display:none}
   .overlay h2{font-size:29px;font-weight:900;letter-spacing:.06em}
@@ -80,6 +88,8 @@
   <div id="stageWrap">
     <div id="gl"></div>
     <div id="toast"></div>
+    <div id="bakeCallout">✨ 今が取りどき！</div>
+    <div id="mascot"><div id="mascotFace">🐱</div><div id="mascotBubble"><span id="mascotText">いらっしゃいませ！ モードをえらんでね</span></div></div>
 
     <div class="overlay hidden" id="glFallback">
       <h2>😢 3D表示できません</h2>
@@ -371,9 +381,9 @@ function initGL(){
   scene.background = new THREE.Color(0x1d110a);
   scene.fog = new THREE.Fog(0x1d110a, 22, 42);
 
-  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
-  camPos = new THREE.Vector3(0, 8.4, 6.6);
-  camLook = new THREE.Vector3(0, 0.1, 0.2);
+  camera = new THREE.PerspectiveCamera(47, 1, 0.1, 80);
+  camPos = new THREE.Vector3(0, 5.8, 11.2);
+  camLook = new THREE.Vector3(0, 0.9, -0.7);
   camGoalPos = camPos.clone(); camGoalLook = camLook.clone();
   camera.position.copy(camPos); camera.lookAt(camLook);
 
@@ -511,6 +521,7 @@ function buildGriddle(){
   const b1 = sph(0.85, blobMat, 24, 18); b1.scale.set(1, 0.45, 1); b1.position.y = 0.1; b1.castShadow = true; blobMesh.add(b1);
   const b2 = sph(0.5, blobMat, 20, 14); b2.scale.set(1, 0.5, 1); b2.position.y = 0.36; blobMesh.add(b2);
   blobMesh.position.set(0, GRIDDLE_TOP, 0);
+  blobMesh.visible = false; // 生地は「流す」まで鉄板に出さない
   scene.add(blobMesh);
 
   buildTombo();
@@ -1029,6 +1040,21 @@ function toast(msg, ms=1900){
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), ms);
 }
+/* ---------- マスコットの吹き出しヒント ---------- */
+const MASCOT_HINTS = {
+  start:'モードをえらんでね！',
+  batter:'生地をえらんでね',
+  spread:'トンボで円くのばそう',
+  bake:'緑のゾーンで取り上げて',
+  fill:'好きな具材を置いて、ソースも描けるよ',
+  fold:'包み方をえらんでね',
+  deco:'仕上げに飾ろう',
+  serve:'かんせい！'
+};
+function updateMascot(){
+  const el = $('mascotText');
+  if(el) el.textContent = MASCOT_HINTS[phase] || '';
+}
 const PHASE_IDX = { batter:0, spread:1, bake:2, fill:3, fold:4, deco:5, serve:6 };
 let camMode = 'work'; // 'work' | 'serve'（カメラの目標はループ側で解決）
 function renderSteps(){
@@ -1072,11 +1098,17 @@ function refreshPanel(){ buildPanel(); }
 function setPhase(p){
   phase = p; tool = null; refreshGhost();
   camMode = (p==='deco' || p==='serve') ? 'serve' : 'work';
-  renderSteps(); buildPanel(); updatePrice();
+  renderSteps(); buildPanel(); updatePrice(); updateMascot();
   if(!GL_OK) return;
-  if(p==='spread'){ initSpreadTex(); blobMesh.visible = false; tombo.visible = true; }
+  if(p==='spread'){ initSpreadTex(); blobMesh.visible = false; tombo.visible = true; paintSpreadTex(TC, TC, 100); }
   if(p==='bake'){ bake = 0; baked = false; lastBakeStep = 0; drawBatterBase(0); tombo.visible = false; }
   if(p==='fill'){ overlayMesh.visible = true; }
+  if(p==='fold'){
+    // 包み方を選ぶ間は平らな生地＋具材のまま。「包む！」を押すまで包んだ形は出さない
+    plateGroup.visible = false;
+    cookGroup.visible = true; fillGroup.visible = true;
+    while(foldGroup.children.length) foldGroup.remove(foldGroup.children[0]);
+  }
 }
 function buildPanel(){
   const T = $('panelTitle'), B = $('panelBody');
@@ -1099,7 +1131,7 @@ function buildPanel(){
   else if(phase==='bake'){
     T.textContent = '③ 焼く（タイミング勝負）';
     B.innerHTML = `<p class="hint">焼き色がついてきたら<b>緑のゾーン</b>で取り上げよう。早いと生焼け、遅いと焦げちゃう。湯気と焼き色をよく見て。</p>
-      <div class="gauge" style="margin:14px 0 8px"><div class="zone" style="left:50%;width:32%"></div><i id="bakeBar"></i></div>
+      <div class="gauge" style="margin:14px 0 8px"><div class="zone" style="left:48%;width:37%"></div><i id="bakeBar"></i></div>
       <p class="hint" style="text-align:center" id="bakeLabel">焼きはじめ…</p>
       <button class="bigbtn" data-act="finishBake" style="margin-top:10px">🔥 焼き上がり！</button>`;
   }
@@ -1177,8 +1209,8 @@ function finishBake(){
   if(phase!=='bake' || baked) return;
   baked = true; bakeLevel = bake;
   paintBakeProgress(bake);
-  // 適正ゾーン 50〜82%（中心0.66）。前版より許容を広げた
-  let sc = 100 - Math.abs(bake - 0.66) * 190;
+  // 適正ゾーン 48〜85%（中心0.665）
+  let sc = 100 - Math.abs(bake - 0.665) * 150;
   if(bake > 0.9) sc -= (bake - 0.9) * 160;
   bakeScore = Math.round(Math.max(0, Math.min(100, sc)));
   if(bake < 0.42){ toast('ちょっと生焼け… でもこれはこれで', 2200); }
@@ -1300,7 +1332,7 @@ function resetAll(){
     cookGroup.visible = true; fillGroup.visible = true;
     plateGroup.visible = false;
     while(foldGroup.children.length) foldGroup.remove(foldGroup.children[0]);
-    blobMesh.visible = true; blobMat.color.set(batter.base);
+    blobMesh.visible = false; blobMat.color.set(batter.base);
     tombo.visible = false;
     glowLight.intensity = 0;
   }
@@ -1509,15 +1541,15 @@ function attachInput(){
 }
 
 /* ================= メインループ ================= */
-let _goalPos = null, _goalLook = null, sizzleAcc = 0;
+let _goalPos = null, _goalLook = null, sizzleAcc = 0, bakeCalloutEl = null;
 function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(0.05, clock.getDelta());
   const t = clock.elapsedTime;
   // カメラ（目標へ滑らかにドリー＋待機時の緩やかな揺れ）
   const serve = (camMode==='serve');
-  _goalPos.set(0, serve ? 3.6 : 8.4, serve ? 10.2 : 6.6);
-  _goalLook.set(0, serve ? 1.0 : 0.1, serve ? 1.5 : 0.2);
+  _goalPos.set(0, serve ? 3.4 : 5.8, serve ? 10.8 : 11.2);
+  _goalLook.set(0, serve ? 1.05 : 0.9, serve ? 1.35 : -0.7);
   const k = 1 - Math.exp(-dt * 2.4);
   camPos.lerp(_goalPos, k); camLook.lerp(_goalLook, k);
   camera.position.copy(camPos);
@@ -1534,13 +1566,13 @@ function animate(){
     tombo.position.z += (tomboTarget.z - tombo.position.z) * 0.45;
     if(painting) tombo.rotation.y += dt * 5;
   }
-  // 焼く（11秒ゲージ）
+  // 焼く（14秒ゲージ、適正ゾーン48〜85%）
   if(phase==='bake' && !baked){
-    bake = Math.min(1, bake + dt/11000);
+    bake = Math.min(1, bake + dt/14000);
     paintBakeProgress(bake);
     const bar = $('bakeBar'), lbl = $('bakeLabel');
     if(bar) bar.style.width = (bake*100) + '%';
-    if(lbl) lbl.textContent = bake<0.35 ? 'まだ生焼け…' : bake<0.5 ? 'だんだん色づいてきた' : bake<=0.82 ? '✨ 今が取りどき！' : bake<0.93 ? 'ちょっと焼きすぎ…' : '🔥 焦げてる！';
+    if(lbl) lbl.textContent = bake<0.35 ? 'まだ生焼け…' : bake<0.48 ? 'だんだん色づいてきた' : bake<=0.85 ? '✨ 今が取りどき！' : bake<0.93 ? 'ちょっと焼きすぎ…' : '🔥 焦げてる！';
     sizzleAcc += dt * 1000;
     if(sizzleAcc > 480){ sizzleAcc = 0; noiseBurst(0.07, 0.02); }
     glowLight.intensity = 0.35 + bake*0.5 + Math.sin(t*37)*0.06;
@@ -1548,6 +1580,9 @@ function animate(){
   } else if(phase!=='bake'){
     glowLight.intensity *= 0.92;
   }
+  // 適正ゾーン滞在中だけ大きなコールアウトを点滅表示
+  if(!bakeCalloutEl) bakeCalloutEl = $('bakeCallout');
+  if(bakeCalloutEl) bakeCalloutEl.style.display = (phase==='bake' && !baked && bake>=0.48 && bake<=0.85) ? 'block' : 'none';
   updateSteam(dt);
   updateDropAnims(dt);
   // 包むアニメーション（前半: 生地を持ち上げて返す）
@@ -1574,7 +1609,7 @@ try{
   $('startOv').classList.add('hidden');
 }
 phase = 'batter';
-renderSteps(); buildPanel(); updatePrice(); renderGallery();
+renderSteps(); buildPanel(); updatePrice(); renderGallery(); updateMascot();
 if(GL_OK) requestAnimationFrame(animate);
 </script>
 </body>
