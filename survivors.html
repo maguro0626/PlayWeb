@@ -26,9 +26,26 @@
   #hudBtns{position:absolute;top:14px;right:10px;display:flex;gap:8px;pointer-events:auto}
   .iconBtn{width:42px;height:42px;border-radius:50%;border:1.5px solid rgba(255,255,255,.4);background:rgba(12,14,40,.72);color:#fff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
   .iconBtn:active{transform:scale(.92)}
-  #weaponsBar{position:absolute;left:10px;bottom:12px;display:flex;gap:6px}
-  .wIcon{width:40px;height:40px;border-radius:11px;background:rgba(10,12,38,.72);border:1.5px solid rgba(160,150,255,.45);display:flex;align-items:center;justify-content:center;font-size:20px;position:relative}
+  #weaponsBar{position:absolute;left:10px;bottom:12px;display:flex;gap:6px;pointer-events:auto}
+  .wIcon{width:44px;height:44px;border-radius:11px;background:rgba(10,12,38,.72);border:1.5px solid rgba(160,150,255,.45);display:flex;align-items:center;justify-content:center;font-size:21px;position:relative;cursor:pointer}
+  .wIcon:active{transform:scale(.92)}
   .wIcon span{position:absolute;right:-4px;bottom:-5px;background:#7c6cff;border-radius:999px;font-size:10px;font-weight:900;padding:0 5px;border:1px solid #d9ccff}
+  /* ── 武器詳細カード（プレイ中タップ） ── */
+  .wDetailPanel{max-width:440px;text-align:left}
+  .wdHead{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+  .wdIcon{font-size:44px;width:64px;height:64px;flex:0 0 64px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(160,150,255,.5);display:flex;align-items:center;justify-content:center}
+  .wdIcon.evo{border-color:#ffd94d;box-shadow:0 0 16px rgba(255,217,77,.45)}
+  .wdName{font-size:21px;font-weight:900;color:#fff;line-height:1.3}
+  .wdTags{font-size:11.5px;color:#c9c4ff;font-weight:800;margin-top:2px}
+  .wdTagEvo{color:#ffd94d}.wdTagUR{color:#ff9de2}
+  .wdDesc{font-size:13px;color:#dcd8ff;line-height:1.65;margin:6px 0 10px}
+  .wdStats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+  .wdStat{background:rgba(255,255,255,.05);border:1px solid rgba(160,150,255,.22);border-radius:10px;padding:6px 10px}
+  .wdStat .k{font-size:10.5px;color:#a49ae0;font-weight:800}
+  .wdStat .v{font-size:15.5px;color:#fff;font-weight:900}
+  .wdEvo{background:rgba(255,217,77,.08);border:1.5px solid rgba(255,217,77,.5);border-radius:12px;padding:9px 12px;font-size:12.5px;color:#ffe9a8;line-height:1.7;margin-bottom:12px}
+  .wdEvo .have{color:#7be495;font-weight:900}.wdEvo .lack{color:#ff8a8a;font-weight:900}
+  .wDetailPanel .bigBtn{width:100%;text-align:center}
   #banner{position:absolute;top:24%;left:50%;transform:translateX(-50%);font-size:clamp(19px,5.6vw,32px);font-weight:900;color:#ffe9a8;text-shadow:0 2px 10px #000,0 0 24px rgba(255,180,60,.7);opacity:0;transition:opacity .3s;white-space:nowrap;text-align:center}
   /* ── overlays ── */
   .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,5,20,.55);z-index:10;padding:14px}
@@ -375,6 +392,14 @@
   </div>
 </div>
 
+<!-- 武器詳細（プレイ中に下部HUDの武器アイコンをタップで表示） -->
+<div class="overlay" id="wDetailScr">
+  <div class="panel wDetailPanel">
+    <div id="wDetailBody"></div>
+    <button class="bigBtn" id="wDetailCloseBtn">▶ とじる</button>
+  </div>
+</div>
+
 <!-- 結果 -->
 <div class="overlay" id="endScr">
   <div class="panel">
@@ -471,6 +496,7 @@ const keys = {};
 window.addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) e.preventDefault();
+  if (document.getElementById('wDetailScr').classList.contains('show') && (e.key === 'Escape' || e.key.toLowerCase() === 'p')) { closeWeaponDetail(); return; }
   if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && S.state === 'play') pauseGame();
   else if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && S.state === 'pause') resumeGame();
 });
@@ -526,9 +552,9 @@ const WEAPONS = {
     { dmg: 28, cd: 2.1, range: 175 }, { dmg: 36, cd: 1.95, range: 190 },
     { dmg: 46, cd: 1.8, range: 205 } ] },
   bolt:    { name: 'ライトニングボルト', icon: '🌩️', desc: '最寄りの敵1体に落雷（単体大ダメージ＋小範囲）', lv: [
-    { dmg: 40, cd: 2.6, aoe: 48 }, { dmg: 52, cd: 2.45, aoe: 54 },
-    { dmg: 66, cd: 2.3, aoe: 60 }, { dmg: 84, cd: 2.1, aoe: 66 },
-    { dmg: 108, cd: 1.9, aoe: 74 } ] },
+    { dmg: 45, cd: 2.6, aoe: 48 }, { dmg: 58, cd: 2.45, aoe: 54 },
+    { dmg: 74, cd: 2.3, aoe: 60 }, { dmg: 94, cd: 2.1, aoe: 66 },
+    { dmg: 121, cd: 1.9, aoe: 74 } ] },
   ice:     { name: 'アイスランス', icon: '❄️', desc: '貫通する氷の槍を連射。当たった敵は鈍足になる', lv: [
     { dmg: 11, cd: .52, pierce: 2, slow: .45, slowDur: 1.3 }, { dmg: 14, cd: .48, pierce: 3, slow: .48, slowDur: 1.4 },
     { dmg: 18, cd: .44, pierce: 3, slow: .5, slowDur: 1.5 }, { dmg: 23, cd: .4, pierce: 4, slow: .52, slowDur: 1.6 },
@@ -542,9 +568,9 @@ const WEAPONS = {
     { dmg: 20, cd: 2.8, count: 13 }, { dmg: 25, cd: 2.55, count: 16 },
     { dmg: 32, cd: 2.3, count: 20 } ] },
   trap:    { name: 'ほしくずトラップ', icon: '✴️', desc: '足元に星の地雷を設置。敵が近づくと爆発', lv: [
-    { dmg: 30, cd: 2.6, aoe: 62, max: 3 }, { dmg: 40, cd: 2.4, aoe: 68, max: 4 },
-    { dmg: 52, cd: 2.2, aoe: 74, max: 5 }, { dmg: 68, cd: 2.0, aoe: 82, max: 6 },
-    { dmg: 88, cd: 1.8, aoe: 92, max: 8 } ] },
+    { dmg: 35, cd: 2.6, aoe: 62, max: 3 }, { dmg: 46, cd: 2.4, aoe: 68, max: 4 },
+    { dmg: 60, cd: 2.2, aoe: 74, max: 5 }, { dmg: 78, cd: 2.0, aoe: 82, max: 6 },
+    { dmg: 101, cd: 1.8, aoe: 92, max: 8 } ] },
   saw:     { name: 'かいてんノコギリ', icon: '🪚', desc: '周囲を高速で回る巨大ノコギリ。近接を寄せつけない', lv: [
     { dmg: 14, count: 1, radius: 84, rot: 4.4 }, { dmg: 18, count: 1, radius: 92, rot: 4.8 },
     { dmg: 24, count: 2, radius: 98, rot: 5.2 }, { dmg: 31, count: 2, radius: 106, rot: 5.6 },
@@ -554,9 +580,9 @@ const WEAPONS = {
     { dmg: 27, cd: 1.7, count: 4, aoe: 50 }, { dmg: 35, cd: 1.55, count: 5, aoe: 55 },
     { dmg: 46, cd: 1.4, count: 7, aoe: 62 } ] },
   wave:    { name: 'じめんウェーブ', icon: '🌊', desc: '足元から広がる衝撃波の輪が敵をなぎ払う', lv: [
-    { dmg: 18, cd: 3.4, range: 190 }, { dmg: 24, cd: 3.2, range: 215 },
-    { dmg: 31, cd: 3.0, range: 240 }, { dmg: 40, cd: 2.8, range: 270 },
-    { dmg: 52, cd: 2.5, range: 305 } ] },
+    { dmg: 21, cd: 3.4, range: 190 }, { dmg: 28, cd: 3.2, range: 215 },
+    { dmg: 36, cd: 3.0, range: 240 }, { dmg: 46, cd: 2.8, range: 270 },
+    { dmg: 60, cd: 2.5, range: 305 } ] },
   familiar:{ name: '使い魔ミミ', icon: '🦉', desc: '小さな使い魔が飛び回って敵を突っつく', lv: [
     { dmg: 13, cd: 5.5, count: 1, dur: 5 }, { dmg: 17, cd: 5.2, count: 1, dur: 5.6 },
     { dmg: 22, cd: 5.0, count: 2, dur: 5.6 }, { dmg: 29, cd: 4.7, count: 2, dur: 6.2 },
@@ -584,7 +610,16 @@ const WEAPONS = {
   trail:   { name: 'フレイムトレイル', icon: '🎇', desc: '移動した場所に炎の道を残して敵を焼く', lv: [
     { dmg: 6, cd: .24, r: 40, dur: 2.6 }, { dmg: 8, cd: .22, r: 44, dur: 3 },
     { dmg: 11, cd: .2, r: 49, dur: 3.4 }, { dmg: 14, cd: .18, r: 53, dur: 3.7 },
-    { dmg: 18, cd: .16, r: 58, dur: 4.1 } ] }
+    { dmg: 18, cd: .16, r: 58, dur: 4.1 } ] },
+  /* ── 第6弾: 新武器2種 ── */
+  vortex:  { name: 'グラビティヴォルテックス', icon: '🕳️', desc: '最寄りの敵の場所に重力場を発生。敵を引き寄せながら渦の中で削り続ける', lv: [
+    { dmg: 10, cd: 4.2, radius: 110, dur: 3.2, max: 1 }, { dmg: 13, cd: 4.0, radius: 118, dur: 3.5, max: 1 },
+    { dmg: 17, cd: 3.8, radius: 126, dur: 3.8, max: 2 }, { dmg: 22, cd: 3.6, radius: 136, dur: 4.2, max: 2 },
+    { dmg: 29, cd: 3.3, radius: 148, dur: 4.6, max: 3 } ] },
+  beam:    { name: 'プリズムビーム', icon: '🔆', desc: '最寄りの敵へ虹色のレーザーを放ち、直線上の敵をまとめて貫く', lv: [
+    { dmg: 30, cd: 2.2, count: 1, range: 520 }, { dmg: 38, cd: 2.1, count: 1, range: 540 },
+    { dmg: 48, cd: 2.0, count: 2, range: 560 }, { dmg: 60, cd: 1.9, count: 2, range: 580 },
+    { dmg: 76, cd: 1.75, count: 3, range: 620 } ] }
 };
 /* ── 進化武器（Lv10＋対応パッシブで進化。lv 配列は全段同一の完成形ステータス） ── */
 function evoLv(st){ return [st, st, st, st, st]; }
@@ -622,6 +657,9 @@ WEAPONS.urbarrage = { name: '星屑バラージ', icon: '💥', desc: '【UR専�
   { dmg: 24, cd: 1.6, count: 16, pierce: 2 }, { dmg: 30, cd: 1.5, count: 19, pierce: 2 },
   { dmg: 38, cd: 1.4, count: 22, pierce: 3 }, { dmg: 47, cd: 1.3, count: 25, pierce: 3 },
   { dmg: 58, cd: 1.2, count: 28, pierce: 4 } ] };
+/* ── 第6弾: 新武器2種の進化形 ── */
+WEAPONS.horizon =   { name: 'イベントホライズン', icon: '🌑', desc: '全てを飲み込む特異点。巨大な重力場が群れを集めて潰し続ける', evo: true, lv: evoLv({ dmg: 68, cd: 2.8, radius: 215, dur: 6.5, max: 3 }) };
+WEAPONS.prismend =  { name: 'プリズムエンド', icon: '🌈', desc: '虹の裁き。5方向の極太レーザーが戦場を焼き尽くす', evo: true, lv: evoLv({ dmg: 175, cd: 1.5, count: 5, range: 740 }) };
 WEAPONS.urwrath =   { name: '星神の怒り', icon: '🌟', desc: '【UR専用・進化】星神の怒りが戦場のすべてを裁く', evo: true, ur: true, lv: evoLv({ dmg: 480, cd: 2.2, range: 1400 }) };
 WEAPONS.ursanct =   { name: '星霊の聖域', icon: '🔮', desc: '【UR専用・進化】巨大な聖域が敵を焼き、動きを鈍らせる', evo: true, ur: true, lv: evoLv({ dmg: 130, radius: 290 }) };
 WEAPONS.urstorm =   { name: '星屑の大嵐', icon: '🌌', desc: '【UR専用・進化】46発の星弾が全方位を嵐のように貫く', evo: true, ur: true, lv: evoLv({ dmg: 115, cd: .95, count: 46, pierce: 99 }) };
@@ -647,6 +685,8 @@ const EVOLUTIONS = {
   turret:  { req: 'regen', to: 'starcannon' },
   scythe:  { req: 'crit',  to: 'moonreaper' },
   trail:   { req: 'vital', to: 'prominence' },
+  vortex:  { req: 'magnet', to: 'horizon' },
+  beam:    { req: 'crit',  to: 'prismend' },
   urjudge: { req: 'critd', to: 'urwrath' },
   uraura:  { req: 'guard', to: 'ursanct' },
   urbarrage:{ req: 'multi', to: 'urstorm' }
@@ -701,7 +741,7 @@ const PASSIVES = {
   gemval: { name: 'おうごんの鈴', icon: '🛎️', max: 5, desc: 'ジェムの価値 +20%（経験値が増える）' },
   knock:  { name: 'はじきの指輪', icon: '💍', max: 5, desc: 'ノックバック +35%' },
   thorns: { name: 'とげのマント', icon: '🌹', max: 5, desc: 'ダメージを受けると周囲の敵に反射ダメージ' },
-  luck:   { name: 'ラッキーダイス', icon: '🎲', max: 3, desc: 'エリート出現率と宝箱ドロップ率アップ' },
+  luck:   { name: 'ラッキーダイス', icon: '🎲', max: 3, desc: 'エリート出現率アップ・宝箱ドロップ率 +5%/Lv' },
   vital:  { name: 'せいめいの実', icon: '🌰', max: 5, desc: 'ジェム25個拾うごとにHP +2×Lv 回復' }
 };
 /* ── キャラ定義（ステータス補正＋描画カラー） ── */
@@ -735,7 +775,10 @@ const CHARS = {
   luna:   { name: 'ルーナ', desc: '【SSR・ガチャ限定】月詠み猫：全武器CD-10%・クリダメ+40%・攻撃+18%・月の鎌', cost: 0, rarity: 'SSR', gacha: true, hp: 10, atk: 1.18, spd: 1.03, mag: 1, xp: 1.05, proj: 0, crit: .06, critd: .4, cdr: .90, start: 'scythe', body: '#23234d', belly: '#3d3d75', earIn: '#b7a6ff', hat: '#ffd94d', band: '#23234d', cape: '#191938' },
   sol:    { name: 'ソル', desc: '【SSR・ガチャ限定】太陽猫：攻撃+25%・HP+30・ノックバック◎・落雷', cost: 0, rarity: 'SSR', gacha: true, hp: 30, atk: 1.25, spd: .98, mag: 1, xp: 1, proj: 0, crit: .04, knock: 1.5, start: 'bolt', body: '#f59e42', belly: '#ffd9a0', earIn: '#ff6b4a', hat: '#c22f2f', band: '#fff7cc', cape: '#8f1d1d' },
   celestia:{ name: 'セレスティア', desc: '【UR・ガチャ限定】星霊猫：攻撃+35%・全武器CD-15%・クリ率+12%・クリダメ+30%。UR専用武器「星屑の審判」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 15, atk: 1.35, spd: 1.04, mag: 1.1, xp: 1.1, proj: 0, crit: .12, critd: .3, cdr: .85, start: 'urjudge', body: '#f5f0ff', belly: '#ffffff', earIn: '#ff9de2', hat: '#ffd94d', band: '#ff7ad9', cape: '#7a5cff' },
-  nebula: { name: 'ネビュラ', desc: '【UR・ガチャ限定】星雲猫：経験値+50%・ジェム価値×2.0・速度+10%・攻撃+15%。UR専用武器「星屑バラージ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.15, spd: 1.1, mag: 1.25, xp: 1.5, proj: 0, crit: .05, gemv: 2.0, start: 'urbarrage', body: '#2c1450', belly: '#4a2a80', earIn: '#7df9ff', hat: '#12081f', band: '#7df9ff', cape: '#1a0b38' }
+  nebula: { name: 'ネビュラ', desc: '【UR・ガチャ限定】星雲猫：経験値+50%・ジェム価値×2.0・速度+10%・攻撃+15%。UR専用武器「星屑バラージ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.15, spd: 1.1, mag: 1.25, xp: 1.5, proj: 0, crit: .05, gemv: 2.0, start: 'urbarrage', body: '#2c1450', belly: '#4a2a80', earIn: '#7df9ff', hat: '#12081f', band: '#7df9ff', cape: '#1a0b38' },
+  /* ── 第6弾: 新キャラ2体（SR×1／SSR×1）。入手はガチャのみ ── */
+  kaede:  { name: 'カエデ', desc: '【SR】紅葉猫：俊足+8%・クリ率+5%・攻撃+5%。重力場「グラビティヴォルテックス」で開幕', cost: 0, rarity: 'SR', hp: 0, atk: 1.05, spd: 1.08, mag: 1, xp: 1, proj: 0, crit: .05, start: 'vortex', body: '#c2512e', belly: '#e88a5c', earIn: '#ffd9a8', hat: '#7a2e1a', band: '#ffe9a8', cape: '#8f4a1d' },
+  aurora: { name: 'オーロラ', desc: '【SSR・ガチャ限定】極光猫：全武器CD-8%・経験値+20%・攻撃+12%・磁石+15%。「プリズムビーム」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 5, atk: 1.12, spd: 1.03, mag: 1.15, xp: 1.2, proj: 0, crit: .04, cdr: .92, start: 'beam', body: '#173d33', belly: '#2a6e5c', earIn: '#7dffce', hat: '#0f2a3d', band: '#a8ecff', cape: '#123a5c' }
 };
 /* ── 恒久アップグレード（ショップ） ── */
 const UPGRADES = {
@@ -769,7 +812,7 @@ const ACHIEVEMENTS = {
   endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 50, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
   endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 120, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
   coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 40, target: 1, get: () => meta.stats.coopClears },
-  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 28, get: () => meta.unlocked.length },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 30, get: () => meta.unlocked.length },
   shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 50, target: 1000, get: () => meta.stats.shardsEarned },
   shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 200, target: 10000, get: () => meta.stats.shardsEarned },
   gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 60, target: 10000, get: () => meta.stats.gems },
@@ -1461,6 +1504,17 @@ function dropGems(x, y, xp){
   while (rest >= 1) { gems.push({ x: x + rand(-16, 16), y: y + rand(-16, 16), val: 1, vx: 0, vy: 0, ph: rand(0, TAU) }); rest -= 1; }
   if (gems.length > 420) gems.splice(0, gems.length - 420);
 }
+/* ── 宝箱ドロップ（第6弾・運営調整で大幅に抑制） ──
+   エリート 8%（ラッキーダイスで +5%/Lv）／中ボス 50%／ボスは確定。
+   場に出ている宝箱は最大2個まで: 上限時は宝箱ではなく経験値ジェムの小山に変換する */
+const CHEST_FIELD_MAX = 2;
+const ELITE_CHEST_RATE = .08, MINIBOSS_CHEST_RATE = .5, LUCK_CHEST_BONUS = .05;
+function chestCount(){ let n = 0; for (const pk of pickups) if (pk.kind === 'chest') n++; return n; }
+function dropChest(x, y, gemFallback){
+  if (chestCount() >= CHEST_FIELD_MAX) { dropGems(x, y, gemFallback || 30); return false; }
+  pickups.push({ x, y, kind: 'chest', ph: 0 });
+  return true;
+}
 function damageEnemy(e, dmg, kx, ky, src){
   if (e.dead) return;
   let crit = false;
@@ -1487,7 +1541,7 @@ function killEnemy(e){
   if (e.type === 'boss') {
     S.shake = Math.max(S.shake, 10); sfx.boom();
     dropGems(e.x, e.y, 130);
-    pickups.push({ x: e.x, y: e.y, kind: 'chest', ph: 0 });
+    dropChest(e.x, e.y, 60); // ボスは確定（場の上限時はジェムに変換）
     showBanner(`👑 ${stageDef().bossName} を たおした！`);
     document.getElementById('bossWrap').style.display = 'none';
     if (S.bossRef === e) S.bossRef = null;
@@ -1496,13 +1550,13 @@ function killEnemy(e){
   if (e.type === 'miniboss') {
     S.shake = Math.max(S.shake, 7); sfx.boom();
     dropGems(e.x, e.y, 60);
-    pickups.push({ x: e.x, y: e.y, kind: 'chest', ph: 0 });
-    showBanner('🎁 中ボスをたおした！ 宝箱だ！');
+    if (Math.random() < MINIBOSS_CHEST_RATE && dropChest(e.x, e.y, 40)) showBanner('🎁 中ボスをたおした！ 宝箱だ！');
+    else showBanner('💎 中ボスをたおした！');
     return;
   }
-  if (e.elite) { // エリート報酬：大量ジェム＋たまに宝箱
+  if (e.elite) { // エリート報酬：大量ジェム＋まれに宝箱（8%＋幸運で+5%/Lv）
     dropGems(e.x, e.y, e.xp + 25);
-    if (Math.random() < .3 + .1 * luckLv()) { pickups.push({ x: e.x, y: e.y, kind: 'chest', ph: 0 }); showBanner('🎁 エリートが宝箱を落とした！'); }
+    if (Math.random() < ELITE_CHEST_RATE + LUCK_CHEST_BONUS * luckLv() && dropChest(e.x, e.y, 30)) showBanner('🎁 エリートが宝箱を落とした！');
   }
   if (e.type === 'slime') {
     for (let i = 0; i < 2; i++) {
@@ -1871,6 +1925,39 @@ function fireWeapon(p, w, dt){
     p.cds[w.id] = st.cd * cdMul(p);
     if (!p.moving) return; // 動いている間だけ炎の道を残す
     projs.push({ pid: ++S.pidSeq, own: p, type: 'patch', x: p.x, y: p.y + 6, vx: 0, vy: 0, dmg: st.dmg * dm, r: st.r, ttl: st.dur, tickT: 0, big: w.id === 'prominence' ? 1 : 0 });
+  } else if (w.id === 'vortex' || w.id === 'horizon') {
+    /* 第6弾: 重力場を最寄りの敵の位置に設置。上限到達中は置かない */
+    const active = projs.filter(q => q.type === 'vortex' && q.own === p).length;
+    if (active >= st.max) { p.cds[w.id] = .3; return; }
+    const tgt = nearestEnemy(p.x, p.y, 760);
+    if (!tgt) { p.cds[w.id] = .2; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    projs.push({ pid: ++S.pidSeq, own: p, type: 'vortex', x: tgt.x, y: tgt.y, vx: 0, vy: 0, dmg: st.dmg * dm, r: st.radius, ttl: st.dur, tickT: 0, spin: rand(0, TAU), big: w.id === 'horizon' ? 1 : 0 });
+    beep(150, 55, .28, 'sine', .22);
+  } else if (w.id === 'beam' || w.id === 'prismend') {
+    /* 第6弾: 直線レーザー。最寄りの敵から順に count 本を別々の敵へ向けて撃つ */
+    const isEnd = w.id === 'prismend';
+    const first = nearestEnemy(p.x, p.y, st.range + 60);
+    if (!first) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    const used = new Set(); const targets = [];
+    let cur = first;
+    while (cur && targets.length < st.count) { targets.push(cur); used.add(cur); cur = nearestEnemy(p.x, p.y, st.range + 60, used); }
+    const width = isEnd ? 46 : 30;
+    for (const t2 of targets) {
+      const a = Math.atan2(t2.y - p.y, t2.x - p.x);
+      const ca = Math.cos(a), sa = Math.sin(a);
+      fx.push({ type: 'beam', x: p.x, y: p.y, ang: a, range: st.range, ttl: .18, max: .18, big: isEnd ? 1 : 0 });
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const ex = e.x - p.x, ey = e.y - p.y;
+        const along = ex * ca + ey * sa;
+        if (along < -e.r || along > st.range + e.r) continue;
+        const perp = Math.abs(-ex * sa + ey * ca);
+        if (perp < width + e.r) damageEnemy(e, st.dmg * dm, ca * 120, sa * 120, p);
+      }
+    }
+    beep(1250, 280, .16, 'sawtooth', .12);
   }
 }
 function updateProjectiles(dt){
@@ -1978,6 +2065,23 @@ function updateProjectiles(dt){
             if (Math.random() < .5) addParts(e.x, e.y, 1, '#ff9d5c', 60, 3);
           }
         }
+      }
+      continue;
+    }
+    if (p.type === 'vortex') {
+      /* 重力場: 範囲内の敵を中心へ引き寄せ、0.4秒ごとにダメージ。ボス級は引き寄せに強い */
+      if (p.ttl <= 0) { p.dead = true; continue; }
+      p.tickT -= dt;
+      const doTick = p.tickT <= 0;
+      if (doTick) p.tickT = .4;
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const d2 = dist2(p.x, p.y, e.x, e.y);
+        if (d2 >= (p.r + e.r) * (p.r + e.r)) continue;
+        const d = Math.sqrt(d2) || 1;
+        const pull = (e.type === 'boss' || e.type === 'miniboss') ? 26 : e.elite ? 70 : 175;
+        if (d > 14) { e.x += (p.x - e.x) / d * pull * dt; e.y += (p.y - e.y) / d * pull * dt; }
+        if (doTick) damageEnemy(e, p.dmg, 0, 0, p.own);
       }
       continue;
     }
@@ -2346,9 +2450,79 @@ function renderWeaponsBar(){
   for (const w of me.weapons) {
     const d = document.createElement('div'); d.className = 'wIcon';
     d.innerHTML = WEAPONS[w.id].icon + `<span>${w.lv}</span>`;
+    d.title = WEAPONS[w.id].name + '（タップで詳細）';
+    d.dataset.weapon = w.id;
+    d.onclick = () => { initAudio(); openWeaponDetail(w.id); };
     bar.appendChild(d);
   }
 }
+/* ── 武器詳細カード（第6弾）: プレイ中に下部HUDの武器アイコンをタップすると開く。
+   数値は現在のLv・パッシブ・キャラ補正・一時バフ込みの実効値で計算する。
+   ソロでは開いている間だけゲームを止める（state='wdetail'）。
+   協力中はゲームを止めず、閉じるまで表示し続ける（自分の画面だけ止めると同期がずれるため） ── */
+const WD_PROJ_IDS = { star: 1, galaxy: 1, comet: 1, meteor: 1, arrow: 1, moonbow: 1, fan: 1, galefan: 1, nova: 1, supernova: 1, urbarrage: 1, urstorm: 1, missile: 1, starfleet: 1 };
+const WD_FIXED_CD = { leaf: 1.5, typhoon: 1.5, scythe: 1.9, moonreaper: 1.9 };
+let wDetailId = null, wDetailPaused = false;
+function weaponDetailRows(p, w){
+  const def = WEAPONS[w.id], st = def.lv[w.lv - 1], rows = [];
+  rows.push(['威力（実効）', '' + Math.round(st.dmg * dmgMul(p))]);
+  if (st.cd) rows.push(['クールダウン', (st.cd * cdMul(p)).toFixed(2) + ' 秒']);
+  else if (WD_FIXED_CD[w.id]) rows.push(['クールダウン', (WD_FIXED_CD[w.id] * cdMul(p)).toFixed(2) + ' 秒']);
+  if (w.id === 'orbit' || w.id === 'lunaorb') rows.push(['ヒット間隔', '0.38 秒']);
+  if (w.id === 'saw' || w.id === 'gigasaw') rows.push(['ヒット間隔', '0.32 秒']);
+  if (w.id === 'uraura' || w.id === 'ursanct') rows.push(['ヒット間隔', '0.35 秒']);
+  if (w.id === 'vortex' || w.id === 'horizon') rows.push(['ヒット間隔', '0.4 秒']);
+  if (st.count !== undefined) rows.push(['弾数・個数', '' + (st.count + (WD_PROJ_IDS[w.id] ? projBonus(p) : 0))]);
+  if (w.id === 'ice' || w.id === 'blizzard') rows.push(['弾数', '' + ((w.id === 'blizzard' ? 2 : 1) + projBonus(p))]);
+  if (st.chains !== undefined) rows.push(['連鎖数', '' + st.chains]);
+  if (st.pierce !== undefined) rows.push(['貫通', st.pierce >= 99 ? 'すべて' : '' + st.pierce]);
+  if (st.aoe !== undefined) rows.push(['爆発範囲', '' + st.aoe]);
+  if (st.range !== undefined) rows.push(['射程・範囲', '' + st.range]);
+  if (st.radius !== undefined) rows.push(['範囲（半径）', '' + st.radius]);
+  if (st.rot !== undefined) rows.push(['回転速度', '' + st.rot]);
+  if (st.slow !== undefined) rows.push(['鈍足効果', Math.round(st.slow * 100) + '% ／ ' + st.slowDur + ' 秒']);
+  if (st.max !== undefined) rows.push(['設置上限', '' + st.max]);
+  if (st.dur !== undefined) rows.push(['持続時間', st.dur + ' 秒']);
+  if (st.rate !== undefined) rows.push(['連射間隔', st.rate + ' 秒']);
+  if (st.r !== undefined) rows.push(['炎の半径', '' + st.r]);
+  return rows;
+}
+function openWeaponDetail(id){
+  const p = localPlayer();
+  const w = p.weapons.find(x => x.id === id);
+  if (!w || !WEAPONS[id]) return;
+  const def = WEAPONS[id];
+  wDetailId = id;
+  const rows = weaponDetailRows(p, w);
+  let tags = 'Lv ' + w.lv + ' / ' + MAX_WLV;
+  if (def.ur) tags += ' ・ <span class="wdTagUR">UR専用武器</span>';
+  if (def.evo) tags += ' ・ <span class="wdTagEvo">進化武器</span>';
+  let evoHtml = '';
+  const ev = EVOLUTIONS[id];
+  if (ev) {
+    const ew = WEAPONS[ev.to], ps = PASSIVES[ev.req];
+    const hasPs = (p.passives[ev.req] || 0) >= 1;
+    const lvOk = w.lv >= MAX_WLV;
+    evoHtml = `<div class="wdEvo">⚡ 進化先： ${ew.icon} <b>${ew.name}</b><br>条件： 武器Lv10 ${lvOk ? '<span class="have">✓ 到達</span>' : `<span class="lack">（現在 Lv${w.lv}）</span>`} ／ 必要パッシブ ${ps.icon} ${ps.name} ${hasPs ? '<span class="have">✓ 所持</span>' : '<span class="lack">✗ 未所持</span>'}</div>`;
+  } else if (def.evo) {
+    const baseId = Object.keys(EVOLUTIONS).find(k => EVOLUTIONS[k].to === id);
+    evoHtml = `<div class="wdEvo">⚡ <b>進化武器</b>${baseId ? `（${WEAPONS[baseId].icon} ${WEAPONS[baseId].name} から進化）` : ''}。これ以上の進化はないよ</div>`;
+  }
+  $('wDetailBody').innerHTML =
+    `<div class="wdHead"><div class="wdIcon${def.evo ? ' evo' : ''}">${def.icon}</div><div><div class="wdName">${def.name}</div><div class="wdTags">${tags}</div></div></div>` +
+    `<div class="wdDesc">${def.desc}</div>` +
+    `<div class="wdStats">${rows.map(r => `<div class="wdStat"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join('')}</div>` +
+    evoHtml;
+  $('wDetailScr').classList.add('show');
+  if (!coopMode && S.state === 'play') { S.state = 'wdetail'; wDetailPaused = true; }
+}
+function closeWeaponDetail(){
+  $('wDetailScr').classList.remove('show');
+  wDetailId = null;
+  if (wDetailPaused) { wDetailPaused = false; if (S.state === 'wdetail') S.state = 'play'; }
+}
+$('wDetailCloseBtn').onclick = () => closeWeaponDetail();
+$('wDetailScr').addEventListener('click', e => { if (e.target === $('wDetailScr')) closeWeaponDetail(); });
 function startGame(){
   initAudio();
   coopMode = false;
@@ -2373,6 +2547,7 @@ function resumeGame(){ if (S.state !== 'pause') return; S.state = 'play'; $('pau
 function quitToTitle(){
   cleanupNet();
   closeMerchant();
+  closeWeaponDetail();
   coopMode = false;
   S.state = 'title';
   $('pauseScr').classList.remove('show'); $('endScr').classList.remove('show');
@@ -2458,6 +2633,7 @@ function recordRunStats(clearedRun){
 function gameOver(clearedRun){
   if (S.state === 'over') return;
   closeMerchant();
+  closeWeaponDetail();
   const isNew = saveBest(clearedRun);
   const gain = awardShards(clearedRun);
   recordRunStats(clearedRun);
@@ -3466,6 +3642,21 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, p.r - 6), 0, TAU); ctx.stroke();
       ctx.restore();
     }
+    else if (p.type === 'vortex') {
+      ctx.save(); ctx.translate(p.x, p.y);
+      const rr = p.r || 110, col = p.big ? '#ff9de2' : '#8a6cff';
+      ctx.globalAlpha = .15; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.fill();
+      ctx.globalAlpha = .85; ctx.strokeStyle = p.big ? '#ffc4ec' : '#b7a6ff'; ctx.lineWidth = 3;
+      for (let s = 0; s < 3; s++) {
+        const a0 = now / (p.big ? 240 : 330) + (p.spin || 0) + s * (TAU / 3);
+        ctx.beginPath(); ctx.arc(0, 0, Math.max(8, rr * (.85 - s * .22)), a0, a0 + 2.3); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#0b0620'; ctx.beginPath(); ctx.arc(0, 0, Math.max(6, rr * .16), 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#e6d5ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, Math.max(6, rr * .16), 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
     else if (p.type === 'fam') {
       ctx.save(); ctx.translate(p.x, p.y);
       const fl = Math.sin(now / 70 + (p.seed || 0) * 5) * .5;
@@ -3545,6 +3736,16 @@ function draw(){
     } else if (f.type === 'ring') {
       ctx.save(); ctx.globalAlpha = al * .8; ctx.strokeStyle = f.color; ctx.lineWidth = 3.5;
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1.15 - al * .15), 0, TAU); ctx.stroke(); ctx.restore();
+    } else if (f.type === 'beam') {
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang);
+      const wdt = f.big ? 34 : 20;
+      ctx.globalAlpha = al * .4; ctx.fillStyle = f.big ? '#ff9de2' : '#b7a6ff';
+      ctx.fillRect(0, -wdt, f.range, wdt * 2);
+      ctx.globalAlpha = al;
+      const grd = ctx.createLinearGradient(0, 0, f.range, 0);
+      grd.addColorStop(0, 'rgba(255,255,255,.95)'); grd.addColorStop(.45, 'rgba(160,220,255,.8)'); grd.addColorStop(.75, 'rgba(255,160,230,.55)'); grd.addColorStop(1, 'rgba(255,217,77,.12)');
+      ctx.fillStyle = grd; ctx.fillRect(0, -wdt * .34, f.range, wdt * .68);
+      ctx.restore();
     } else if (f.type === 'pillar') {
       ctx.save(); ctx.globalAlpha = al * .5;
       const grd = ctx.createLinearGradient(0, f.y - 320, 0, f.y + 10);
@@ -4390,6 +4591,9 @@ window.__surv = {
   buildPool, rollPicks, applyPick, achDone, claimAch, claimDaily, ensureDaily,
   missionsForDate, dailyKeyStr, achCount, selectTitle, addDailyProg, renderAch, saveMeta,
   renderDex, renderStats, fmtDur, dexSee, dexKill, dexWeapon, luckMul, damageEnemy,
+  /* 第6弾: 宝箱抑制・武器詳細カード */
+  CHEST_FIELD_MAX, ELITE_CHEST_RATE, MINIBOSS_CHEST_RATE, LUCK_CHEST_BONUS, chestCount, dropChest, killEnemy,
+  openWeaponDetail, closeWeaponDetail, weaponDetailRows, get wDetailId(){ return wDetailId; },
   dmgMulFor: p => dmgMul(p), gemValMulFor: p => gemValMul(p), maxHpFor: p => maxHp(p),
   /* 第4弾: 難易度・転生・ランダムイベント */
   DIFFS, DIFF_ORDER, diffDef, diffUnlocked, diffCleared, curDiff, renderDiff,
