@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v21';
+const CACHE_NAME = 'game-platform-cache-v22';
 
 // ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
 // キャッシュしたいファイルを1つずつ正確に書く必要があります。
