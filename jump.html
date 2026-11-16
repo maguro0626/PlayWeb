@@ -1,874 +1,1337 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jump & Dash Pro</title>
-    <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        :root { --app-height: 100%; }
-        html, body {
-            height: 100%; margin: 0; padding: 0; overflow: hidden;
-            background-color: #f5f5f7;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-            touch-action: none;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        .glass-header {
-            background-color: rgba(255,255,255,0.7);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ジャンプ＆ダッシュ Pro | PlayWeb</title>
+<style>
+  :root{
+    --ink:#1c2333; --sub:#6b7390; --line:rgba(20,30,60,.08);
+    --card:#ffffff; --accent:#3b82f6; --gold:#f59e0b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:
+      radial-gradient(900px 500px at 10% -10%, #dbeafe 0%, transparent 55%),
+      radial-gradient(900px 600px at 105% 110%, #fde68a55 0%, transparent 50%),
+      linear-gradient(180deg,#f2f5fb,#e7ecf5);
+    color:var(--ink); min-height:100%; display:flex; flex-direction:column; overflow-x:hidden;
+    user-select:none; -webkit-user-select:none; touch-action:manipulation;
+  }
+  header{
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; background:rgba(255,255,255,.72); backdrop-filter:saturate(180%) blur(16px);
+    border-bottom:1px solid var(--line);
+  }
+  header .ttl{font-weight:900; letter-spacing:.04em; font-size:16px}
+  header .ttl small{display:block; font-size:9px; letter-spacing:.3em; color:var(--sub); font-weight:700}
+  .hbtn{
+    display:inline-flex; align-items:center; gap:6px; text-decoration:none; color:var(--ink);
+    background:#fff; border:1px solid var(--line); border-radius:999px; padding:8px 14px;
+    font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 2px 8px rgba(20,30,60,.06); font-family:inherit;
+  }
+  .hbtn:active{transform:scale(.95)}
+  main{flex:1; width:100%; max-width:1020px; margin:0 auto; padding:12px 14px 22px; display:flex; flex-direction:column; gap:12px}
 
-        #board-wrapper {
-            perspective: 1500px;
-            display: flex; align-items: center; justify-content: center;
-            flex-grow: 1; padding: 1rem; min-height: 0;
-            width: 100%;
-        }
+  /* HUD */
+  #hud{display:flex; gap:10px; align-items:stretch; flex-wrap:wrap}
+  .hud-card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:9px 14px; box-shadow:0 4px 14px rgba(20,30,60,.05); display:flex; align-items:center; gap:10px}
+  #hud-stage{flex:1 1 260px; min-width:230px}
+  #hud-stage .nm{font-weight:900; font-size:14px; white-space:nowrap}
+  #hud-stage .nm small{color:var(--sub); font-weight:800; letter-spacing:.12em; font-size:10px; display:block}
+  #prog-wrap{flex:1; height:10px; background:#e8edf6; border-radius:99px; position:relative; overflow:visible; min-width:90px}
+  #prog-bar{height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#38bdf8,#3b82f6,#818cf8); transition:width .15s linear}
+  .prog-tick{position:absolute; top:-3px; width:3px; height:16px; border-radius:2px; background:#cbd5e1}
+  .prog-tick.on{background:#22c55e}
+  #prog-pct{font-weight:900; font-variant-numeric:tabular-nums; font-size:15px; min-width:52px; text-align:right}
+  .hud-num{font-weight:900; font-size:16px; font-variant-numeric:tabular-nums}
+  .hud-lbl{font-size:9px; letter-spacing:.22em; color:var(--sub); font-weight:800}
+  #hearts{font-size:16px; letter-spacing:2px}
+  #coin-count.pop{animation:cpop .3s ease}
+  @keyframes cpop{40%{transform:scale(1.35); color:var(--gold)}}
 
-        /* 画面を広く使うためのコンテナ設定 */
-        #game-container {
-            position: relative;
-            background: #0f172a;
-            border: 6px solid #0a0a0a;
-            border-radius: 12px;
-            box-shadow:
-                0 40px 80px rgba(0,0,0,0.5),
-                inset 0 0 30px rgba(0,0,0,0.9);
-            width: 100%;
-            height: 100%; /* 親要素いっぱいに広げる */
-            max-height: 600px; /* PCなどでの過度な拡大を防止 */
-            overflow: hidden;
-            transform-style: preserve-3d;
-        }
+  /* ゲーム画面 */
+  #game-container{
+    position:relative; border-radius:22px; overflow:hidden; background:#0f172a;
+    border:5px solid #101828; box-shadow:0 30px 60px rgba(15,23,42,.35), inset 0 0 40px rgba(0,0,0,.5);
+    aspect-ratio:2/1; width:100%;
+  }
+  canvas{display:block; width:100%; height:100%}
+  #toast{
+    position:absolute; top:12%; left:50%; transform:translate(-50%,-50%) scale(.6); opacity:0; pointer-events:none;
+    background:rgba(10,14,26,.88); color:#fff; font-weight:900; padding:10px 22px; border-radius:999px; font-size:17px;
+    letter-spacing:.05em; z-index:6; white-space:nowrap; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  #toast.show{animation:toast-anim 1.7s cubic-bezier(.175,.885,.32,1.2) forwards}
+  @keyframes toast-anim{0%{transform:translate(-50%,-50%) scale(.6);opacity:0}15%{transform:translate(-50%,-50%) scale(1.05);opacity:1}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{transform:translate(-50%,-50%) scale(.85);opacity:0}}
+  #big-center{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    pointer-events:none; z-index:5; text-align:center;
+  }
+  #big-center .big{font-size:min(15vw,96px); font-weight:900; color:#fff; text-shadow:0 6px 30px rgba(0,0,0,.55); letter-spacing:.03em}
+  #big-center .small{font-size:min(4.5vw,20px); font-weight:800; color:rgba(255,255,255,.85); text-shadow:0 2px 12px rgba(0,0,0,.6); margin-top:4px}
+  #big-center.pop .big{animation:bigpop .34s cubic-bezier(.175,.885,.32,1.5)}
+  @keyframes bigpop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+  #overlay{
+    position:absolute; inset:0; z-index:8; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    background:rgba(8,10,20,.62); backdrop-filter:blur(5px); text-align:center; padding:18px;
+  }
+  #overlay.show{display:flex}
+  #overlay h2{font-size:min(11vw,52px); font-weight:900; letter-spacing:.04em}
+  #overlay .stats{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:4px 0 6px}
+  #overlay .stat{background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); border-radius:14px; padding:8px 16px; color:#fff}
+  #overlay .stat .v{font-size:20px; font-weight:900; font-variant-numeric:tabular-nums}
+  #overlay .stat .k{font-size:9px; letter-spacing:.24em; opacity:.75; font-weight:800}
+  #overlay p{color:rgba(255,255,255,.85); font-weight:700; font-size:14px}
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+  .btn{
+    border:none; cursor:pointer; font-family:inherit; font-weight:900; border-radius:999px; padding:13px 26px; font-size:15px;
+    display:inline-flex; align-items:center; gap:8px; transition:transform .12s, box-shadow .12s; letter-spacing:.03em;
+  }
+  .btn:active{transform:scale(.95)}
+  .btn.primary{background:linear-gradient(90deg,#2563eb,#7c3aed); color:#fff; box-shadow:0 12px 28px rgba(59,80,246,.4)}
+  .btn.light{background:#fff; color:#111827; box-shadow:0 10px 24px rgba(0,0,0,.3)}
+  .btn.ghost{background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25)}
+  .newrec{color:#fbbf24; font-weight:900; font-size:14px; animation:blink .55s ease-in-out infinite alternate}
+  @keyframes blink{from{opacity:1}to{opacity:.4}}
+  #jump-btn{
+    position:absolute; right:16px; bottom:16px; z-index:7; width:84px; height:84px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.5); background:rgba(255,255,255,.16); backdrop-filter:blur(4px);
+    color:#fff; font-weight:900; font-size:14px; letter-spacing:.06em; cursor:pointer; display:none;
+    align-items:center; justify-content:center; text-align:center; line-height:1.25; font-family:inherit;
+    box-shadow:0 10px 26px rgba(0,0,0,.35); touch-action:none;
+  }
+  #jump-btn.on{display:flex}
+  #jump-btn:active{background:rgba(255,255,255,.32); transform:scale(.94)}
 
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: contain; /* 横長の論理解像度を維持してフィットさせる */
-        }
-
-        /* ━━━ アニメーション・エフェクト ━━━ */
-        .active-turn {
-            border-color: #3b82f6 !important;
-            transform: scale(1.05);
-            background-color: white !important;
-            box-shadow: 0 8px 20px rgba(59,130,246,0.2), 0 0 18px rgba(59,130,246,0.12);
-        }
-
-        .score-pop { animation: score-pop 0.45s cubic-bezier(0.175,0.885,0.32,1.6) both; }
-        @keyframes score-pop {
-            0%   { transform: scale(1);    color: inherit; }
-            50%  { transform: scale(1.6);  color: #3b82f6; }
-            100% { transform: scale(1);    color: inherit; }
-        }
-
-        .toast-pop { animation: toast-anim 1.8s cubic-bezier(0.175,0.885,0.32,1.2) forwards; }
-        @keyframes toast-anim {
-            0%   { transform:translate(-50%,-50%) scale(0.5); opacity:0; }
-            15%  { transform:translate(-50%,-50%) scale(1.05); opacity:1; }
-            25%  { transform:translate(-50%,-50%) scale(1);    opacity:1; }
-            80%  { transform:translate(-50%,-50%) scale(1);    opacity:1; }
-            100% { transform:translate(-50%,-50%) scale(0.8);  opacity:0; }
-        }
-
-        .confetti {
-            position: fixed; top: -30px;
-            z-index: 100; pointer-events: none;
-            animation: confetti-fall linear forwards;
-        }
-        @keyframes confetti-fall {
-            0%   { transform: translateY(0)     rotate(0deg)              scale(1);   opacity:1; }
-            85%  { opacity:1; }
-            100% { transform: translateY(115vh) rotate(var(--rot,720deg)) scale(0.7); opacity:0; }
-        }
-
-        .victory-flash {
-            position: fixed; inset: 0; pointer-events: none; z-index: 90;
-            animation: v-flash 0.7s ease-out forwards;
-        }
-        @keyframes v-flash {
-            0%   { background: rgba(255,255,255,0.7); }
-            100% { background: rgba(255,255,255,0); }
-        }
-
-        /* UIコンポーネント用 */
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .selection-btn {
-            flex-shrink: 0;
-            transition: all 0.2s;
-        }
-        .selection-btn.selected {
-            background-color: white;
-            color: black;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: scale(1.05);
-            border: 2px solid #3b82f6;
-        }
-
-        /* 画面内メッセージ */
-        .message-overlay {
-            position: absolute; inset: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.5);
-            opacity: 0; pointer-events: none; transition: opacity 0.3s;
-            z-index: 10;
-        }
-        .message-overlay.show { opacity: 1; pointer-events: auto; }
-        .message-text {
-            font-size: 3.5rem; font-weight: 900; color: white;
-            text-shadow: 0 4px 20px rgba(0,0,0,0.8);
-            transform: scale(0.8); transition: transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
-        }
-        .message-overlay.show .message-text { transform: scale(1); }
-
-    </style>
+  /* パネル（メニュー） */
+  #panel{background:rgba(255,255,255,.85); backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:24px; padding:16px; box-shadow:0 10px 30px rgba(20,30,60,.06)}
+  .sec-lbl{font-size:10px; font-weight:900; letter-spacing:.26em; color:var(--sub); margin:2px 2px 8px}
+  .scroll-row{display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; scrollbar-width:none}
+  .scroll-row::-webkit-scrollbar{display:none}
+  .sel-card{
+    flex:0 0 auto; text-align:left; border:2px solid transparent; background:#eef2f9; color:var(--ink);
+    border-radius:16px; padding:11px 14px; cursor:pointer; font-family:inherit; min-width:138px; transition:all .15s;
+  }
+  .sel-card:active{transform:scale(.97)}
+  .sel-card.selected{background:#fff; border-color:var(--accent); box-shadow:0 8px 20px rgba(59,130,246,.18); transform:translateY(-1px)}
+  .sel-card.locked{opacity:.45; cursor:not-allowed}
+  .sel-card .t{font-weight:900; font-size:14px; display:flex; align-items:center; gap:7px}
+  .sel-card .d{font-size:11px; color:var(--sub); font-weight:700; margin-top:3px; line-height:1.45}
+  .sel-card .best{font-size:10.5px; color:#b45309; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums}
+  .dot{width:14px; height:14px; border-radius:50%; flex:0 0 auto; box-shadow:inset 0 -3px 5px rgba(0,0,0,.25)}
+  .statbar{display:flex; align-items:center; gap:6px; margin-top:4px; font-size:9px; font-weight:800; color:var(--sub)}
+  .statbar .tr{flex:1; height:5px; background:#dde4f0; border-radius:99px; overflow:hidden}
+  .statbar .fl{height:100%; border-radius:99px; background:linear-gradient(90deg,#38bdf8,#818cf8)}
+  #start-btn{
+    width:100%; margin-top:6px; padding:16px; border:none; border-radius:18px; cursor:pointer; font-family:inherit;
+    background:linear-gradient(90deg,#111827,#1f2937); color:#fff; font-weight:900; font-size:17px; letter-spacing:.14em;
+    box-shadow:0 14px 30px rgba(17,24,39,.3); transition:transform .12s;
+  }
+  #start-btn:active{transform:scale(.98)}
+  #play-hint{text-align:center; color:var(--sub); font-weight:800; font-size:13px; letter-spacing:.14em; padding:8px 0 2px; animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.45}}
+  .hidden{display:none !important}
+  footer{color:var(--sub); font-size:11.5px; text-align:center; line-height:1.9; padding:0 10px}
+  @media (max-width:560px){ #hud{gap:7px} .hud-card{padding:7px 10px} #jump-btn{width:76px;height:76px} }
+</style>
 </head>
-<body class="flex flex-col">
+<body>
+<header>
+  <a class="hbtn" href="index.html">← もどる</a>
+  <div class="ttl">ジャンプ＆ダッシュ Pro<small>JUMP &amp; DASH PRO</small></div>
+  <div style="display:flex; gap:8px">
+    <button class="hbtn" id="sound-btn">🔊 サウンド</button>
+    <button class="hbtn" id="pause-btn">⏸ ポーズ</button>
+  </div>
+</header>
 
-    <!-- ━━━ ヘッダー ━━━ -->
-    <header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
-        <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
-            <i data-lucide="home" class="w-5 h-5"></i>
-            <span class="text-sm font-bold">ホーム</span>
-        </button>
-        <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">Match Ready</div>
-        <div class="w-20"></div>
-    </header>
+<main>
+  <div id="hud">
+    <div class="hud-card" id="hud-stage">
+      <div class="nm"><small id="hud-stage-sub">STAGE 1</small><span id="hud-stage-name">草原の道</span></div>
+      <div id="prog-wrap"><div id="prog-bar"></div></div>
+      <div id="prog-pct">0%</div>
+    </div>
+    <div class="hud-card">
+      <div><div class="hud-lbl">HEART</div><div id="hearts">❤️❤️❤️</div></div>
+    </div>
+    <div class="hud-card">
+      <div><div class="hud-lbl">COIN</div><div class="hud-num">🪙 <span id="coin-count">0</span></div></div>
+    </div>
+    <div class="hud-card">
+      <div><div class="hud-lbl">TIME</div><div class="hud-num" id="time-val">0.0</div></div>
+    </div>
+  </div>
 
-    <!-- 幅を広くするために max-w-5xl に変更 -->
-    <main class="flex-grow flex flex-col overflow-hidden max-w-5xl mx-auto w-full">
-        <!-- ━━━ ステータス表示エリア ━━━ -->
-        <div class="grid grid-cols-2 gap-4 px-6 pt-6 shrink-0">
-            <!-- ステージ情報 -->
-            <div id="ui-stage" class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 shadow-sm border border-blue-200">
-                        <i id="stage-icon" data-lucide="map" class="w-5 h-5"></i>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500" id="lbl-stage-num-wrap">Stage <span id="lbl-stage-num">1</span></span>
-                        <span id="lbl-stage-name" class="text-xs font-bold text-black truncate w-24">草原の道</span>
-                    </div>
-                </div>
-                <!-- 距離または%を表示 -->
-                <span id="score-progress" class="text-2xl font-black">0%</span>
-            </div>
-            <!-- キャラクター情報 -->
-            <div id="ui-char" class="flex items-center justify-between bg-zinc-100 p-4 rounded-3xl border-2 border-transparent transition-all duration-300">
-                <div class="flex items-center gap-3">
-                    <div id="char-icon-bg" class="w-10 h-10 rounded-full shadow-sm border border-zinc-200 flex items-center justify-center">
-                        <div id="char-icon-inner" class="w-5 h-5 rounded-full"></div>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-zinc-500">Player</span>
-                        <span id="lbl-char-name" class="text-xs font-bold text-black truncate w-20">ニンジャ</span>
-                    </div>
-                </div>
-                <!-- 残りシールド等 -->
-                <div id="lbl-shield" class="text-xl text-zinc-400 hidden"><i data-lucide="shield" class="w-6 h-6"></i></div>
-            </div>
-        </div>
+  <div id="game-container">
+    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+    <div id="big-center" class="hidden"><div class="big" id="big-text">3</div><div class="small" id="big-sub"></div></div>
+    <div id="toast"></div>
+    <button id="jump-btn">JUMP<br>👆</button>
+    <div id="overlay">
+      <h2 id="ov-title">STAGE CLEAR</h2>
+      <div class="newrec hidden" id="ov-newrec">🎉 NEW RECORD！</div>
+      <p id="ov-sub"></p>
+      <div class="stats" id="ov-stats"></div>
+      <div class="btn-row" id="ov-btns"></div>
+    </div>
+  </div>
 
-        <!-- ━━━ ゲーム画面 ━━━ -->
-        <div id="board-wrapper">
-            <div id="game-container">
-                <!-- より広い視界を確保するために解像度を横長（1200x600）に設定 -->
-                <canvas id="gameCanvas" width="1200" height="600"></canvas>
-                
-                <div id="game-message" class="message-overlay">
-                    <div id="message-text" class="message-text">CLEAR!</div>
-                    <div id="message-sub" class="text-white/80 font-bold mt-2 mb-8"></div>
-                    <div id="end-buttons" class="flex gap-4"></div>
-                </div>
-            </div>
-        </div>
+  <div id="panel"></div>
 
-        <!-- ━━━ コントロールパネル (PLAY時は非表示または簡略化) ━━━ -->
-        <div class="px-6 pb-6 shrink-0 transition-all duration-300" id="control-panel-wrapper">
-            <div class="bg-white/80 backdrop-blur-md p-4 rounded-[2rem] border border-black/5 shadow-sm transition-all" id="control-panel">
-                <!-- JSで中身を生成 -->
-            </div>
-        </div>
-    </main>
+  <footer>
+    操作：画面タップ / クリック / スペースキーでジャンプ。長押しで高く跳び、離すと落下。<br>
+    チェックポイントを通過すると、ミスしてもそこから再スタート（ハート3つまで）。コインを集めてベスト記録を更新しよう。
+  </footer>
+</main>
 
-    <script>
-
+<script>
+'use strict';
+/* ================================================================
+   ジャンプ＆ダッシュ Pro — オートラン・ジャンプアクション
+   固定タイムステップ(60Hz)で元版の物理バランスを再現しつつ、
+   パララックス背景/コイン/チェックポイント/可変ジャンプ等を追加
+================================================================ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      console.log('Service Worker registered!');
-    });
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 
-        // --- データ定義 ---
-        const CHARACTERS = [
-            { id: 'ninja', name: 'ニンジャ', desc: '標準。2段ジャンプ可。', color: '#3b82f6', maxJumps: 2, jumpForce: -13, gravity: 0.6, size: 40, shield: 0 },
-            { id: 'slime', name: 'スライム', desc: '1回のみ。大ジャンプ。', color: '#22c55e', maxJumps: 1, jumpForce: -18, gravity: 0.65, size: 36, shield: 0 },
-            { id: 'ghost', name: 'ゴースト', desc: '落下が遅い。大穴に強い。', color: '#a855f7', maxJumps: 1, jumpForce: -11, gravity: 0.35, size: 42, shield: 0 },
-            { id: 'runner', name: 'ランナー', desc: '落下が速く機敏に動く。', color: '#eab308', maxJumps: 2, jumpForce: -14, gravity: 0.9, size: 36, shield: 0 },
-            { id: 'knight', name: 'ナイト', desc: 'トゲを1度防ぐバリア。', color: '#64748b', maxJumps: 1, jumpForce: -13, gravity: 0.6, size: 44, shield: 1 }
-        ];
+/* ---------------- データ ---------------- */
+const CHARACTERS = [
+  { id:'ninja',  name:'ニンジャ', desc:'標準。2段ジャンプ可。',        color:'#3b82f6', maxJumps:2, jumpForce:-13,   gravity:0.6,  size:40, shield:0 },
+  { id:'slime',  name:'スライム', desc:'1回のみ。大ジャンプ。',        color:'#22c55e', maxJumps:1, jumpForce:-18,   gravity:0.65, size:36, shield:0 },
+  { id:'ghost',  name:'ゴースト', desc:'落下が遅い。大穴に強い。',     color:'#a855f7', maxJumps:1, jumpForce:-11,   gravity:0.35, size:42, shield:0 },
+  { id:'runner', name:'ランナー', desc:'落下が速く機敏に動く。',       color:'#eab308', maxJumps:2, jumpForce:-14,   gravity:0.9,  size:36, shield:0 },
+  { id:'knight', name:'ナイト',   desc:'トゲを1度防ぐバリア持ち。',   color:'#64748b', maxJumps:1, jumpForce:-13,   gravity:0.6,  size:44, shield:1 },
+];
+const STAGES = [
+  { id:0, name:'エンドレス', theme:'night',  bg:['#1e293b','#020617'], ground:'#1e293b', groundLine:'#475569', speed:8, length:Infinity, isEndless:true, obs:[] },
+  { id:1, name:'草原の道',   theme:'plains', bg:['#bae6fd','#38bdf8'], ground:'#4ade80', groundLine:'#22c55e', speed:6, length:3000, obs:[
+    {x:600,w:40,h:40,type:'spike'}, {x:1000,w:150,type:'pit'}, {x:1500,w:40,h:40,type:'spike'}, {x:1550,w:40,h:40,type:'spike'}, {x:2000,w:200,type:'pit'}, {x:2500,y:100,w:100,h:20,type:'block'} ]},
+  { id:2, name:'古代遺跡',   theme:'ruins',  bg:['#fef3c7','#d97706'], ground:'#d97706', groundLine:'#b45309', speed:7, length:4000, obs:[
+    {x:600,w:40,h:40,type:'spike'}, {x:900,w:40,h:80,type:'spike'}, {x:1300,w:40,h:40,type:'spike'}, {x:1340,w:40,h:40,type:'spike'}, {x:1380,w:40,h:40,type:'spike'}, {x:1800,y:80,w:80,h:20,type:'block'}, {x:2200,w:200,type:'pit'}, {x:2800,w:40,h:100,type:'spike'}, {x:3300,w:40,h:40,type:'spike'} ]},
+  { id:3, name:'奈落の空',   theme:'sky',    bg:['#312e81','#1e1b4b'], ground:'#4338ca', groundLine:'#6366f1', speed:7, length:4500, obs:[
+    {x:500,w:300,type:'pit'}, {x:1100,w:400,type:'pit'}, {x:1800,y:120,w:60,h:20,type:'block'}, {x:2200,w:500,type:'pit'}, {x:3000,y:80,w:60,h:20,type:'block'}, {x:3300,y:150,w:60,h:20,type:'block'}, {x:3700,w:300,type:'pit'} ]},
+  { id:4, name:'氷の洞窟',   theme:'ice',    bg:['#e0f2fe','#7dd3fc'], ground:'#bae6fd', groundLine:'#38bdf8', speed:10, length:5000, obs:[
+    {x:600,w:40,h:40,type:'spike'}, {x:1200,w:250,type:'pit'}, {x:1800,w:40,h:60,type:'spike'}, {x:2400,y:100,w:100,h:20,type:'block'}, {x:3000,w:40,h:40,type:'spike'}, {x:3050,w:40,h:40,type:'spike'}, {x:3600,w:300,type:'pit'}, {x:4200,w:40,h:80,type:'spike'} ]},
+  { id:5, name:'火山の試練', theme:'volcano',bg:['#450a0a','#7f1d1d'], ground:'#991b1b', groundLine:'#f87171', speed:8, length:5500, obs:[
+    {x:500,w:40,h:50,type:'spike'}, {x:900,w:200,type:'pit'}, {x:1100,y:80,w:50,h:20,type:'block'}, {x:1110,y:80,w:30,h:30,type:'spike'}, {x:1600,w:40,h:40,type:'spike'}, {x:1650,w:40,h:60,type:'spike'}, {x:1700,w:40,h:80,type:'spike'}, {x:2200,w:300,type:'pit'}, {x:2800,y:150,w:50,h:20,type:'block'}, {x:3400,w:400,type:'pit'}, {x:3600,y:100,w:50,h:20,type:'block'}, {x:4300,w:40,h:120,type:'spike'} ]},
+  { id:6, name:'天空の城',   theme:'castle', bg:['#fdf4ff','#d946ef'], ground:'#a21caf', groundLine:'#e879f9', speed:9, length:7000, obs:[
+    {x:600,w:40,h:60,type:'spike'}, {x:1000,w:300,type:'pit'}, {x:1500,w:40,h:40,type:'spike'}, {x:1540,w:40,h:40,type:'spike'}, {x:1580,w:40,h:40,type:'spike'}, {x:1620,w:40,h:40,type:'spike'}, {x:2200,y:120,w:60,h:20,type:'block'}, {x:2600,w:400,type:'pit'}, {x:2800,y:150,w:50,h:20,type:'block'}, {x:3300,w:40,h:100,type:'spike'}, {x:3800,w:200,type:'pit'}, {x:4300,y:80,w:40,h:20,type:'block'}, {x:4600,y:160,w:40,h:20,type:'block'}, {x:5200,w:40,h:50,type:'spike'}, {x:5250,w:40,h:70,type:'spike'}, {x:5300,w:40,h:90,type:'spike'}, {x:5800,w:500,type:'pit'}, {x:6000,y:120,w:50,h:20,type:'block'}, {x:6500,w:40,h:40,type:'spike'} ]},
+];
+const THEMES = {
+  night:  { far:'rgba(51,65,85,.55)',  mid:'rgba(30,41,59,.8)',  cloud:'rgba(255,255,255,.10)', deco:'stars'  },
+  plains: { far:'rgba(34,197,94,.35)', mid:'rgba(34,197,94,.55)', cloud:'rgba(255,255,255,.75)', deco:'sun'    },
+  ruins:  { far:'rgba(146,64,14,.35)',  mid:'rgba(180,83,9,.5)',   cloud:'rgba(255,255,255,.35)', deco:'pillars'},
+  sky:    { far:'rgba(99,102,241,.4)',  mid:'rgba(67,56,202,.55)', cloud:'rgba(255,255,255,.28)', deco:'islands'},
+  ice:    { far:'rgba(56,189,248,.30)', mid:'rgba(125,211,252,.5)',cloud:'rgba(255,255,255,.8)',  deco:'snow'   },
+  volcano:{ far:'rgba(127,29,29,.55)',  mid:'rgba(69,10,10,.75)',  cloud:'rgba(255,120,80,.16)', deco:'volcano'},
+  castle: { far:'rgba(134,25,143,.32)', mid:'rgba(162,28,175,.45)',cloud:'rgba(255,255,255,.55)', deco:'castle' },
+};
 
-        // エンドレスモードを ID: 0 として先頭に配置
-        const STAGES = [
-            { id: 0, name: 'エンドレス', bg: ['#0f172a', '#020617'], ground: '#1e293b', groundLine: '#334155', speed: 8, length: Infinity, isEndless: true, obs: [] },
-            { id: 1, name: '草原の道', bg: ['#bae6fd', '#38bdf8'], ground: '#4ade80', groundLine: '#22c55e', speed: 6, length: 3000, obs: [
-                {x: 600, w: 40, h: 40, type: 'spike'}, {x: 1000, w: 150, type: 'pit'}, {x: 1500, w: 40, h: 40, type: 'spike'}, {x: 1550, w: 40, h: 40, type: 'spike'}, {x: 2000, w: 200, type: 'pit'}, {x: 2500, y: 100, w: 100, h: 20, type: 'block'}
-            ]},
-            { id: 2, name: '古代遺跡', bg: ['#fef3c7', '#d97706'], ground: '#d97706', groundLine: '#b45309', speed: 7, length: 4000, obs: [
-                {x: 600, w: 40, h: 40, type: 'spike'}, {x: 900, w: 40, h: 80, type: 'spike'}, {x: 1300, w: 40, h: 40, type: 'spike'}, {x: 1340, w: 40, h: 40, type: 'spike'}, {x: 1380, w: 40, h: 40, type: 'spike'}, {x: 1800, y: 80, w: 80, h: 20, type: 'block'}, {x: 2200, w: 200, type: 'pit'}, {x: 2800, w: 40, h: 100, type: 'spike'}, {x: 3300, w: 40, h: 40, type: 'spike'},
-            ]},
-            { id: 3, name: '奈落の空', bg: ['#312e81', '#1e1b4b'], ground: '#4338ca', groundLine: '#3730a3', speed: 7, length: 4500, obs: [
-                {x: 500, w: 300, type: 'pit'}, {x: 1100, w: 400, type: 'pit'}, {x: 1800, y: 120, w: 60, h: 20, type: 'block'}, {x: 2200, w: 500, type: 'pit'}, {x: 3000, y: 80, w: 60, h: 20, type: 'block'}, {x: 3300, y: 150, w: 60, h: 20, type: 'block'}, {x: 3700, w: 300, type: 'pit'}
-            ]},
-            { id: 4, name: '氷の洞窟', bg: ['#e0f2fe', '#7dd3fc'], ground: '#bae6fd', groundLine: '#38bdf8', speed: 10, length: 5000, obs: [
-                {x: 600, w: 40, h: 40, type: 'spike'}, {x: 1200, w: 250, type: 'pit'}, {x: 1800, w: 40, h: 60, type: 'spike'}, {x: 2400, y: 100, w: 100, h: 20, type: 'block'}, {x: 3000, w: 40, h: 40, type: 'spike'}, {x: 3050, w: 40, h: 40, type: 'spike'}, {x: 3600, w: 300, type: 'pit'}, {x: 4200, w: 40, h: 80, type: 'spike'}
-            ]},
-            { id: 5, name: '火山の試練', bg: ['#450a0a', '#7f1d1d'], ground: '#991b1b', groundLine: '#7f1d1d', speed: 8, length: 5500, obs: [
-                {x: 500, w: 40, h: 50, type: 'spike'}, {x: 900, w: 200, type: 'pit'}, {x: 1100, y: 80, w: 50, h: 20, type: 'block'}, {x: 1110, y: 80, w: 30, h: 30, type: 'spike'}, {x: 1600, w: 40, h: 40, type: 'spike'}, {x: 1650, w: 40, h: 60, type: 'spike'}, {x: 1700, w: 40, h: 80, type: 'spike'}, {x: 2200, w: 300, type: 'pit'}, {x: 2800, y: 150, w: 50, h: 20, type: 'block'}, {x: 3400, w: 400, type: 'pit'}, {x: 3600, y: 100, w: 50, h: 20, type: 'block'}, {x: 4300, w: 40, h: 120, type: 'spike'}
-            ]},
-            { id: 6, name: '天空の城', bg: ['#fdf4ff', '#d946ef'], ground: '#a21caf', groundLine: '#86198f', speed: 9, length: 7000, obs: [
-                {x: 600, w: 40, h: 60, type: 'spike'}, {x: 1000, w: 300, type: 'pit'}, {x: 1500, w: 40, h: 40, type: 'spike'}, {x: 1540, w: 40, h: 40, type: 'spike'}, {x: 1580, w: 40, h: 40, type: 'spike'}, {x: 1620, w: 40, h: 40, type: 'spike'}, {x: 2200, y: 120, w: 60, h: 20, type: 'block'}, {x: 2600, w: 400, type: 'pit'}, {x: 2800, y: 150, w: 50, h: 20, type: 'block'}, {x: 3300, w: 40, h: 100, type: 'spike'}, {x: 3800, w: 200, type: 'pit'}, {x: 4300, y: 80, w: 40, h: 20, type: 'block'}, {x: 4600, y: 160, w: 40, h: 20, type: 'block'}, {x: 5200, w: 40, h: 50, type: 'spike'}, {x: 5250, w: 40, h: 70, type: 'spike'}, {x: 5300, w: 40, h: 90, type: 'spike'}, {x: 5800, w: 500, type: 'pit'}, {x: 6000, y: 120, w: 50, h: 20, type: 'block'}, {x: 6500, w: 40, h: 40, type: 'spike'}
-            ]}
-        ];
+/* ---------------- セーブ ---------------- */
+const SAVE_KEY = 'jumpDashProSaveV1';
+let save = { unlocked:1, best:{}, endlessBest:0, totalCoins:0, sound:true };
+try {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) save = Object.assign(save, JSON.parse(raw));
+} catch(e) {}
+function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch(e) {} }
 
-        // --- 状態管理 ---
-        let unlockedStages = 1;
-        let selectedStageId = 1;
-        let selectedCharId = 'ninja';
-        let gameState = 'MENU'; // MENU, PLAYING, OVER, CLEAR
-        let prevProgress = 0;
+/* ---------------- サウンド (WebAudio) ---------------- */
+let AC = null, masterGain = null, bgmTimer = null, bgmStep = 0;
+function audioInit(){
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = AC.createGain(); masterGain.gain.value = 0.5; masterGain.connect(AC.destination);
+  } catch(e) { AC = null; }
+}
+function tone(f0, f1, dur, type, vol, delay=0){
+  if (!AC || !save.sound) return;
+  const t = AC.currentTime + delay;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(Math.max(30, f0), t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+const sfx = {
+  click(){ tone(760, 660, 0.06, 'square', 0.06); },
+  jump(n){ tone(n >= 2 ? 520 : 300, n >= 2 ? 980 : 640, 0.14, 'square', 0.10); },
+  coin(){ tone(1318, 1318, 0.06, 'sine', 0.14); tone(1760, 1760, 0.12, 'sine', 0.12, 0.055); },
+  checkpoint(){ [880, 1174, 1568].forEach((f, i) => tone(f, f, 0.14, 'triangle', 0.12, i * 0.07)); },
+  hurt(){ tone(220, 55, 0.32, 'sawtooth', 0.16); },
+  shield(){ tone(1200, 300, 0.2, 'square', 0.12); tone(1800, 900, 0.16, 'triangle', 0.1, 0.03); },
+  land(){ tone(140, 90, 0.07, 'sine', 0.08); },
+  clear(){ [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f, 0.22, 'triangle', 0.13, i * 0.09)); },
+  over(){ [392, 330, 262, 196].forEach((f, i) => tone(f, f * 0.97, 0.26, 'triangle', 0.12, i * 0.16)); },
+  count(){ tone(440, 440, 0.09, 'square', 0.09); },
+  go(){ tone(880, 880, 0.2, 'square', 0.12); },
+};
+/* 軽いBGMループ（ベース＋アルペジオ、C–Am–F–G） */
+const BGM_CHORDS = [ [130.8, 261.6, 329.6, 392.0], [110.0, 220.0, 261.6, 329.6], [87.3, 174.6, 220.0, 261.6], [98.0, 196.0, 246.9, 293.7] ];
+function bgmTick(){
+  if (!AC || !save.sound || gameState !== 'PLAYING') return;
+  const chord = BGM_CHORDS[Math.floor(bgmStep / 8) % 4];
+  const pos = bgmStep % 8;
+  if (pos % 2 === 0) tone(chord[0], chord[0], 0.22, 'triangle', 0.10);
+  tone(chord[1 + (pos % 3)], chord[1 + (pos % 3)], 0.11, 'sine', 0.045);
+  bgmStep++;
+}
+function bgmStart(){ if (bgmTimer) return; bgmStep = 0; bgmTimer = setInterval(bgmTick, 150); }
+function bgmStop(){ if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } }
+/* ---------------- エンジン ---------------- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const CW = 1200, CH = 600, GROUND_Y = CH - 120;
+const PLAYER_X = CW * 0.15;
+const STEP_MS = 1000 / 60;
 
-        // --- ゲームエンジン変数 ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const CW = 1200; // 幅を広げた
-        const CH = 600;
-        const GROUND_Y = CH - 120;
-        
-        let lastTime = 0;
-        let animationId;
-        
-        let player = null;
-        let level = null;
-        let scrollX = 0;
-        let particles = [];
-        let shakeTime = 0;
-        let shakeMagnitude = 0;
-        let bgStars = [];
+let gameState = 'MENU'; // MENU, COUNTDOWN, PLAYING, PAUSED, OVER, CLEAR
+let selectedStageId = 1, selectedCharId = 'ninja';
+let level = null, player = null;
+let scrollX = 0, runTime = 0, frame = 0;
+let particles = [], floaters = [], ambient = [];
+let coins = [], coinCount = 0, coinTotal = 0;
+let checkpoints = [], activeCp = -1;
+let hearts = 3, lastSafeScrollX = 0;
+let shakeT = 0, shakeMag = 0, camY = 0, camDip = 0;
+let countT = 0, countShown = -1, respawnT = 0;
+let prevProg = -1, prevDist = -1;
+let clouds = [], stars = [];
+let acc = 0, lastTs = 0;
 
-        // --- クラス定義 ---
-        class Particle {
-            constructor(x, y, color, speed, size, life) {
-                this.x = x; this.y = y;
-                this.vx = (Math.random() - 0.5) * speed;
-                this.vy = (Math.random() - 0.5) * speed;
-                this.color = color;
-                this.size = size + Math.random() * size;
-                this.life = life; this.maxLife = life;
-            }
-            update() { this.x += this.vx; this.y += this.vy; this.life--; this.size *= 0.95; }
-            draw(ctx) {
-                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
-                ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
-                ctx.globalAlpha = 1;
-            }
+function hash(n){ const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+
+/* ---------- パーティクル ---------- */
+function addP(p){ if (particles.length < 700) particles.push(p); }
+function burst(x, y, color, n, spd, life, size, grav=0){
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2, v = (0.3 + Math.random() * 0.7) * spd;
+    addP({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - spd * 0.25, g: grav, life: life * (0.6 + Math.random() * 0.7), maxLife: life, size: size * (0.6 + Math.random() * 0.8), color, shape:'c', rot:0, vr:0 });
+  }
+}
+function dust(x, y, color, n){
+  for (let i = 0; i < n; i++)
+    addP({ x: x + (Math.random() - 0.5) * 26, y: y - Math.random() * 3, vx: -1 - Math.random() * 2.2, vy: -Math.random() * 1.1, g: -0.01, life: 22 + Math.random() * 16, maxLife: 38, size: 2.5 + Math.random() * 3.5, color, shape:'c', rot:0, vr:0 });
+}
+function sparkle(x, y){
+  for (let i = 0; i < 7; i++){
+    const a = (i / 7) * Math.PI * 2;
+    addP({ x, y, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6, g: 0, life: 16, maxLife: 16, size: 2.4, color:'#fde68a', shape:'c', rot:0, vr:0 });
+  }
+}
+function confetti(x, y){
+  const cols = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899'];
+  for (let i = 0; i < 90; i++)
+    addP({ x: x + (Math.random() - 0.5) * 160, y: y - Math.random() * 120, vx: (Math.random() - 0.5) * 5, vy: -2 - Math.random() * 5, g: 0.16, life: 90 + Math.random() * 70, maxLife: 160, size: 4 + Math.random() * 5, color: cols[i % cols.length], shape:'r', rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 0.3 });
+}
+function addFloater(x, y, text, color='#fde68a', size=22){
+  floaters.push({ x, y, text, color, size, life: 46, maxLife: 46 });
+}
+
+/* ---------- コイン / チェックポイント生成 ---------- */
+function genCoinsForStage(st){
+  const list = [];
+  const put = (x, y) => { if (x > 260 && x < st.length - 160) list.push({ x, y, taken:false, ph: hash(x) * 6.3 }); };
+  const arc = (cx, baseY, n, peak) => {
+    for (let i = 0; i < n; i++){
+      const t = n === 1 ? 0.5 : i / (n - 1);
+      put(cx + (t - 0.5) * (n - 1) * 42, baseY - Math.sin(t * Math.PI) * peak);
+    }
+  };
+  for (const o of st.obs){
+    if (o.type === 'spike' && !o.y) arc(o.x + o.w / 2, GROUND_Y - 46, 5, 105 + o.h * 0.4);
+    else if (o.type === 'spike' && o.y) put(o.x + o.w / 2, GROUND_Y - o.y - o.h - 42);
+    else if (o.type === 'pit') arc(o.x + o.w / 2, GROUND_Y - 40, Math.max(4, Math.round(o.w / 55)), 120);
+    else if (o.type === 'block'){
+      const top = GROUND_Y - (o.y || 0) - o.h;
+      const n = Math.max(2, Math.floor(o.w / 30));
+      for (let i = 0; i < n; i++) put(o.x + 18 + i * ((o.w - 36) / Math.max(1, n - 1)), top - 34);
+    }
+  }
+  for (let x = 520; x < st.length - 320; x += 46){
+    const near = st.obs.some(o => x > o.x - 170 && x < o.x + (o.w || 40) + 170);
+    if (!near && hash(x * 0.37) > 0.45){ for (let i = 0; i < 4; i++) put(x + i * 46, GROUND_Y - 38); x += 46 * 4 + 260; }
+  }
+  return list;
+}
+function snapToGround(st, x){
+  for (let tries = 0; tries < 40; tries++){
+    const pit = st.obs.find(o => o.type === 'pit' && x > o.x - 70 && x < o.x + o.w + 30);
+    if (!pit) return x;
+    x = pit.x + pit.w + 60;
+  }
+  return x;
+}
+function genCheckpoints(st){
+  if (st.isEndless) return [];
+  return [0.38, 0.72].map(r => ({ x: snapToGround(st, Math.floor(st.length * r)), on:false }));
+}
+
+/* ---------- ゲーム開始 ---------- */
+function startGame(){
+  audioInit();
+  const charData = CHARACTERS.find(c => c.id === selectedCharId);
+  const stageData = STAGES.find(s => s.id === selectedStageId);
+  level = JSON.parse(JSON.stringify(stageData));
+  scrollX = 0; runTime = 0; frame = 0;
+  particles = []; floaters = []; coins = []; coinCount = 0;
+  hearts = 3; activeCp = -1; lastSafeScrollX = 0;
+  shakeT = 0; camY = 0; camDip = 0; respawnT = 0;
+  prevProg = -1; prevDist = -1;
+  if (level.isEndless){
+    level.lastObsX = CW + 200;
+    coinTotal = 0;
+  } else {
+    coins = genCoinsForStage(level);
+    coinTotal = coins.length;
+  }
+  checkpoints = genCheckpoints(level);
+  clouds = [];
+  for (let i = 0; i < 9; i++) clouds.push({ x: hash(i * 3.3) * 2600, y: 26 + hash(i * 7.1) * 150, s: 0.7 + hash(i * 5.7) * 0.9 });
+  stars = [];
+  for (let i = 0; i < 70; i++) stars.push({ x: hash(i * 1.7) * 2400, y: hash(i * 2.9) * (GROUND_Y - 60), r: 1 + hash(i * 4.3) * 1.8, ph: hash(i * 6.1) * 6.3 });
+  ambient = [];
+  player = {
+    ...charData,
+    x: PLAYER_X, y: GROUND_Y - charData.size, vy: 0,
+    jumpsLeft: charData.maxJumps, grounded: true,
+    coyoteUntil: -1, bufferUntil: -1, canCut: false,
+    rotation: 0, spinVel: 0, squashX: 1, squashY: 1,
+    invincibleUntil: -1, blinkT: 0, runPhase: 0, dead: false,
+    trail: [],
+  };
+  updateHearts(); updateCoinUI(); updateHudStage();
+  document.getElementById('time-val').textContent = '0.0';
+  setProg(0);
+  hideOverlay();
+  document.getElementById('panel').innerHTML = '<div id="play-hint">TAP / SPACE — JUMP（長押しで高く跳ぶ）</div>';
+  document.getElementById('jump-btn').classList.add('on');
+  gameState = 'COUNTDOWN'; countT = 0; countShown = -1;
+  bgmStop();
+}
+
+/* ---------- ジャンプ ---------- */
+function doJump(second){
+  player.vy = player.jumpForce;
+  player.grounded = false;
+  player.canCut = true;
+  player.squashX = 0.72; player.squashY = 1.32;
+  if (second) player.spinVel = 0.32;
+  dust(player.x + player.size / 2, player.y + player.size, 'rgba(255,255,255,.85)', second ? 8 : 5);
+  sfx.jump(second ? 2 : 1);
+}
+function pressJump(){
+  audioInit();
+  if (gameState !== 'PLAYING' || !player || player.dead) return;
+  const now = frame;
+  player.bufferUntil = now + 7; // 約120ms先行入力
+  if (player.grounded || now <= player.coyoteUntil){
+    player.jumpsLeft = player.maxJumps - 1;
+    player.coyoteUntil = -1; player.bufferUntil = -1;
+    doJump(false);
+  } else if (player.jumpsLeft > 0){
+    player.jumpsLeft--;
+    player.bufferUntil = -1;
+    doJump(true);
+  }
+}
+function releaseJump(){
+  if (gameState !== 'PLAYING' || !player) return;
+  if (player.canCut && player.vy < player.jumpForce * 0.42){
+    player.vy = player.jumpForce * 0.42;
+    player.canCut = false;
+  }
+}
+
+/* ---------- ダメージ / リスポーン ---------- */
+function applyShake(mag, t){ shakeMag = mag; shakeT = t; }
+function die(cause){
+  if (player.dead) return;
+  burst(player.x + player.size / 2, Math.min(player.y + player.size / 2, CH - 30), player.color, 34, 6, 42, 4.5, 0.12);
+  sfx.hurt(); applyShake(14, 18);
+  hearts--; updateHearts();
+  if (hearts <= 0){ gameOver(); return; }
+  player.dead = true;
+  respawnT = 26;
+  showToast(cause === 'pit' ? '落っこちた…！' : 'くらった…！');
+}
+function respawn(){
+  const target = activeCp >= 0 ? checkpoints[activeCp].x - PLAYER_X : lastSafeScrollX;
+  scrollX = Math.max(0, target);
+  /* リスポーン直後に穴の上にならないよう前進調整 */
+  for (let i = 0; i < 60; i++){
+    const pit = level.obs.find(o => o.type === 'pit' && PLAYER_X + scrollX > o.x - 10 && PLAYER_X + scrollX < o.x + o.w - 30);
+    if (!pit) break;
+    scrollX = pit.x + pit.w - PLAYER_X + 30;
+  }
+  player.y = GROUND_Y - player.size;
+  player.vy = 0; player.rotation = 0; player.spinVel = 0;
+  player.jumpsLeft = player.maxJumps; player.grounded = true;
+  player.invincibleUntil = frame + 75; // 約1.25秒無敵
+  player.dead = false;
+  burst(player.x + player.size / 2, player.y + player.size / 2, '#ffffff', 14, 3.4, 26, 3);
+  addFloater(player.x + player.size / 2, player.y - 16, 'RESTART!', '#7dd3fc', 20);
+}
+
+/* ---------- クリア / ゲームオーバー ---------- */
+function fmtTime(ms){ return (ms / 1000).toFixed(1); }
+function stageClear(){
+  gameState = 'CLEAR'; bgmStop();
+  sfx.clear(); confetti(player.x + player.size / 2, player.y);
+  const key = String(level.id);
+  const prev = save.best[key] || {};
+  const isNew = !prev.cleared || runTime < prev.time || coinCount > (prev.coins || 0);
+  save.best[key] = { cleared:true, time: prev.cleared ? Math.min(prev.time, runTime) : runTime, coins: Math.max(prev.coins || 0, coinCount) };
+  save.totalCoins += coinCount;
+  if (selectedStageId > 0 && selectedStageId === save.unlocked && save.unlocked < STAGES.length - 1){
+    save.unlocked++;
+    setTimeout(() => showToast('🔓 次のステージ解放！'), 900);
+  }
+  persist();
+  showEnd(true, isNew);
+}
+function gameOver(){
+  gameState = 'OVER'; bgmStop();
+  sfx.over();
+  let isNew = false;
+  if (level.isEndless){
+    const dist = Math.floor(scrollX / 10);
+    if (dist > save.endlessBest){ save.endlessBest = dist; isNew = true; }
+    save.totalCoins += coinCount;
+    persist();
+  }
+  showEnd(false, isNew);
+}
+function showEnd(clear, isNew){
+  const ov = document.getElementById('overlay');
+  const title = document.getElementById('ov-title');
+  title.textContent = clear ? '🎉 STAGE CLEAR' : 'GAME OVER';
+  title.style.color = clear ? '#4ade80' : '#f87171';
+  document.getElementById('ov-newrec').classList.toggle('hidden', !isNew);
+  document.getElementById('ov-sub').textContent = level.isEndless
+    ? 'エンドレスの記録'
+    : (clear ? `「${level.name}」を走破！` : '障害物にやられてしまった…');
+  const stats = [];
+  if (level.isEndless) stats.push(['走行距離', Math.floor(scrollX / 10) + ' m'], ['ベスト', save.endlessBest + ' m']);
+  else stats.push(['タイム', fmtTime(runTime) + ' 秒'], ['進捗', Math.min(100, Math.floor(scrollX / level.length * 100)) + ' %']);
+  stats.push(['コイン', coinCount + (level.isEndless ? '' : ' / ' + coinTotal)]);
+  document.getElementById('ov-stats').innerHTML = stats.map(s =>
+    `<div class="stat"><div class="v">${s[1]}</div><div class="k">${s[0]}</div></div>`).join('');
+  let btns = '';
+  if (clear && selectedStageId > 0 && selectedStageId < STAGES.length - 1)
+    btns += '<button class="btn primary" id="ov-next">次のステージ →</button>';
+  btns += '<button class="btn light" id="ov-retry">↻ リトライ</button>';
+  btns += '<button class="btn ghost" id="ov-menu">メニュー</button>';
+  document.getElementById('ov-btns').innerHTML = btns;
+  ov.classList.add('show');
+  document.getElementById('jump-btn').classList.remove('on');
+  const next = document.getElementById('ov-next');
+  if (next) next.onclick = () => { sfx.click(); selectedStageId++; startGame(); };
+  document.getElementById('ov-retry').onclick = () => { sfx.click(); startGame(); };
+  document.getElementById('ov-menu').onclick = () => { sfx.click(); toMenu(); };
+}
+function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+function toMenu(){
+  gameState = 'MENU'; bgmStop();
+  hideOverlay();
+  document.getElementById('jump-btn').classList.remove('on');
+  buildMenu(); updateHudStage(); setProg(0);
+  document.getElementById('time-val').textContent = '0.0';
+  document.getElementById('coin-count').textContent = '0';
+  updateHearts();
+}
+/* ---------- HUD ---------- */
+function updateHearts(){
+  document.getElementById('hearts').textContent = gameState === 'MENU' ? '❤️❤️❤️' : ('❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 3 - hearts)));
+}
+function updateCoinUI(pop){
+  const el = document.getElementById('coin-count');
+  el.textContent = coinCount;
+  if (pop){ el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+}
+function updateHudStage(){
+  const s = STAGES.find(x => x.id === selectedStageId);
+  document.getElementById('hud-stage-sub').textContent = s.isEndless ? 'ENDLESS MODE' : 'STAGE ' + s.id;
+  document.getElementById('hud-stage-name').textContent = s.name;
+  const wrap = document.getElementById('prog-wrap');
+  wrap.querySelectorAll('.prog-tick').forEach(t => t.remove());
+  if (!s.isEndless){
+    [0.38, 0.72].forEach(r => {
+      const t = document.createElement('div');
+      t.className = 'prog-tick'; t.style.left = (r * 100) + '%';
+      wrap.appendChild(t);
+    });
+  }
+}
+function setProg(ratio){
+  document.getElementById('prog-bar').style.width = (ratio * 100).toFixed(1) + '%';
+  document.getElementById('prog-pct').textContent = level && level.isEndless
+    ? Math.floor(scrollX / 10) + 'm' : Math.floor(ratio * 100) + '%';
+  document.querySelectorAll('.prog-tick').forEach((t, i) => {
+    t.classList.toggle('on', checkpoints[i] && checkpoints[i].on);
+  });
+}
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1750);
+}
+
+/* ---------- メニュー構築 ---------- */
+function buildMenu(){
+  const panel = document.getElementById('panel');
+  let stageHTML = '<div class="sec-lbl">STAGE SELECT</div><div class="scroll-row">';
+  for (const s of STAGES){
+    const unl = s.id === 0 || s.id <= save.unlocked;
+    const sel = s.id === selectedStageId;
+    const b = save.best[String(s.id)];
+    let info;
+    if (!unl) info = '🔒 ロック中';
+    else if (s.isEndless) info = 'どこまで走れるか挑戦' + (save.endlessBest ? `<div class="best">🏆 ベスト ${save.endlessBest}m</div>` : '');
+    else info = `距離 ${s.length}m ・ 速度 ${s.speed}` + (b && b.cleared ? `<div class="best">✅ クリア済 ・ ベスト ${fmtTime(b.time)}秒 / 🪙${b.coins}</div>` : '');
+    stageHTML += `<button class="sel-card ${sel ? 'selected' : ''} ${unl ? '' : 'locked'}" data-stage="${s.id}">
+      <div class="t">${s.id === 0 ? '∞ エンドレス' : 'Stage ' + s.id}</div>
+      <div class="d"><b>${unl ? s.name : '？？？'}</b><br>${info}</div></button>`;
+  }
+  stageHTML += '</div>';
+  let charHTML = '<div class="sec-lbl">CHARACTER SELECT</div><div class="scroll-row">';
+  for (const c of CHARACTERS){
+    const pw = Math.round((Math.abs(c.jumpForce) - 10) / 9 * 100);
+    const fl = Math.round((1 - (c.gravity - 0.3) / 0.65) * 100);
+    charHTML += `<button class="sel-card ${c.id === selectedCharId ? 'selected' : ''}" data-char="${c.id}">
+      <div class="t"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+      <div class="d">${c.desc}</div>
+      <div class="statbar">ジャンプ力<div class="tr"><div class="fl" style="width:${pw}%"></div></div></div>
+      <div class="statbar">ふんわり度<div class="tr"><div class="fl" style="width:${fl}%"></div></div></div>
+      <div class="statbar">ジャンプ回数<div class="tr"><div class="fl" style="width:${c.maxJumps * 50}%"></div></div></div>
+    </button>`;
+  }
+  charHTML += '</div>';
+  panel.innerHTML = stageHTML + charHTML +
+    '<button id="start-btn">▶ スタート</button>' +
+    `<div style="text-align:center; margin-top:10px; font-size:11px; color:var(--sub); font-weight:700">総コイン（累計） 🪙 ${save.totalCoins}</div>`;
+  panel.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => {
+    const id = +b.dataset.stage;
+    if (id !== 0 && id > save.unlocked) return;
+    audioInit(); sfx.click();
+    selectedStageId = id; buildMenu(); updateHudStage();
+  }));
+  panel.querySelectorAll('[data-char]').forEach(b => b.addEventListener('click', () => {
+    audioInit(); sfx.click();
+    selectedCharId = b.dataset.char; buildMenu(); updateHudStage();
+  }));
+  document.getElementById('start-btn').addEventListener('click', () => { sfx.click(); startGame(); });
+}
+
+/* ---------- エンドレス生成 ---------- */
+function genEndless(){
+  if (level.speed < 18) level.speed += 0.0016;
+  while (level.lastObsX < scrollX + CW * 1.6){
+    const baseGap = 400 + (level.speed - 8) * 30;
+    level.lastObsX += baseGap + Math.random() * 400;
+    const types = ['spike', 'pit', 'block'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const obs = { x: level.lastObsX, type };
+    if (type === 'spike'){ obs.w = 40; obs.h = 40 + Math.random() * (level.speed > 12 ? 80 : 40); }
+    else if (type === 'pit'){ obs.w = 150 + Math.random() * (level.speed > 10 ? 300 : 150); }
+    else {
+      obs.w = 60 + Math.random() * 60; obs.h = 20; obs.y = 80 + Math.random() * 80;
+      if (Math.random() < 0.3) level.obs.push({ x: level.lastObsX + 10, y: obs.y, w: 30, h: 30, type:'spike' });
+    }
+    level.obs.push(obs);
+    /* コインも時々置く */
+    const r = Math.random();
+    if (type === 'pit' || r < 0.4){
+      const n = type === 'pit' ? Math.max(4, Math.round(obs.w / 55)) : 4;
+      for (let i = 0; i < n; i++){
+        const t = n === 1 ? 0.5 : i / (n - 1);
+        const cx = type === 'pit' ? obs.x + obs.w / 2 + (t - 0.5) * (n - 1) * 42 : obs.x + i * 46;
+        const cy = type === 'pit' ? GROUND_Y - 40 - Math.sin(t * Math.PI) * 120 : GROUND_Y - 120 - Math.random() * 60;
+        coins.push({ x: cx, y: cy, taken:false, ph: Math.random() * 6.3 });
+      }
+    }
+  }
+  level.obs = level.obs.filter(o => o.x - scrollX > -600);
+  coins = coins.filter(c => !c.taken && c.x - scrollX > -300);
+}
+
+/* ---------- 物理ステップ（60Hz固定） ---------- */
+function step(){
+  frame++;
+  if (player.dead){
+    if (--respawnT <= 0) respawn();
+    updateParticles();
+    return;
+  }
+  runTime += STEP_MS;
+  scrollX += level.speed;
+  if (level.isEndless) genEndless();
+
+  if (!level.isEndless && scrollX >= level.length){ stageClear(); return; }
+
+  const p = player;
+  const prevBottom = p.y + p.size;
+  const wasGrounded = p.grounded;
+
+  p.vy += p.gravity;
+  p.y += p.vy;
+  if (p.id !== 'slime') p.rotation += p.vy * 0.05 + p.spinVel;
+  p.spinVel *= 0.86;
+  p.squashX += (1 - p.squashX) * 0.16;
+  p.squashY += (1 - p.squashY) * 0.16;
+  p.blinkT = (p.blinkT + 1) % 210;
+  if (p.grounded) p.runPhase += level.speed * 0.055;
+
+  /* 支持面の決定 */
+  const pL = p.x + 4, pR = p.x + p.size - 4;
+  let support = GROUND_Y, overPit = false;
+  for (const o of level.obs){
+    if (o.type !== 'pit') continue;
+    const ox = o.x - scrollX;
+    if (ox > CW + 100 || ox + o.w < -100) continue;
+    if (pR > ox && pL < ox + o.w){ support = Infinity; overPit = true; }
+  }
+  let onBlock = false;
+  for (const o of level.obs){
+    if (o.type !== 'block' || o.broken) continue;
+    const ox = o.x - scrollX;
+    if (ox > CW + 100 || ox + o.w < -100) continue;
+    const top = GROUND_Y - (o.y || 0) - o.h;
+    if (pR > ox && pL < ox + o.w && p.vy >= 0 && prevBottom <= top + Math.max(2, p.vy) && p.y + p.size >= top){
+      if (top < support){ support = top; onBlock = true; }
+    }
+  }
+
+  /* 着地・落下 */
+  if (p.y + p.size >= support){
+    const fallSpeed = p.vy;
+    p.y = support - p.size;
+    p.vy = 0;
+    if (!wasGrounded){
+      p.grounded = true;
+      p.jumpsLeft = p.maxJumps;
+      p.rotation = 0; p.spinVel = 0;
+      if (fallSpeed > 4){
+        p.squashX = 1.3; p.squashY = 0.68;
+        camDip = Math.min(9, fallSpeed * 0.55);
+        dust(p.x + p.size / 2, p.y + p.size, 'rgba(255,255,255,.9)', Math.min(10, 3 + fallSpeed | 0));
+        sfx.land();
+      }
+      if (frame <= p.bufferUntil){ p.bufferUntil = -1; p.jumpsLeft = p.maxJumps - 1; doJump(false); }
+    }
+  } else {
+    if (wasGrounded && p.jumpsLeft === p.maxJumps) p.coyoteUntil = frame + 6; // コヨーテタイム約100ms
+    p.grounded = false;
+  }
+  if (!overPit && p.grounded && !onBlock) lastSafeScrollX = scrollX;
+  else if (!overPit && p.grounded) lastSafeScrollX = Math.max(lastSafeScrollX, scrollX - 4);
+
+  /* トゲ判定 */
+  const invincible = frame <= p.invincibleUntil;
+  for (const o of level.obs){
+    if (o.type !== 'spike' || o.broken) continue;
+    const ox = o.x - scrollX;
+    if (ox < -120 || ox > CW + 120) continue;
+    const sh = 8;
+    const sL = ox + sh, sR = ox + o.w - sh;
+    const sT = GROUND_Y - (o.y || 0) - o.h + sh, sB = GROUND_Y - (o.y || 0);
+    if (p.x + p.size - sh > sL && p.x + sh < sR && p.y + p.size - sh > sT && p.y + sh < sB){
+      if (invincible) continue;
+      if (p.shield > 0){
+        p.shield--; o.broken = true;
+        p.invincibleUntil = frame + 60;
+        burst(p.x + p.size / 2, p.y + p.size / 2, '#e0f2fe', 16, 4.5, 30, 3.4);
+        showToast('🛡 シールドで防いだ！');
+        sfx.shield(); applyShake(9, 10);
+      } else { die('spike'); return; }
+    }
+  }
+
+  /* 落下死 */
+  if (p.y > CH + 60){ die('pit'); return; }
+
+  /* コイン取得 */
+  const pcx = p.x + p.size / 2, pcy = p.y + p.size / 2;
+  for (const c of coins){
+    if (c.taken) continue;
+    const cx = c.x - scrollX;
+    if (cx < -60 || cx > CW + 60) continue;
+    const dx = cx - pcx, dy = c.y - pcy;
+    if (dx * dx + dy * dy < Math.pow(p.size / 2 + 17, 2)){
+      c.taken = true; coinCount++;
+      sparkle(cx, c.y);
+      addFloater(cx, c.y - 22, '+1', '#fde68a', 17);
+      sfx.coin(); updateCoinUI(true);
+    }
+  }
+
+  /* チェックポイント */
+  checkpoints.forEach((cp, i) => {
+    if (!cp.on && scrollX + PLAYER_X >= cp.x){
+      cp.on = true; activeCp = i;
+      sfx.checkpoint();
+      showToast('🏁 チェックポイント！');
+      burst(cp.x - scrollX, GROUND_Y - 90, '#4ade80', 14, 3.6, 30, 3);
+      setProg(Math.min(1, scrollX / level.length));
+    }
+  });
+
+  /* ランナーの残像・ゴーストの軌跡 */
+  if (p.id === 'runner'){
+    p.trail.unshift({ x: p.x, y: p.y, rot: p.rotation });
+    if (p.trail.length > 5) p.trail.pop();
+  }
+  if (p.id === 'ghost' && Math.random() < 0.25)
+    addP({ x: p.x + Math.random() * p.size, y: p.y + p.size, vx: -0.6, vy: 0.3, g: 0, life: 20, maxLife: 20, size: 2.4, color:'#d8b4fe', shape:'c', rot:0, vr:0 });
+  if (p.grounded && frame % 7 === 0) dust(p.x + 6, p.y + p.size, 'rgba(255,255,255,.55)', 1);
+
+  updateParticles();
+
+  /* カメラ */
+  const targetY = Math.max(-26, Math.min(30, (pcy - CH * 0.52) * 0.16));
+  camY += (targetY - camY) * 0.06;
+  camDip *= 0.88;
+
+  /* HUD進捗 */
+  if (level.isEndless){
+    const d = Math.floor(scrollX / 10);
+    if (d !== prevDist){
+      prevDist = d;
+      document.getElementById('prog-pct').textContent = d + 'm';
+      document.getElementById('prog-bar').style.width = '100%';
+      if (d > 0 && d % 100 === 0) showToast(d + 'm 突破！🎉');
+    }
+  } else {
+    const pr = Math.floor(Math.min(100, scrollX / level.length * 100));
+    if (pr !== prevProg){ prevProg = pr; setProg(scrollX / level.length); }
+  }
+  document.getElementById('time-val').textContent = fmtTime(runTime);
+}
+function updateParticles(){
+  for (let i = particles.length - 1; i >= 0; i--){
+    const pt = particles[i];
+    pt.x += pt.vx; pt.y += pt.vy; pt.vy += pt.g; pt.rot += pt.vr; pt.life--;
+    if (pt.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = floaters.length - 1; i >= 0; i--){
+    const f = floaters[i];
+    f.y -= 0.9; f.life--;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+  if (shakeT > 0) shakeT--;
+}
+/* ---------- 描画 ---------- */
+function hillPath(factor, amp, base, seed){
+  ctx.beginPath();
+  ctx.moveTo(-4, CH);
+  for (let x = -4; x <= CW + 24; x += 24){
+    const wx = x + scrollX * factor;
+    const y = base - (Math.sin(wx * 0.0038 + seed) * amp + Math.sin(wx * 0.0013 + seed * 2.7) * amp * 0.7);
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(CW + 4, CH);
+  ctx.closePath();
+}
+function drawCloud(x, y, s, color){
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, 22 * s, 0, 6.29); ctx.arc(x + 24 * s, y + 5 * s, 17 * s, 0, 6.29);
+  ctx.arc(x - 25 * s, y + 6 * s, 15 * s, 0, 6.29); ctx.arc(x + 2 * s, y + 9 * s, 18 * s, 0, 6.29);
+  ctx.fill();
+}
+function drawDeco(theme, th){
+  const deco = th.deco;
+  if (deco === 'sun'){
+    const sx = CW - 170, sy = 86;
+    const g = ctx.createRadialGradient(sx, sy, 8, sx, sy, 90);
+    g.addColorStop(0, 'rgba(253,224,71,.95)'); g.addColorStop(0.35, 'rgba(253,224,71,.5)'); g.addColorStop(1, 'rgba(253,224,71,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, 90, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(sx, sy, 34, 0, 6.29); ctx.fill();
+  } else if (deco === 'stars' || theme === 'sky'){
+    ctx.fillStyle = '#fff';
+    for (const s of stars){
+      let sx = (s.x - scrollX * 0.06) % 2400; if (sx < 0) sx += 2400;
+      ctx.globalAlpha = 0.35 + 0.3 * Math.sin(frame * 0.05 + s.ph);
+      ctx.beginPath(); ctx.arc(sx % CW, s.y, s.r, 0, 6.29); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.arc(CW - 140, 74, 25, 0, 6.29); ctx.fill();
+    ctx.fillStyle = 'rgba(30,27,75,.9)';
+    ctx.beginPath(); ctx.arc(CW - 128, 66, 21, 0, 6.29); ctx.fill();
+  } else if (deco === 'pillars'){
+    ctx.fillStyle = 'rgba(120,53,15,.35)';
+    for (let i = 0; i < 5; i++){
+      let px = (i * 560 + 180 - scrollX * 0.22) % 2800; if (px < -120) px += 2800; px -= 60;
+      const hgt = 130 + hash(i * 3.1) * 90;
+      ctx.fillRect(px, GROUND_Y - hgt, 26, hgt);
+      ctx.fillRect(px - 8, GROUND_Y - hgt - 12, 42, 12);
+    }
+  } else if (deco === 'islands'){
+    ctx.fillStyle = 'rgba(76,29,149,.4)';
+    for (let i = 0; i < 4; i++){
+      let ix = (i * 700 + 260 - scrollX * 0.3) % 2800; if (ix < -160) ix += 2800; ix -= 80;
+      const iy = 90 + hash(i * 8.4) * 130 + Math.sin(frame * 0.02 + i) * 5;
+      ctx.beginPath();
+      ctx.ellipse(ix, iy, 74, 17, 0, 0, 6.29); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ix - 44, iy + 8); ctx.lineTo(ix + 44, iy + 8); ctx.lineTo(ix, iy + 44); ctx.closePath(); ctx.fill();
+    }
+  } else if (deco === 'volcano'){
+    let vx = (1500 - scrollX * 0.12) % 3600; if (vx < -400) vx += 3600; vx -= 200;
+    ctx.fillStyle = 'rgba(69,10,10,.65)';
+    ctx.beginPath(); ctx.moveTo(vx - 230, GROUND_Y); ctx.lineTo(vx - 42, GROUND_Y - 240); ctx.lineTo(vx + 42, GROUND_Y - 240); ctx.lineTo(vx + 230, GROUND_Y); ctx.closePath(); ctx.fill();
+    const g = ctx.createRadialGradient(vx, GROUND_Y - 248, 4, vx, GROUND_Y - 248, 60);
+    g.addColorStop(0, 'rgba(249,115,22,.9)'); g.addColorStop(1, 'rgba(249,115,22,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(vx, GROUND_Y - 248, 60, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath(); ctx.ellipse(vx, GROUND_Y - 246, 40, 8, 0, 0, 6.29); ctx.fill();
+  } else if (deco === 'castle'){
+    let cx0 = (1900 - scrollX * 0.14) % 3800; if (cx0 < -320) cx0 += 3800; cx0 -= 160;
+    ctx.fillStyle = 'rgba(88,28,135,.4)';
+    ctx.fillRect(cx0, GROUND_Y - 150, 190, 150);
+    ctx.fillRect(cx0 - 26, GROUND_Y - 190, 44, 190);
+    ctx.fillRect(cx0 + 172, GROUND_Y - 190, 44, 190);
+    ctx.fillRect(cx0 + 74, GROUND_Y - 226, 42, 226);
+    ctx.beginPath(); ctx.moveTo(cx0 - 30, GROUND_Y - 190); ctx.lineTo(cx0 + 4, GROUND_Y - 224); ctx.lineTo(cx0 + 22, GROUND_Y - 190); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx0 + 70, GROUND_Y - 226); ctx.lineTo(cx0 + 95, GROUND_Y - 262); ctx.lineTo(cx0 + 120, GROUND_Y - 226); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(253,224,71,.85)';
+    ctx.fillRect(cx0 + 88, GROUND_Y - 130, 12, 16); ctx.fillRect(cx0 - 12, GROUND_Y - 140, 10, 13); ctx.fillRect(cx0 + 184, GROUND_Y - 120, 10, 13);
+  }
+}
+function drawAmbient(theme){
+  const kind = theme === 'ice' ? 'snow' : theme === 'volcano' ? 'ember' : theme === 'plains' ? 'pollen' : null;
+  if (!kind) return;
+  const spd = level ? level.speed : 0;
+  if (ambient.length < 46 && Math.random() < 0.5)
+    ambient.push({ x: Math.random() * CW, y: kind === 'ember' ? CH + 8 : -8, vx: (Math.random() - 0.5) * 0.5, vy: 0, life: 500, ph: Math.random() * 6.3 });
+  for (let i = ambient.length - 1; i >= 0; i--){
+    const a = ambient[i];
+    a.ph += 0.02;
+    if (kind === 'snow'){ a.y += 1.1 + Math.sin(a.ph) * 0.3; a.x += Math.sin(a.ph) * 0.5 - spd * 0.12; }
+    else if (kind === 'ember'){ a.y -= 1.3 + Math.random() * 0.7; a.x += Math.sin(a.ph) * 0.4 - spd * 0.1; }
+    else { a.y += 0.45; a.x += Math.cos(a.ph) * 0.4 - spd * 0.15; }
+    if (a.y < -14 || a.y > CH + 14 || a.x < -14){ ambient.splice(i, 1); continue; }
+    ctx.globalAlpha = kind === 'ember' ? 0.75 : 0.55;
+    ctx.fillStyle = kind === 'snow' ? '#ffffff' : kind === 'ember' ? '#fb923c' : '#fef9c3';
+    ctx.beginPath(); ctx.arc(a.x, a.y, kind === 'snow' ? 2.4 : 2, 0, 6.29); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function draw(){
+  const st = level || STAGES.find(s => s.id === selectedStageId);
+  const th = THEMES[st.theme];
+  const g = ctx.createLinearGradient(0, 0, 0, CH);
+  g.addColorStop(0, st.bg[0]); g.addColorStop(1, st.bg[1]);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+
+  drawDeco(st.theme, th);
+  for (const c of clouds){
+    let cx = (c.x - scrollX * 0.18) % 2600; if (cx < -160) cx += 2600;
+    drawCloud(cx - 80, c.y, c.s, th.cloud);
+  }
+  ctx.fillStyle = th.far; hillPath(0.22, 34, GROUND_Y - 66, 1.7); ctx.fill();
+  ctx.fillStyle = th.mid; hillPath(0.45, 22, GROUND_Y - 18, 4.2); ctx.fill();
+
+  ctx.save();
+  let shX = 0, shY = 0;
+  if (shakeT > 0){ shX = (Math.random() - 0.5) * shakeMag; shY = (Math.random() - 0.5) * shakeMag; }
+  ctx.translate(shX, shY + camY + camDip);
+
+  if (level && gameState !== 'MENU'){
+    /* 地面（穴を除く） */
+    ctx.fillStyle = st.ground;
+    ctx.fillRect(-20, GROUND_Y, CW + 40, CH - GROUND_Y + 40);
+    for (const o of level.obs){
+      if (o.type !== 'pit') continue;
+      const ox = o.x - scrollX;
+      if (ox > CW + 60 || ox + o.w < -60) continue;
+      const pg = ctx.createLinearGradient(0, GROUND_Y, 0, CH);
+      pg.addColorStop(0, 'rgba(0,0,0,.55)'); pg.addColorStop(1, 'rgba(0,0,0,.92)');
+      ctx.fillStyle = pg;
+      ctx.fillRect(ox, GROUND_Y - 2, o.w, CH - GROUND_Y + 42);
+      ctx.fillStyle = 'rgba(255,255,255,.22)';
+      ctx.fillRect(ox, GROUND_Y - 2, 3, CH - GROUND_Y);
+      ctx.fillRect(ox + o.w - 3, GROUND_Y - 2, 3, CH - GROUND_Y);
+    }
+    ctx.fillStyle = st.groundLine;
+    ctx.fillRect(-20, GROUND_Y, CW + 40, 7);
+    for (const o of level.obs){
+      if (o.type !== 'pit') continue;
+      const ox = o.x - scrollX;
+      if (ox > CW + 60 || ox + o.w < -60) continue;
+      ctx.fillStyle = st.ground;
+      ctx.fillRect(ox, GROUND_Y, o.w, 7);
+    }
+    /* 地面の質感（草・小石） */
+    const stepPx = 90;
+    const startI = Math.floor((scrollX - 40) / stepPx);
+    for (let i = startI; i < startI + 16; i++){
+      const wx = i * stepPx + hash(i * 1.31) * 50;
+      const sx = wx - scrollX;
+      if (sx < -30 || sx > CW + 30) continue;
+      if (level.obs.some(o => o.type === 'pit' && wx > o.x - 6 && wx < o.x + o.w + 6)) continue;
+      const h = 6 + hash(i * 2.77) * 8;
+      ctx.strokeStyle = st.groundLine; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(sx, GROUND_Y + 2); ctx.lineTo(sx - 3, GROUND_Y + 2 - h);
+      ctx.moveTo(sx + 5, GROUND_Y + 2); ctx.lineTo(sx + 7, GROUND_Y + 2 - h * 0.75);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,.14)';
+      ctx.beginPath(); ctx.ellipse(sx + 26, GROUND_Y + 34 + hash(i * 3.9) * 52, 9 + hash(i) * 12, 4.5, 0, 0, 6.29); ctx.fill();
+    }
+
+    /* 障害物 */
+    for (const o of level.obs){
+      if (o.broken) continue;
+      const ox = o.x - scrollX;
+      if (ox < -220 || ox > CW + 220) continue;
+      if (o.type === 'block'){
+        const top = GROUND_Y - (o.y || 0) - o.h;
+        ctx.fillStyle = st.ground;
+        ctx.beginPath(); ctx.roundRect(ox, top, o.w, o.h, 6); ctx.fill();
+        ctx.fillStyle = st.groundLine;
+        ctx.fillRect(ox, top, o.w, 6);
+        ctx.fillStyle = 'rgba(255,255,255,.25)';
+        ctx.fillRect(ox, top + o.h - 4, o.w, 3);
+      } else if (o.type === 'spike'){
+        const top = GROUND_Y - (o.y || 0) - o.h, base = GROUND_Y - (o.y || 0);
+        const grad = ctx.createLinearGradient(ox, top, ox, base);
+        grad.addColorStop(0, '#f87171'); grad.addColorStop(1, '#b91c1c');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.moveTo(ox + o.w / 2, top); ctx.lineTo(ox + o.w, base); ctx.lineTo(ox, base); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.5)';
+        ctx.beginPath(); ctx.moveTo(ox + o.w / 2, top); ctx.lineTo(ox + o.w / 2 + 5, base); ctx.lineTo(ox + o.w / 2, base); ctx.closePath(); ctx.fill();
+      }
+    }
+
+    /* チェックポイント旗 */
+    for (const cp of checkpoints){
+      const cx = cp.x - scrollX;
+      if (cx < -60 || cx > CW + 60) continue;
+      ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(cx, GROUND_Y); ctx.lineTo(cx, GROUND_Y - 96); ctx.stroke();
+      ctx.fillStyle = cp.on ? '#22c55e' : '#94a3b8';
+      const wave = Math.sin(frame * 0.18) * 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, GROUND_Y - 96);
+      ctx.quadraticCurveTo(cx + 18, GROUND_Y - 100 + wave, cx + 36, GROUND_Y - 92 + wave);
+      ctx.quadraticCurveTo(cx + 18, GROUND_Y - 86 + wave, cx, GROUND_Y - 80);
+      ctx.closePath(); ctx.fill();
+    }
+
+    /* ゴール旗 */
+    if (!level.isEndless){
+      const gx = level.length - scrollX;
+      if (gx > -80 && gx < CW + 80){
+        ctx.fillStyle = 'rgba(251,191,36,.14)';
+        ctx.fillRect(gx - 14, 0, 44, GROUND_Y);
+        ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(gx + 8, GROUND_Y); ctx.lineTo(gx + 8, GROUND_Y - 190); ctx.stroke();
+        const wave = Math.sin(frame * 0.15) * 4;
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++){
+          ctx.fillStyle = (r + c) % 2 ? '#111827' : '#f8fafc';
+          ctx.fillRect(gx + 8 + c * 11, GROUND_Y - 190 + r * 10 + Math.sin(frame * 0.15 + c * 0.5) * 2, 11, 10);
         }
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(gx + 8, GROUND_Y - 196, 6, 0, 6.29); ctx.fill();
+      }
+    }
 
-        // --- UI構築 ---
-        function changeState(newState) {
-            gameState = newState;
-            const panelWrapper = document.getElementById('control-panel-wrapper');
-            const panel = document.getElementById('control-panel');
-            const msgOver = document.getElementById('game-message');
-            const txtMain = document.getElementById('message-text');
-            const txtSub = document.getElementById('message-sub');
-            const endBtns = document.getElementById('end-buttons');
-            const statusText = document.getElementById('status-text');
+    /* コイン */
+    for (const c of coins){
+      if (c.taken) continue;
+      const cx = c.x - scrollX;
+      if (cx < -40 || cx > CW + 40) continue;
+      const sq = Math.abs(Math.sin(frame * 0.07 + c.ph));
+      const bob = Math.sin(frame * 0.05 + c.ph) * 3;
+      ctx.save();
+      ctx.translate(cx, c.y + bob);
+      ctx.scale(0.35 + 0.65 * sq, 1);
+      const cg = ctx.createRadialGradient(-4, -5, 2, 0, 0, 14);
+      cg.addColorStop(0, '#fef08a'); cg.addColorStop(0.6, '#facc15'); cg.addColorStop(1, '#d97706');
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(0, 0, 12, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = '#b45309'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = 'rgba(180,83,9,.75)';
+      ctx.font = '900 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('★', 0, 1);
+      ctx.restore();
+    }
 
-            panel.innerHTML = '';
-            endBtns.innerHTML = '';
-            msgOver.classList.remove('show');
+    /* パーティクル */
+    for (const pt of particles){
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+      ctx.fillStyle = pt.color;
+      if (pt.shape === 'r'){
+        ctx.translate(pt.x, pt.y); ctx.rotate(pt.rot);
+        ctx.fillRect(-pt.size / 2, -pt.size / 3, pt.size, pt.size * 0.66);
+      } else {
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, 6.29); ctx.fill();
+      }
+      ctx.restore();
+    }
 
-            if (newState === 'MENU') {
-                statusText.innerText = 'Select Stage & Character';
-                document.getElementById('ui-stage').classList.remove('active-turn');
-                document.getElementById('ui-char').classList.remove('active-turn');
-                panelWrapper.style.display = 'block'; // パネルを表示
-                
-                // ステージ選択
-                let stageHTML = `<div class="mb-1"><span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Stage Select</span></div><div class="flex overflow-x-auto gap-2 pb-3 hide-scrollbar">`;
-                STAGES.forEach(s => {
-                    const isUnl = s.id === 0 || s.id <= unlockedStages;
-                    const isSel = s.id === selectedStageId;
-                    const stageLabel = s.id === 0 ? 'Endless' : `Stage ${s.id}`;
-                    stageHTML += `<button onclick="if(${isUnl}){selectedStageId=${s.id};changeState('MENU');}" class="selection-btn px-4 py-3 rounded-xl text-sm font-bold flex flex-col items-start min-w-[120px] ${isSel ? 'selected' : (isUnl ? 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200' : 'bg-zinc-100 text-zinc-300 opacity-50 cursor-not-allowed')}">
-                        <span class="${s.id === 0 ? 'text-purple-600' : ''}">${stageLabel}</span><span class="text-[10px] font-normal truncate w-full text-left">${isUnl ? s.name : 'Locked'}</span>
-                    </button>`;
-                });
-                stageHTML += `</div>`;
+    /* プレイヤー */
+    if (!player.dead && gameState !== 'OVER') drawPlayer();
 
-                // キャラ選択
-                let charHTML = `<div class="mb-1"><span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Character Select</span></div><div class="flex overflow-x-auto gap-2 pb-3 hide-scrollbar">`;
-                CHARACTERS.forEach(c => {
-                    const isSel = c.id === selectedCharId;
-                    charHTML += `<button onclick="selectedCharId='${c.id}';changeState('MENU');" class="selection-btn px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-3 min-w-[140px] ${isSel ? 'selected' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}">
-                        <div class="w-6 h-6 rounded-full" style="background:${c.color}"></div>
-                        <div class="flex flex-col items-start"><span class="leading-none">${c.name}</span><span class="text-[9px] font-normal mt-1">${c.desc.slice(0,8)}...</span></div>
-                    </button>`;
-                });
-                charHTML += `</div>`;
+    /* フローター */
+    for (const f of floaters){
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, f.life / f.maxLife);
+      ctx.font = `900 ${f.size}px "Hiragino Maru Gothic ProN", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.4)';
+      ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+      ctx.restore();
+    }
+  } else {
+    /* メニュー：選択中キャラのプレビュー */
+    const c = CHARACTERS.find(x => x.id === selectedCharId);
+    ctx.fillStyle = st.ground;
+    ctx.fillRect(-20, GROUND_Y, CW + 40, CH - GROUND_Y + 40);
+    ctx.fillStyle = st.groundLine;
+    ctx.fillRect(-20, GROUND_Y, CW + 40, 7);
+    const bob = Math.sin(frame * 0.06) * 5;
+    const ghost = { ...c, x: CW / 2 - c.size, y: GROUND_Y - c.size * 2 + bob, size: c.size * 2, rotation: 0, squashX: 1, squashY: 1, blinkT: frame % 210, grounded: true, runPhase: 0, invincibleUntil: -1, trail: [] };
+    const realPlayer = player;
+    player = ghost; drawPlayer(); player = realPlayer;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.font = '900 30px "Hiragino Maru Gothic ProN", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 10;
+    ctx.fillText(c.name, CW / 2, GROUND_Y - c.size * 2 - 44 + bob);
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+  drawAmbient(st.theme);
+}
+function drawPlayer(){
+  const p = player;
+  const invincible = frame <= p.invincibleUntil;
+  if (invincible && Math.floor(frame / 4) % 2 === 0 && gameState === 'PLAYING') return; // 無敵点滅
+  /* ランナー残像 */
+  if (p.id === 'runner'){
+    for (let i = p.trail.length - 1; i >= 0; i--){
+      const t = p.trail[i];
+      ctx.save();
+      ctx.translate(t.x + p.size / 2, t.y + p.size / 2); ctx.rotate(t.rot);
+      ctx.globalAlpha = 0.26 - i * 0.045; ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.roundRect(-p.size / 2, -p.size * 0.4, p.size, p.size * 0.8, 6); ctx.fill();
+      ctx.restore();
+    }
+  }
+  /* 影（地面との距離で濃さ・大きさが変わる） */
+  const airH = Math.max(0, GROUND_Y - (p.y + p.size));
+  ctx.save();
+  ctx.globalAlpha = Math.max(0.05, 0.22 - airH * 0.0006);
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(p.x + p.size / 2, GROUND_Y + 5, p.size * (0.44 - Math.min(0.18, airH * 0.0004)), 5, 0, 0, 6.29); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
+  ctx.rotate(p.id === 'slime' ? 0 : p.rotation);
+  const runSquash = p.grounded ? Math.sin(p.runPhase) * 0.05 : 0;
+  ctx.scale(p.squashX * (1 - runSquash), p.squashY * (1 + runSquash));
+  ctx.fillStyle = p.color;
+  const s = p.size;
+  if (p.id === 'slime'){
+    ctx.beginPath(); ctx.arc(0, 0, s / 2, Math.PI, 0); ctx.lineTo(s / 2, s / 2); ctx.lineTo(-s / 2, s / 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.beginPath(); ctx.ellipse(-s * 0.16, -s * 0.28, s * 0.13, s * 0.07, -0.5, 0, 6.29); ctx.fill();
+    ctx.fillStyle = p.color;
+  } else if (p.id === 'ghost'){
+    ctx.globalAlpha = 0.92;
+    ctx.beginPath(); ctx.arc(0, -s / 4, s / 2, Math.PI, 0);
+    ctx.lineTo(s / 2, s / 2); ctx.lineTo(s / 4, s / 4); ctx.lineTo(0, s / 2); ctx.lineTo(-s / 4, s / 4); ctx.lineTo(-s / 2, s / 2);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (p.id === 'runner'){
+    ctx.beginPath(); ctx.roundRect(-s / 2, -s * 0.4, s, s * 0.8, 6); ctx.fill();
+  } else if (p.id === 'knight'){
+    ctx.beginPath(); ctx.roundRect(-s / 2, -s / 2, s, s, 8); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fillRect(-s / 2 + 4, -s / 2 + 5, s - 8, 5);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath(); ctx.moveTo(0, -s / 2 - 2); ctx.lineTo(5, -s / 2 + 7); ctx.lineTo(-5, -s / 2 + 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = p.color;
+  } else {
+    ctx.beginPath(); ctx.roundRect(-s / 2, -s / 2, s, s, 8); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; /* 鉢巻 */
+    ctx.fillRect(-s / 2, -s * 0.32, s, s * 0.16);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.moveTo(-s / 2, -s * 0.24); ctx.lineTo(-s / 2 - 12, -s * 0.24 + Math.sin(frame * 0.3) * 3); ctx.lineTo(-s / 2, -s * 0.1);
+    ctx.closePath(); ctx.fill();
+  }
+  /* 目（瞬き対応） */
+  const blink = (p.blinkT > 196 && p.blinkT < 204) ? 0.12 : 1;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(s * 0.15, -s * 0.08, s * 0.155, s * 0.155 * blink, 0, 0, 6.29); ctx.fill();
+  if (blink > 0.5){
+    ctx.fillStyle = '#111827';
+    ctx.beginPath(); ctx.arc(s * 0.2, -s * 0.08, s * 0.065, 0, 6.29); ctx.fill();
+  }
+  /* 足（走りアニメ） */
+  if (p.grounded && p.id !== 'slime' && p.id !== 'ghost'){
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    const ph = Math.sin(p.runPhase) * s * 0.16;
+    ctx.beginPath(); ctx.roundRect(-s * 0.3 + ph, s / 2 - 3, s * 0.24, 6, 3); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(s * 0.08 - ph, s / 2 - 3, s * 0.24, 6, 3); ctx.fill();
+  }
+  ctx.restore();
+  /* シールドリング */
+  if (p.shield > 0){
+    ctx.save();
+    ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
+    ctx.strokeStyle = 'rgba(186,230,253,.9)'; ctx.lineWidth = 3;
+    ctx.setLineDash([10, 7]); ctx.lineDashOffset = -frame * 0.7;
+    ctx.beginPath(); ctx.arc(0, 0, p.size * 0.72, 0, 6.29); ctx.stroke();
+    ctx.restore();
+  }
+  /* 無敵オーラ */
+  if (invincible && gameState === 'PLAYING'){
+    ctx.save();
+    ctx.globalAlpha = 0.25 + 0.12 * Math.sin(frame * 0.4);
+    ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(p.x + p.size / 2, p.y + p.size / 2, p.size * 0.78, 0, 6.29); ctx.stroke();
+    ctx.restore();
+  }
+}
 
-                // STARTボタン
-                const startHTML = `<button onclick="startGame()" class="w-full py-4 bg-zinc-900 text-white rounded-2xl font-bold text-base flex items-center justify-center gap-2 active:scale-95 transition-all mt-1 shadow-lg shadow-black/20">
-                    <i data-lucide="play" class="w-5 h-5 fill-current"></i> START MISSION
-                </button>`;
+/* ---------- メインループ ---------- */
+function loop(ts){
+  requestAnimationFrame(loop);
+  if (!lastTs) lastTs = ts;
+  let dt = ts - lastTs;
+  lastTs = ts;
+  if (dt > 250) dt = 250;
+  if (gameState === 'COUNTDOWN'){
+    countT += dt;
+    const remain = Math.ceil((1050 - countT) / 350);
+    if (remain !== countShown && remain >= 1){
+      countShown = remain;
+      const bc = document.getElementById('big-center');
+      bc.classList.remove('hidden');
+      document.getElementById('big-text').textContent = remain;
+      const st = STAGES.find(s => s.id === selectedStageId);
+      document.getElementById('big-sub').textContent = (st.isEndless ? 'ENDLESS' : 'STAGE ' + st.id) + ' — ' + st.name;
+      bc.classList.remove('pop'); void bc.offsetWidth; bc.classList.add('pop');
+      sfx.count();
+    }
+    if (countT >= 1050){
+      gameState = 'PLAYING';
+      const bc = document.getElementById('big-center');
+      document.getElementById('big-text').textContent = 'GO!';
+      document.getElementById('big-sub').textContent = '';
+      bc.classList.remove('pop'); void bc.offsetWidth; bc.classList.add('pop');
+      sfx.go(); bgmStart();
+      setTimeout(() => bc.classList.add('hidden'), 420);
+    }
+    frame++;
+  } else if (gameState === 'PLAYING'){
+    acc += dt;
+    while (acc >= STEP_MS){ step(); acc -= STEP_MS; if (gameState !== 'PLAYING'){ acc = 0; break; } }
+  } else {
+    frame++;
+    if (gameState === 'MENU' || gameState === 'CLEAR' || gameState === 'OVER') updateParticles();
+  }
+  draw();
+}
 
-                panel.innerHTML = stageHTML + charHTML + startHTML;
-                updateTopInfo();
-                
-                // 待機画面の描画更新用
-                if(!animationId) requestAnimationFrame(gameLoop);
+/* ---------- ポーズ ---------- */
+function togglePause(){
+  if (gameState === 'PLAYING'){
+    gameState = 'PAUSED'; bgmStop();
+    const ov = document.getElementById('overlay');
+    document.getElementById('ov-title').textContent = '⏸ ポーズ中';
+    document.getElementById('ov-title').style.color = '#fff';
+    document.getElementById('ov-newrec').classList.add('hidden');
+    document.getElementById('ov-sub').textContent = 'ひと休み、ひと休み。';
+    document.getElementById('ov-stats').innerHTML = '';
+    document.getElementById('ov-btns').innerHTML =
+      '<button class="btn primary" id="ov-resume">▶ つづける</button>' +
+      '<button class="btn light" id="ov-retry2">↻ 最初から</button>' +
+      '<button class="btn ghost" id="ov-menu2">メニュー</button>';
+    ov.classList.add('show');
+    document.getElementById('ov-resume').onclick = () => { sfx.click(); togglePause(); };
+    document.getElementById('ov-retry2').onclick = () => { sfx.click(); startGame(); };
+    document.getElementById('ov-menu2').onclick = () => { sfx.click(); toMenu(); };
+  } else if (gameState === 'PAUSED'){
+    gameState = 'PLAYING';
+    hideOverlay();
+    if (save.sound) bgmStart();
+  }
+}
 
-            } else if (newState === 'PLAYING') {
-                statusText.innerText = 'Playing...';
-                document.getElementById('ui-stage').classList.add('active-turn');
-                document.getElementById('ui-char').classList.add('active-turn');
+/* ---------- 入力 ---------- */
+const container = document.getElementById('game-container');
+container.addEventListener('pointerdown', e => {
+  if (e.target.closest('#overlay') || e.target.closest('button')) return;
+  pressJump();
+});
+window.addEventListener('pointerup', () => releaseJump());
+window.addEventListener('pointercancel', () => releaseJump());
+const jumpBtn = document.getElementById('jump-btn');
+jumpBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pressJump(); });
+jumpBtn.addEventListener('pointerup', e => { e.stopPropagation(); releaseJump(); });
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.code === 'Space' || e.code === 'ArrowUp'){
+    e.preventDefault();
+    if (gameState === 'MENU') { audioInit(); startGame(); }
+    else if (gameState === 'OVER' || gameState === 'CLEAR'){ startGame(); }
+    else pressJump();
+  }
+  if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') releaseJump();
+});
+document.getElementById('pause-btn').addEventListener('click', () => { audioInit(); sfx.click(); togglePause(); });
+const soundBtn = document.getElementById('sound-btn');
+function refreshSoundBtn(){ soundBtn.textContent = save.sound ? '🔊 サウンド' : '🔇 サウンド'; }
+soundBtn.addEventListener('click', () => {
+  save.sound = !save.sound; persist(); refreshSoundBtn();
+  if (!save.sound) bgmStop();
+  else { audioInit(); if (gameState === 'PLAYING') bgmStart(); sfx.click(); }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && gameState === 'PLAYING') togglePause();
+});
 
-                // ジャンプボタンを廃止し、操作説明のテキストのみ配置
-                panel.innerHTML = `
-                    <div class="text-center text-zinc-400 font-bold text-sm tracking-widest animate-pulse py-1">
-                        TAP SCREEN OR PRESS SPACE TO JUMP
-                    </div>`;
+/* ---------- リサイズ（DPR対応） ---------- */
+function fitCanvas(){
+  const r = container.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.width / 2 * dpr);
+  ctx.setTransform(canvas.width / CW, 0, 0, canvas.width / CW, 0, 0);
+}
+window.addEventListener('resize', fitCanvas);
 
-            } else if (newState === 'OVER' || newState === 'CLEAR') {
-                const s = STAGES.find(x => x.id === selectedStageId);
-                statusText.innerText = newState === 'CLEAR' ? 'Mission Complete' : 'Mission Failed';
-                document.getElementById('ui-stage').classList.remove('active-turn');
-                document.getElementById('ui-char').classList.remove('active-turn');
-
-                panelWrapper.style.display = 'none'; // パネルを隠して画面を広く使う
-                msgOver.classList.add('show');
-                
-                txtMain.innerText = newState === 'CLEAR' ? 'STAGE CLEAR' : 'GAME OVER';
-                txtMain.style.color = newState === 'CLEAR' ? '#4ade80' : '#f87171';
-                
-                if (s.isEndless) {
-                    const distance = Math.floor(scrollX / 10);
-                    txtSub.innerText = `走行距離: ${distance}m`;
-                } else {
-                    txtSub.innerText = newState === 'CLEAR' ? '素晴らしい走破でした！' : '障害物に当たってしまった...';
-                }
-
-                // ゲーム画面中央にボタンを配置
-                let btnsHTML = ``;
-                if (newState === 'CLEAR' && selectedStageId > 0 && selectedStageId < STAGES.length - 1) {
-                    btnsHTML += `<button onclick="nextStage()" class="px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-blue-500/30">
-                        NEXT STAGE <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>`;
-                }
-                btnsHTML += `
-                    <button onclick="startGame()" class="px-6 py-3 bg-white text-black rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i> RETRY
-                    </button>
-                    <button onclick="changeState('MENU')" class="px-6 py-3 bg-black/50 text-white backdrop-blur-md rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all border border-white/10">
-                        <i data-lucide="menu" class="w-4 h-4"></i> MENU
-                    </button>`;
-                endBtns.innerHTML = btnsHTML;
-            }
-            lucide.createIcons();
-        }
-
-        function updateTopInfo() {
-            const s = STAGES.find(x => x.id === selectedStageId);
-            const c = CHARACTERS.find(x => x.id === selectedCharId);
-            
-            if (s.isEndless) {
-                document.getElementById('lbl-stage-num-wrap').innerHTML = '<span class="text-purple-500">ENDLESS MODE</span>';
-                document.getElementById('stage-icon').setAttribute('data-lucide', 'infinity');
-            } else {
-                document.getElementById('lbl-stage-num-wrap').innerHTML = `Stage <span id="lbl-stage-num">${s.id}</span>`;
-                document.getElementById('stage-icon').setAttribute('data-lucide', 'map');
-            }
-            
-            document.getElementById('lbl-stage-name').innerText = s.name;
-            document.getElementById('lbl-char-name').innerText = c.name;
-            document.getElementById('char-icon-bg').style.backgroundColor = c.color + '20';
-            document.getElementById('char-icon-inner').style.backgroundColor = c.color;
-            
-            if (s.isEndless) {
-                document.getElementById('score-progress').innerText = '0m';
-            } else {
-                document.getElementById('score-progress').innerText = '0%';
-            }
-            lucide.createIcons();
-        }
-
-        // --- ゲームロジック ---
-        function startGame() {
-            const charData = CHARACTERS.find(c => c.id === selectedCharId);
-            const stageData = STAGES.find(s => s.id === selectedStageId);
-            
-            // ディープコピーしてレベルデータを初期化
-            level = JSON.parse(JSON.stringify(stageData));
-            scrollX = 0;
-            particles = [];
-            shakeTime = 0;
-            prevProgress = -1;
-            
-            if (level.isEndless) {
-                document.getElementById('score-progress').innerText = '0m';
-                level.lastObsX = CW; // エンドレス用の障害物生成基準
-            } else {
-                document.getElementById('score-progress').innerText = '0%';
-            }
-            
-            // 背景星初期化
-            bgStars = [];
-            for(let i=0; i<60; i++) {
-                bgStars.push({ x: Math.random()*CW, y: Math.random()*GROUND_Y, size: Math.random()*2+1, speed: Math.random()*0.3+0.1 });
-            }
-
-            player = {
-                ...charData,
-                x: CW * 0.15, // 画面が広くなったので少し左寄りに
-                y: GROUND_Y - charData.size,
-                vy: 0,
-                jumpsLeft: charData.maxJumps,
-                rotation: 0,
-                squash: 1,
-                invincible: 0,
-                trail: [],
-                
-                jump() {
-                    if (this.jumpsLeft > 0) {
-                        this.vy = this.jumpForce;
-                        this.jumpsLeft--;
-                        this.squash = 0.6;
-                        spawnParticles(this.x + this.size/2, this.y + this.size, '#fff', 8);
-                    }
-                },
-                update() {
-                    this.vy += this.gravity;
-                    this.y += this.vy;
-                    if(this.id !== 'slime') this.rotation += this.vy * 0.05;
-                    this.squash += (1 - this.squash) * 0.1;
-                    if (this.invincible > 0) this.invincible--;
-                    
-                    if (this.id === 'runner') {
-                        this.trail.unshift({x: this.x, y: this.y, rot: this.rotation});
-                        if(this.trail.length > 5) this.trail.pop();
-                    }
-                },
-                draw(ctx) {
-                    if (this.invincible > 0 && Math.floor(this.invincible / 5) % 2 === 0) return;
-
-                    ctx.save();
-                    ctx.translate(this.x + this.size/2, this.y + this.size/2);
-                    ctx.rotate(this.rotation);
-                    ctx.scale(2 - this.squash, this.squash);
-
-                    ctx.fillStyle = this.color;
-                    
-                    if (this.id === 'slime') {
-                        ctx.beginPath(); ctx.arc(0, 0, this.size/2, Math.PI, 0); ctx.lineTo(this.size/2, this.size/2); ctx.lineTo(-this.size/2, this.size/2); ctx.fill();
-                    } else if (this.id === 'ghost') {
-                        ctx.beginPath(); ctx.arc(0, -this.size/4, this.size/2, Math.PI, 0); ctx.lineTo(this.size/2, this.size/2); ctx.lineTo(this.size/4, this.size/4); ctx.lineTo(0, this.size/2); ctx.lineTo(-this.size/4, this.size/4); ctx.lineTo(-this.size/2, this.size/2); ctx.fill();
-                    } else if (this.id === 'runner') {
-                        ctx.beginPath(); ctx.roundRect(-this.size/2, -this.size*0.4, this.size, this.size*0.8, 6); ctx.fill();
-                    } else {
-                        ctx.beginPath(); ctx.roundRect(-this.size/2, -this.size/2, this.size, this.size, 8); ctx.fill();
-                    }
-
-                    // 目
-                    ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(this.size*0.15, -this.size*0.1, this.size*0.15, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(this.size*0.2, -this.size*0.1, this.size*0.06, 0, Math.PI*2); ctx.fill();
-
-                    // シールド
-                    if (this.shield > 0) {
-                        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-                        ctx.lineWidth = 3;
-                        ctx.beginPath(); ctx.arc(0, 0, this.size*0.7, 0, Math.PI*2); ctx.stroke();
-                    }
-                    ctx.restore();
-
-                    // 残像
-                    if (this.id === 'runner' && gameState === 'PLAYING') {
-                        this.trail.forEach((t, i) => {
-                            ctx.save(); ctx.translate(t.x + this.size/2, t.y + this.size/2); ctx.rotate(t.rot);
-                            ctx.globalAlpha = 0.3 - (i * 0.05); ctx.fillStyle = this.color;
-                            ctx.beginPath(); ctx.roundRect(-this.size/2, -this.size*0.4, this.size, this.size*0.8, 6); ctx.fill();
-                            ctx.restore();
-                        });
-                    }
-                }
-            };
-
-            const shieldIcon = document.getElementById('lbl-shield');
-            if (player.shield > 0) {
-                shieldIcon.classList.remove('hidden');
-            } else {
-                shieldIcon.classList.add('hidden');
-            }
-
-            changeState('PLAYING');
-            updateTopInfo();
-        }
-
-        function jumpAction() {
-            if (gameState === 'PLAYING' && player) {
-                player.jump();
-            }
-        }
-
-        function spawnParticles(x, y, color, count=20) {
-            for(let i=0; i<count; i++) particles.push(new Particle(x, y, color, 8, 4, 30));
-        }
-        function applyShake(mag, time) { shakeMagnitude = mag; shakeTime = time; }
-
-        function gameOver() {
-            spawnParticles(player.x+player.size/2, player.y+player.size/2, player.color, 40);
-            applyShake(15, 20);
-            changeState('OVER');
-        }
-
-        function stageClear() {
-            spawnParticles(player.x+player.size/2, player.y+player.size/2, '#fbbf24', 60);
-            document.getElementById('score-progress').innerText = '100%';
-            
-            const flash = document.createElement('div');
-            flash.className = 'victory-flash';
-            document.body.appendChild(flash);
-            setTimeout(() => flash.remove(), 700);
-            spawnConfetti();
-
-            if (!level.isEndless && selectedStageId === unlockedStages && unlockedStages < STAGES.length - 1) {
-                unlockedStages++;
-                setTimeout(() => showToast('Next Stage Unlocked!'), 800);
-            }
-            changeState('CLEAR');
-        }
-
-        function nextStage() {
-            selectedStageId++;
-            changeState('MENU');
-        }
-
-        function showToast(m) {
-            const t = document.createElement('div');
-            t.className = 'toast-pop fixed top-1/2 left-1/2 bg-black/90 text-white px-8 py-4 rounded-3xl font-black z-50 text-center';
-            t.innerText = m;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 1800);
-        }
-
-        function spawnConfetti() {
-            const colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899'];
-            for (let i = 0; i < 70; i++) {
-                const el = document.createElement('div');
-                el.className = 'confetti';
-                el.style.left = (Math.random() * 105) + 'vw';
-                el.style.top  = (-10 - Math.random() * 50) + 'px';
-                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                el.style.animationDuration = (2 + Math.random() * 2.8) + 's';
-                el.style.animationDelay   = (Math.random() * 0.9) + 's';
-                el.style.setProperty('--rot', (Math.random() * 1440 - 720) + 'deg');
-                const d = 6 + Math.random() * 8;
-                el.style.width = d+'px'; el.style.height = d+'px'; 
-                el.style.borderRadius = Math.random()>0.5 ? '50%' : '2px';
-                document.body.appendChild(el);
-                setTimeout(() => el.remove(), 5500);
-            }
-        }
-
-        function updateGame(dt) {
-            scrollX += level.speed;
-            
-            // エンドレスモードの動的生成
-            if (level.isEndless) {
-                // スピードを徐々に上げる（上限あり）
-                if (level.speed < 18) level.speed += 0.0015;
-
-                // 新しい障害物を生成
-                while (level.lastObsX < scrollX + CW * 1.5) {
-                    // 間隔はスピードが上がるほど広くする
-                    let baseGap = 400 + (level.speed - 8) * 30; 
-                    let gap = baseGap + Math.random() * 400;
-                    level.lastObsX += gap;
-                    
-                    const types = ['spike', 'pit', 'block'];
-                    // 複雑にするため、時々複合配置にする
-                    const isCombo = Math.random() < 0.3;
-                    
-                    const type = types[Math.floor(Math.random() * types.length)];
-                    let obs = { x: level.lastObsX, type: type };
-                    
-                    if (type === 'spike') {
-                        obs.w = 40;
-                        obs.h = 40 + Math.random() * (level.speed > 12 ? 80 : 40);
-                    } else if (type === 'pit') {
-                        obs.w = 150 + Math.random() * (level.speed > 10 ? 300 : 150);
-                    } else if (type === 'block') {
-                        obs.w = 60 + Math.random() * 60;
-                        obs.h = 20;
-                        obs.y = 80 + Math.random() * 80;
-                        
-                        // ブロックの上にトゲを置くコンボ
-                        if (isCombo) {
-                            level.obs.push({ x: level.lastObsX + 10, y: obs.y, w: 30, h: 30, type: 'spike' });
-                        }
-                    }
-                    level.obs.push(obs);
-                }
-                
-                // 画面外に出た古い障害物を削除してメモリ節約
-                level.obs = level.obs.filter(o => o.x - scrollX > -500);
-            }
-
-            // ゴール判定 (通常モードのみ)
-            if (!level.isEndless && scrollX > level.length) {
-                stageClear();
-                return;
-            }
-
-            player.update();
-
-            let onGround = false;
-            let groundLevel = GROUND_Y;
-
-            // 障害物判定
-            for (let obs of level.obs) {
-                if (obs.broken) continue;
-                const obsX = obs.x - scrollX;
-                if (obsX < -200 || obsX > CW + 200) continue;
-
-                const pR = player.x + player.size; const pL = player.x;
-                const pB = player.y + player.size; const pT = player.y;
-
-                if (obs.type === 'pit') {
-                    if (pR > obsX && pL < obsX + obs.w) groundLevel = CH + 1000;
-                } else if (obs.type === 'block') {
-                    const bT = GROUND_Y - (obs.y||0) - obs.h;
-                    if (pR > obsX && pL < obsX + obs.w) {
-                        if (player.vy >= 0 && pB <= bT + player.vy + 2 && pB >= bT - 15) {
-                            groundLevel = bT; onGround = true; player.y = bT - player.size;
-                        }
-                    }
-                } else if (obs.type === 'spike') {
-                    const shrink = 8;
-                    const sL = obsX + shrink; const sR = obsX + obs.w - shrink;
-                    const sT = GROUND_Y - (obs.y||0) - obs.h + shrink; const sB = GROUND_Y - (obs.y||0);
-                    
-                    if (pR - shrink > sL && pL + shrink < sR && pB - shrink > sT && pT + shrink < sB) {
-                        if (player.shield > 0 && player.invincible <= 0) {
-                            player.shield--;
-                            player.invincible = 60;
-                            obs.broken = true;
-                            spawnParticles(player.x+player.size/2, player.y+player.size/2, '#fff', 15);
-                            showToast('Shield Broken!');
-                            applyShake(10, 10);
-                            document.getElementById('lbl-shield').classList.add('hidden');
-                        } else if (player.invincible <= 0) {
-                            gameOver();
-                        }
-                    }
-                }
-            }
-
-            // 地面接触
-            if (player.y + player.size >= groundLevel) {
-                player.y = groundLevel - player.size;
-                player.vy = 0;
-                player.jumpsLeft = player.maxJumps;
-                player.rotation = 0;
-                if (!onGround && player.vy > 5) {
-                    player.squash = 1.4;
-                    spawnParticles(player.x + player.size/2, player.y + player.size, level.groundLine, 5);
-                }
-            }
-
-            // 落下
-            if (player.y > CH) gameOver();
-
-            // パーティクル
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                if (particles[i].life <= 0) particles.splice(i, 1);
-            }
-
-            // ゴーストエフェクト
-            if (player.id === 'ghost' && Math.random() < 0.2) {
-                particles.push(new Particle(player.x + Math.random()*player.size, player.y + player.size, '#a855f7', 2, 2, 20));
-            }
-
-            // スコア(進捗)UI更新
-            if (level.isEndless) {
-                let distance = Math.floor(scrollX / 10);
-                if (distance !== prevProgress) {
-                    const el = document.getElementById('score-progress');
-                    el.innerText = distance + 'm';
-                    // 100mごとにポップアニメーション
-                    if (distance > 0 && distance % 100 === 0) {
-                        el.classList.remove('score-pop');
-                        void el.offsetWidth;
-                        el.classList.add('score-pop');
-                        showToast(distance + 'm 突破！');
-                    }
-                    prevProgress = distance;
-                }
-            } else {
-                let prog = Math.floor(Math.min(100, Math.max(0, (scrollX / level.length) * 100)));
-                if (prog !== prevProgress) {
-                    const el = document.getElementById('score-progress');
-                    el.innerText = prog + '%';
-                    el.classList.remove('score-pop');
-                    void el.offsetWidth;
-                    el.classList.add('score-pop');
-                    prevProgress = prog;
-                }
-            }
-        }
-
-        function drawGame() {
-            // 背景
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, CH);
-            let c1 = '#0f172a', c2 = '#000000';
-            if (level) { c1 = level.bg[0]; c2 = level.bg[1]; }
-            else {
-                const s = STAGES.find(x => x.id === selectedStageId);
-                if(s) { c1 = s.bg[0]; c2 = s.bg[1]; }
-            }
-            bgGrad.addColorStop(0, c1); bgGrad.addColorStop(1, c2);
-            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, CW, CH);
-
-            // 星・パーティクル背景
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            bgStars.forEach(s => {
-                let sx = (s.x - scrollX * s.speed) % CW;
-                if (sx < 0) sx += CW;
-                ctx.beginPath(); ctx.arc(sx, s.y, s.size, 0, Math.PI*2); ctx.fill();
-            });
-
-            ctx.save();
-            if (shakeTime > 0) {
-                ctx.translate((Math.random()-0.5)*shakeMagnitude, (Math.random()-0.5)*shakeMagnitude);
-                shakeTime--;
-            }
-
-            if (level && (gameState === 'PLAYING' || gameState === 'OVER' || gameState === 'CLEAR')) {
-                // 地面
-                ctx.fillStyle = level.ground;
-                ctx.fillRect(0, GROUND_Y, CW, CH - GROUND_Y);
-                ctx.fillStyle = level.groundLine;
-                ctx.fillRect(0, GROUND_Y, CW, 8);
-
-                // 障害物
-                for (let obs of level.obs) {
-                    if (obs.broken) continue;
-                    const obsX = obs.x - scrollX;
-                    if (obsX < -200 || obsX > CW + 200) continue;
-
-                    if (obs.type === 'pit') {
-                        ctx.fillStyle = bgGrad;
-                        ctx.fillRect(obsX, GROUND_Y, obs.w, CH - GROUND_Y);
-                        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                        ctx.fillRect(obsX, GROUND_Y, obs.w, CH - GROUND_Y);
-                    } else if (obs.type === 'block') {
-                        const bT = GROUND_Y - (obs.y||0) - obs.h;
-                        ctx.fillStyle = level.ground;
-                        ctx.beginPath(); ctx.roundRect(obsX, bT, obs.w, obs.h, 6); ctx.fill();
-                        ctx.fillStyle = level.groundLine;
-                        ctx.fillRect(obsX, bT, obs.w, 6);
-                    } else if (obs.type === 'spike') {
-                        const sT = GROUND_Y - (obs.y||0) - obs.h;
-                        const sB = GROUND_Y - (obs.y||0);
-                        ctx.fillStyle = '#ef4444';
-                        ctx.beginPath();
-                        ctx.moveTo(obsX + obs.w/2, sT); ctx.lineTo(obsX + obs.w, sB); ctx.lineTo(obsX, sB);
-                        ctx.closePath(); ctx.fill();
-                        // ハイライト
-                        ctx.fillStyle = '#fca5a5';
-                        ctx.beginPath(); ctx.moveTo(obsX + obs.w/2, sT); ctx.lineTo(obsX + obs.w/2 + 4, sB); ctx.lineTo(obsX + obs.w/2 - 4, sB); ctx.fill();
-                    }
-                }
-
-                // ゴールライン (通常モードのみ)
-                if (!level.isEndless) {
-                    const goalX = level.length - scrollX;
-                    if (goalX > -100 && goalX < CW) {
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                        ctx.fillRect(goalX, 0, 30, CH);
-                        ctx.fillStyle = '#fbbf24';
-                        ctx.fillRect(goalX+10, 0, 10, CH);
-                    }
-                }
-
-                particles.forEach(p => p.draw(ctx));
-                if (gameState !== 'OVER') player.draw(ctx);
-            } else if (gameState === 'MENU') {
-                const c = CHARACTERS.find(x => x.id === selectedCharId);
-                ctx.translate(CW/2, GROUND_Y - c.size/2);
-                ctx.scale(1.5, 1.5);
-                ctx.fillStyle = c.color;
-                if (c.id === 'slime') {
-                    ctx.beginPath(); ctx.arc(0, 0, c.size/2, Math.PI, 0); ctx.lineTo(c.size/2, c.size/2); ctx.lineTo(-c.size/2, c.size/2); ctx.fill();
-                } else if (c.id === 'ghost') {
-                    ctx.beginPath(); ctx.arc(0, -c.size/4, c.size/2, Math.PI, 0); ctx.lineTo(c.size/2, c.size/2); ctx.lineTo(c.size/4, c.size/4); ctx.lineTo(0, c.size/2); ctx.lineTo(-c.size/4, c.size/4); ctx.lineTo(-c.size/2, c.size/2); ctx.fill();
-                } else if (c.id === 'runner') {
-                    ctx.beginPath(); ctx.roundRect(-c.size/2, -c.size*0.4, c.size, c.size*0.8, 6); ctx.fill();
-                } else {
-                    ctx.beginPath(); ctx.roundRect(-c.size/2, -c.size/2, c.size, c.size, 8); ctx.fill();
-                }
-                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(c.size*0.15, -c.size*0.1, c.size*0.15, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(c.size*0.2, -c.size*0.1, c.size*0.06, 0, Math.PI*2); ctx.fill();
-            }
-
-            ctx.restore();
-        }
-
-        function gameLoop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const dt = timestamp - lastTime;
-            lastTime = timestamp;
-
-            if (gameState === 'PLAYING') updateGame(dt);
-            drawGame();
-
-            animationId = requestAnimationFrame(gameLoop);
-        }
-
-        // --- イベントリスナー ---
-        // 画面上のどこをタップしてもジャンプするように設定
-        document.getElementById('game-container').addEventListener('touchstart', (e) => { 
-            e.preventDefault(); 
-            jumpAction(); 
-        }, {passive: false});
-        
-        document.getElementById('game-container').addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            jumpAction();
-        });
-
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') jumpAction();
-        });
-
-        window.onload = () => {
-            lucide.createIcons();
-            changeState('MENU');
-        };
-
-    </script>
+/* ---------- 初期化 ---------- */
+buildMenu();
+updateHudStage();
+updateHearts();
+refreshSoundBtn();
+fitCanvas();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>

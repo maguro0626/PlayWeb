@@ -62,6 +62,21 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 .move-btn{border-radius:14px;padding:10px 8px;font-size:10px;font-weight:900;display:flex;flex-direction:column;align-items:center;gap:3px;border:1px solid rgba(255,255,255,.1);background:rgba(26,39,56,.9);color:#e8f0ff;transition:all .1s;cursor:pointer;touch-action:manipulation}
 .move-btn:active{transform:scale(.93)}.move-btn.depleted{opacity:.35;pointer-events:none}
 .px{font-family:'Press Start 2P',monospace}
+.battle-stage::before{content:'';position:absolute;inset:0;background:radial-gradient(600px 200px at 20% -10%,rgba(74,174,255,.28),transparent 60%),radial-gradient(520px 220px at 85% 0%,rgba(168,85,247,.20),transparent 60%);pointer-events:none;z-index:0}
+#e-wrap,#p-wrap{z-index:2}
+@keyframes enter-e{from{transform:translateX(90px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes enter-p{from{transform:scaleX(-1) translateX(90px);opacity:0}to{transform:scaleX(-1) translateX(0);opacity:1}}
+.enter-e{animation:enter-e .45s ease-out}
+.enter-p{animation:enter-p .45s ease-out}
+@keyframes dmg-rise{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}18%{opacity:1;transform:translate(-50%,-62%) scale(1.18)}100%{opacity:0;transform:translate(-50%,-200%) scale(1)}}
+.dmg-float{position:absolute;z-index:30;transform:translate(-50%,-50%);font-family:'Courier New',monospace;font-weight:900;font-size:22px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 14px rgba(255,90,90,.55);pointer-events:none;animation:dmg-rise .95s ease-out forwards;white-space:nowrap}
+.dmg-float.heal{text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 14px rgba(74,222,128,.85)}
+.fx-p{position:absolute;border-radius:50%;pointer-events:none;z-index:6}
+.fx-flash{position:absolute;font-size:34px;pointer-events:none;z-index:7}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:1;transform:scale(1.25)}}
+#msg-card{cursor:pointer}
+.move-btn{transition:transform .08s,box-shadow .15s}
+.move-btn:hover{box-shadow:0 0 0 1px rgba(74,174,255,.35),0 6px 16px rgba(0,0,0,.35)}
 </style>
 </head>
 <body>
@@ -78,19 +93,21 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 </header>
 
 <!-- TITLE -->
-<div id="sc-title" class="screen active items-center justify-center px-6">
-  <div class="text-center mb-10">
+<div id="sc-title" class="screen active items-center justify-center px-6 relative">
+  <div id="title-stars" style="position:absolute;inset:0;overflow:hidden;pointer-events:none"></div>
+  <div class="text-center mb-10" style="position:relative;z-index:1">
     <div class="text-6xl mb-5" style="filter:drop-shadow(0 0 30px rgba(74,174,255,.9))">🌟</div>
     <div class="px text-white mb-3" style="font-size:16px;letter-spacing:2px;text-shadow:0 0 20px #4af">MONSTER RISE</div>
     <div class="sl" style="color:#446">COMPLETE EDITION · 完全版</div>
   </div>
-  <div class="w-full max-w-xs space-y-3">
+  <div class="w-full max-w-xs space-y-3" style="position:relative;z-index:1">
     <button onclick="startNew()" class="bbtn w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 text-white" style="background:linear-gradient(135deg,#1a4a8a,#2a6acc);border:1px solid #4aaeff;box-shadow:0 4px 20px rgba(74,174,255,.3)">
       <i data-lucide="play" class="w-4 h-4"></i>はじめから
     </button>
     <button id="btn-cont" class="hidden bbtn w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8" onclick="contGame()">
       <i data-lucide="save" class="w-4 h-4"></i>つづきから
     </button>
+    <div id="title-slots" class="space-y-2 pt-1"></div>
   </div>
   <div class="mt-10 px" style="font-size:6px;color:#223;text-align:center">v2.0 FULL STORY · GYM LEADERS · ELITE FOUR</div>
 </div>
@@ -140,6 +157,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
       </div>
       <button onclick="showParty()" class="bbtn w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25)"><i data-lucide="users" class="w-3 h-3 text-blue-400"></i></button>
       <button onclick="showBag()" class="bbtn w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25)"><i data-lucide="shopping-bag" class="w-3 h-3 text-blue-400"></i></button>
+      <button onclick="openSaveMenu()" class="bbtn w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:12px" title="セーブ">💾</button>
+      <button onclick="openAch()" class="bbtn w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:12px" title="実績">🏆</button>
+      <button onclick="SFX.toggleMute()" class="bbtn w-7 h-7 rounded-lg flex items-center justify-center mute-btn" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:12px" title="サウンド ON/OFF">🔊</button>
     </div>
   </div>
   <div class="flex-1 relative overflow-hidden" id="map-container">
@@ -251,8 +271,12 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
         </div>
       </div>
     </div>
-    <div class="shrink-0 card px-4 py-2.5 min-h-14 flex items-center">
+    <div id="msg-card" class="shrink-0 card px-4 py-2.5 min-h-14 flex items-center" title="タップで全文表示">
       <span id="btl-msg" class="battle-msg">…</span>
+    </div>
+    <div class="shrink-0 flex items-center justify-between px-1">
+      <span class="sl" style="color:#2c4258">▶ メッセージはタップで送れる</span>
+      <button id="spd-btn" onclick="toggleSpeed()" class="bbtn px-3 py-1.5 rounded-full text-xs font-black" style="background:rgba(26,39,56,.9);border:1px solid var(--c-border);color:#ffd23e">⚡ 速度 ×1</button>
     </div>
     <div id="btl-menu" class="shrink-0">
       <div id="menu-main" class="grid grid-cols-2 gap-2">
@@ -292,6 +316,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
     <div class="text-xs font-black text-white">モンスター図鑑</div>
     <div id="dex-count" class="sl" style="color:#4aaeff"></div>
   </div>
+  <div class="shrink-0 px-4 pb-1 max-w-lg mx-auto w-full"><div style="background:rgba(255,255,255,.07);border-radius:99px;height:6px;overflow:hidden"><div id="dex-bar" style="height:100%;background:linear-gradient(90deg,#4aaeff,#a855f7);width:0%;transition:width .6s ease"></div></div></div>
   <div class="flex-1 scroll-a px-4 pb-4 max-w-lg mx-auto w-full">
     <div id="dex-list" class="space-y-2 pt-2"></div>
   </div>
@@ -384,6 +409,23 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
     <button onclick="winReturn()" class="bbtn px-10 py-3 rounded-2xl font-bold text-sm" style="background:rgba(255,196,42,.2);color:#ffd700;border:1px solid var(--c-gold)">世界へ戻る</button>
   </div>
 </div>
+<div id="ov-save" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-end justify-center z-40">
+  <div class="card-white rounded-t-3xl p-5 w-full max-w-sm shadow-2xl slide-up" style="max-height:78vh;overflow-y:auto">
+    <div class="font-black text-base text-gray-900 mb-1">💾 セーブ</div>
+    <div class="text-xs text-gray-500 mb-4">スロットを選んでセーブ（オートセーブも常に有効です）</div>
+    <div id="save-list" class="space-y-2 mb-4"></div>
+    <button onclick="closeSaveMenu()" class="w-full py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm bbtn">とじる</button>
+  </div>
+</div>
+<div id="ov-ach" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center z-40 px-4">
+  <div class="card-white rounded-3xl p-5 w-full max-w-sm shadow-2xl slide-up" style="max-height:85vh;overflow-y:auto">
+    <div class="font-black text-base text-gray-900 mb-1">🏆 実績</div>
+    <div id="ach-count" class="text-xs text-gray-500 mb-4"></div>
+    <div id="ach-list" class="space-y-2 mb-4"></div>
+    <button onclick="closeAch()" class="w-full py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm bbtn">とじる</button>
+  </div>
+</div>
+<div id="save-ind" style="position:fixed;right:10px;bottom:10px;z-index:80;background:rgba(0,0,0,.75);color:#9fd8ff;font-size:10px;font-weight:700;padding:5px 10px;border-radius:99px;opacity:0;transition:opacity .4s;pointer-events:none">💾 オートセーブ</div>
 <script>
 
 if ('serviceWorker' in navigator) {
@@ -538,7 +580,8 @@ const ELITE_FOUR=[
 let G={playerName:'ゆうしゃ',starterSp:'A',currentLoc:'masara',party:[],box:[],orbs:5,goodOrbs:0,superOrbs:0,items:{},money:1000,badges:[],defeatedTrainers:[],e4Progress:0,flags:{},seen:[],caught:[]};
 let BT=null,pendCatch=null,dlgCb=null,busy=false,lvUpQueue=[],evoQueue=[],curScreen='sc-title',curLocId=null,pendBadge=null,curShopId=null;
 const SK='mrise_v5';
-function save(){try{localStorage.setItem(SK,JSON.stringify(G))}catch(e){}}
+function save(){try{localStorage.setItem(SK,JSON.stringify(G));saveFlash()}catch(e){}}
+function saveFlash(){const el=document.getElementById('save-ind');if(!el)return;el.style.opacity='1';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0'},900)}
 function hasSave(){return!!localStorage.getItem(SK)}
 function loadSave(){try{const s=localStorage.getItem(SK);if(!s)return false;Object.assign(G,JSON.parse(s));return true}catch(e){return false}}
 function scaleStat(b,lv){return Math.max(1,Math.floor(b*(1+lv*.055)*(lv/14+.78)))}
@@ -581,7 +624,7 @@ function addCaught(sp){if(!G.caught.includes(sp))G.caught.push(sp)}
 function healParty(){G.party.forEach(m=>{m.hp=m.maxHp;m.status=null;m.moves.forEach(mv=>mv.pp=mv.maxPp)});save()}
 function getTotalBalls(){return(G.orbs||0)+(G.goodOrbs||0)+(G.superOrbs||0)}
 function getFirstAlive(party){return party.find(m=>alive(m))||null}
-function wait(ms){return new Promise(r=>setTimeout(r,ms))}
+function wait(ms){return new Promise(r=>setTimeout(r,ms/SPD))}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');curScreen=id;updateHdr(id);lucide.createIcons()}
 function updateHdr(id){
   const L={'sc-title':'ホーム','sc-intro':'もどる','sc-map':'マップ','sc-loc':'もどる','sc-battle':'バトル中','sc-party':'もどる','sc-dex':'もどる','sc-bag':'もどる'};
@@ -653,14 +696,6 @@ function goStep2(){
 }
 function confirmStarter(){
   if(!chosenStarter)return;
-  G.starterSp=chosenStarter;
-  const mon=makeMon(chosenStarter,5);G.party=[mon];addSeen(chosenStarter);addCaught(chosenStarter);
-  save();showScreen('sc-map');renderWorldMap();
-  showToast(`${M[chosenStarter].name}と\nいっしょに 出発！🎒`);
-}
-
-function confirmStarter(){
-  if(!chosenStarter)return;
 
   const n = (G.playerName || '').trim();
   if(n === 'たいち'){
@@ -689,6 +724,7 @@ function confirmStarter(){
 
 // WORLD MAP
 function renderWorldMap(){
+  checkAch();
   document.getElementById('map-name').textContent=G.playerName;
   document.getElementById('map-party').textContent=`${G.party.filter(alive).length}/${G.party.length}`;
   document.getElementById('map-money').textContent=`¥${(G.money||0).toLocaleString()}`;
@@ -734,11 +770,26 @@ function isLocUnlocked(loc){
 function clickMapNode(locId){
   const loc=LOCS.find(l=>l.id===locId);if(!loc)return;
   if(!isLocUnlocked(loc)){showToast('まだここには行けない！');return}
-  if(locId!==G.currentLoc){
+  if(locId===G.currentLoc){openLocationScreen(locId);return}
+  const from=LOCS.find(l=>l.id===G.currentLoc);
+  const mapEl=document.getElementById('world-map');
+  const doMove=()=>{
     G.currentLoc=locId;G.flags['visited_'+locId]=true;save();renderWorldMap();
     showToast(`${loc.name}に\n到着した！`);
     setTimeout(()=>openLocationScreen(locId),600);
-  } else {openLocationScreen(locId)}
+  };
+  if(from&&mapEl&&mapEl.offsetWidth){
+    const sx=mapEl.offsetWidth/360,sy=mapEl.offsetHeight/500;
+    let mk=document.getElementById('travel-mk');
+    if(!mk){mk=document.createElement('div');mk.id='travel-mk';mk.textContent='🧑‍🎒';mk.style.cssText='position:absolute;z-index:30;font-size:22px;transform:translate(-50%,-80%);pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.6))';mapEl.appendChild(mk)}
+    mk.style.left=(from.mapPos.x*sx)+'px';mk.style.top=(from.mapPos.y*sy)+'px';mk.style.display='block';
+    const anim=mk.animate([
+      {left:(from.mapPos.x*sx)+'px',top:(from.mapPos.y*sy)+'px'},
+      {left:(loc.mapPos.x*sx)+'px',top:(loc.mapPos.y*sy)+'px'}
+    ],{duration:620,easing:'ease-in-out'});
+    mk.animate([{transform:'translate(-50%,-80%)'},{transform:'translate(-50%,-118%)'},{transform:'translate(-50%,-80%)'},{transform:'translate(-50%,-118%)'},{transform:'translate(-50%,-80%)'}],{duration:620,easing:'ease-in-out'});
+    anim.onfinish=()=>{mk.style.display='none';doMove()};
+  } else {doMove()}
 }
 function openLocationScreen(locId){
   const loc=LOCS.find(l=>l.id===locId);if(!loc)return;
@@ -851,7 +902,12 @@ function startE4Sequence(){
   });
 }
 // BATTLE RENDER
-function renderBattle(){renderMon(BT.enemy,'e');renderMon(BT.player,'p');showMain()}
+function renderBattle(){
+  renderMon(BT.enemy,'e');renderMon(BT.player,'p');showMain();
+  const ew=document.getElementById('e-wrap'),pw=document.getElementById('p-wrap');
+  if(ew&&pw){ew.classList.remove('enter-e');pw.classList.remove('enter-p');void ew.offsetWidth;ew.classList.add('enter-e');pw.classList.add('enter-p');
+  setTimeout(()=>{ew.classList.remove('enter-e');pw.classList.remove('enter-p')},520)}
+}
 function renderMon(m,side){
   const d=M[m.sp];const tc=tcol(d.type);
   document.getElementById(side+'-name').textContent=mname(m);
@@ -859,7 +915,7 @@ function renderMon(m,side){
   const badge=document.getElementById(side+'-tbadge');badge.textContent=d.type.toUpperCase();badge.style.background=tc.bg;badge.style.color=tc.t;
   const pct=Math.max(0,Math.round(hpPct(m)*100));
   const hpb=document.getElementById(side+'-hpbar');hpb.style.width=pct+'%';hpb.className='hpbar '+hpCls(m);
-  document.getElementById(side+'-hptxt').textContent=`${m.hp} / ${m.maxHp}`;
+  const _ht=document.getElementById(side+'-hptxt');_ht.textContent=`${m.hp} / ${m.maxHp}`;_ht.dataset.cur=String(m.hp);
   if(side==='p'){const xb=document.getElementById('p-xpbar');if(xb)xb.style.width=xpPct(m)+'%'}
   const st=document.getElementById(side+'-status');
   if(st){
@@ -875,7 +931,10 @@ function renderMon(m,side){
 function updateHpBar(m,side){
   const pct=Math.max(0,Math.round(hpPct(m)*100));
   const hpb=document.getElementById(side+'-hpbar');hpb.style.width=pct+'%';hpb.className='hpbar '+hpCls(m);
-  document.getElementById(side+'-hptxt').textContent=`${m.hp} / ${m.maxHp}`;
+  const txt=document.getElementById(side+'-hptxt');
+  const from=parseInt(txt.dataset.cur||String(m.hp),10);txt.dataset.cur=String(m.hp);
+  const target=m.hp,t0=performance.now(),dur=Math.max(60,380/SPD);
+  (function step(t){const k=Math.min(1,(t-t0)/dur);const v=Math.round(from+(target-from)*k);txt.textContent=`${v} / ${m.maxHp}`;if(k<1&&parseInt(txt.dataset.cur||'0',10)===target)requestAnimationFrame(step)})(t0);
   if(side==='p'){const xb=document.getElementById('p-xpbar');if(xb)xb.style.width=xpPct(m)+'%'}
 }
 function hitAnim(side){
@@ -905,7 +964,7 @@ function onFight(){
     const d=MV[mv.id];const tc=tcol(d.type);const out=mv.pp===0;
     const btn=document.createElement('button');
     btn.className='move-btn'+(out?' depleted':'');
-    btn.innerHTML=`<span style="font-size:18px">${d.emoji}</span><span style="font-size:10px">${d.name}</span><div class="flex items-center gap-1 mt-0.5"><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span><span class="sl">${mv.pp}/${mv.maxPp}</span></div>`;
+    btn.innerHTML=`<span style="font-size:18px">${d.emoji}</span><span style="font-size:10px">${d.name}</span><div class="flex items-center gap-1 mt-0.5"><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span><span class="sl">${d.power>0?'威力'+d.power+' · 命中'+d.acc:'変化'}</span><span class="sl">${mv.pp}/${mv.maxPp}</span></div>`;
     if(!out)btn.onclick=()=>doPlayerMove(idx);
     mb.appendChild(btn);
   });
@@ -957,6 +1016,7 @@ function useBattleItem(id){
     setMsg(`${mname(p)}に\n${def.name}を使った！\nHP+${p.hp-old}！`);
     G.items[id]--;if(G.items[id]<=0)delete G.items[id];save();
     updateHpBar(p,'p');
+    dmgFloat('p',null,{text:'+'+(p.hp-old),color:'#4ade80',heal:true});burst('p','fairy');SFX.play('heal');
   } else if(def.type==='status'){
     const cures=def.cureStatus||[];
     if(p.status&&(cures.includes('all')||cures.includes(p.status))){
@@ -997,8 +1057,9 @@ function onCatch(){
     if(i<3)setTimeout(shake,600);
     else setTimeout(()=>{
       if(rng<catchRate){
-        BT.caught=true;pendCatch=e;addSeen(e.sp);addCaught(e.sp);
+        BT.caught=true;pendCatch=e;addSeen(e.sp);addCaught(e.sp);G.flags.firstCatch=true;
         setMsg(`${mname(e)}を\nつかまえた！`);
+        SFX.play('catch');
         setTimeout(()=>{
           document.getElementById('ov-catch').classList.remove('hidden');
           document.getElementById('ov-catch').classList.add('flex');
@@ -1012,6 +1073,7 @@ function onCatch(){
     },600);
   };
   setMsg(`${def?def.emoji:'🔮'} ${def?def.name:'オーブ'}を なげた！`);
+  SFX.play('throw');
   setTimeout(shake,500);
 }
 function onRun(){
@@ -1035,16 +1097,17 @@ async function doPlayerMove(idx){
     setMsg(`${mname(p)}は まひで\n うごけない！`);await wait(1100);
     if(alive(e))await enemyTurnAsync();busy=false;disableMenu(false);showMain();return;
   }
-  const md=MV[mv.id];let msg=`${mname(p)}の\n${md.emoji} ${md.name}！`;
+  const md=MV[mv.id];let msg=`${mname(p)}の\n${md.emoji} ${md.name}！`;let lastRes=null;
   if(md.power>0){
-    const res=calcDmg(p,e,mv);e.hp=Math.max(0,e.hp-res.dmg);
+    const res=calcDmg(p,e,mv);lastRes=res;e.hp=Math.max(0,e.hp-res.dmg);
     if(res.crit){msg+='\nきゅうしょに あたった！';screenFx('crit')}
     if(res.eff>1){msg+='\nこうかはばつぐんだ！';if(!res.crit)screenFx('supereff')}
     else if(res.eff<1&&res.eff>0)msg+='\nこうかはいまひとつ…';
     else if(res.eff===0)msg+='\nこうかがない…';
     msg+=`\n${mname(e)}に ${res.dmg}ダメージ！`;
   } else {msg+=applyEff(md.eff,e,p)||'\nしかし うまくきまらなかった…'}
-  setMsg(msg);await wait(200);hitAnim('e');updateHpBar(e,'e');
+  setMsg(msg);if(md.power>0)lunge('p');await wait(200);hitAnim('e');updateHpBar(e,'e');
+  if(lastRes){burst('e',md.type);SFX.play(lastRes.crit?'crit':'hit');dmgFloat('e',lastRes.dmg,{big:lastRes.crit,color:lastRes.crit?'#ffd23e':(lastRes.eff>1?'#ff9f43':'#ffffff')})}
   // burn damage
   if(p.status==='burn'){const bd=Math.max(1,Math.floor(p.maxHp/16));p.hp=Math.max(0,p.hp-bd);setMsg(msg+`\n${mname(p)}は やけどで ダメージ！`);updateHpBar(p,'p')}
   await wait(1100);
@@ -1064,15 +1127,16 @@ async function enemyTurnAsync(){
   const avail=e.moves.filter(mv=>mv.pp>0);
   if(!avail.length){setMsg(`${mname(e)}には わざが ない！`);await wait(900);return}
   const mv=avail[Math.floor(Math.random()*avail.length)];mv.pp=Math.max(0,mv.pp-1);
-  const md=MV[mv.id];let msg=`${mname(e)}の\n${md.emoji} ${md.name}！`;
+  const md=MV[mv.id];let msg=`${mname(e)}の\n${md.emoji} ${md.name}！`;let lastRes=null;
   if(md.power>0){
-    const res=calcDmg(e,p,mv);p.hp=Math.max(0,p.hp-res.dmg);
+    const res=calcDmg(e,p,mv);lastRes=res;p.hp=Math.max(0,p.hp-res.dmg);
     if(res.crit)msg+='\nきゅうしょに あたった！';
     if(res.eff>1)msg+='\nこうかはばつぐんだ！';
     else if(res.eff<1&&res.eff>0)msg+='\nこうかはいまひとつ…';
     msg+=`\n${mname(p)}に ${res.dmg}ダメージ！`;
   } else {msg+=applyEff(md.eff,p,e)||''}
-  setMsg(msg);await wait(200);hitAnim('p');updateHpBar(p,'p');
+  setMsg(msg);if(md.power>0)lunge('e');await wait(200);hitAnim('p');updateHpBar(p,'p');
+  if(lastRes){burst('p',md.type);SFX.play(lastRes.crit?'crit':'hit');dmgFloat('p',lastRes.dmg,{big:lastRes.crit,color:lastRes.crit?'#ffd23e':'#ffffff'})}
   // burn
   if(e.status==='burn'){const bd=Math.max(1,Math.floor(e.maxHp/16));e.hp=Math.max(0,e.hp-bd);updateHpBar(e,'e')}
   await wait(1100);
@@ -1085,13 +1149,13 @@ function enemyTurnCb(cb){
   if(!avail.length){setMsg(`${mname(e)}には わざが ない！`);setTimeout(cb,900);return}
   const mv=avail[Math.floor(Math.random()*avail.length)];mv.pp=Math.max(0,mv.pp-1);
   const md=MV[mv.id];let msg=`${mname(e)}の\n${md.emoji} ${md.name}！`;
-  if(md.power>0){const res=calcDmg(e,p,mv);p.hp=Math.max(0,p.hp-res.dmg);msg+=`\n${mname(p)}に ${res.dmg}ダメージ！`}
-  setMsg(msg);setTimeout(()=>{hitAnim('p');updateHpBar(p,'p')},200);
+  let resCb=null;if(md.power>0){const res=calcDmg(e,p,mv);resCb=res;p.hp=Math.max(0,p.hp-res.dmg);msg+=`\n${mname(p)}に ${res.dmg}ダメージ！`}
+  setMsg(msg);lunge('e');setTimeout(()=>{hitAnim('p');updateHpBar(p,'p');if(resCb){burst('p',md.type);SFX.play(resCb.crit?'crit':'hit');dmgFloat('p',resCb.dmg,{big:resCb.crit,color:resCb.crit?'#ffd23e':'#ffffff'})}},200);
   setTimeout(()=>{if(!alive(p)){playerFaint().then(cb)}else if(cb)cb()},1000);
 }
 async function enemyFaint(){
   const e=BT.enemy,p=BT.player;
-  setMsg(`${mname(e)}は たおれた！`);
+  setMsg(`${mname(e)}は たおれた！`);SFX.play('faint');
   document.getElementById('e-anim').className='';await wait(900);
   if(BT.type==='trainer'||BT.type==='e4'){
     BT.enemyIdx++;
@@ -1132,6 +1196,7 @@ async function enemyFaint(){
         document.getElementById('win-msg').textContent=e4.post;
         document.getElementById('ov-win').classList.remove('hidden');
         document.getElementById('ov-win').classList.add('flex');
+        SFX.play('win');
         spawnConfetti();spawnConfettiEl('win-stars');
       } else {
         showDialog(e4.emoji,e4.name,e4.post,'次の戦いへ',()=>{showScreen('sc-map');renderWorldMap()});
@@ -1147,7 +1212,7 @@ async function enemyFaint(){
   }
 }
 async function playerFaint(){
-  const p=BT.player;setMsg(`${mname(p)}は たおれた…`);
+  const p=BT.player;setMsg(`${mname(p)}は たおれた…`);SFX.play('faint');
   document.getElementById('p-anim').className='';await wait(1100);
   const next=G.party.find((m,i)=>i!==BT.playerIdx&&alive(m));
   if(!next){
@@ -1197,12 +1262,13 @@ async function processQueues(){
       `<div class="flex justify-between"><span>ぼうぎょ</span><span>${old.def} → ${m.def} <span style="color:#22c55e">+${diff.def}</span></span></div>`+
       `<div class="flex justify-between"><span>すばやさ</span><span>${old.spd} → ${m.spd} <span style="color:#22c55e">+${diff.spd}</span></span></div>`;
     document.getElementById('ov-lv').classList.remove('hidden');document.getElementById('ov-lv').classList.add('flex');
+    SFX.play('levelup');
     await new Promise(r=>{lvResolveFn=r});
   }
   while(evoQueue.length){
     const{m,from,to}=evoQueue.shift();
     const newD=M[to];if(!newD)continue;
-    m.sp=to;const old={hp:m.maxHp,atk:m.atk,def:m.def,spd:m.spd};
+    m.sp=to;G.flags.evolved=true;const old={hp:m.maxHp,atk:m.atk,def:m.def,spd:m.spd};
     m.maxHp=scaleStat(newD.base.hp,m.lv);m.hp=Math.min(m.hp+(m.maxHp-old.hp),m.maxHp);
     m.atk=scaleStat(newD.base.atk,m.lv);m.def=scaleStat(newD.base.def,m.lv);m.spd=scaleStat(newD.base.spd,m.lv);
     m.moves=buildMoves(to,m.lv);
@@ -1229,6 +1295,7 @@ async function showEvo(m,from,to){
   document.getElementById('evo-sub').style.opacity='0';document.getElementById('evo-sub').style.transition='opacity .5s';
   document.getElementById('evo-btn').style.opacity='0';document.getElementById('evo-btn').style.transition='opacity .5s';
   ovEl.classList.remove('hidden');ovEl.classList.add('flex');
+  SFX.play('evo');
   await wait(400);svgEl.style.opacity='1';svgEl.classList.add('evo-glow');
   await wait(800);document.getElementById('evo-label').style.opacity='1';
   await wait(600);document.getElementById('evo-title').textContent=d.name.toUpperCase();document.getElementById('evo-title').style.opacity='1';
@@ -1257,6 +1324,7 @@ function catchToBox(){
 }
 // BADGE CEREMONY
 function showBadgeCeremony(badge){
+  SFX.play('win');
   document.getElementById('badge-emoji-big').textContent=badge.emoji;
   document.getElementById('badge-name-big').textContent=badge.name.toUpperCase();
   document.getElementById('badge-msg-big').textContent=badge.msg||'おめでとう！';
@@ -1354,7 +1422,8 @@ function moveToBox(idx){
 // DEX
 function renderDex(){
   const total=Object.keys(M).filter(k=>k!=='egg').length;
-  document.getElementById('dex-count').textContent=`${G.seen.length} / ${total} みつけた`;
+  document.getElementById('dex-count').textContent=`${G.seen.length} / ${total} みつけた · ${G.caught.length} 捕獲`;
+  const _db=document.getElementById('dex-bar');if(_db)_db.style.width=Math.round((G.caught.length/total)*100)+'%';
   const list=document.getElementById('dex-list');list.innerHTML='';
   Object.keys(M).filter(k=>k!=='egg').forEach(sp=>{
     const seen=G.seen.includes(sp);const caught=G.caught.includes(sp);const d=M[sp];const tc=tcol(d.type);
@@ -1436,7 +1505,15 @@ function closeDlg(){
   if(dlgCb){const f=dlgCb;dlgCb=null;f()}
 }
 // UTILS
-function setMsg(t){document.getElementById('btl-msg').textContent=t}
+let twTimer=null,twFull='';
+function setMsg(t){
+  const el=document.getElementById('btl-msg');if(!el)return;
+  twFull=t;const chars=Array.from(t);let i=0;
+  if(twTimer)clearInterval(twTimer);
+  el.textContent='';
+  const step=Math.max(6,Math.round(16/SPD));
+  twTimer=setInterval(()=>{i+=1;el.textContent=chars.slice(0,i).join('');if(i>=chars.length){clearInterval(twTimer);twTimer=null}},step);
+}
 function showToast(m){
   const t=document.createElement('div');
   t.className='toast-pop fixed top-1/2 left-1/2 text-white px-8 py-4 rounded-3xl font-black z-50 text-sm text-center max-w-xs';
@@ -1465,10 +1542,163 @@ function spawnConfettiEl(parentId){
     parent.appendChild(el);
   }
 }
+
+/* ================= 追加システム: 効果音・演出・セーブ・実績 ================= */
+let SPD=1;
+function toggleSpeed(){SPD=SPD===1?2:1;const b=document.getElementById('spd-btn');if(b)b.textContent=`⚡ 速度 ×${SPD}`}
+const SFX={ctx:null,muted:(function(){try{return localStorage.getItem('mrise_mute')==='1'}catch(e){return false}})(),
+  ensure(){try{if(!this.ctx)this.ctx=new (window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume()}catch(e){}},
+  tone(f,d,type,v,t,slide){if(this.muted||!this.ctx)return;try{type=type||'square';v=v||.05;t=t||0;const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f,c.currentTime+t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,slide),c.currentTime+t+d);g.gain.setValueAtTime(v,c.currentTime+t);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+t+d);o.connect(g);g.connect(c.destination);o.start(c.currentTime+t);o.stop(c.currentTime+t+d+.03)}catch(e){}},
+  noise(d,v){if(this.muted||!this.ctx)return;try{d=d||.12;v=v||.07;const c=this.ctx,len=Math.floor(c.sampleRate*d),buf=c.createBuffer(1,len,c.sampleRate),ch=buf.getChannelData(0);for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*(1-i/len);const s=c.createBufferSource();s.buffer=buf;const g=c.createGain();g.gain.value=v;s.connect(g);g.connect(c.destination);s.start()}catch(e){}},
+  play(n){this.ensure();if(this.muted||!this.ctx)return;try{
+    if(n==='hit'){this.noise(.1,.06);this.tone(170,.1,'square',.045,0,60)}
+    else if(n==='crit'){this.noise(.18,.09);this.tone(880,.16,'sawtooth',.045,0,220);this.tone(1320,.2,'square',.035,.05,440)}
+    else if(n==='heal'){[523,659,784].forEach((f,i)=>this.tone(f,.15,'sine',.05,i*.07))}
+    else if(n==='select'){this.tone(660,.05,'square',.028)}
+    else if(n==='ok'){this.tone(523,.07,'square',.04);this.tone(784,.1,'square',.04,.06)}
+    else if(n==='throw'){this.tone(300,.18,'sine',.05,0,900)}
+    else if(n==='catch'){[523,659,784,1046].forEach((f,i)=>this.tone(f,.13,'square',.045,i*.09))}
+    else if(n==='levelup'){[523,659,784,1046,784,1046].forEach((f,i)=>this.tone(f,.12,'triangle',.055,i*.08))}
+    else if(n==='evo'){[392,523,659,784,1046,1318].forEach((f,i)=>this.tone(f,.16,'sine',.05,i*.1))}
+    else if(n==='win'){[523,659,784,1046,1318,1568].forEach((f,i)=>this.tone(f,.2,'triangle',.055,i*.11))}
+    else if(n==='ach'){this.tone(784,.09,'square',.04);this.tone(1175,.15,'square',.04,.08)}
+    else if(n==='faint'){this.tone(320,.3,'sawtooth',.04,0,55)}
+  }catch(e){}},
+  toggleMute(){this.muted=!this.muted;try{localStorage.setItem('mrise_mute',this.muted?'1':'0')}catch(e){}document.querySelectorAll('.mute-btn').forEach(b=>b.textContent=this.muted?'🔇':'🔊');if(!this.muted)this.play('select')}
+};
+document.addEventListener('pointerdown',e=>{SFX.ensure();if(e.target&&e.target.closest&&e.target.closest('.bbtn,.move-btn,.loc-enter,.map-node,.starter-card'))SFX.play('select')},{passive:true});
+/* ---- バトル演出ヘルパー ---- */
+function fxPos(side){
+  const st=document.getElementById('btl-stage'),w=document.getElementById(side+'-wrap');
+  if(!st||!w)return{x:100,y:100};
+  const sr=st.getBoundingClientRect(),wr=w.getBoundingClientRect();
+  return{x:wr.left-sr.left+wr.width/2,y:wr.top-sr.top+wr.height/2};
+}
+function dmgFloat(side,dmg,opts){
+  opts=opts||{};
+  const st=document.getElementById('btl-stage');if(!st)return;
+  const p=fxPos(side);
+  const el=document.createElement('div');el.className='dmg-float'+(opts.heal?' heal':'');
+  el.textContent=opts.text!=null?opts.text:(dmg!=null?String(dmg):'');
+  if(opts.color)el.style.color=opts.color;
+  if(opts.big)el.style.fontSize='31px';
+  el.style.left=(p.x+(Math.random()*36-18))+'px';el.style.top=(p.y-8)+'px';
+  st.appendChild(el);setTimeout(()=>el.remove(),1150);
+}
+function burst(side,type){
+  const st=document.getElementById('arena-ovl');if(!st)return;
+  const p=fxPos(side);
+  const cols={fire:['#ff6a00','#ffb300','#ffdd55'],water:['#38b6ff','#7ee0ff','#c8f4ff'],electric:['#ffe600','#fff7ae','#ffb300'],grass:['#4ade80','#a3e635','#d9f99d'],fairy:['#ff8ac2','#ffc2dd','#fff0f6'],ghost:['#a78bfa','#7c3aed','#ddd6fe'],dragon:['#22d3ee','#0ea5e9','#a5f3fc'],normal:['#ffffff','#e2e8f0','#fbbf24'],poison:['#c084fc','#a855f7','#f0abfc']};
+  const cs=cols[type]||cols.normal;
+  for(let i=0;i<14;i++){
+    const s=document.createElement('div');s.className='fx-p';
+    const sz=3+Math.random()*6;s.style.width=sz+'px';s.style.height=sz+'px';
+    const col=cs[i%cs.length];s.style.background=col;s.style.boxShadow=`0 0 8px ${col}`;
+    s.style.left=p.x+'px';s.style.top=p.y+'px';
+    st.appendChild(s);
+    const ang=Math.random()*Math.PI*2,dist=34+Math.random()*68;
+    const an=s.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:`translate(${Math.cos(ang)*dist}px,${Math.sin(ang)*dist-16}px) scale(.2)`,opacity:0}],{duration:480+Math.random()*260,easing:'cubic-bezier(.17,.67,.35,1)'});
+    an.onfinish=()=>s.remove();
+  }
+  const fl=document.createElement('div');fl.className='fx-flash';fl.textContent='💥';
+  fl.style.left=p.x+'px';fl.style.top=p.y+'px';st.appendChild(fl);
+  const fa=fl.animate([{transform:'translate(-50%,-50%) scale(.4) rotate(-14deg)',opacity:1},{transform:'translate(-50%,-50%) scale(1.5) rotate(8deg)',opacity:0}],{duration:340,easing:'ease-out'});
+  fa.onfinish=()=>fl.remove();
+}
+function lunge(side){
+  const w=document.getElementById(side+'-wrap');if(!w||!w.animate)return;
+  const dx=side==='e'?26:-26,dy=side==='e'?18:-10;
+  w.animate([{translate:'0px 0px'},{translate:`${dx}px ${dy}px`,offset:.35},{translate:'0px 0px'}],{duration:Math.max(120,300/SPD),easing:'ease-out'});
+}
+/* ---- セーブスロット ---- */
+const SLOT_KEY=n=>'mrise_slot_'+n;
+function slotMeta(n){try{const s=localStorage.getItem(SLOT_KEY(n));if(!s)return null;const o=JSON.parse(s);return o.meta||null}catch(e){return null}}
+function saveToSlot(n){
+  const meta={name:G.playerName,badges:(G.badges||[]).length,maxLv:Math.max(0,...(G.party||[]).map(m=>m.lv)),party:(G.party||[]).length,time:new Date().toLocaleString('ja-JP')};
+  try{localStorage.setItem(SLOT_KEY(n),JSON.stringify({data:G,meta}));showToast(`スロット${n}に\nセーブした！💾`);SFX.play('ok')}catch(e){showToast('セーブに失敗した…')}
+  closeSaveMenu();renderTitleSlots();
+}
+function loadSlot(n){
+  try{const s=localStorage.getItem(SLOT_KEY(n));if(!s)return;const o=JSON.parse(s);if(!o.data)return;
+  G=o.data;save();showScreen('sc-map');renderWorldMap();showToast(`スロット${n}を\nロードした！`)}catch(e){showToast('ロードに失敗した…')}
+}
+function renderTitleSlots(){
+  const el=document.getElementById('title-slots');if(!el)return;el.innerHTML='';
+  [1,2,3].forEach(n=>{
+    const mt=slotMeta(n);
+    const b=document.createElement('button');
+    b.className='bbtn w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2';
+    b.style.cssText='background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8';
+    b.innerHTML=mt?`💾 スロット${n}：${mt.name} · バッジ${mt.badges} · 最大Lv.${mt.maxLv}`:`💾 スロット${n}：空き`;
+    if(mt)b.onclick=()=>{if(confirm(`スロット${n}（${mt.name} / バッジ${mt.badges}）をロードしますか？\n現在のオートセーブは上書きされます`))loadSlot(n)};
+    el.appendChild(b);
+  });
+}
+function openSaveMenu(){
+  const list=document.getElementById('save-list');if(!list)return;list.innerHTML='';
+  [1,2,3].forEach(n=>{
+    const mt=slotMeta(n);
+    const b=document.createElement('button');
+    b.className='w-full flex items-center gap-3 p-3 rounded-xl bbtn';
+    b.style.cssText='background:rgba(0,0,0,.06);border:1px solid #e5e7eb;font-size:13px;font-weight:700;color:#111';
+    b.innerHTML=mt?`<span style="font-size:22px">💾</span><div class="flex-1 text-left"><div>スロット${n}：${mt.name}</div><div style="font-size:11px;color:#888">バッジ${mt.badges} · 最大Lv.${mt.maxLv} · ${mt.time||''}</div></div><span style="font-size:11px;color:#ef4444;font-weight:900">上書き</span>`:`<span style="font-size:22px">💾</span><div class="flex-1 text-left"><div>スロット${n}</div><div style="font-size:11px;color:#888">空き</div></div>`;
+    b.onclick=()=>{if(mt&&!confirm(`スロット${n}に上書きセーブしますか？`))return;saveToSlot(n)};
+    list.appendChild(b);
+  });
+  document.getElementById('ov-save').classList.remove('hidden');document.getElementById('ov-save').classList.add('flex');
+}
+function closeSaveMenu(){document.getElementById('ov-save').classList.add('hidden');document.getElementById('ov-save').classList.remove('flex')}
+/* ---- 実績 ---- */
+const ACH=[
+ {id:'catch1',emoji:'🔮',name:'はじめての捕獲',desc:'モンスターを1匹捕まえた',test:G=>!!(G.flags&&G.flags.firstCatch)},
+ {id:'seen10',emoji:'👀',name:'観察者',desc:'10種類のモンスターと出会った',test:G=>(G.seen||[]).length>=10},
+ {id:'catch10',emoji:'🎯',name:'ハンター',desc:'10種類のモンスターを捕獲した',test:G=>(G.caught||[]).length>=10},
+ {id:'dexall',emoji:'📖',name:'モンスター博士',desc:'全種類のモンスターを捕獲した',test:G=>(G.caught||[]).length>=Object.keys(M).filter(k=>k!=='egg').length},
+ {id:'badge1',emoji:'🏅',name:'初バッジ',desc:'ジムバッジを1つ手に入れた',test:G=>(G.badges||[]).length>=1},
+ {id:'badge5',emoji:'🎖️',name:'バッジマスター',desc:'ジムバッジを5つ集めた',test:G=>(G.badges||[]).length>=5},
+ {id:'evo1',emoji:'🦋',name:'進化の瞬間',desc:'モンスターを進化させた',test:G=>!!(G.flags&&G.flags.evolved)},
+ {id:'lv50',emoji:'💪',name:'つわもの',desc:'Lv.50以上のモンスターを育てた',test:G=>[...(G.party||[]),...(G.box||[])].some(m=>m.lv>=50)},
+ {id:'rich',emoji:'💰',name:'お金持ち',desc:'所持金が¥10,000以上になった',test:G=>(G.money||0)>=10000},
+ {id:'champ',emoji:'👑',name:'チャンピオン',desc:'四天王とチャンピオンを倒した',test:G=>(G.e4Progress||0)>=ELITE_FOUR.length},
+];
+function checkAch(){
+  try{
+    G.ach=G.ach||[];
+    ACH.forEach(a=>{if(!G.ach.includes(a.id)&&a.test(G)){G.ach.push(a.id);save();showToast(`🏆 実績解除！\n${a.emoji} ${a.name}`);SFX.play('ach')}});
+  }catch(e){}
+}
+function openAch(){
+  G.ach=G.ach||[];
+  document.getElementById('ach-count').textContent=`${G.ach.length} / ${ACH.length} 解除`;
+  const list=document.getElementById('ach-list');list.innerHTML='';
+  ACH.forEach(a=>{
+    const un=G.ach.includes(a.id);
+    const div=document.createElement('div');div.className='flex items-center gap-3 p-3 rounded-xl';
+    div.style.cssText=un?'background:rgba(255,196,42,.14);border:1px solid #f8c42a':'background:rgba(0,0,0,.05);border:1px solid #e5e7eb;opacity:.75';
+    div.innerHTML=`<span style="font-size:24px">${un?a.emoji:'🔒'}</span><div class="flex-1 text-left"><div style="font-size:13px;font-weight:800;color:#111">${a.name}</div><div style="font-size:11px;color:#888">${a.desc}</div></div>${un?'<span style="color:#d97706;font-weight:900">✓</span>':''}`;
+    list.appendChild(div);
+  });
+  document.getElementById('ov-ach').classList.remove('hidden');document.getElementById('ov-ach').classList.add('flex');
+}
+function closeAch(){document.getElementById('ov-ach').classList.add('hidden');document.getElementById('ov-ach').classList.remove('flex')}
+/* ---- タイトル星空 ---- */
+function genTitleStars(){
+  const c=document.getElementById('title-stars');if(!c||c.childElementCount)return;
+  for(let i=0;i<46;i++){
+    const s=document.createElement('div');const sz=1+Math.random()*2.6;
+    s.style.cssText=`position:absolute;left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;border-radius:50%;background:#bfe0ff;opacity:${.25+Math.random()*.75};animation:twinkle ${1.6+Math.random()*2.4}s ease-in-out ${Math.random()*2}s infinite`;
+    c.appendChild(s);
+  }
+}
+
 // INIT
 window.onload=function(){
   lucide.createIcons();
   if(hasSave())document.getElementById('btn-cont').classList.remove('hidden');
+  renderTitleSlots();genTitleStars();
+  document.querySelectorAll('.mute-btn').forEach(b=>b.textContent=SFX.muted?'🔇':'🔊');
+  const mc=document.getElementById('msg-card');
+  if(mc)mc.addEventListener('click',()=>{if(twTimer){clearInterval(twTimer);twTimer=null;document.getElementById('btl-msg').textContent=twFull}});
 };
 </script>
 </body>

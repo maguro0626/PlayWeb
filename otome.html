@@ -1047,6 +1047,117 @@ html,body {
 .modal-btn-cancel:hover { background:rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); }
 
 /* ══════════════════════════════════════════
+   BRUSH-UP — 演出・UI追加分
+══════════════════════════════════════════ */
+/* タイトル：ホームリンク＆収集進捗 */
+.title-btn { display:block; text-align:center; text-decoration:none; line-height:1.4; }
+button.title-btn { width:220px; }
+.title-home-link { width:220px; }
+.title-progress {
+  margin-top:16px; font-size:11px; letter-spacing:0.18em;
+  color:rgba(201,162,39,0.65); font-family:'Noto Serif JP',serif;
+  min-height:1.4em;
+}
+
+/* VNコントロール：タップしやすく */
+.vn-ctrl-btn { padding:8px 9px; min-height:30px; position:relative; }
+/* 上帯：ボタン増加に合わせて日付が潰れないようにする */
+.vn-band { gap:6px; }
+.vn-band-right { flex:1; justify-content:flex-end; min-width:0; }
+.vn-band-deco { white-space:nowrap; flex-shrink:0; margin-right:4px; }
+.vn-controls { overflow-x:auto; scrollbar-width:none; flex-shrink:1; }
+.vn-controls::-webkit-scrollbar { display:none; }
+@media (max-width:460px) {
+  .vn-band-top .vn-band-title { display:none; }
+  .vn-ctrl-btn { padding:8px 7px; }
+}
+.vn-ctrl-btn.active::after {
+  content:''; position:absolute; left:8px; right:8px; bottom:2px; height:1px;
+  background:var(--gold); opacity:0.8;
+}
+
+/* 背景クロスフェード用レイヤー */
+.vn-bg-b { opacity:0; z-index:1; pointer-events:none; }
+
+/* テキストパネルの質感 */
+.vn-textpanel {
+  box-shadow:0 -6px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(201,162,39,0.18);
+  background:linear-gradient(180deg, rgba(16,14,34,0.88), var(--text-box-bg) 30%);
+}
+.vn-namebox { box-shadow:0 -2px 12px rgba(0,0,0,0.4); }
+
+/* 選択肢：ふわりと順に現れる */
+.vn-choice-btn {
+  border-radius:8px;
+  background:linear-gradient(180deg, rgba(34,26,64,0.94), rgba(16,12,34,0.94));
+  box-shadow:0 4px 18px rgba(0,0,0,0.45);
+  animation:choiceIn 0.45s cubic-bezier(.2,.9,.3,1.2) both;
+}
+.vn-choice-btn:hover {
+  background:linear-gradient(180deg, rgba(201,162,39,0.28), rgba(90,60,20,0.35));
+  border-color:rgba(201,162,39,0.95); transform:translateY(-1px);
+  box-shadow:0 6px 22px rgba(201,162,39,0.25);
+}
+@keyframes choiceIn {
+  from { opacity:0; transform:translateY(14px) scale(0.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+
+/* 章タイトルカード */
+.vn-chapter-card {
+  position:absolute; inset:0; z-index:9;
+  display:none; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at center, rgba(5,4,18,0.88) 0%, rgba(3,3,12,0.96) 75%);
+  cursor:pointer;
+}
+.vn-chapter-card.show { display:flex; animation:chapterCard 2.4s ease forwards; }
+.chapter-card-inner { text-align:center; padding:0 24px; animation:fadeInUp 0.9s ease both; }
+.chapter-card-title {
+  font-family:'Noto Serif JP',serif; font-size:clamp(20px,6vw,30px); font-weight:700;
+  color:#fff; letter-spacing:0.22em; line-height:1.6; margin:0.5em 0;
+  text-shadow:0 0 34px rgba(201,162,39,0.55), 0 2px 10px rgba(0,0,0,0.9);
+}
+.chapter-card-deco { font-size:11px; color:rgba(201,162,39,0.55); letter-spacing:0.3em; }
+@keyframes chapterCard {
+  0% { opacity:0; } 12% { opacity:1; } 82% { opacity:1; } 100% { opacity:0; }
+}
+
+/* 好感度ハート演出 */
+.vn-hearts { position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
+.vn-heart {
+  position:absolute; bottom:32%; font-size:18px; color:#f08bb4;
+  text-shadow:0 0 12px rgba(240,139,180,0.8);
+  animation:heartFloat 1.4s ease-out forwards;
+}
+@keyframes heartFloat {
+  0% { opacity:0; transform:translateY(10px) scale(0.5) rotate(0deg); }
+  18% { opacity:1; transform:translateY(-8px) scale(1.15) rotate(-6deg); }
+  100% { opacity:0; transform:translateY(-130px) scale(0.9) rotate(10deg); }
+}
+
+/* アルバム：エンディング記録 */
+.album-section-title {
+  font-family:'Noto Serif JP',serif; font-size:14px; color:var(--gold);
+  letter-spacing:0.1em; margin:1.4em 0 0.7em; padding-top:1em;
+  border-top:1px solid rgba(201,162,39,0.25);
+}
+.album-section-count { font-size:11px; color:rgba(255,255,255,0.45); letter-spacing:0.05em; }
+.album-endings { display:flex; flex-direction:column; gap:6px; padding-bottom:10px; }
+.ending-record {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 12px; border-radius:8px;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+}
+.ending-record.locked { opacity:0.45; }
+.ending-record-badge {
+  font-size:9px; letter-spacing:0.12em; padding:0.3em 0.7em; border-radius:99px;
+  border:1px solid rgba(201,162,39,0.5); color:var(--gold); white-space:nowrap;
+}
+.ending-record.locked .ending-record-badge { border-color:rgba(255,255,255,0.2); color:rgba(255,255,255,0.4); }
+.ending-record-title { font-family:'Noto Serif JP',serif; font-size:13px; color:rgba(255,255,255,0.88); flex:1; }
+.ending-record-route { font-size:10px; color:rgba(255,255,255,0.4); white-space:nowrap; }
+
+/* ══════════════════════════════════════════
    ANIMATIONS
 ══════════════════════════════════════════ */
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -1077,10 +1188,9 @@ html,body {
       <button class="title-btn" id="btn-continue">つづきから</button>
       <button class="title-btn" id="btn-album">アルバム</button>
       <button class="title-btn" id="btn-settings">設定</button>
-      <a href="index.html" className="py-3 px-6 bg-surface/20 text-white rounded-full font-bold hover:bg-surface/30 transition-all border border-surface/30 block text-center">
-    ホームに戻る
-      </a>
+      <a href="index.html" class="title-btn title-home-link">ホームに戻る</a>
     </nav>
+    <div class="title-progress" id="title-progress"></div>
   </div>
 </div>
 
@@ -1109,6 +1219,8 @@ html,body {
         <button class="vn-ctrl-btn" id="vn-btn-auto">AUTO</button>
         <button class="vn-ctrl-btn" id="vn-btn-skip">SKIP</button>
         <button class="vn-ctrl-btn" id="vn-btn-log">LOG</button>
+        <button class="vn-ctrl-btn" id="vn-btn-qsave">Q.SAVE</button>
+        <button class="vn-ctrl-btn" id="vn-btn-qload">Q.LOAD</button>
         <button class="vn-ctrl-btn" id="vn-btn-save">SAVE</button>
         <button class="vn-ctrl-btn" id="vn-btn-menu">MENU</button>
       </div>
@@ -1119,6 +1231,8 @@ html,body {
   <div class="vn-stage" id="vn-stage">
     <div class="vn-bg-color" id="vn-bg-color"></div>
     <div class="vn-bg" id="vn-bg"></div>
+    <div class="vn-bg vn-bg-b" id="vn-bg-b"></div>
+    <div class="vn-hearts" id="vn-hearts"></div>
 
     <div class="vn-sprites" id="vn-sprites">
       <div class="vn-sprite pos-left" id="sprite-left">
@@ -1145,6 +1259,15 @@ html,body {
     </div>
 
     <div class="vn-choices" id="vn-choices"></div>
+
+    <!-- 章タイトルカード -->
+    <div class="vn-chapter-card" id="vn-chapter-card">
+      <div class="chapter-card-inner">
+        <div class="chapter-card-deco">✦ ─── ✦ ─── ✦</div>
+        <div class="chapter-card-title" id="vn-chapter-card-title"></div>
+        <div class="chapter-card-deco">✦ ─── ✦ ─── ✦</div>
+      </div>
+    </div>
   </div>
 
   <!-- 下帯 -->
@@ -1259,6 +1382,8 @@ html,body {
   </div>
   <div class="album-char-tabs" id="album-tabs"></div>
   <div class="album-grid" id="album-grid"></div>
+  <div class="album-section-title">🌙 エンディング記録 <span class="album-section-count" id="album-ending-count"></span></div>
+  <div class="album-endings" id="album-endings"></div>
   <div class="album-viewer" id="album-viewer">
     <img id="album-viewer-img" src="" alt="">
   </div>
@@ -1402,6 +1527,7 @@ const GAME_VERSION = '1.0';
 const SAVE_KEY = 'serenata_save_slot_';
 const SETTINGS_KEY = 'serenata_settings';
 const ALBUM_KEY = 'serenata_global_album';
+const ENDINGS_KEY = 'serenata_global_endings';
 
 const CHARS = {
   rinto: { id:'rinto', name:'朝比奈 凛斗', nameShort:'凛斗', initial:'凛', color:'#1a2744', accent:'#c9a227', tag:'生徒会長', route:'rinto' },
@@ -2898,6 +3024,8 @@ function loadGame(slot) {
     const raw = localStorage.getItem(SAVE_KEY+slot);
     if (!raw) return false;
     GS = {...INITIAL_STATE(),...JSON.parse(raw)};
+    if (!GS.readLines) GS.readLines={};
+    vnBacklog = [];
     gameStartTime = Date.now();
     return true;
   } catch(e) {
@@ -3013,7 +3141,10 @@ function applyStatChange(effects) {
   }
   return changes;
 }
-function applyAffChange(charId,delta) { GS.affection[charId]=clampAff((GS.affection[charId]||0)+delta); }
+function applyAffChange(charId,delta) {
+  GS.affection[charId]=clampAff((GS.affection[charId]||0)+delta);
+  if(delta>0 && charId!=='rival') spawnHearts();
+}
 function getActionsMax() { return GS.stats.stamina>=100?2:1; }
 
 /* ══════════════════════════════════════════
@@ -3023,29 +3154,111 @@ let vnScript=[], vnIndex=0, vnTyping=false, vnAutoPlay=false, vnSkip=false;
 let vnAutoTimer=null, vnSkipTimer=null, vnBacklog=[];
 let vnBranches={}, vnOnComplete=null, vnPendingCg=null;
 let vnActiveSprites={left:null,center:null,right:null};
+
+/* ── 既読管理＆スキップ制御 ── */
+function vnLineKey(speaker,text){
+  const s=(speaker||'')+'|'+(text||'');
+  let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; }
+  return 'L'+h;
+}
+function vnMarkRead(speaker,text){
+  if(!GS.readLines) GS.readLines={};
+  GS.readLines[vnLineKey(speaker,text)]=1;
+}
+function vnIsRead(speaker,text){
+  return !!(GS.readLines && GS.readLines[vnLineKey(speaker,text)]);
+}
+/* この行をスキップで飛ばしてよいか（設定の既読/未読スキップに従う） */
+function vnLineSkippable(speaker,text){
+  const read=vnIsRead(speaker,text);
+  return read ? !!SETTINGS.skipRead : !!SETTINGS.skipUnread;
+}
+function vnSetSkip(on){
+  vnSkip=on;
+  const btn=document.getElementById('vn-btn-skip');
+  if(btn) btn.classList.toggle('active',on);
+  clearInterval(vnSkipTimer);
+  if(on){
+    vnCompleteTyping();
+    vnSkipTimer=setInterval(()=>{
+      if(!document.getElementById('screen-vn').classList.contains('active')) return;
+      if(document.getElementById('vn-choices').classList.contains('visible')){ vnSetSkip(false); return; }
+      vnAdvance();
+    },80);
+  }
+}
+function vnStopSkip(){ if(vnSkip) vnSetSkip(false); }
+
+/* タイプライターを即時完了させる（全文表示＋完了コールバック） */
+function vnCompleteTyping(){
+  if(!vnTyping) return false;
+  clearInterval(typewriterTimer);
+  vnTyping=false;
+  document.getElementById('vn-text').textContent=_typingFullText;
+  document.getElementById('vn-next-arrow').style.opacity='1';
+  const cb=_typingOnDone; _typingOnDone=null;
+  if(cb) cb();
+  return true;
+}
+
+/* 好感度アップ時のハート演出（VN画面のみ） */
+function spawnHearts(){
+  const wrap=document.getElementById('vn-hearts');
+  if(!wrap) return;
+  const vnScr=document.getElementById('screen-vn');
+  if(!vnScr || !vnScr.classList.contains('active')) return;
+  for(let i=0;i<6;i++){
+    const s=document.createElement('span');
+    s.className='vn-heart'; s.textContent='💗';
+    s.style.left=(36+Math.random()*28)+'%';
+    s.style.fontSize=(13+Math.random()*13)+'px';
+    s.style.animationDelay=(Math.random()*0.25)+'s';
+    wrap.appendChild(s);
+    setTimeout(()=>{ if(s.parentNode) s.parentNode.removeChild(s); },2000);
+  }
+}
 const AUTO_SPEED_MS={slow:4000,normal:2500,fast:1200};
 const TEXT_CHAR_MS=[60,40,28,18,8];
 
+let _bgFrontIsB = false;
 function vnSetBg(bgId, color) {
-  const bgEl=document.getElementById('vn-bg');
+  const bgA=document.getElementById('vn-bg');
+  const bgB=document.getElementById('vn-bg-b');
   const bgColor=document.getElementById('vn-bg-color');
   bgColor.style.background = color||'#0d0d1a';
-  // 背景画像：高さを画面いっぱい、横は中央揃え
+  // 2枚のレイヤーを交互に使ってクロスフェード
   if (bgId) {
+    const front = _bgFrontIsB ? bgA : bgB;
+    const back  = _bgFrontIsB ? bgB : bgA;
     const path = getBgPath(bgId);
-    bgEl.style.backgroundImage = `url(${path})`;
-    bgEl.style.backgroundSize  = 'auto 100%';
-    bgEl.style.backgroundPosition = 'center center';
+    front.style.backgroundImage = `url(${path})`;
+    front.style.backgroundSize  = 'auto 100%';
+    front.style.backgroundPosition = 'center center';
+    front.style.opacity = '1';
+    back.style.opacity = '0';
+    _bgFrontIsB = !_bgFrontIsB;
   } else {
-    bgEl.style.backgroundImage = 'none';
+    bgA.style.opacity = '0';
+    bgB.style.opacity = '0';
+    setTimeout(()=>{ bgA.style.backgroundImage='none'; bgB.style.backgroundImage='none'; },480);
   }
   GS.currentBg = bgId||'';
 }
 
+const _spriteHideTimers={};
+function _spriteFadeIn(position) {
+  const wrap=document.getElementById('sprite-'+position);
+  if (!wrap) return;
+  if (_spriteHideTimers[position]) { clearTimeout(_spriteHideTimers[position]); _spriteHideTimers[position]=null; }
+  wrap.style.opacity='0';
+  void wrap.offsetWidth; // リフローでトランジションを確実に効かせる
+  wrap.style.opacity='1';
+}
 function vnSetSprite(position, charId, expression) {
   const imgEl=document.getElementById('sprite-'+position+'-img');
   if (!imgEl) return;
   if (charId) {
+    const changed = vnActiveSprites[position] !== charId;
     // サブキャラクター（立ち絵なし）：プレースホルダーSVGを使用
     if (SUB_CHARS[charId] && !SUB_CHARS[charId].spriteReady) {
       const placeholder = getSubCharPortrait(charId);
@@ -3055,6 +3268,7 @@ function vnSetSprite(position, charId, expression) {
       imgEl.style.display = '';
       imgEl.style.opacity = '0.6'; // プレースホルダーは少し薄く
       imgEl.onerror = ()=>{ imgEl.style.display='none'; };
+      if (changed) _spriteFadeIn(position);
       vnActiveSprites[position] = charId;
       return;
     }
@@ -3062,6 +3276,7 @@ function vnSetSprite(position, charId, expression) {
     const src = getSpritePath(charId, expression);
     imgEl.src = src;
     imgEl.style.display = '';
+    if (changed) _spriteFadeIn(position);
     vnActiveSprites[position] = charId;
   }
 }
@@ -3072,6 +3287,8 @@ function vnSetProtagonistSprite(show) {
   const imgEl = document.getElementById('sprite-left-img');
   if (!imgEl) return;
   if (show && !vnActiveSprites['left']) {
+    if (_spriteHideTimers['left']) { clearTimeout(_spriteHideTimers['left']); _spriteHideTimers['left']=null; }
+    document.getElementById('sprite-left').style.opacity = '1';
     imgEl.src = getProtagonistSpritePath();
     imgEl.style.display = '';
     // ちょっと暗くして背景に馴染ませる
@@ -3084,9 +3301,19 @@ function vnSetProtagonistSprite(show) {
 
 function vnHideSprite(position) {
   const imgEl=document.getElementById('sprite-'+position+'-img');
-  if (imgEl) { imgEl.src=''; imgEl.style.display='none'; }
+  const wrap=document.getElementById('sprite-'+position);
   vnActiveSprites[position]=null;
   if(position==='left') document.getElementById('sprite-left').style.filter='';
+  if (!imgEl) return;
+  if (_spriteHideTimers[position]) clearTimeout(_spriteHideTimers[position]);
+  // フェードアウトしてから画像を外す（スキップ中は短く）
+  if (wrap) wrap.style.opacity='0';
+  const delay = vnSkip ? 40 : 300;
+  _spriteHideTimers[position]=setTimeout(()=>{
+    imgEl.src=''; imgEl.style.display='none';
+    if (wrap && !vnActiveSprites[position]) wrap.style.opacity='1';
+    _spriteHideTimers[position]=null;
+  }, delay);
 }
 function vnHideAllSprites() { ['left','center','right'].forEach(p=>vnHideSprite(p)); }
 function vnHighlightSprite(activeChar) {
@@ -3136,18 +3363,21 @@ function vnShowText(speaker, text, charId) {
   vnHighlightSprite(charId||null);
   const processed=text.replace(/\{playerName\}/g,GS.playerName);
   typewriterText(processed,()=>{
-    vnBacklog.push({speaker,text:processed});
-    if(vnBacklog.length>50)vnBacklog.shift();
+    vnBacklog.push({speaker,text:processed,charId:charId||null});
+    if(vnBacklog.length>200)vnBacklog.shift();
+    vnMarkRead(speaker,processed);
     if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
   });
 }
 
 function vnShowChoices(options) {
+  vnStopSkip(); // 選択肢では必ずスキップを止める
   const container=document.getElementById('vn-choices');
   container.innerHTML=''; container.classList.add('visible');
   options.forEach((opt,i)=>{
     const btn=document.createElement('button');
     btn.className='vn-choice-btn'; btn.textContent=opt.text;
+    btn.style.animationDelay=(i*0.09)+'s';
     btn.onclick=()=>vnSelectChoice(opt,i);
     container.appendChild(btn);
   });
@@ -3198,9 +3428,17 @@ function vnPlayLine(line) {
     vnSetProtagonistSprite(false);
     // 地の文は括弧内独白でも speaker を出さない
     const _narText=line.text.replace(/\{playerName\}/g,GS.playerName);
+    // スキップ不可の行（設定で未読/既読スキップがOFF）ではスキップを止める
+    if(vnSkip && !vnLineSkippable('',_narText)) vnStopSkip();
     const _el=document.getElementById('vn-text');
     const _arrow=document.getElementById('vn-next-arrow');
-    _typingFullText=_narText; _typingOnDone=null;
+    const _finishNarrative=()=>{
+      vnBacklog.push({speaker:'',text:_narText,charId:null});
+      if(vnBacklog.length>200)vnBacklog.shift();
+      vnMarkRead('',_narText);
+      if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
+    };
+    _typingFullText=_narText; _typingOnDone=_finishNarrative;
     document.getElementById('vn-namebox').style.display='none';
     document.getElementById('vn-speaker').textContent='';
     vnHighlightSprite(null);
@@ -3209,9 +3447,7 @@ function vnPlayLine(line) {
     const _delay=TEXT_CHAR_MS[Math.max(0,Math.min(4,SETTINGS.textSpeed-1))];
     clearInterval(typewriterTimer);
     if(vnSkip){_el.textContent=_narText;vnTyping=false;_arrow.style.opacity='1';
-      vnBacklog.push({speaker:'',text:_narText});
-      if(vnBacklog.length>50)vnBacklog.shift();
-      if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
+      _typingOnDone=null; _finishNarrative();
       return;
     }
     typewriterTimer=setInterval(()=>{
@@ -3219,9 +3455,7 @@ function vnPlayLine(line) {
         if(SETTINGS.textSe&&_ni%4===0)playSe('text_advance');
       }else{
         clearInterval(typewriterTimer);vnTyping=false;_arrow.style.opacity='1';
-        vnBacklog.push({speaker:'',text:_narText});
-        if(vnBacklog.length>50)vnBacklog.shift();
-        if(vnAutoPlay){vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]||2500);}
+        _typingOnDone=null; _finishNarrative();
       }
     },_delay);
     return;
@@ -3231,6 +3465,8 @@ function vnPlayLine(line) {
     let speaker=line.speaker;
     const isProtagonist = (speaker==='日和'||speaker===GS.playerName||speaker==='ひより');
     if(isProtagonist) speaker=GS.playerName;
+    // スキップ不可の行（設定で未読/既読スキップがOFF）ではスキップを止める
+    if(vnSkip && !vnLineSkippable(speaker,line.text.replace(/\{playerName\}/g,GS.playerName))) vnStopSkip();
     // 主人公立ち絵は line.showProtagonist===true のときのみ表示
     if(line.showProtagonist===true) vnSetProtagonistSprite(true);
     else vnSetProtagonistSprite(false);
@@ -3246,14 +3482,8 @@ function vnPlayLine(line) {
 
 function vnAdvance() {
   clearTimeout(vnAutoTimer);
-  if(vnTyping){
-    clearInterval(typewriterTimer);
-    vnTyping=false;
-    // タップ時に全文を即時表示する
-    document.getElementById('vn-text').textContent=_typingFullText;
-    document.getElementById('vn-next-arrow').style.opacity='1';
-    const _cb=_typingOnDone; _typingOnDone=null;
-    if(_cb)_cb();
+  if(vnCompleteTyping()){
+    // タップ時は全文を即時表示して止まる
     if(vnAutoPlay) vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]);
     return;
   }
@@ -3274,10 +3504,22 @@ function vnEnd(nextScreen) {
   if(vnOnComplete){const cb=vnOnComplete;vnOnComplete=null;cb();}
 }
 
+let _chapterCardTimer=null;
+function showChapterCard(title) {
+  const card=document.getElementById('vn-chapter-card');
+  if(!card||!title) return;
+  document.getElementById('vn-chapter-card-title').textContent=title;
+  card.classList.remove('show');
+  void card.offsetWidth;
+  card.classList.add('show');
+  playSe('event_chime');
+  clearTimeout(_chapterCardTimer);
+  _chapterCardTimer=setTimeout(()=>card.classList.remove('show'),2450);
+}
 function startVN(script, branches, bgId, bgColor, onComplete, chapterTitle) {
   vnScript=script||[]; vnBranches=branches||{}; vnIndex=0;
   vnTyping=false; vnAutoPlay=false; vnSkip=false;
-  vnOnComplete=onComplete||null; vnBacklog=[];
+  vnOnComplete=onComplete||null;
   vnActiveSprites={left:null,center:null,right:null};
   vnHideChoices(); vnHideCG(); vnHideAllSprites();
   vnSetBg(bgId,bgColor);
@@ -3287,7 +3529,8 @@ function startVN(script, branches, bgId, bgColor, onComplete, chapterTitle) {
   document.getElementById('vn-band-date').textContent = dateLabel(GS.gameDate);
   document.getElementById('vn-chapter-title').textContent = chapterTitle||'';
   showScreen('vn');
-  setTimeout(()=>vnAdvance(),200);
+  if(chapterTitle) showChapterCard(chapterTitle);
+  setTimeout(()=>vnAdvance(),chapterTitle?1500:200);
 }
 
 // VNステージクリック
@@ -3306,11 +3549,45 @@ document.getElementById('vn-btn-auto').onclick=e=>{
   if(vnAutoPlay&&!vnTyping) vnAutoTimer=setTimeout(()=>vnAdvance(),AUTO_SPEED_MS[SETTINGS.autoSpeed]);
 };
 document.getElementById('vn-btn-skip').onclick=e=>{
-  e.stopPropagation(); vnSkip=!vnSkip;
-  document.getElementById('vn-btn-skip').classList.toggle('active',vnSkip);
-  if(vnSkip){clearInterval(typewriterTimer);vnTyping=false;vnSkipTimer=setInterval(()=>{if(document.getElementById('screen-vn').classList.contains('active'))vnAdvance();},80);}
-  else clearInterval(vnSkipTimer);
+  e.stopPropagation(); vnSetSkip(!vnSkip);
 };
+document.getElementById('vn-btn-qsave').onclick=e=>{
+  e.stopPropagation();
+  if(saveGame('quick')){ playSe('save_done'); showToast('💾 クイックセーブしました'); }
+};
+document.getElementById('vn-btn-qload').onclick=e=>{
+  e.stopPropagation();
+  if(!getSaveSlot('quick')){ showToast('クイックセーブがありません','warning'); return; }
+  showModal('クイックセーブをロードしますか？\n（現在の進行は失われます）',()=>{
+    if(loadGame('quick')){
+      vnAutoPlay=false; vnSetSkip(false); clearTimeout(vnAutoTimer); clearInterval(typewriterTimer); vnTyping=false;
+      vnHideChoices(); vnHideCG();
+      document.getElementById('vn-btn-auto').classList.remove('active');
+      showScreen('command'); renderCommandScreen();
+      showToast('📂 クイックロードしました');
+    }
+  });
+};
+document.getElementById('vn-chapter-card').addEventListener('click',e=>{
+  e.stopPropagation();
+  document.getElementById('vn-chapter-card').classList.remove('show');
+  clearTimeout(_chapterCardTimer);
+});
+/* キーボード操作：Space/Enterで進む、Escでログを閉じる */
+document.addEventListener('keydown',e=>{
+  const vnScr=document.getElementById('screen-vn');
+  if(!vnScr || !vnScr.classList.contains('active')) return;
+  if(e.target && (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')) return;
+  if(e.key==='Escape'){ document.getElementById('vn-backlog').classList.remove('open'); return; }
+  if(document.getElementById('vn-backlog').classList.contains('open')) return;
+  if(document.getElementById('modal-overlay').classList.contains('open')) return;
+  if(document.getElementById('vn-chapter-card').classList.contains('show')) return;
+  if(e.key===' '||e.key==='Enter'){
+    if(document.getElementById('vn-choices').classList.contains('visible')) return;
+    e.preventDefault();
+    vnAdvance();
+  }
+});
 document.getElementById('vn-btn-log').onclick=e=>{
   e.stopPropagation(); renderBacklog();
   document.getElementById('vn-backlog').classList.add('open');
@@ -3324,16 +3601,28 @@ document.getElementById('vn-btn-save').onclick=e=>{
 document.getElementById('vn-btn-menu').onclick=e=>{
   e.stopPropagation();
   showModal('コマンド画面に戻りますか？（進行は失われます）',()=>{
-    vnAutoPlay=false;vnSkip=false;clearInterval(vnSkipTimer);
+    vnAutoPlay=false;vnSetSkip(false);clearTimeout(vnAutoTimer);clearInterval(typewriterTimer);vnTyping=false;
+    document.getElementById('vn-btn-auto').classList.remove('active');
     showScreen('command');renderCommandScreen();
   });
 };
 function renderBacklog() {
   const container=document.getElementById('backlog-entries');
   container.innerHTML='';
+  if(!vnBacklog.length){
+    const div=document.createElement('div'); div.className='backlog-entry';
+    div.innerHTML='<div class="backlog-text" style="color:rgba(255,255,255,0.35)">まだログがありません</div>';
+    container.appendChild(div);
+    return;
+  }
   vnBacklog.slice().reverse().forEach(entry=>{
     const div=document.createElement('div'); div.className='backlog-entry';
-    if(entry.speaker){const sp=document.createElement('div');sp.className='backlog-speaker';sp.textContent=entry.speaker===GS.playerName?GS.playerName:entry.speaker;div.appendChild(sp);}
+    if(entry.speaker){
+      const sp=document.createElement('div');sp.className='backlog-speaker';
+      sp.textContent=entry.speaker===GS.playerName?GS.playerName:entry.speaker;
+      if(entry.charId && CHARS[entry.charId]) sp.style.color=CHARS[entry.charId].accent;
+      div.appendChild(sp);
+    }
     const tx=document.createElement('div');tx.className='backlog-text';tx.textContent=entry.text;div.appendChild(tx);
     container.appendChild(div);
   });
@@ -3926,10 +4215,43 @@ document.getElementById('status-close-btn').onclick=()=>{showScreen('command');r
    ALBUM
 ══════════════════════════════════════════ */
 function saveGlobalAlbum() {
-  try { localStorage.setItem(ALBUM_KEY,JSON.stringify(GS.unlockedCG)); } catch(e){}
+  try {
+    let cur=[];
+    try { const raw=localStorage.getItem(ALBUM_KEY); if(raw) cur=JSON.parse(raw)||[]; } catch(e){}
+    GS.unlockedCG.forEach(id=>{ if(!cur.includes(id)) cur.push(id); });
+    localStorage.setItem(ALBUM_KEY,JSON.stringify(cur));
+  } catch(e){}
 }
 function loadGlobalAlbum() {
   try { const raw=localStorage.getItem(ALBUM_KEY); if(raw){const arr=JSON.parse(raw);arr.forEach(id=>{if(!GS.unlockedCG.includes(id))GS.unlockedCG.push(id);});}} catch(e){}
+}
+
+/* エンディング到達記録（セーブをまたいで保持） */
+function saveGlobalEndings() {
+  try {
+    const cur = loadGlobalEndingsRaw();
+    GS.unlockedEndings.forEach(id=>{ if(!cur.includes(id)) cur.push(id); });
+    localStorage.setItem(ENDINGS_KEY, JSON.stringify(cur));
+  } catch(e){}
+}
+function loadGlobalEndingsRaw() {
+  try { const raw=localStorage.getItem(ENDINGS_KEY); if(raw){ const arr=JSON.parse(raw); if(Array.isArray(arr)) return arr; } } catch(e){}
+  return [];
+}
+function loadGlobalEndings() {
+  loadGlobalEndingsRaw().forEach(id=>{ if(!GS.unlockedEndings.includes(id)) GS.unlockedEndings.push(id); });
+}
+function allEndingKeys() {
+  const keys=[];
+  Object.entries(ENDINGS).forEach(([route,types])=>{ Object.keys(types).forEach(t=>keys.push(route+'_'+t)); });
+  return keys;
+}
+function updateTitleProgress() {
+  const el=document.getElementById('title-progress');
+  if(!el) return;
+  loadGlobalAlbum(); loadGlobalEndings();
+  const cgTotal=CG_DEFS.length, endTotal=allEndingKeys().length;
+  el.textContent=`CG ${GS.unlockedCG.length} / ${cgTotal}　・　エンディング ${GS.unlockedEndings.length} / ${endTotal}`;
 }
 
 let albumCurrentChar='all';
@@ -3946,6 +4268,7 @@ function openAlbumScreen() {
     tabsEl.appendChild(btn);
   });
   renderAlbumGrid();
+  renderAlbumEndings();
   showScreen('album');
 }
 function renderAlbumGrid() {
@@ -3971,7 +4294,35 @@ function openCgViewer(cgId) {
   viewer.classList.add('open');
 }
 document.getElementById('album-viewer').onclick=()=>document.getElementById('album-viewer').classList.remove('open');
-document.getElementById('album-close-btn').onclick=()=>{playSe('cancel');showScreen('command');renderCommandScreen();};
+document.getElementById('album-close-btn').onclick=()=>{playSe('cancel');showScreen(returnScreen||'title');if(returnScreen==='command')renderCommandScreen();};
+
+/* エンディング記録一覧 */
+function renderAlbumEndings() {
+  const wrap=document.getElementById('album-endings');
+  if(!wrap) return;
+  loadGlobalEndings();
+  wrap.innerHTML='';
+  const typeOrder=['happy','good','normal','bad'];
+  const routes=[...CHAR_ORDER,'none'];
+  let reached=0; const total=allEndingKeys().length;
+  routes.forEach(route=>{
+    const types=ENDINGS[route]; if(!types) return;
+    typeOrder.forEach(t=>{
+      const def=types[t]; if(!def) return;
+      const unlocked=GS.unlockedEndings.includes(route+'_'+t);
+      if(unlocked) reached++;
+      const row=document.createElement('div');
+      row.className='ending-record'+(unlocked?'':' locked');
+      const badge=document.createElement('span'); badge.className='ending-record-badge'; badge.textContent=unlocked?(def.badge||'END'):'？？？';
+      const title=document.createElement('span'); title.className='ending-record-title'; title.textContent=unlocked?def.title:'？？？';
+      const rt=document.createElement('span'); rt.className='ending-record-route'; rt.textContent=route==='none'?'共通':(CHARS[route]?.name||route);
+      row.appendChild(badge); row.appendChild(title); row.appendChild(rt);
+      wrap.appendChild(row);
+    });
+  });
+  const cnt=document.getElementById('album-ending-count');
+  if(cnt) cnt.textContent=`（${reached} / ${total}）`;
+}
 
 /* ══════════════════════════════════════════
    PRESENT SYSTEM
@@ -4032,23 +4383,29 @@ function renderSaveSlots() {
   const autoData=getSaveSlot('auto');
   const autoSlot=createSaveSlotEl('auto',autoData,true);
   slotsEl.appendChild(autoSlot);
+  // クイックセーブ
+  slotsEl.appendChild(createSaveSlotEl('quick',getSaveSlot('quick'),false,true));
   // 手動セーブ 1〜5
   for(let i=1;i<=5;i++){
     const data=getSaveSlot(i);
     slotsEl.appendChild(createSaveSlotEl(i,data,false));
   }
 }
-function createSaveSlotEl(slot, data, isAuto) {
+function createSaveSlotEl(slot, data, isAuto, allowSave) {
   const div=document.createElement('div'); div.className='save-slot'+(isAuto?' auto-slot':'');
+  const slotLabel = isAuto ? 'オートセーブ' : (slot==='quick' ? 'クイックセーブ' : 'スロット '+slot);
+  const canSave = saveMode==='save' && (!isAuto || allowSave);
   if(data){
-    div.innerHTML=`<div class="save-slot-thumb"><div style="font-size:20px;text-align:center">${data.flags?.met_all_characters?'📖':'🌸'}</div></div><div class="save-slot-info"><div class="save-slot-num">${isAuto?'オートセーブ':'スロット '+slot}</div><div class="save-slot-date-in-game">${data.gameDate?dateLabel(data.gameDate):'---'}</div><div class="save-slot-saved-at">${data.savedAt?new Date(data.savedAt).toLocaleString('ja-JP'):'---'}</div></div>`;
+    const pt=data.playTime||0;
+    const ptLabel = pt>=3600 ? `${Math.floor(pt/3600)}時間${Math.floor((pt%3600)/60)}分` : `${Math.floor(pt/60)}分`;
+    div.innerHTML=`<div class="save-slot-thumb"><div style="font-size:20px;text-align:center">${data.flags?.met_all_characters?'📖':'🌸'}</div></div><div class="save-slot-info"><div class="save-slot-num">${slotLabel}</div><div class="save-slot-date-in-game">${data.gameDate?dateLabel(data.gameDate):'---'}</div><div class="save-slot-saved-at">${data.savedAt?new Date(data.savedAt).toLocaleString('ja-JP'):'---'}</div><div class="save-slot-playtime">プレイ時間 ${ptLabel}</div></div>`;
     div.onclick=()=>{
-      if(saveMode==='save'&&!isAuto){showModal('上書きしますか？',()=>{if(saveGame(slot)){playSe('save_done');showToast('💾 セーブしました');renderSaveSlots();}});}
+      if(canSave){showModal('上書きしますか？',()=>{if(saveGame(slot)){playSe('save_done');showToast('💾 セーブしました');renderSaveSlots();}});}
       else if(saveMode==='load'){showModal('このデータをロードしますか？',()=>{if(loadGame(slot)){loadSettings();showScreen('command');renderCommandScreen();showToast('📂 ロードしました');}});}
     };
   } else {
-    div.innerHTML=`<div class="save-slot-thumb"></div><div class="save-slot-info"><div class="save-slot-num">${isAuto?'オートセーブ':'スロット '+slot}</div><div class="save-slot-empty">--- 空き ---</div></div>`;
-    if(saveMode==='save'&&!isAuto){div.onclick=()=>{if(saveGame(slot)){playSe('save_done');showToast('💾 セーブしました');renderSaveSlots();}};}
+    div.innerHTML=`<div class="save-slot-thumb"></div><div class="save-slot-info"><div class="save-slot-num">${slotLabel}</div><div class="save-slot-empty">--- 空き ---</div></div>`;
+    if(canSave){div.onclick=()=>{if(saveGame(slot)){playSe('save_done');showToast('💾 セーブしました');renderSaveSlots();}};}
   }
   return div;
 }
@@ -4089,7 +4446,11 @@ function initSettingsScreen() {
     showModal('全セーブデータを削除しますか？\nこの操作は取り消せません。',()=>{
       for(let i=1;i<=5;i++)localStorage.removeItem(SAVE_KEY+i);
       localStorage.removeItem(SAVE_KEY+'auto');
+      localStorage.removeItem(SAVE_KEY+'quick');
       localStorage.removeItem(ALBUM_KEY);
+      localStorage.removeItem(ENDINGS_KEY);
+      GS.unlockedCG=[]; GS.unlockedEndings=[];
+      updateTitleProgress();
       showToast('🗑 セーブデータを削除しました','warning');
     });
   };
@@ -4124,6 +4485,7 @@ function triggerEnding() {
   if(!GS.unlockedEndings.includes(route+'_'+endType)){
     GS.unlockedEndings.push(route+'_'+endType);
   }
+  saveGlobalEndings();
   autoSave();
   showEndingScreen(ending, topChar, route);
 }
@@ -4171,7 +4533,7 @@ function showStaffRoll() {
 }
 
 document.getElementById('ending-to-title-btn').onclick=()=>{
-  stopBgm(); showScreen('title'); playBgm('title_theme');
+  stopBgm(); showScreen('title'); playBgm('title_theme'); updateTitleProgress();
 };
 
 /* ══════════════════════════════════════════
@@ -4180,6 +4542,8 @@ document.getElementById('ending-to-title-btn').onclick=()=>{
 document.getElementById('btn-new-game').onclick=()=>{
   playSe('confirm');
   GS=INITIAL_STATE(); gameStartTime=Date.now();
+  vnBacklog=[];
+  loadGlobalAlbum(); loadGlobalEndings();
   showScreen('name');
 };
 document.getElementById('btn-continue').onclick=()=>{
@@ -4214,6 +4578,8 @@ function initGame() {
   loadSettings();
   initSettingsScreen();
   loadGlobalAlbum();
+  loadGlobalEndings();
+  updateTitleProgress();
   initStars('stars-canvas');
   initStars('stars-canvas-name');
   initBandStars('vn-band-stars-top');

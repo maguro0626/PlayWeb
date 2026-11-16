@@ -3,14 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Monster Raising</title>
-    <link rel="manifest" href="manifest.json">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<title>モンスター育成 | PlayWeb</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--app-height:100%}
-html,body{height:100%;margin:0;padding:0;overflow:hidden;background-color:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif}
-.glass-header{background-color:rgba(255,255,255,0.7);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px)}
+:root{
+  --ink:#3a3340; --sub:#9a8fa8; --card:rgba(255,255,255,.82);
+  --pink:#ff6b9d; --pink-d:#e14e83; --orange:#ff9f43; --green:#2ed573;
+  --blue:#54a0ff; --purple:#a55eea; --red:#ff6b81; --gold:#f7b731;
+  --shadow:0 6px 24px rgba(90,60,120,.10);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0}
+body{
+  font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN",-apple-system,"Segoe UI",sans-serif;
+  color:var(--ink); overflow-x:hidden;
+  background:linear-gradient(160deg,#ffeef6 0%,#f3eaff 45%,#e3f4ff 100%);
+  background-attachment:fixed;
+  -webkit-tap-highlight-color:transparent;
+}
+/* ── keyframes ── */
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes floatup{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(2deg)}}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
@@ -20,191 +33,403 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background-color:#f5f5f
 .anim-bounce{animation:bounce 1.1s ease-in-out infinite}
 .anim-float{animation:floatup 2s ease-in-out infinite}
 .anim-pulse{animation:pulse 1.5s ease-in-out infinite}
-.anim-wobble{animation:wobble 0.9s ease-in-out infinite}
-.anim-dance{animation:dance 0.75s ease-in-out infinite}
-@keyframes score-pop{0%{transform:scale(1)}50%{transform:scale(1.6);color:#3b82f6}100%{transform:scale(1)}}
-.score-pop{animation:score-pop 0.45s cubic-bezier(0.175,0.885,0.32,1.6) both}
-@keyframes toast-anim{0%{transform:translate(-50%,-50%) scale(0.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.05);opacity:1}80%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(0.8);opacity:0}}
-.toast-pop{animation:toast-anim 1.8s cubic-bezier(0.175,0.885,0.32,1.2) forwards}
-@keyframes v-flash{0%{background:rgba(255,255,255,0.6)}100%{background:rgba(255,255,255,0)}}
-.victory-flash{position:fixed;inset:0;pointer-events:none;z-index:90;animation:v-flash 0.7s ease-out forwards}
-@keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg) scale(1);opacity:1}85%{opacity:1}100%{transform:translateY(115vh) rotate(var(--rot,720deg)) scale(0.7);opacity:0}}
-.confetti{position:fixed;top:-30px;z-index:100;pointer-events:none;animation:confetti-fall linear forwards}
-@keyframes evo-in{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
-@keyframes glow-pulse{0%,100%{filter:drop-shadow(0 0 20px gold) drop-shadow(0 0 40px white)}50%{filter:drop-shadow(0 0 60px gold) drop-shadow(0 0 100px rgba(255,220,80,0.8))}}
-@keyframes ring-pulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.6}50%{transform:translate(-50%,-50%) scale(1.2);opacity:1}}
-@keyframes sick-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}60%{transform:translateX(5px)}}
-@keyframes particle-up{0%{transform:translate(var(--px),0) scale(1);opacity:1}100%{transform:translate(var(--px),var(--py)) scale(0);opacity:0}}
-.particle{position:absolute;border-radius:50%;pointer-events:none;animation:particle-up linear forwards}
-.action-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
-.action-btn:active{transform:scale(0.88);transition:transform 0.07s}
-.sl{font-size:8px;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;color:#aaa}
-#evo-overlay{z-index:200}
-#dead-overlay{z-index:190}
-#reset-dialog{z-index:180}
-#book-overlay{z-index:170}
-#mg-overlay{z-index:160}
-.brow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;margin-bottom:6px;background:#f8f8f8}
-.brow.found{background:white;border:1px solid rgba(0,0,0,0.07);box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-.brow.current{border:2px solid #3b82f6;background:white;box-shadow:0 4px 16px rgba(59,130,246,0.2)}
+.anim-wobble{animation:wobble .9s ease-in-out infinite}
+.anim-dance{animation:dance .75s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.025,.975)}}
+.breathe{animation:breathe 2.8s ease-in-out infinite;transform-origin:50% 88%}
+.blink{animation:blinkA .16s ease-in-out}
+@keyframes blinkA{0%,100%{transform:scale(1,1)}50%{transform:scale(1.01,.9)}}
+@keyframes reactHop{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-20px) scale(1.05)}70%{transform:translateY(2px) scale(.98)}100%{transform:translateY(0) scale(1)}}
+.react-hop{animation:reactHop .55s cubic-bezier(.34,1.56,.64,1)}
+@keyframes reactShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px) rotate(-2deg)}60%{transform:translateX(7px) rotate(2deg)}}
+.react-shake{animation:reactShake .4s ease-in-out}
+@keyframes sickShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}60%{transform:translateX(5px)}}
+@keyframes scorePop{0%{transform:scale(1)}50%{transform:scale(1.45);color:var(--blue)}100%{transform:scale(1)}}
+.score-pop{animation:scorePop .45s cubic-bezier(.175,.885,.32,1.6) both}
+@keyframes toastAnim{0%{transform:translate(-50%,-50%) scale(.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.05);opacity:1}80%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.85);opacity:0}}
+.toast-pop{animation:toastAnim 1.8s cubic-bezier(.175,.885,.32,1.2) forwards}
+@keyframes vFlash{0%{background:rgba(255,255,255,.65)}100%{background:rgba(255,255,255,0)}}
+.victory-flash{position:fixed;inset:0;pointer-events:none;z-index:90;animation:vFlash .7s ease-out forwards}
+@keyframes confettiFall{0%{transform:translateY(0) rotate(0) scale(1);opacity:1}85%{opacity:1}100%{transform:translateY(115vh) rotate(var(--rot,720deg)) scale(.7);opacity:0}}
+.confetti{position:fixed;top:-30px;z-index:100;pointer-events:none;animation:confettiFall linear forwards}
+@keyframes evoIn{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes glowPulse{0%,100%{filter:drop-shadow(0 0 20px gold) drop-shadow(0 0 40px white)}50%{filter:drop-shadow(0 0 60px gold) drop-shadow(0 0 100px rgba(255,220,80,.8))}}
+@keyframes particleUp{0%{transform:translate(var(--px),0) scale(1);opacity:1}100%{transform:translate(var(--px),var(--py)) scale(.3);opacity:0}}
+.particle{position:fixed;pointer-events:none;z-index:60;animation:particleUp linear forwards}
+@keyframes floatDelta{0%{transform:translateY(0) scale(.7);opacity:0}18%{transform:translateY(-6px) scale(1.15);opacity:1}100%{transform:translateY(-34px) scale(1);opacity:0}}
+.float-delta{position:absolute;font-weight:800;font-size:13px;pointer-events:none;z-index:30;animation:floatDelta 1.15s ease-out forwards;text-shadow:0 1px 0 #fff,0 2px 6px rgba(255,255,255,.9);white-space:nowrap}
+@keyframes zzzFloat{0%{transform:translate(0,0) scale(.7) rotate(-8deg);opacity:0}25%{opacity:1}100%{transform:translate(26px,-64px) scale(1.25) rotate(10deg);opacity:0}}
+.zzz{position:absolute;font-size:22px;pointer-events:none;animation:zzzFloat 2.6s ease-out infinite}
+@keyframes sparkleDrift{0%{transform:translateY(6px) scale(.6);opacity:0}30%{opacity:.9}100%{transform:translateY(-26px) scale(1);opacity:0}}
+.ambient-sparkle{position:absolute;pointer-events:none;animation:sparkleDrift 3.4s ease-in-out infinite}
+@keyframes logIn{from{transform:translateY(-4px);opacity:0}to{transform:translateY(0);opacity:1}}
+.log-item{animation:logIn .3s ease-out}
+@keyframes msgPop{0%{transform:scale(.85);opacity:.4}100%{transform:scale(1);opacity:1}}
+.msg-pop{animation:msgPop .22s ease-out}
+@keyframes raysSpin{from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+/* ── layout ── */
+header.topbar{
+  position:sticky;top:0;z-index:50;height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px;background:rgba(255,255,255,.72);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);
+  border-bottom:1px solid rgba(120,80,160,.08);
+}
+.hbtn{display:inline-flex;align-items:center;gap:6px;border:none;cursor:pointer;background:transparent;color:#6b5f7d;
+  font:inherit;font-size:13px;font-weight:800;padding:8px 10px;border-radius:12px;text-decoration:none}
+.hbtn:hover{background:rgba(120,80,160,.07);color:var(--ink)}
+.hbtn .ic{font-size:17px;line-height:1}
+.game-title{font-size:11px;font-weight:800;letter-spacing:.28em;color:var(--sub);text-transform:uppercase}
+main.col{max-width:480px;margin:0 auto;padding:10px 12px 18px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--card);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.9);border-radius:22px;box-shadow:var(--shadow)}
+.sl{font-size:9px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--sub)}
+/* status strip */
+.status-strip{display:flex;align-items:center;justify-content:space-between;padding:10px 22px}
+.status-strip .cell{text-align:center;min-width:64px}
+.status-strip .big{font-size:16px;font-weight:800;color:var(--ink)}
+#mon-name-disp{font-size:14px;font-weight:800;color:var(--ink)}
+/* gauges */
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gauge{position:relative;padding:11px 14px 12px;overflow:visible}
+.gauge .g-head{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.gauge .g-ic{font-size:17px}
+.gauge .hearts{margin-left:auto;font-size:13px;letter-spacing:1px}
+.gbar{height:9px;border-radius:99px;background:#efe9f5;overflow:hidden;box-shadow:inset 0 1px 3px rgba(90,60,120,.12)}
+.gbar>i{display:block;height:100%;border-radius:99px;transition:width .7s cubic-bezier(.34,1.3,.64,1)}
+#hunger-bar>i{background:linear-gradient(90deg,#ff9f43,#ff6b81)}
+#happy-bar>i{background:linear-gradient(90deg,#f7b731,#ff6b9d)}
+.gbar.low>i{animation:pulse 1s ease-in-out infinite}
+/* monster stage */
+#monster-stage{position:relative;min-height:300px;border-radius:28px;overflow:hidden;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.9)}
+#stage-bg{position:absolute;inset:0;transition:background 1.2s ease}
+#tod-tint{position:absolute;inset:0;transition:background 1.5s ease;pointer-events:none;z-index:2}
+#room-decor{position:absolute;inset:0;pointer-events:none;z-index:3}
+#room-decor .window{position:absolute;top:16px;right:16px;width:74px;height:88px;border-radius:14px;border:4px solid rgba(255,255,255,.85);
+  box-shadow:0 4px 14px rgba(90,60,120,.15);overflow:hidden;transition:background 1.5s ease}
+#room-decor .celestial{position:absolute;font-size:24px;transition:all 1.5s ease}
+#room-decor .floor{position:absolute;left:0;right:0;bottom:0;height:52px;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(160,110,60,.14));border-top:2px solid rgba(255,255,255,.5)}
+#room-decor .rug{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:190px;height:30px;border-radius:50%;background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 3px rgba(255,255,255,.35)}
+#mon-shadow{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);width:120px;height:20px;border-radius:50%;background:rgba(70,40,90,.16);filter:blur(3px);z-index:4}
+#mon-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:10}
+#mon-container{display:flex;align-items:center;justify-content:center;transform-origin:center center}
+#monster-svg{filter:drop-shadow(0 8px 14px rgba(90,50,120,.18))}
+.ind{position:absolute;z-index:20}
+#poop-ind{bottom:16px;right:18px;font-size:28px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.2))}
+#sick-ind{top:12px;right:12px;background:linear-gradient(135deg,#ffb020,#ff7847);color:#fff;font-size:9px;font-weight:800;padding:4px 10px;border-radius:99px;letter-spacing:.14em;box-shadow:0 3px 10px rgba(255,140,40,.45)}
+#call-ind{top:14px;left:14px}
+#call-ind .dot{position:relative;display:inline-flex;width:13px;height:13px}
+#call-ind .dot::before{content:'';position:absolute;inset:0;border-radius:50%;background:#ff5b6a;animation:pingRing 1.1s cubic-bezier(0,0,.2,1) infinite}
+#call-ind .dot::after{content:'';position:relative;border-radius:50%;width:13px;height:13px;background:#ff4757}
+@keyframes pingRing{0%{transform:scale(1);opacity:.75}80%,100%{transform:scale(2.4);opacity:0}}
+#sleep-overlay{position:absolute;inset:0;background:rgba(24,18,58,.88);display:flex;align-items:center;justify-content:center;z-index:25;border-radius:28px}
+#sleep-overlay .moon{font-size:52px;animation:floatup 2.4s ease-in-out infinite}
+#mood-ind{top:12px;left:50%;transform:translateX(-50%);font-size:20px;z-index:21}
+/* message */
+#msg-line{min-height:22px;text-align:center}
+#msg-text{display:inline-block;font-size:12.5px;font-weight:800;letter-spacing:.06em;color:#7a6d90;background:rgba(255,255,255,.65);padding:3px 14px;border-radius:99px}
+/* actions */
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.action-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;border:1px solid rgba(255,255,255,.95);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:13px 4px 11px;border-radius:20px;
+  background:var(--card);box-shadow:var(--shadow);font:inherit;transition:transform .08s,box-shadow .15s}
+.action-btn:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(90,60,120,.16)}
+.action-btn:active{transform:scale(.9)}
+.action-btn .a-ic{font-size:25px;line-height:1.15;filter:drop-shadow(0 2px 3px rgba(0,0,0,.12))}
+.action-btn .a-lb{font-size:12px;font-weight:800;color:var(--ink)}
+.action-btn .a-sub{font-size:8.5px;font-weight:800;letter-spacing:.14em;color:var(--sub);text-transform:uppercase}
+.action-btn.feed{border-top:4px solid var(--orange)} .action-btn.play{border-top:4px solid var(--blue)}
+.action-btn.clean{border-top:4px solid var(--green)} .action-btn.med{border-top:4px solid var(--pink)}
+.action-btn.scold{border-top:4px solid var(--purple)} .action-btn.light{border-top:4px solid var(--gold)}
+/* log */
+#log-panel{padding:12px 16px}
+#log-panel .log-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+#log-list{display:flex;flex-direction:column;gap:5px;max-height:132px;overflow:hidden}
+.log-item{display:flex;gap:8px;align-items:baseline;font-size:12px;font-weight:700;color:#5d5170;background:rgba(255,255,255,.55);border-radius:10px;padding:5px 10px}
+.log-item time{font-size:10px;color:var(--sub);font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.log-empty{font-size:12px;color:var(--sub);font-weight:700;padding:2px 4px}
+/* footer buttons */
+.foot-row{display:flex;gap:9px}
+.foot-btn{flex:1;border:none;cursor:pointer;font:inherit;font-weight:800;font-size:13px;padding:13px;border-radius:18px;transition:transform .08s}
+.foot-btn:active{transform:scale(.96)}
+.foot-btn.dark{background:#37304a;color:#fff;box-shadow:var(--shadow)}
+.foot-btn.soft{background:rgba(255,255,255,.8);color:#6b5f7d;border:1px solid rgba(255,255,255,.95);box-shadow:var(--shadow)}
+/* overlays */
+.overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(30,20,50,.45);backdrop-filter:blur(5px)}
+.overlay.hidden,.hidden{display:none!important}
+.sheet{background:#fff;border-radius:28px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(30,10,60,.35);padding:24px;max-height:86vh;display:flex;flex-direction:column}
+.sheet h2{margin:0 0 4px;text-align:center;font-size:18px;font-weight:800;letter-spacing:.04em}
+.sheet .sub{text-align:center;font-size:12px;color:var(--sub);font-weight:700;margin:0 0 16px}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:800;font-size:14px;padding:13px;border-radius:16px;width:100%;transition:transform .08s,background .15s}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:#37304a;color:#fff}
+.btn.soft{background:#f1edf7;color:#5d5170}
+.btn.danger{background:#ff5b6a;color:#fff}
+.btn.grad{background:linear-gradient(90deg,#ff9f43,#ff6b9d);color:#fff}
+/* minigame */
+#mg-light{width:104px;height:104px;border-radius:50%;margin:2px auto 14px;background:#e8e2f0;box-shadow:inset 0 6px 14px rgba(90,60,120,.18);cursor:pointer;transition:all .08s;user-select:none}
+#mg-light.lit{background:#54a0ff;box-shadow:0 0 0 10px rgba(84,160,255,.25),0 0 44px rgba(84,160,255,.75)}
+#mg-light.hit{background:#2ed573;box-shadow:0 0 0 10px rgba(46,213,115,.22),0 0 40px rgba(46,213,115,.7)}
+#mg-result{text-align:center;font-weight:800;font-size:21px;min-height:30px}
+#mg-score-text{text-align:center;font-size:12px;color:var(--sub);font-weight:800;margin:2px 0 14px}
+/* book */
+#book-content{overflow-y:auto;padding:2px 2px 6px;flex:1}
+.book-progress{height:10px;border-radius:99px;background:#efe9f5;overflow:hidden;margin:8px 0 4px}
+.book-progress>i{display:block;height:100%;background:linear-gradient(90deg,#a55eea,#ff6b9d);border-radius:99px;transition:width .6s ease}
+.brow{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:16px;margin-bottom:6px;background:#faf8fc}
+.brow.found{background:#fff;border:1px solid rgba(120,80,160,.09);box-shadow:0 2px 8px rgba(90,60,120,.06)}
+.brow.current{border:2px solid var(--blue);background:#fff;box-shadow:0 4px 16px rgba(84,160,255,.22)}
+.brow .b-name{font-size:12px;font-weight:800}
+.brow .b-desc{font-size:10px;color:var(--sub);font-weight:700}
+.brow .now-tag{margin-left:auto;font-size:8.5px;font-weight:800;color:var(--blue);letter-spacing:.1em;background:rgba(84,160,255,.12);padding:3px 8px;border-radius:99px}
+/* slots */
+.slot-row{display:flex;align-items:center;gap:10px;background:#faf8fc;border:1px solid rgba(120,80,160,.08);border-radius:16px;padding:11px 12px;margin-bottom:9px}
+.slot-row .s-info{flex:1;min-width:0}
+.slot-row .s-name{font-size:13px;font-weight:800}
+.slot-row .s-meta{font-size:10.5px;color:var(--sub);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-row button{border:none;cursor:pointer;font:inherit;font-size:11.5px;font-weight:800;padding:8px 12px;border-radius:11px}
+.slot-row .s-save{background:#e9f5ff;color:#2273c9}
+.slot-row .s-load{background:#37304a;color:#fff}
+.slot-row button:disabled{opacity:.35;cursor:default}
+/* evolution overlay */
+#evo-overlay{z-index:200;background:#05030d;flex-direction:column}
+#evo-rays{position:absolute;left:50%;top:42%;width:560px;height:560px;transform:translate(-50%,-50%);pointer-events:none;opacity:.5;
+  background:repeating-conic-gradient(from 0deg,rgba(255,215,90,.16) 0deg 9deg,transparent 9deg 24deg);border-radius:50%;
+  animation:raysSpin 26s linear infinite;-webkit-mask-image:radial-gradient(circle,#000 0%,transparent 68%);mask-image:radial-gradient(circle,#000 0%,transparent 68%)}
+#evo-stars-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+#evo-label{font-size:12px;font-weight:800;letter-spacing:.34em;color:#ffd94d;text-transform:uppercase}
+#evo-title{color:#fff;font-weight:800;font-size:31px;letter-spacing:.08em}
+#evo-sub{color:#b9aed1;font-size:14px;font-weight:700}
+#evo-btn{opacity:0}
+/* dead overlay */
+#dead-overlay{z-index:190;background:rgba(8,5,18,.93)}
+.dead-card{text-align:center;color:#fff;width:100%;max-width:320px}
+.dead-stats{background:rgba(255,255,255,.1);border-radius:18px;padding:14px 16px;margin:0 0 20px;font-size:13.5px}
+.dead-stats .row{display:flex;justify-content:space-between;padding:3px 0}
+.dead-stats .k{color:#b9aed1;font-weight:700}
+.dead-stats .v{font-weight:800}
+@media (max-width:380px){ #monster-stage{min-height:260px} .actions{gap:7px} }
 </style>
 </head>
-<body class="flex flex-col">
+<body>
 
-<header class="w-full shrink-0 z-50 glass-header border-b border-black/5 h-14 flex items-center justify-between px-4">
-  <button onclick="window.location.href='index.html'" class="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 transition-colors p-2 rounded-xl hover:bg-black/5">
-    <i data-lucide="home" class="w-5 h-5"></i>
-    <span class="text-sm font-bold">ホーム</span>
-  </button>
-  <div id="status-text" class="text-[10px] font-black tracking-widest uppercase text-zinc-400">RAISING</div>
-  <button onclick="showBook()" class="p-2 rounded-xl hover:bg-black/5 text-zinc-600 transition-colors">
-    <i data-lucide="book-open" class="w-5 h-5"></i>
-  </button>
+<header class="topbar">
+  <a class="hbtn" href="index.html"><span class="ic">🏠</span><span>もどる</span></a>
+  <div style="text-align:center">
+    <div class="game-title">Monster Raising</div>
+    <div id="status-text" style="font-size:10px;font-weight:800;letter-spacing:.2em;color:#c3b6d9">RAISING</div>
+  </div>
+  <div style="display:flex;gap:2px">
+    <button class="hbtn" id="sound-btn" onclick="toggleSound()" title="サウンド ON/OFF"><span class="ic" id="sound-icon">🔊</span></button>
+    <button class="hbtn" onclick="showBook()"><span class="ic">📖</span><span>図鑑</span></button>
+  </div>
 </header>
 
-<main class="flex-grow flex flex-col overflow-hidden max-w-md mx-auto w-full px-3 pt-2 pb-2 gap-2">
-  <div class="flex items-center justify-between px-5 py-2.5 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm shrink-0">
-    <div class="text-center">
-      <div class="sl">AGE</div>
-      <div id="age-display" class="text-sm font-black text-zinc-900">0日</div>
+<main class="col">
+  <!-- status -->
+  <div class="card status-strip">
+    <div class="cell"><div class="sl">AGE・年齢</div><div id="age-display" class="big">0日</div></div>
+    <div class="cell">
+      <div id="mon-name-disp">たまご</div>
+      <div id="stage-disp" class="sl" style="margin-top:2px">STAGE: EGG</div>
     </div>
-    <div class="text-center">
-      <div id="mon-name-disp" class="text-[11px] font-black text-zinc-600 tracking-wider">たまご</div>
-      <div id="stage-disp" class="sl mt-0.5">STAGE: EGG</div>
+    <div class="cell"><div class="sl">WEIGHT・体重</div><div id="weight-display" class="big">5g</div></div>
+  </div>
+
+  <!-- gauges -->
+  <div class="gauges">
+    <div class="card gauge" id="hunger-gauge">
+      <div class="g-head"><span class="g-ic">🍖</span><span class="sl">まんぷく</span><span class="hearts" id="hunger-hearts"></span></div>
+      <div class="gbar" id="hunger-bar"><i style="width:100%"></i></div>
     </div>
-    <div class="text-center">
-      <div class="sl">WEIGHT</div>
-      <div id="weight-display" class="text-sm font-black text-zinc-900">5g</div>
+    <div class="card gauge" id="happy-gauge">
+      <div class="g-head"><span class="g-ic">😊</span><span class="sl">ごきげん</span><span class="hearts" id="happy-hearts"></span></div>
+      <div class="gbar" id="happy-bar"><i style="width:100%"></i></div>
     </div>
   </div>
 
-  <div class="grid grid-cols-2 gap-2 shrink-0">
-    <div class="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm">
-      <span class="text-base">🍖</span>
-      <div><div class="sl mb-1">HUNGER</div><div id="hunger-hearts" class="flex gap-0.5 text-sm"></div></div>
+  <!-- monster room -->
+  <div id="monster-stage">
+    <div id="stage-bg"></div>
+    <div id="room-decor">
+      <div class="window" id="room-window"><span class="celestial" id="celestial">☀️</span></div>
+      <div class="floor"></div><div class="rug"></div>
     </div>
-    <div class="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm">
-      <span class="text-base">😊</span>
-      <div><div class="sl mb-1">HAPPY</div><div id="happy-hearts" class="flex gap-0.5 text-sm"></div></div>
-    </div>
-  </div>
-
-  <div id="monster-stage" class="flex-1 flex items-center justify-center relative bg-white/80 backdrop-blur-md rounded-3xl border border-black/5 shadow-sm overflow-hidden" style="min-height:170px">
-    <div id="stage-bg" class="absolute inset-0 rounded-3xl transition-all duration-1000"></div>
-    <div id="mon-container" class="relative z-10 flex items-center justify-center">
-      <svg id="monster-svg" width="160" height="160" viewBox="0 0 200 200" style="transform-origin:center center"></svg>
-    </div>
-    <div id="poop-ind" class="absolute bottom-3 right-5 text-2xl hidden select-none">💩</div>
-    <div id="sick-ind" class="absolute top-3 right-3 hidden">
-      <div class="bg-amber-400 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">SICK</div>
-    </div>
-    <div id="sleep-overlay" class="absolute inset-0 bg-indigo-950/88 flex items-center justify-center hidden z-20 rounded-3xl">
-      <div class="text-white text-center"><div class="text-5xl mb-3" style="animation:floatup 2s ease-in-out infinite">💤</div><div class="sl opacity-50">おやすみ...</div></div>
-    </div>
-    <div id="call-ind" class="absolute top-3 left-3 hidden">
-      <span class="flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+    <div id="tod-tint"></div>
+    <div id="mon-shadow"></div>
+    <div id="mon-wrap"><div id="breathe-wrap" class="breathe"><div id="mon-container">
+      <svg id="monster-svg" width="170" height="170" viewBox="0 0 200 200" style="transform-origin:center center"></svg>
+    </div></div></div>
+    <div id="mood-ind" class="ind hidden"></div>
+    <div id="poop-ind" class="ind hidden">💩</div>
+    <div id="sick-ind" class="ind hidden">😷 SICK・びょうき</div>
+    <div id="call-ind" class="ind hidden"><span class="dot"></span></div>
+    <div id="sleep-overlay" class="hidden">
+      <div style="text-align:center;color:#fff;position:relative">
+        <div class="moon">💤</div>
+        <div class="sl" style="color:#b9aed1;margin-top:6px">おやすみなさい…</div>
+      </div>
     </div>
   </div>
 
-  <div class="text-center shrink-0 h-5">
-    <span id="msg-text" class="text-[11px] font-black uppercase tracking-widest text-zinc-400"></span>
+  <!-- message -->
+  <div id="msg-line"><span id="msg-text"></span></div>
+
+  <!-- actions -->
+  <div class="actions">
+    <button onclick="doFeed()" class="action-btn feed"><span class="a-ic">🍖</span><span class="a-lb">ごはん</span><span class="a-sub">FEED</span></button>
+    <button onclick="doPlay()" class="action-btn play"><span class="a-ic">🎮</span><span class="a-lb">あそぶ</span><span class="a-sub">PLAY</span></button>
+    <button onclick="doClean()" class="action-btn clean"><span class="a-ic">🧹</span><span class="a-lb">おそうじ</span><span class="a-sub">CLEAN</span></button>
+    <button onclick="doMedicine()" class="action-btn med"><span class="a-ic">💊</span><span class="a-lb">おくすり</span><span class="a-sub">MEDICINE</span></button>
+    <button onclick="doScold()" class="action-btn scold"><span class="a-ic">⚡</span><span class="a-lb">しかる</span><span class="a-sub">SCOLD</span></button>
+    <button onclick="toggleLight()" class="action-btn light"><span class="a-ic" id="light-icon">💡</span><span class="a-lb">でんき</span><span class="a-sub">LIGHT</span></button>
   </div>
 
-  <div class="grid grid-cols-6 gap-1.5 shrink-0">
-    <button onclick="doFeed()"     class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">🍖</span><span class="sl">FEED</span></button>
-    <button onclick="doPlay()"     class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">🎮</span><span class="sl">PLAY</span></button>
-    <button onclick="doClean()"    class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">🧹</span><span class="sl">CLEAN</span></button>
-    <button onclick="doMedicine()" class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">💊</span><span class="sl">MED</span></button>
-    <button onclick="doScold()"    class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span class="text-xl mb-0.5">⚡</span><span class="sl">SCOLD</span></button>
-    <button onclick="toggleLight()" class="action-btn flex flex-col items-center justify-center py-3 bg-white/80 backdrop-blur-md rounded-2xl border border-black/5 shadow-sm hover:bg-white transition-all"><span id="light-icon" class="text-xl mb-0.5">💡</span><span class="sl">LIGHT</span></button>
+  <!-- care log -->
+  <div class="card" id="log-panel">
+    <div class="log-head"><span>📝</span><span class="sl" style="font-size:10px">おせわログ</span></div>
+    <div id="log-list"><div class="log-empty">まだ記録がありません</div></div>
   </div>
 
-  <div class="bg-white/80 backdrop-blur-md p-3 rounded-[2rem] border border-black/5 shadow-sm shrink-0">
-    <button onclick="confirmReset()" class="w-full py-3.5 bg-zinc-900 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
-      <i data-lucide="refresh-cw" class="w-4 h-4"></i>リセット
-    </button>
+  <!-- footer -->
+  <div class="foot-row">
+    <button class="foot-btn soft" onclick="openSlots()">💾 セーブ / ロード</button>
+    <button class="foot-btn dark" onclick="confirmReset()">↻ リセット</button>
   </div>
 </main>
 
 <!-- MINIGAME -->
-<div id="mg-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-end justify-center pb-6 px-4">
-  <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
-    <h2 class="text-center font-black text-lg uppercase tracking-wider mb-1">あそぶ！</h2>
-    <p class="text-center text-xs text-zinc-400 mb-5">🔵が光ったらすぐタップ！5回チャレンジ</p>
-    <div id="mg-light" class="w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer" onclick="pressGameBtn()"></div>
-    <div id="mg-result" class="text-center font-black text-xl h-8 mb-1"></div>
-    <div id="mg-score-text" class="text-center text-xs text-zinc-400 mb-4">0 / 5 ヒット</div>
-    <button onclick="closeMinigame()" class="w-full py-3 bg-zinc-100 rounded-2xl font-bold text-sm hover:bg-zinc-200 transition-all">やめる</button>
+<div id="mg-overlay" class="overlay hidden">
+  <div class="sheet">
+    <h2>🎮 あそぶ！</h2>
+    <p class="sub">🔵が光ったら すぐタップ！ 5回チャレンジ</p>
+    <div id="mg-light" onclick="pressGameBtn()"></div>
+    <div id="mg-result"></div>
+    <div id="mg-score-text">0 / 5 ヒット</div>
+    <button onclick="closeMinigame()" class="btn soft">やめる</button>
   </div>
 </div>
 
 <!-- BOOK -->
-<div id="book-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center px-4">
-  <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col" style="max-height:85vh">
-    <div class="p-5 border-b border-zinc-100 shrink-0">
-      <h2 class="text-center font-black text-lg uppercase tracking-wider">進化図鑑</h2>
-      <p class="text-center sl mt-1">育て方によって進化が分岐する</p>
-    </div>
-    <div id="book-content" class="overflow-y-auto p-4 flex-grow"></div>
-    <div class="p-4 border-t border-zinc-100 shrink-0">
-      <button onclick="document.getElementById('book-overlay').classList.add('hidden')" class="w-full py-3 bg-zinc-900 text-white rounded-2xl font-bold text-sm">とじる</button>
-    </div>
+<div id="book-overlay" class="overlay hidden">
+  <div class="sheet">
+    <h2>📖 進化図鑑</h2>
+    <p class="sub">育て方によって進化が分岐するよ</p>
+    <div id="book-progress-wrap"></div>
+    <div id="book-content"></div>
+    <button onclick="document.getElementById('book-overlay').classList.add('hidden')" class="btn primary" style="margin-top:12px">とじる</button>
+  </div>
+</div>
+
+<!-- SAVE SLOTS -->
+<div id="slots-overlay" class="overlay hidden">
+  <div class="sheet">
+    <h2>💾 セーブ / ロード</h2>
+    <p class="sub">自動セーブとは別に、3つの記録が残せます</p>
+    <div id="slots-content"></div>
+    <button onclick="document.getElementById('slots-overlay').classList.add('hidden')" class="btn soft" style="margin-top:6px">とじる</button>
   </div>
 </div>
 
 <!-- EVOLUTION -->
-<div id="evo-overlay" class="fixed inset-0 bg-black hidden flex items-center justify-center flex-col">
-  <div id="evo-stars-bg" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
-  <div class="relative z-10 text-center px-8">
-    <div id="evo-label" class="text-xs font-black uppercase tracking-widest text-yellow-400 mb-4" style="opacity:0">EVOLUTION!</div>
-    <div id="evo-svg-wrap" class="mb-6"><svg id="evo-svg" width="200" height="200" viewBox="0 0 200 200" style="opacity:0"></svg></div>
-    <div id="evo-title" class="text-white font-black text-3xl uppercase tracking-widest mb-2" style="opacity:0"></div>
-    <div id="evo-sub"   class="text-zinc-400 text-sm font-bold mb-10" style="opacity:0"></div>
-    <button onclick="closeEvolution()" id="evo-btn" class="px-10 py-3 bg-white/20 text-white rounded-2xl font-bold text-sm hover:bg-white/30 transition-all" style="opacity:0">つぎへ</button>
+<div id="evo-overlay" class="overlay hidden">
+  <div id="evo-rays"></div>
+  <div id="evo-stars-bg"></div>
+  <div style="position:relative;z-index:10;text-align:center;padding:0 24px">
+    <div id="evo-label" style="opacity:0">✦ EVOLUTION! ✦</div>
+    <div id="evo-svg-wrap" style="margin:18px 0 20px"><svg id="evo-svg" width="210" height="210" viewBox="0 0 200 200" style="opacity:0"></svg></div>
+    <div id="evo-title" style="opacity:0"></div>
+    <div id="evo-sub" style="opacity:0;margin:6px 0 34px"></div>
+    <button onclick="closeEvolution()" id="evo-btn" class="btn" style="background:rgba(255,255,255,.18);color:#fff;max-width:220px;margin:0 auto">つぎへ ▶</button>
   </div>
 </div>
 
 <!-- DEAD -->
-<div id="dead-overlay" class="fixed inset-0 bg-black/92 hidden flex items-center justify-center px-8">
-  <div class="text-center text-white w-full max-w-xs">
-    <div class="text-6xl mb-5">👻</div>
-    <div class="text-2xl font-black mb-2">さようなら...</div>
-    <div id="dead-msg" class="text-zinc-400 text-sm mb-6">もっとお世話してあげてね</div>
-    <div class="bg-white/10 rounded-2xl p-4 mb-6 text-sm space-y-2">
-      <div class="flex justify-between"><span class="text-zinc-400">生きた日数</span><span id="dead-age" class="font-bold"></span></div>
-      <div class="flex justify-between"><span class="text-zinc-400">最終形態</span><span id="dead-stage" class="font-bold"></span></div>
+<div id="dead-overlay" class="overlay hidden">
+  <div class="dead-card">
+    <div style="font-size:60px;margin-bottom:14px">👻</div>
+    <div style="font-size:23px;font-weight:800;margin-bottom:6px">さようなら…</div>
+    <div id="dead-msg" style="color:#b9aed1;font-size:13.5px;font-weight:700;margin-bottom:20px">もっとお世話してあげてね</div>
+    <div class="dead-stats">
+      <div class="row"><span class="k">生きた日数</span><span class="v" id="dead-age"></span></div>
+      <div class="row"><span class="k">最終形態</span><span class="v" id="dead-stage"></span></div>
+      <div class="row"><span class="k">発見した進化</span><span class="v" id="dead-disc"></span></div>
     </div>
-    <button onclick="resetGame()" class="w-full py-4 bg-white text-black rounded-2xl font-bold text-sm">あたらしく始める</button>
+    <button onclick="resetGame()" class="btn" style="background:#fff;color:#17102a">あたらしく始める 🥚</button>
   </div>
 </div>
 
 <!-- RESET CONFIRM -->
-<div id="reset-dialog" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center px-8">
-  <div class="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center">
-    <div class="text-4xl mb-4">⚠️</div>
-    <div class="font-black text-lg mb-2">本当にリセット？</div>
-    <div class="text-sm text-zinc-500 mb-6">データが全て消えます</div>
-    <div class="flex gap-3">
-      <button onclick="document.getElementById('reset-dialog').classList.add('hidden')" class="flex-1 py-3 bg-zinc-100 rounded-2xl font-bold text-sm hover:bg-zinc-200 transition-all">キャンセル</button>
-      <button onclick="resetGame()" class="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold text-sm hover:bg-red-600 transition-all">リセット</button>
+<div id="reset-dialog" class="overlay hidden">
+  <div class="sheet" style="text-align:center">
+    <div style="font-size:38px;margin-bottom:10px">⚠️</div>
+    <div style="font-weight:800;font-size:17px;margin-bottom:6px">本当にリセットする？</div>
+    <div style="font-size:13px;color:var(--sub);font-weight:700;margin-bottom:20px">今のモンスターのデータが全て消えます<br>（図鑑の発見記録は残ります）</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('reset-dialog').classList.add('hidden')" class="btn soft" style="flex:1">キャンセル</button>
+      <button onclick="resetGame()" class="btn danger" style="flex:1">リセット</button>
     </div>
   </div>
 </div>
 
+<div id="toast-root"></div>
+
 <script>
+'use strict';
 // ════════════════════════════════════
-//  MONSTER DEFINITIONS  (40 total)
+//  SOUND (WebAudio synth — no assets)
 // ════════════════════════════════════
+let audioCtx = null;
+let soundOn = localStorage.getItem('monster_caring_sound') !== '0';
+function ac() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; } }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, dur, type, vol, delay, slideTo) {
+  if (!soundOn) return;
+  const a = ac(); if (!a) return;
+  const t0 = a.currentTime + (delay || 0);
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol || 0.12, t0 + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+const SFX = {
+  click()  { tone(660, 0.07, 'triangle', 0.08); },
+  feed()   { tone(300, 0.1, 'sine', 0.14, 0, 180); tone(340, 0.1, 'sine', 0.12, 0.11, 200); tone(280, 0.12, 'sine', 0.12, 0.22, 170); },
+  happy()  { [523,659,784].forEach((f,i)=>tone(f, 0.14, 'triangle', 0.11, i*0.07)); },
+  clean()  { tone(880, 0.1, 'sine', 0.1, 0, 1320); tone(1174, 0.12, 'sine', 0.09, 0.08, 1560); },
+  med()    { tone(587, 0.12, 'triangle', 0.11); tone(880, 0.18, 'triangle', 0.11, 0.1); },
+  scold()  { tone(220, 0.16, 'sawtooth', 0.06, 0, 140); },
+  fail()   { tone(196, 0.2, 'square', 0.05, 0, 147); },
+  hit()    { tone(1046, 0.09, 'square', 0.07); tone(1568, 0.1, 'square', 0.05, 0.04); },
+  miss()   { tone(233, 0.16, 'square', 0.05, 0, 175); },
+  sleep()  { [392,330,262].forEach((f,i)=>tone(f, 0.3, 'sine', 0.07, i*0.16)); },
+  wake()   { [262,330,392,523].forEach((f,i)=>tone(f, 0.14, 'triangle', 0.09, i*0.07)); },
+  evo()    { [523,659,784,1046,784,1046,1318,1568].forEach((f,i)=>tone(f, 0.24, 'triangle', 0.12, i*0.11)); },
+  born()   { [523,659,784,1046].forEach((f,i)=>tone(f, 0.18, 'triangle', 0.1, i*0.09)); },
+  sick()   { tone(440, 0.18, 'sine', 0.09, 0, 415); tone(440, 0.18, 'sine', 0.09, 0.22, 415); },
+};
+function toggleSound() {
+  soundOn = !soundOn;
+  localStorage.setItem('monster_caring_sound', soundOn ? '1' : '0');
+  document.getElementById('sound-icon').textContent = soundOn ? '🔊' : '🔇';
+  if (soundOn) SFX.click();
+}
+document.getElementById('sound-icon').textContent = soundOn ? '🔊' : '🔇';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // どの階層のHTMLから呼ばれても、ルートにあるsw.jsを登録する
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      console.log('Service Worker registered!');
-    });
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
   });
 }
 
+// ════════════════════════════════════
+//  MONSTER DEFINITIONS  (40 total)
+// ════════════════════════════════════
 const M = {
 // ─ EGG ─
 egg:{name:'たまご',desc:'小さな命',bg:'linear-gradient(135deg,#FFFAF0,#F5EDD5)',anim:'anim-pulse',draw:()=>`
@@ -959,18 +1184,21 @@ function chooseEvolution(g, nextList) {
   return nextList[idx] || nextList[0];
 }
 
+
 // ════════════════════════════════════
 //  GAME STATE
 // ════════════════════════════════════
 const SAVE_KEY = 'monster_caring_v2';
+const SLOT_KEY = 'monster_caring_slots_v1';
+const LOG_KEY  = 'monster_caring_log_v1';
 
 let G = {
   stage: 'egg',
-  age: 0,          // in days
-  ageMs: 0,        // age in milliseconds accumulated
+  age: 0,
+  ageMs: 0,
   weight: 5,
-  hunger: 4,       // 0-4
-  happy: 4,        // 0-4
+  hunger: 4,
+  happy: 4,
   isSick: false,
   isSleeping: false,
   poop: false,
@@ -984,70 +1212,128 @@ let G = {
   lastSave: Date.now(),
   lastTick: Date.now(),
   discovered: ['egg'],
-  evoPath: '',     // accumulated evolution path e.g. "AB"
+  evoPath: ''
 };
 
 let tickTimer = null;
-let callTimer = null;
 let callActive = false;
 let mgActive = false;
 let mgLit = false;
 let mgScore = 0;
 let mgRound = 0;
-let mgTimer = null;
-let evoQueue = [];
+let careLog = [];
+try { careLog = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e) { careLog = []; }
 
 // ════════════════════════════════════
-//  SAVE / LOAD
+//  CARE LOG
+// ════════════════════════════════════
+function logEvent(icon, text) {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0'), mm = String(now.getMinutes()).padStart(2,'0');
+  careLog.unshift({ t: hh + ':' + mm, text: icon + ' ' + text });
+  careLog = careLog.slice(0, 30);
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(careLog)); } catch(e) {}
+  renderLog();
+}
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!careLog.length) { el.innerHTML = '<div class="log-empty">まだ記録がありません</div>'; return; }
+  el.innerHTML = careLog.slice(0, 6).map(e =>
+    `<div class="log-item"><time>${e.t}</time><span>${e.text}</span></div>`).join('');
+}
+
+// ════════════════════════════════════
+//  SAVE / LOAD (+ slots)
 // ════════════════════════════════════
 function saveGame() {
   G.lastSave = Date.now();
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch(e){}
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch(e) {}
 }
-
 function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const saved = JSON.parse(raw);
-    // Merge to handle missing keys
     G = Object.assign({}, G, saved);
-    // Apply offline time
     const elapsed = Date.now() - (G.lastSave || Date.now());
-    const elapsedSec = Math.min(elapsed / 1000, 3600); // cap 1hr
+    const elapsedSec = Math.min(elapsed / 1000, 3600);
     applyOfflineTime(elapsedSec);
     return true;
-  } catch(e){ return false; }
+  } catch(e) { return false; }
 }
-
 function applyOfflineTime(sec) {
-  // Each 300 real seconds = ~1 in-game hour
   const hours = sec / 300;
   if (!G.isAlive) return;
-  // Hunger/happy decay during offline
   const decayH = Math.floor(hours * 0.5);
   const decayHp = Math.floor(hours * 0.4);
   G.hunger = Math.max(0, G.hunger - decayH);
   G.happy  = Math.max(0, G.happy  - decayHp);
-  G.ageMs  = (G.ageMs||0) + sec * 1000;
-  G.age    = Math.floor(G.ageMs / (86400000/24)); // accelerated: 1 day per hour realtime
-  if (G.hunger===0 && !G.isSick) { G.isSick = true; G.missedCare += decayH; }
+  G.ageMs  = (G.ageMs || 0) + sec * 1000;
+  G.age    = Math.floor(G.ageMs / (86400000/24));
+  if (G.hunger === 0 && !G.isSick) { G.isSick = true; G.missedCare += decayH; }
   if (G.isSick && hours > 2) { G.isAlive = false; }
+}
+function getSlots() {
+  try { return JSON.parse(localStorage.getItem(SLOT_KEY) || '[null,null,null]'); } catch(e) { return [null,null,null]; }
+}
+function setSlots(s) { try { localStorage.setItem(SLOT_KEY, JSON.stringify(s)); } catch(e) {} }
+function openSlots() { SFX.click(); renderSlots(); document.getElementById('slots-overlay').classList.remove('hidden'); }
+function renderSlots() {
+  const slots = getSlots();
+  const wrap = document.getElementById('slots-content');
+  wrap.innerHTML = slots.map((s, i) => {
+    const meta = s ? `${M[s.stage] ? M[s.stage].name : s.stage} ・ ${s.age}日 ・ ${s.weight}g ・ ${s.when}`
+                     : '空のスロットです';
+    return `<div class="slot-row">
+      <div style="font-size:22px">${s ? '🐣' : '▫️'}</div>
+      <div class="s-info"><div class="s-name">スロット ${i+1}</div><div class="s-meta">${meta}</div></div>
+      <button class="s-save" onclick="saveSlot(${i})">セーブ</button>
+      <button class="s-load" onclick="loadSlot(${i})" ${s ? '' : 'disabled'}>ロード</button>
+    </div>`;
+  }).join('');
+}
+function saveSlot(i) {
+  const slots = getSlots();
+  const snap = JSON.parse(JSON.stringify(G));
+  const d = new Date();
+  snap.when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  slots[i] = snap;
+  setSlots(slots);
+  SFX.happy();
+  logEvent('💾', `スロット${i+1}にセーブした`);
+  renderSlots();
+}
+function loadSlot(i) {
+  const slots = getSlots();
+  if (!slots[i]) return;
+  const keepDiscovered = G.discovered;
+  const merged = Array.from(new Set([...(keepDiscovered || []), ...(slots[i].discovered || [])]));
+  G = Object.assign({}, G, slots[i]);
+  G.discovered = merged;
+  delete G.when;
+  G.lastSave = Date.now(); G.lastTick = Date.now();
+  tickCount = 0;
+  saveGame();
+  document.getElementById('slots-overlay').classList.add('hidden');
+  document.getElementById('sleep-overlay').classList.toggle('hidden', !G.isSleeping);
+  document.getElementById('light-icon').textContent = G.lightOn ? '💡' : '🌙';
+  SFX.wake();
+  logEvent('📂', `スロット${i+1}をロードした`);
+  updateUI();
+  showMsg(`スロット${i+1}から もどってきた！`);
+  if (!G.isAlive) showDead();
 }
 
 // ════════════════════════════════════
-//  TICK (called every 5 seconds)
+//  TICK (every 5 seconds)
 // ════════════════════════════════════
 const TICK_MS = 5000;
-// Each tick = 5s real → in-game: hunger drops 1 every 120 ticks (10 min), happy every 100 ticks (8.3 min)
-// Accelerated for playability: hunger every 36 ticks (3 min), happy every 30 ticks (2.5 min)
 let tickCount = 0;
 
 function startTick() {
   if (tickTimer) clearInterval(tickTimer);
   tickTimer = setInterval(gameTick, TICK_MS);
 }
-
 function gameTick() {
   if (!G.isAlive) return;
   tickCount++;
@@ -1055,7 +1341,6 @@ function gameTick() {
   G.age = Math.floor(G.ageMs / 360000); // 1 day per 360s (6 min real)
 
   if (!G.isSleeping && G.lightOn) {
-    // Hunger decay: every 36 ticks (~3 min)
     if (tickCount % 36 === 0) {
       G.hunger = Math.max(0, G.hunger - 1);
       if (G.hunger === 0) {
@@ -1064,39 +1349,28 @@ function gameTick() {
         scheduleCall();
       }
     }
-    // Happy decay: every 30 ticks (~2.5 min)
     if (tickCount % 30 === 0) {
       G.happy = Math.max(0, G.happy - 1);
-      if (G.happy === 0) {
-        G.missedCare++;
-        scheduleCall();
-      }
+      if (G.happy === 0) { G.missedCare++; scheduleCall(); }
     }
-    // Poop: every 90 ticks (~7.5 min)
     if (tickCount % 90 === 0 && !G.poop) {
       G.poop = true;
+      logEvent('💩', 'うんちをした');
       scheduleCall();
       if (!G.isSick && Math.random() < 0.3) triggerSick();
     }
-    // Weight gain: every 60 ticks if fed
     if (tickCount % 60 === 0) {
       if (G.totalFed > 0 && G.stage !== 'egg') G.weight = Math.min(99, G.weight + 1);
     }
-    // Sick gets worse over time
     if (G.isSick && tickCount % 60 === 0) {
       G.missedCare++;
-      if (G.missedCare > 20 || (G.hunger === 0 && G.happy === 0)) {
-        killMonster();
-        return;
-      }
+      if (G.missedCare > 20 || (G.hunger === 0 && G.happy === 0)) { killMonster(); return; }
     }
-    // Auto sleep: between tick 720-864 of the day cycle (simulate night)
     const dayTick = tickCount % 720;
     if (dayTick === 480 && !G.isSleeping) autoSleep();
     if (dayTick === 0   &&  G.isSleeping) wakeUp();
   }
 
-  // Check evolution
   checkEvo();
   updateUI();
   saveGame();
@@ -1105,20 +1379,18 @@ function gameTick() {
 function triggerSick() {
   if (G.stage === 'egg') return;
   G.isSick = true;
+  SFX.sick();
   showCallInd(true);
-  showMsg('😷 びょうきだよ！くすりを！');
+  showMsg('😷 びょうきだよ！おくすりを！');
+  logEvent('😷', 'びょうきになった');
 }
-
 function killMonster() {
   G.isAlive = false;
+  logEvent('👻', 'おわかれした…');
   saveGame();
   showDead();
 }
-
-function scheduleCall() {
-  showCallInd(true);
-}
-
+function scheduleCall() { showCallInd(true); }
 function showCallInd(on) {
   callActive = on;
   document.getElementById('call-ind').classList.toggle('hidden', !on);
@@ -1131,100 +1403,136 @@ function checkEvo() {
   const node = EVO_TREE[G.stage];
   if (!node) return;
   if (!node.cond(G)) return;
-  // Choose which branch
   const nextStage = chooseEvolution(G, node.next);
   evolve(nextStage);
 }
-
 function evolve(newStage) {
   if (!M[newStage]) return;
+  const before = M[G.stage] ? M[G.stage].name : '';
   G.stage = newStage;
   if (!G.discovered.includes(newStage)) G.discovered.push(newStage);
   G.totalHappy = 0; G.totalFed = 0; G.totalScold = 0; G.totalClean = 0; G.missedCare = 0;
   G.hunger = 4; G.happy = 4; G.isSick = false; G.poop = false;
   saveGame();
+  logEvent('✨', `${before} → ${M[newStage].name} に進化！`);
   showEvolution(newStage);
+}
+
+// ════════════════════════════════════
+//  REACTIONS / FLOATING DELTAS
+// ════════════════════════════════════
+function react(kind) {
+  const mc = document.getElementById('mon-container');
+  mc.classList.remove('react-hop', 'react-shake');
+  void mc.offsetWidth;
+  mc.classList.add(kind === 'shake' ? 'react-shake' : 'react-hop');
+}
+function floatDelta(gaugeId, text, color) {
+  const gauge = document.getElementById(gaugeId);
+  if (!gauge) return;
+  const d = document.createElement('span');
+  d.className = 'float-delta';
+  d.textContent = text;
+  d.style.color = color;
+  d.style.right = '14px';
+  d.style.top = '6px';
+  gauge.appendChild(d);
+  setTimeout(() => d.remove(), 1200);
 }
 
 // ════════════════════════════════════
 //  ACTIONS
 // ════════════════════════════════════
 function doFeed() {
-  if (!G.isAlive || G.isSleeping) { showMsg('ねてるよ💤'); return; }
-  if (G.hunger >= 4) { showMsg('おなかいっぱい！'); return; }
+  if (!G.isAlive) return;
+  if (G.isSleeping) { showMsg('ねてるよ💤'); SFX.fail(); return; }
+  if (G.hunger >= 4) { showMsg('おなかいっぱい！'); SFX.fail(); return; }
   G.hunger = Math.min(4, G.hunger + 1);
   G.weight = Math.min(99, G.weight + 1);
   G.totalFed++;
+  SFX.feed(); react('hop');
   spawnParticles('🍖');
-  showMsg('もぐもぐ🍖');
-  showCallInd(G.isSick || G.hungry === 0);
+  floatDelta('hunger-gauge', '+1 🍖', '#ff7a45');
+  showMsg('もぐもぐ🍖 おいしい！');
+  logEvent('🍖', 'ごはんをあげた');
+  showCallInd(G.isSick);
   updateUI(); saveGame();
 }
-
 function doPlay() {
-  if (!G.isAlive || G.isSleeping) { showMsg('ねてるよ💤'); return; }
-  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); return; }
+  if (!G.isAlive) return;
+  if (G.isSleeping) { showMsg('ねてるよ💤'); SFX.fail(); return; }
+  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); SFX.fail(); return; }
+  SFX.click();
   openMinigame();
 }
-
 function doClean() {
   if (!G.isAlive) return;
-  if (!G.poop) { showMsg('きれいだよ✨'); return; }
+  if (!G.poop) { showMsg('きれいだよ✨'); SFX.fail(); return; }
   G.poop = false;
   G.totalClean++;
+  SFX.clean(); react('hop');
   spawnParticles('✨');
   showMsg('きれいになった✨');
-  if (!G.isSick && !G.hunger===0 && !G.happy===0) showCallInd(false);
+  logEvent('🧹', 'おそうじした');
+  showCallInd(G.isSick || G.hunger === 0 || G.happy === 0);
   updateUI(); saveGame();
 }
-
 function doMedicine() {
   if (!G.isAlive) return;
-  if (!G.isSick) { showMsg('げんきだよ！'); return; }
+  if (!G.isSick) { showMsg('げんきだよ！'); SFX.fail(); return; }
   G.isSick = false;
   G.hunger = Math.min(4, G.hunger + 1);
+  SFX.med(); react('hop');
   spawnParticles('💊');
-  showMsg('なおった！💊');
-  showCallInd(G.poop || G.hunger===0);
+  showMsg('なおった！💊 よかった〜');
+  logEvent('💊', 'おくすりで治った');
+  showCallInd(G.poop || G.hunger === 0);
   updateUI(); saveGame();
 }
-
 function doScold() {
   if (!G.isAlive) return;
-  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); return; }
+  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); SFX.fail(); return; }
+  const before = G.happy;
   G.happy = Math.max(0, G.happy - 1);
   G.totalScold++;
-  showMsg('⚡おこった！');
+  SFX.scold(); react('shake');
+  showMsg('⚡ おこった！');
   spawnParticles('⚡');
+  if (G.happy !== before) floatDelta('happy-gauge', '-1 💔', '#a55eea');
+  logEvent('⚡', 'しかっちゃった');
   updateUI(); saveGame();
 }
-
 function toggleLight() {
+  if (!G.isAlive) return;
   G.lightOn = !G.lightOn;
   document.getElementById('light-icon').textContent = G.lightOn ? '💡' : '🌙';
   if (!G.lightOn) {
     G.isSleeping = true;
     document.getElementById('sleep-overlay').classList.remove('hidden');
+    SFX.sleep();
     showMsg('おやすみ💤');
+    logEvent('💤', 'でんきを消して寝た');
   } else {
     G.isSleeping = false;
     document.getElementById('sleep-overlay').classList.add('hidden');
+    SFX.wake();
     showMsg('おはよう！☀️');
+    logEvent('☀️', 'おきた');
   }
   updateUI(); saveGame();
 }
-
 function autoSleep() {
   G.isSleeping = true;
   document.getElementById('sleep-overlay').classList.remove('hidden');
   document.getElementById('light-icon').textContent = '🌙';
+  logEvent('🌙', '夜になって眠った');
 }
-
 function wakeUp() {
   G.isSleeping = false;
   document.getElementById('sleep-overlay').classList.add('hidden');
   document.getElementById('light-icon').textContent = '💡';
   G.lightOn = true;
+  logEvent('☀️', '朝になって起きた');
 }
 
 // ════════════════════════════════════
@@ -1232,73 +1540,77 @@ function wakeUp() {
 // ════════════════════════════════════
 let mgLitTimer = null;
 let mgWaitTimer = null;
-
+function setMgLight(cls) {
+  const el = document.getElementById('mg-light');
+  el.className = cls || '';
+}
 function openMinigame() {
   if (G.isSleeping) { showMsg('ねてるよ💤'); return; }
   mgActive = true; mgScore = 0; mgRound = 0; mgLit = false;
   document.getElementById('mg-overlay').classList.remove('hidden');
   document.getElementById('mg-result').textContent = '';
   document.getElementById('mg-score-text').textContent = '0 / 5 ヒット';
-  document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer';
+  setMgLight('');
   setTimeout(nextMgRound, 600);
 }
-
 function nextMgRound() {
   if (!mgActive || mgRound >= 5) { endMinigame(); return; }
   const delay = 600 + Math.random() * 1400;
   mgWaitTimer = setTimeout(() => {
     if (!mgActive) return;
     mgLit = true;
-    document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 shadow-inner select-none transition-all duration-75 cursor-pointer bg-blue-500 shadow-blue-300 shadow-lg';
+    setMgLight('lit');
     document.getElementById('mg-result').textContent = '';
     mgLitTimer = setTimeout(() => {
       if (!mgActive) return;
       if (mgLit) {
         mgLit = false;
         mgRound++;
-        document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer';
+        SFX.miss();
+        setMgLight('');
         document.getElementById('mg-result').textContent = 'ミス！😢';
         setTimeout(nextMgRound, 600);
       }
     }, 800);
   }, delay);
 }
-
 function pressGameBtn() {
   if (!mgActive || !mgLit) {
-    if (mgActive) {
-      document.getElementById('mg-result').textContent = '早すぎ！⚡';
-    }
+    if (mgActive) { document.getElementById('mg-result').textContent = '早すぎ！⚡'; SFX.fail(); }
     return;
   }
   clearTimeout(mgLitTimer);
   mgLit = false; mgScore++; mgRound++;
-  document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 shadow-inner select-none transition-all duration-75 cursor-pointer bg-green-400 shadow-green-300 shadow-lg';
+  SFX.hit();
+  setMgLight('hit');
   document.getElementById('mg-result').textContent = 'ナイス！🎉';
   document.getElementById('mg-score-text').textContent = `${mgScore} / 5 ヒット`;
-  setTimeout(()=>{
-    document.getElementById('mg-light').className = 'w-24 h-24 rounded-full mx-auto mb-4 bg-zinc-200 shadow-inner select-none transition-all duration-75 cursor-pointer';
-    nextMgRound();
-  }, 300);
+  setTimeout(() => { setMgLight(''); nextMgRound(); }, 320);
 }
-
 function endMinigame() {
   mgActive = false;
   clearTimeout(mgLitTimer); clearTimeout(mgWaitTimer);
-  // Apply result
   const gained = Math.ceil(mgScore * 0.75);
+  const before = G.happy;
   G.happy = Math.min(4, G.happy + gained);
   G.totalHappy += gained;
-  document.getElementById('mg-result').textContent = mgScore >= 4 ? '最高！🏆' : mgScore >= 2 ? 'よくできた！😄' : 'がんばれ！';
-  document.getElementById('mg-score-text').textContent = `結果: +${gained}ハッピー`;
-  spawnParticles('⭐');
-  showCallInd(G.isSick || G.hunger===0 || G.poop);
-  updateUI(); saveGame();
+  document.getElementById('mg-result').textContent = mgScore >= 4 ? '最高！🏆' : mgScore >= 2 ? 'よくできた！😄' : 'がんばれ！💪';
+  document.getElementById('mg-score-text').textContent = `結果: ごきげん +${gained}`;
+  if (mgScore >= 4) SFX.evo(); else if (mgScore >= 2) SFX.happy();
+  logEvent('🎮', `あそんだ（${mgScore}/5 ヒット）`);
+  setTimeout(() => {
+    document.getElementById('mg-overlay').classList.add('hidden');
+    spawnParticles('⭐');
+    react('hop');
+    if (G.happy > before) floatDelta('happy-gauge', `+${G.happy - before} 💗`, '#ff5b8f');
+    showCallInd(G.isSick || G.hunger === 0 || G.poop);
+    updateUI(); saveGame();
+  }, 1100);
 }
-
 function closeMinigame() {
   mgActive = false;
   clearTimeout(mgLitTimer); clearTimeout(mgWaitTimer);
+  SFX.click();
   document.getElementById('mg-overlay').classList.add('hidden');
 }
 
@@ -1309,55 +1621,47 @@ function showEvolution(stage) {
   const mon = M[stage];
   const ov = document.getElementById('evo-overlay');
   ov.classList.remove('hidden');
-  
-  // Stars background
+  SFX.evo();
+  flashScreen();
   const bg = document.getElementById('evo-stars-bg');
   bg.innerHTML = '';
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 70; i++) {
     const s = document.createElement('div');
-    s.style.cssText = `position:absolute;border-radius:50%;background:white;opacity:${0.3+Math.random()*0.7};
-      width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;
-      left:${Math.random()*100}%;top:${Math.random()*100}%;
-      animation:spin ${3+Math.random()*4}s ease-in-out infinite alternate;animation-delay:${Math.random()*2}s`;
+    s.style.cssText = `position:absolute;border-radius:50%;background:white;opacity:${0.3 + Math.random() * 0.7};
+      width:${2 + Math.random() * 4}px;height:${2 + Math.random() * 4}px;
+      left:${Math.random() * 100}%;top:${Math.random() * 100}%;
+      animation:spin ${3 + Math.random() * 4}s ease-in-out infinite alternate;animation-delay:${Math.random() * 2}s`;
     bg.appendChild(s);
   }
-
-  // Animate elements
   const svg = document.getElementById('evo-svg');
   svg.innerHTML = mon.draw();
-  
   let delay = 300;
-  setTimeout(()=>{ 
-    document.getElementById('evo-label').style.cssText='opacity:1;transition:opacity 0.5s;';
-  }, delay);
+  setTimeout(() => { const e = document.getElementById('evo-label'); e.style.cssText = 'opacity:1;transition:opacity .5s'; }, delay);
   delay += 500;
-  setTimeout(()=>{ 
-    svg.style.cssText='opacity:1;animation:evo-in 0.8s cubic-bezier(0.175,0.885,0.32,1.25) both, glow-pulse 2s ease-in-out infinite;';
-  }, delay);
+  setTimeout(() => { svg.style.cssText = 'opacity:1;animation:evoIn .8s cubic-bezier(.175,.885,.32,1.25) both, glowPulse 2s ease-in-out infinite'; }, delay);
   delay += 900;
-  setTimeout(()=>{ 
-    document.getElementById('evo-title').style.cssText='opacity:1;transition:opacity 0.5s;';
-    document.getElementById('evo-title').textContent = mon.name;
+  setTimeout(() => {
+    const t = document.getElementById('evo-title');
+    t.style.cssText = 'opacity:1;transition:opacity .5s';
+    t.textContent = mon.name;
+    spawnConfetti();
   }, delay);
   delay += 300;
-  setTimeout(()=>{ 
-    document.getElementById('evo-sub').style.cssText='opacity:1;transition:opacity 0.5s;';
-    document.getElementById('evo-sub').textContent = mon.desc;
+  setTimeout(() => {
+    const s2 = document.getElementById('evo-sub');
+    s2.style.cssText = 'opacity:1;transition:opacity .5s;margin:6px 0 34px';
+    s2.textContent = mon.desc;
   }, delay);
   delay += 400;
-  setTimeout(()=>{ 
-    document.getElementById('evo-btn').style.cssText='opacity:1;transition:opacity 0.5s;';
-  }, delay);
+  setTimeout(() => { document.getElementById('evo-btn').style.cssText = 'opacity:1;transition:opacity .5s;background:rgba(255,255,255,.18);color:#fff;max-width:220px;margin:0 auto'; }, delay);
 }
-
 function closeEvolution() {
+  SFX.click();
   document.getElementById('evo-overlay').classList.add('hidden');
-  // Reset evo svg styling
   const svg = document.getElementById('evo-svg');
   svg.style.cssText = 'opacity:0';
-  ['evo-label','evo-title','evo-sub','evo-btn'].forEach(id=>{
-    document.getElementById(id).style.opacity='0';
-  });
+  ['evo-label', 'evo-title', 'evo-sub', 'evo-btn'].forEach(id => { document.getElementById(id).style.opacity = '0'; });
+  react('hop');
   updateUI();
 }
 
@@ -1365,14 +1669,14 @@ function closeEvolution() {
 //  BOOK
 // ════════════════════════════════════
 const STAGE_LABELS = {
-  egg:'たまご', A:'第一形態',B:'第一形態',C:'第一形態',
-  AA:'第二形態',AB:'第二形態',AC:'第二形態',
-  BA:'第二形態',BB:'第二形態',BC:'第二形態',
-  CA:'第二形態',CB:'第二形態',CC:'第二形態',
+  egg:'たまご', A:'第一形態', B:'第一形態', C:'第一形態',
+  AA:'第二形態', AB:'第二形態', AC:'第二形態',
+  BA:'第二形態', BB:'第二形態', BC:'第二形態',
+  CA:'第二形態', CB:'第二形態', CC:'第二形態'
 };
 ['AAA','AAB','AAC','ABA','ABB','ABC','ACA','ACB','ACC',
  'BAA','BAB','BAC','BBA','BBB','BBC','BCA','BCB','BCC',
- 'CAA','CAB','CAC','CBA','CBB','CBC','CCA','CCB','CCC'].forEach(k=>STAGE_LABELS[k]='最終形態');
+ 'CAA','CAB','CAC','CBA','CBB','CBC','CCA','CCB','CCC'].forEach(k => STAGE_LABELS[k] = '最終形態');
 
 const STAGE_ORDER = ['egg','A','B','C',
   'AA','AB','AC','BA','BB','BC','CA','CB','CC',
@@ -1381,15 +1685,18 @@ const STAGE_ORDER = ['egg','A','B','C',
   'CAA','CAB','CAC','CBA','CBB','CBC','CCA','CCB','CCC'];
 
 function showBook() {
+  SFX.click();
   const content = document.getElementById('book-content');
-  const sections = {'たまご':['egg'],'第一形態':['A','B','C'],
+  const sections = {'たまご':['egg'], '第一形態':['A','B','C'],
     '第二形態':['AA','AB','AC','BA','BB','BC','CA','CB','CC'],
     '最終形態':STAGE_ORDER.slice(13)};
-  
-  let html = `<div class="text-xs text-zinc-400 mb-3 font-bold">${G.discovered.length}/40 ひっさつ！</div>`;
-  
+  const pct = Math.round(G.discovered.length / 40 * 100);
+  document.getElementById('book-progress-wrap').innerHTML =
+    `<div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:800;color:#5d5170"><span>発見ずみ ${G.discovered.length} / 40</span><span>${pct}%</span></div>
+     <div class="book-progress"><i style="width:${pct}%"></i></div>`;
+  let html = '';
   for (const [label, keys] of Object.entries(sections)) {
-    html += `<div class="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-2 mt-3">${label}</div>`;
+    html += `<div class="sl" style="margin:14px 0 8px">${label}</div>`;
     for (const k of keys) {
       const mon = M[k];
       const found = G.discovered.includes(k);
@@ -1397,16 +1704,16 @@ function showBook() {
       let cls = 'brow';
       if (isCurrent) cls += ' current';
       else if (found) cls += ' found';
-      
-      const svgMini = found ? `<svg width="44" height="44" viewBox="0 0 200 200">${mon.draw()}</svg>` : `<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:8px;font-size:20px">?</div>`;
-      
+      const svgMini = found
+        ? `<svg width="46" height="46" viewBox="0 0 200 200">${mon.draw()}</svg>`
+        : `<div style="width:46px;height:46px;display:flex;align-items:center;justify-content:center;background:#efeaf5;border-radius:10px;font-size:19px;color:#b9aed1;font-weight:800">?</div>`;
       html += `<div class="${cls}">
         ${svgMini}
         <div>
-          <div style="font-size:11px;font-weight:900;color:${found?'#111':'#aaa'}">${found?mon.name:'???'}</div>
-          <div style="font-size:9px;color:#aaa;font-weight:600">${found?mon.desc:'未発見'}</div>
+          <div class="b-name" style="color:${found ? '#37304a' : '#b3a8c4'}">${found ? mon.name : '？？？'}</div>
+          <div class="b-desc">${found ? mon.desc : 'まだ出会っていない'}</div>
         </div>
-        ${isCurrent?'<div style="margin-left:auto;font-size:8px;font-weight:900;color:#3b82f6;letter-spacing:0.1em">NOW</div>':''}
+        ${isCurrent ? '<div class="now-tag">NOW</div>' : ''}
       </div>`;
     }
   }
@@ -1421,19 +1728,21 @@ function showDead() {
   const mon = M[G.stage] || M['egg'];
   document.getElementById('dead-age').textContent = `${G.age}日`;
   document.getElementById('dead-stage').textContent = mon.name;
+  document.getElementById('dead-disc').textContent = `${G.discovered.length} / 40`;
   document.getElementById('dead-overlay').classList.remove('hidden');
-  spawnConfetti();
 }
 
 // ════════════════════════════════════
 //  RESET
 // ════════════════════════════════════
 function confirmReset() {
+  SFX.click();
   document.getElementById('reset-dialog').classList.remove('hidden');
 }
-
 function resetGame() {
-  ['reset-dialog','dead-overlay','evo-overlay'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  ['reset-dialog', 'dead-overlay', 'evo-overlay'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('sleep-overlay').classList.add('hidden');
+  document.getElementById('light-icon').textContent = '💡';
   clearInterval(tickTimer);
   tickCount = 0;
   const currentDiscovered = G.discovered;
@@ -1446,6 +1755,8 @@ function resetGame() {
   saveGame();
   startTick();
   updateUI();
+  SFX.born();
+  logEvent('🥚', 'あたらしいたまごがうまれた');
   showMsg('あたらしいたまごが うまれた！🥚');
   spawnConfetti();
 }
@@ -1453,149 +1764,216 @@ function resetGame() {
 // ════════════════════════════════════
 //  UI UPDATE
 // ════════════════════════════════════
-function renderHearts(id, val, max=4) {
+function renderHearts(id, val, max) {
+  max = max || 4;
   const el = document.getElementById(id);
   let h = '';
   for (let i = 0; i < max; i++) {
-    h += `<span style="color:${i<val?'#FF4478':'#DDD'};font-size:14px">${i<val?'♥':'♡'}</span>`;
+    h += `<span style="color:${i < val ? '#FF4478' : '#ddd3e8'}">${i < val ? '♥' : '♡'}</span>`;
   }
   el.innerHTML = h;
 }
+let prevAge = -1, prevWeight = -1, prevHunger = -1, prevHappy = -1;
 
-let prevAge = -1, prevWeight = -1;
+function timePhase() {
+  const dayTick = tickCount % 720;
+  if (dayTick < 90)  return { name:'dawn',  tint:'linear-gradient(180deg,rgba(255,170,90,.20),rgba(255,120,150,.10) 60%,rgba(0,0,0,0))', cel:'🌅', win:'linear-gradient(180deg,#ffd9a0,#ffb3c1)', celTop:'26px', celLeft:'8px' };
+  if (dayTick < 360) return { name:'day',   tint:'linear-gradient(180deg,rgba(120,200,255,.10),rgba(0,0,0,0) 55%)', cel:'☀️', win:'linear-gradient(180deg,#aee3ff,#e8fbff)', celTop:'8px', celLeft:'24px' };
+  if (dayTick < 480) return { name:'dusk',  tint:'linear-gradient(180deg,rgba(255,120,60,.22),rgba(150,60,140,.14) 65%,rgba(0,0,0,.05))', cel:'🌇', win:'linear-gradient(180deg,#ffb37a,#ff8fa3)', celTop:'30px', celLeft:'30px' };
+  return { name:'night', tint:'linear-gradient(180deg,rgba(15,10,60,.42),rgba(20,15,70,.30) 60%,rgba(5,5,30,.38))', cel:'🌙', win:'linear-gradient(180deg,#1d2456,#3a3f7d)', celTop:'10px', celLeft:'10px' };
+}
 
 function updateUI() {
   const mon = M[G.stage] || M['egg'];
-  
-  // Stage bg
-  document.getElementById('stage-bg').style.background = G.isAlive ? mon.bg : '#eee';
-  
-  // Monster SVG
+  document.getElementById('stage-bg').style.background = G.isAlive ? mon.bg : '#e8e4ee';
+
+  // time-of-day room dressing
+  const ph = timePhase();
+  document.getElementById('tod-tint').style.background = ph.tint;
+  const win = document.getElementById('room-window');
+  win.style.background = ph.win;
+  const cel = document.getElementById('celestial');
+  cel.textContent = ph.cel;
+  cel.style.top = ph.celTop; cel.style.left = ph.celLeft;
+
+  // monster
   const svg = document.getElementById('monster-svg');
   svg.innerHTML = mon.draw();
   const mc = document.getElementById('mon-container');
-  mc.className = 'relative z-10 flex items-center justify-center';
+  mc.className = '';
   if (G.isAlive) mc.classList.add(mon.anim);
-  if (G.isSick) mc.style.animation = 'sick-shake 0.4s ease-in-out infinite';
-  else mc.style.animation = '';
-  
-  // Name & stage
-  document.getElementById('mon-name-disp').textContent = G.isAlive ? mon.name : '👻';
-  
+  mc.style.animation = G.isSick ? 'sickShake 0.4s ease-in-out infinite' : '';
+
+  // mood indicator
+  const mood = document.getElementById('mood-ind');
+  let moodTxt = '';
+  if (G.isAlive && !G.isSleeping) {
+    if (G.isSick) moodTxt = '💫';
+    else if (G.hunger === 0) moodTxt = '💢';
+    else if (G.happy === 0) moodTxt = '💧';
+    else if (G.happy >= 3 && G.hunger >= 3) moodTxt = '🎵';
+  }
+  mood.textContent = moodTxt;
+  mood.classList.toggle('hidden', !moodTxt);
+
+  document.getElementById('mon-name-disp').textContent = G.isAlive ? mon.name : '👻 おわかれ';
   let stageLabel = 'STAGE: EGG';
   if (['A','B','C'].includes(G.stage)) stageLabel = 'STAGE: 1';
   else if (G.stage.length === 2 && G.stage !== 'egg') stageLabel = 'STAGE: 2';
-  else if (G.stage.length === 3) stageLabel = 'STAGE: FINAL';
+  else if (G.stage.length === 3 && G.stage !== 'egg') stageLabel = 'STAGE: FINAL';
   document.getElementById('stage-disp').textContent = stageLabel;
-  
-  // Age & weight
+
   const ageEl = document.getElementById('age-display');
-  if (G.age !== prevAge) { 
+  if (G.age !== prevAge) {
     ageEl.textContent = `${G.age}日`;
-    ageEl.classList.remove('score-pop');
-    void ageEl.offsetWidth;
+    ageEl.classList.remove('score-pop'); void ageEl.offsetWidth;
     if (prevAge >= 0) ageEl.classList.add('score-pop');
     prevAge = G.age;
   }
   const wEl = document.getElementById('weight-display');
   if (G.weight !== prevWeight) {
     wEl.textContent = `${G.weight}g`;
-    wEl.classList.remove('score-pop');
-    void wEl.offsetWidth;
+    wEl.classList.remove('score-pop'); void wEl.offsetWidth;
     if (prevWeight >= 0) wEl.classList.add('score-pop');
     prevWeight = G.weight;
   }
-  
-  // Hearts
+
   renderHearts('hunger-hearts', G.hunger);
   renderHearts('happy-hearts', G.happy);
-  
-  // Indicators
+  document.querySelector('#hunger-bar > i').style.width = (G.hunger / 4 * 100) + '%';
+  document.querySelector('#happy-bar > i').style.width = (G.happy / 4 * 100) + '%';
+  document.getElementById('hunger-bar').classList.toggle('low', G.hunger <= 1);
+  document.getElementById('happy-bar').classList.toggle('low', G.happy <= 1);
+  if (prevHunger >= 0 && G.hunger < prevHunger) floatDelta('hunger-gauge', '-1 🍖', '#c0392b');
+  if (prevHappy >= 0 && G.happy < prevHappy && !mgActive) { /* scold handles its own delta */ }
+  prevHunger = G.hunger; prevHappy = G.happy;
+
   document.getElementById('poop-ind').classList.toggle('hidden', !G.poop);
   document.getElementById('sick-ind').classList.toggle('hidden', !G.isSick);
-  
-  // Status text
+
   let st = 'RAISING';
   if (!G.isAlive) st = 'GOODBYE...';
-  else if (G.isSleeping) st = 'SLEEPING';
-  else if (G.isSick) st = 'SICK!';
-  else if (G.hunger === 0 || G.happy === 0) st = 'CALL!';
+  else if (G.isSleeping) st = 'SLEEPING 💤';
+  else if (G.isSick) st = 'SICK! 😷';
+  else if (G.hunger === 0 || G.happy === 0) st = 'CALL! 🔔';
   document.getElementById('status-text').textContent = st;
-  
-  // Call indicator
-  showCallInd(callActive || (!G.isAlive?false: G.isSick || G.hunger === 0 || G.happy === 0 || G.poop));
+
+  showCallInd(callActive || (G.isAlive && (G.isSick || G.hunger === 0 || G.happy === 0 || G.poop)));
 }
 
 // ════════════════════════════════════
-//  PARTICLES
+//  PARTICLES / EFFECTS
 // ════════════════════════════════════
 function spawnParticles(emoji) {
   const stage = document.getElementById('monster-stage');
   const rect = stage.getBoundingClientRect();
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 9; i++) {
     const p = document.createElement('div');
-    p.style.cssText = `position:fixed;font-size:${14+Math.random()*10}px;pointer-events:none;z-index:50;
-      left:${rect.left + rect.width/2 + (Math.random()-0.5)*60}px;
-      top:${rect.top + rect.height/2}px;
-      --px:${(Math.random()-0.5)*80}px;
-      --py:${-40-Math.random()*60}px;
-      animation:particle-up ${0.6+Math.random()*0.5}s ease-out forwards`;
+    p.className = 'particle';
+    p.style.cssText = `font-size:${15 + Math.random() * 11}px;
+      left:${rect.left + rect.width / 2 + (Math.random() - 0.5) * 70}px;
+      top:${rect.top + rect.height / 2}px;
+      --px:${(Math.random() - 0.5) * 90}px;
+      --py:${-46 - Math.random() * 65}px;
+      animation-duration:${0.65 + Math.random() * 0.5}s`;
     p.textContent = emoji;
     document.body.appendChild(p);
-    setTimeout(()=>p.remove(), 1200);
+    setTimeout(() => p.remove(), 1300);
   }
 }
-
 function spawnConfetti() {
-  const colors = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#ec4899','#06b6d4'];
+  const colors = ['#54a0ff','#ff6b81','#2ed573','#f7b731','#a55eea','#ff6b9d','#1dd1a1'];
   for (let i = 0; i < 70; i++) {
     const el = document.createElement('div');
     el.className = 'confetti';
-    el.style.left = (Math.random()*105)+'vw';
-    el.style.top = (-10-Math.random()*50)+'px';
-    el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
-    el.style.animationDuration = (2+Math.random()*2.8)+'s';
-    el.style.animationDelay = (Math.random()*0.9)+'s';
-    el.style.setProperty('--rot',(Math.random()*1440-720)+'deg');
-    const d = 6+Math.random()*8; el.style.width=d+'px'; el.style.height=d+'px'; el.style.borderRadius='2px';
+    el.style.left = (Math.random() * 105) + 'vw';
+    el.style.top = (-10 - Math.random() * 50) + 'px';
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDuration = (2 + Math.random() * 2.8) + 's';
+    el.style.animationDelay = (Math.random() * 0.9) + 's';
+    el.style.setProperty('--rot', (Math.random() * 1440 - 720) + 'deg');
+    const d = 6 + Math.random() * 8;
+    el.style.width = d + 'px'; el.style.height = d + 'px'; el.style.borderRadius = '2px';
     document.body.appendChild(el);
-    setTimeout(()=>el.remove(),5000);
+    setTimeout(() => el.remove(), 5000);
   }
 }
+function flashScreen() {
+  const f = document.createElement('div');
+  f.className = 'victory-flash';
+  document.body.appendChild(f);
+  setTimeout(() => f.remove(), 750);
+}
+// ambient sparkles inside the room
+setInterval(() => {
+  if (!G.isAlive || G.isSleeping) return;
+  const stage = document.getElementById('monster-stage');
+  if (!stage || stage.offsetParent === null) return;
+  const s = document.createElement('span');
+  s.className = 'ambient-sparkle';
+  s.textContent = ['✦','✧','·'][Math.floor(Math.random() * 3)];
+  s.style.cssText = `left:${8 + Math.random() * 84}%;top:${30 + Math.random() * 55}%;font-size:${9 + Math.random() * 8}px;color:rgba(255,190,90,.85);z-index:5`;
+  stage.appendChild(s);
+  setTimeout(() => s.remove(), 3500);
+}, 1400);
+// blinking (gentle squash) + sleep Zzz
+setInterval(() => {
+  if (!G.isAlive) return;
+  const mc = document.getElementById('mon-container');
+  if (G.isSleeping) {
+    const stage = document.getElementById('monster-stage');
+    const z = document.createElement('span');
+    z.className = 'zzz';
+    z.textContent = '💤';
+    z.style.cssText = 'left:56%;top:22%;z-index:26';
+    stage.appendChild(z);
+    setTimeout(() => z.remove(), 2700);
+    return;
+  }
+  mc.classList.remove('blink'); void mc.offsetWidth; mc.classList.add('blink');
+}, 3400);
 
 // ════════════════════════════════════
-//  MESSAGE
+//  MESSAGE / TOAST
 // ════════════════════════════════════
 let msgTimer = null;
 function showMsg(text) {
   const el = document.getElementById('msg-text');
   el.textContent = text;
+  el.classList.remove('msg-pop'); void el.offsetWidth; el.classList.add('msg-pop');
   if (msgTimer) clearTimeout(msgTimer);
-  msgTimer = setTimeout(()=>el.textContent='', 2500);
+  msgTimer = setTimeout(() => { el.textContent = ''; }, 2600);
 }
-
 function showToast(text) {
   const t = document.createElement('div');
-  t.className = 'toast-pop fixed top-1/2 left-1/2 bg-black/90 text-white px-8 py-4 rounded-3xl font-black z-50 text-lg';
+  t.className = 'toast-pop';
+  t.style.cssText = 'position:fixed;top:50%;left:50%;background:rgba(30,22,48,.92);color:#fff;padding:16px 30px;border-radius:24px;font-weight:800;z-index:120;font-size:17px';
   t.textContent = text;
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 1900);
+  setTimeout(() => t.remove(), 1900);
 }
 
 // ════════════════════════════════════
 //  INIT
 // ════════════════════════════════════
-window.onload = function() {
-  lucide.createIcons();
+window.addEventListener('DOMContentLoaded', function() {
   const loaded = loadGame();
+  if (G.isSleeping) {
+    document.getElementById('sleep-overlay').classList.remove('hidden');
+    document.getElementById('light-icon').textContent = '🌙';
+  }
   startTick();
   updateUI();
+  renderLog();
   if (!loaded) {
     showMsg('あたらしいたまごが うまれた！🥚');
+    logEvent('🥚', 'あたらしいたまごがうまれた');
   } else {
-    showMsg(`おかえり！${M[G.stage]?.name || 'たまご'}だよ！`);
+    showMsg(`おかえり！${M[G.stage] ? M[G.stage].name : 'たまご'}だよ！`);
+    if (!G.isAlive) showDead();
   }
-};
+});
+
 </script>
 </body>
 </html>
