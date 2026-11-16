@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>クレープ工房 3D - PlayWeb</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{ --bg:#17100d; --panel:rgba(255,255,255,.055); --line:rgba(255,255,255,.1); --txt:#fdf6ec; --sub:#cbb9a3; --acc:#fb923c; }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -72,7 +73,24 @@
   #gallery figure{width:76px;text-align:center}
   #gallery img{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
   #gallery figcaption{font-size:9.5px;color:var(--sub);margin-top:3px;line-height:1.3;word-break:break-all}
+  .vsTable{width:100%;border-collapse:collapse;font-size:13px}
+  .vsTable th,.vsTable td{padding:4px 6px;text-align:center;border-bottom:1px dashed rgba(255,255,255,.09);font-variant-numeric:tabular-nums}
+  .vsTable th{color:var(--sub);font-size:11px;letter-spacing:.1em}
+  .vsTable tr.cur td{color:#fdba74;font-weight:800}
+  .vsTable tr.tot td{border-bottom:none;font-weight:900;font-size:14.5px}
+  .err{color:#fca5a5}
+  #vsRoomCode{font-size:30px;font-weight:900;letter-spacing:.35em;color:#fdba74;line-height:1.3}
+  .codeInput{background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:10px;color:#fff;padding:10px 14px;font-size:17px;width:min(240px,80%);text-align:center;font-family:inherit;outline:none;text-transform:uppercase;letter-spacing:.25em}
   @media (max-width:900px){ #side{width:min(640px,100%)} }
+  /* スマホ: オーバーレイの内容がステージ枠より高い場合は上寄せ＋スクロールで見切れを防ぐ */
+  @media (max-width:600px){
+    .overlay{justify-content:flex-start;overflow-y:auto;padding:20px 14px;gap:11px}
+    .overlay h2{font-size:23px}
+    .modeBtns{flex-direction:column;align-items:stretch;width:100%}
+    .modeBtn{max-width:none}
+    .logo{font-size:16px;letter-spacing:.08em}
+    .hbtn{font-size:11.5px;padding:6px 9px;white-space:nowrap}
+  }
 </style>
 </head>
 <body>
@@ -102,6 +120,36 @@
       <div class="modeBtns">
         <button class="modeBtn" id="freeBtn"><b>🎨 フリーモード</b><span>思いのままに作る。具材もソースも無制限（気分で値段がつく）。</span></button>
         <button class="modeBtn" id="orderBtn"><b>🧾 注文チャレンジ</b><span>お客さんの注文どおりに作って、一致度で採点される職人モード。</span></button>
+        <button class="modeBtn" id="vsBtn"><b>⚔️ オンライン対戦</b><span>同じ注文で友達と勝負。全5注文の審査スコア合計で競う対決モード。</span></button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="vsOv">
+      <h2>⚔️ オンライン対戦</h2>
+      <p>同じ注文が2人に順番に出されます。全5注文の審査スコア合計で勝負！<br>制限時間は対決全体で10分です。</p>
+      <div class="rowBtns" style="justify-content:center">
+        <button class="subbtn" id="vsHostBtn">🏠 部屋を作る</button>
+      </div>
+      <div id="vsCodeWrap" style="display:none">
+        <div class="hint">ルームコード</div>
+        <div id="vsRoomCode">------</div>
+        <button class="subbtn" id="vsCopyBtn">📋 コードをコピー</button>
+      </div>
+      <div class="rowBtns" style="justify-content:center;align-items:center">
+        <input class="codeInput" id="vsJoinCode" maxlength="6" placeholder="コード">
+        <button class="subbtn" id="vsJoinBtn">参加する</button>
+      </div>
+      <p class="hint" id="vsLobbyStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</p>
+      <button class="subbtn" id="vsBackBtn">← もどる</button>
+    </div>
+
+    <div class="overlay hidden" id="vsResultOv">
+      <h2 id="vsResultTitle">🏆 結果</h2>
+      <div id="vsResultBody" style="width:min(340px,92%)"></div>
+      <p class="hint" id="vsResultNote"></p>
+      <div class="rowBtns" style="justify-content:center">
+        <button class="subbtn" id="vsRematchBtn">↻ 再戦する</button>
+        <button class="subbtn" id="vsExitBtn">退出する</button>
       </div>
     </div>
 
@@ -125,6 +173,14 @@
     <div class="box" id="orderBox" style="display:none">
       <h3>🧾 注文</h3>
       <div class="hint" id="orderText"></div>
+    </div>
+    <div class="box" id="vsBox" style="display:none">
+      <h3>⚔️ オンライン対戦</h3>
+      <div class="hint" id="vsProgress"></div>
+      <div class="hint">⏰ 残り時間 <b id="vsTimer">10:00</b></div>
+      <div id="vsBoard"></div>
+      <div class="hint" id="vsNetStatus" style="margin-top:6px"></div>
+      <button class="subbtn" id="vsLeaveBtn" style="margin-top:8px">退出する</button>
     </div>
     <div class="box" id="panelBox">
       <h3 id="panelTitle">生地をえらぶ</h3>
@@ -1168,7 +1224,7 @@ function buildPanel(){
       </div>
       <button class="bigbtn" data-act="serve" style="margin-top:12px">🎉 完成！ お客さんに出す</button>`;
   }
-  else { T.textContent = '完成！'; B.innerHTML = `<p class="hint">おつかれさま！ 審査結果は右のパネルと画面の表示を見てね。</p><button class="bigbtn" data-act="again">↻ もう一枚作る</button>`; }
+  else { T.textContent = '完成！'; const againLabel = (mode==='vs' && vs.active) ? (vs.myDone || vs.idx>=VS_DISHES-1 ? '🏆 結果を見る' : '次の注文へ →') : '↻ もう一枚作る'; B.innerHTML = `<p class="hint">おつかれさま！ 審査結果は右のパネルと画面の表示を見てね。</p><button class="bigbtn" data-act="again">${againLabel}</button>`; }
   bindPanel();
 }
 function doAction(act){
@@ -1182,7 +1238,7 @@ function doAction(act){
   else if(cmd==='fold'){ fold = FOLDS.find(f=>f.id===arg); sfx.pop(); buildPanel(); }
   else if(cmd==='doFold'){ startFold(); }
   else if(cmd==='serve'){ serve(); }
-  else if(cmd==='again'){ resetAll(); }
+  else if(cmd==='again'){ if(mode==='vs' && vs.active) vsNext(); else resetAll(); }
   else if(cmd==='undo'){
     const h = history.pop();
     if(h){
@@ -1251,6 +1307,14 @@ function serve(){
   $('nameInput').value = j.autoName;
   $('serveComment').innerHTML = j.comment + `<br><span style="color:#fdba74;font-weight:800">お値段 ¥${price().toLocaleString()}</span>`;
   $('serveOv').classList.remove('hidden');
+  if(mode==='vs' && vs.active && !vs.myDone && vs.myScores[vs.idx] === null){
+    vs.myScores[vs.idx] = j.total;
+    vsSend({t:'dish', idx: vs.idx, score: j.total});
+    renderVsBoard();
+  }
+  $('againBtn').textContent = (mode==='vs' && vs.active)
+    ? (vs.myDone || vs.idx >= VS_DISHES-1 ? '🏆 結果を見る' : '次の注文へ →')
+    : '↻ もう一枚作る';
   sfx.fanfare();
   // カメラが寄り切ってからサムネイルを撮る
   setTimeout(()=>saveToGallery(j), 950);
@@ -1274,7 +1338,7 @@ function judge(){
     { k:'デコレーション', v: decoScore },
   ];
   let total, comment = '', matchInfo = null;
-  if(mode==='order' && order){
+  if((mode==='order' || mode==='vs') && order){
     let m = 0;
     if(batter.id===order.batter) m += 25;
     if(fold.id===order.fold) m += 25;
@@ -1339,9 +1403,9 @@ function resetAll(){
   $('judgeBox').style.display = 'none';
   $('serveOv').classList.add('hidden');
   setPhase('batter');
-  toast(mode==='order' ? '注文をよく確認してね' : '新しいクレープを作ろう！');
+  toast(mode==='free' ? '新しいクレープを作ろう！' : '注文をよく確認してね');
 }
-$('againBtn').onclick = ()=>{ resetAll(); };
+$('againBtn').onclick = ()=>{ if(mode==='vs' && vs.active) vsNext(); else resetAll(); };
 $('savePngBtn').onclick = ()=>{
   if(!GL_OK) return;
   renderer.render(scene, camera); // 保存直前に再描画して確実にキャプチャ
@@ -1352,8 +1416,7 @@ $('savePngBtn').onclick = ()=>{
 $('freeBtn').onclick = ()=>{ mode='free'; order=null; $('orderBox').style.display='none'; $('startOv').classList.add('hidden'); resetAll(); };
 $('orderBtn').onclick = ()=>{
   mode='order'; order = ORDERS[Math.floor(Math.random()*ORDERS.length)];
-  $('orderBox').style.display='block';
-  $('orderText').innerHTML = `<b>${order.name}</b> さん<br>「${order.text}」`;
+  showOrder();
   $('startOv').classList.add('hidden'); resetAll();
 };
 
@@ -1595,6 +1658,410 @@ function animate(){
   }
   renderer.render(scene, camera);
 }
+
+/* ============================================================
+   オンライン対戦「注文チャレンジ対決」（PeerJS / WebRTC P2P）
+   同じ注文列（ホストのシードで同期）を2人が順番に作り、
+   全5注文の審査スコア合計で勝敗を決める。
+   制限時間: 既存チャレンジに制限はないため、対決全体で10分。
+   時間切れ時点で未完成の注文は0点として集計する。
+   ============================================================ */
+const VS_PEER_PREFIX = 'playweb-cr-';
+const VS_PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const VS_DISHES = 5, VS_TIME_LIMIT = 10 * 60 * 1000;
+const VS_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+let peer = null, conn = null, isHost = false, roomCode = '', netClosing = false;
+let netConnTimer = null, reconnecting = false, heartbeatTimer = null, guestRetryTimer = null;
+const vs = { active:false, seed:0, orderSeq:[], idx:0, myScores:[], oppScores:[], myDone:false, oppDone:false, startAt:0, timerInt:null };
+
+function showOrder(){
+  if(!order) return;
+  $('orderBox').style.display = 'block';
+  $('orderText').innerHTML = `<b>${order.name}</b> さん<br>「${order.text}」`;
+}
+function vsPeerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function vsGenCode(){
+  let code = '';
+  for(let i = 0; i < 6; i++) code += VS_CODE_CHARS[(Math.random() * VS_CODE_CHARS.length) | 0];
+  return code;
+}
+function vsSend(obj){ if(conn && conn.open){ try{ conn.send(obj); }catch(e){} } }
+function vsSetLobbyStatus(html){ const el = $('vsLobbyStatus'); if(el) el.innerHTML = html; }
+function vsSetNetStatus(html){ const el = $('vsNetStatus'); if(el) el.innerHTML = html; }
+function vsLobbyLoadError(){
+  vsSetLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+}
+/* シードから両者共通の注文列（5品）を決める。
+   注文デッキをシャッフルして配る方式で、全種がまんべんなく出るようにする */
+function makeOrderSeq(seed){
+  const r = rng(seed);
+  const seq = [];
+  while(seq.length < VS_DISHES){
+    const deck = ORDERS.map((_, i) => i);
+    for(let i = deck.length - 1; i > 0; i--){
+      const j = Math.floor(r() * (i + 1));
+      const tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
+    }
+    for(const ix of deck){
+      if(seq.length >= VS_DISHES) break;
+      if(seq.length && seq[seq.length - 1] === ORDERS[ix]) continue; /* デッキの継ぎ目で連続させない */
+      seq.push(ORDERS[ix]);
+    }
+  }
+  return seq;
+}
+function vsStartMatch(seed){
+  vs.seed = seed | 0;
+  vs.orderSeq = makeOrderSeq(vs.seed);
+  vs.idx = 0;
+  vs.myScores = Array(VS_DISHES).fill(null);
+  vs.oppScores = Array(VS_DISHES).fill(null);
+  vs.myDone = false; vs.oppDone = false;
+  vs.active = true;
+  vs.startAt = Date.now();
+  mode = 'vs';
+  order = vs.orderSeq[0];
+  $('vsOv').classList.add('hidden');
+  $('vsResultOv').classList.add('hidden');
+  $('startOv').classList.add('hidden');
+  $('serveOv').classList.add('hidden');
+  showOrder();
+  $('vsBox').style.display = 'block';
+  vsSetNetStatus(isHost ? 'あなたがホストです。同じ注文で勝負！' : '同じ注文で勝負！');
+  clearInterval(vs.timerInt);
+  vs.timerInt = setInterval(vsTickTimer, 500);
+  vsTickTimer();
+  renderVsBoard();
+  resetAll();
+  toast('⚔️ 対決スタート！ 注文 1/' + VS_DISHES);
+}
+function vsTickTimer(){
+  if(!vs.active) return;
+  const remain = Math.max(0, VS_TIME_LIMIT - (Date.now() - vs.startAt));
+  const s = Math.ceil(remain / 1000);
+  const el = $('vsTimer');
+  if(el) el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  if(remain <= 0 && !vs.myDone) vsTimeUp();
+}
+function vsTimeUp(){
+  if(vs.myDone) return;
+  for(let i = 0; i < VS_DISHES; i++) if(vs.myScores[i] === null) vs.myScores[i] = 0;
+  toast('⏰ 時間切れ！ 未完成の注文は0点です', 2600);
+  vsFinish();
+}
+function renderVsBoard(){
+  if(!vs.orderSeq.length) return;
+  let rows = '';
+  for(let i = 0; i < VS_DISHES; i++){
+    const cur = (i === vs.idx && !vs.myDone) ? ' class="cur"' : '';
+    rows += `<tr${cur}><td>注文${i + 1}</td><td>${vs.myScores[i] === null ? '—' : vs.myScores[i]}</td><td>${vs.oppScores[i] === null ? '—' : vs.oppScores[i]}</td></tr>`;
+  }
+  const myTot = vs.myScores.reduce((a, v) => a + (v || 0), 0);
+  const opTot = vs.oppScores.reduce((a, v) => a + (v || 0), 0);
+  $('vsBoard').innerHTML = `<table class="vsTable"><tr><th></th><th>自分</th><th>相手</th></tr>${rows}<tr class="tot"><td>合計</td><td>${myTot}</td><td>${opTot}</td></tr></table>`;
+  $('vsProgress').textContent = vs.myDone
+    ? '全注文が完了！ 結果を待っています…'
+    : `注文 ${Math.min(vs.idx + 1, VS_DISHES)} / ${VS_DISHES}：${vs.orderSeq[vs.idx] ? vs.orderSeq[vs.idx].name : ''} さん`;
+}
+/* 完成画面の「次の注文へ／結果を見る」 */
+function vsNext(){
+  $('serveOv').classList.add('hidden');
+  if(vs.myDone){ showVsResult(); return; }
+  if(vs.idx < VS_DISHES - 1){
+    vs.idx++;
+    order = vs.orderSeq[vs.idx];
+    showOrder();
+    renderVsBoard();
+    resetAll();
+  } else {
+    vsFinish();
+    showVsResult();
+  }
+}
+function vsFinish(){
+  if(vs.myDone) return;
+  vs.myDone = true;
+  clearInterval(vs.timerInt);
+  vsSend({t:'done', scores: vs.myScores.slice()});
+  renderVsBoard();
+}
+function vsMaybeFinal(){
+  renderVsBoard();
+  if(vs.myDone && vs.oppDone && !$('vsResultOv').classList.contains('hidden')) showVsResult();
+}
+function showVsResult(){
+  const myTot = vs.myScores.reduce((a, v) => a + (v || 0), 0);
+  const opTot = vs.oppScores.reduce((a, v) => a + (v || 0), 0);
+  const both = vs.myDone && vs.oppDone;
+  let rows = '';
+  for(let i = 0; i < VS_DISHES; i++){
+    rows += `<tr><td style="text-align:left">注文${i + 1}</td><td>${vs.myScores[i] === null ? '—' : vs.myScores[i]}</td><td>${vs.oppScores[i] === null ? '—' : vs.oppScores[i]}</td></tr>`;
+  }
+  $('vsResultBody').innerHTML = `<table class="vsTable"><tr><th></th><th>自分</th><th>相手</th></tr>${rows}<tr class="tot"><td style="text-align:left">合計</td><td>${myTot}</td><td>${opTot}</td></tr></table>`;
+  $('vsResultTitle').textContent = !both ? '⏳ 結果集計中…' : myTot > opTot ? '🏆 勝利！' : myTot < opTot ? '😢 敗北…' : '🤝 引き分け';
+  $('vsResultNote').textContent = both
+    ? (myTot > opTot ? 'あなたのクレープの勝利！ お見事でした。' : myTot < opTot ? 'あと一歩… 次は勝ちましょう！' : '互角の勝負でした！')
+    : '相手の結果を待っています…（相手が全注文を終えると結果が出ます）';
+  $('vsResultOv').classList.remove('hidden');
+  if(both && myTot > opTot) sfx.fanfare();
+}
+/* 受信メッセージ処理（テストから直接呼べるよう関数として公開） */
+function handleVsData(msg){
+  if(!msg || typeof msg !== 'object') return;
+  if(msg.t === 'ping'){ return; }
+  if(msg.t === 'hello'){
+    if(!isHost) return;
+    if(vs.active){
+      /* 再接続: リセットせず、自分のスコア表を送って同期し直す */
+      reconnecting = false;
+      vsSend({t:'sync', seed: vs.seed, scores: vs.myScores.slice(), done: vs.myDone});
+      startVsHeartbeat();
+      vsSetNetStatus('再接続しました！対決を続けます。');
+      toast('相手が再接続しました');
+      return;
+    }
+    const seed = (Math.random() * 1e9) | 0;
+    vsSend({t:'start', seed});
+    startVsHeartbeat();
+    vsStartMatch(seed);
+  }
+  else if(msg.t === 'start'){
+    if(isHost) return;
+    reconnecting = false;
+    clearTimeout(guestRetryTimer);
+    startVsHeartbeat();
+    vsStartMatch(msg.seed | 0);
+  }
+  else if(msg.t === 'sync'){
+    reconnecting = false;
+    clearTimeout(guestRetryTimer);
+    startVsHeartbeat();
+    if(!isHost && (!vs.active || vs.seed !== (msg.seed | 0))) vsStartMatch(msg.seed | 0);
+    if(vs.active && vs.seed === (msg.seed | 0) && Array.isArray(msg.scores)){
+      vs.oppScores = msg.scores.slice(0, VS_DISHES);
+      vs.oppDone = !!msg.done;
+      vsSetNetStatus('再接続しました！対決を続けます。');
+      vsMaybeFinal();
+      /* ゲストは自分のスコア表も送り返してホスト側を同期する（ホストは応答しないのでループしない） */
+      if(!isHost) vsSend({t:'sync', seed: vs.seed, scores: vs.myScores.slice(), done: vs.myDone});
+    }
+  }
+  else if(msg.t === 'dish'){
+    const i = msg.idx | 0;
+    if(i < 0 || i >= VS_DISHES) return;
+    vs.oppScores[i] = msg.score | 0;
+    vsMaybeFinal();
+  }
+  else if(msg.t === 'done'){
+    if(Array.isArray(msg.scores)){
+      vs.oppScores = msg.scores.slice(0, VS_DISHES).map(v => v === null || v === undefined ? 0 : v | 0);
+      vs.oppDone = true;
+      vsMaybeFinal();
+    }
+  }
+  else if(msg.t === 'rematch'){
+    if(isHost && vs.active){
+      const seed = (Math.random() * 1e9) | 0;
+      vsSend({t:'start', seed});
+      vsStartMatch(seed);
+      toast('相手が再戦を希望 — 新しい対決を開始しました');
+    }
+  }
+}
+function startVsHeartbeat(){
+  stopVsHeartbeat();
+  heartbeatTimer = setInterval(() => { vsSend({t:'ping'}); }, 8000);
+}
+function stopVsHeartbeat(){ if(heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+function scheduleVsGuestReconnect(){
+  clearTimeout(guestRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if(!vs.active || !reconnecting) return;
+    tries++;
+    if(tries > 20){
+      reconnecting = false;
+      vsSetNetStatus('<span class="err">再接続できませんでした。退出して入り直してください。</span>');
+      return;
+    }
+    guestRetryTimer = setTimeout(attempt, 5000);
+    try{
+      if(peer){ try{ peer.destroy(); }catch(e){} }
+      peer = new Peer(undefined, VS_PEER_OPTS);
+      peer.on('open', () => {
+        const c = peer.connect(VS_PEER_PREFIX + roomCode, {reliable: true});
+        setupVsConn(c);
+        c.on('open', () => { vsSend({t:'hello'}); });
+      });
+      peer.on('error', () => {});
+    }catch(e){}
+  };
+  guestRetryTimer = setTimeout(attempt, 1500);
+}
+function armVsConnTimer(msg){
+  clearTimeout(netConnTimer);
+  netConnTimer = setTimeout(() => {
+    if(!vs.active) vsSetLobbyStatus('<span class="err">' + msg + '</span>');
+  }, 25000);
+}
+function disarmVsConnTimer(){ clearTimeout(netConnTimer); }
+function onVsDisconnected(){
+  if(netClosing) return;
+  if(vs.active){
+    /* 対戦中の切断: 調理は止めず、盤面とスコアを保持して自動再接続する */
+    reconnecting = true;
+    conn = null;
+    stopVsHeartbeat();
+    vsSetNetStatus('<span class="err">接続が切れました。再接続を試みています…（調理は続けられます）</span>');
+    toast('接続が切れました。再接続を試みています…', 2400);
+    if(!isHost) scheduleVsGuestReconnect();
+    return;
+  }
+  if(conn){
+    vsSetLobbyStatus('<span class="err">相手との接続が切れました。</span>もう一度部屋を作るか参加してください。');
+  }
+  conn = null;
+}
+function setupVsConn(c){
+  conn = c;
+  c.on('data', handleVsData);
+  c.on('close', () => { if(conn === c) onVsDisconnected(); });
+  c.on('error', () => { if(conn === c) onVsDisconnected(); });
+  c.on('open', () => disarmVsConnTimer());
+  c.on('iceStateChanged', st => {
+    if(conn !== c) return;
+    if((st === 'failed' || st === 'disconnected') && !vs.active){
+      disarmVsConnTimer();
+      vsSetLobbyStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+function vsTeardownNet(){
+  netClosing = true;
+  reconnecting = false;
+  stopVsHeartbeat();
+  clearTimeout(guestRetryTimer);
+  clearTimeout(netConnTimer);
+  clearInterval(vs.timerInt);
+  try{ if(conn) conn.close(); }catch(e){}
+  try{ if(peer) peer.destroy(); }catch(e){}
+  conn = null; peer = null;
+}
+function vsHostRoom(){
+  if(!vsPeerAvailable()){ vsLobbyLoadError(); return; }
+  vsTeardownNet();
+  netClosing = false;
+  isHost = true;
+  roomCode = vsGenCode();
+  vsSetLobbyStatus('部屋を作成中…');
+  try{ peer = new Peer(VS_PEER_PREFIX + roomCode, VS_PEER_OPTS); }
+  catch(e){ vsSetLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', () => {
+    $('vsRoomCode').textContent = roomCode;
+    $('vsCodeWrap').style.display = 'block';
+    vsSetLobbyStatus('相手の参加を待っています… コードを相手に伝えてください。');
+  });
+  peer.on('connection', c => {
+    setupVsConn(c);
+    if(reconnecting) vsSetLobbyStatus('相手が再接続しています…');
+    else vsSetLobbyStatus('相手が接続しました。対決の準備中…');
+    armVsConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  peer.on('error', err => {
+    if(err && err.type === 'unavailable-id'){
+      vsSetLobbyStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    } else {
+      vsSetLobbyStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
+}
+function vsJoinRoom(){
+  if(!vsPeerAvailable()){ vsLobbyLoadError(); return; }
+  const code = ($('vsJoinCode').value || '').trim().toUpperCase();
+  if(code.length !== 6){ vsSetLobbyStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  vsTeardownNet();
+  netClosing = false;
+  isHost = false;
+  roomCode = code;
+  vsSetLobbyStatus('接続中…');
+  try{ peer = new Peer(undefined, VS_PEER_OPTS); }
+  catch(e){ vsSetLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', () => {
+    armVsConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c = peer.connect(VS_PEER_PREFIX + code, {reliable: true});
+    setupVsConn(c);
+    c.on('open', () => {
+      vsSend({t:'hello'});
+      vsSetLobbyStatus('接続しました！ホストが対決を開始するのを待っています…');
+    });
+  });
+  peer.on('error', err => {
+    if(err && err.type === 'peer-unavailable'){
+      vsSetLobbyStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    } else {
+      vsSetLobbyStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+}
+function vsLeave(){
+  vsTeardownNet();
+  netClosing = false;
+  vs.active = false;
+  mode = 'free'; order = null;
+  $('orderBox').style.display = 'none';
+  $('vsBox').style.display = 'none';
+  $('vsOv').classList.add('hidden');
+  $('vsResultOv').classList.add('hidden');
+  $('serveOv').classList.add('hidden');
+  $('startOv').classList.remove('hidden');
+  resetAll();
+}
+$('vsBtn').onclick = () => {
+  $('startOv').classList.add('hidden');
+  $('vsOv').classList.remove('hidden');
+  if(!vsPeerAvailable()) vsLobbyLoadError();
+};
+$('vsBackBtn').onclick = () => {
+  vsTeardownNet();
+  netClosing = false;
+  vs.active = false;
+  $('vsCodeWrap').style.display = 'none';
+  $('vsOv').classList.add('hidden');
+  $('startOv').classList.remove('hidden');
+};
+$('vsHostBtn').onclick = vsHostRoom;
+$('vsJoinBtn').onclick = vsJoinRoom;
+$('vsCopyBtn').onclick = () => {
+  const done = () => toast('コードをコピーしました');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = roomCode; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    ta.remove(); done();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(roomCode).then(done).catch(fallback);
+  } else fallback();
+};
+$('vsLeaveBtn').onclick = vsLeave;
+$('vsExitBtn').onclick = vsLeave;
+$('vsRematchBtn').onclick = () => {
+  if(isHost){
+    const seed = (Math.random() * 1e9) | 0;
+    vsSend({t:'start', seed});
+    vsStartMatch(seed);
+  } else {
+    vsSend({t:'rematch'});
+    $('vsResultNote').textContent = '再戦を希望しました。ホストの開始を待っています…';
+  }
+};
 
 /* ================= 初期化 ================= */
 try{

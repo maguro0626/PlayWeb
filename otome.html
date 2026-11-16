@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>星降る丘のセレナーデ</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -1170,6 +1171,81 @@ button.title-btn { width:220px; }
 .rival-warning { animation:rivalPulse 2s infinite; color:rgba(220,100,130,0.9); }
 @keyframes scrollUp { from{transform:translateY(0)} to{transform:translateY(-100%)} }
 @keyframes twinkle { 0%,100%{opacity:0.1} 50%{opacity:0.8} }
+/* ══════════════════════════════════════════
+   ONLINE（いっしょに読む）
+══════════════════════════════════════════ */
+.net-panel {
+  position:fixed; inset:0; z-index:60;
+  background:rgba(4,4,16,0.88);
+  display:flex; align-items:center; justify-content:center;
+  padding:16px; overflow-y:auto;
+}
+.net-panel-box {
+  width:100%; max-width:400px; text-align:center;
+  background:linear-gradient(180deg, rgba(26,22,54,0.97), rgba(10,8,26,0.97));
+  border:1px solid rgba(201,162,39,0.45); border-radius:12px;
+  padding:24px 20px; box-shadow:0 18px 50px rgba(0,0,0,0.6);
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+}
+.net-panel-title { font-family:'Noto Serif JP',serif; font-size:17px; color:var(--gold); letter-spacing:0.08em; }
+.net-panel-desc { font-size:12px; line-height:1.8; color:rgba(255,255,255,0.65); }
+.net-status {
+  font-size:12.5px; line-height:1.7; color:rgba(255,255,255,0.85);
+  background:rgba(255,255,255,0.06); border:1px solid rgba(201,162,39,0.25);
+  border-radius:8px; padding:10px 12px; width:100%;
+}
+.net-status .err { color:#ff9db0; }
+.net-code-wrap { width:100%; }
+.net-code-label { font-size:11px; color:rgba(255,255,255,0.55); margin-bottom:6px; }
+.net-code-row { display:flex; align-items:center; justify-content:center; gap:10px; }
+.net-room-code {
+  font-size:26px; font-weight:700; letter-spacing:0.3em; color:#fff;
+  font-family:'Noto Sans JP',sans-serif;
+}
+.net-mini-btn {
+  background:rgba(201,162,39,0.15); border:1px solid rgba(201,162,39,0.5);
+  color:rgba(255,255,255,0.9); border-radius:6px; padding:7px 14px;
+  font-size:12.5px; cursor:pointer;
+}
+.net-join-row { display:flex; gap:8px; width:100%; justify-content:center; flex-wrap:wrap; }
+.net-join-input {
+  width:150px; text-align:center; font-size:17px; letter-spacing:0.25em;
+  text-transform:uppercase;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(201,162,39,0.4);
+  border-radius:6px; color:#fff; padding:10px 6px; outline:none;
+}
+.net-join-input:focus { border-color:rgba(201,162,39,0.85); }
+.net-close-btn { margin-top:2px; }
+.net-wait {
+  position:fixed; inset:0; z-index:55;
+  background:radial-gradient(ellipse at 50% 35%, #141031 0%, #06061a 70%);
+  display:flex; align-items:center; justify-content:center; padding:16px;
+}
+.net-wait-box { text-align:center; max-width:360px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+.net-wait-title { font-family:'Noto Serif JP',serif; font-size:18px; color:var(--gold); letter-spacing:0.08em; }
+.net-wait-text { font-size:13px; line-height:1.9; color:rgba(255,255,255,0.7); }
+.net-pill {
+  position:absolute; top:max(56px, calc(10% + 6px)); right:10px; z-index:30;
+  font-size:11px; letter-spacing:0.05em; color:rgba(255,255,255,0.9);
+  background:rgba(10,10,28,0.78); border:1px solid rgba(201,162,39,0.45);
+  border-radius:999px; padding:5px 11px; pointer-events:none;
+  backdrop-filter:blur(4px);
+}
+.net-pill.warn { border-color:rgba(255,120,140,0.7); color:#ffb3c0; }
+.net-vote-badge { color:#ffd979; font-size:12.5px; white-space:nowrap; }
+.vn-choice-btn.net-voted {
+  border-color:#ffd979; background:linear-gradient(180deg, rgba(201,162,39,0.4), rgba(90,60,20,0.45));
+  box-shadow:0 0 0 1px rgba(255,217,121,0.6), 0 6px 22px rgba(201,162,39,0.3);
+}
+.vn-choice-btn .net-vote-state { display:block; font-size:11px; color:#ffd979; margin-top:3px; }
+/* ゲストは読み専用：操作系ボタンを隠す（LOGは可） */
+body.net-guest #vn-btn-auto, body.net-guest #vn-btn-skip,
+body.net-guest #vn-btn-qsave, body.net-guest #vn-btn-qload,
+body.net-guest #vn-btn-save, body.net-guest #vn-btn-menu { display:none; }
+@media (max-width:460px) {
+  .net-pill { top:auto; bottom:calc(30% + 8px); }
+  .net-room-code { font-size:22px; }
+}
 </style>
 </head>
 <body>
@@ -1187,10 +1263,43 @@ button.title-btn { width:220px; }
       <button class="title-btn primary" id="btn-new-game">はじめから</button>
       <button class="title-btn" id="btn-continue">つづきから</button>
       <button class="title-btn" id="btn-album">アルバム</button>
+      <button class="title-btn" id="btn-online">オンライン（いっしょに読む）</button>
       <button class="title-btn" id="btn-settings">設定</button>
       <a href="index.html" class="title-btn title-home-link">ホームに戻る</a>
     </nav>
     <div class="title-progress" id="title-progress"></div>
+  </div>
+</div>
+
+<!-- ══════ ONLINE PANEL（いっしょに読む） ══════ -->
+<div id="net-panel" class="net-panel" style="display:none">
+  <div class="net-panel-box">
+    <div class="net-panel-title">📖 オンライン（いっしょに読む）</div>
+    <div class="net-panel-desc">ホストが読み進める物語を、ゲストが同じ画面で一緒に読めます。<br>選択肢ではゲストが「推し」に投票できます（決めるのはホスト）。</div>
+    <div id="net-status" class="net-status">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+    <button class="title-btn primary" id="net-host-btn">部屋を作る（ホスト）</button>
+    <div id="net-code-wrap" class="net-code-wrap" style="display:none">
+      <div class="net-code-label">ルームコード（相手に伝えてください）</div>
+      <div class="net-code-row">
+        <span id="net-room-code" class="net-room-code"></span>
+        <button class="net-mini-btn" id="net-copy-btn">コピー</button>
+      </div>
+    </div>
+    <div class="net-join-row">
+      <input id="net-join-code" class="net-join-input" type="text" maxlength="6" placeholder="コード6文字" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="title-btn" id="net-join-btn">参加する（ゲスト）</button>
+    </div>
+    <button class="title-btn" id="net-leave-btn" style="display:none">オンラインをやめる</button>
+    <button class="net-mini-btn net-close-btn" id="net-close-btn">閉じる</button>
+  </div>
+</div>
+
+<!-- ゲスト待機オーバーレイ -->
+<div id="net-wait" class="net-wait" style="display:none">
+  <div class="net-wait-box">
+    <div class="net-wait-title">📖 ホストの物語に同行中…</div>
+    <div class="net-wait-text" id="net-wait-text">ホストが物語シーンに入ると、自動で同じ場面が表示されます。</div>
+    <button class="title-btn" id="net-wait-leave-btn">オンラインをやめる</button>
   </div>
 </div>
 
@@ -1226,6 +1335,8 @@ button.title-btn { width:220px; }
       </div>
     </div>
   </div>
+
+  <div id="net-pill" class="net-pill" style="display:none"></div>
 
   <!-- ステージ -->
   <div class="vn-stage" id="vn-stage">
@@ -4589,6 +4700,556 @@ function initGame() {
 }
 
 initGame();
+
+/* ══════════════════════════════════════════
+   ONLINE SYNC READING（いっしょに読む / PeerJS）
+   ホストが読み進め、ゲストは同じ場面を同期表示する。
+   ゲストは読み専用（バックログ可）。選択肢はゲストが
+   「推し」投票でき、決定はホストが行う。
+══════════════════════════════════════════ */
+const NET_PREFIX = 'playweb-ot-';
+const NET_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const NET_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+let netPeer = null, netConn = null, netRole = null; /* 'host' | 'guest' */
+let netCode = '', netClosing = false, netReconnecting = false;
+let netHeartbeatTimer = null, netRetryTimer = null, netConnTimer = null;
+let netInVN = false;               /* ホスト: VNシーン表示中か */
+let netLastScene = null;           /* ホスト: 再送信用の最新シーン */
+let netLastChapter = '';
+let netVotes = [], netGuestVote = -1;  /* ホスト: 選択肢への投票 */
+let netMyVote = -1;                /* ゲスト: 自分の投票 */
+let netSpriteExpr = {left:'default', center:'default', right:'default'};
+let netCgId = null;
+let netGuestView = { bgKey:null, sprites:{left:null,center:null,right:null}, cg:undefined };
+
+function netPeerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function netGenCode(){
+  let code = '';
+  for (let i = 0; i < 6; i++) code += NET_CODE_CHARS[(Math.random() * NET_CODE_CHARS.length) | 0];
+  return code;
+}
+function netSetStatus(html){ const el = document.getElementById('net-status'); if (el) el.innerHTML = html; }
+function netSend(obj){ if (netConn && netConn.open){ try{ netConn.send(obj); }catch (e){} } }
+function netStartHeartbeat(){
+  netStopHeartbeat();
+  netHeartbeatTimer = setInterval(() => { netSend({t:'ping'}); }, 8000);
+}
+function netStopHeartbeat(){ if (netHeartbeatTimer) clearInterval(netHeartbeatTimer); netHeartbeatTimer = null; }
+function netArmTimer(msg){
+  clearTimeout(netConnTimer);
+  netConnTimer = setTimeout(() => {
+    if (netConn && netConn.open) return;
+    if (netRole === 'guest'){
+      const wt = document.getElementById('net-wait-text');
+      if (wt) wt.textContent = msg;
+    }
+    netSetStatus('<span class="err">' + msg + '</span>');
+  }, 25000);
+}
+function netDisarmTimer(){ clearTimeout(netConnTimer); }
+function netUpdatePill(){
+  const pill = document.getElementById('net-pill');
+  if (!pill) return;
+  if (!netRole){ pill.style.display = 'none'; return; }
+  pill.style.display = '';
+  pill.classList.remove('warn');
+  if (netRole === 'host'){
+    pill.textContent = (netConn && netConn.open) ? '📡 ゲストと同期中' : '📡 オンライン中（ゲスト待機）';
+  } else if (netReconnecting){
+    pill.textContent = '⚠ 再接続を試みています…';
+    pill.classList.add('warn');
+  } else {
+    pill.textContent = '📡 ホストと同期中';
+  }
+}
+
+/* ── 表示状態の追跡（ホストのスナップショット用にラップ） ── */
+const _vnSetSpriteOrig = vnSetSprite;
+vnSetSprite = function(position, charId, expression){
+  if (charId) netSpriteExpr[position] = expression || 'default';
+  return _vnSetSpriteOrig(position, charId, expression);
+};
+const _vnHideSpriteOrig = vnHideSprite;
+vnHideSprite = function(position){
+  netSpriteExpr[position] = 'default';
+  return _vnHideSpriteOrig(position);
+};
+const _vnShowCGOrig = vnShowCG;
+vnShowCG = function(cgId){ netCgId = cgId; return _vnShowCGOrig(cgId); };
+const _vnHideCGOrig = vnHideCG;
+vnHideCG = function(){ netCgId = null; return _vnHideCGOrig(); };
+
+function netProtagonistShown(){
+  const img = document.getElementById('sprite-left-img');
+  if (!img || vnActiveSprites['left']) return false;
+  return img.style.display !== 'none' && (img.getAttribute('src') || '').includes('st_hiyori');
+}
+function netBuildScene(extra){
+  const scene = {
+    bg: GS.currentBg || '',
+    bgColor: document.getElementById('vn-bg-color').style.background || '',
+    sprites: {left: vnActiveSprites.left, center: vnActiveSprites.center, right: vnActiveSprites.right},
+    expr: {...netSpriteExpr},
+    protagonist: netProtagonistShown(),
+    cg: netCgId,
+    date: document.getElementById('vn-band-date').textContent,
+    chapter: document.getElementById('vn-chapter-title').textContent,
+    playerName: GS.playerName,
+    choices: null,
+  };
+  return Object.assign(scene, extra || {});
+}
+function netSendScene(extra){
+  const scene = netBuildScene(extra);
+  netLastScene = scene;
+  netSend({t:'scene', scene});
+}
+
+/* ── エンジンへのフック（ホスト同期・ゲスト操作ガード） ── */
+const _vnAdvanceOrig = vnAdvance;
+vnAdvance = function(){
+  if (netRole === 'guest') return; /* ゲストは送り操作不可 */
+  return _vnAdvanceOrig();
+};
+const _vnPlayLineOrig = vnPlayLine;
+vnPlayLine = function(line){
+  const r = _vnPlayLineOrig(line);
+  if (netRole === 'host' && netConn && line){
+    if (line.type === 'dialogue'){
+      let speaker = line.speaker;
+      if (speaker === '日和' || speaker === GS.playerName || speaker === 'ひより') speaker = GS.playerName;
+      netSendScene({speaker, text: line.text.replace(/\{playerName\}/g, GS.playerName), char: line.char || null, choices: null});
+    } else if (line.type === 'narrative'){
+      netSendScene({speaker: '', text: line.text.replace(/\{playerName\}/g, GS.playerName), char: null, choices: null});
+    } else if (line.type === 'choice'){
+      netSendScene({choices: line.options.map(o => o.text)});
+    }
+  }
+  return r;
+};
+const _vnShowChoicesOrig = vnShowChoices;
+vnShowChoices = function(options){
+  _vnShowChoicesOrig(options);
+  if (netRole === 'host'){
+    netVotes = options.map(() => 0);
+    netGuestVote = -1;
+    netRenderVoteBadges();
+  }
+};
+function netRenderVoteBadges(){
+  document.querySelectorAll('#vn-choices .vn-choice-btn').forEach((b, i) => {
+    let s = b.querySelector('.net-vote-badge');
+    if (!s){ s = document.createElement('span'); s.className = 'net-vote-badge'; b.appendChild(s); }
+    s.textContent = netVotes[i] ? '　🗳 ゲストの推し ×' + netVotes[i] : '';
+  });
+}
+const _startVNOrig = startVN;
+startVN = function(script, branches, bgId, bgColor, onComplete, chapterTitle){
+  const r = _startVNOrig(script, branches, bgId, bgColor, onComplete, chapterTitle);
+  if (netRole === 'host'){
+    netInVN = true;
+    netLastChapter = chapterTitle || '';
+    netLastScene = null;
+    netSend({t:'vnstart', chapter: netLastChapter, playerName: GS.playerName});
+    netUpdatePill();
+  }
+  return r;
+};
+const _vnEndOrig = vnEnd;
+vnEnd = function(nextScreen){
+  if (netRole === 'host' && netInVN){
+    netInVN = false;
+    netSend({t:'vnend'});
+    netUpdatePill();
+  }
+  return _vnEndOrig(nextScreen);
+};
+const _showScreenOrig = showScreen;
+showScreen = function(id, instant){
+  /* MENUボタン等、vnEndを通らないVN離脱もゲストへ通知する */
+  if (netRole === 'host' && netInVN && id !== 'vn'){
+    netInVN = false;
+    netSend({t:'vnend'});
+    netUpdatePill();
+  }
+  return _showScreenOrig(id, instant);
+};
+
+/* ── ゲスト側: シーン適用 ── */
+function netGuestSetProtagonist(show){
+  const img = document.getElementById('sprite-left-img');
+  const wrap = document.getElementById('sprite-left');
+  if (!img || !wrap || vnActiveSprites['left']) return;
+  if (show){
+    wrap.style.opacity = '1';
+    img.src = getProtagonistSpritePath();
+    img.style.display = '';
+    wrap.style.filter = 'brightness(0.85)';
+  } else {
+    img.src = ''; img.style.display = 'none';
+    wrap.style.filter = '';
+  }
+}
+function netGuestEnterVN(chapter){
+  document.body.classList.add('net-guest');
+  document.getElementById('net-wait').style.display = 'none';
+  vnBacklog = [];
+  netGuestView = { bgKey:null, sprites:{left:null,center:null,right:null}, cg:undefined };
+  netMyVote = -1;
+  vnHideChoices(); vnHideCG();
+  ['left','center','right'].forEach(p => vnHideSprite(p));
+  document.getElementById('vn-text').textContent = '';
+  document.getElementById('vn-speaker').textContent = '';
+  document.getElementById('vn-namebox').style.display = 'none';
+  showScreen('vn');
+  if (chapter){
+    document.getElementById('vn-chapter-title').textContent = chapter;
+    showChapterCard(chapter);
+  }
+  netUpdatePill();
+}
+function netGuestShowWait(text){
+  const w = document.getElementById('net-wait');
+  w.style.display = 'flex';
+  if (text) document.getElementById('net-wait-text').textContent = text;
+  vnHideChoices();
+}
+function netApplyScene(sc){
+  if (!sc) return;
+  if (!document.getElementById('screen-vn').classList.contains('active')) netGuestEnterVN(sc.chapter || '');
+  document.getElementById('net-wait').style.display = 'none';
+  /* 背景 */
+  const bgKey = (sc.bg || '') + '|' + (sc.bgColor || '');
+  if (netGuestView.bgKey !== bgKey){
+    netGuestView.bgKey = bgKey;
+    vnSetBg(sc.bg || null, sc.bgColor || undefined);
+  }
+  /* 立ち絵 */
+  ['left','center','right'].forEach(p => {
+    const want = sc.sprites ? sc.sprites[p] : null;
+    const expr = (sc.expr && sc.expr[p]) || 'default';
+    const cur = netGuestView.sprites[p];
+    if (!want){
+      if (cur){ vnHideSprite(p); netGuestView.sprites[p] = null; }
+    } else if (!cur || cur.char !== want || cur.expr !== expr){
+      vnSetSprite(p, want, expr);
+      netGuestView.sprites[p] = {char: want, expr};
+    }
+  });
+  netGuestSetProtagonist(!!sc.protagonist);
+  /* CG */
+  if (netGuestView.cg !== sc.cg){
+    netGuestView.cg = sc.cg;
+    const ov = document.getElementById('vn-cg-overlay');
+    if (sc.cg){
+      ov.style.backgroundImage = 'url(' + getCgPath(sc.cg) + ')';
+      ov.classList.add('visible');
+    } else {
+      ov.classList.remove('visible');
+    }
+  }
+  /* 帯 */
+  if (sc.date) document.getElementById('vn-band-date').textContent = sc.date;
+  if (sc.chapter !== undefined) document.getElementById('vn-chapter-title').textContent = sc.chapter || '';
+  /* テキスト */
+  if (typeof sc.text === 'string'){
+    const namebox = document.getElementById('vn-namebox');
+    const speakerEl = document.getElementById('vn-speaker');
+    if (sc.speaker){
+      namebox.style.display = '';
+      speakerEl.textContent = sc.speaker;
+      const c = CHARS[sc.char];
+      speakerEl.style.color = c ? c.accent : 'var(--gold)';
+    } else {
+      namebox.style.display = 'none';
+      speakerEl.textContent = '';
+    }
+    document.getElementById('vn-text').textContent = sc.text;
+    document.getElementById('vn-next-arrow').style.opacity = '1';
+    vnHighlightSprite(sc.char || null);
+    const last = vnBacklog[vnBacklog.length - 1];
+    if (!last || last.speaker !== (sc.speaker || '') || last.text !== sc.text){
+      vnBacklog.push({speaker: sc.speaker || '', text: sc.text, charId: sc.char || null});
+      if (vnBacklog.length > 200) vnBacklog.shift();
+    }
+  }
+  /* 選択肢（投票用） */
+  if (Array.isArray(sc.choices)){
+    const container = document.getElementById('vn-choices');
+    container.innerHTML = '';
+    container.classList.add('visible');
+    sc.choices.forEach((text, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'vn-choice-btn' + (netMyVote === i ? ' net-voted' : '');
+      btn.textContent = text;
+      btn.style.animationDelay = (i * 0.09) + 's';
+      const st = document.createElement('span');
+      st.className = 'net-vote-state';
+      st.textContent = netMyVote === i ? '🗳 あなた の推し' : 'タップで投票';
+      btn.appendChild(st);
+      btn.onclick = () => {
+        netMyVote = i;
+        netSend({t:'vote', idx: i});
+        container.querySelectorAll('.vn-choice-btn').forEach((b, j) => {
+          b.classList.toggle('net-voted', j === i);
+          const s2 = b.querySelector('.net-vote-state');
+          if (s2) s2.textContent = j === i ? '🗳 あなた の推し' : 'タップで投票';
+        });
+      };
+      container.appendChild(btn);
+    });
+    playSe('choice_appear');
+  } else if (sc.choices === null){
+    vnHideChoices();
+    netMyVote = -1;
+  }
+  netUpdatePill();
+}
+
+/* ── 受信処理（テストから直接呼べるよう公開） ── */
+function netHandleData(msg){
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'ping') return;
+  if (netRole === 'host'){
+    if (msg.t === 'hello'){
+      netGuestVote = -1;
+      netDisarmTimer();
+      netStartHeartbeat();
+      if (netInVN){
+        netSend({t:'vnstart', chapter: netLastChapter, playerName: GS.playerName});
+        if (netLastScene) netSend({t:'scene', scene: netLastScene});
+      } else {
+        netSend({t:'wait'});
+      }
+      netSetStatus('ゲストが参加しました！このままゲームを始めてください。物語シーンがゲストにも同期されます。');
+      netUpdatePill();
+      showToast('📖 ゲストが参加しました');
+    }
+    else if (msg.t === 'vote'){
+      const i = msg.idx | 0;
+      if (netGuestVote === i) return;
+      if (netGuestVote >= 0 && netVotes[netGuestVote] > 0) netVotes[netGuestVote]--;
+      netGuestVote = i;
+      if (netVotes[i] !== undefined){ netVotes[i]++; netRenderVoteBadges(); }
+    }
+    return;
+  }
+  if (netRole === 'guest'){
+    netDisarmTimer();
+    if (msg.t === 'vnstart'){
+      netReconnecting = false;
+      clearTimeout(netRetryTimer);
+      netStartHeartbeat();
+      netGuestEnterVN(msg.chapter || '');
+    }
+    else if (msg.t === 'scene'){
+      netReconnecting = false;
+      clearTimeout(netRetryTimer);
+      netStartHeartbeat();
+      netApplyScene(msg.scene);
+    }
+    else if (msg.t === 'wait'){
+      netReconnecting = false;
+      clearTimeout(netRetryTimer);
+      netStartHeartbeat();
+      netGuestShowWait('ホストが物語シーンに入ると、自動で同じ場面が表示されます。');
+    }
+    else if (msg.t === 'vnend'){
+      netGuestShowWait('ホストは今、コマンド画面にいます。次のシーンが始まるまでお待ちください。');
+    }
+  }
+}
+
+function netOnDisconnected(){
+  if (!netRole || netClosing) return;
+  netConn = null;
+  netStopHeartbeat();
+  if (netRole === 'guest'){
+    netReconnecting = true;
+    netUpdatePill();
+    const wt = document.getElementById('net-wait-text');
+    if (wt && document.getElementById('net-wait').style.display !== 'none')
+      wt.textContent = '接続が切れました。再接続を試みています…';
+    showToast('接続が切れました。再接続を試みています…');
+    netScheduleReconnect();
+  } else {
+    netSetStatus('ゲストが切断しました。再接続を待っています…（部屋は開いたままです）');
+    netUpdatePill();
+    showToast('ゲストが切断しました');
+  }
+}
+function netSetupConn(c){
+  netConn = c;
+  c.on('data', netHandleData);
+  c.on('close', () => { if (netConn === c) netOnDisconnected(); });
+  c.on('error', () => { if (netConn === c) netOnDisconnected(); });
+  c.on('open', () => netDisarmTimer());
+  c.on('iceStateChanged', st => {
+    if (netConn !== c) return;
+    if ((st === 'failed' || st === 'disconnected') && !(netConn && netConn.open)){
+      netDisarmTimer();
+      netSetStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+function netScheduleReconnect(){
+  clearTimeout(netRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if (netRole !== 'guest' || !netReconnecting) return;
+    tries++;
+    if (tries > 20){
+      netReconnecting = false;
+      netUpdatePill();
+      const wt = document.getElementById('net-wait-text');
+      if (wt) wt.textContent = '再接続できませんでした。ホストが部屋を開いているか確認して、もう一度参加してください。';
+      showToast('再接続できませんでした');
+      return;
+    }
+    netRetryTimer = setTimeout(attempt, 5000);
+    try{
+      if (netPeer){ try{ netPeer.destroy(); }catch (e){} }
+      netPeer = new Peer(undefined, NET_OPTS);
+      netPeer.on('open', () => {
+        const c = netPeer.connect(NET_PREFIX + netCode, {reliable: true});
+        netSetupConn(c);
+        c.on('open', () => { netSend({t:'hello'}); });
+      });
+      netPeer.on('error', () => {});
+    }catch (e){}
+  };
+  netRetryTimer = setTimeout(attempt, 1500);
+}
+function netTeardown(){
+  netClosing = true;
+  netStopHeartbeat();
+  clearTimeout(netRetryTimer);
+  netDisarmTimer();
+  try{ if (netConn) netConn.close(); }catch (e){}
+  try{ if (netPeer) netPeer.destroy(); }catch (e){}
+  netConn = null; netPeer = null;
+}
+function netHostRoom(){
+  if (!netPeerAvailable()){
+    netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    return;
+  }
+  netTeardown();
+  netClosing = false;
+  netRole = 'host';
+  netInVN = false; netLastScene = null;
+  netCode = netGenCode();
+  netSetStatus('部屋を作成中…');
+  try{ netPeer = new Peer(NET_PREFIX + netCode, NET_OPTS); }
+  catch (e){ netSetStatus('<span class="err">接続の作成に失敗しました。</span>'); netRole = null; return; }
+  netPeer.on('open', () => {
+    document.getElementById('net-room-code').textContent = netCode;
+    document.getElementById('net-code-wrap').style.display = '';
+    document.getElementById('net-leave-btn').style.display = '';
+    netSetStatus('ゲストの参加を待っています… コードを相手に伝えてください。このまま「閉じる」を押してゲームを始めてOKです。');
+    netUpdatePill();
+  });
+  netPeer.on('connection', c => {
+    netSetupConn(c);
+    netSetStatus('ゲストが接続しました。同期の準備中…');
+    netArmTimer('ゲストとの接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  netPeer.on('error', err => {
+    if (err && err.type === 'unavailable-id'){
+      netSetStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    } else {
+      netSetStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  netPeer.on('disconnected', () => { try{ netPeer.reconnect(); }catch (e){} });
+}
+function netJoinRoom(){
+  if (!netPeerAvailable()){
+    netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    return;
+  }
+  const code = (document.getElementById('net-join-code').value || '').trim().toUpperCase();
+  if (code.length !== 6){ netSetStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  netTeardown();
+  netClosing = false;
+  netRole = 'guest';
+  netCode = code;
+  netReconnecting = false;
+  document.getElementById('net-panel').style.display = 'none';
+  netGuestShowWait('ホストに接続しています…');
+  try{ netPeer = new Peer(undefined, NET_OPTS); }
+  catch (e){
+    netGuestShowWait('接続の作成に失敗しました。もう一度お試しください。');
+    netRole = null;
+    return;
+  }
+  netPeer.on('open', () => {
+    netArmTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c = netPeer.connect(NET_PREFIX + code, {reliable: true});
+    netSetupConn(c);
+    c.on('open', () => {
+      netSend({t:'hello'});
+      const wt = document.getElementById('net-wait-text');
+      if (wt) wt.textContent = '接続しました！ホストが物語シーンに入ると、自動で同じ場面が表示されます。';
+      netUpdatePill();
+    });
+  });
+  netPeer.on('error', err => {
+    if (err && err.type === 'peer-unavailable'){
+      netGuestShowWait('部屋が見つかりませんでした。コードを確認して、もう一度参加してください。');
+    } else if (netRole === 'guest' && !netReconnecting){
+      netGuestShowWait('接続エラーが発生しました。もう一度お試しください。');
+    }
+  });
+}
+function netLeave(){
+  netTeardown();
+  netClosing = false;
+  netRole = null;
+  netInVN = false;
+  netReconnecting = false;
+  netLastScene = null;
+  document.body.classList.remove('net-guest');
+  document.getElementById('net-wait').style.display = 'none';
+  document.getElementById('net-code-wrap').style.display = 'none';
+  document.getElementById('net-leave-btn').style.display = 'none';
+  netSetStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  netUpdatePill();
+  showScreen('title');
+}
+
+/* ── パネルUI ── */
+document.getElementById('btn-online').onclick = () => {
+  playSe('confirm');
+  document.getElementById('net-panel').style.display = 'flex';
+  if (!netPeerAvailable())
+    netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+};
+document.getElementById('net-close-btn').onclick = () => {
+  document.getElementById('net-panel').style.display = 'none';
+};
+document.getElementById('net-host-btn').onclick = () => netHostRoom();
+document.getElementById('net-join-btn').onclick = () => netJoinRoom();
+document.getElementById('net-leave-btn').onclick = () => { netLeave(); document.getElementById('net-panel').style.display = 'none'; };
+document.getElementById('net-wait-leave-btn').onclick = () => netLeave();
+document.getElementById('net-copy-btn').onclick = () => {
+  if (!netCode) return;
+  const done = () => showToast('コードをコピーしました');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = netCode; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch (e){}
+    ta.remove(); done();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(netCode).then(done).catch(fallback);
+  else fallback();
+};
 </script>
 <script>
 if ('serviceWorker' in navigator) {

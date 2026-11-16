@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{
   --ink:#3a3340; --sub:#9a8fa8; --card:rgba(255,255,255,.82);
@@ -205,6 +206,24 @@ main.col{max-width:480px;margin:0 auto;padding:10px 12px 18px;display:flex;flex-
 .dead-stats .row{display:flex;justify-content:space-between;padding:3px 0}
 .dead-stats .k{color:#b9aed1;font-weight:700}
 .dead-stats .v{font-weight:800}
+/* online co-op panel */
+#online-panel{padding:12px 16px}
+#online-panel .log-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.net-dot{margin-left:auto;width:10px;height:10px;border-radius:50%;background:#cfc4dd;flex:none}
+.net-dot.on{background:#2ed573;box-shadow:0 0 0 4px rgba(46,213,115,.18)}
+.net-dot.wait{background:#f7b731;box-shadow:0 0 0 4px rgba(247,183,49,.18)}
+.net-label{font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--sub);text-transform:uppercase;margin:8px 0 5px}
+.net-input{width:100%;min-width:0;border:1.5px solid #e7ddf2;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;font-weight:700;color:var(--ink);background:#fff;outline:none}
+.net-input:focus{border-color:var(--pink)}
+.net-input.code{text-transform:uppercase;letter-spacing:.14em;text-align:center;flex:1}
+.net-row{display:flex;gap:8px;margin-top:8px;align-items:stretch}
+.net-row .btn{flex:1;width:auto}
+#net-code-text{flex:1;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:800;letter-spacing:.28em;background:#faf6ff;border:1.5px dashed #d9c8f5;border-radius:12px;padding:8px 2px 8px 10px;color:#37304a;min-width:0}
+#net-status{font-size:12px;font-weight:700;color:#5d5170;line-height:1.6;margin-top:10px;overflow-wrap:anywhere}
+#net-status .net-err{color:#e14e83}
+#net-partner{font-size:12px;font-weight:800;color:#37304a;background:rgba(84,160,255,.10);border-radius:10px;padding:7px 10px;margin-top:9px;overflow-wrap:anywhere}
+#net-leave{margin-top:10px}
+body.online-on .foot-row{display:none}
 @media (max-width:380px){ #monster-stage{min-height:260px} .actions{gap:7px} }
 </style>
 </head>
@@ -274,12 +293,38 @@ main.col{max-width:480px;margin:0 auto;padding:10px 12px 18px;display:flex;flex-
 
   <!-- actions -->
   <div class="actions">
-    <button onclick="doFeed()" class="action-btn feed"><span class="a-ic">🍖</span><span class="a-lb">ごはん</span><span class="a-sub">FEED</span></button>
-    <button onclick="doPlay()" class="action-btn play"><span class="a-ic">🎮</span><span class="a-lb">あそぶ</span><span class="a-sub">PLAY</span></button>
-    <button onclick="doClean()" class="action-btn clean"><span class="a-ic">🧹</span><span class="a-lb">おそうじ</span><span class="a-sub">CLEAN</span></button>
-    <button onclick="doMedicine()" class="action-btn med"><span class="a-ic">💊</span><span class="a-lb">おくすり</span><span class="a-sub">MEDICINE</span></button>
-    <button onclick="doScold()" class="action-btn scold"><span class="a-ic">⚡</span><span class="a-lb">しかる</span><span class="a-sub">SCOLD</span></button>
-    <button onclick="toggleLight()" class="action-btn light"><span class="a-ic" id="light-icon">💡</span><span class="a-lb">でんき</span><span class="a-sub">LIGHT</span></button>
+    <button onclick="care('feed')" class="action-btn feed"><span class="a-ic">🍖</span><span class="a-lb">ごはん</span><span class="a-sub">FEED</span></button>
+    <button onclick="care('play')" class="action-btn play"><span class="a-ic">🎮</span><span class="a-lb">あそぶ</span><span class="a-sub">PLAY</span></button>
+    <button onclick="care('clean')" class="action-btn clean"><span class="a-ic">🧹</span><span class="a-lb">おそうじ</span><span class="a-sub">CLEAN</span></button>
+    <button onclick="care('medicine')" class="action-btn med"><span class="a-ic">💊</span><span class="a-lb">おくすり</span><span class="a-sub">MEDICINE</span></button>
+    <button onclick="care('scold')" class="action-btn scold"><span class="a-ic">⚡</span><span class="a-lb">しかる</span><span class="a-sub">SCOLD</span></button>
+    <button onclick="care('light')" class="action-btn light"><span class="a-ic" id="light-icon">💡</span><span class="a-lb">でんき</span><span class="a-sub">LIGHT</span></button>
+  </div>
+
+  <!-- online co-op -->
+  <div class="card" id="online-panel">
+    <div class="log-head"><span>🌐</span><span class="sl" style="font-size:10px">オンライン・いっしょに育成</span><span id="net-dot" class="net-dot"></span></div>
+    <div id="net-lobby">
+      <div class="net-label">あなたの表示名</div>
+      <input id="net-name" class="net-input" type="text" maxlength="10" placeholder="プレイヤー">
+      <div class="net-row">
+        <button class="btn grad" onclick="hostRoom()">🏠 部屋を作る</button>
+      </div>
+      <div class="net-row">
+        <input id="net-join-code" class="net-input code" type="text" maxlength="6" placeholder="コード">
+        <button class="btn primary" onclick="joinRoom()">参加する</button>
+      </div>
+    </div>
+    <div id="net-code-wrap" class="hidden">
+      <div class="net-label">ルームコード（相手に伝えてね）</div>
+      <div class="net-row">
+        <span id="net-code-text">------</span>
+        <button class="btn soft" style="flex:0 0 auto;padding:10px 16px" onclick="copyRoomCode()">コピー</button>
+      </div>
+    </div>
+    <div id="net-status">ソロで育成中。部屋を作るか、コードで参加すると「いっしょに育成」が始まります（共同育成はソロのセーブとは別です）。</div>
+    <div id="net-partner" class="hidden"></div>
+    <button id="net-leave" class="btn soft hidden" onclick="leaveOnline()">オンラインを終了する</button>
   </div>
 
   <!-- care log -->
@@ -1228,12 +1273,14 @@ try { careLog = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e) { 
 //  CARE LOG
 // ════════════════════════════════════
 function logEvent(icon, text) {
+  if (currentActor) text = text + '（' + currentActor + '）';
   const now = new Date();
   const hh = String(now.getHours()).padStart(2,'0'), mm = String(now.getMinutes()).padStart(2,'0');
   careLog.unshift({ t: hh + ':' + mm, text: icon + ' ' + text });
   careLog = careLog.slice(0, 30);
-  try { localStorage.setItem(LOG_KEY, JSON.stringify(careLog)); } catch(e) {}
+  if (netMode === 'solo') { try { localStorage.setItem(LOG_KEY, JSON.stringify(careLog)); } catch(e) {} }
   renderLog();
+  if (netMode === 'host') scheduleStateSync();
 }
 function renderLog() {
   const el = document.getElementById('log-list');
@@ -1246,6 +1293,8 @@ function renderLog() {
 //  SAVE / LOAD (+ slots)
 // ════════════════════════════════════
 function saveGame() {
+  /* オンライン中はソロセーブに触らず、ホストは状態同期に回す */
+  if (netMode !== 'solo') { if (netMode === 'host') scheduleStateSync(); return; }
   G.lastSave = Date.now();
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch(e) {}
 }
@@ -1335,6 +1384,7 @@ function startTick() {
   tickTimer = setInterval(gameTick, TICK_MS);
 }
 function gameTick() {
+  if (netMode === 'guest') return; /* ゲストはホストの状態が正 */
   if (!G.isAlive) return;
   tickCount++;
   G.ageMs += TICK_MS;
@@ -1389,6 +1439,7 @@ function killMonster() {
   logEvent('👻', 'おわかれした…');
   saveGame();
   showDead();
+  if (netMode === 'host') sendOnline({t:'event', kind:'dead'});
 }
 function scheduleCall() { showCallInd(true); }
 function showCallInd(on) {
@@ -1416,6 +1467,7 @@ function evolve(newStage) {
   saveGame();
   logEvent('✨', `${before} → ${M[newStage].name} に進化！`);
   showEvolution(newStage);
+  if (netMode === 'host') sendOnline({t:'event', kind:'evo', stage:newStage});
 }
 
 // ════════════════════════════════════
@@ -1546,6 +1598,7 @@ function setMgLight(cls) {
 }
 function openMinigame() {
   if (G.isSleeping) { showMsg('ねてるよ💤'); return; }
+  mgActor = currentActor || (netMode === 'host' ? hostName : '');
   mgActive = true; mgScore = 0; mgRound = 0; mgLit = false;
   document.getElementById('mg-overlay').classList.remove('hidden');
   document.getElementById('mg-result').textContent = '';
@@ -1591,13 +1644,28 @@ function endMinigame() {
   mgActive = false;
   clearTimeout(mgLitTimer); clearTimeout(mgWaitTimer);
   const gained = Math.ceil(mgScore * 0.75);
+  if (netMode === 'guest' && mgRemote) {
+    /* ゲスト: ミニゲームは手元で遊び、結果だけホストに送って適用してもらう */
+    mgRemote = false;
+    document.getElementById('mg-result').textContent = mgScore >= 4 ? '最高！🏆' : mgScore >= 2 ? 'よくできた！😄' : 'がんばれ！💪';
+    document.getElementById('mg-score-text').textContent = `結果: ごきげん +${gained}`;
+    if (mgScore >= 4) SFX.evo(); else if (mgScore >= 2) SFX.happy();
+    sendOnline({t:'act', action:'playResult', score: mgScore});
+    setTimeout(() => {
+      document.getElementById('mg-overlay').classList.add('hidden');
+      spawnParticles('⭐');
+      react('hop');
+    }, 1100);
+    return;
+  }
   const before = G.happy;
   G.happy = Math.min(4, G.happy + gained);
   G.totalHappy += gained;
   document.getElementById('mg-result').textContent = mgScore >= 4 ? '最高！🏆' : mgScore >= 2 ? 'よくできた！😄' : 'がんばれ！💪';
   document.getElementById('mg-score-text').textContent = `結果: ごきげん +${gained}`;
   if (mgScore >= 4) SFX.evo(); else if (mgScore >= 2) SFX.happy();
-  logEvent('🎮', `あそんだ（${mgScore}/5 ヒット）`);
+  withActor(mgActor, () => logEvent('🎮', `あそんだ（${mgScore}/5 ヒット）`));
+  if (netMode === 'host') noteFx('play');
   setTimeout(() => {
     document.getElementById('mg-overlay').classList.add('hidden');
     spawnParticles('⭐');
@@ -1609,6 +1677,7 @@ function endMinigame() {
 }
 function closeMinigame() {
   mgActive = false;
+  mgRemote = false;
   clearTimeout(mgLitTimer); clearTimeout(mgWaitTimer);
   SFX.click();
   document.getElementById('mg-overlay').classList.add('hidden');
@@ -1740,6 +1809,11 @@ function confirmReset() {
   document.getElementById('reset-dialog').classList.remove('hidden');
 }
 function resetGame() {
+  if (netMode === 'guest') { /* リセットはホストに依頼し、状態同期で反映される */
+    sendGuestAct('reset');
+    ['reset-dialog', 'dead-overlay'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    return;
+  }
   ['reset-dialog', 'dead-overlay', 'evo-overlay'].forEach(id => document.getElementById(id).classList.add('hidden'));
   document.getElementById('sleep-overlay').classList.add('hidden');
   document.getElementById('light-icon').textContent = '💡';
@@ -1954,9 +2028,396 @@ function showToast(text) {
 }
 
 // ════════════════════════════════════
+//  ONLINE CO-OP （いっしょに育成）
+//  ホストが状態の正を持ち、ゲストの操作は {t:'act'} で
+//  ホストが既存ロジックで適用し、全状態を配信する。
+//  共同育成は専用状態で進み、ソロセーブには一切書き込まない。
+// ════════════════════════════════════
+const CA_PEER_PREFIX = 'playweb-ca-';
+const CA_PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+let netMode = 'solo';            // 'solo' | 'host' | 'guest'
+let coPlaying = false;           // 共同育成セッション中
+let onlineClosing = false;
+let caPeer = null, caConn = null;
+let caIsHost = false, caRoomCode = '';
+let hostName = 'プレイヤー1', guestName = 'プレイヤー2';
+let guestConnected = false;
+let currentActor = '';           // ログに付ける実行者名（アクション適用中のみ）
+let mgActor = '', mgRemote = false;
+let soloBackup = null;
+let caConnTimer = null, caHeartbeatTimer = null, caGuestRetryTimer = null, caSyncTimer = null;
+let fxSeq = 0, fxInfo = { seq: 0, emoji: '', kind: 'hop' }, lastFxSeq = 0;
+
+const CARE_ACTIONS = { feed: doFeed, play: doPlay, clean: doClean, medicine: doMedicine, scold: doScold, light: toggleLight };
+const CARE_FX = { feed: ['🍖','hop'], play: ['⭐','hop'], clean: ['✨','hop'], medicine: ['💊','hop'], scold: ['⚡','shake'], light: ['💡','hop'] };
+
+/* お世話ボタンの入口: モードに応じて振り分ける */
+function care(action) {
+  if (netMode === 'guest') {
+    if (action === 'play') { mgRemote = true; doPlay(); return; } /* ミニゲームは手元で遊ぶ */
+    sendGuestAct(action);
+    return;
+  }
+  currentActor = (netMode === 'host') ? hostName : '';
+  try { CARE_ACTIONS[action](); } finally { currentActor = ''; }
+  if (netMode === 'host') noteFx(action);
+}
+function withActor(name, fn) {
+  const prev = currentActor;
+  currentActor = name || '';
+  try { fn(); } finally { currentActor = prev; }
+}
+function noteFx(action) {
+  const fx = CARE_FX[action];
+  if (!fx) return;
+  fxInfo = { seq: ++fxSeq, emoji: fx[0], kind: fx[1] };
+  scheduleStateSync();
+}
+
+function caPeerAvailable() { return typeof window.Peer !== 'undefined'; }
+function setNetStatus(html) { const el = document.getElementById('net-status'); if (el) el.innerHTML = html; }
+function myNetName(def) { const v = (document.getElementById('net-name').value || '').trim(); return v || def; }
+function sendOnline(obj) { if (caConn && caConn.open) { try { caConn.send(obj); } catch(e) {} } }
+function sendGuestAct(action) { sendOnline({t:'act', action}); }
+function startCaHeartbeat() { stopCaHeartbeat(); caHeartbeatTimer = setInterval(() => sendOnline({t:'ping'}), 8000); }
+function stopCaHeartbeat() { if (caHeartbeatTimer) clearInterval(caHeartbeatTimer); caHeartbeatTimer = null; }
+function armCaConnTimer(msg) {
+  clearTimeout(caConnTimer);
+  caConnTimer = setTimeout(() => { if (!coPlaying) setNetStatus('<span class="net-err">' + msg + '</span>'); }, 25000);
+}
+function disarmCaConnTimer() { clearTimeout(caConnTimer); }
+const CA_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+function genCaRoomCode() {
+  let s = '';
+  for (let i = 0; i < 6; i++) s += CA_CODE_CHARS[(Math.random() * CA_CODE_CHARS.length) | 0];
+  return s;
+}
+function copyRoomCode() {
+  if (!caRoomCode) return;
+  const done = () => showToast('コードをコピーしました');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = caRoomCode; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    ta.remove(); done();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(caRoomCode).then(done).catch(fallback);
+  else fallback();
+}
+
+/* ── 状態の所有と同期 ── */
+function freshCoMonster() {
+  return { stage:'egg', age:0, ageMs:0, weight:5, hunger:4, happy:4,
+    isSick:false, isSleeping:false, poop:false, isAlive:true, lightOn:true,
+    totalHappy:0, totalFed:0, totalScold:0, totalClean:0, missedCare:0,
+    lastSave:Date.now(), lastTick:Date.now(), discovered:['egg'], evoPath:'' };
+}
+function backupSolo() {
+  if (soloBackup) return;
+  soloBackup = { g: JSON.parse(JSON.stringify(G)), log: JSON.parse(JSON.stringify(careLog)), tick: tickCount };
+}
+function startCoOpHost() {
+  backupSolo();
+  G = freshCoMonster();
+  careLog = [];
+  tickCount = 0;
+  coPlaying = true;
+  document.body.classList.add('online-on');
+  ['dead-overlay', 'evo-overlay', 'sleep-overlay'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('light-icon').textContent = '💡';
+  logEvent('🥚', 'いっしょに育成スタート！');
+  updateUI(); renderLog();
+}
+function buildCoState() {
+  return { t:'state', g: JSON.parse(JSON.stringify(G)), log: careLog, tick: tickCount,
+           fx: fxInfo, hostName, guestName, guestConnected };
+}
+function broadcastCoState() { if (netMode === 'host') sendOnline(buildCoState()); }
+function scheduleStateSync() {
+  if (netMode !== 'host' || caSyncTimer) return;
+  caSyncTimer = setTimeout(() => { caSyncTimer = null; broadcastCoState(); }, 60);
+}
+
+/* ゲスト側: ホストの全状態で描画を更新する */
+function applyCoState(st) {
+  if (!st || !st.g) return;
+  if (!coPlaying) {
+    backupSolo();
+    coPlaying = true;
+    document.body.classList.add('online-on');
+    document.getElementById('net-lobby').classList.add('hidden');
+    document.getElementById('net-leave').classList.remove('hidden');
+  }
+  hostName = st.hostName || hostName;
+  guestConnected = true;
+  G = Object.assign({}, G, st.g);
+  if (Array.isArray(st.log)) careLog = st.log;
+  tickCount = st.tick || 0;
+  document.getElementById('sleep-overlay').classList.toggle('hidden', !G.isSleeping);
+  document.getElementById('light-icon').textContent = G.lightOn ? '💡' : '🌙';
+  if (!G.isAlive) showDead(); else document.getElementById('dead-overlay').classList.add('hidden');
+  if (st.fx && st.fx.seq && st.fx.seq !== lastFxSeq) {
+    lastFxSeq = st.fx.seq;
+    if (st.fx.emoji) spawnParticles(st.fx.emoji);
+    react(st.fx.kind === 'shake' ? 'shake' : 'hop');
+  }
+  startCaHeartbeat();
+  updateUI(); renderLog();
+  setNetStatus('いっしょに育成中！お世話はどちらからでもできます。');
+  updateNetDot();
+}
+
+/* ── ホスト側: ゲスト操作の適用 ── */
+function applyGuestAct(msg) {
+  const a = msg.action;
+  if (a === 'playResult') { applyPlayResult(msg.score | 0, guestName); return; }
+  if (a === 'reset') { resetGame(); broadcastCoState(); return; }
+  const fn = CARE_ACTIONS[a];
+  if (!fn) return;
+  currentActor = guestName;
+  try { fn(); } finally { currentActor = ''; }
+  noteFx(a);
+  const m = document.getElementById('msg-text').textContent;
+  if (m) sendOnline({t:'event', kind:'msg', text: m});
+  broadcastCoState();
+}
+function applyPlayResult(score, actor) {
+  if (!G.isAlive || G.isSleeping || G.stage === 'egg') return;
+  const gained = Math.ceil(score * 0.75);
+  const before = G.happy;
+  G.happy = Math.min(4, G.happy + gained);
+  G.totalHappy += gained;
+  withActor(actor, () => logEvent('🎮', `あそんだ（${score}/5 ヒット）`));
+  if (G.happy > before) floatDelta('happy-gauge', `+${G.happy - before} 💗`, '#ff5b8f');
+  showCallInd(G.isSick || G.hunger === 0 || G.poop);
+  react('hop'); spawnParticles('⭐');
+  updateUI(); saveGame();
+  noteFx('play');
+}
+function handleCaEvent(msg) {
+  if (msg.kind === 'evo') { showEvolution(msg.stage); return; }
+  if (msg.kind === 'dead') { showDead(); return; }
+  if (msg.kind === 'msg') { showMsg(msg.text); return; }
+  if (msg.kind === 'end') { endCoOp('ホストとの接続が切れました。共同育成を終了しました。'); return; }
+}
+
+/* ── 受信ハンドラ（テストから直接呼べるよう公開） ── */
+function handleCaData(msg) {
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'ping') return;
+  if (caIsHost) {
+    if (msg.t === 'hello') {
+      guestName = msg.name || 'プレイヤー2';
+      const wasPlaying = coPlaying;
+      if (!coPlaying) startCoOpHost();
+      guestConnected = true;
+      disarmCaConnTimer();
+      startCaHeartbeat();
+      broadcastCoState();
+      updateNetDot();
+      setNetStatus('いっしょに育成中！お世話を分担して育てよう。');
+      showToast(wasPlaying ? (guestName + ' が再接続しました') : (guestName + ' と いっしょに育成スタート！'));
+      return;
+    }
+    if (msg.t === 'act') { applyGuestAct(msg); return; }
+    if (msg.t === 'bye') { onGuestGone(); return; }
+  } else {
+    if (msg.t === 'state') { disarmCaConnTimer(); applyCoState(msg); return; }
+    if (msg.t === 'event') { handleCaEvent(msg); return; }
+  }
+}
+
+/* ── 切断処理 ── */
+function onGuestGone() {
+  if (!caIsHost) return;
+  guestConnected = false;
+  stopCaHeartbeat();
+  updateNetDot();
+  setNetStatus('<span class="net-err">相手が切断中です…</span>育成はそのまま続けられます。相手は同じコードで再接続できます。');
+  showToast('相手が切断しました（育成は継続できます）');
+}
+function onCaDisconnected() {
+  if (caIsHost) { onGuestGone(); return; }
+  if (netMode !== 'guest' || onlineClosing) return;
+  if (coPlaying) {
+    stopCaHeartbeat();
+    setNetStatus('<span class="net-err">接続が切れました。再接続を試みています…</span>');
+    showToast('接続が切れました。再接続を試みています…');
+    scheduleCaGuestReconnect();
+  } else {
+    setNetStatus('<span class="net-err">相手との接続が切れました。</span>');
+  }
+}
+function scheduleCaGuestReconnect() {
+  clearTimeout(caGuestRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if (netMode !== 'guest' || !coPlaying || onlineClosing) return;
+    tries++;
+    if (tries > 20) { endCoOp('ホストとの接続が切れました。共同育成を終了しました。'); return; }
+    caGuestRetryTimer = setTimeout(attempt, 5000);
+    try {
+      if (caPeer) { try { caPeer.destroy(); } catch(e) {} }
+      caPeer = new Peer(undefined, CA_PEER_OPTS);
+      caPeer.on('open', () => {
+        const c = caPeer.connect(CA_PEER_PREFIX + caRoomCode, {reliable: true});
+        setupCaConn(c);
+        c.on('open', () => { sendOnline({t:'hello', name: guestName}); });
+      });
+      caPeer.on('error', () => {});
+    } catch(e) {}
+  };
+  caGuestRetryTimer = setTimeout(attempt, 1500);
+}
+function setupCaConn(c) {
+  caConn = c;
+  c.on('data', handleCaData);
+  c.on('close', () => { if (caConn === c) { caConn = null; onCaDisconnected(); } });
+  c.on('error', () => { if (caConn === c) { caConn = null; onCaDisconnected(); } });
+  c.on('open', () => disarmCaConnTimer());
+  c.on('iceStateChanged', st => {
+    if (caConn !== c) return;
+    if ((st === 'failed' || st === 'disconnected') && !coPlaying) {
+      disarmCaConnTimer();
+      setNetStatus('<span class="net-err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+function teardownCa() {
+  onlineClosing = true;
+  stopCaHeartbeat();
+  clearTimeout(caGuestRetryTimer);
+  clearTimeout(caConnTimer);
+  if (caSyncTimer) { clearTimeout(caSyncTimer); caSyncTimer = null; }
+  try { if (caConn) caConn.close(); } catch(e) {}
+  try { if (caPeer) caPeer.destroy(); } catch(e) {}
+  caConn = null; caPeer = null;
+}
+
+/* ── 部屋を作る / 参加する / 終了 ── */
+function hostRoom() {
+  if (!caPeerAvailable()) { setNetStatus('<span class="net-err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  teardownCa();
+  onlineClosing = false;
+  netMode = 'host'; caIsHost = true;
+  hostName = myNetName('プレイヤー1');
+  try { localStorage.setItem('monster_caring_name', hostName); } catch(e) {}
+  caRoomCode = genCaRoomCode();
+  setNetStatus('部屋を作成中…');
+  try { caPeer = new Peer(CA_PEER_PREFIX + caRoomCode, CA_PEER_OPTS); }
+  catch(e) { netMode = 'solo'; setNetStatus('<span class="net-err">接続の作成に失敗しました。</span>'); return; }
+  caPeer.on('open', () => {
+    document.getElementById('net-code-text').textContent = caRoomCode;
+    document.getElementById('net-code-wrap').classList.remove('hidden');
+    document.getElementById('net-lobby').classList.add('hidden');
+    document.getElementById('net-leave').classList.remove('hidden');
+    setNetStatus('相手の参加を待っています… コードを相手に伝えてください。相手が参加すると共同育成が始まります。');
+    updateNetDot();
+  });
+  caPeer.on('connection', c => {
+    setupCaConn(c);
+    setNetStatus(guestConnected ? '相手が再接続しています…' : '相手が接続しました。共同育成の準備中…');
+    armCaConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  caPeer.on('error', err => {
+    if (err && err.type === 'unavailable-id') setNetStatus('<span class="net-err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    else if (!coPlaying) setNetStatus('<span class="net-err">接続エラーが発生しました。</span>');
+  });
+  caPeer.on('disconnected', () => { try { caPeer.reconnect(); } catch(e) {} });
+}
+function joinRoom() {
+  if (!caPeerAvailable()) { setNetStatus('<span class="net-err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  const code = (document.getElementById('net-join-code').value || '').trim().toUpperCase();
+  if (code.length !== 6) { setNetStatus('<span class="net-err">6文字のルームコードを入力してください。</span>'); return; }
+  teardownCa();
+  onlineClosing = false;
+  netMode = 'guest'; caIsHost = false;
+  guestName = myNetName('プレイヤー2');
+  try { localStorage.setItem('monster_caring_name', guestName); } catch(e) {}
+  caRoomCode = code;
+  setNetStatus('接続中…');
+  try { caPeer = new Peer(undefined, CA_PEER_OPTS); }
+  catch(e) { netMode = 'solo'; setNetStatus('<span class="net-err">接続の作成に失敗しました。</span>'); return; }
+  caPeer.on('open', () => {
+    armCaConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c = caPeer.connect(CA_PEER_PREFIX + code, {reliable: true});
+    setupCaConn(c);
+    c.on('open', () => {
+      sendOnline({t:'hello', name: guestName});
+      startCaHeartbeat();
+      setNetStatus('接続しました！ホストからの開始を待っています…');
+    });
+  });
+  caPeer.on('error', err => {
+    if (err && err.type === 'peer-unavailable') setNetStatus('<span class="net-err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    else if (!coPlaying) setNetStatus('<span class="net-err">接続エラーが発生しました。</span>');
+  });
+}
+function leaveOnline() {
+  if (netMode === 'host') sendOnline({t:'event', kind:'end'});
+  if (netMode === 'guest') sendOnline({t:'bye'});
+  endCoOp('オンラインを終了しました。ソロ育成に戻ります。');
+}
+function endCoOp(msg) {
+  teardownCa();
+  if (soloBackup) {
+    G = soloBackup.g;
+    careLog = soloBackup.log;
+    tickCount = soloBackup.tick;
+    soloBackup = null;
+  }
+  coPlaying = false;
+  guestConnected = false;
+  mgRemote = false;
+  netMode = 'solo'; caIsHost = false;
+  document.body.classList.remove('online-on');
+  G.lastSave = Date.now(); G.lastTick = Date.now();
+  saveGame();
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(careLog)); } catch(e) {}
+  document.getElementById('sleep-overlay').classList.toggle('hidden', !G.isSleeping);
+  document.getElementById('light-icon').textContent = G.lightOn ? '💡' : '🌙';
+  document.getElementById('dead-overlay').classList.toggle('hidden', G.isAlive);
+  document.getElementById('net-code-wrap').classList.add('hidden');
+  document.getElementById('net-leave').classList.add('hidden');
+  document.getElementById('net-partner').classList.add('hidden');
+  document.getElementById('net-lobby').classList.remove('hidden');
+  updateNetDot();
+  updateUI(); renderLog();
+  if (msg) { setNetStatus(msg); showMsg(msg); }
+}
+function renderNetPartner() {
+  const el = document.getElementById('net-partner');
+  if (netMode === 'solo') { el.classList.add('hidden'); return; }
+  if (netMode === 'host') {
+    el.classList.remove('hidden');
+    el.textContent = guestConnected
+      ? `👥 相手: ${guestName}（接続中）／ あなた: ${hostName}`
+      : `👥 相手の参加・再接続を待っています ／ あなた: ${hostName}`;
+  } else {
+    el.classList.remove('hidden');
+    el.textContent = `👥 ホスト: ${hostName} ／ あなた: ${guestName}`;
+  }
+}
+function updateNetDot() {
+  const d = document.getElementById('net-dot');
+  const on = (netMode === 'host' && guestConnected) || (netMode === 'guest' && coPlaying);
+  const wait = netMode !== 'solo' && !on;
+  d.className = 'net-dot' + (on ? ' on' : wait ? ' wait' : '');
+  renderNetPartner();
+}
+
+// ════════════════════════════════════
 //  INIT
 // ════════════════════════════════════
 window.addEventListener('DOMContentLoaded', function() {
+  const savedNetName = localStorage.getItem('monster_caring_name');
+  if (savedNetName) document.getElementById('net-name').value = savedNetName;
   const loaded = loadGame();
   if (G.isSleeping) {
     document.getElementById('sleep-overlay').classList.remove('hidden');

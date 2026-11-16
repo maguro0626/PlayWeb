@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ゲーム工房物語 | PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{
     --ink:#3a2e2a; --paper:#fff8ec; --card:#fffdf7; --line:#e8d9bd;
@@ -128,6 +129,17 @@
   .confetti{position:fixed;top:-12px;z-index:300;pointer-events:none;border-radius:2px;animation:fall linear forwards}
   @keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
   .kbd-hint{font-size:11px;color:#9b8a76;font-weight:700;text-align:center;margin-top:8px}
+  /* ===== オンライン対戦（ライバル対決） ===== */
+  #vs-panel .vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  #vs-panel .vs-side{background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 10px;min-width:0}
+  #vs-panel .vs-side.me{border-color:var(--accent);background:#fff6ec}
+  #vs-panel .vs-name{font-weight:900;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #vs-panel .vs-nums{font-size:12px;font-weight:800;color:#7a6552;line-height:1.75;margin-top:2px}
+  #vs-panel .vs-nums b{color:var(--ink);font-size:13px}
+  .vs-seg{display:flex;gap:6px}
+  .vs-seg .sub-btn{flex:1}
+  .vs-seg .sub-btn.sel{background:var(--accent);color:#fff}
+  @media(max-width:560px){#vs-panel .vs-nums{font-size:11px;line-height:1.65}}
 </style>
 </head>
 <body>
@@ -147,9 +159,12 @@
     </span>
     <button class="icon-btn" id="btn-sound" title="サウンド ON/OFF">🔊</button>
     <button class="icon-btn" id="btn-save" title="セーブ">💾</button>
+    <button class="icon-btn" id="btn-versus" title="オンライン対戦（ライバル対決）">⚔️</button>
   </header>
 
   <div id="ticker">📰 ニュースを読み込み中…</div>
+
+  <div class="card" id="vs-panel" style="display:none;margin-top:10px"></div>
 
   <div id="main">
     <div>
@@ -327,6 +342,17 @@ function platformShare(p, absMonth){
 }
 /* ================= 状態 ================= */
 const SAVE_KEY = 'gamedev_story_v1';
+const VS_SAVE_KEY = 'gamedev_story_vs';
+/* オンライン対戦（ライバル対決）の状態。ネット接続の実体もここに持つ */
+let VS = {
+  active:false, started:false, finished:false, reconnecting:false, isHost:false,
+  roomCode:'', peer:null, conn:null,
+  seed:0, years:3, totalWeeks:144, trendSchedule:null,
+  myName:'', oppName:'ライバル会社', pendingName:'', pendingYears:3,
+  oppProg:null, oppFinal:null, oppBankrupt:false, myFinal:null,
+  lastProgKey:'', finishReason:'', resultShown:false,
+};
+function currentSaveKey(){ return VS.active ? VS_SAVE_KEY : SAVE_KEY; }
 let S = null;
 function absMonth(){ return (S.year-1)*12 + (S.month-1); }
 function newState(){
@@ -347,7 +373,7 @@ function newState(){
   };
 }
 function save(silent){
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); if(!silent) toast('💾 セーブしました'); }catch(e){}
+  try{ localStorage.setItem(currentSaveKey(), JSON.stringify(S)); if(!silent) toast('💾 セーブしました'); }catch(e){}
 }
 function load(){
   try{ const d = localStorage.getItem(SAVE_KEY); if(d){ S = Object.assign(newState(), JSON.parse(d)); return true; } }catch(e){}
@@ -424,6 +450,7 @@ function weekTick(){
   else idleTick();
   salesTick();
   if(S.week % 2 === 0) save(true);
+  if(VS.active) vsWeekHook();
   renderAll();
 }
 function idleTick(){
@@ -451,8 +478,15 @@ function monthEnd(){
       addLog(`📢 新ゲーム機「${p.name}」発売！シェア拡大中`);
     }
   }
-  // 流行の変化
-  if(Math.random() < 0.45){
+  // 流行の変化（対戦中はシードから決まる共通スケジュールで両者が一致する）
+  if(VS.active && VS.trendSchedule){
+    const nt = VS.trendSchedule[Math.min(absMonth(), VS.trendSchedule.length - 1)];
+    if(nt && nt !== S.trendGenre){
+      S.trendGenre = nt;
+      const g = GENRES.find(x => x.id === nt);
+      addLog(`🔥 いま「${g.name}」が流行中らしい`);
+    }
+  } else if(Math.random() < 0.45){
     const g = pick(GENRES.filter(x => S.unlockedGenres.includes(x.id)));
     if(g.id !== S.trendGenre){ S.trendGenre = g.id; addLog(`🔥 いま「${g.name}」が流行中らしい`); }
   }
@@ -460,6 +494,7 @@ function monthEnd(){
   refreshContracts();
   if(S.money < 0){
     S.gameOver = true; S.paused = true;
+    if(VS.active && !VS.finished){ vsOnBankrupt(); return; }
     showGameOver(); return;
   }
   if(S.money < 300000) toast('⚠️ 資金が心もとない…受託開発で稼ごう');
@@ -573,6 +608,7 @@ function releaseGame(title){
   S.fans = Math.max(0, S.fans + Math.round((total-20)*6 + units*0.004) - (total<12 ? 60 : 0));
   S.project = null;
   addLog(`🚀 「${title}」発売！レビュー合計 ${total}点${hof ? '・殿堂入り！' : ''}`);
+  if(VS.active && !VS.finished){ vsSend({ t:'release', title, review: total }); vsSendProg(); }
   save(true);
   showReviews(game);
 }
@@ -841,6 +877,7 @@ function renderAll(){
   $('#act-dev').disabled = !!(S.project || S.contract);
   $('#act-contract').disabled = !!(S.project || S.contract);
   for(let s=0;s<=4;s+= (s===0?1: s===1?1:2)){ const b = $('#spd-'+s); if(b) b.classList.toggle('on', (S.paused && s===0) || (!S.paused && S.speed===s)); }
+  renderVsPanel();
 }
 function renderTicker(){
   const items = [];
@@ -1154,7 +1191,7 @@ function openResearch(){
     <div class="close-row"><button class="sub-btn" id="rs-close">閉じる</button>
     <button class="sub-btn danger" id="rs-reset">データを消して最初から</button></div>`);
   $('#rs-close').onclick = closeModal;
-  $('#rs-reset').onclick = () => { if(confirm('セーブデータを消して最初から始めますか？')){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
+  $('#rs-reset').onclick = () => { if(confirm('セーブデータを消して最初から始めますか？')){ localStorage.removeItem(currentSaveKey()); location.reload(); } };
   document.querySelectorAll('[data-ug]').forEach(b => b.onclick = () => { const g = GENRES.find(x=>x.id===b.dataset.ug); S.research -= g.unlock; S.unlockedGenres.push(g.id); toast(`🎲 ジャンル「${g.name}」を解放！`); sfx.fanfare(); openResearch(); renderAll(); });
   document.querySelectorAll('[data-ut]').forEach(b => b.onclick = () => { const t = THEMES.find(x=>x.id===b.dataset.ut); S.research -= t.unlock; S.unlockedThemes.push(t.id); toast(`🎨 テーマ「${t.name}」を解放！`); sfx.fanfare(); openResearch(); renderAll(); });
   const ou = $('#office-up'); if(ou) ou.onclick = () => { S.money -= nextOffice.cost; S.research -= nextOffice.res; S.officeLv++; toast('🏢 オフィスを拡張した！'); addLog('🏢 オフィスを拡張した'); sfx.fanfare(); openResearch(); renderAll(); };
@@ -1224,7 +1261,7 @@ function showGameOver(){
     <div class="desc">コツ: 最初はPC向けの小さいゲームと受託開発で資金を安定させ、相性◎の組み合わせを狙うと伸びていきます。</div>
     <div class="close-row"><button class="big-btn" id="go-restart" style="margin-top:0">最初からやり直す</button></div>`);
   $('#modal-box').dataset.locked = '1';
-  $('#go-restart').onclick = () => { localStorage.removeItem(SAVE_KEY); location.reload(); };
+  $('#go-restart').onclick = () => { localStorage.removeItem(currentSaveKey()); location.reload(); };
 }
 
 /* ================= 開始モーダル ================= */
@@ -1233,7 +1270,8 @@ function showStart(){
     <h2>🎮 ゲーム工房物語</h2>
     <div class="desc">あなたは小さなゲーム会社の社長。社員と一緒にゲームを作って売り、ファンを増やして「殿堂入り」や年末の「ゲーム大賞グランプリ」を目指そう！<br><br>
     <b>遊び方</b>: ①「ゲームを作る」で企画 → ②社員が自動で開発（40%と80%で担当者を指名）→ ③バグを直して発売 → ④レビューと売上で資金とファンが増える → ⑤研究で新しいジャンルや大きなオフィスを解放。<br>
-    ジャンル×テーマの<b>相性</b>がヒットの鍵。資金が尽きるとゲームオーバーです。</div>
+    ジャンル×テーマの<b>相性</b>がヒットの鍵。資金が尽きるとゲームオーバーです。<br>
+    ⚔️ 画面上の <b>⚔️ボタン</b> から、友達と同じ条件で競うオンライン対戦「ライバル対決」も遊べます。</div>
     <label style="font-weight:900;font-size:13px">会社名</label>
     <input type="text" id="company-input" maxlength="12" value="ほしぞら工房">
     <div class="close-row"><button class="big-btn" id="start-btn" style="margin-top:0">会社を始める！</button></div>`);
@@ -1252,6 +1290,395 @@ function showStart(){
   };
 }
 
+/* ================= オンライン対戦（ライバル対決） ================= */
+const VS_PEER_PREFIX = 'playweb-gd-';
+const VS_PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const VS_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+let vsHeartbeat = null, vsRetryTimer = null, vsConnTimer = null;
+function vsPeerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+/* シードだけから決まる月別の流行スケジュール。両クライアントで完全一致する */
+function buildTrendSchedule(seed, months){
+  const rng = mulberry32((seed >>> 0) || 1);
+  const ids = GENRES.map(g => g.id);
+  const sched = ['rpg'];
+  for(let m = 1; m < months; m++){
+    if(rng() < 0.45) sched.push(ids[Math.floor(rng() * ids.length)]);
+    else sched.push(sched[m - 1]);
+  }
+  return sched;
+}
+function vsGenCode(){ let c = ''; for(let i = 0; i < 6; i++) c += VS_CODE_CHARS[(Math.random() * VS_CODE_CHARS.length) | 0]; return c; }
+function vsSend(obj){ if(VS.conn && VS.conn.open){ try{ VS.conn.send(obj); }catch(e){} } }
+function vsMyProg(){
+  return {
+    name: S.companyName, fans: Math.round(S.fans), funds: Math.round(S.money),
+    releases: S.stats.gamesMade,
+    bestReview: S.released.reduce((a, g) => Math.max(a, g.reviewTotal), 0),
+    hof: S.hofCount,
+  };
+}
+function vsSendProg(){ vsSend({ t:'prog', prog: vsMyProg() }); }
+function vsSetStatus(html){ const el = $('#vs-status'); if(el) el.innerHTML = html; }
+function vsArmTimer(){
+  clearTimeout(vsConnTimer);
+  vsConnTimer = setTimeout(() => {
+    if(!VS.started) vsSetStatus('<span style="color:#e5484d">接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+  }, 25000);
+}
+function vsDisarmTimer(){ clearTimeout(vsConnTimer); }
+function startHeartbeatVs(){
+  stopHeartbeatVs();
+  vsHeartbeat = setInterval(() => { vsSend({ t:'ping' }); }, 8000);
+}
+function stopHeartbeatVs(){ if(vsHeartbeat) clearInterval(vsHeartbeat); vsHeartbeat = null; }
+function vsTeardown(){
+  VS.active = false; VS.started = false; VS.finished = false; VS.reconnecting = false;
+  stopHeartbeatVs();
+  clearTimeout(vsRetryTimer); vsDisarmTimer();
+  try{ if(VS.conn) VS.conn.close(); }catch(e){}
+  try{ if(VS.peer) VS.peer.destroy(); }catch(e){}
+  VS.conn = null; VS.peer = null;
+}
+
+/* ---------- ロビー ---------- */
+function openVsLobby(){
+  delete $('#modal-box').dataset.locked;
+  showModal(`
+    <h2>⚔️ オンライン対戦（ライバル対決）</h2>
+    <div class="desc">友達と同じ条件でゲーム会社経営バトル！両者とも<b>同じ流行・新機種の流れ</b>の中で経営し、対戦期間が終わった時点で <b>ファン数 → 資金</b> の順で勝敗を決めます。経営のペースは各自自由です。相手が新作を発売すると通知が届きます。<br>※対戦は専用データで始まります（ソロのセーブには影響しません）。</div>
+    <label style="font-weight:900;font-size:13px">あなたの会社名</label>
+    <input type="text" id="vs-name" maxlength="12" value="${S && S.companyName ? S.companyName : 'ほしぞら工房'}">
+    <h3 style="margin:14px 0 6px">🏠 部屋を作る（ホスト）</h3>
+    <div style="font-weight:800;font-size:13px;margin-bottom:6px">対戦期間</div>
+    <div class="vs-seg" id="vs-years">
+      ${[1,2,3].map(y => `<button class="sub-btn ${VS.pendingYears===y?'sel':''}" data-y="${y}">${y}年間</button>`).join('')}
+    </div>
+    <button class="big-btn" id="vs-host-btn">部屋を作る</button>
+    <div id="vs-code-wrap" style="display:none;margin-top:10px;background:#fff3d6;border:2px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:800">
+      ルームコード: <b id="vs-code" style="font-size:20px;letter-spacing:.15em"></b>
+      <button class="sub-btn" id="vs-copy" style="margin-left:8px">コピー</button>
+    </div>
+    <h3 style="margin:16px 0 6px">🚪 部屋に参加する（ゲスト）</h3>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="vs-join-code" maxlength="6" placeholder="6文字コード" style="text-transform:uppercase">
+      <button class="sub-btn" id="vs-join-btn" style="flex:none">参加する</button>
+    </div>
+    <div id="vs-status" style="margin-top:12px;font-weight:800;font-size:13px;line-height:1.6">${vsPeerAvailable() ? 'ホストは「部屋を作る」、ゲストはコードを入力して「参加する」を押してください。' : '<span style="color:#e5484d">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'}</div>
+    <div class="close-row"><button class="sub-btn" id="vs-close">閉じる</button></div>`);
+  document.querySelectorAll('#vs-years button').forEach(b => b.onclick = () => {
+    VS.pendingYears = Number(b.dataset.y);
+    document.querySelectorAll('#vs-years button').forEach(x => x.classList.toggle('sel', x === b));
+    sfx.pop();
+  });
+  $('#vs-close').onclick = () => { closeModal(); if(!S.started) showStart(); };
+  $('#vs-host-btn').onclick = () => { VS.pendingName = ($('#vs-name').value || '').trim() || 'ほしぞら工房'; vsHostRoom(); };
+  $('#vs-join-btn').onclick = () => { VS.pendingName = ($('#vs-name').value || '').trim() || 'ほしぞら工房'; vsJoinRoom(($('#vs-join-code').value || '').trim().toUpperCase()); };
+}
+function vsHostRoom(){
+  if(!vsPeerAvailable()){ vsSetStatus('<span style="color:#e5484d">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  vsTeardown();
+  VS.isHost = true;
+  VS.roomCode = vsGenCode();
+  vsSetStatus('部屋を作成中…');
+  try{ VS.peer = new Peer(VS_PEER_PREFIX + VS.roomCode, VS_PEER_OPTS); }
+  catch(e){ vsSetStatus('<span style="color:#e5484d">接続の作成に失敗しました。</span>'); return; }
+  VS.peer.on('open', () => {
+    const w = $('#vs-code-wrap'); if(w) w.style.display = '';
+    const c = $('#vs-code'); if(c) c.textContent = VS.roomCode;
+    const cp = $('#vs-copy'); if(cp) cp.onclick = async () => { try{ await navigator.clipboard.writeText(VS.roomCode); toast('コードをコピーしました'); }catch(e){} };
+    vsSetStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    vsArmTimer();
+  });
+  VS.peer.on('connection', c => { vsSetupConn(c); });
+  VS.peer.on('error', err => {
+    if(err && err.type === 'unavailable-id') vsSetStatus('<span style="color:#e5484d">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    else if(!VS.started) vsSetStatus('<span style="color:#e5484d">接続エラーが発生しました。</span>');
+  });
+  VS.peer.on('disconnected', () => { try{ VS.peer.reconnect(); }catch(e){} });
+}
+function vsJoinRoom(code){
+  if(!vsPeerAvailable()){ vsSetStatus('<span style="color:#e5484d">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  if(code.length !== 6){ vsSetStatus('<span style="color:#e5484d">6文字のルームコードを入力してください。</span>'); return; }
+  vsTeardown();
+  VS.isHost = false;
+  VS.roomCode = code;
+  vsSetStatus('接続中…');
+  try{ VS.peer = new Peer(undefined, VS_PEER_OPTS); }
+  catch(e){ vsSetStatus('<span style="color:#e5484d">接続の作成に失敗しました。</span>'); return; }
+  VS.peer.on('open', () => {
+    vsArmTimer();
+    const c = VS.peer.connect(VS_PEER_PREFIX + code, { reliable: true });
+    vsSetupConn(c);
+    c.on('open', () => {
+      vsSend({ t:'hello', name: VS.pendingName });
+      vsSetStatus('接続しました！ホストからの対戦開始を待っています…');
+    });
+  });
+  VS.peer.on('error', err => {
+    if(err && err.type === 'peer-unavailable') vsSetStatus('<span style="color:#e5484d">部屋が見つかりませんでした。コードを確認してください。</span>');
+    else if(!VS.started) vsSetStatus('<span style="color:#e5484d">接続エラーが発生しました。</span>');
+  });
+}
+function vsSetupConn(c){
+  VS.conn = c;
+  c.on('data', handleVsData);
+  c.on('close', () => { if(VS.conn === c) onVsDisconnected(); });
+  c.on('error', () => { if(VS.conn === c) onVsDisconnected(); });
+  c.on('open', () => { if(VS.started) vsDisarmTimer(); });
+  c.on('iceStateChanged', st => {
+    if(VS.conn !== c) return;
+    if((st === 'failed' || st === 'disconnected') && !VS.started){
+      vsDisarmTimer();
+      vsSetStatus('<span style="color:#e5484d">接続を確立できませんでした。ネットワーク環境を変えてもう一度お試しください。</span>');
+    }
+  });
+}
+
+/* ---------- 対戦開始 ---------- */
+function startVersus(seed, years, oppName){
+  vsDisarmTimer();
+  const myName = VS.pendingName || S.companyName || 'ほしぞら工房';
+  VS.myName = myName;
+  try{ localStorage.removeItem(VS_SAVE_KEY); }catch(e){}
+  S = newState();
+  S.companyName = myName;
+  S.started = true;
+  const a = genStaff(0); a.job = 'prog'; a.name = 'コウタ'; a.pg = 26; a.sc = 10; a.gr = 12; a.sd = 8; a.salary = staffSalary(a);
+  const b = genStaff(0); b.job = 'plan'; b.name = 'ミサキ'; b.sc = 25; b.pg = 9; b.gr = 11; b.sd = 13; b.salary = staffSalary(b);
+  S.staff = [a, b];
+  VS.active = true; VS.started = true; VS.finished = false; VS.reconnecting = false;
+  VS.seed = seed; VS.years = years; VS.totalWeeks = years * 48;
+  VS.trendSchedule = buildTrendSchedule(seed, years * 12 + 2);
+  S.trendGenre = VS.trendSchedule[0];
+  VS.oppName = oppName || 'ライバル会社';
+  VS.oppProg = null; VS.oppFinal = null; VS.oppBankrupt = false;
+  VS.myFinal = null; VS.lastProgKey = ''; VS.finishReason = ''; VS.resultShown = false;
+  refreshCandidates(true); refreshContracts();
+  addLog(`⚔️ ${VS.oppName}との${years}年対決スタート！`);
+  delete $('#modal-box').dataset.locked;
+  closeModal();
+  sfx.fanfare();
+  save(true);
+  startHeartbeatVs();
+  vsSendProg();
+  renderAll();
+  toast(`⚔️ ライバル対決スタート！${years}年間の経営バトル`);
+}
+
+/* ---------- 受信処理（テストから直接呼べるよう関数として公開） ---------- */
+function handleVsData(msg){
+  if(!msg || typeof msg !== 'object') return;
+  if(msg.t === 'ping') return;
+  if(msg.t === 'hello'){
+    if(!VS.isHost) return;
+    VS.oppName = msg.name || 'ライバル会社';
+    if(VS.started){
+      /* 再接続: 対戦はリセットせず、現在の状況を送って同期し直す */
+      VS.reconnecting = false;
+      vsSend({ t:'resync', prog: vsMyProg() });
+      if(VS.finished && VS.myFinal) vsSend({ t:'final', prog: VS.myFinal });
+      startHeartbeatVs();
+      renderVsPanel();
+      toast('⚔️ ライバルが再接続しました');
+      return;
+    }
+    const seed = (Math.random() * 2147483647) | 0;
+    vsSend({ t:'start', seed, years: VS.pendingYears, name: VS.pendingName });
+    startVersus(seed, VS.pendingYears, VS.oppName);
+    return;
+  }
+  if(msg.t === 'start'){
+    if(VS.isHost) return;
+    if(VS.started){ VS.reconnecting = false; vsSendProg(); return; }
+    VS.oppName = msg.name || 'ライバル会社';
+    startVersus(msg.seed, msg.years, VS.oppName);
+    return;
+  }
+  if(msg.t === 'resync'){
+    VS.reconnecting = false;
+    clearTimeout(vsRetryTimer);
+    if(msg.prog){ VS.oppProg = msg.prog; if(msg.prog.name) VS.oppName = msg.prog.name; }
+    startHeartbeatVs();
+    vsSendProg();
+    renderVsPanel();
+    toast('⚔️ 再接続しました！対戦を続けます');
+    return;
+  }
+  if(msg.t === 'prog'){
+    VS.oppProg = msg.prog;
+    if(msg.prog && msg.prog.name) VS.oppName = msg.prog.name;
+    renderVsPanel();
+    return;
+  }
+  if(msg.t === 'release'){
+    toast(`⚔️ ライバルが「${msg.title}」を発売！レビュー${msg.review}点`);
+    addLog(`⚔️ ライバルが「${msg.title}」を発売（レビュー${msg.review}点）`);
+    sfx.pop();
+    return;
+  }
+  if(msg.t === 'final'){
+    VS.oppFinal = msg.prog;
+    if(msg.prog && msg.prog.name) VS.oppName = msg.prog.name;
+    renderVsPanel();
+    if(VS.finished) showVsResult();
+    else toast('⚔️ ライバルが対戦期間を終えました。あなたの結果が確定するまでもう少し！');
+    return;
+  }
+  if(msg.t === 'bankrupt'){
+    VS.oppBankrupt = true;
+    VS.oppFinal = msg.prog || VS.oppFinal;
+    if(!VS.finished) vsFinish('oppBankrupt');
+    return;
+  }
+}
+
+/* ---------- 進行・終了 ---------- */
+function vsElapsedWeeks(){ return (S.year - 1) * 48 + (S.month - 1) * 4 + (S.week - 1); }
+function vsWeekHook(){
+  if(!VS.active || VS.finished) return;
+  const key = S.year + '-' + S.month;
+  if(key !== VS.lastProgKey){ VS.lastProgKey = key; vsSendProg(); }
+  if(vsElapsedWeeks() >= VS.totalWeeks) vsFinish('period');
+}
+function vsJudge(mine, opp){
+  if(mine.fans !== opp.fans) return mine.fans > opp.fans ? 1 : -1;
+  if(mine.funds !== opp.funds) return mine.funds > opp.funds ? 1 : -1;
+  return 0;
+}
+function vsFinish(reason){
+  if(VS.finished) return;
+  VS.finished = true;
+  VS.finishReason = reason;
+  VS.myFinal = vsMyProg();
+  S.paused = true;
+  stopHeartbeatVs();
+  if(reason === 'bankrupt') vsSend({ t:'bankrupt', prog: VS.myFinal });
+  else vsSend({ t:'final', prog: VS.myFinal });
+  save(true);
+  renderVsPanel();
+  showVsResult();
+}
+function vsOnBankrupt(){ vsFinish('bankrupt'); }
+function showVsResult(){
+  if(!VS.finished) return;
+  const mine = VS.myFinal || vsMyProg();
+  const opp = VS.oppFinal || VS.oppProg;
+  let title, reasonTxt, verdict = 0;
+  if(VS.finishReason === 'bankrupt'){ verdict = -1; title = '💸 倒産してしまった…'; reasonTxt = '資金が尽きたため、ライバル対決は敗北になりました。'; }
+  else if(VS.oppBankrupt){ verdict = 1; title = '🏆 勝利！'; reasonTxt = 'ライバル会社が倒産しました！'; }
+  else if(VS.finishReason === 'period' && !VS.oppFinal){
+    /* 相手の最終結果待ち */
+    showModal(`
+      <div id="vs-result-box">
+      <h2>⏰ 対戦期間が終了！</h2>
+      <div class="desc">あなたの結果は確定しました。ライバルの最終結果を待っています…（届き次第、勝敗が表示されます）</div>
+      <div style="background:#fff3d6;border:2px solid var(--line);border-radius:12px;padding:12px;font-weight:800;line-height:1.9">
+        🏢 ${mine.name}<br>👥 ファン ${fmtNum(mine.fans)}人 ／ 💰 資金 ${fmtYen(mine.funds)}<br>🎮 発売 ${mine.releases}本 ／ ⭐ 最高レビュー ${mine.bestReview}点
+      </div>
+      <div class="close-row"><button class="sub-btn" id="vs-wait-close">閉じて待つ</button></div>
+      </div>`);
+    $('#vs-wait-close').onclick = () => closeModal();
+    return;
+  }
+  else { verdict = vsJudge(mine, opp); title = verdict > 0 ? '🏆 勝利！' : verdict < 0 ? '💦 敗北…' : '🤝 引き分け'; reasonTxt = `${VS.years}年間のライバル対決が終了しました！`; }
+  const row = (label, mv, ov) => `<div class="history-item"><span style="flex:1">${label}</span><span style="width:104px;text-align:right"><b>${mv}</b></span><span style="width:104px;text-align:right"><b>${ov}</b></span></div>`;
+  showModal(`
+    <div id="vs-result-box">
+    <h2>${title}</h2>
+    <div class="desc">${reasonTxt} 勝敗は ファン数 → 資金 の順で判定しています。</div>
+    <div class="history-item" style="font-weight:900;border-bottom:3px solid var(--ink)"><span style="flex:1"></span><span style="width:104px;text-align:right">${mine.name}</span><span style="width:104px;text-align:right">${opp ? opp.name : VS.oppName}</span></div>
+    ${row('👥 ファン数', fmtNum(mine.fans) + '人', opp ? fmtNum(opp.fans) + '人' : '―')}
+    ${row('💰 資金', fmtYen(mine.funds), opp ? fmtYen(opp.funds) : '―')}
+    ${row('🎮 発売本数', mine.releases + '本', opp ? opp.releases + '本' : '―')}
+    ${row('⭐ 最高レビュー', mine.bestReview + '点', opp ? opp.bestReview + '点' : '―')}
+    ${row('🏆 殿堂入り', mine.hof + '本', opp ? opp.hof + '本' : '―')}
+    <div class="close-row"><button class="big-btn" id="vs-result-close" style="margin-top:0">${VS.finishReason === 'bankrupt' ? 'タイトルに戻る' : '閉じて経営を続ける'}</button></div>
+    </div>`);
+  $('#modal-box').dataset.locked = '1';
+  VS.resultShown = true;
+  if(verdict > 0){ confetti(70); sfx.fanfare(); } else if(verdict < 0){ sfx.bad(); }
+  $('#vs-result-close').onclick = () => {
+    delete $('#modal-box').dataset.locked;
+    closeModal();
+    if(VS.finishReason === 'bankrupt'){ try{ localStorage.removeItem(VS_SAVE_KEY); }catch(e){} location.reload(); }
+    else S.paused = false;
+  };
+}
+
+/* ---------- ライバル表示パネル ---------- */
+function renderVsPanel(){
+  const p = $('#vs-panel'); if(!p) return;
+  if(!VS.active){ p.style.display = 'none'; return; }
+  p.style.display = '';
+  const mine = vsMyProg();
+  const opp = VS.oppFinal || VS.oppProg;
+  const remain = Math.max(0, VS.totalWeeks - vsElapsedWeeks());
+  const status = VS.finished ? '🏁 対戦終了' : VS.reconnecting ? '🔄 再接続を試みています…' : '🟢 接続中';
+  const lead = opp ? mine.fans - opp.fans : 0;
+  const side = (label, d, isMe) => `
+    <div class="vs-side ${isMe ? 'me' : ''}">
+      <div class="vs-name">${isMe ? '🏢 ' : '⚔️ '}${label}</div>
+      <div class="vs-nums">👥 ファン <b>${d ? fmtNum(d.fans) : '―'}</b><br>💰 資金 <b>${d ? fmtYen(d.funds) : '―'}</b><br>🎮 発売 <b>${d ? d.releases + '本' : '―'}</b> ／ ⭐ 最高 <b>${d ? d.bestReview + '点' : '―'}</b></div>
+    </div>`;
+  p.innerHTML = `
+    <h3>⚔️ ライバル対決 <span style="margin-left:auto;font-size:12px">${status}</span></h3>
+    <div style="font-size:12.5px;font-weight:800;color:#7a6552">${VS.years}年対決 ／ 残り <b style="color:var(--ink)">${remain}週</b>
+      ${opp ? (lead > 0 ? `／ <span style="color:#e5484d">ファン +${fmtNum(lead)} リード中！</span>` : lead < 0 ? `／ <span style="color:#2470b8">ファン ${fmtNum(lead)}…追いつけ！</span>` : '／ ファン互角！') : '／ ライバルの情報を待っています…'}
+      ${VS.oppFinal && !VS.finished ? '／ ライバルは期間終了済み' : ''}</div>
+    <div class="vs-grid">${side(mine.name + '（あなた）', mine, true)}${side(VS.oppName, opp, false)}</div>
+    <button class="sub-btn danger" id="vs-quit" style="margin-top:8px">対戦をやめる</button>`;
+  const q = $('#vs-quit');
+  if(q) q.onclick = () => { if(confirm('対戦をやめますか？（対戦データは破棄され、ソロプレイに戻ります）')){ vsTeardown(); try{ localStorage.removeItem(VS_SAVE_KEY); }catch(e){} location.reload(); } };
+}
+
+/* ---------- 切断・再接続 ---------- */
+function onVsDisconnected(){
+  if(!VS.started){
+    vsSetStatus('<span style="color:#e5484d">接続が切れました。もう一度お試しください。</span>');
+    return;
+  }
+  if(VS.finished) return;
+  VS.reconnecting = true;
+  VS.conn = null;
+  stopHeartbeatVs();
+  renderVsPanel();
+  toast('⚠️ 接続が切れました。再接続を試みています…（経営はそのまま続けられます）');
+  if(!VS.isHost) scheduleVsReconnect();
+}
+function scheduleVsReconnect(){
+  clearTimeout(vsRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if(!VS.active || !VS.reconnecting) return;
+    tries++;
+    if(tries > 20){
+      VS.reconnecting = false;
+      renderVsPanel();
+      toast('再接続できませんでした。対戦はこのまま続けられます');
+      return;
+    }
+    vsRetryTimer = setTimeout(attempt, 5000);
+    try{
+      if(VS.peer){ try{ VS.peer.destroy(); }catch(e){} }
+      VS.peer = new Peer(undefined, VS_PEER_OPTS);
+      VS.peer.on('open', () => {
+        const c = VS.peer.connect(VS_PEER_PREFIX + VS.roomCode, { reliable: true });
+        vsSetupConn(c);
+        c.on('open', () => { vsSend({ t:'hello', name: VS.myName }); });
+      });
+      VS.peer.on('error', () => {});
+    }catch(e){}
+  };
+  vsRetryTimer = setTimeout(attempt, 1500);
+}
+
 /* ================= 配線と初期化 ================= */
 $('#act-dev').onclick = () => { sfx.click(); openDevModal(null); };
 $('#act-contract').onclick = () => { sfx.click(); openContracts(); };
@@ -1260,6 +1687,7 @@ $('#act-research').onclick = () => { sfx.click(); openResearch(); };
 $('#act-data').onclick = () => { sfx.click(); openData(); };
 $('#btn-sound').onclick = e => { soundOn = !soundOn; e.target.textContent = soundOn ? '🔊' : '🔇'; if(soundOn) sfx.click(); };
 $('#btn-save').onclick = () => { save(false); sfx.ok(); };
+$('#btn-versus').onclick = () => { sfx.click(); openVsLobby(); };
 for(const s of [0,1,2,4]){
   $('#spd-'+s).onclick = () => {
     if(s === 0){ S.paused = true; }

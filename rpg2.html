@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--c-bg:#0f1923;--c-surface:#1a2738;--c-border:#2a3d52;--c-accent:#4aaeff;--c-gold:#f8c42a;--c-red:#ff4455;--c-green:#44dd88;--c-purple:#a855f7;--pixel:'Press Start 2P',monospace}
 html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;color:#e8f0ff}
@@ -121,6 +122,17 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 .title-mon{width:74px;height:74px;border-radius:18px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .move-eff{font-size:8px;font-weight:900;letter-spacing:.04em}
 .pp-low{color:#ffb04a!important}
+/* ===== オンライン対戦 ===== */
+.ov-err{color:#ff8896}
+.ov-code{font-family:'Courier New',monospace;font-size:26px;font-weight:900;letter-spacing:.35em;color:#fff;background:rgba(0,0,0,.45);border:1px dashed rgba(160,74,255,.6);border-radius:14px;padding:10px 6px 10px 14px;text-align:center}
+.ov-input{background:rgba(255,255,255,.07);border:2px solid var(--c-border);color:#e8f0ff;border-radius:14px;padding:12px 10px;font-weight:900;letter-spacing:.3em;text-transform:uppercase;text-align:center;width:100%;font-size:15px}
+.ov-input:focus{outline:none;border-color:#c04aff}
+.sp-card{border:2px solid var(--c-border);background:rgba(26,39,56,.85);border-radius:16px;padding:8px 4px 7px;cursor:pointer;text-align:center;transition:all .15s;touch-action:manipulation;min-width:0}
+.sp-card:active{transform:scale(.95)}
+.sp-card.sel{border-color:#c04aff;background:rgba(70,25,110,.9);box-shadow:0 0 12px rgba(192,74,255,.45)}
+.sp-card .sp-name{font-size:10px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-team-chip{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.4);border:1px solid var(--c-border);border-radius:99px;padding:3px 10px 3px 4px;font-size:10px;font-weight:900;color:#fff;min-width:0}
+.ov-wait{font-size:11px;font-weight:800;color:#c9a6ff;text-align:center;padding:10px 6px;line-height:1.7}
 </style>
 </head>
 <body>
@@ -151,6 +163,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
     <button id="btn-cont" class="hidden bbtn w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8" onclick="openSlots('load')">
       <i data-lucide="save" class="w-4 h-4"></i>つづきから
     </button>
+    <button onclick="openOnline()" class="bbtn w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 text-white" style="background:linear-gradient(135deg,#5a2a8a,#8a2acc);border:1px solid #c04aff;box-shadow:0 4px 20px rgba(160,74,255,.3)">
+      <i data-lucide="wifi" class="w-4 h-4"></i>オンライン対戦
+    </button>
     <div class="set-row pt-2">
       <button id="set-sound" class="set-chip" onclick="toggleSound()">🔊 サウンド ON</button>
       <button id="set-speed" class="set-chip" onclick="toggleSpeed()">▶ バトル速度 ふつう</button>
@@ -164,6 +179,45 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
   <div class="mt-9 px" style="font-size:6px;color:#223;text-align:center">v2.1 FULL STORY · GYM LEADERS · ELITE FOUR</div>
 </div>
 <div id="save-ind">💾 オートセーブ</div>
+
+<!-- ONLINE -->
+<div id="sc-online" class="screen">
+  <div class="flex-1 scroll-a px-4 py-4 max-w-lg mx-auto w-full">
+    <div id="ov-lobby">
+      <div class="card p-5 mb-4">
+        <div class="text-4xl mb-3">🌐</div>
+        <div class="font-black text-sm text-white mb-1">オンライン対戦</div>
+        <div class="text-sm text-blue-200 mb-4 leading-relaxed">友達と1対1のモンスターバトル！両者とも <b>Lv.50・3体編成</b> で対戦します（ストーリーのセーブは使いません）。</div>
+        <button onclick="ovHostRoom()" class="bbtn w-full py-4 rounded-2xl font-black text-sm text-white mb-3" style="background:linear-gradient(135deg,#5a2a8a,#8a2acc);border:1px solid #c04aff">🏠 部屋を作る</button>
+        <div id="ov-code-wrap" class="hidden mb-3">
+          <div class="sl text-center mb-2" style="color:#c9a6ff">ルームコード（相手に伝えてね）</div>
+          <div class="ov-code" id="ov-room-code">------</div>
+          <button onclick="ovCopyCode()" class="bbtn w-full py-2.5 mt-2 rounded-xl font-bold text-xs" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8">📋 コードをコピー</button>
+        </div>
+        <div class="sl text-center my-3" style="color:#4aaeff">― 相手の部屋に参加する ―</div>
+        <input id="ov-join-code" class="ov-input mb-2" type="text" maxlength="6" placeholder="CODE" autocomplete="off">
+        <button onclick="ovJoinRoom()" class="bbtn w-full py-3.5 rounded-2xl font-black text-sm text-white" style="background:linear-gradient(135deg,#1a4a8a,#2a6acc);border:1px solid #4aaeff">🚪 参加する</button>
+        <div id="ov-status" class="text-center mt-4" style="font-size:12px;font-weight:700;color:#aaccff;line-height:1.8">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+      </div>
+      <button onclick="ovLeaveToTitle()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">タイトルにもどる</button>
+    </div>
+    <div id="ov-select" class="hidden">
+      <div class="card p-4 mb-3">
+        <div class="font-black text-sm text-white mb-1">⚔️ チーム編成</div>
+        <div class="sl" style="color:#4aaeff">Lv.50固定 · <span id="ov-sel-count">0</span>/3 選択中</div>
+        <div id="ov-sel-list" class="flex gap-2 mt-3 flex-wrap" style="min-height:30px"></div>
+        <div id="ov-opp-ready" class="mt-2" style="font-size:11px;font-weight:800;color:#8899aa">相手は編成中…</div>
+      </div>
+      <div id="ov-sp-grid" class="grid grid-cols-3 gap-2 mb-3"></div>
+      <div class="flex gap-2 mb-3">
+        <button onclick="ovRandomTeam()" class="bbtn flex-1 py-3.5 rounded-2xl font-black text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8">🎲 ランダム</button>
+        <button id="ov-confirm-btn" onclick="ovConfirmTeam()" class="bbtn flex-1 py-3.5 rounded-2xl font-black text-sm text-white" style="background:linear-gradient(135deg,#5a2a8a,#8a2acc);border:1px solid #c04aff">この3体で決定！</button>
+      </div>
+      <div id="ov-sel-status" class="text-center mb-3" style="font-size:12px;font-weight:700;color:#aaccff;line-height:1.8">3体選んで「決定」を押してください。</div>
+      <button onclick="ovLeaveToTitle()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">対戦をやめる</button>
+    </div>
+  </div>
+</div>
 
 <!-- INTRO -->
 <div id="sc-intro" class="screen">
@@ -351,6 +405,21 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
         <div id="switch-list" class="space-y-2 mb-2"></div>
         <button onclick="showMain()" class="w-full py-3 rounded-2xl font-bold text-sm bbtn" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">もどる</button>
       </div>
+      <div id="menu-online" class="hidden">
+        <div id="ov-turn-status" class="ov-wait"></div>
+        <div id="ov-menu-main" class="grid grid-cols-2 gap-2">
+          <button onclick="ovShowMoves()" class="bbtn py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#2a1450,#4a1a7a);border:1px solid #c04aff;color:#e3c2ff"><i data-lucide="zap" class="w-4 h-4"></i>たたかう</button>
+          <button onclick="ovShowSwitch(false)" class="bbtn py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8"><i data-lucide="users" class="w-4 h-4"></i>モンスター</button>
+        </div>
+        <div id="ov-menu-moves" class="hidden">
+          <div id="ov-move-btns" class="grid grid-cols-2 gap-2 mb-2"></div>
+          <button onclick="ovShowMainMenu()" class="w-full py-3 rounded-2xl font-bold text-sm bbtn" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">もどる</button>
+        </div>
+        <div id="ov-menu-switch" class="hidden">
+          <div id="ov-switch-list" class="space-y-2 mb-2"></div>
+          <button id="ov-switch-back" onclick="ovShowMainMenu()" class="w-full py-3 rounded-2xl font-bold text-sm bbtn" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">もどる</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -459,6 +528,15 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
     <div class="text-xs text-gray-500 mb-4">所持金: ¥<span id="shop-money"></span></div>
     <div id="shop-list" class="space-y-2 mb-4"></div>
     <button onclick="closeShop()" class="w-full py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm bbtn">店を出る</button>
+  </div>
+</div>
+<div id="ov-result" class="fixed inset-0 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center z-50 px-6">
+  <div class="text-center slide-up w-full max-w-xs">
+    <div id="ov-result-emoji" class="text-6xl mb-4">🏆</div>
+    <div id="ov-result-title" class="text-white font-black text-3xl mb-2">勝利！</div>
+    <div id="ov-result-msg" class="text-blue-300 text-xs mb-8 leading-relaxed"></div>
+    <button onclick="ovRematch()" class="bbtn w-full py-3.5 rounded-2xl font-black text-sm text-white mb-2" style="background:linear-gradient(135deg,#5a2a8a,#8a2acc);border:1px solid #c04aff">🔁 再戦する（編成から）</button>
+    <button onclick="ovLeaveToTitle()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.9);border:1px solid var(--c-border);color:#c8d8e8">タイトルへ</button>
   </div>
 </div>
 <div id="ov-win" class="fixed inset-0 bg-black hidden flex items-center justify-center z-50 px-6">
@@ -708,8 +786,8 @@ function getFirstAlive(party){return party.find(m=>alive(m))||null}
 function wait(ms){return new Promise(r=>setTimeout(r,SETTINGS.speed===2?ms*0.45:ms))}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');curScreen=id;updateHdr(id);icons()}
 function updateHdr(id){
-  const L={'sc-title':'ホーム','sc-intro':'もどる','sc-map':'マップ','sc-loc':'もどる','sc-battle':'バトル中','sc-party':'もどる','sc-dex':'もどる','sc-bag':'もどる'};
-  const T={'sc-title':'MONSTER RISE','sc-intro':'NEW GAME','sc-map':'WORLD MAP','sc-loc':'LOCATION','sc-battle':'BATTLE','sc-party':'PARTY','sc-dex':'MONSTER DEX','sc-bag':'BAG'};
+  const L={'sc-title':'ホーム','sc-intro':'もどる','sc-map':'マップ','sc-loc':'もどる','sc-battle':'バトル中','sc-party':'もどる','sc-dex':'もどる','sc-bag':'もどる','sc-online':'もどる'};
+  const T={'sc-title':'MONSTER RISE','sc-intro':'NEW GAME','sc-map':'WORLD MAP','sc-loc':'LOCATION','sc-battle':'BATTLE','sc-party':'PARTY','sc-dex':'MONSTER DEX','sc-bag':'BAG','sc-online':'ONLINE BATTLE'};
   document.getElementById('back-label').textContent=L[id]||'もどる';
   document.getElementById('hdr-title').textContent=T[id]||'';
   document.getElementById('right-icon').setAttribute('data-lucide',id==='sc-dex'?'map':'book-open');
@@ -718,6 +796,7 @@ function updateHdr(id){
 function headerBack(){
   if(curScreen==='sc-title'||curScreen==='sc-battle')return;
   if(curScreen==='sc-intro'){showScreen('sc-title');return}
+  if(curScreen==='sc-online'){ovLeaveToTitle();return}
   showScreen('sc-map');renderWorldMap();
 }
 function headerRight(){
@@ -1786,6 +1865,771 @@ function spawnConfettiEl(parentId){
     parent.appendChild(el);
   }
 }
+/* ============================================================
+   オンライン対戦（PeerJS / WebRTC P2P）— ストーリーとは独立した専用モード
+   ホスト権威のターン制バトル: 両者 Lv.50・3体編成。
+   毎ターン両者が技/交代を選択し、ホストが既存の計算
+   （calcDmg / applyEff / 命中acc / タイプ相性）で解決して
+   結果の全状態 {t:'state'} を配信する。セーブデータには一切触れない。
+   ============================================================ */
+const OV_PREFIX = 'playweb-r2-';
+const OV_LV = 50;
+const OV_PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const OV_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+const OV_SPECIES = Object.keys(M).filter(k => k !== 'egg');
+function ovGenCode(){ let c=''; for (let i=0;i<6;i++) c += OV_CODE_CHARS[(Math.random()*OV_CODE_CHARS.length)|0]; return c; }
+function ovPeerAvailable(){ return typeof window.Peer !== 'undefined'; }
+const ovEl = id => document.getElementById(id);
+
+let ovPeer=null, ovConn=null, ovIsHost=false, ovRoomCode='', ovClosing=false;
+let ovPhase='idle';           /* idle | lobby | select | battle */
+let ovSel=[];                 /* 編成画面で選択中の種族ID */
+let ovHostTeam=null, ovGuestTeam=null, ovOppTeamReady=false, ovConfirmed=false;
+let ovB=null;                 /* バトル全状態（ホストが正・ゲストは受信コピー） */
+let ovView=null;              /* 画面表示中の状態（演出再生用） */
+let ovMySide=0;               /* 0=ホスト / 1=ゲスト */
+let ovMyPick=null, ovOppPick=null, ovSwitchPicks=null, ovLocalSwitchPick=null;
+let ovPlaying=false, ovReconnecting=false;
+let ovHeartbeatTimer=null, ovRetryTimer=null, ovDcTimer=null, ovConnTimer=null;
+
+function ovSetStatus(html){ const e=ovEl('ov-status'); if(e) e.innerHTML=html; }
+function ovSetSelStatus(html){ const e=ovEl('ov-sel-status'); if(e) e.innerHTML=html; }
+function ovSend(obj){ if (ovConn && ovConn.open){ try{ ovConn.send(obj); }catch(e){} } }
+function ovStartHeartbeat(){ ovStopHeartbeat(); ovHeartbeatTimer=setInterval(()=>ovSend({t:'ping'}), 8000); }
+function ovStopHeartbeat(){ if (ovHeartbeatTimer) clearInterval(ovHeartbeatTimer); ovHeartbeatTimer=null; }
+function ovArmTimer(msg){
+  ovDisarmTimer();
+  ovConnTimer=setTimeout(()=>{ if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">'+msg+'</span>'); }, 25000);
+}
+function ovDisarmTimer(){ if (ovConnTimer) clearTimeout(ovConnTimer); ovConnTimer=null; }
+function ovSnapshot(){ return JSON.parse(JSON.stringify(ovB)); }
+function ovSideLabel(s){ return s===0 ? 'ホスト' : 'ゲスト'; }
+
+function openOnline(){
+  showScreen('sc-online');
+  ovEl('ov-lobby').classList.remove('hidden');
+  ovEl('ov-select').classList.add('hidden');
+  if (!ovPeerAvailable()) ovSetStatus('<span class="ov-err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+}
+function ovTeardown(){
+  ovClosing=true;
+  ovStopHeartbeat();
+  clearTimeout(ovRetryTimer); clearTimeout(ovDcTimer); ovDisarmTimer();
+  try{ if (ovConn) ovConn.close(); }catch(e){}
+  try{ if (ovPeer) ovPeer.destroy(); }catch(e){}
+  ovConn=null; ovPeer=null; ovReconnecting=false;
+}
+function ovLeaveToTitle(){
+  ovTeardown();
+  ovPhase='idle'; ovB=null; ovView=null; ovMyPick=null; ovOppPick=null; ovLocalSwitchPick=null;
+  ovHostTeam=null; ovGuestTeam=null; ovConfirmed=false; ovSel=[];
+  const r=ovEl('ov-result'); r.classList.add('hidden'); r.classList.remove('flex');
+  /* バトル画面のメニューをストーリー用に戻す */
+  ovEl('menu-online').classList.add('hidden');
+  ovEl('menu-moves').classList.add('hidden');
+  ovEl('menu-switch').classList.add('hidden');
+  ovEl('menu-main').classList.remove('hidden');
+  ovEl('ov-lobby').classList.remove('hidden');
+  ovEl('ov-select').classList.add('hidden');
+  ovEl('ov-code-wrap').classList.add('hidden');
+  ovSetStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  BT=null;
+  showScreen('sc-title');
+}
+function ovCopyCode(){
+  const done=()=>showToast('コードをコピーしました');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ovRoomCode).then(done).catch(()=>showToast('コード: '+ovRoomCode));
+  } else showToast('コード: '+ovRoomCode);
+}
+
+/* ── 部屋作成 / 参加 ── */
+function ovHostRoom(){
+  if (!ovPeerAvailable()){ ovSetStatus('<span class="ov-err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  ovTeardown(); ovClosing=false;
+  ovIsHost=true; ovMySide=0; ovPhase='lobby';
+  ovRoomCode=ovGenCode();
+  ovSetStatus('部屋を作成中…');
+  try{ ovPeer=new Peer(OV_PREFIX+ovRoomCode, OV_PEER_OPTS); }
+  catch(e){ ovSetStatus('<span class="ov-err">接続の作成に失敗しました。</span>'); return; }
+  ovPeer.on('open', ()=>{
+    ovEl('ov-room-code').textContent=ovRoomCode;
+    ovEl('ov-code-wrap').classList.remove('hidden');
+    ovSetStatus('相手の参加を待っています… コードを相手に伝えてください。');
+  });
+  ovPeer.on('connection', c=>{
+    ovSetupConn(c);
+    if (ovReconnecting) ovSetStatus('相手が再接続しています…');
+    ovArmTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  ovPeer.on('error', err=>{
+    if (err && err.type==='unavailable-id') ovSetStatus('<span class="ov-err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    else if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">接続エラーが発生しました。</span>');
+  });
+  ovPeer.on('disconnected', ()=>{ try{ ovPeer.reconnect(); }catch(e){} });
+}
+function ovJoinRoom(){
+  if (!ovPeerAvailable()){ ovSetStatus('<span class="ov-err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  const code=(ovEl('ov-join-code').value||'').trim().toUpperCase();
+  if (code.length!==6){ ovSetStatus('<span class="ov-err">6文字のルームコードを入力してください。</span>'); return; }
+  ovTeardown(); ovClosing=false;
+  ovIsHost=false; ovMySide=1; ovPhase='lobby'; ovRoomCode=code;
+  ovSetStatus('接続中…');
+  try{ ovPeer=new Peer(undefined, OV_PEER_OPTS); }
+  catch(e){ ovSetStatus('<span class="ov-err">接続の作成に失敗しました。</span>'); return; }
+  ovPeer.on('open', ()=>{
+    ovArmTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c=ovPeer.connect(OV_PREFIX+code, {reliable:true});
+    ovSetupConn(c);
+    c.on('open', ()=>{
+      ovSend({t:'hello'});
+      ovSetStatus('接続しました！チーム編成の開始を待っています…');
+    });
+  });
+  ovPeer.on('error', err=>{
+    if (err && err.type==='peer-unavailable') ovSetStatus('<span class="ov-err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    else if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">接続エラーが発生しました。</span>');
+  });
+}
+function ovSetupConn(c){
+  ovConn=c;
+  c.on('data', ovHandleData);
+  c.on('close', ()=>{ if (ovConn===c) ovOnDisconnected(); });
+  c.on('error', ()=>{ if (ovConn===c) ovOnDisconnected(); });
+  c.on('open', ()=>{ ovStartHeartbeat(); });
+  c.on('iceStateChanged', st=>{
+    if (ovConn!==c) return;
+    if ((st==='failed'||st==='disconnected') && ovPhase==='lobby'){
+      ovDisarmTimer();
+      ovSetStatus('<span class="ov-err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+
+/* ── 受信メッセージ処理（テストから直接呼べるよう関数として公開） ── */
+function ovHandleData(msg){
+  if (!msg || typeof msg!=='object') return;
+  if (msg.t==='ping') return;
+  if (msg.t==='hello'){
+    if (!ovIsHost) return;
+    if (ovPhase==='battle' && ovB){
+      /* 再接続: 現在の全状態を送って再開 */
+      clearTimeout(ovDcTimer);
+      ovReconnecting=false;
+      ovStartHeartbeat();
+      ovSend({t:'state', state:ovSnapshot(), events:[], resync:true});
+      showToast('再接続しました！');
+      if (curScreen==='sc-battle') ovUpdateMenu();
+      return;
+    }
+    /* ロビー/編成フェーズ: 編成からやり直す */
+    ovGuestTeam=null; ovOppTeamReady=false; ovConfirmed=false; ovHostTeam=null; ovSel=[];
+    ovDisarmTimer();
+    ovShowSelect();
+    ovSend({t:'select'});
+    return;
+  }
+  if (msg.t==='select'){
+    if (ovIsHost) return;
+    ovDisarmTimer();
+    ovReconnecting=false;
+    clearTimeout(ovRetryTimer);
+    ovConfirmed=false;
+    ovShowSelect();
+    return;
+  }
+  if (msg.t==='teamReady'){
+    ovOppTeamReady=true;
+    const e=ovEl('ov-opp-ready'); if(e) e.textContent='相手の準備ができました！';
+    return;
+  }
+  if (msg.t==='team'){
+    if (!ovIsHost) return;
+    const team=msg.team;
+    if (!Array.isArray(team) || team.length!==3 || team.some(sp=>!OV_SPECIES.includes(sp)) || new Set(team).size!==3){
+      ovSend({t:'error', msg:'チーム編成が不正です'}); return;
+    }
+    ovGuestTeam=team.slice(); ovOppTeamReady=true;
+    const e=ovEl('ov-opp-ready'); if(e) e.textContent='相手の準備ができました！';
+    if (ovHostTeam) ovStartBattle();
+    else ovSetSelStatus('相手の準備ができました。あなたの編成を決定してください。');
+    return;
+  }
+  if (msg.t==='state'){
+    if (ovIsHost) return;
+    ovPhase='battle';
+    ovDisarmTimer();
+    ovReconnecting=false;
+    clearTimeout(ovRetryTimer);
+    ovStartHeartbeat();
+    ovRenderBattle(msg.state, msg.resync ? [] : (msg.events||[]), !!msg.resync);
+    return;
+  }
+  if (msg.t==='pick'){
+    if (!ovIsHost || !ovB) return;
+    if (ovB.phase==='switch'){
+      const err=ovValidatePick(1, msg.pick);
+      if (err){ ovSend({t:'error', msg:err}); return; }
+      ovOnSwitchPick(1, msg.pick.idx);
+      return;
+    }
+    if (ovB.phase!=='pick' || ovOppPick) return;
+    const err=ovValidatePick(1, msg.pick);
+    if (err){ ovSend({t:'error', msg:err}); return; }
+    ovOppPick=msg.pick; ovB.picked[1]=true;
+    if (ovMyPick) ovResolveTurn();
+    return;
+  }
+  if (msg.t==='error'){
+    showToast(msg.msg||'その操作はできません');
+    if (ovB && ovB.phase==='switch') ovLocalSwitchPick=null; else ovMyPick=null;
+    ovUpdateMenu();
+    return;
+  }
+  if (msg.t==='rematch'){
+    if (!ovIsHost) return;
+    ovBackToSelect();
+    return;
+  }
+}
+
+/* ── チーム編成 ── */
+function ovShowSelect(){
+  ovPhase='select';
+  showScreen('sc-online');
+  ovEl('ov-lobby').classList.add('hidden');
+  ovEl('ov-select').classList.remove('hidden');
+  ovRenderSpGrid();
+  ovRenderSelList();
+  const e=ovEl('ov-opp-ready'); if(e) e.textContent = ovOppTeamReady ? '相手の準備ができました！' : '相手は編成中…';
+  ovSetSelStatus('3体選んで「決定」を押してください。');
+  ovEl('ov-confirm-btn').style.opacity='';
+  ovEl('ov-confirm-btn').style.pointerEvents='';
+  ovEl('ov-sp-grid').style.pointerEvents='';
+}
+function ovRenderSpGrid(){
+  const grid=ovEl('ov-sp-grid'); grid.innerHTML='';
+  OV_SPECIES.forEach(sp=>{
+    const d=M[sp]; const tc=tcol(d.type);
+    const card=document.createElement('div');
+    card.className='sp-card'+(ovSel.includes(sp)?' sel':'');
+    card.innerHTML=`<div style="height:52px;display:flex;align-items:center;justify-content:center"><svg width="52" height="52" viewBox="0 0 200 200">${d.draw()}</svg></div><div class="sp-name">${d.name}</div><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span>`;
+    card.onclick=()=>ovToggleSp(sp);
+    grid.appendChild(card);
+  });
+}
+function ovRenderSelList(){
+  const list=ovEl('ov-sel-list'); list.innerHTML='';
+  ovSel.forEach(sp=>{
+    const d=M[sp];
+    const chip=document.createElement('span');
+    chip.className='ov-team-chip';
+    chip.innerHTML=`<span style="width:26px;height:26px;border-radius:50%;background:${d.bg};display:inline-flex;align-items:center;justify-content:center;overflow:hidden"><svg width="24" height="24" viewBox="0 0 200 200">${d.draw()}</svg></span>${d.name}`;
+    list.appendChild(chip);
+  });
+  if (!ovSel.length) list.innerHTML='<span style="font-size:11px;color:#667">まだ選んでいません</span>';
+  ovEl('ov-sel-count').textContent=ovSel.length;
+}
+function ovToggleSp(sp){
+  if (ovConfirmed) return;
+  sfx('select');
+  const i=ovSel.indexOf(sp);
+  if (i>=0) ovSel.splice(i,1);
+  else { if (ovSel.length>=3){ showToast('3体まで選べます'); return; } ovSel.push(sp); }
+  ovRenderSpGrid(); ovRenderSelList();
+}
+function ovRandomTeam(){
+  if (ovConfirmed) return;
+  sfx('select');
+  const pool=OV_SPECIES.slice();
+  ovSel=[];
+  while (ovSel.length<3){ ovSel.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
+  ovRenderSpGrid(); ovRenderSelList();
+}
+function ovConfirmTeam(){
+  if (ovConfirmed) return;
+  if (ovSel.length!==3){ showToast('3体選んでください'); return; }
+  ovConfirmed=true;
+  ovEl('ov-confirm-btn').style.opacity='.45';
+  ovEl('ov-confirm-btn').style.pointerEvents='none';
+  ovEl('ov-sp-grid').style.pointerEvents='none';
+  sfx('select');
+  if (ovIsHost){
+    ovHostTeam=ovSel.slice();
+    ovSend({t:'teamReady'});
+    if (ovGuestTeam) ovStartBattle();
+    else ovSetSelStatus('あなたの編成は決定！相手の編成を待っています…');
+  } else {
+    ovSend({t:'team', team:ovSel.slice()});
+    ovSetSelStatus('編成を送信しました。対戦開始を待っています…');
+  }
+}
+
+/* ── バトル構築（ホストのみ） ── */
+function ovStartBattle(){
+  const mk=sp=>makeMon(sp, OV_LV);
+  ovB={ turn:1, phase:'pick', needSwitch:[false,false], picked:[false,false], winner:null, reason:'',
+    sides:[ {team:ovHostTeam.map(mk), active:0}, {team:ovGuestTeam.map(mk), active:0} ] };
+  ovPhase='battle';
+  ovMyPick=null; ovOppPick=null; ovSwitchPicks=null; ovLocalSwitchPick=null; ovView=null;
+  const st=ovSnapshot();
+  const events=[{k:'msg', side:0, line:'オンライン対戦スタート！\n'+mname(ovB.sides[0].team[0])+' vs '+mname(ovB.sides[1].team[0])}];
+  ovSend({t:'state', state:st, events});
+  ovRenderBattle(st, events, false);
+}
+
+/* ── バトル描画（ホスト/ゲスト共通: 自分側を 'p'、相手側を 'e' に割り当てる） ── */
+function ovEnterBattleScreen(){
+  showScreen('sc-battle');
+  ovEl('menu-main').classList.add('hidden');
+  ovEl('menu-moves').classList.add('hidden');
+  ovEl('menu-switch').classList.add('hidden');
+  ovEl('menu-online').classList.remove('hidden');
+}
+function ovSyncView(){
+  if (!ovView) return;
+  const mine=ovView.sides[ovMySide], opp=ovView.sides[1-ovMySide];
+  BT={type:'online', player:mine.team[mine.active], enemy:opp.team[opp.active], playerIdx:mine.active};
+  renderMon(BT.enemy,'e');
+  renderMon(BT.player,'p');
+}
+async function ovRenderBattle(st, events, resync){
+  if (!st || !Array.isArray(st.sides)) return;
+  const prevTurn=ovB?ovB.turn:null, prevPhase=ovB?ovB.phase:null;
+  ovB=st;
+  if (resync){ ovMyPick=null; ovLocalSwitchPick=null; }
+  else if (st.turn!==prevTurn || st.phase!==prevPhase){ ovMyPick=null; ovLocalSwitchPick=null; }
+  if (st.phase!=='switch') ovLocalSwitchPick=null;
+  const first = !ovView || curScreen!=='sc-battle';
+  if (first || resync || !events || !events.length){
+    ovView=JSON.parse(JSON.stringify(st));
+    ovEnterBattleScreen();
+    ovSyncView();
+    if (first) battleEnter();
+    if (events && events.length && first){ for (const ev of events){ setMsg(ev.line); await wait(650); } }
+    if (resync) setMsg('再接続しました！\n対戦を続けます。');
+    ovPlaying=false;
+    ovUpdateMenu();
+    if (st.phase==='over') ovShowResult();
+    return;
+  }
+  ovPlaying=true;
+  ovUpdateMenu();
+  for (const ev of events){ await ovPlayEvent(ev); }
+  ovView=JSON.parse(JSON.stringify(st));
+  ovSyncView();
+  ovPlaying=false;
+  ovUpdateMenu();
+  if (st.phase==='over') ovShowResult();
+}
+async function ovPlayEvent(ev){
+  const mine = ev.side===ovMySide;
+  const fromSide = mine?'p':'e', toSide = mine?'e':'p';
+  if (ev.k==='switch'){
+    ovView.sides[ev.side].active=ev.idx;
+    ovSyncView();
+    const w=ovEl(fromSide+'-wrap');
+    if (w){ const cls=fromSide==='e'?'enter-e':'enter-p'; w.classList.remove('enter-e','enter-p'); void w.offsetWidth; w.classList.add(cls); setTimeout(()=>w.classList.remove(cls),500); }
+    setMsg(ev.line);
+    await wait(850);
+    return;
+  }
+  if (ev.k==='atk'){
+    const md=MV[ev.move];
+    if (md) attackFx(fromSide, md.type);
+    setMsg(ev.line);
+    await wait(280);
+    if (ev.miss){ spawnDmg(toSide,'MISS','miss'); sfx('cancel'); }
+    else if (ev.dmg>0){
+      hitAnim(toSide);
+      const tm=ovView.sides[ev.target].team[ovView.sides[ev.target].active];
+      tm.hp=ev.hpAfter;
+      updateHpBar(tm, toSide);
+      spawnDmg(toSide, ev.dmg, ev.crit?'crit':'');
+      sfx(ev.crit?'crit':ev.eff>1?'super':'hit');
+      if (ev.crit) screenFx('crit'); else if (ev.eff>1) screenFx('supereff');
+    } else { hitAnim(toSide); }
+    await wait(950);
+    return;
+  }
+  if (ev.k==='burn'){
+    const tm=ovView.sides[ev.side].team[ovView.sides[ev.side].active];
+    tm.hp=ev.hpAfter;
+    updateHpBar(tm, fromSide);
+    setMsg(ev.line);
+    await wait(800);
+    return;
+  }
+  if (ev.k==='faint'){
+    faintFx(fromSide); sfx('faint');
+    setMsg(ev.line);
+    await wait(900);
+    return;
+  }
+  setMsg(ev.line);
+  await wait(850);
+}
+
+/* ── バトル中のメニュー ── */
+function ovUpdateMenu(){
+  const main=ovEl('ov-menu-main'), moves=ovEl('ov-menu-moves'), sw=ovEl('ov-menu-switch'), status=ovEl('ov-turn-status');
+  if (!main) return;
+  main.classList.add('hidden'); moves.classList.add('hidden'); sw.classList.add('hidden');
+  status.textContent='';
+  if (!ovB) return;
+  if (ovReconnecting){ status.textContent='接続が切れました。再接続を試みています…'; return; }
+  if (ovPlaying) return;
+  if (ovB.phase==='over'){ status.textContent='対戦終了'; return; }
+  if (ovB.phase==='switch'){
+    if (ovB.needSwitch && ovB.needSwitch[ovMySide] && ovLocalSwitchPick==null){
+      ovRenderSwitchList(true);
+      sw.classList.remove('hidden');
+      status.textContent='モンスターが たおれた！つぎを えらぼう';
+    } else status.textContent='相手がモンスターを選んでいます…';
+    return;
+  }
+  const picked = ovMyPick || (ovB.picked && ovB.picked[ovMySide]);
+  if (picked){ status.textContent='相手の選択を待っています…'; return; }
+  main.classList.remove('hidden');
+  status.textContent='ターン '+ovB.turn+' — わざか こうたいを えらぼう';
+}
+function ovShowMainMenu(){ ovUpdateMenu(); }
+function ovShowMoves(){
+  if (!ovB || ovB.phase!=='pick' || ovPlaying || ovReconnecting) return;
+  sfx('select');
+  ovRenderMoveBtns();
+  ovEl('ov-menu-main').classList.add('hidden');
+  ovEl('ov-menu-switch').classList.add('hidden');
+  ovEl('ov-menu-moves').classList.remove('hidden');
+}
+function ovShowSwitch(){
+  if (!ovB || ovB.phase!=='pick' || ovPlaying || ovReconnecting) return;
+  sfx('select');
+  ovRenderSwitchList(false);
+  ovEl('ov-menu-main').classList.add('hidden');
+  ovEl('ov-menu-moves').classList.add('hidden');
+  ovEl('ov-menu-switch').classList.remove('hidden');
+}
+function ovRenderMoveBtns(){
+  const mb=ovEl('ov-move-btns'); mb.innerHTML='';
+  const mine=ovB.sides[ovMySide], opp=ovB.sides[1-ovMySide];
+  const p=mine.team[mine.active], e=opp.team[opp.active];
+  p.moves.forEach((mv,idx)=>{
+    const d=MV[mv.id]; const tc=tcol(d.type); const out=mv.pp===0;
+    const btn=document.createElement('button');
+    btn.className='move-btn'+(out?' depleted':'');
+    let effHtml='';
+    if (d.power>0){
+      const ef=typeEff(d.type, mtype(e));
+      if (ef===0) effHtml='<span class="move-eff" style="color:#8ea6c8">✖ むこう</span>';
+      else if (ef>1) effHtml='<span class="move-eff" style="color:#ffb02e">▲ こうか大</span>';
+      else if (ef<1) effHtml='<span class="move-eff" style="color:#7d8aa5">▼ こうか小</span>';
+    }
+    const ppCls=mv.pp<=3&&mv.pp>0?' pp-low':'';
+    btn.innerHTML=`<span style="font-size:18px">${d.emoji}</span><span style="font-size:10px">${d.name}</span><div class="flex items-center gap-1 mt-0.5"><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span><span class="sl${ppCls}">PP ${mv.pp}/${mv.maxPp}</span></div><div class="sl" style="letter-spacing:.02em">威力 ${d.power||'—'} · 命中 ${d.acc}</div>${effHtml}`;
+    if (!out) btn.onclick=()=>ovChooseMove(idx);
+    mb.appendChild(btn);
+  });
+}
+function ovRenderSwitchList(forced){
+  const sl=ovEl('ov-switch-list'); sl.innerHTML='';
+  ovEl('ov-switch-back').style.display = forced ? 'none' : '';
+  const mine=ovB.sides[ovMySide];
+  mine.team.forEach((m,i)=>{
+    if (i===mine.active) return;
+    const d=M[m.sp]; const tc=tcol(d.type); const off=!alive(m);
+    const btn=document.createElement('button');
+    btn.className='w-full bbtn flex items-center gap-3 p-3 rounded-2xl text-left card'+(off?' opacity-30 pointer-events-none':'');
+    btn.innerHTML=`<div style="width:44px;height:44px;background:${d.bg};border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="40" height="40" viewBox="0 0 200 200">${d.draw()}</svg></div>
+    <div class="flex-1 min-w-0"><div class="flex items-center gap-1.5 mb-0.5"><span class="font-black text-sm text-white">${mname(m)}</span><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span></div><div class="sl">Lv.${m.lv} · HP ${m.hp}/${m.maxHp}</div></div>`;
+    if (!off) btn.onclick=()=>ovChooseSwitch(i);
+    sl.appendChild(btn);
+  });
+}
+function ovChooseMove(idx){
+  if (ovPlaying || ovReconnecting || !ovB || ovB.phase!=='pick' || ovMyPick) return;
+  const pick={kind:'move', idx};
+  ovMyPick=pick; sfx('select');
+  if (ovIsHost){
+    ovB.picked[0]=true;
+    if (ovOppPick) ovResolveTurn(); else ovUpdateMenu();
+  } else {
+    ovSend({t:'pick', pick});
+    ovUpdateMenu();
+  }
+}
+function ovChooseSwitch(idx){
+  if (ovPlaying || ovReconnecting || !ovB) return;
+  if (ovB.phase==='switch'){
+    if (!ovB.needSwitch[ovMySide] || ovLocalSwitchPick!=null) return;
+    ovLocalSwitchPick=idx; sfx('select');
+    if (ovIsHost) ovOnSwitchPick(0, idx);
+    else ovSend({t:'pick', pick:{kind:'switch', idx, forced:true}});
+    ovUpdateMenu();
+    return;
+  }
+  if (ovB.phase!=='pick' || ovMyPick) return;
+  const pick={kind:'switch', idx};
+  ovMyPick=pick; sfx('select');
+  if (ovIsHost){
+    ovB.picked[0]=true;
+    if (ovOppPick) ovResolveTurn(); else ovUpdateMenu();
+  } else {
+    ovSend({t:'pick', pick});
+    ovUpdateMenu();
+  }
+}
+
+/* ── ターン解決（ホストのみ・既存の計算を流用） ── */
+function ovValidatePick(side, pick){
+  const B=ovB;
+  if (!B || !pick) return '不正な操作です';
+  const sd=B.sides[side], act=sd.team[sd.active];
+  if (B.phase==='pick'){
+    if (pick.kind==='move'){
+      if (!alive(act)) return 'そのモンスターは たおれている';
+      const mv=act.moves[pick.idx];
+      if (!mv) return 'わざが ありません';
+      if (mv.pp<=0) return 'PPが たりない';
+      return null;
+    }
+    if (pick.kind==='switch'){
+      const t=sd.team[pick.idx];
+      if (!t) return 'モンスターが いない';
+      if (pick.idx===sd.active) return 'すでに 出ている';
+      if (!alive(t)) return 'たおれているモンスターは 出せない';
+      return null;
+    }
+    return '不正な操作です';
+  }
+  if (B.phase==='switch'){
+    if (!B.needSwitch[side]) return '今は こうたいできない';
+    if (pick.kind!=='switch') return 'モンスターを えらんでください';
+    const t=sd.team[pick.idx];
+    if (!t || pick.idx===sd.active || !alive(t)) return 'そのモンスターは 出せない';
+    return null;
+  }
+  return '今は 操作できません';
+}
+function ovEffSpd(B, s){
+  const m=B.sides[s].team[B.sides[s].active];
+  return m.spd * buffMul(m.spdBuf||0);
+}
+function ovDoSwitch(B, s, idx, events){
+  B.sides[s].active=idx;
+  const m=B.sides[s].team[idx];
+  events.push({k:'switch', side:s, idx, line:ovSideLabel(s)+'は '+mname(m)+'を くりだした！'});
+}
+function ovExecMove(B, s, moveIdx, events){
+  const me=B.sides[s].team[B.sides[s].active];
+  const op=B.sides[1-s].team[B.sides[1-s].active];
+  const mv=me.moves[moveIdx]; if (!mv) return;
+  const md=MV[mv.id];
+  mv.pp=Math.max(0, mv.pp-1);
+  if (me.status==='sleep'){
+    me.aTurns--;
+    if (me.aTurns<=0){ me.status=null; events.push({k:'msg', side:s, line:mname(me)+'は めをさました！'}); }
+    else events.push({k:'skip', side:s, line:mname(me)+'は ねむっている…'});
+    return;
+  }
+  if (me.status==='paralysis' && Math.random()<.25){
+    events.push({k:'skip', side:s, line:mname(me)+'は まひで うごけない！'});
+    return;
+  }
+  let line=mname(me)+'の\n'+md.emoji+' '+md.name+'！';
+  if (md.acc<100 && Math.random()*100>=md.acc){
+    events.push({k:'atk', side:s, move:mv.id, target:1-s, miss:true, dmg:0, line:line+'\nしかし はずれた！'});
+  } else if (md.power>0){
+    const res=calcDmg(me, op, mv);
+    op.hp=Math.max(0, op.hp-res.dmg);
+    if (res.crit) line+='\nきゅうしょに あたった！';
+    if (res.eff>1) line+='\nこうかはばつぐんだ！';
+    else if (res.eff<1 && res.eff>0) line+='\nこうかはいまひとつ…';
+    else if (res.eff===0) line+='\nこうかがない…';
+    line+='\n'+mname(op)+'に '+res.dmg+'ダメージ！';
+    events.push({k:'atk', side:s, move:mv.id, target:1-s, dmg:res.dmg, crit:res.crit, eff:res.eff, hpAfter:op.hp, line});
+    if (!alive(op)) events.push({k:'faint', side:1-s, line:mname(op)+'は たおれた！'});
+  } else {
+    const effMsg=applyEff(md.eff, op, me);
+    events.push({k:'atk', side:s, move:mv.id, target:1-s, dmg:0, eff:1, line:line+(effMsg||'\nしかし うまくきまらなかった…')});
+  }
+  /* やけどダメージ（ストーリーと同じく自分の行動後に発生） */
+  if (alive(me) && me.status==='burn'){
+    const bd=Math.max(1, Math.floor(me.maxHp/16));
+    me.hp=Math.max(0, me.hp-bd);
+    events.push({k:'burn', side:s, dmg:bd, hpAfter:me.hp, line:mname(me)+'は やけどで ダメージ！'});
+    if (!alive(me)) events.push({k:'faint', side:s, line:mname(me)+'は たおれた！'});
+  }
+}
+function ovResolveTurn(){
+  const B=ovB, events=[];
+  const picks=[ovMyPick, ovOppPick]; /* [ホスト, ゲスト] */
+  [0,1].forEach(s=>{
+    const pk=picks[s];
+    if (pk && pk.kind==='switch'){ ovDoSwitch(B, s, pk.idx, events); picks[s]=null; }
+  });
+  const actors=[0,1].filter(s=>picks[s] && picks[s].kind==='move');
+  actors.sort((a,b)=> (ovEffSpd(B,b)-ovEffSpd(B,a)) || (Math.random()<.5?-1:1));
+  for (const s of actors){
+    const me=B.sides[s].team[B.sides[s].active];
+    const op=B.sides[1-s].team[B.sides[1-s].active];
+    if (!alive(me) || !alive(op)) continue;
+    ovExecMove(B, s, picks[s].idx, events);
+  }
+  ovMyPick=null; ovOppPick=null;
+  ovAfterActions(events);
+}
+function ovAfterActions(events){
+  const B=ovB;
+  const need=[0,1].map(s=>{ const sd=B.sides[s]; return !alive(sd.team[sd.active]) && sd.team.some(alive); });
+  const dead=[0,1].map(s=>{ const sd=B.sides[s]; return !alive(sd.team[sd.active]) && !sd.team.some(alive); });
+  if (dead[0] || dead[1]){
+    B.phase='over'; B.needSwitch=[false,false];
+    B.winner = (dead[0] && dead[1]) ? -1 : (dead[0] ? 1 : 0);
+    B.reason='全滅';
+  } else if (need[0] || need[1]){
+    B.phase='switch'; B.needSwitch=need; ovSwitchPicks={0:null, 1:null};
+  } else {
+    B.phase='pick'; B.needSwitch=[false,false]; B.picked=[false,false]; B.turn++;
+  }
+  const st=ovSnapshot();
+  ovSend({t:'state', state:st, events});
+  ovRenderBattle(st, events, false);
+}
+function ovOnSwitchPick(side, idx){
+  if (!ovSwitchPicks) ovSwitchPicks={0:null, 1:null};
+  ovSwitchPicks[side]=idx;
+  const B=ovB;
+  const done=[0,1].every(s=>!B.needSwitch[s] || ovSwitchPicks[s]!=null);
+  if (!done){ ovUpdateMenu(); return; }
+  const events=[];
+  [0,1].forEach(s=>{ if (B.needSwitch[s]) ovDoSwitch(B, s, ovSwitchPicks[s], events); });
+  ovSwitchPicks=null;
+  B.phase='pick'; B.needSwitch=[false,false]; B.picked=[false,false]; B.turn++;
+  const st=ovSnapshot();
+  ovSend({t:'state', state:st, events});
+  ovRenderBattle(st, events, false);
+}
+
+/* ── 結果 / 再戦 ── */
+function ovShowResult(){
+  if (!ovB) return;
+  const r=ovEl('ov-result');
+  const win = ovB.winner===ovMySide, draw = ovB.winner===-1;
+  ovEl('ov-result-emoji').textContent = draw ? '🤝' : win ? '🏆' : '😢';
+  ovEl('ov-result-title').textContent = draw ? '引き分け' : win ? '勝利！' : '敗北…';
+  ovEl('ov-result-msg').textContent = (ovB.reason ? ovB.reason+'。' : '') + ovB.turn + 'ターンで決着しました。';
+  r.querySelector('button').style.display = (ovB.reason && ovB.reason.indexOf('接続')>=0) ? 'none' : '';
+  r.classList.remove('hidden'); r.classList.add('flex');
+  if (win) spawnConfetti();
+}
+function ovShowResultCustom(title, msg){
+  const r=ovEl('ov-result');
+  ovEl('ov-result-emoji').textContent='📡';
+  ovEl('ov-result-title').textContent=title;
+  ovEl('ov-result-msg').textContent=msg;
+  r.querySelector('button').style.display='none';
+  r.classList.remove('hidden'); r.classList.add('flex');
+}
+function ovRematch(){
+  const r=ovEl('ov-result');
+  r.classList.add('hidden'); r.classList.remove('flex');
+  if (ovIsHost) ovBackToSelect();
+  else { ovSend({t:'rematch'}); showToast('再戦を申し込みました'); }
+}
+function ovBackToSelect(){
+  ovB=null; ovView=null; ovMyPick=null; ovOppPick=null; ovLocalSwitchPick=null;
+  ovHostTeam=null; ovGuestTeam=null; ovOppTeamReady=false; ovConfirmed=false; ovSel=[];
+  const r=ovEl('ov-result');
+  r.classList.add('hidden'); r.classList.remove('flex');
+  ovShowSelect();
+  ovSend({t:'select'});
+}
+
+/* ── 切断対策 ── */
+function ovOnDisconnected(){
+  if (ovClosing) return;
+  ovConn=null;
+  ovStopHeartbeat();
+  if (ovPhase==='battle' && ovB && ovB.phase!=='over'){
+    ovReconnecting=true;
+    ovUpdateMenu();
+    if (curScreen==='sc-battle') setMsg('接続が切れました。\n再接続を試みています…');
+    showToast('接続が切れました。再接続を試みています…');
+    if (ovIsHost){
+      /* ホストは部屋を維持して60秒待つ。超過したら対戦終了 */
+      clearTimeout(ovDcTimer);
+      ovDcTimer=setTimeout(ovForfeit, 60000);
+    } else {
+      ovScheduleReconnect();
+    }
+    return;
+  }
+  if (ovPhase==='select'){
+    if (ovIsHost){
+      ovPhase='lobby';
+      ovGuestTeam=null; ovOppTeamReady=false; ovConfirmed=false; ovHostTeam=null; ovSel=[];
+      ovEl('ov-select').classList.add('hidden');
+      ovEl('ov-lobby').classList.remove('hidden');
+      ovSetStatus('相手が退出しました。参加を待っています…');
+    } else {
+      ovReconnecting=true;
+      ovScheduleReconnect();
+    }
+    return;
+  }
+  if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">接続が切れました。もう一度お試しください。</span>');
+}
+function ovForfeit(){
+  if (!ovReconnecting) return;
+  ovReconnecting=false;
+  ovTeardown();
+  if (ovB && ovB.phase!=='over'){
+    ovB.phase='over';
+    ovB.winner=ovMySide;
+    ovB.reason='相手との接続が切れました';
+    ovUpdateMenu();
+    ovShowResult();
+  }
+}
+function ovScheduleReconnect(){
+  clearTimeout(ovRetryTimer);
+  let tries=0;
+  const attempt=()=>{
+    if (ovClosing || !ovReconnecting) return;
+    tries++;
+    if (tries>20){
+      ovReconnecting=false;
+      if (ovPhase==='battle') ovShowResultCustom('対戦終了', 'ホストとの接続が切れました。再接続できませんでした。');
+      else {
+        ovPhase='lobby';
+        ovEl('ov-select').classList.add('hidden');
+        ovEl('ov-lobby').classList.remove('hidden');
+        ovSetStatus('<span class="ov-err">ホストとの接続が切れました。再接続できませんでした。</span>');
+      }
+      return;
+    }
+    ovRetryTimer=setTimeout(attempt, 5000);
+    try{
+      if (ovPeer){ try{ ovPeer.destroy(); }catch(e){} }
+      ovPeer=new Peer(undefined, OV_PEER_OPTS);
+      ovPeer.on('open', ()=>{
+        const c=ovPeer.connect(OV_PREFIX+ovRoomCode, {reliable:true});
+        ovSetupConn(c);
+        c.on('open', ()=>{ ovSend({t:'hello'}); });
+      });
+      ovPeer.on('error', ()=>{});
+    }catch(e){}
+  };
+  ovRetryTimer=setTimeout(attempt, 1500);
+}
+
 // INIT
 window.onload=function(){
   icons();

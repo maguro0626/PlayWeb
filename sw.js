@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v16';
+const CACHE_NAME = 'game-platform-cache-v17';
 
 // ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
 // キャッシュしたいファイルを1つずつ正確に書く必要があります。
@@ -26,6 +26,7 @@ const urlsToCache = [
   'rpg.html',
   'rpg2.html',
   'otome.html',
+  'survivors.html',
 
   // 乙女ゲームの画像
   './otome_images/st_yuzuki_01.png',

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>マインスイーパ - PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{ --bg:#0b0e1a; --panel:rgba(255,255,255,.05); --line:rgba(255,255,255,.1); --txt:#eef0ff; --sub:#98a0c3; }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -39,6 +40,33 @@
   #flagMode{display:none}
   @media (pointer:coarse){ #flagMode{display:inline-block} }
   .help{color:var(--sub);font-size:12px;text-align:center;line-height:1.9;padding:0 16px 24px;max-width:640px}
+  .panel{max-width:calc(100vw - 20px)}
+  #boardWrap{max-width:100%;overflow-x:auto;padding-bottom:4px}
+  .onlinePanel{display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+  .onlinePanel.show{display:block}
+  .orow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;margin-bottom:10px}
+  .codeDisp{font-family:"Courier New",monospace;font-size:26px;font-weight:700;letter-spacing:.3em;background:#05070f;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 12px 6px 20px;color:#4ade80}
+  .codeInput{background:#05070f;border:1px solid rgba(255,255,255,.15);border-radius:10px;color:var(--txt);font-size:16px;padding:8px 10px;width:132px;text-transform:uppercase;text-align:center;letter-spacing:.15em;font-family:inherit}
+  .ostatus{text-align:center;color:var(--sub);font-size:13px;min-height:20px;line-height:1.6}
+  .ostatus .err{color:#f87171;font-weight:700}
+  .progWrap{margin-top:6px}
+  .progRow{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);margin-top:6px}
+  .progRow .plabel{width:40px;text-align:right;flex:none}
+  .progBar{flex:1;height:12px;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:999px;overflow:hidden;min-width:60px}
+  .progFill{height:100%;width:0%;border-radius:999px;transition:width .25s}
+  .progFill.me{background:linear-gradient(90deg,#16a34a,#4ade80)}
+  .progFill.opp{background:linear-gradient(90deg,#b45309,#f59e0b)}
+  .progPct{width:86px;flex:none;font-variant-numeric:tabular-nums}
+  .modalOverlay{position:fixed;inset:0;background:rgba(3,5,12,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modalOverlay.show{display:flex}
+  .modalCard{background:#12172b;border:1px solid var(--line);border-radius:18px;padding:24px 22px;max-width:400px;width:100%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6);max-height:90vh;overflow-y:auto}
+  .modalCard h2{font-size:24px;margin-bottom:10px}
+  .modalCard .stats{font-size:14px;line-height:2;color:var(--sub)}
+  .modalCard .stats b{color:var(--txt)}
+  .modalBtns{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+  .bigbtn{background:linear-gradient(90deg,#16a34a,#0891b2);color:#fff;border:none;border-radius:12px;padding:11px 22px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit}
+  .bigbtn:disabled{opacity:.45;cursor:default}
+  .ghostbtn{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
 </style>
 </head>
 <body>
@@ -52,6 +80,10 @@
 
 <div class="panel">
   <div class="controls">
+    <div class="seg" id="modeSeg">
+      <button data-m="solo" class="on">ソロ</button>
+      <button data-m="online">🌐 オンライン対戦</button>
+    </div>
     <div class="seg" id="diffSeg">
       <button data-d="easy" class="on">初級 9×9</button>
       <button data-d="mid">中級 16×16</button>
@@ -63,13 +95,44 @@
     <button id="face" title="リスタート">😊</button>
     <div class="lcd blue" id="timer">000</div>
   </div>
-  <div id="board"></div>
+  <div id="boardWrap"><div id="board"></div></div>
   <div class="msg" id="msg"></div>
   <div class="best" id="best"></div>
   <div class="modeRow"><button class="hbtn" id="flagMode">🚩 フラグモード: OFF</button></div>
+
+  <div class="onlinePanel" id="onlinePanel">
+    <div class="orow">
+      <button class="hbtn" id="hostBtn">🏠 部屋を作る</button>
+      <input class="codeInput" id="joinCode" maxlength="6" placeholder="コード">
+      <button class="hbtn" id="joinBtn">参加する</button>
+    </div>
+    <div class="orow" id="codeWrap" style="display:none">
+      <span style="font-size:13px;color:var(--sub)">ルームコード</span>
+      <span class="codeDisp" id="roomCodeText">------</span>
+      <button class="hbtn" id="copyCodeBtn">📋 コピー</button>
+    </div>
+    <div class="ostatus" id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+    <div class="progWrap" id="progWrap" style="display:none">
+      <div class="progRow"><span class="plabel">あなた</span><div class="progBar"><div class="progFill me" id="myProgFill"></div></div><span class="progPct" id="myProgText">0% (0)</span></div>
+      <div class="progRow"><span class="plabel">相手</span><div class="progBar"><div class="progFill opp" id="oppProgFill"></div></div><span class="progPct" id="oppProgText">0% (0)</span></div>
+    </div>
+    <div class="orow" style="margin-top:10px;margin-bottom:0"><button class="hbtn" id="leaveBtn" style="display:none">🚪 退出する</button></div>
+  </div>
 </div>
 
-<p class="help">左クリック / タップ: 開く　右クリック / 長押し: フラグ 🚩<br>数字を両ボタン同時押し（またはダブルタップ）で周囲を一括オープン（コード）。最初のクリックは絶対に安全です。</p>
+<div class="modalOverlay" id="resultModal">
+  <div class="modalCard">
+    <h2 id="resultTitle">🏆 勝利！</h2>
+    <div class="stats" id="resultStats"></div>
+    <div class="modalBtns">
+      <button class="bigbtn" id="rematchBtn">🔁 再戦する</button>
+      <button class="ghostbtn" id="modalLeaveBtn">退出する</button>
+    </div>
+    <div class="ostatus" id="rematchNote" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<p class="help">左クリック / タップ: 開く　右クリック / 長押し: フラグ 🚩<br>数字を両ボタン同時押し（またはダブルタップ）で周囲を一括オープン（コード）。最初のクリックは絶対に安全です。<br>🌐 オンライン対戦: ふたりとも同じシード＋同じ初手ルールで生成した盤面で勝負。先に全部開けた方が勝ち、地雷を踏んだら負けです。</p>
 
 <script>
 "use strict";
@@ -77,6 +140,8 @@ const DIFFS = { easy:{w:9,h:9,mines:10,label:'初級'}, mid:{w:16,h:16,mines:40,
 const $ = id=>document.getElementById(id);
 let diff='easy', W,H,M, cells, started, over, won, flags, opened, timerInt, seconds, firstClickDone;
 let soundOn=true, audioCtx=null, flagMode=false;
+let rngFn=Math.random; // ソロは Math.random、レース中はシード付きRNGに差し替える
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
 function beep(f,d=0.06,type='square',v=0.045){
   if(!soundOn) return;
@@ -94,14 +159,21 @@ function beep(f,d=0.06,type='square',v=0.045){
 function init(){
   const d=DIFFS[diff]; W=d.w; H=d.h; M=d.mines;
   cells=[]; started=false; over=false; won=false; flags=0; opened=0; seconds=0; firstClickDone=false;
+  if(!raceActive) rngFn=Math.random;
   clearInterval(timerInt);
   $('timer').textContent='000';
   $('mineCount').textContent=String(M).padStart(3,'0');
   $('face').textContent='😊'; $('msg').textContent='';
   const bd=$('board');
-  bd.style.gridTemplateColumns=`repeat(${W}, ${W>20?24:32}px)`;
   bd.innerHTML='';
-  const size = W>20?24:32, fs = W>20?14:17;
+  /* 画面幅に収まるようセルサイズを調整（狭い画面では縮小し、それでも収まらない場合は #boardWrap 内で横スクロール） */
+  let size = W>20?24:32;
+  const naturalW = W*size + (W-1)*3;
+  if(naturalW > window.innerWidth - 24){
+    size = Math.max(15, Math.floor((window.innerWidth - 24 - (W-1)*3) / W));
+  }
+  const fs = size>=28?17 : size>=20?14 : size>=16?12 : 10;
+  bd.style.gridTemplateColumns=`repeat(${W}, ${size}px)`;
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     const c={x,y,mine:false,n:0,open:false,flag:false,el:document.createElement('button')};
     c.el.className='cell'; c.el.style.width=size+'px'; c.el.style.height=size+'px'; c.el.style.fontSize=fs+'px';
@@ -125,7 +197,7 @@ function placeMines(safe){
   const banned=new Set([idx(safe.x,safe.y), ...neighbors(safe).map(c=>idx(c.x,c.y))]);
   let placed=0;
   while(placed<M){
-    const i=Math.floor(Math.random()*cells.length);
+    const i=Math.floor(rngFn()*cells.length);
     if(banned.has(i)||cells[i].mine) continue;
     cells[i].mine=true; placed++;
   }
@@ -143,7 +215,7 @@ function onCell(c){
   openCell(c);
 }
 function openCell(c){
-  if(!firstClickDone){ placeMines(c); firstClickDone=true; }
+  if(!firstClickDone){ if(raceActive) raceT0=performance.now(); placeMines(c); firstClickDone=true; }
   startTimer();
   if(c.mine){ lose(c); return; }
   const stack=[c];
@@ -157,6 +229,7 @@ function openCell(c){
   }
   beep(660,0.04,'triangle',0.03);
   checkWin();
+  sendProg(false);
 }
 function chord(c){
   if(over||!c.open||c.n===0) return;
@@ -172,6 +245,7 @@ function toggleFlag(c){
   c.el.classList.toggle('flag',c.flag);
   $('mineCount').textContent=String(Math.max(-99,M-flags)).padStart(3,'0');
   beep(c.flag?880:440,0.04,'square',0.03);
+  sendProg(false);
 }
 function checkWin(){
   if(opened === W*H-M){
@@ -181,8 +255,17 @@ function checkWin(){
     $('face').textContent='😎';
     $('msg').textContent='🎉 クリア！ '+seconds+'秒';
     [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.12,'triangle',0.06),i*90));
-    const key='ms_best_'+diff, prev=+(localStorage.getItem(key)||0);
-    if(!prev||seconds<prev) localStorage.setItem(key,seconds);
+    if(raceActive){
+      myResult='clear';
+      myClearMs = raceT0 ? Math.round(performance.now()-raceT0) : seconds*1000;
+      $('msg').textContent='🎉 クリア！ '+(myClearMs/1000).toFixed(1)+'秒';
+      sendProg(true);
+      sendOnline({t:'clear', time:myClearMs});
+      resolveRace();
+    }else{
+      const key='ms_best_'+diff, prev=+(localStorage.getItem(key)||0);
+      if(!prev||seconds<prev) localStorage.setItem(key,seconds);
+    }
     showBest();
   }
 }
@@ -196,17 +279,368 @@ function lose(hit){
   $('face').textContent='😵';
   $('msg').textContent='💥 ゲームオーバー… もう一度挑戦！';
   beep(120,0.4,'sawtooth',0.08);
+  if(raceActive){
+    myResult='boom';
+    sendProg(true);
+    sendOnline({t:'boom'});
+    resolveRace();
+  }
 }
 function showBest(){
   const v=localStorage.getItem('ms_best_'+diff);
   $('best').textContent = v ? `🏆 ${DIFFS[diff].label}ベスト: ${v}秒` : '';
 }
 document.querySelectorAll('#diffSeg button').forEach(b=>{
-  b.onclick=()=>{ document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); diff=b.dataset.d; init(); };
+  b.onclick=()=>{ if(raceActive) return; document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); diff=b.dataset.d; init(); };
 });
-$('face').onclick=init;
+$('face').onclick=()=>{ if(netMode==='online') return; init(); };
 $('soundBtn').onclick=()=>{ soundOn=!soundOn; $('soundBtn').textContent=soundOn?'🔊 サウンド':'🔇 ミュート'; };
 $('flagMode').onclick=()=>{ flagMode=!flagMode; $('flagMode').textContent='🚩 フラグモード: '+(flagMode?'ON':'OFF'); };
+
+/* ============================================================
+   オンライン対戦「レースモード」（PeerJS / WebRTC P2P）
+   公平性の設計: 両者ともホストが決めたシードで、既存の初手安全
+   ルール（初手マス＋周囲8マスには地雷を置かない）のまま
+   placeMines をシード付きRNGで実行する。同じ初手を選べば
+   盤面（地雷配置）は完全一致し、どちらも初手で地雷を踏まない。
+   勝敗: 先に全安全マスを開けた側の勝ち。地雷を踏んだら即負け。
+   ============================================================ */
+const PEER_PREFIX = 'playweb-ms-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+let netMode='solo'; // 'solo' | 'online'
+let peer=null, conn=null, isHost=false, roomCode='', onlineClosing=false, connOpen=false;
+let raceActive=false, raceResolved=false, raceSeed=0, raceT0=0;
+let myResult=null, oppResult=null, myClearMs=0, oppClearMs=0; // 'clear' | 'boom' | null
+let oppProg={pct:0, opened:0, flags:0};
+let reconnecting=false, heartbeatTimer=null, guestRetryTimer=null, connTimer=null;
+let lastProgSent=0, progFlushTimer=null;
+
+function genRoomCode(){ let s=''; for(let i=0;i<6;i++) s+=CODE_CHARS[(Math.random()*CODE_CHARS.length)|0]; return s; }
+function peerAvailable(){ return typeof window.Peer!=='undefined'; }
+function setOnlineStatus(html){ $('onlineStatus').innerHTML=html; }
+function sendOnline(obj){ if(conn&&conn.open){ try{ conn.send(obj); }catch(e){} } }
+function startHeartbeat(){ stopHeartbeat(); heartbeatTimer=setInterval(()=>{ sendOnline({t:'ping'}); },8000); }
+function stopHeartbeat(){ if(heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer=null; }
+function armConnTimer(msg){
+  clearTimeout(connTimer);
+  connTimer=setTimeout(()=>{ if(!connOpen&&netMode==='online') setOnlineStatus('<span class="err">'+msg+'</span>'); },25000);
+}
+function disarmConnTimer(){ clearTimeout(connTimer); }
+function currentPct(){ const total=W*H-M; return total>0 ? Math.floor(opened/total*100) : 0; }
+function updateMyProg(){ const p=currentPct(); $('myProgFill').style.width=p+'%'; $('myProgText').textContent=p+'% ('+opened+')'; }
+function updateOppProg(){ $('oppProgFill').style.width=oppProg.pct+'%'; $('oppProgText').textContent=oppProg.pct+'% ('+oppProg.opened+')'; }
+function sendProg(force){
+  if(!raceActive) return;
+  updateMyProg();
+  const now=performance.now();
+  if(!force && now-lastProgSent<120){ clearTimeout(progFlushTimer); progFlushTimer=setTimeout(()=>sendProg(true),130); return; }
+  lastProgSent=now;
+  sendOnline({t:'prog', pct:currentPct(), opened, flags});
+}
+function sendMyStanding(){
+  sendOnline({t:'prog', pct:currentPct(), opened, flags});
+  if(myResult==='clear') sendOnline({t:'clear', time:myClearMs});
+  else if(myResult==='boom') sendOnline({t:'boom'});
+}
+function fmtMs(ms){ return (ms/1000).toFixed(1)+'秒'; }
+
+function startRace(seed, d){
+  raceSeed=seed;
+  if(DIFFS[d]){ diff=d; document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.toggle('on', x.dataset.d===diff)); }
+  raceActive=true; raceResolved=false; myResult=null; oppResult=null; myClearMs=0; oppClearMs=0; raceT0=0;
+  oppProg={pct:0, opened:0, flags:0};
+  rngFn=mulberry32(seed);
+  init();
+  $('resultModal').classList.remove('show');
+  $('progWrap').style.display='';
+  updateMyProg(); updateOppProg();
+  startHeartbeat();
+  $('msg').textContent='🏁 レース開始！同じ盤面で勝負';
+}
+
+function resolveRace(){
+  if(raceResolved) return;
+  if(!myResult && !oppResult) return;
+  let title, detail;
+  if(myResult==='boom'){ title='💥 敗北…'; detail='地雷を踏んでしまいました。相手の勝利です。'; }
+  else if(oppResult==='boom'){ title='🏆 勝利！'; detail='相手が地雷を踏みました！'; }
+  else if(myResult==='clear' && oppResult==='clear'){
+    if(myClearMs<oppClearMs){ title='🏆 勝利！'; detail='両者クリア！タイム差で勝ちました。'; }
+    else if(myClearMs>oppClearMs){ title='😢 敗北…'; detail='両者クリア！タイム差で負けました。'; }
+    else { title='🤝 引き分け'; detail='まったく同じタイムでした！'; }
+  }
+  else if(myResult==='clear'){ title='🏆 勝利！'; detail='先にクリアしました！'; }
+  else if(oppResult==='clear'){ title='😢 敗北…'; detail='相手が先にクリアしました。'; }
+  else return;
+  raceResolved=true; raceActive=false;
+  over=true; clearInterval(timerInt);
+  showResult(title, detail);
+}
+
+function showResult(title, detail){
+  const total=W*H-M;
+  const myLine = myResult==='clear' ? 'クリア '+fmtMs(myClearMs)
+    : myResult==='boom' ? '💥 地雷（進捗 '+currentPct()+'%）'
+    : '進捗 '+currentPct()+'%（'+opened+'/'+total+'マス）';
+  const oppLine = oppResult==='clear' ? 'クリア '+fmtMs(oppClearMs)
+    : oppResult==='boom' ? '💥 地雷（進捗 '+oppProg.pct+'%）'
+    : '進捗 '+oppProg.pct+'%（'+oppProg.opened+'/'+total+'マス）';
+  $('resultTitle').textContent=title;
+  $('resultStats').innerHTML = detail+'<br>あなた: <b>'+myLine+'</b><br>相手: <b>'+oppLine+'</b>';
+  $('rematchBtn').textContent = isHost ? '🔁 再戦する' : '🔁 再戦を希望する';
+  $('rematchBtn').disabled=false;
+  $('rematchNote').textContent='';
+  $('resultModal').classList.add('show');
+}
+
+/* 受信メッセージ処理（テストから直接呼べるよう関数として公開） */
+function handleOnlineData(msg){
+  if(!msg || typeof msg!=='object') return;
+  if(msg.t==='ping'){ return; }
+  if(msg.t==='hello'){
+    if(!isHost) return;
+    if(raceActive || raceResolved || myResult || oppResult){
+      /* 再接続: レースはリセットせず、現在の進捗と結果を送り直す */
+      reconnecting=false;
+      sendMyStanding();
+      startHeartbeat();
+      setOnlineStatus('再接続しました！レースを続けます。');
+      return;
+    }
+    raceSeed=(Math.random()*0x7fffffff)|0;
+    startRace(raceSeed, diff);
+    sendOnline({t:'start', seed:raceSeed, difficulty:diff});
+    setOnlineStatus('相手が参加しました！レース開始。あなたはホストです。');
+  }
+  else if(msg.t==='start'){
+    if(isHost) return;
+    reconnecting=false;
+    clearTimeout(guestRetryTimer);
+    startRace(msg.seed|0, DIFFS[msg.difficulty]?msg.difficulty:'easy');
+    setOnlineStatus('レース開始！先に全部開けた方が勝ちです。あなたはゲストです。');
+  }
+  else if(msg.t==='prog'){
+    oppProg={pct:msg.pct|0, opened:msg.opened|0, flags:msg.flags|0};
+    updateOppProg();
+  }
+  else if(msg.t==='clear'){
+    if(!oppResult){ oppResult='clear'; oppClearMs=+msg.time||0; }
+    resolveRace();
+  }
+  else if(msg.t==='boom'){
+    if(!oppResult){ oppResult='boom'; }
+    resolveRace();
+  }
+  else if(msg.t==='rematch'){
+    if(isHost && !raceActive){
+      raceSeed=(Math.random()*0x7fffffff)|0;
+      startRace(raceSeed, diff);
+      sendOnline({t:'start', seed:raceSeed, difficulty:diff});
+      setOnlineStatus('再戦を開始しました！');
+    }
+  }
+  else if(msg.t==='bye'){
+    if(raceActive || raceResolved){
+      raceResolved=true; raceActive=false; over=true; clearInterval(timerInt);
+      showResult('🚪 相手が退出しました', '対戦相手が退出したため、レースを終了しました。');
+    }
+    setOnlineStatus('相手が退出しました。');
+  }
+}
+
+function onOnlineDisconnected(){
+  if(netMode!=='online' || onlineClosing) return;
+  conn=null; connOpen=false;
+  stopHeartbeat();
+  if(raceActive || raceResolved){
+    /* レース中の切断: 自分のプレイは止めず、盤面を保持して再接続する */
+    reconnecting=true;
+    setOnlineStatus('<span class="err">接続が切れました。再接続を試みています…（レースは続きます）</span>');
+    if(!isHost) scheduleGuestReconnect();
+    return;
+  }
+  setOnlineStatus('<span class="err">相手との接続が切れました。</span>もう一度部屋を作るか、参加し直してください。');
+}
+function scheduleGuestReconnect(){
+  clearTimeout(guestRetryTimer);
+  let tries=0;
+  const attempt=()=>{
+    if(netMode!=='online' || !reconnecting) return;
+    tries++;
+    if(tries>20){
+      reconnecting=false;
+      setOnlineStatus('<span class="err">再接続できませんでした。退出して入り直してください。</span>');
+      return;
+    }
+    guestRetryTimer=setTimeout(attempt, 5000);
+    try{
+      if(peer){ try{ peer.destroy(); }catch(e){} }
+      peer=new Peer(undefined, PEER_OPTS);
+      peer.on('open', ()=>{
+        const c=peer.connect(PEER_PREFIX+roomCode, {reliable:true});
+        setupConn(c);
+        c.on('open', ()=>{
+          disarmConnTimer();
+          sendOnline({t:'hello'});
+          sendMyStanding();
+          setOnlineStatus('再接続しました！レースを続けます。');
+        });
+      });
+      peer.on('error', ()=>{});
+    }catch(e){}
+  };
+  guestRetryTimer=setTimeout(attempt, 1500);
+}
+function setupConn(c){
+  conn=c;
+  c.on('data', handleOnlineData);
+  c.on('close', ()=>{ if(conn===c) onOnlineDisconnected(); });
+  c.on('error', ()=>{ if(conn===c) onOnlineDisconnected(); });
+  c.on('open', ()=>{ connOpen=true; disarmConnTimer(); });
+  c.on('iceStateChanged', st=>{
+    if(conn!==c) return;
+    if((st==='failed'||st==='disconnected') && !raceActive && !raceResolved && !connOpen){
+      disarmConnTimer();
+      setOnlineStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+function teardownOnline(){
+  onlineClosing=true;
+  reconnecting=false;
+  stopHeartbeat();
+  clearTimeout(guestRetryTimer);
+  clearTimeout(progFlushTimer);
+  try{ if(conn) conn.close(); }catch(e){}
+  try{ if(peer) peer.destroy(); }catch(e){}
+  conn=null; peer=null; connOpen=false;
+}
+function hostRoom(){
+  if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  teardownOnline();
+  onlineClosing=false;
+  isHost=true;
+  roomCode=genRoomCode();
+  setOnlineStatus('部屋を作成中…');
+  try{ peer=new Peer(PEER_PREFIX+roomCode, PEER_OPTS); }
+  catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', ()=>{
+    $('roomCodeText').textContent=roomCode;
+    $('codeWrap').style.display='';
+    $('leaveBtn').style.display='';
+    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。難易度はあなたの選択が適用されます。');
+  });
+  peer.on('connection', c=>{
+    setupConn(c);
+    if(reconnecting) setOnlineStatus('相手が再接続しています…');
+    else setOnlineStatus('相手が接続しました。対局の準備中…');
+    armConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  peer.on('error', err=>{
+    if(err && err.type==='unavailable-id'){
+      setOnlineStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    }else{
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  peer.on('disconnected', ()=>{ try{ peer.reconnect(); }catch(e){} });
+}
+function joinRoom(){
+  if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  const code=($('joinCode').value||'').trim().toUpperCase();
+  if(code.length!==6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  teardownOnline();
+  onlineClosing=false;
+  isHost=false;
+  roomCode=code;
+  setOnlineStatus('接続中…');
+  try{ peer=new Peer(undefined, PEER_OPTS); }
+  catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', ()=>{
+    $('leaveBtn').style.display='';
+    armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c=peer.connect(PEER_PREFIX+code, {reliable:true});
+    setupConn(c);
+    c.on('open', ()=>{
+      sendOnline({t:'hello'});
+      setOnlineStatus('接続しました！ホストがレースを開始するのを待っています…');
+    });
+  });
+  peer.on('error', err=>{
+    if(err && err.type==='peer-unavailable'){
+      setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    }else{
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+}
+function leaveOnline(){
+  if(conn && conn.open){ try{ conn.send({t:'bye'}); }catch(e){} }
+  teardownOnline();
+  onlineClosing=false;
+  netMode='solo';
+  raceActive=false; raceResolved=false; myResult=null; oppResult=null;
+  $('onlinePanel').classList.remove('show');
+  $('progWrap').style.display='none';
+  $('leaveBtn').style.display='none';
+  $('codeWrap').style.display='none';
+  $('resultModal').classList.remove('show');
+  document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x.dataset.m==='solo'));
+  setOnlineStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  init();
+}
+function copyRoomCode(){
+  if(!roomCode) return;
+  const done=()=>{ $('copyCodeBtn').textContent='✅ コピー済み'; setTimeout(()=>{ $('copyCodeBtn').textContent='📋 コピー'; },1600); };
+  const fallback=()=>{
+    const ta=document.createElement('textarea');
+    ta.value=roomCode; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    ta.remove(); done();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(roomCode).then(done).catch(fallback);
+  else fallback();
+}
+
+document.querySelectorAll('#modeSeg button').forEach(b=>{
+  b.onclick=()=>{
+    const m=b.dataset.m;
+    if(m===netMode) return;
+    if(m==='online'){
+      netMode='online';
+      document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x===b));
+      $('onlinePanel').classList.add('show');
+      if(!peerAvailable()) setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    }else{
+      leaveOnline();
+    }
+  };
+});
+$('hostBtn').onclick=hostRoom;
+$('joinBtn').onclick=joinRoom;
+$('leaveBtn').onclick=leaveOnline;
+$('copyCodeBtn').onclick=copyRoomCode;
+$('modalLeaveBtn').onclick=leaveOnline;
+$('rematchBtn').onclick=()=>{
+  if(raceActive) return;
+  if(isHost){
+    raceSeed=(Math.random()*0x7fffffff)|0;
+    startRace(raceSeed, diff);
+    sendOnline({t:'start', seed:raceSeed, difficulty:diff});
+    setOnlineStatus('再戦を開始しました！');
+  }else{
+    sendOnline({t:'rematch'});
+    $('rematchBtn').disabled=true;
+    $('rematchNote').textContent='ホストの開始を待っています…';
+  }
+};
 init();
 </script>
 </body>

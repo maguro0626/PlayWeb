@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--c-bg:#0f1923;--c-surface:#1a2738;--c-border:#2a3d52;--c-accent:#4aaeff;--c-gold:#f8c42a;--c-red:#ff4455;--c-green:#44dd88;--c-purple:#a855f7;--pixel:'Press Start 2P',monospace}
 html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;color:#e8f0ff}
@@ -75,6 +76,16 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 .fx-flash{position:absolute;font-size:34px;pointer-events:none;z-index:7}
 @keyframes twinkle{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:1;transform:scale(1.25)}}
 #msg-card{cursor:pointer}
+.vs-sp-card{border:2px solid transparent;transition:all .15s;background:rgba(26,39,56,.85);border-radius:14px;cursor:pointer;padding:8px 6px;text-align:center}
+.vs-sp-card:active{transform:scale(.95)}
+.vs-sp-card.picked{border-color:var(--c-gold);background:rgba(60,45,10,.9)}
+.vs-sp-card.full{opacity:.45;pointer-events:none}
+.vs-chip{display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.09);border-radius:99px;padding:2px 7px 2px 3px;font-size:9px;font-weight:800;color:#cfe2f5}
+.vs-chip.dead{opacity:.38;filter:grayscale(1)}
+.vs-chip.cur{border-color:var(--c-accent);box-shadow:0 0 8px rgba(74,174,255,.5)}
+.vs-code{font-family:'Courier New',monospace;font-size:30px;font-weight:900;letter-spacing:.35em;color:#fff;text-align:center}
+.vs-inp{width:100%;background:rgba(10,20,35,.9);border:1px solid var(--c-border);border-radius:14px;padding:12px 14px;color:#fff;font-weight:800;font-size:14px;outline:none}
+.vs-inp:focus{border-color:var(--c-accent)}
 .move-btn{transition:transform .08s,box-shadow .15s}
 .move-btn:hover{box-shadow:0 0 0 1px rgba(74,174,255,.35),0 6px 16px rgba(0,0,0,.35)}
 </style>
@@ -108,8 +119,58 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
       <i data-lucide="save" class="w-4 h-4"></i>つづきから
     </button>
     <div id="title-slots" class="space-y-2 pt-1"></div>
+    <button onclick="openVersus()" class="bbtn w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#5b21b6,#9333ea);border:1px solid #c084fc;color:#f3e8ff;box-shadow:0 4px 20px rgba(168,85,247,.3)">
+      <i data-lucide="globe" class="w-4 h-4"></i>オンライン対戦
+    </button>
   </div>
   <div class="mt-10 px" style="font-size:6px;color:#223;text-align:center">v2.0 FULL STORY · GYM LEADERS · ELITE FOUR</div>
+</div>
+
+<!-- VERSUS (ONLINE) -->
+<div id="sc-versus" class="screen">
+  <div class="flex-1 scroll-a px-4 py-4 max-w-lg mx-auto w-full">
+    <div class="text-center mb-4">
+      <div class="text-4xl mb-2">🌐</div>
+      <div class="font-black text-lg text-white">オンライン対戦バトル</div>
+      <div class="sl mt-1" style="color:#7d93ad;font-size:9px">レベル50固定 · 3体編成 · ストーリーには影響しません</div>
+    </div>
+    <div id="vs-status" class="card p-3 mb-3" style="font-size:12px;line-height:1.7;color:#c8d8e8">部屋を作るか、相手のコードで参加してください。</div>
+    <!-- HOME -->
+    <div id="vs-home" class="space-y-3">
+      <input id="vs-name" class="vs-inp" type="text" maxlength="8" placeholder="あなたの名前（8文字まで）">
+      <button onclick="vsHostRoom()" class="bbtn w-full py-4 rounded-2xl font-black text-sm text-white" style="background:linear-gradient(135deg,#1a4a8a,#2a6acc);border:1px solid #4aaeff">🏠 部屋を作る</button>
+      <div class="flex gap-2">
+        <input id="vs-code-in" class="vs-inp" type="text" maxlength="6" placeholder="ルームコード（6文字）" style="text-transform:uppercase;letter-spacing:.2em">
+        <button onclick="vsJoinRoom()" class="bbtn px-5 rounded-2xl font-black text-sm shrink-0" style="background:rgba(26,39,56,.9);border:1px solid var(--c-purple);color:#e9d5ff">参加する</button>
+      </div>
+      <button onclick="vsExitToTitle()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">タイトルへもどる</button>
+    </div>
+    <!-- LOBBY (host waiting) -->
+    <div id="vs-lobby" class="hidden space-y-3">
+      <div class="card p-4">
+        <div class="sl text-center mb-2" style="color:#7d93ad">ルームコード</div>
+        <div id="vs-room-code" class="vs-code">------</div>
+        <button onclick="vsCopyCode()" class="bbtn w-full mt-3 py-2.5 rounded-xl font-bold text-xs" style="background:rgba(74,174,255,.15);border:1px solid #4aaeff;color:#8acfff">📋 コードをコピー</button>
+      </div>
+      <div class="text-center text-sm font-bold" style="color:#c8d8e8">相手の参加を待っています…</div>
+      <button onclick="vsLeaveOnline()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">やめる</button>
+    </div>
+    <!-- TEAM SELECT -->
+    <div id="vs-select" class="hidden">
+      <div class="card p-3 mb-3">
+        <div class="sl mb-2" style="color:#7d93ad">あなたの編成（タップした順に先発→控え）</div>
+        <div id="vs-picked" class="flex gap-2 mb-3"></div>
+        <div class="flex gap-2">
+          <button onclick="vsAutoPick()" class="bbtn flex-1 py-2.5 rounded-xl font-bold text-xs" style="background:rgba(74,174,255,.15);border:1px solid #4aaeff;color:#8acfff">🎲 おまかせ</button>
+          <button onclick="vsClearPick()" class="bbtn flex-1 py-2.5 rounded-xl font-bold text-xs" style="background:rgba(255,255,255,.06);border:1px solid var(--c-border);color:#aabbc8">クリア</button>
+        </div>
+      </div>
+      <div id="vs-species" class="grid grid-cols-3 gap-2 mb-3"></div>
+      <div id="vs-ready-info" class="text-center text-xs font-bold mb-3" style="color:#c8d8e8">3体選んでください</div>
+      <button id="vs-ready-btn" onclick="vsConfirmTeam()" class="bbtn w-full py-4 rounded-2xl font-black text-sm text-white opacity-40 pointer-events-none" style="background:linear-gradient(135deg,#15803d,#22c55e);border:1px solid #4ade80">この編成で決定！</button>
+      <button onclick="vsLeaveOnline()" class="bbtn w-full py-3 mt-2 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">退出する</button>
+    </div>
+  </div>
 </div>
 
 <!-- INTRO -->
@@ -214,6 +275,17 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 <!-- BATTLE -->
 <div id="sc-battle" class="screen">
   <div class="flex-1 flex flex-col max-w-lg mx-auto w-full px-3 py-2 gap-2 min-h-0">
+    <div id="vs-bar" class="hidden shrink-0 card px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-black" style="font-size:11px;color:#e9d5ff">🌐 オンライン対戦</span>
+        <span id="vs-bar-turn" class="sl" style="color:#7d93ad"></span>
+      </div>
+      <div id="vs-bar-conn" style="font-size:10px;font-weight:700;color:#8acfff;margin-top:2px"></div>
+      <div class="flex items-start justify-between gap-2 mt-1.5">
+        <div id="vs-team-me" class="flex flex-wrap gap-1"></div>
+        <div id="vs-team-op" class="flex flex-wrap gap-1 justify-end"></div>
+      </div>
+    </div>
     <div class="shrink-0 battle-stage" style="height:212px" id="btl-stage">
       <div class="scanlines"></div>
       <div id="arena-ovl" style="position:absolute;inset:0;pointer-events:none;z-index:4"></div>
@@ -294,6 +366,22 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
         <div id="switch-list" class="space-y-2 mb-2"></div>
         <button onclick="showMain()" class="w-full py-3 rounded-2xl font-bold text-sm bbtn" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">もどる</button>
       </div>
+      <div id="menu-vs" class="hidden">
+        <div id="vs-prompt" class="sl mb-2" style="color:#7d93ad">コマンドを選んでください</div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <button onclick="vsOnFight()" class="bbtn py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#0e1a2e,#182844);border:1px solid #3a6aaa;color:#aaccff"><i data-lucide="zap" class="w-4 h-4"></i>たたかう</button>
+          <button onclick="vsOnSwitch()" class="bbtn py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8"><i data-lucide="users" class="w-4 h-4"></i>モンスター</button>
+        </div>
+        <button onclick="vsLeaveBattle()" class="bbtn w-full py-2.5 rounded-2xl font-bold text-xs" style="background:rgba(80,20,30,.5);border:1px solid rgba(255,68,85,.4);color:#ff9aa5">退出する（負けになります）</button>
+      </div>
+      <div id="menu-vs-moves" class="hidden">
+        <div id="vs-move-btns" class="grid grid-cols-2 gap-2 mb-2"></div>
+        <button onclick="vsShowMain()" class="w-full py-3 rounded-2xl font-bold text-sm bbtn" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">もどる</button>
+      </div>
+      <div id="menu-vs-switch" class="hidden">
+        <div id="vs-switch-list" class="space-y-2 mb-2"></div>
+        <button id="vs-switch-back" onclick="vsShowMain()" class="w-full py-3 rounded-2xl font-bold text-sm bbtn" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">もどる</button>
+      </div>
     </div>
   </div>
 </div>
@@ -337,6 +425,17 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
   </div>
 </div>
 
+<div id="ov-vs" class="fixed inset-0 hidden flex items-center justify-center z-50 px-6" style="background:rgba(2,6,16,.92)">
+  <div class="text-center slide-up">
+    <div id="vs-result-emoji" class="text-6xl mb-4">🏆</div>
+    <div id="vs-result-title" class="text-white font-black text-3xl mb-2">勝利！</div>
+    <div id="vs-result-sub" class="text-sm font-bold mb-8" style="color:#aabbc8"></div>
+    <div class="space-y-2 w-64 mx-auto">
+      <button onclick="vsRematch()" class="bbtn w-full py-3.5 rounded-2xl font-black text-sm text-white" style="background:linear-gradient(135deg,#5b21b6,#9333ea);border:1px solid #c084fc">🔁 再戦（再編成）</button>
+      <button onclick="vsExitToTitle()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.9);border:1px solid var(--c-border);color:#c8d8e8">タイトルへ</button>
+    </div>
+  </div>
+</div>
 <!-- OVERLAYS -->
 <div id="ov-evo" class="fixed inset-0 bg-black hidden flex items-center justify-center flex-col z-50">
   <div id="evo-stars" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
@@ -627,8 +726,8 @@ function getFirstAlive(party){return party.find(m=>alive(m))||null}
 function wait(ms){return new Promise(r=>setTimeout(r,ms/SPD))}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');curScreen=id;updateHdr(id);lucide.createIcons()}
 function updateHdr(id){
-  const L={'sc-title':'ホーム','sc-intro':'もどる','sc-map':'マップ','sc-loc':'もどる','sc-battle':'バトル中','sc-party':'もどる','sc-dex':'もどる','sc-bag':'もどる'};
-  const T={'sc-title':'MONSTER RISE','sc-intro':'NEW GAME','sc-map':'WORLD MAP','sc-loc':'LOCATION','sc-battle':'BATTLE','sc-party':'PARTY','sc-dex':'MONSTER DEX','sc-bag':'BAG'};
+  const L={'sc-title':'ホーム','sc-intro':'もどる','sc-map':'マップ','sc-loc':'もどる','sc-battle':'バトル中','sc-party':'もどる','sc-dex':'もどる','sc-bag':'もどる','sc-versus':'タイトル'};
+  const T={'sc-title':'MONSTER RISE','sc-intro':'NEW GAME','sc-map':'WORLD MAP','sc-loc':'LOCATION','sc-battle':'BATTLE','sc-party':'PARTY','sc-dex':'MONSTER DEX','sc-bag':'BAG','sc-versus':'ONLINE VERSUS'};
   document.getElementById('back-label').textContent=L[id]||'もどる';
   document.getElementById('hdr-title').textContent=T[id]||'';
   document.getElementById('right-icon').setAttribute('data-lucide',id==='sc-dex'?'map':'book-open');
@@ -636,6 +735,7 @@ function updateHdr(id){
 }
 function headerBack(){
   if(curScreen==='sc-title'||curScreen==='sc-battle')return;
+  if(curScreen==='sc-versus'){if(typeof vsLeaveOnline==='function')vsLeaveOnline();showScreen('sc-title');return}
   if(curScreen==='sc-intro'){showScreen('sc-title');return}
   showScreen('sc-map');renderWorldMap();
 }
@@ -1700,6 +1800,771 @@ window.onload=function(){
   const mc=document.getElementById('msg-card');
   if(mc)mc.addEventListener('click',()=>{if(twTimer){clearInterval(twTimer);twTimer=null;document.getElementById('btl-msg').textContent=twFull}});
 };
+</script>
+<script>
+/* ============================================================
+   オンライン対戦バトル（PeerJS / ホスト権威ターン制）
+   【設計】
+   - ストーリーとは完全独立の専用モード。G やセーブ(mrise_v5)には一切触れない。
+   - 両者とも対戦専用に Lv50 で作り直した3体編成（makeMon を再利用）。
+     ストーリーの手持ち・進行には依存しない。
+   - ターン解決はホスト側でのみ行い、ダメージ/効果は既存の calcDmg / applyEff を使用。
+     ストーリーとの違い: 対戦では素早さ順に行動し、技の命中率(acc)も適用する。
+   - 技選択は「ホストが先に自分の選択を確定（UIロック）し、その後ゲストの
+     選択を受けて解決する」順序。カジュアル対戦として許容する。
+   - 控えモンスターを含む編成・HP等の情報は全て公開（対戦ゲームの標準）。
+   - 切断時はバトルを凍結して再接続を待ち、60秒を超えたら不戦勝/不戦敗。
+   ============================================================ */
+const VS_LV = 50;
+const VS_PREFIX = 'playweb-rp-';
+const VS_PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const VS_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+const VS_SPECIES = Object.keys(M).filter(sp => sp !== 'egg');
+
+let VS = null;
+function vsNewSession(){
+  return {
+    peer:null, conn:null, isHost:false, code:'', myName:'', opName:'',
+    phase:'idle', connected:false, closing:false, frozen:false,
+    myTeamPick:[], opTeamPick:null, myReady:false, opReady:false,
+    state:null, disp:null, picks:{H:null, G:null},
+    picked:false, playing:false, discTimer:null, connTimer:null,
+    heartbeat:null, retryTimer:null, retries:0, forfeitMsg:null,
+  };
+}
+function vsEl(id){ return document.getElementById(id); }
+function vsClone(o){ return JSON.parse(JSON.stringify(o)); }
+function vsMySide(){ return VS.isHost ? 'H' : 'G'; }
+function vsOpSide(){ return VS.isHost ? 'G' : 'H'; }
+function vsElFor(side){ return side === vsMySide() ? 'p' : 'e'; }
+function vsPeerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function vsGenCode(){ let c=''; for(let i=0;i<6;i++) c += VS_CODE_CHARS[(Math.random()*VS_CODE_CHARS.length)|0]; return c; }
+function vsSetStatus(html){ const el=vsEl('vs-status'); if(el) el.innerHTML=html; }
+function vsSetConnBar(text){ const el=vsEl('vs-bar-conn'); if(el) el.textContent=text; }
+function vsSend(obj){ if(VS && VS.conn && VS.conn.open){ try{ VS.conn.send(obj); }catch(e){} } }
+function vsReadName(){
+  const v=(vsEl('vs-name').value||'').trim();
+  return v || (typeof G!=='undefined' && G.playerName) || 'ゆうしゃ';
+}
+
+/* ---------- 画面遷移 ---------- */
+function openVersus(){
+  if(!VS) VS = vsNewSession();
+  const nameInp = vsEl('vs-name');
+  if(nameInp && !nameInp.value && typeof G!=='undefined' && G.playerName) nameInp.value = G.playerName;
+  showScreen('sc-versus');
+  if(VS.phase==='battle' || VS.phase==='over'){ showScreen('sc-battle'); vsRefreshBattleUI(); return; }
+  if(VS.phase==='select'){ vsShowPanel('select'); vsRenderSpecies(); return; }
+  if(VS.phase==='waiting'){ vsShowPanel('lobby'); return; }
+  vsShowPanel('home');
+  if(!vsPeerAvailable()) vsSetStatus('<span style="color:#ff8896">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+  else vsSetStatus('部屋を作るか、相手のコードで参加してください。');
+}
+function vsShowPanel(which){
+  ['vs-home','vs-lobby','vs-select'].forEach(id=>{ const e=vsEl(id); if(e) e.classList.add('hidden'); });
+  const t=vsEl('vs-'+which); if(t) t.classList.remove('hidden');
+}
+function vsExitToTitle(){
+  vsTeardownNet();
+  VS = vsNewSession();
+  const ov=vsEl('ov-vs'); if(ov){ ov.classList.add('hidden'); ov.classList.remove('flex'); }
+  const bar=vsEl('vs-bar'); if(bar) bar.classList.add('hidden');
+  vsHideAllMenus();
+  const mm=vsEl('menu-main'); if(mm) mm.classList.remove('hidden');
+  showScreen('sc-title');
+}
+function vsLeaveOnline(){
+  if(VS && VS.connected) vsSend({t:'bye', inBattle:false});
+  vsExitToTitle();
+}
+
+/* ---------- 接続まわり ---------- */
+function vsArmConnTimer(msg){
+  vsDisarmConnTimer(); if(!VS) return;
+  VS.connTimer=setTimeout(()=>{ if(VS && !VS.connected) vsSetStatus('<span style="color:#ff8896">'+msg+'</span>'); }, 25000);
+}
+function vsDisarmConnTimer(){ if(VS && VS.connTimer){ clearTimeout(VS.connTimer); VS.connTimer=null; } }
+function vsClearDiscTimer(){ if(VS && VS.discTimer){ clearTimeout(VS.discTimer); VS.discTimer=null; } }
+function vsStartHeartbeat(){
+  vsStopHeartbeat(); if(!VS) return;
+  VS.heartbeat=setInterval(()=>{ vsSend({t:'ping'}); }, 8000);
+}
+function vsStopHeartbeat(){ if(VS && VS.heartbeat){ clearInterval(VS.heartbeat); VS.heartbeat=null; } }
+function vsTeardownNet(){
+  if(!VS) return;
+  VS.closing=true;
+  vsStopHeartbeat(); vsDisarmConnTimer(); vsClearDiscTimer();
+  if(VS.retryTimer){ clearTimeout(VS.retryTimer); VS.retryTimer=null; }
+  try{ if(VS.conn) VS.conn.close(); }catch(e){}
+  try{ if(VS.peer) VS.peer.destroy(); }catch(e){}
+  VS.conn=null; VS.peer=null; VS.connected=false;
+}
+function vsSetupConn(c){
+  VS.conn=c;
+  c.on('data', d=>vsOnData(d));
+  c.on('open', ()=>vsDisarmConnTimer());
+  const lost=()=>{ if(VS && VS.conn===c) vsOnDisconnect(); };
+  c.on('close', lost);
+  c.on('error', lost);
+  try{
+    c.on('iceStateChanged', st=>{
+      if(!VS || VS.conn!==c) return;
+      if((st==='failed'||st==='disconnected') && !VS.connected){
+        vsDisarmConnTimer();
+        vsSetStatus('<span style="color:#ff8896">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+      }
+    });
+  }catch(e){}
+}
+function vsHostRoom(){
+  if(!vsPeerAvailable()){ vsSetStatus('<span style="color:#ff8896">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  vsTeardownNet();
+  VS = vsNewSession();
+  VS.isHost=true; VS.myName=vsReadName(); VS.code=vsGenCode();
+  vsSetStatus('部屋を作成中…');
+  try{ VS.peer=new Peer(VS_PREFIX+VS.code, VS_PEER_OPTS); }
+  catch(e){ vsSetStatus('<span style="color:#ff8896">接続の作成に失敗しました。</span>'); return; }
+  VS.peer.on('open', ()=>{
+    vsEl('vs-room-code').textContent=VS.code;
+    VS.phase='waiting'; vsShowPanel('lobby');
+    vsSetStatus('部屋を作りました。コードを相手に伝えてください。');
+  });
+  VS.peer.on('connection', c=>{
+    vsSetupConn(c);
+    vsArmConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  VS.peer.on('error', err=>{
+    if(err && err.type==='unavailable-id') vsSetStatus('<span style="color:#ff8896">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    else if(VS && !VS.connected) vsSetStatus('<span style="color:#ff8896">接続エラーが発生しました。</span>');
+  });
+  VS.peer.on('disconnected', ()=>{ try{ VS.peer.reconnect(); }catch(e){} });
+}
+function vsJoinRoom(){
+  if(!vsPeerAvailable()){ vsSetStatus('<span style="color:#ff8896">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  const code=(vsEl('vs-code-in').value||'').trim().toUpperCase();
+  if(code.length!==6){ vsSetStatus('<span style="color:#ff8896">6文字のルームコードを入力してください。</span>'); return; }
+  vsTeardownNet();
+  VS = vsNewSession();
+  VS.isHost=false; VS.myName=vsReadName(); VS.code=code;
+  vsSetStatus('接続中…');
+  try{ VS.peer=new Peer(undefined, VS_PEER_OPTS); }
+  catch(e){ vsSetStatus('<span style="color:#ff8896">接続の作成に失敗しました。</span>'); return; }
+  VS.peer.on('open', ()=>{
+    vsArmConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c=VS.peer.connect(VS_PREFIX+code, {reliable:true});
+    vsSetupConn(c);
+    c.on('open', ()=>{
+      vsSend({t:'hello', name:VS.myName});
+      vsSetStatus('接続しました！ホストの応答を待っています…');
+    });
+  });
+  VS.peer.on('error', err=>{
+    if(err && err.type==='peer-unavailable') vsSetStatus('<span style="color:#ff8896">部屋が見つかりませんでした。コードを確認してください。</span>');
+    else if(VS && !VS.connected) vsSetStatus('<span style="color:#ff8896">接続エラーが発生しました。</span>');
+  });
+}
+function vsCopyCode(){
+  if(!VS || !VS.code) return;
+  const done=()=>showToast('コードをコピーしました');
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(VS.code).then(done).catch(()=>showToast(VS.code));
+  else showToast(VS.code);
+}
+
+/* ---------- 受信ハンドラ ---------- */
+function vsOnData(msg){
+  if(!msg || !msg.t || !VS) return;
+  switch(msg.t){
+    case 'ping': return;
+    case 'hello': if(VS.isHost) vsHostOnHello(msg); return;
+    case 'welcome': if(!VS.isHost) vsGuestOnWelcome(msg); return;
+    case 'team': if(VS.isHost) vsHostOnTeam(msg); return;
+    case 'readyInfo': if(!VS.isHost){ VS.opReady=!!msg.host; if(msg.hostName) VS.opName=msg.hostName; vsUpdateReadyText(); } return;
+    case 'start': if(!VS.isHost) vsGuestOnStart(msg); return;
+    case 'state': if(!VS.isHost) vsGuestOnState(msg); return;
+    case 'pick': if(VS.isHost) vsHostOnPick(msg); return;
+    case 'error': showToast(msg.msg||'エラー'); VS.picked=false; vsRefreshBattleUI(); return;
+    case 'rematch': vsOnRematch(); return;
+    case 'bye': vsOnBye(msg); return;
+  }
+}
+function vsHostOnHello(msg){
+  VS.opName=msg.name||'ゲスト';
+  VS.connected=true; VS.frozen=false; vsClearDiscTimer();
+  vsStartHeartbeat();
+  vsSend({t:'welcome', name:VS.myName});
+  if((VS.phase==='battle'||VS.phase==='over') && VS.state){
+    /* 再接続: 現在の状態をそのまま再送して再開 */
+    vsSend({t:'start', state:VS.state, resume:true, yourPick:VS.picks.G||null});
+    vsSetConnBar('再接続しました。対戦を再開します');
+    vsRefreshBattleUI();
+  } else {
+    vsEnterSelect();
+    vsBroadcastReady();
+  }
+}
+function vsGuestOnWelcome(msg){
+  VS.connected=true;
+  if(msg.name) VS.opName=msg.name;
+  vsStartHeartbeat();
+  if(VS.phase==='battle' || VS.phase==='over'){ return; } /* start(resume) の到着を待つ */
+  vsEnterSelect();
+}
+function vsBroadcastReady(){
+  if(!VS.isHost) return;
+  vsSend({t:'readyInfo', host:VS.myReady, guest:VS.opReady, hostName:VS.myName, guestName:VS.opName});
+}
+function vsHostOnTeam(msg){
+  if(!vsValidateTeam(msg.team)){ vsSend({t:'error', msg:'編成が不正です'}); return; }
+  VS.opTeamPick=msg.team.slice(); VS.opReady=true;
+  vsBroadcastReady();
+  vsMaybeStart();
+}
+function vsOnBye(msg){
+  if(!VS) return;
+  VS.connected=false; vsStopHeartbeat();
+  if(msg.inBattle && VS.state && VS.state.phase!=='over'){
+    VS.state.winner=vsMySide(); VS.state.phase='over';
+    VS.forfeitMsg='相手が退出したため不戦勝です';
+    VS.frozen=false;
+    vsRefreshBattleUI(); vsShowResult();
+  } else {
+    if(VS.phase==='select'){ VS.opReady=false; VS.opTeamPick=null; vsUpdateReadyText(); vsSetStatus('相手が退出しました'); }
+    else if(VS.phase==='battle'){ /* 対戦終了済み */ }
+    else vsSetStatus('相手が退出しました');
+  }
+}
+
+/* ---------- 切断・再接続 ---------- */
+function vsOnDisconnect(){
+  if(!VS || VS.closing) return;
+  VS.connected=false; vsStopHeartbeat();
+  if(VS.phase==='waiting'){ vsSetStatus('相手との接続が切れました'); return; }
+  if(VS.phase==='select'){
+    vsSetStatus('相手との接続が切れました。再接続を待っています…');
+    if(!VS.isHost) vsScheduleReconnect();
+    return;
+  }
+  if((VS.phase==='battle'||VS.phase==='over') && VS.state && VS.state.phase!=='over'){
+    VS.frozen=true;
+    vsSetConnBar('⚠️ 接続が切れました。再接続を試みています…（60秒で不戦敗）');
+    vsRefreshBattleUI();
+    vsClearDiscTimer();
+    VS.discTimer=setTimeout(vsForfeit, 60000);
+    if(!VS.isHost) vsScheduleReconnect();
+  }
+}
+function vsForfeit(){
+  if(!VS || !VS.frozen || !VS.state) return;
+  VS.frozen=false;
+  VS.state.winner='H'; VS.state.phase='over';
+  VS.forfeitMsg = VS.isHost
+    ? '相手が60秒以内に再接続しなかったため、不戦勝です'
+    : 'ホストに再接続できなかったため、不戦敗です';
+  vsRefreshBattleUI(); vsShowResult();
+}
+function vsScheduleReconnect(){
+  if(!VS) return;
+  if(VS.retryTimer) clearTimeout(VS.retryTimer);
+  VS.retries=0;
+  const attempt=()=>{
+    if(!VS || VS.closing || VS.connected) return;
+    VS.retries++;
+    if(VS.retries>20) return; /* 不戦敗タイマーに任せる */
+    VS.retryTimer=setTimeout(attempt, 5000);
+    try{
+      if(VS.peer){ try{ VS.peer.destroy(); }catch(e){} }
+      VS.peer=new Peer(undefined, VS_PEER_OPTS);
+      VS.peer.on('open', ()=>{
+        const c=VS.peer.connect(VS_PREFIX+VS.code, {reliable:true});
+        vsSetupConn(c);
+        c.on('open', ()=>{ vsSend({t:'hello', name:VS.myName, rejoin:true}); });
+      });
+      VS.peer.on('error', ()=>{});
+    }catch(e){}
+  };
+  VS.retryTimer=setTimeout(attempt, 1500);
+}
+
+/* ---------- 編成 ---------- */
+function vsValidateTeam(team){
+  if(!Array.isArray(team) || team.length!==3) return false;
+  const seen=new Set();
+  for(const sp of team){
+    if(typeof sp!=='string' || !M[sp] || sp==='egg') return false;
+    if(seen.has(sp)) return false;
+    seen.add(sp);
+  }
+  return true;
+}
+function vsEnterSelect(){
+  VS.phase='select';
+  showScreen('sc-versus');
+  vsShowPanel('select');
+  vsRenderSpecies();
+  vsSetStatus(VS.isHost ? '対戦相手が接続しました！編成を選んでください。' : 'ホストに接続しました！編成を選んでください。');
+}
+function vsRenderSpecies(){
+  const grid=vsEl('vs-species'); if(!grid) return;
+  grid.innerHTML='';
+  VS_SPECIES.forEach(sp=>{
+    const d=M[sp]; const picked=VS.myTeamPick.includes(sp);
+    const card=document.createElement('div');
+    card.className='vs-sp-card'+(picked?' picked':'')+((!picked && VS.myTeamPick.length>=3)?' full':'');
+    card.innerHTML=`<div style="height:52px;display:flex;align-items:center;justify-content:center"><svg width="52" height="52" viewBox="0 0 200 200">${d.draw()}</svg></div><div style="font-size:10px;font-weight:900;color:#fff">${d.name}</div><div class="sl" style="font-size:7px">${d.type.toUpperCase()}</div>`;
+    card.onclick=()=>vsToggleSpecies(sp);
+    grid.appendChild(card);
+  });
+  const pk=vsEl('vs-picked'); pk.innerHTML='';
+  for(let i=0;i<3;i++){
+    const sp=VS.myTeamPick[i];
+    const slot=document.createElement('div');
+    slot.style.cssText='flex:1;background:rgba(0,0,0,.4);border:1px dashed rgba(255,255,255,.15);border-radius:12px;padding:6px;text-align:center;min-height:64px';
+    if(sp){ const d=M[sp]; slot.innerHTML=`<svg width="34" height="34" viewBox="0 0 200 200">${d.draw()}</svg><div style="font-size:9px;font-weight:900;color:#fff">${i===0?'先発':'控え'+i} ${d.name}</div>`; }
+    else slot.innerHTML=`<div style="font-size:9px;color:#5a7186;padding-top:20px">${i===0?'先発':'控え'+i} 未選択</div>`;
+    pk.appendChild(slot);
+  }
+  const btn=vsEl('vs-ready-btn');
+  if(btn){
+    const can=VS.myTeamPick.length===3 && !VS.myReady;
+    btn.classList.toggle('opacity-40', !can);
+    btn.classList.toggle('pointer-events-none', !can);
+    btn.textContent = VS.myReady ? '✅ 決定済み（相手を待っています）' : 'この編成で決定！';
+  }
+  vsUpdateReadyText();
+}
+function vsToggleSpecies(sp){
+  if(!VS || VS.myReady) return;
+  const i=VS.myTeamPick.indexOf(sp);
+  if(i>=0) VS.myTeamPick.splice(i,1);
+  else if(VS.myTeamPick.length<3) VS.myTeamPick.push(sp);
+  vsRenderSpecies();
+}
+function vsAutoPick(){
+  if(!VS || VS.myReady) return;
+  VS.myTeamPick=[...VS_SPECIES].sort(()=>Math.random()-.5).slice(0,3);
+  vsRenderSpecies();
+}
+function vsClearPick(){
+  if(!VS || VS.myReady) return;
+  VS.myTeamPick=[]; vsRenderSpecies();
+}
+function vsUpdateReadyText(){
+  const el=vsEl('vs-ready-info'); if(!el || !VS) return;
+  if(VS.myReady && VS.opReady) el.textContent='両者準備完了！対戦開始…';
+  else if(VS.myReady) el.textContent='✅ あなたは決定済み。相手の編成を待っています…';
+  else if(VS.opReady) el.textContent='相手は編成が完了しています。あなたの編成を選んでください';
+  else el.textContent = VS.myTeamPick.length===3 ? 'この3体でよければ「決定」を押してください' : `あと ${3-VS.myTeamPick.length} 体選んでください`;
+}
+function vsConfirmTeam(){
+  if(!VS || VS.myReady || VS.myTeamPick.length!==3) return;
+  if(!vsValidateTeam(VS.myTeamPick)){ showToast('編成が不正です'); return; }
+  VS.myReady=true;
+  vsRenderSpecies();
+  if(VS.isHost){ vsBroadcastReady(); vsMaybeStart(); }
+  else vsSend({t:'team', team:VS.myTeamPick.slice()});
+}
+
+/* ---------- バトル開始 ---------- */
+function vsBuildState(){
+  const mk=team=>team.map(sp=>makeMon(sp, VS_LV));
+  return {
+    turn:1, phase:'pick', needSwitch:[], winner:null,
+    H:{ name:VS.myName, team:mk(VS.myTeamPick), active:0 },
+    G:{ name:VS.opName, team:mk(VS.opTeamPick), active:0 },
+  };
+}
+function vsMaybeStart(){
+  if(!VS.isHost || VS.phase==='battle') return;
+  if(!(VS.myReady && VS.opReady && VS.opTeamPick)) return;
+  VS.state=vsBuildState();
+  VS.disp=vsClone(VS.state);
+  VS.picks={H:null, G:null};
+  VS.phase='battle';
+  vsSend({t:'start', state:VS.state});
+  vsEnterBattle();
+  setMsg(`対戦開始！\nあいての ${mname(VS.state.G.team[0])} が あらわれた！`);
+}
+function vsGuestOnStart(msg){
+  VS.state=msg.state; VS.disp=vsClone(msg.state);
+  VS.phase='battle'; VS.connected=true; VS.frozen=false;
+  VS.picked=!!msg.yourPick;
+  vsStartHeartbeat();
+  vsEnterBattle();
+  if(VS.state.phase==='over') vsShowResult();
+  else setMsg(msg.resume ? '再接続しました！\n対戦を再開します' : `対戦開始！\n${VS.opName}が 勝負を仕掛けてきた！`);
+}
+function vsEnterBattle(){
+  showScreen('sc-battle');
+  ['menu-main','menu-moves','menu-switch'].forEach(id=>{ const e=vsEl(id); if(e) e.classList.add('hidden'); });
+  const bar=vsEl('vs-bar'); if(bar) bar.classList.remove('hidden');
+  vsRenderActives();
+  const ew=vsEl('e-wrap'), pw=vsEl('p-wrap');
+  if(ew&&pw){ ew.classList.remove('enter-e'); pw.classList.remove('enter-p'); void ew.offsetWidth; ew.classList.add('enter-e'); pw.classList.add('enter-p'); setTimeout(()=>{ ew.classList.remove('enter-e'); pw.classList.remove('enter-p'); },520); }
+  vsRefreshBattleUI();
+}
+
+/* ---------- バトル描画 ---------- */
+function vsRenderActives(){
+  if(!VS || !VS.disp) return;
+  const me=vsMySide(), op=vsOpSide();
+  renderMon(VS.disp[op].team[VS.disp[op].active],'e');
+  renderMon(VS.disp[me].team[VS.disp[me].active],'p');
+  vsRenderTeams();
+}
+function vsChip(m, cur){
+  return `<span class="vs-chip${alive(m)?'':' dead'}${cur?' cur':''}"><svg width="16" height="16" viewBox="0 0 200 200">${M[m.sp].draw()}</svg>${mname(m)} ${Math.max(0,m.hp)}/${m.maxHp}</span>`;
+}
+function vsRenderTeams(){
+  if(!VS || !VS.disp) return;
+  const me=vsMySide(), op=vsOpSide();
+  const em=vsEl('vs-team-me'), eo=vsEl('vs-team-op');
+  if(em) em.innerHTML=`<span class="sl" style="align-self:center">あなた</span>`+VS.disp[me].team.map((m,i)=>vsChip(m, i===VS.disp[me].active)).join('');
+  if(eo) eo.innerHTML=VS.disp[op].team.map((m,i)=>vsChip(m, i===VS.disp[op].active)).join('')+`<span class="sl" style="align-self:center">${VS.opName||'相手'}</span>`;
+}
+function vsHideAllMenus(){
+  ['menu-vs','menu-vs-moves','menu-vs-switch'].forEach(id=>{ const e=vsEl(id); if(e) e.classList.add('hidden'); });
+}
+function vsShowMain(){
+  vsHideAllMenus();
+  const m=vsEl('menu-vs'); if(!m) return;
+  m.classList.remove('hidden');
+  m.style.pointerEvents=''; m.style.opacity='';
+  vsEl('vs-prompt').textContent='コマンドを選んでください';
+}
+function vsShowWaiting(text){
+  vsHideAllMenus();
+  const m=vsEl('menu-vs'); if(!m) return;
+  m.classList.remove('hidden');
+  m.style.pointerEvents='none'; m.style.opacity='.55';
+  vsEl('vs-prompt').textContent=text;
+}
+function vsRefreshBattleUI(){
+  if(!VS) return;
+  const inBattle=(VS.phase==='battle'||VS.phase==='over') && VS.state;
+  ['menu-main','menu-moves','menu-switch'].forEach(id=>{ const e=vsEl(id); if(e) e.classList.add('hidden'); });
+  const bar=vsEl('vs-bar'); if(bar) bar.classList.toggle('hidden', !inBattle);
+  if(!inBattle){ vsHideAllMenus(); return; }
+  vsEl('vs-bar-turn').textContent = VS.state.phase==='over' ? '対戦終了' : `ターン ${VS.state.turn}`;
+  vsRenderTeams();
+  if(VS.state.phase==='over'){ vsHideAllMenus(); return; }
+  if(VS.frozen){ vsHideAllMenus(); return; }
+  if(!VS.reconnecting) vsSetConnBar('接続中 vs '+(VS.opName||'相手'));
+  if(VS.playing){ vsHideAllMenus(); return; }
+  if(VS.state.phase==='pick'){
+    if(VS.picked) vsShowWaiting('相手の選択を待っています…');
+    else vsShowMain();
+  } else if(VS.state.phase==='switch'){
+    if(VS.state.needSwitch.includes(vsMySide())){
+      if(VS.picked) vsShowWaiting('相手の交代を待っています…');
+      else vsShowSwitch(true);
+    } else vsShowWaiting('相手がモンスターを選んでいます…');
+  }
+}
+function vsOnFight(){
+  if(!VS || !VS.state) return;
+  const me=vsMySide(); const a=VS.state[me].team[VS.state[me].active];
+  vsHideAllMenus(); vsEl('menu-vs-moves').classList.remove('hidden');
+  const mb=vsEl('vs-move-btns'); mb.innerHTML='';
+  a.moves.forEach((mv,idx)=>{
+    const d=MV[mv.id]; const tc=tcol(d.type); const out=mv.pp===0;
+    const btn=document.createElement('button');
+    btn.className='move-btn'+(out?' depleted':'');
+    btn.innerHTML=`<span style="font-size:18px">${d.emoji}</span><span style="font-size:10px">${d.name}</span><div class="flex items-center gap-1 mt-0.5"><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span><span class="sl">${d.power>0?'威力'+d.power+' · 命中'+d.acc:'変化'}</span><span class="sl">${mv.pp}/${mv.maxPp}</span></div>`;
+    if(!out) btn.onclick=()=>vsPick({kind:'move', idx});
+    mb.appendChild(btn);
+  });
+}
+function vsOnSwitch(){ vsShowSwitch(false); }
+function vsShowSwitch(forced){
+  if(!VS || !VS.state) return;
+  const me=vsMySide(); const S=VS.state[me];
+  vsHideAllMenus(); vsEl('menu-vs-switch').classList.remove('hidden');
+  vsEl('vs-switch-back').style.display=forced?'none':'';
+  const sl=vsEl('vs-switch-list'); sl.innerHTML='';
+  S.team.forEach((m,i)=>{
+    if(i===S.active) return;
+    const d=M[m.sp]; const tc=tcol(d.type); const off=!alive(m);
+    const btn=document.createElement('button');
+    btn.className='w-full bbtn flex items-center gap-3 p-3 rounded-2xl text-left card'+(off?' opacity-30 pointer-events-none':'');
+    btn.innerHTML=`<div style="width:44px;height:44px;background:${d.bg};border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="40" height="40" viewBox="0 0 200 200">${d.draw()}</svg></div><div class="flex-1 min-w-0"><div class="flex items-center gap-1.5 mb-0.5"><span class="font-black text-sm text-white">${mname(m)}</span><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span></div><div class="sl">Lv.${m.lv} · HP ${m.hp}/${m.maxHp}</div></div>`;
+    if(!off) btn.onclick=()=>vsPick({kind:'switch', idx:i});
+    sl.appendChild(btn);
+  });
+}
+
+/* ---------- 選択と検証 ---------- */
+function vsValidatePick(side, pick){
+  const S=VS && VS.state; if(!S) return '対戦が始まっていません';
+  const me=S[side]; if(!me) return '不正な選択です';
+  if(!pick || typeof pick!=='object') return '不正な選択です';
+  const chkSwitch=()=>{
+    if(!Number.isInteger(pick.idx) || pick.idx<0 || pick.idx>=me.team.length) return '不正な交代です';
+    if(pick.idx===me.active) return '現在のモンスターです';
+    if(!alive(me.team[pick.idx])) return 'そのモンスターは たおれています';
+    return null;
+  };
+  if(S.phase==='pick'){
+    if(pick.kind==='move'){
+      const a=me.team[me.active];
+      if(!alive(a)) return '現在のモンスターは たおれています';
+      if(!Number.isInteger(pick.idx) || pick.idx<0 || pick.idx>=a.moves.length) return 'その技は持っていません';
+      if(a.moves[pick.idx].pp<=0) return 'その技は PPがありません';
+      return null;
+    }
+    if(pick.kind==='switch') return chkSwitch();
+    return '不正な選択です';
+  }
+  if(S.phase==='switch'){
+    if(!S.needSwitch.includes(side)) return '交代の必要はありません';
+    if(pick.kind!=='switch') return '交代先を選んでください';
+    return chkSwitch();
+  }
+  return '今は選択できません';
+}
+function vsPick(pick){
+  if(!VS || !VS.state || VS.frozen || VS.playing) return;
+  if(VS.state.phase==='over') return;
+  const err=vsValidatePick(vsMySide(), pick);
+  if(err){ showToast(err); return; }
+  VS.picked=true;
+  if(VS.isHost){
+    VS.picks.H=pick;
+    vsRefreshBattleUI();
+    vsCheckBoth();
+  } else {
+    vsSend({t:'pick', pick});
+    vsRefreshBattleUI();
+  }
+}
+function vsHostOnPick(msg){
+  if(!VS.state || VS.state.phase==='over') return;
+  if(VS.picks.G) return; /* 二重送信は無視 */
+  const err=vsValidatePick('G', msg.pick);
+  if(err){ vsSend({t:'error', msg:err}); return; }
+  VS.picks.G=msg.pick;
+  vsCheckBoth();
+}
+function vsCheckBoth(){
+  if(!VS.isHost || !VS.state) return;
+  const S=VS.state;
+  if(S.phase==='pick'){
+    if(VS.picks.H && VS.picks.G) vsResolveTurn();
+  } else if(S.phase==='switch'){
+    if(S.needSwitch.every(sd=>VS.picks[sd])) vsResolveSwitches();
+  }
+}
+
+/* ---------- ターン解決（ホストのみ） ---------- */
+function vsSnap(S){
+  return {
+    hpH:S.H.team[S.H.active].hp, hpG:S.G.team[S.G.active].hp,
+    stH:S.H.team[S.H.active].status, stG:S.G.team[S.G.active].status,
+  };
+}
+function vsEffSpd(m){ return m.spd * buffMul(m.spdBuf||0); }
+function vsPerform(S, sd, fs, pick, steps){
+  const A=S[sd].team[S[sd].active], D=S[fs].team[S[fs].active];
+  if(A.status==='sleep'){
+    A.aTurns--;
+    if(A.aTurns<=0){ A.status=null; steps.push(Object.assign({msg:`${mname(A)}は めをさました！`}, vsSnap(S))); }
+    else steps.push(Object.assign({msg:`${mname(A)}は ねむっている…`}, vsSnap(S)));
+    return;
+  }
+  if(A.status==='paralysis' && Math.random()<.25){
+    steps.push(Object.assign({msg:`${mname(A)}は まひで うごけない！`}, vsSnap(S)));
+    return;
+  }
+  const mv=A.moves[pick.idx]; const md=MV[mv.id];
+  mv.pp=Math.max(0, mv.pp-1);
+  if(md.acc<100 && Math.random()*100>=md.acc){
+    steps.push(Object.assign({msg:`${mname(A)}の\n${md.emoji} ${md.name}！\nしかし はずれてしまった！`, actor:sd, moveType:md.type}, vsSnap(S)));
+    return;
+  }
+  let msg=`${mname(A)}の\n${md.emoji} ${md.name}！`; let dmg=null, crit=false, eff=1;
+  if(md.power>0){
+    const res=calcDmg(A, D, mv); dmg=res.dmg; crit=res.crit; eff=res.eff;
+    D.hp=Math.max(0, D.hp-res.dmg);
+    if(res.crit) msg+='\nきゅうしょに あたった！';
+    if(res.eff>1) msg+='\nこうかはばつぐんだ！';
+    else if(res.eff<1 && res.eff>0) msg+='\nこうかはいまひとつ…';
+    else if(res.eff===0) msg+='\nこうかがない…';
+    msg+=`\n${mname(D)}に ${res.dmg}ダメージ！`;
+  } else {
+    msg+=applyEff(md.eff, D, A) || '\nしかし うまくきまらなかった…';
+  }
+  steps.push(Object.assign({msg, actor:sd, hit:fs, dmg, crit, eff, moveType:md.type}, vsSnap(S)));
+  if(A.status==='burn' && alive(A)){
+    const bd=Math.max(1, Math.floor(A.maxHp/16)); A.hp=Math.max(0, A.hp-bd);
+    steps.push(Object.assign({msg:`${mname(A)}は やけどのダメージを受けた！`, hit:sd, dmg:bd}, vsSnap(S)));
+  }
+}
+function vsAfterAction(S){
+  const hAlive=S.H.team.some(alive), gAlive=S.G.team.some(alive);
+  if(!hAlive && !gAlive){ S.phase='over'; S.winner='D'; }
+  else if(!gAlive){ S.phase='over'; S.winner='H'; }
+  else if(!hAlive){ S.phase='over'; S.winner='G'; }
+  else {
+    const need=[];
+    if(!alive(S.H.team[S.H.active])) need.push('H');
+    if(!alive(S.G.team[S.G.active])) need.push('G');
+    if(need.length){ S.phase='switch'; S.needSwitch=need; }
+    else { S.phase='pick'; S.needSwitch=[]; }
+  }
+}
+function vsResolveTurn(){
+  const S=VS.state;
+  VS.disp=vsClone(S); /* 演出用: 解決前の表示コピー */
+  const steps=[];
+  const sides=['H','G'];
+  const swSides=sides.filter(sd=>VS.picks[sd] && VS.picks[sd].kind==='switch');
+  swSides.sort((a,b)=>vsEffSpd(S[b].team[S[b].active])-vsEffSpd(S[a].team[S[a].active]));
+  for(const sd of swSides){
+    const P=S[sd], idx=VS.picks[sd].idx, out=P.team[P.active];
+    P.active=idx;
+    steps.push(Object.assign({msg:`${P.name}は ${mname(out)}を下げて\n${mname(P.team[idx])}を 出した！`, sw:{side:sd, idx}}, vsSnap(S)));
+  }
+  const mvSides=sides.filter(sd=>VS.picks[sd] && VS.picks[sd].kind==='move');
+  mvSides.sort((a,b)=>{
+    const d=vsEffSpd(S[b].team[S[b].active])-vsEffSpd(S[a].team[S[a].active]);
+    return d!==0 ? d : (Math.random()<.5 ? -1 : 1);
+  });
+  for(const sd of mvSides){
+    const fs=sd==='H'?'G':'H';
+    const A=S[sd].team[S[sd].active], D=S[fs].team[S[fs].active];
+    if(!alive(A) || !alive(D)) break;
+    vsPerform(S, sd, fs, VS.picks[sd], steps);
+    if(!alive(D)) steps.push(Object.assign({msg:`${S[fs].name}の ${mname(D)}は たおれた！`, faint:fs}, vsSnap(S)));
+    if(!alive(A)) steps.push(Object.assign({msg:`${S[sd].name}の ${mname(A)}は たおれた！`, faint:sd}, vsSnap(S)));
+  }
+  S.turn++;
+  VS.picks={H:null, G:null};
+  vsAfterAction(S);
+  vsSend({t:'state', state:S, steps});
+  vsPlaySteps(steps).then(()=>{ VS.disp=vsClone(S); vsAfterSteps(); });
+}
+function vsResolveSwitches(){
+  const S=VS.state;
+  VS.disp=vsClone(S);
+  const steps=[];
+  for(const sd of S.needSwitch){
+    const P=S[sd], idx=VS.picks[sd].idx;
+    P.active=idx;
+    steps.push(Object.assign({msg:`${P.name}は\n${mname(P.team[idx])}を 出した！`, sw:{side:sd, idx}}, vsSnap(S)));
+  }
+  S.phase='pick'; S.needSwitch=[];
+  VS.picks={H:null, G:null};
+  vsSend({t:'state', state:S, steps});
+  vsPlaySteps(steps).then(()=>{ VS.disp=vsClone(S); vsAfterSteps(); });
+}
+
+/* ---------- 演出再生（両クライアント共通） ---------- */
+async function vsPlaySteps(steps){
+  if(!VS) return;
+  VS.playing=true; vsHideAllMenus();
+  for(const st of steps||[]){
+    if(!VS || !VS.disp) break;
+    if(st.sw){
+      const D=VS.disp[st.sw.side]; D.active=st.sw.idx;
+      renderMon(D.team[D.active], vsElFor(st.sw.side));
+    }
+    setMsg(st.msg);
+    if(st.actor) lunge(vsElFor(st.actor));
+    await wait(180);
+    ['H','G'].forEach(sd=>{
+      const dm=VS.disp[sd].team[VS.disp[sd].active];
+      dm.hp = sd==='H' ? st.hpH : st.hpG;
+      dm.status = sd==='H' ? st.stH : st.stG;
+    });
+    if(st.hit){
+      const el=vsElFor(st.hit);
+      const hm=VS.disp[st.hit].team[VS.disp[st.hit].active];
+      hitAnim(el); updateHpBar(hm, el);
+      if(st.dmg!=null){
+        burst(el, st.moveType||'normal');
+        SFX.play(st.crit?'crit':'hit');
+        dmgFloat(el, st.dmg, {big:st.crit, color:st.crit?'#ffd23e':(st.eff>1?'#ff9f43':'#ffffff')});
+        if(st.crit) screenFx('crit'); else if(st.eff>1) screenFx('supereff');
+      }
+    }
+    if(st.faint){
+      const el=vsElFor(st.faint);
+      const fa=vsEl(el+'-anim'); if(fa) fa.className='';
+      SFX.play('faint');
+    }
+    vsRenderTeams();
+    await wait(950);
+  }
+}
+function vsAfterSteps(){
+  if(!VS || !VS.state) return;
+  VS.playing=false; VS.picked=false;
+  vsRenderActives();
+  vsRefreshBattleUI();
+  if(VS.state.phase==='over') vsShowResult();
+  else if(VS.state.phase==='pick') setMsg(`ターン${VS.state.turn}\nコマンドを選んでください`);
+  else if(VS.state.phase==='switch'){
+    if(VS.state.needSwitch.includes(vsMySide())) setMsg('次のモンスターを選んでください');
+    else setMsg('相手がモンスターを選んでいます…');
+  }
+}
+async function vsGuestOnState(msg){
+  if(!VS) return;
+  VS.state=msg.state;
+  await vsPlaySteps(msg.steps||[]);
+  VS.disp=vsClone(VS.state);
+  vsAfterSteps();
+}
+
+/* ---------- 結果・再戦・退出 ---------- */
+function vsShowResult(){
+  if(!VS || !VS.state) return;
+  const w=VS.state.winner, me=vsMySide();
+  const ov=vsEl('ov-vs'); if(!ov) return;
+  ov.classList.remove('hidden'); ov.classList.add('flex');
+  const t=vsEl('vs-result-title'), s=vsEl('vs-result-sub'), e=vsEl('vs-result-emoji');
+  if(w==='D'){ e.textContent='🤝'; t.textContent='引き分け'; s.textContent='両者全滅の相打ちでした'; }
+  else if(w===me){ e.textContent='🏆'; t.textContent='勝利！'; s.textContent=`${VS.opName}との対戦に勝ちました！`; try{ SFX.play('win'); }catch(_){} spawnConfetti(); }
+  else { e.textContent='💦'; t.textContent='敗北…'; s.textContent=`${VS.opName}との対戦に負けました`; }
+  if(VS.forfeitMsg) s.textContent=VS.forfeitMsg;
+}
+function vsResetToSelect(){
+  VS.state=null; VS.disp=null; VS.picks={H:null, G:null};
+  VS.myReady=false; VS.opReady=false; VS.opTeamPick=null; VS.myTeamPick=[];
+  VS.picked=false; VS.frozen=false; VS.forfeitMsg=null;
+  const ov=vsEl('ov-vs'); if(ov){ ov.classList.add('hidden'); ov.classList.remove('flex'); }
+  const bar=vsEl('vs-bar'); if(bar) bar.classList.add('hidden');
+  vsHideAllMenus();
+  vsEnterSelect();
+  if(VS.isHost) vsBroadcastReady();
+}
+function vsRematch(){
+  const ov=vsEl('ov-vs'); if(ov){ ov.classList.add('hidden'); ov.classList.remove('flex'); }
+  if(!VS || !VS.connected){ showToast('接続が切れています'); return; }
+  if(VS.isHost){ vsResetToSelect(); vsSend({t:'rematch'}); }
+  else { vsSend({t:'rematch'}); showToast('再戦を申し込みました'); }
+}
+function vsOnRematch(){
+  if(!VS || !VS.connected) return;
+  if(VS.isHost){ vsResetToSelect(); vsSend({t:'rematch'}); }
+  else vsResetToSelect();
+}
+function vsLeaveBattle(){
+  if(VS && VS.state && VS.state.phase!=='over'){
+    vsSend({t:'bye', inBattle:true});
+    VS.state.winner=vsOpSide(); VS.state.phase='over';
+    VS.forfeitMsg='退出したため負けになりました';
+    vsTeardownNet();
+    vsRefreshBattleUI(); vsShowResult();
+    return;
+  }
+  vsExitToTitle();
+}
 </script>
 </body>
 </html>
