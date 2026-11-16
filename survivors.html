@@ -114,6 +114,7 @@
   .dexCard canvas.sil{filter:brightness(0);opacity:.45}
   /* ── ガチャ ── */
   .gachaRates{font-size:12px;color:#cfccff;line-height:1.8;background:rgba(255,255,255,.05);border:1px solid rgba(160,150,255,.25);border-radius:12px;padding:9px 12px;margin:10px 0;text-align:left}
+  .gachaRates .rUR{color:#ff7ad9;font-weight:900}
   .gachaRates .rSSR{color:#ffd94d;font-weight:900}
   .gachaRates .rSR{color:#d9a6ff;font-weight:900}
   .gachaRates .rR{color:#8be9ff;font-weight:900}
@@ -134,6 +135,8 @@
   .gachaCard.rarSR .gRar{color:#d9a6ff}
   .gachaCard.rarSSR{border-color:#ffd94d;background:linear-gradient(170deg,rgba(196,142,20,.45),rgba(96,64,8,.6));box-shadow:0 0 24px rgba(255,217,77,.7);animation:evoGlow 1.1s ease-in-out infinite alternate}
   .gachaCard.rarSSR .gRar{color:#ffd94d}
+  .gachaCard.rarUR{border-color:#ff7ad9;background:linear-gradient(170deg,rgba(255,122,217,.4),rgba(122,92,255,.5),rgba(20,8,48,.65));box-shadow:0 0 30px rgba(255,122,217,.85),0 0 14px rgba(125,249,255,.6);animation:evoGlow .8s ease-in-out infinite alternate}
+  .gachaCard.rarUR .gRar{color:#ff9de2;text-shadow:0 0 8px rgba(255,122,217,.9)}
   /* ── 難易度（第4弾） ── */
   .stageCard.diffCard.sel{border-color:#ff9d5c;box-shadow:0 0 14px rgba(255,140,60,.45)}
   /* ── 転生（星の継承・第4弾） ── */
@@ -224,7 +227,7 @@
 <div class="overlay" id="shopScr">
   <div class="panel">
     <h2 class="panelTitle">⭐ パワーアップ</h2>
-    <p class="subTitle">ランで集めた「ほしのかけら」で、ずっと強くなれる！<br>買った強化は次のランから（キャラ解放はすぐ）反映されます。</p>
+    <p class="subTitle">ランで集めた「ほしのかけら」で、ずっと強くなれる！<br>買った強化は次のランから反映されます。（キャラはガチャで手に入れてね）</p>
     <div class="shardBox" id="shopShardBox"></div>
     <div id="shopList"></div>
     <button class="subBtn" id="shopCloseBtn">とじる</button>
@@ -235,19 +238,21 @@
 <div class="overlay" id="gachaScr">
   <div class="panel">
     <h2 class="panelTitle">🎰 キャラガチャ</h2>
-    <p class="subTitle">ほしのかけらで引けるキャラガチャ。<br>ガチャ限定のSSRねこはとっても強い！ 被ると限界突破でさらに強化。</p>
+    <p class="subTitle">ほしのかけらで引けるキャラガチャ。<br>キャラは<b>ガチャでしか手に入らない</b>よ。URねこは桁違いに強くて、UR専用の超武器も使える！ 被ると限界突破でさらに強化。</p>
     <div class="shardBox" id="gachaShardBox"></div>
     <div class="gachaRates">
-      <span class="rSSR">SSR 3%</span>： ガチャ限定の強キャラ（セイラ／アストラ）<br>
-      <span class="rSR">SR 17%</span>： 高価格帯のショップ解放キャラ<br>
-      <span class="rR">R 80%</span>： お手頃価格のショップ解放キャラ<br>
-      ・10連は <b>SR以上1体確定</b>　・SSRが出ないまま90連すると次の1回で <b>SSR確定</b>（天井）<br>
+      <span class="rUR">UR 0.5%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ）※UR専用武器が使える<br>
+      <span class="rSSR">SSR 2%</span>： ガチャ限定の強キャラ<br>
+      <span class="rSR">SR 17.5%</span>： 頼れる実力派ねこ<br>
+      <span class="rR">R 80%</span>： 個性豊かなねこたち<br>
+      ・10連は <b>SR以上1体確定</b><br>
+      ・天井： SSRが出ないまま90連すると次の1回で <b>SSR確定</b> ／ URが出ないまま300連すると次の1回で <b>UR確定</b><br>
       ・所持済みが被ると <b>限界突破</b>（最大5凸： 1凸ごとに与ダメージ+4%・最大HP+3%）<br>
-      ・5凸済みが被ると かけら返還（R ⭐50／SR ⭐150／SSR ⭐500）
+      ・5凸済みが被ると かけら返還（R ⭐200／SR ⭐600／SSR ⭐2,000／UR ⭐5,000）
     </div>
     <div class="gachaBtns">
-      <button class="gachaBtn" id="gacha1Btn">1回引く ⭐300</button>
-      <button class="gachaBtn" id="gacha10Btn">10連 ⭐3,000</button>
+      <button class="gachaBtn" id="gacha1Btn">1回引く ⭐1,000</button>
+      <button class="gachaBtn" id="gacha10Btn">10連 ⭐10,000</button>
     </div>
     <div id="gachaPity"></div>
     <div class="gachaResults" id="gachaResults"></div>
@@ -604,6 +609,22 @@ WEAPONS.galefan =   { name: 'ゲイルファン', icon: '🌪️', desc: '暴風
 WEAPONS.starcannon= { name: 'スターキャッスル', icon: '🏰', desc: '星の城塞タレット7基が高速で撃ちまくる', evo: true, lv: evoLv({ dmg: 64, cd: 4.0, dur: 26, rate: .27, max: 7 }) };
 WEAPONS.moonreaper= { name: 'ムーンレイパー', icon: '☠️', desc: '死神の月鎌5枚が戦場を往復する', evo: true, lv: evoLv({ dmg: 128, count: 5, range: 470 }) };
 WEAPONS.prominence= { name: 'プロミネンス', icon: '☀️', desc: '太陽の炎の絨毯が広大に燃え広がる', evo: true, lv: evoLv({ dmg: 34, cd: .12, r: 88, dur: 6.5 }) };
+/* ── 第5弾: URキャラ専用の超強力武器（URキャラでプレイ中のみレベルアップ候補に出る） ── */
+WEAPONS.urjudge =   { name: '星屑の審判', icon: '⚖️', desc: '【UR専用】星の裁きが画面内の敵すべてに落ちる', ur: true, lv: [
+  { dmg: 95, cd: 3.6, range: 1150 }, { dmg: 120, cd: 3.4, range: 1150 },
+  { dmg: 150, cd: 3.2, range: 1200 }, { dmg: 185, cd: 3.0, range: 1200 },
+  { dmg: 230, cd: 2.8, range: 1250 } ] };
+WEAPONS.uraura =    { name: '星霊のオーラ', icon: '🌠', desc: '【UR専用】常時展開する星霊のオーラが触れた敵を焼き続ける', ur: true, lv: [
+  { dmg: 20, radius: 150 }, { dmg: 27, radius: 165 },
+  { dmg: 35, radius: 180 }, { dmg: 45, radius: 195 },
+  { dmg: 58, radius: 215 } ] };
+WEAPONS.urbarrage = { name: '星屑バラージ', icon: '💥', desc: '【UR専用】全方位に超高威力の星弾を大量連射する', ur: true, lv: [
+  { dmg: 24, cd: 1.6, count: 16, pierce: 2 }, { dmg: 30, cd: 1.5, count: 19, pierce: 2 },
+  { dmg: 38, cd: 1.4, count: 22, pierce: 3 }, { dmg: 47, cd: 1.3, count: 25, pierce: 3 },
+  { dmg: 58, cd: 1.2, count: 28, pierce: 4 } ] };
+WEAPONS.urwrath =   { name: '星神の怒り', icon: '🌟', desc: '【UR専用・進化】星神の怒りが戦場のすべてを裁く', evo: true, ur: true, lv: evoLv({ dmg: 480, cd: 2.2, range: 1400 }) };
+WEAPONS.ursanct =   { name: '星霊の聖域', icon: '🔮', desc: '【UR専用・進化】巨大な聖域が敵を焼き、動きを鈍らせる', evo: true, ur: true, lv: evoLv({ dmg: 130, radius: 290 }) };
+WEAPONS.urstorm =   { name: '星屑の大嵐', icon: '🌌', desc: '【UR専用・進化】46発の星弾が全方位を嵐のように貫く', evo: true, ur: true, lv: evoLv({ dmg: 115, cd: .95, count: 46, pierce: 99 }) };
 /* ── 進化ペア: 基礎武器 →（必要パッシブ）→ 進化形。全ての基礎武器に進化あり ── */
 const EVOLUTIONS = {
   star:    { req: 'multi', to: 'galaxy' },
@@ -625,7 +646,10 @@ const EVOLUTIONS = {
   fan:     { req: 'knock', to: 'galefan' },
   turret:  { req: 'regen', to: 'starcannon' },
   scythe:  { req: 'crit',  to: 'moonreaper' },
-  trail:   { req: 'vital', to: 'prominence' }
+  trail:   { req: 'vital', to: 'prominence' },
+  urjudge: { req: 'critd', to: 'urwrath' },
+  uraura:  { req: 'guard', to: 'ursanct' },
+  urbarrage:{ req: 'multi', to: 'urstorm' }
 };
 /* ── 武器レベル上限10（第3弾）: Lv6〜10 は Lv5 を基準に自動でデータを足す ──
    成長ルール: 威力 +10%/段（複利）／再使用 -3%/段／範囲・半径 +3%/段／
@@ -683,20 +707,35 @@ const PASSIVES = {
 /* ── キャラ定義（ステータス補正＋描画カラー） ── */
 const CHARS = {
   nowa:  { name: 'ノワ',   desc: '黒猫・バランス型', cost: 0,   hp: 0,   atk: 1,    spd: 1,    mag: 1,   xp: 1,   proj: 0, crit: 0,   start: 'star',    body: '#17171f', belly: '#26262f', earIn: '#e58bb1', hat: '#5b3aa8', band: '#ffd94d', cape: '#4b2e83' },
-  milk:  { name: 'ミルク', desc: '白猫：速い・磁石広い・HP低め', cost: 100, hp: -20, atk: 1,    spd: 1.12, mag: 1.4, xp: 1,   proj: 0, crit: 0,   start: 'star',    body: '#f2eee6', belly: '#ffffff', earIn: '#ff9db8', hat: '#e58bb1', band: '#fff2b0', cape: '#7fb6dd' },
-  cocoa: { name: 'ココア', desc: '茶猫：HP・攻撃が高い・遅い', cost: 150, hp: 40,  atk: 1.15, spd: .92,  mag: 1,   xp: 1,   proj: 0, crit: 0,   start: 'orbit',   body: '#6b4226', belly: '#8a5a33', earIn: '#ffb37c', hat: '#b3541e', band: '#ffe9a8', cape: '#7a2e2e' },
-  sora:  { name: 'ソラ',   desc: '青猫：弾数+1・経験値◎・攻撃低め', cost: 200, hp: 0, atk: .9,   spd: 1,    mag: 1,   xp: 1.2, proj: 1, crit: 0,   start: 'star',    body: '#2b4a7a', belly: '#3a63a0', earIn: '#9fd8ff', hat: '#274b8f', band: '#8be9ff', cape: '#1e6f5c' },
-  moca:  { name: 'モカ',   desc: 'ミルクティー猫：磁石◎・俊足・初期武器はリーフ', cost: 300, hp: -10, atk: 1,    spd: 1.06, mag: 1.55, xp: 1.05, proj: 0, crit: 0,   start: 'leaf',    body: '#d9b98c', belly: '#efdcbb', earIn: '#c98a5a', hat: '#8a6d3b', band: '#fff3c9', cape: '#5d8a4a' },
-  hikari:{ name: 'ヒカリ', desc: '金猫：攻撃◎・落雷スタート・少し遅い', cost: 350, hp: 10,  atk: 1.22, spd: .95,  mag: 1,   xp: 1,   proj: 0, crit: .03, start: 'bolt',    body: '#e8b93c', belly: '#f7dd8a', earIn: '#ff9d5c', hat: '#c22f4e', band: '#fff7cc', cape: '#8f1d3a' },
-  yami:  { name: 'ヤミ',   desc: '闇猫：クリティカル◎・雷スタート・HP低め', cost: 400, hp: -25, atk: 1.05, spd: 1.04, mag: .9,  xp: 1,   proj: 0, crit: .1,  start: 'thunder', body: '#241430', belly: '#3a2150', earIn: '#b06cff', hat: '#12081f', band: '#b06cff', cape: '#2c1052' },
-  rin:   { name: 'リン',   desc: '銀猫：最速・アイスランス開始・磁石狭め', cost: 450, hp: -10, atk: 1,    spd: 1.17, mag: .85, xp: 1.1, proj: 0, crit: .04, start: 'ice',     body: '#aebdd0', belly: '#d7e3f2', earIn: '#7fd4ff', hat: '#3d5a80', band: '#c9f2ff', cape: '#274b8f' },
-  anzu:  { name: 'アンズ', desc: '杏色猫：ジェムの価値◎・ミサイル開始', cost: 500, hp: 0,   atk: 1,    spd: 1.02, mag: 1,   xp: .95, proj: 0, crit: 0,   gemv: 1.35, start: 'missile', body: '#f0c08a', belly: '#ffe3c2', earIn: '#ff9d7a', hat: '#d2691e', band: '#ffe9a8', cape: '#b3541e' },
-  goma:  { name: 'ゴマ',   desc: '灰猫：ノックバック特化・ウェーブ開始', cost: 600, hp: 10,  atk: .95,  spd: 1,    mag: 1,   xp: 1,   proj: 0, crit: 0,   knock: 1.9, start: 'wave',   body: '#6e6e78', belly: '#9a9aa6', earIn: '#c9c9d4', hat: '#3a3f5c', band: '#ffd94d', cape: '#23233d' },
-  mugi:  { name: 'ムギ',   desc: '麦色猫：ピンチ（HP3割未満）で火力1.5倍・炎開始', cost: 700, hp: 10, atk: 1, spd: 1, mag: 1, xp: 1, proj: 0, crit: 0, berserk: 1, start: 'flame', body: '#d9a84e', belly: '#f2d492', earIn: '#c97b2f', hat: '#7a9a3d', band: '#fff3c9', cape: '#4a7a2e' },
-  yukine:{ name: 'ユキネ', desc: '白長毛猫：自然回復◎・HP高め・遅い／使い魔開始', cost: 800, hp: 30, atk: 1, spd: .9, mag: 1.1, xp: 1, proj: 0, crit: 0, regen: 1.3, start: 'familiar', body: '#eef2f7', belly: '#ffffff', earIn: '#a8d8ff', hat: '#5b7fa8', band: '#dff2ff', cape: '#3d5a80' },
+  milk:  { name: 'ミルク', desc: '白猫：速い・磁石広い・HP低め', cost: 100, rarity: 'R', hp: -20, atk: 1,    spd: 1.12, mag: 1.4, xp: 1,   proj: 0, crit: 0,   start: 'star',    body: '#f2eee6', belly: '#ffffff', earIn: '#ff9db8', hat: '#e58bb1', band: '#fff2b0', cape: '#7fb6dd' },
+  cocoa: { name: 'ココア', desc: '茶猫：HP・攻撃が高い・遅い', cost: 150, rarity: 'R', hp: 40,  atk: 1.15, spd: .92,  mag: 1,   xp: 1,   proj: 0, crit: 0,   start: 'orbit',   body: '#6b4226', belly: '#8a5a33', earIn: '#ffb37c', hat: '#b3541e', band: '#ffe9a8', cape: '#7a2e2e' },
+  sora:  { name: 'ソラ',   desc: '青猫：弾数+1・経験値◎・攻撃低め', cost: 200, rarity: 'R', hp: 0, atk: .9,   spd: 1,    mag: 1,   xp: 1.2, proj: 1, crit: 0,   start: 'star',    body: '#2b4a7a', belly: '#3a63a0', earIn: '#9fd8ff', hat: '#274b8f', band: '#8be9ff', cape: '#1e6f5c' },
+  moca:  { name: 'モカ',   desc: 'ミルクティー猫：磁石◎・俊足・初期武器はリーフ', cost: 300, rarity: 'R', hp: -10, atk: 1,    spd: 1.06, mag: 1.55, xp: 1.05, proj: 0, crit: 0,   start: 'leaf',    body: '#d9b98c', belly: '#efdcbb', earIn: '#c98a5a', hat: '#8a6d3b', band: '#fff3c9', cape: '#5d8a4a' },
+  hikari:{ name: 'ヒカリ', desc: '金猫：攻撃◎・落雷スタート・少し遅い', cost: 350, rarity: 'SR', hp: 10,  atk: 1.22, spd: .95,  mag: 1,   xp: 1,   proj: 0, crit: .03, start: 'bolt',    body: '#e8b93c', belly: '#f7dd8a', earIn: '#ff9d5c', hat: '#c22f4e', band: '#fff7cc', cape: '#8f1d3a' },
+  yami:  { name: 'ヤミ',   desc: '闇猫：クリティカル◎・雷スタート・HP低め', cost: 400, rarity: 'SR', hp: -25, atk: 1.05, spd: 1.04, mag: .9,  xp: 1,   proj: 0, crit: .1,  start: 'thunder', body: '#241430', belly: '#3a2150', earIn: '#b06cff', hat: '#12081f', band: '#b06cff', cape: '#2c1052' },
+  rin:   { name: 'リン',   desc: '銀猫：最速・アイスランス開始・磁石狭め', cost: 450, rarity: 'SR', hp: -10, atk: 1,    spd: 1.17, mag: .85, xp: 1.1, proj: 0, crit: .04, start: 'ice',     body: '#aebdd0', belly: '#d7e3f2', earIn: '#7fd4ff', hat: '#3d5a80', band: '#c9f2ff', cape: '#274b8f' },
+  anzu:  { name: 'アンズ', desc: '杏色猫：ジェムの価値◎・ミサイル開始', cost: 500, rarity: 'SR', hp: 0,   atk: 1,    spd: 1.02, mag: 1,   xp: .95, proj: 0, crit: 0,   gemv: 1.35, start: 'missile', body: '#f0c08a', belly: '#ffe3c2', earIn: '#ff9d7a', hat: '#d2691e', band: '#ffe9a8', cape: '#b3541e' },
+  goma:  { name: 'ゴマ',   desc: '灰猫：ノックバック特化・ウェーブ開始', cost: 600, rarity: 'SR', hp: 10,  atk: .95,  spd: 1,    mag: 1,   xp: 1,   proj: 0, crit: 0,   knock: 1.9, start: 'wave',   body: '#6e6e78', belly: '#9a9aa6', earIn: '#c9c9d4', hat: '#3a3f5c', band: '#ffd94d', cape: '#23233d' },
+  mugi:  { name: 'ムギ',   desc: '麦色猫：ピンチ（HP3割未満）で火力1.5倍・炎開始', cost: 700, rarity: 'SR', hp: 10, atk: 1, spd: 1, mag: 1, xp: 1, proj: 0, crit: 0, berserk: 1, start: 'flame', body: '#d9a84e', belly: '#f2d492', earIn: '#c97b2f', hat: '#7a9a3d', band: '#fff3c9', cape: '#4a7a2e' },
+  yukine:{ name: 'ユキネ', desc: '白長毛猫：自然回復◎・HP高め・遅い／使い魔開始', cost: 800, rarity: 'SR', hp: 30, atk: 1, spd: .9, mag: 1.1, xp: 1, proj: 0, crit: 0, regen: 1.3, start: 'familiar', body: '#eef2f7', belly: '#ffffff', earIn: '#a8d8ff', hat: '#5b7fa8', band: '#dff2ff', cape: '#3d5a80' },
   /* ── ガチャ限定SSR（ショップでは買えない） ── */
-  seira: { name: 'セイラ', desc: '【SSR・ガチャ限定】星詠み猫：全武器CD-12%・クリ率+8%・クリダメ+50%・攻撃+15%', cost: 0, gacha: true, hp: 10, atk: 1.15, spd: 1.02, mag: 1, xp: 1, proj: 0, crit: .08, critd: .5, cdr: .88, start: 'thunder', body: '#2a1e4f', belly: '#453273', earIn: '#ffd94d', hat: '#ffd94d', band: '#7a5cff', cape: '#31205e' },
-  astra: { name: 'アストラ', desc: '【SSR・ガチャ限定】星屑猫：ジェム価値×1.6・経験値+35%・攻撃+20%・磁石◎', cost: 0, gacha: true, hp: 0, atk: 1.2, spd: 1, mag: 1.3, xp: 1.35, proj: 0, crit: .03, gemv: 1.6, start: 'comet', body: '#e8dcff', belly: '#ffffff', earIn: '#ff9de2', hat: '#7a5cff', band: '#ffe94d', cape: '#5b3aa8' }
+  seira: { name: 'セイラ', desc: '【SSR・ガチャ限定】星詠み猫：全武器CD-12%・クリ率+8%・クリダメ+50%・攻撃+15%', cost: 0, rarity: 'SSR', gacha: true, hp: 10, atk: 1.15, spd: 1.02, mag: 1, xp: 1, proj: 0, crit: .08, critd: .5, cdr: .88, start: 'thunder', body: '#2a1e4f', belly: '#453273', earIn: '#ffd94d', hat: '#ffd94d', band: '#7a5cff', cape: '#31205e' },
+  astra: { name: 'アストラ', desc: '【SSR・ガチャ限定】星屑猫：ジェム価値×1.6・経験値+35%・攻撃+20%・磁石◎', cost: 0, rarity: 'SSR', gacha: true, hp: 0, atk: 1.2, spd: 1, mag: 1.3, xp: 1.35, proj: 0, crit: .03, gemv: 1.6, start: 'comet', body: '#e8dcff', belly: '#ffffff', earIn: '#ff9de2', hat: '#7a5cff', band: '#ffe94d', cape: '#5b3aa8' },
+  /* ── 第5弾: 新キャラ14体（R×5／SR×5／SSR×2／UR×2）。入手はガチャのみ ── */
+  chai:   { name: 'チャイ', desc: '【R】茶トラ猫：攻撃+8%・俊足', cost: 0, rarity: 'R', hp: 0, atk: 1.08, spd: 1.05, mag: 1, xp: 1, proj: 0, crit: .02, start: 'fan', body: '#e08a3c', belly: '#f7cf9a', earIn: '#ffb37c', hat: '#8a5a2e', band: '#ffe9a8', cape: '#a8542e' },
+  sumi:   { name: 'スミ', desc: '【R】墨色猫：HP高め・重い一撃・遅い', cost: 0, rarity: 'R', hp: 25, atk: 1.05, spd: .94, mag: 1, xp: 1, proj: 0, crit: 0, knock: 1.25, start: 'wave', body: '#3a3a42', belly: '#55555f', earIn: '#9a9aa6', hat: '#23232e', band: '#c9c9d4', cape: '#17171f' },
+  pudding:{ name: 'プリン', desc: '【R】黄色猫：経験値+15%・磁石やや広い', cost: 0, rarity: 'R', hp: -5, atk: .98, spd: 1.02, mag: 1.15, xp: 1.15, proj: 0, crit: 0, start: 'arrow', body: '#f2d06b', belly: '#fdf0b8', earIn: '#ff9d7a', hat: '#c9862e', band: '#fff7cc', cape: '#b3541e' },
+  shio:   { name: 'シオ', desc: '【R】白灰猫：クリティカル+5%・氷の槍', cost: 0, rarity: 'R', hp: 0, atk: 1, spd: 1.03, mag: .95, xp: 1, proj: 0, crit: .05, start: 'ice', body: '#cfd6dd', belly: '#eef2f7', earIn: '#a8d8ff', hat: '#5b7fa8', band: '#dff2ff', cape: '#3d5a80' },
+  maro:   { name: 'マロ', desc: '【R】栗色猫：ノックバック+40%・地雷使い', cost: 0, rarity: 'R', hp: 10, atk: 1.02, spd: 1, mag: 1, xp: 1, proj: 0, crit: 0, knock: 1.4, start: 'trap', body: '#8a5a2e', belly: '#b98a52', earIn: '#ffd9a8', hat: '#5d3a1a', band: '#ffe9a8', cape: '#4a7a2e' },
+  sakura: { name: 'サクラ', desc: '【SR】桃色猫：自然回復+HP・使い魔の癒し手', cost: 0, rarity: 'SR', hp: 20, atk: 1, spd: 1, mag: 1.05, xp: 1.05, proj: 0, crit: 0, regen: .8, start: 'familiar', body: '#f7c8d8', belly: '#ffeef5', earIn: '#ff8fab', hat: '#e58bb1', band: '#ffffff', cape: '#c95d8a' },
+  houji:  { name: 'ホウジ', desc: '【SR】焙じ茶猫：ピンチで火力1.5倍・攻撃+10%', cost: 0, rarity: 'SR', hp: 5, atk: 1.1, spd: 1, mag: 1, xp: 1, proj: 0, crit: .03, berserk: 1, start: 'flame', body: '#7a4a26', belly: '#a06a38', earIn: '#ffb37c', hat: '#4a2c12', band: '#ffd94d', cape: '#5d1f1f' },
+  mint:   { name: 'ミント', desc: '【SR】若芽色猫：全武器CD-6%・クリ率+4%・雷の雨', cost: 0, rarity: 'SR', hp: 0, atk: 1.05, spd: 1.06, mag: 1, xp: 1, proj: 0, crit: .04, cdr: .94, start: 'rain', body: '#7fcfa8', belly: '#c9f2dd', earIn: '#4be07a', hat: '#2e7a52', band: '#dfffe9', cape: '#1e6f5c' },
+  kinako: { name: 'キナコ', desc: '【SR】きなこ猫：ジェム価値×1.3・経験値+10%・ミサイル', cost: 0, rarity: 'SR', hp: 0, atk: 1, spd: 1, mag: 1.1, xp: 1.1, proj: 0, crit: 0, gemv: 1.3, start: 'missile', body: '#dcb96a', belly: '#f7e7b8', earIn: '#c9862e', hat: '#a8742c', band: '#fff3c9', cape: '#7a9a3d' },
+  tsumugi:{ name: 'ツムギ', desc: '【SR】紫灰猫：弾数+1・磁石◎・ノヴァ使い', cost: 0, rarity: 'SR', hp: -10, atk: .95, spd: 1.02, mag: 1.2, xp: 1.05, proj: 1, crit: .02, start: 'nova', body: '#8d84a8', belly: '#bdb4d4', earIn: '#d9a6ff', hat: '#4a3f6e', band: '#e6d5ff', cape: '#31205e' },
+  luna:   { name: 'ルーナ', desc: '【SSR・ガチャ限定】月詠み猫：全武器CD-10%・クリダメ+40%・攻撃+18%・月の鎌', cost: 0, rarity: 'SSR', gacha: true, hp: 10, atk: 1.18, spd: 1.03, mag: 1, xp: 1.05, proj: 0, crit: .06, critd: .4, cdr: .90, start: 'scythe', body: '#23234d', belly: '#3d3d75', earIn: '#b7a6ff', hat: '#ffd94d', band: '#23234d', cape: '#191938' },
+  sol:    { name: 'ソル', desc: '【SSR・ガチャ限定】太陽猫：攻撃+25%・HP+30・ノックバック◎・落雷', cost: 0, rarity: 'SSR', gacha: true, hp: 30, atk: 1.25, spd: .98, mag: 1, xp: 1, proj: 0, crit: .04, knock: 1.5, start: 'bolt', body: '#f59e42', belly: '#ffd9a0', earIn: '#ff6b4a', hat: '#c22f2f', band: '#fff7cc', cape: '#8f1d1d' },
+  celestia:{ name: 'セレスティア', desc: '【UR・ガチャ限定】星霊猫：攻撃+35%・全武器CD-15%・クリ率+12%・クリダメ+30%。UR専用武器「星屑の審判」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 15, atk: 1.35, spd: 1.04, mag: 1.1, xp: 1.1, proj: 0, crit: .12, critd: .3, cdr: .85, start: 'urjudge', body: '#f5f0ff', belly: '#ffffff', earIn: '#ff9de2', hat: '#ffd94d', band: '#ff7ad9', cape: '#7a5cff' },
+  nebula: { name: 'ネビュラ', desc: '【UR・ガチャ限定】星雲猫：経験値+50%・ジェム価値×2.0・速度+10%・攻撃+15%。UR専用武器「星屑バラージ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.15, spd: 1.1, mag: 1.25, xp: 1.5, proj: 0, crit: .05, gemv: 2.0, start: 'urbarrage', body: '#2c1450', belly: '#4a2a80', earIn: '#7df9ff', hat: '#12081f', band: '#7df9ff', cape: '#1a0b38' }
 };
 /* ── 恒久アップグレード（ショップ） ── */
 const UPGRADES = {
@@ -730,7 +769,7 @@ const ACHIEVEMENTS = {
   endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 50, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
   endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 120, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
   coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 40, target: 1, get: () => meta.stats.coopClears },
-  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 14, get: () => meta.unlocked.length },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 28, get: () => meta.unlocked.length },
   shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 50, target: 1000, get: () => meta.stats.shardsEarned },
   shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 200, target: 10000, get: () => meta.stats.shardsEarned },
   gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 60, target: 10000, get: () => meta.stats.gems },
@@ -881,12 +920,13 @@ function stageUnlocked(id){
   return meta.stageClears.includes(STAGE_ORDER[i - 1]);
 }
 
-/* ── 難易度階梯（第4弾）: ノーマル／ハード／ヘル。前難易度クリアで次が解放 ── */
-const DIFF_ORDER = ['normal', 'hard', 'hell'];
+/* ── 難易度階梯（第4弾＋第5弾でアビス追加）: ノーマル／ハード／ヘル／アビス。前難易度クリアで次が解放 ── */
+const DIFF_ORDER = ['normal', 'hard', 'hell', 'abyss'];
 const DIFFS = {
   normal: { name: 'ノーマル', icon: '🌱', hp: 1,   dmg: 1,   shard: 1 },
   hard:   { name: 'ハード',   icon: '🔥', hp: 1.8, dmg: 1.8, shard: 1.8 },
-  hell:   { name: 'ヘル',     icon: '💀', hp: 3.2, dmg: 3.2, shard: 3.0 }
+  hell:   { name: 'ヘル',     icon: '💀', hp: 3.2, dmg: 3.2, shard: 3.0 },
+  abyss:  { name: 'アビス',   icon: '🕳️', hp: 5.5, dmg: 5.5, shard: 5.0 }
 };
 function diffDef(){ return DIFFS[S.difficulty] || DIFFS.normal; }
 function diffCleared(stageId, d){
@@ -896,10 +936,9 @@ function diffCleared(stageId, d){
 }
 function diffUnlocked(stageId, d){
   if (!stageUnlocked(stageId)) return false;
-  if (d === 'normal') return true;
-  if (d === 'hard') return diffCleared(stageId, 'normal');
-  if (d === 'hell') return diffCleared(stageId, 'hard');
-  return false;
+  const i = DIFF_ORDER.indexOf(d);
+  if (i <= 0) return true;
+  return diffCleared(stageId, DIFF_ORDER[i - 1]);
 }
 /* 現在の選択ステージで有効な難易度（未解放なら解放済みの最上位に落とす） */
 function curDiff(){
@@ -966,6 +1005,8 @@ function loadMeta(){
     /* 第3弾拡張: 限界突破（キャラid→凸数）とガチャ天井カウンタ（SSRが出てからの連数） */
     lb: (m.lb && typeof m.lb === 'object') ? m.lb : {},
     gachaPity: Math.max(0, m.gachaPity | 0),
+    /* 第5弾拡張: UR天井カウンタ（URが出てからの連数） */
+    gachaPityUR: Math.max(0, m.gachaPityUR | 0),
     /* 第2弾拡張: 図鑑（敵は撃破数、武器は所持フラグ）。未知のキーは描画側で無視する */
     dex: {
       enemies: (m.dex && typeof m.dex.enemies === 'object' && m.dex.enemies) ? m.dex.enemies : {},
@@ -1105,6 +1146,11 @@ function activePlayers(){ return coopMode ? players : [P]; }
 let enemies = [], projs = [], gems = [], parts = [], texts = [], clouds = [], fx = [], pickups = [], eshots = [];
 const cam = { x: 0, y: 0 };
 
+/* キャラのレアリティ（第5弾: R／SR／SSR／UR の4段階。ノワは初期キャラでレアリティなし） */
+const RARITY_COLORS = { R: '#8be9ff', SR: '#d9a6ff', SSR: '#ffd94d', UR: '#ff7ad9' };
+function charRarity(id){ return (CHARS[id] && CHARS[id].rarity) || null; }
+function isURChar(p){ return !!p && charRarity(p.char) === 'UR'; }
+
 /* 限界突破（ガチャの被りで最大5凸）: 1凸ごとに与ダメージ+4%・最大HP+3% */
 const LB_MAX = 5;
 function lbOf(charId){ const n = (meta.lb && meta.lb[charId]) | 0; return Math.max(0, Math.min(LB_MAX, n)); }
@@ -1188,7 +1234,7 @@ function spawnEnemy(type, x, y, scaleMul, elite){
     type, x: x !== undefined ? x : foc.x + Math.cos(a) * d, y: y !== undefined ? y : foc.y + Math.sin(a) * d,
     hp: base.hp * hs, maxHp: base.hp * hs,
     spd: base.spd * rand(.85, 1.15) * (1 + Math.min(.45, S.time / 1600)), dmg: base.dmg * dmgScale(),
-    r: base.r, xp: base.xp, vx: 0, vy: 0, flash: 0, hitCd: 0, orbitCd: 0, sawCd: 0, famCd: 0, wob: rand(0, TAU),
+    r: base.r, xp: base.xp, vx: 0, vy: 0, flash: 0, hitCd: 0, orbitCd: 0, sawCd: 0, famCd: 0, auraCd: 0, wob: rand(0, TAU),
     fuse: -1, summonT: 5, dead: false, slowT: 0, slowMul: 1, elite: !!elite, shootT: rand(1, 2.4)
   };
   if (e.elite) { e.hp *= 10; e.maxHp = e.hp; e.r *= 1.55; e.xp *= 5; e.dmg *= 1.5; e.spd *= .95; }
@@ -1569,6 +1615,21 @@ function fireWeapon(p, w, dt){
     }
     return;
   }
+  if (w.id === 'uraura' || w.id === 'ursanct') {
+    /* UR専用: 常時展開オーラ。範囲内の敵へ0.35秒ごとに継続ダメージ（進化形は鈍足つき） */
+    const isSanct = w.id === 'ursanct';
+    for (const e of enemies) {
+      if (e.dead || e.auraCd > 0) continue;
+      if (dist2(p.x, p.y, e.x, e.y) < (st.radius + e.r) * (st.radius + e.r)) {
+        e.auraCd = .35;
+        const ka = Math.atan2(e.y - p.y, e.x - p.x);
+        damageEnemy(e, st.dmg * dm, Math.cos(ka) * 60, Math.sin(ka) * 60, p);
+        if (isSanct) { e.slowT = Math.max(e.slowT, .45); e.slowMul = Math.min(e.slowMul, .7); }
+        if (Math.random() < .3) addParts(e.x, e.y, 2, isSanct ? '#ff9de2' : '#b7a6ff', 70, 3);
+      }
+    }
+    return;
+  }
   p.cds[w.id] = (p.cds[w.id] || 0) - dt;
   if (p.cds[w.id] > 0) return;
   if (w.id === 'star' || w.id === 'galaxy') {
@@ -1606,6 +1667,24 @@ function fireWeapon(p, w, dt){
     }
     fx.push({ type: 'bolt', pts, ttl: .16, max: .16 });
     sfx.thunder();
+  } else if (w.id === 'urjudge' || w.id === 'urwrath') {
+    /* UR専用: 画面内（range内）の敵すべてに星の落雷＋ノックバック */
+    const targets = enemies.filter(e => !e.dead && dist2(p.x, p.y, e.x, e.y) < st.range * st.range);
+    if (!targets.length) { p.cds[w.id] = .2; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    const kb = w.id === 'urwrath' ? 320 : 240;
+    let drawn = 0;
+    for (const e of targets) {
+      const ka = Math.atan2(e.y - p.y, e.x - p.x);
+      damageEnemy(e, st.dmg * dm, Math.cos(ka) * kb, Math.sin(ka) * kb, p);
+      if (drawn < 36) { // エフェクトは近い36体まで（大群でも重くしない）
+        fx.push({ type: 'bolt', pts: [{ x: e.x + rand(-10, 10), y: e.y - 330 }, { x: e.x, y: e.y }], ttl: .2, max: .2 });
+        drawn++;
+      }
+      if (Math.random() < .4) addParts(e.x, e.y, 3, '#ffe94d', 140, 3.5);
+    }
+    fx.push({ type: 'ring', x: p.x, y: p.y, r: 60, ttl: .25, max: .25, color: '#ff9de2' });
+    sfx.thunder(); beep(70, 40, .3, 'triangle', .4);
   } else if (w.id === 'bolt' || w.id === 'tempest') {
     const isTempest = w.id === 'tempest';
     const tgt = nearestEnemy(p.x, p.y, 640);
@@ -1697,13 +1776,14 @@ function fireWeapon(p, w, dt){
       projs.push({ pid: ++S.pidSeq, type: 'leaf', x: p.x, y: p.y, vx: Math.cos(a) * 530, vy: Math.sin(a) * 530, dmg: st.dmg * dm, ttl: 3.2, owner: p, phase: 'out', traveled: 0, range: st.range, hitSet: new Set(), spin: rand(0, TAU) });
     }
     beep(520, 760, .07, 'triangle', .12);
-  } else if (w.id === 'nova' || w.id === 'supernova') {
+  } else if (w.id === 'nova' || w.id === 'supernova' || w.id === 'urbarrage' || w.id === 'urstorm') {
+    const isUR = w.id === 'urbarrage' || w.id === 'urstorm';
     p.cds[w.id] = st.cd * cdMul(p);
     const n = st.count + projBonus(p);
     const off = rand(0, TAU);
     for (let i = 0; i < n; i++) {
       const a = off + (i / n) * TAU;
-      projs.push({ pid: ++S.pidSeq, own: p, type: 'nova', x: p.x, y: p.y, vx: Math.cos(a) * 430, vy: Math.sin(a) * 430, dmg: st.dmg * dm, pierce: st.pierce || 0, ttl: .85, hitSet: new Set() });
+      projs.push({ pid: ++S.pidSeq, own: p, type: 'nova', x: p.x, y: p.y, vx: Math.cos(a) * (isUR ? 520 : 430), vy: Math.sin(a) * (isUR ? 520 : 430), dmg: st.dmg * dm, pierce: st.pierce || 0, ttl: isUR ? 1.0 : .85, big: isUR ? 1 : 0, hitSet: new Set() });
     }
     fx.push({ type: 'ring', x: p.x, y: p.y, r: 44, ttl: .22, max: .22, color: '#c9a6ff' });
     beep(880, 1320, .1, 'sine', .16);
@@ -1963,7 +2043,7 @@ function nearestAlivePlayer(x, y){
 function updateEnemies(dt){
   for (const e of enemies) {
     if (e.dead) continue;
-    e.flash = Math.max(0, e.flash - dt); e.hitCd -= dt; e.orbitCd -= dt; e.sawCd -= dt; e.famCd -= dt;
+    e.flash = Math.max(0, e.flash - dt); e.hitCd -= dt; e.orbitCd -= dt; e.sawCd -= dt; e.famCd -= dt; e.auraCd -= dt;
     if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slowMul = 1; }
     const tp = nearestAlivePlayer(e.x, e.y);
     if (!tp) break;
@@ -2092,6 +2172,7 @@ function buildPool(p){
   const pool = [];
   for (const id in WEAPONS) {
     if (WEAPONS[id].evo) continue; // 進化形は通常候補に出さない（進化でのみ入手）
+    if (WEAPONS[id].ur && !isURChar(p)) continue; // UR専用武器はURキャラの本人にだけ出す
     const owned = p.weapons.find(w => w.id === id);
     if (!owned && p.weapons.length < MAX_WEAPONS) pool.push({ kind: 'weapon', id, isNew: true });
     else if (owned && owned.lv < MAX_WLV) pool.push({ kind: 'weapon', id, isNew: false });
@@ -3213,6 +3294,27 @@ function drawPlayer(p, now){
       ctx.restore();
     }
   }
+  // UR専用武器「星霊のオーラ／聖域」: 常時展開する大きなオーラの円＋回る星屑
+  const aw = p.weapons.find(w => w.id === 'uraura' || w.id === 'ursanct');
+  if (aw && S.state !== 'title') {
+    const isSanct = aw.id === 'ursanct';
+    const ast = WEAPONS[aw.id].lv[aw.lv - 1];
+    ctx.save();
+    const pulse = 1 + Math.sin(now / 420) * .02;
+    const grad = ctx.createRadialGradient(p.x, p.y, ast.radius * .55, p.x, p.y, ast.radius * pulse);
+    grad.addColorStop(0, 'rgba(183,166,255,0)');
+    grad.addColorStop(.8, isSanct ? 'rgba(255,157,226,.10)' : 'rgba(138,108,255,.10)');
+    grad.addColorStop(1, isSanct ? 'rgba(255,157,226,.30)' : 'rgba(138,108,255,.30)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(p.x, p.y, ast.radius * pulse, 0, TAU); ctx.fill();
+    ctx.strokeStyle = isSanct ? 'rgba(255,157,226,.55)' : 'rgba(183,166,255,.55)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, ast.radius * pulse, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = now / 900 + (i / 6) * TAU;
+      drawStar(p.x + Math.cos(a) * ast.radius * .92, p.y + Math.sin(a) * ast.radius * .92, 5, now / 300 + i, isSanct ? '#ff9de2' : '#d9ccff');
+    }
+    ctx.restore();
+  }
   if (p.hurtT > 0) {
     ctx.save(); ctx.globalAlpha = (p.hurtT / .35) * .38;
     ctx.fillStyle = '#ff3d55'; ctx.beginPath(); ctx.arc(p.x, p.y, 21, 0, TAU); ctx.fill(); ctx.restore();
@@ -3262,7 +3364,12 @@ function draw(){
         drawStar(p.x, p.y, 15, now / 90, '#b18cff'); drawStar(p.x, p.y, 8, now / 90, '#efe6ff');
       } else { drawStar(p.x, p.y, 8.5, now / 90, '#ffe94d'); drawStar(p.x, p.y, 4, now / 90, '#fff7cc'); }
     }
-    else if (p.type === 'nova') { drawStar(p.x, p.y, 7, now / 110, '#d9b8ff'); drawStar(p.x, p.y, 3.2, now / 110, '#fff'); }
+    else if (p.type === 'nova') {
+      if (p.big) { // UR専用バラージ: 大きな金色の星弾
+        ctx.save(); ctx.globalAlpha = .3; ctx.fillStyle = '#ffd94d'; ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, TAU); ctx.fill(); ctx.restore();
+        drawStar(p.x, p.y, 13, now / 80, '#ffd94d'); drawStar(p.x, p.y, 6, now / 80, '#fff7cc');
+      } else { drawStar(p.x, p.y, 7, now / 110, '#d9b8ff'); drawStar(p.x, p.y, 3.2, now / 110, '#fff'); }
+    }
     else if (p.type === 'ice') {
       const a = Math.atan2(p.vy || 0, p.vx || 1);
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
@@ -3590,7 +3697,8 @@ function renderDiff(){
     const b = document.createElement('button');
     b.className = 'stageCard diffCard' + (cur === d ? ' sel' : '') + (unlocked ? '' : ' locked');
     b.dataset.diff = d;
-    b.innerHTML = `<div class="stIcon">${unlocked ? dd.icon : '🔒'}</div><div class="stName">${dd.name}</div><div class="stDesc">${unlocked ? `敵HP・攻撃 ×${dd.hp}<br>かけら ×${dd.shard}` : (d === 'hard' ? 'このステージの<br>ノーマルクリアで解放' : 'このステージの<br>ハードクリアで解放')}</div><div class="stBest">${cleared ? '👑 クリア済' : ''}</div>`;
+    const lockMsg = DIFF_ORDER.indexOf(d) <= 0 ? 'ステージ自体が<br>まだ解放されていない' : `このステージの<br>${DIFFS[DIFF_ORDER[DIFF_ORDER.indexOf(d) - 1]].name}クリアで解放`;
+    b.innerHTML = `<div class="stIcon">${unlocked ? dd.icon : '🔒'}</div><div class="stName">${dd.name}</div><div class="stDesc">${unlocked ? `敵HP・攻撃 ×${dd.hp}<br>かけら ×${dd.shard}` : lockMsg}</div><div class="stBest">${cleared ? '👑 クリア済' : ''}</div>`;
     b.onclick = () => {
       initAudio();
       if (!diffUnlocked(stageId, d)) return;
@@ -3621,18 +3729,17 @@ function renderTitleMeta(){
     const b = document.createElement('button');
     b.className = 'charCard' + (meta.char === id ? ' sel' : '');
     b.dataset.char = id;
+    const rar = charRarity(id);
+    const rarBadge = rar ? ` <span style="color:${RARITY_COLORS[rar]};font-weight:900">${rar}</span>` : '';
     const costTxt = unlocked
       ? (meta.char === id ? '✔ 選択中' : 'タップで選択')
-      : (ch.gacha ? '🎰 ガチャ限定' : `⭐ ${ch.cost} で解放`);
-    b.innerHTML = `<canvas width="104" height="104"></canvas><div class="chName">${ch.name}${lb > 0 ? ` <span style="color:#ffd94d">凸${lb}</span>` : ''}</div><div class="chDesc">${ch.desc}</div><div class="chCost">${costTxt}</div>`;
+      : '🎰 ガチャで入手';
+    b.innerHTML = `<canvas width="104" height="104"></canvas><div class="chName">${ch.name}${rarBadge}${lb > 0 ? ` <span style="color:#ffd94d">凸${lb}</span>` : ''}</div><div class="chDesc">${ch.desc}</div><div class="chCost">${costTxt}</div>`;
     drawCharIcon(b.querySelector('canvas'), id);
     b.onclick = () => {
       initAudio();
-      if (unlocked) { meta.char = id; saveMeta(); }
-      else if (ch.gacha) { gachaLastResults = []; renderGacha(); $('gachaScr').classList.add('show'); return; }
-      else if (meta.shards >= ch.cost) { meta.shards -= ch.cost; meta.stats.shardsSpent += ch.cost; meta.unlocked.push(id); meta.char = id; saveMeta(); sfx.chest(); }
-      else { $('shardBox').textContent = `⭐ ほしのかけらが あと ${ch.cost - meta.shards} 不足しています（所持 ${meta.shards}）`; return; }
-      renderTitleMeta();
+      if (unlocked) { meta.char = id; saveMeta(); renderTitleMeta(); }
+      else { gachaLastResults = []; renderGacha(); $('gachaScr').classList.add('show'); } // 第5弾: キャラの入手はガチャのみ（直接購入は廃止）
     };
     row.appendChild(b);
   }
@@ -3666,21 +3773,24 @@ function buyUpgrade(id){
 }
 $('shopBtn').onclick = () => { initAudio(); renderShop(); $('shopScr').classList.add('show'); };
 $('shopCloseBtn').onclick = () => { $('shopScr').classList.remove('show'); };
-/* ── キャラガチャ（第3弾）: 確率 SSR 3% / SR 17% / R 80%。天井90連。被りは限界突破（最大5凸） ── */
-const GACHA_COST1 = 300, GACHA_COST10 = 3000, GACHA_PITY_MAX = 90;
-const GACHA_REFUND = { R: 50, SR: 150, SSR: 500 };
-const GACHA_POOLS = { R: [], SR: [], SSR: [] };
+/* ── キャラガチャ（第3弾＋第5弾改定）: キャラの入手はガチャのみ。
+   確率 UR 0.5% / SSR 2% / SR 17.5% / R 80%。天井は SSR 90連・UR 300連の二重管理。
+   価格は単発⭐1,000／10連⭐10,000（本人が「その倍で」と確定）。被りは限界突破（最大5凸） ── */
+const GACHA_COST1 = 1000, GACHA_COST10 = 10000, GACHA_PITY_MAX = 90, GACHA_PITY_UR = 300;
+const GACHA_REFUND = { R: 200, SR: 600, SSR: 2000, UR: 5000 };
+const GACHA_POOLS = { R: [], SR: [], SSR: [], UR: [] };
 for (const id in CHARS) {
-  const ch = CHARS[id];
-  if (ch.gacha) GACHA_POOLS.SSR.push(id);
-  else if (ch.cost >= 350) GACHA_POOLS.SR.push(id);
-  else if (ch.cost > 0) GACHA_POOLS.R.push(id);
+  const r = CHARS[id].rarity;
+  if (r && GACHA_POOLS[r]) GACHA_POOLS[r].push(id);
 }
 function rollGachaRarity(){
-  if (meta.gachaPity >= GACHA_PITY_MAX) { meta.gachaPity = 0; return 'SSR'; } // 天井: 90連外したら次の1回はSSR確定
+  if (meta.gachaPityUR >= GACHA_PITY_UR) { meta.gachaPityUR = 0; meta.gachaPity = 0; return 'UR'; } // UR天井: 300連外したら次の1回はUR確定
+  if (meta.gachaPity >= GACHA_PITY_MAX) { meta.gachaPity = 0; meta.gachaPityUR++; return 'SSR'; } // SSR天井: 90連外したら次の1回はSSR確定
   const r = Math.random();
-  const rar = r < .03 ? 'SSR' : r < .20 ? 'SR' : 'R';
-  if (rar === 'SSR') meta.gachaPity = 0; else meta.gachaPity++;
+  const rar = r < .005 ? 'UR' : r < .025 ? 'SSR' : r < .20 ? 'SR' : 'R';
+  if (rar === 'UR') { meta.gachaPityUR = 0; meta.gachaPity = 0; }
+  else if (rar === 'SSR') { meta.gachaPity = 0; meta.gachaPityUR++; }
+  else { meta.gachaPity++; meta.gachaPityUR++; }
   return rar;
 }
 function resolveGachaChar(rarity){
@@ -3708,7 +3818,7 @@ function gachaDraw(count){
 let gachaLastResults = [];
 function renderGacha(){
   $('gachaShardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
-  $('gachaPity').textContent = `🎯 天井カウンタ： SSRが出ないまま ${meta.gachaPity} 連（あと ${GACHA_PITY_MAX + 1 - meta.gachaPity} 連でSSR確定）`;
+  $('gachaPity').textContent = `🎯 天井カウンタ： SSRまで あと ${GACHA_PITY_MAX + 1 - meta.gachaPity} 連 ／ URまで あと ${GACHA_PITY_UR + 1 - meta.gachaPityUR} 連（SSR ${meta.gachaPity}連・UR ${meta.gachaPityUR}連 継続中）`;
   $('gacha1Btn').disabled = meta.shards < GACHA_COST1;
   $('gacha10Btn').disabled = meta.shards < GACHA_COST10;
   const wrap = $('gachaResults'); wrap.innerHTML = '';
@@ -3873,11 +3983,12 @@ function renderDex(){
     const has = meta.unlocked.includes(id);
     if (has) cOwned++;
     const lb = lbOf(id);
-    const card = document.createElement('div'); card.className = 'dexCard' + (ch.gacha ? ' evoDex' : '');
+    const rar = charRarity(id);
+    const card = document.createElement('div'); card.className = 'dexCard' + (rar === 'SSR' || rar === 'UR' ? ' evoDex' : '');
     card.dataset.char = id;
     card.innerHTML = has
-      ? `<canvas width="104" height="104"></canvas><div class="dexName">${ch.gacha ? '🎰' : ''}${ch.name}${lb > 0 ? ` <span style="color:#ffd94d">凸${lb}</span>` : ''}</div><div class="dexDesc">${ch.desc}</div>`
-      : `<canvas width="104" height="104" class="sil"></canvas><div class="dexName">？？？</div><div class="dexDesc">${ch.gacha ? 'ガチャ限定キャラ' : `⭐ ${ch.cost} で解放できる`}</div>`;
+      ? `<canvas width="104" height="104"></canvas><div class="dexName">${rar ? `<span style="color:${RARITY_COLORS[rar]};font-weight:900">${rar}</span> ` : ''}${ch.name}${lb > 0 ? ` <span style="color:#ffd94d">凸${lb}</span>` : ''}</div><div class="dexDesc">${ch.desc}</div>`
+      : `<canvas width="104" height="104" class="sil"></canvas><div class="dexName">？？？</div><div class="dexDesc">ガチャで入手できる${rar ? `（${rar}）` : ''}キャラ</div>`;
     cList.appendChild(card);
     drawCharIcon(card.querySelector('canvas'), id);
   }
@@ -4261,6 +4372,8 @@ window.__surv = {
   xpForLevel, maxHp: () => maxHp(), dmgMul: () => dmgMul(), moveSpeed: () => moveSpeed(), magnetR: () => magnetR(), xpMul: () => xpMul(),
   hpScale, dmgScale, critRate: () => critRate(), critDmgMul: () => critDmgMul(), cdMul: () => cdMul(), gemValMul: () => gemValMul(),
   MAX_WLV, lbOf, LB_MAX, GACHA_POOLS, gachaDraw, renderGacha, rollGachaRarity,
+  /* 第5弾: レアリティ・UR天井・新価格・UR専用武器 */
+  charRarity, isURChar, RARITY_COLORS, GACHA_COST1, GACHA_COST10, GACHA_REFUND, GACHA_PITY_UR,
   stageDef, stageUnlocked, stageBestRec,
   setStage: id => { if (STAGES[id]) { meta.stageSel = id; S.stage = id; saveMeta(); renderTitleMeta(); } },
   spawnChest: (x, y) => { pickups.push({ x: x !== undefined ? x : P.x + 1500, y: y !== undefined ? y : P.y, kind: 'chest', ph: 0 }); },
