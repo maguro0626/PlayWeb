@@ -11,7 +11,12 @@
 <style>
 :root{--c-bg:#0f1923;--c-surface:#1a2738;--c-border:#2a3d52;--c-accent:#4aaeff;--c-gold:#f8c42a;--c-red:#ff4455;--c-green:#44dd88;--c-purple:#a855f7;--pixel:'Press Start 2P',monospace}
 html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;color:#e8f0ff}
-.screen{display:none;flex-direction:column;height:100%;overflow:hidden}.screen.active{display:flex}
+@supports(height:100dvh){html,body{height:100dvh}}
+/* body を flex 縦並びにし、ヘッダー(52px)分を除いた残り高さを画面に割り当てる。
+   以前は .screen{height:100%} がヘッダー分だけ下にはみ出し、フィールド画面の
+   十字キー最下段（⬇）が画面外に隠れて押せなかった。 */
+body{display:flex;flex-direction:column}
+.screen{display:none;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}.screen.active{display:flex}
 .scroll-a{overflow-y:auto;-webkit-overflow-scrolling:touch}.scroll-a::-webkit-scrollbar{display:none}
 .hdr{background:rgba(15,25,35,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--c-border);height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;z-index:50}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
@@ -36,6 +41,11 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 @keyframes mon-enter-p{from{transform:translateX(-80px);opacity:0}to{transform:translateX(0);opacity:1}}
 .mon-enter-e{animation:mon-enter-e .4s ease-out}.mon-enter-p{animation:mon-enter-p .4s ease-out}
 @keyframes toast-anim{0%{transform:translate(-50%,-50%) scale(.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.05);opacity:1}80%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}.toast-pop{animation:toast-anim 2s cubic-bezier(.175,.885,.32,1.2) forwards}
+@keyframes credits-roll{0%{transform:translateY(52vh);opacity:0}6%{opacity:1}92%{opacity:1}100%{transform:translateY(-105%);opacity:0}}
+.credits-roll{animation:credits-roll 16s linear forwards}
+.fld-bldg{font-size:clamp(14px,4.4vw,22px)!important}
+.fld-exit-n{box-shadow:inset 0 3px 0 rgba(120,220,255,.85)}
+.fld-exit-s{box-shadow:inset 0 -3px 0 rgba(120,220,255,.85)}
 @keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg);opacity:1}85%{opacity:1}100%{transform:translateY(115vh) rotate(var(--rot,720deg));opacity:0}}.confetti{position:fixed;top:-30px;z-index:200;pointer-events:none;animation:confetti-fall linear forwards}
 @keyframes slide-up{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}.slide-up{animation:slide-up .25s ease-out}
 @keyframes evo-glow{0%,100%{filter:drop-shadow(0 0 20px gold) drop-shadow(0 0 40px #fff)}50%{filter:drop-shadow(0 0 60px gold) drop-shadow(0 0 100px rgba(255,220,80,.8))}}.evo-glow{animation:evo-glow .9s ease-in-out infinite}
@@ -320,14 +330,16 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
 
 <!-- FIELD (タイルマップ探索) -->
 <div id="sc-field" class="screen">
-  <div class="flex-1 flex flex-col max-w-lg mx-auto w-full px-3 py-3 gap-2 min-h-0">
+  <div class="flex-1 flex flex-col max-w-lg mx-auto w-full px-3 py-3 gap-2 min-h-0" style="padding-bottom:max(12px,env(safe-area-inset-bottom))">
     <div class="card px-3 py-2 flex items-center gap-2 shrink-0">
       <span id="field-emoji" class="text-2xl"></span>
       <div class="flex-1 min-w-0">
         <div id="field-name" class="font-black text-sm text-white"></div>
         <div id="field-hint" class="text-xs" style="color:#6af">草むらや水辺でモンスターが現れる</div>
       </div>
-      <button onclick="exitField()" class="bbtn px-3 py-2 rounded-xl font-bold text-xs" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8">出る</button>
+      <button onclick="openAch()" class="bbtn w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(255,196,42,.12);border:1px solid rgba(255,196,42,.3);font-size:13px" title="実績">🏆</button>
+      <button onclick="showParty()" class="bbtn w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:13px" title="手持ち">👥</button>
+      <button onclick="showBag()" class="bbtn w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:13px" title="バッグ">🎒</button>
     </div>
     <div id="field-grid" class="shrink-0 mx-auto w-full" style="display:grid;grid-template-columns:repeat(12,1fr);gap:2px;max-width:430px"></div>
     <div id="field-msg" class="card px-3 py-2 text-xs font-bold shrink-0" style="color:#aaccff;min-height:34px;line-height:1.6">十字キーやボタンで移動。看板や人の前で「調べる」を押してみよう。</div>
@@ -605,6 +617,32 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--c-bg);
     <div id="win-msg" class="text-blue-300 text-xs mb-8 leading-relaxed max-w-xs mx-auto"></div>
     <div class="text-xs font-bold mb-8" style="color:#8af">― クリア後の目標 ―<br>モンスター図鑑コンプリート（全15種捕獲）と実績全解除を目指そう！</div>
     <button onclick="winReturn()" class="bbtn px-10 py-3 rounded-2xl font-bold text-sm" style="background:rgba(255,196,42,.2);color:#ffd700;border:1px solid var(--c-gold)">世界へ戻る</button>
+  </div>
+</div>
+<div id="ov-ending" class="fixed inset-0 hidden flex items-center justify-center z-50 px-6" style="background:#020610">
+  <div id="ending-stars" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+  <div class="absolute inset-x-0 top-0 overflow-hidden pointer-events-none" style="height:72%">
+    <div id="ending-roll" class="credits-roll text-center mx-auto" style="max-width:300px;color:#cfe2ff;line-height:2.1;font-size:13px;font-weight:700">
+      <div class="px mb-6" style="font-size:13px;color:var(--c-gold);letter-spacing:2px">MONSTER RISE</div>
+      <div class="mb-6">― エンディング ―</div>
+      <div class="mb-1" style="color:#8af">チャンピオン</div>
+      <div id="ending-hero" class="mb-6 text-white font-black">ゆうしゃ</div>
+      <div class="mb-1" style="color:#8af">企画・シナリオ</div>
+      <div class="mb-6">MONSTER RISE PROJECT</div>
+      <div class="mb-1" style="color:#8af">モンスターデザイン</div>
+      <div class="mb-6">ヒイラギ研究所 デザイン室</div>
+      <div class="mb-1" style="color:#8af">バトルシステム</div>
+      <div class="mb-6">ライズリーグ技術部</div>
+      <div class="mb-1" style="color:#8af">音楽・効果音</div>
+      <div class="mb-6">WebAudio オーケストラ</div>
+      <div class="mb-1" style="color:#8af">スペシャルサンクス</div>
+      <div class="mb-6">旅立ったすべてのトレーナーたち<br>そして… リョウ</div>
+      <div class="mt-10 text-white font-black">THANK YOU FOR PLAYING!</div>
+    </div>
+  </div>
+  <div class="absolute inset-x-0 bottom-0 text-center pb-10 px-6" style="padding-bottom:max(40px,env(safe-area-inset-bottom))">
+    <div class="text-xs font-bold mb-5" style="color:#8af">チャンピオンになった後も、冒険はつづく。<br>図鑑コンプリートと実績全解除を目指そう！</div>
+    <button onclick="closeEnding()" class="bbtn px-10 py-3 rounded-2xl font-bold text-sm" style="background:rgba(255,196,42,.2);color:#ffd700;border:1px solid var(--c-gold)">冒険をつづける</button>
   </div>
 </div>
 <script>
@@ -942,19 +980,50 @@ function updateHdr(id){
   document.getElementById('right-icon').setAttribute('data-lucide',id==='sc-dex'?'map':'book-open');
   icons();
 }
+/* メニュー系画面（手持ち/バッグ/図鑑）から戻る先の管理: 施設内(sc-loc)かフィールドか */
+let menuReturnTo=null,locScreenMode='all';
+function noteMenuReturn(){if(curScreen==='sc-loc')menuReturnTo='loc';else if(curScreen!=='sc-party'&&curScreen!=='sc-bag'&&curScreen!=='sc-dex')menuReturnTo='field'}
+function backFromMenu(){
+  if(menuReturnTo==='loc'){const loc=LOCS.find(l=>l.id===curLocId)||LOCS.find(l=>l.id===G.currentLoc);if(loc){showScreen('sc-loc');renderLocScreen(loc,locScreenMode);return}}
+  enterFieldStay();
+}
 function headerBack(){
   if(curScreen==='sc-title'||curScreen==='sc-battle')return;
-  if(curScreen==='sc-field'){exitField();return}
+  if(curScreen==='sc-field'){showParty();return}
   if(curScreen==='sc-intro'){showScreen('sc-title');return}
   if(curScreen==='sc-online'){ovLeaveToTitle();return}
-  showScreen('sc-map');renderWorldMap();
+  if(curScreen==='sc-loc'){enterFieldStay();return}
+  backFromMenu();
 }
 function headerRight(){
-  if(curScreen==='sc-dex'){showScreen('sc-map');renderWorldMap();return}
-  showScreen('sc-dex');renderDex();
+  if(curScreen==='sc-dex'){backFromMenu();return}
+  noteMenuReturn();showScreen('sc-dex');renderDex();
 }
-function showParty(){showScreen('sc-party');renderParty()}
-function showBag(){showScreen('sc-bag');renderBag()}
+function showParty(){noteMenuReturn();showScreen('sc-party');renderParty()}
+function showBag(){noteMenuReturn();showScreen('sc-bag');renderBag()}
+
+/* ===== ワールド入場ヘルパー（ワールド選択画面は廃止し、全てフィールドが拠点） ===== */
+function validLocId(id){return LOCS.some(l=>l.id===id)?id:'masara'}
+/* セーブ読み込み時: 保存された現在地が有効ならそのまま、無効なら開始の町へ安全に戻す */
+function enterWorld(){
+  G.currentLoc=validLocId(G.currentLoc);
+  G.flags['visited_'+G.currentLoc]=true;
+  openField(G.currentLoc,'load');
+  checkStoryTriggers(G.currentLoc);
+}
+/* バトルやメニューからフィールドへ戻る（同じ場所なら位置を保持） */
+function enterFieldStay(){
+  const id=validLocId(G.currentLoc);G.currentLoc=id;
+  if(FLD&&FLD.loc&&FLD.loc.id===id){showScreen('sc-field');renderField();startAmbient(FLD.loc)}
+  else openField(id,'load');
+}
+/* バトル終了後の復帰先: 施設内バトルは施設へ、それ以外はフィールドへ */
+function backToWorld(){
+  checkAch();
+  if(typeof BT!=='undefined'&&BT&&BT.returnTo==='loc'&&BT.loc){curLocId=BT.loc.id;showScreen('sc-loc');renderLocScreen(BT.loc,BT.locMode||'all');return}
+  if(typeof BT!=='undefined'&&BT&&BT.loc)G.currentLoc=BT.loc.id; /* バトルが起きた場所へ確実に戻す */
+  enterFieldStay();
+}
 
 // TITLE
 function startNew(){
@@ -964,7 +1033,7 @@ function startNew(){
   document.getElementById('intro-s2').classList.add('hidden');
   document.getElementById('name-in').value='';
 }
-function contGame(){if(loadSave()){showScreen('sc-map');renderWorldMap()}}
+function contGame(){if(loadSave()){enterWorld()}}
 /* ===== セーブスロット選択 ===== */
 let slotMode='load',slotConfirm=-1,slotConfirmTimer=null,delConfirm=-1,delTimer=null;
 function openSlots(mode){
@@ -1007,7 +1076,7 @@ function renderSlots(){
 function slotClicked(i,hasData){
   if(slotMode==='load'){
     if(!hasData){showToast('データがないよ');sfx('cancel');return}
-    if(loadSave(i)){sfx('select');closeSlotsSilent();showScreen('sc-map');renderWorldMap()}
+    if(loadSave(i)){sfx('select');closeSlotsSilent();enterWorld()}
     return;
   }
   if(hasData&&slotConfirm!==i){
@@ -1064,14 +1133,6 @@ function goStep2(){
 }
 function confirmStarter(){
   if(!chosenStarter)return;
-  G.starterSp=chosenStarter;
-  const mon=makeMon(chosenStarter,5);G.party=[mon];addSeen(chosenStarter);addCaught(chosenStarter);
-  save();showScreen('sc-map');renderWorldMap();
-  showToast(`${M[chosenStarter].name}と\nいっしょに 出発！🎒`);
-}
-
-function confirmStarter(){
-  if(!chosenStarter)return;
 
   const n = (G.playerName || '').trim();
   if(n === 'たいち'){
@@ -1080,9 +1141,9 @@ function confirmStarter(){
     G.party = [makeSecretLegend()];
     addSeen('AAA');
     addCaught('AAA');
+    G.currentLoc='masara';
     save();
-    showScreen('sc-map');
-    renderWorldMap();
+    openField('masara','load');
     showToast('伝説のモンスターが\n仲間になった！👑');
     return;
   }
@@ -1092,10 +1153,9 @@ function confirmStarter(){
   G.party = [mon];
   addSeen(chosenStarter);
   addCaught(chosenStarter);
+  G.currentLoc='masara';
   save();
-  showScreen('sc-map');
-  renderWorldMap();
-  showToast(`${M[chosenStarter].name}と\nいっしょに 出発！🎒`);
+  startIntroEvent();
 }
 
 // WORLD MAP
@@ -1184,32 +1244,33 @@ function openLocationScreen(locId){
   }
   curLocId=locId;showScreen('sc-loc');renderLocScreen(loc);
 }
-function renderLocScreen(loc){
-  document.getElementById('loc-header').innerHTML=`<div class="flex items-center gap-3"><div class="text-4xl">${loc.emoji}</div><div class="flex-1"><div class="font-black text-base text-white">${loc.name}</div><div class="text-xs leading-relaxed mt-1" style="color:#6af">${loc.desc}</div></div></div>`;
+function renderLocScreen(loc,mode){
+  mode=mode||'all';locScreenMode=mode;
+  document.getElementById('loc-header').innerHTML=`<div class="flex items-center gap-3"><div class="text-4xl">${loc.emoji}</div><div class="flex-1"><div class="font-black text-base text-white">${loc.name}</div><div class="text-xs leading-relaxed mt-1" style="color:#6af">${mode==='gym'?'ジムの中。トレーナーたちに挑戦しよう！':mode==='league'?'ライズリーグ。四傑とチャンピオンが待っている。':loc.desc}</div></div></div>`;
   const actions=document.getElementById('loc-actions');actions.innerHTML='';
   // heal
-  if(loc.heal){
+  if(loc.heal&&mode==='all'){
     const b=document.createElement('div');b.className='loc-enter';
     b.innerHTML=`<div class="flex items-center gap-3"><div class="text-2xl">💚</div><div><div class="font-black text-sm text-white">モンスターセンター</div><div class="text-xs" style="color:#6af">モンスターを全員かいふくする</div></div></div>`;
     b.onclick=()=>{healParty();sfx('healCenter');showToast('全員かいふくした！💚')};
     actions.appendChild(b);
   }
   // shop
-  if(loc.shop&&SHOP_STOCKS[loc.shop]){
+  if(loc.shop&&SHOP_STOCKS[loc.shop]&&mode==='all'){
     const b=document.createElement('div');b.className='loc-enter';
     b.innerHTML=`<div class="flex items-center gap-3"><div class="text-2xl">🛒</div><div><div class="font-black text-sm text-white">モンスターマート</div><div class="text-xs" style="color:#6af">どうぐを買う</div></div></div>`;
     b.onclick=()=>openShop(loc.shop);
     actions.appendChild(b);
   }
   // wild → フィールド探索（タイルマップ）
-  if(loc.wild&&loc.wild.length){
+  if(loc.wild&&loc.wild.length&&mode==='all'){
     const b=document.createElement('div');b.className='loc-enter';
     b.innerHTML=`<div class="flex items-center gap-3"><div class="text-2xl">🗺️</div><div class="flex-1"><div class="font-black text-sm text-white">フィールドを探索する</div><div class="text-xs" style="color:#6af">${loc.wild.map(w=>M[w.sp]?.name||'?').join(' · ')}${loc.wildWater?' · 水辺にも何かいる':''}</div></div><i data-lucide="chevron-right" class="w-4 h-4 ml-auto" style="color:#4aaeff"></i></div>`;
     b.onclick=()=>openField(loc.id);
     actions.appendChild(b);
   }
   // elite four
-  if(loc.eliteFour){
+  if(loc.eliteFour&&mode!=='gym'){
     const req=loc.requireBadges||[];const hasAll=req.every(b=>G.badges.includes(b));
     const prog=G.e4Progress||0;
     const b=document.createElement('div');b.className='loc-enter';
@@ -1221,7 +1282,7 @@ function renderLocScreen(loc){
   icons();
   // trainers
   const ta=document.getElementById('loc-trainers');ta.innerHTML='';
-  const trainers=getTrainersForLoc(loc);
+  const trainers=mode==='league'?[]:getTrainersForLoc(loc);
   if(trainers&&trainers.length){
     const lbl=document.createElement('div');lbl.className='sl mb-2 mt-1';lbl.style.color='#4aaeff';
     lbl.textContent=loc.type==='gym'?'ジムトレーナー':'トレーナー';ta.appendChild(lbl);
@@ -1251,7 +1312,7 @@ function startTrainerBattle(loc,tr){
   const enemies=tr.party.map(p=>makeMon(p.sp,p.lv));
   const player=getFirstAlive(G.party);
   if(!player){showToast('手持ちが全員ひんし！');return}
-  BT={type:'trainer',loc,tr,enemies,enemyIdx:0,playerIdx:G.party.indexOf(player),enemy:enemies[0],player,isWild:false,caught:false};
+  BT={type:'trainer',loc,tr,enemies,enemyIdx:0,playerIdx:G.party.indexOf(player),enemy:enemies[0],player,isWild:false,caught:false,returnTo:curScreen==='sc-loc'?'loc':'field',locMode:locScreenMode};
   enemies.forEach(m=>addSeen(m.sp));
   showScreen('sc-battle');
   document.getElementById('btn-catch').style.display='none';
@@ -1266,7 +1327,7 @@ function spawnWild(loc,table){
   for(const w of table){rnd-=w.r;if(rnd<=0){pick=w;break}}
   const lv=pick.mn+Math.floor(Math.random()*(pick.mx-pick.mn+1));
   const enemy=makeMon(pick.sp,lv);addSeen(pick.sp);
-  BT={type:'wild',loc,enemy,player,playerIdx:G.party.indexOf(player),isWild:true,caught:false};
+  BT={type:'wild',loc,enemy,player,playerIdx:G.party.indexOf(player),isWild:true,caught:false,returnTo:'field'};
   showScreen('sc-battle');
   const btn=document.getElementById('btn-catch');btn.style.display='flex';
   document.getElementById('orb-label').textContent=`オーブ(${getTotalBalls()})`;
@@ -1291,18 +1352,27 @@ const FIELD_SPOTS={
 };
 function fldSeed(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 function fldRng(seed){let a=seed;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function openField(locId){
+/* ワールド接続: LOCS の並び順（進行順）で前後が徒歩でつながる */
+function locIndex(id){return LOCS.findIndex(l=>l.id===id)}
+function locPrev(id){const i=locIndex(id);return i>0?LOCS[i-1]:null}
+function locNext(id){const i=locIndex(id);return(i>=0&&i<LOCS.length-1)?LOCS[i+1]:null}
+/* entry: 'fromSouth'=南の隣接マップから入場 / 'fromNorth'=北から / 'load'=読み込み・初期配置 */
+function openField(locId,entry){
   const loc=LOCS.find(l=>l.id===locId);if(!loc)return;
-  buildField(loc);
+  buildField(loc,entry);
   showScreen('sc-field');
   document.getElementById('field-emoji').textContent=loc.emoji;
   document.getElementById('field-name').textContent=loc.name;
-  document.getElementById('field-hint').textContent=loc.type==='cave'?'洞窟の床を歩くとモンスターが現れる':loc.type==='dungeon'?'塔の中を歩くとモンスターが現れる':(loc.wildWater?'草むらと水辺で顔ぶれが変わる':'草むらでモンスターが現れる');
-  setFieldMsg('十字キーやボタンで移動。看板や人の前で「調べる」を押してみよう。');
+  const nx=locNext(loc.id),pv=locPrev(loc.id);
+  const dirHint=[nx?`⬆北: ${nx.name}`:null,pv?`⬇南: ${pv.name}`:null].filter(Boolean).join('　');
+  const encHint=loc.type==='cave'?'洞窟の床を歩くとモンスターが現れる':loc.type==='dungeon'?'塔の中を歩くとモンスターが現れる':(loc.wildWater?'草むらと水辺で顔ぶれが変わる':(loc.wild&&loc.wild.length?'草むらでモンスターが現れる':'建物や人の前で「調べる」を押してみよう'));
+  document.getElementById('field-hint').textContent=(dirHint?dirHint+'　': '')+encHint;
+  setFieldMsg('十字キーやボタンで移動。看板や人、建物の前で「調べる」を押してみよう。');
   renderField();
   startAmbient(loc);
+  checkAch();
 }
-function buildField(loc){
+function buildField(loc,entry){
   const rnd=fldRng(fldSeed(loc.id));
   const tiles=[];
   const isCave=loc.type==='cave'||loc.type==='dungeon';
@@ -1313,47 +1383,108 @@ function buildField(loc){
     else{t=r<.45?'grass':(r<.55?'tree':(r<.62?'flower':'path'))}
     tiles.push(t);
   }
-  const ex=Math.floor(FIELD_W/2),ey=FIELD_H-1;
-  tiles[ey*FIELD_W+ex]='exit';
-  tiles[(ey-1)*FIELD_W+ex]='path';
-  tiles[(ey-1)*FIELD_W+ex-1]='path';tiles[(ey-1)*FIELD_W+ex+1]='path';
+  const W=FIELD_W,H=FIELD_H;
+  const set=(x,y,t)=>{if(x>=0&&y>=0&&x<W&&y<H)tiles[y*W+x]=t};
+  const freeAt=(x,y)=>{const t=tiles[y*W+x];return['grass','path','flower','floor','water'].includes(t)};
+  /* 中央の広場（スポーン周辺） */
+  set(5,1,'path');set(6,1,'path');set(5,7,'path');set(6,7,'path');set(5,4,'path');set(6,4,'path');
+  /* 出口タイル: 北端=次の場所 / 南端=前の場所 */
+  const nx=locNext(loc.id),pv=locPrev(loc.id);
+  const exits=[];
+  if(nx){set(5,0,'exitN');set(6,0,'exitN');exits.push({to:nx.id,dir:'north',tiles:[[5,0],[6,0]]})}
+  if(pv){set(5,H-1,'exitS');set(6,H-1,'exitS');exits.push({to:pv.id,dir:'south',tiles:[[5,H-1],[6,H-1]]})}
+  /* 建物（町の施設）: 入口タイルの前で「調べる」と施設が開く */
+  const bldgs=[];
+  const bldgDefs=[];
+  if(loc.id==='masara')bldgDefs.push({kind:'lab',emoji:'🔬',label:'ヒイラギ研究所',x:1,y:2});
+  if(loc.heal)bldgDefs.push({kind:'center',emoji:'🏥',label:'モンスターセンター',x:3,y:2});
+  if(loc.shop)bldgDefs.push({kind:'mart',emoji:'🛒',label:'モンスターマート',x:8,y:2});
+  if(loc.gymBadge)bldgDefs.push({kind:'gym',emoji:'🏟️',label:loc.name+'ジム',x:10,y:2});
+  if(loc.eliteFour)bldgDefs.push({kind:'league',emoji:'👑',label:'ライズリーグ',x:10,y:2});
+  bldgDefs.forEach(b=>{
+    let{x,y}=b;
+    if(!freeAt(x,y)){const alt=[[1,2],[3,2],[8,2],[10,2],[2,3],[9,3],[1,3],[10,3]].find(([ax,ay])=>freeAt(ax,ay));if(alt){x=alt[0];y=alt[1]}}
+    set(x,y,'bldg');bldgs.push({...b,x,y});
+  });
+  /* 看板 */
   const spots=FIELD_SPOTS[loc.id]||{};
-  const signPos={x:ex-2,y:ey-1};
-  tiles[signPos.y*FIELD_W+signPos.x]='sign';
-  const npcs=(spots.npcs||[]).map((n,i)=>{const nx=2+i*4,ny=1+(i%2);tiles[ny*FIELD_W+nx]='npc';return{...n,x:nx,y:ny}});
-  FLD={loc,tiles,px:ex,py:ey-1,npcs,sign:spots.sign?{...signPos,msg:spots.sign}:null,steps:0};
+  const signPos={x:4,y:7};
+  if(!freeAt(signPos.x,signPos.y))set(signPos.x,signPos.y,'sign');else set(signPos.x,signPos.y,'sign');
+  const dirMsg=[nx?`⬆ 北は ${nx.name}`:null,pv?`⬇ 南は ${pv.name}`:null].filter(Boolean).join('\n');
+  const signMsg=[spots.sign,dirMsg].filter(Boolean).join('\n');
+  /* NPC 配置（空きマスを探して置く） */
+  const npcs=[];
+  const cand=[[2,1],[9,1],[3,3],[8,3],[2,4],[9,4],[4,5],[7,5],[1,5],[10,4],[4,3],[7,3]];
+  const placeNpc=(data)=>{
+    const c=cand.find(([cx,cy])=>freeAt(cx,cy)&&!npcs.some(n=>n.x===cx&&n.y===cy));
+    if(!c)return null;
+    set(c[0],c[1],'npc');
+    const n={...data,x:c[0],y:c[1]};npcs.push(n);return n;
+  };
+  (spots.npcs||[]).forEach(n=>placeNpc({emoji:n.emoji,name:n.name,msg:n.msg}));
+  /* フィールド上のトレーナー（ジム所属とライバルは除く: ジムは建物内、ライバルはイベント） */
+  if(!loc.gymBadge&&loc.trainers){
+    getTrainersForLoc(loc).filter(tr=>tr.role!=='rival').forEach(tr=>placeNpc({emoji:tr.emoji,name:tr.name,trainer:tr}));
+  }
+  /* ストーリーNPC */
+  if(loc.id==='haunted'&&!G.flags.story_v1_done)placeNpc({emoji:'🕶️',name:'あやしい男',story:'v1'});
+  if(loc.id==='yamabuki'&&!G.flags.story_v2_done)placeNpc({emoji:'🎩',name:'あやしい紳士',story:'v2'});
+  if(loc.id==='lastroad'&&!G.flags.story_v3_done)placeNpc({emoji:'😈',name:'黒ずくめの男',story:'v3'});
+  if(loc.id==='lastroad'&&G.flags.story_v3_done&&!G.flags.story_legend_done)placeNpc({emoji:'✨',name:'セレスティア',story:'legend'});
+  /* スポーン位置 */
+  let px=5,py=7;
+  if(entry==='fromNorth'){px=5;py=1}
+  else if(entry==='fromSouth'){px=5;py=7}
+  else{px=5;py=7}
+  if(!['path','grass','flower','floor','water'].includes(tiles[py*W+px])){py=4;px=5}
+  FLD={loc,tiles,px,py,npcs,bldgs,exits,sign:signMsg?{...signPos,msg:signMsg}:null,steps:0};
 }
 function tileAt(x,y){if(!FLD||x<0||y<0||x>=FIELD_W||y>=FIELD_H)return'rock';return FLD.tiles[y*FIELD_W+x]}
 function renderField(){
   const g=document.getElementById('field-grid');if(!g||!FLD)return;
-  const deco={grass:['🌿','🌱','🌿','🍃'],water:['💧','🌊','💧','〰️'],floor:['·',' ','🪨','·'],path:[' ','👣',' ',' '],flower:['🌸','🌼',' ','🌷'],tree:['🌲'],rock:['🪨'],exit:['🚪'],sign:['🪧'],npc:['']};
-  const bg={grass:'#2d5a27',water:'#14497a',floor:'#37304a',path:'#4a3b28',flower:'#356b2f',tree:'#1e4020',rock:'#3d3d4d',exit:'#6b4f1d',sign:'#54432a',npc:'#2a3d52'};
+  const deco={grass:['🌿','🌱','🌿','🍃'],water:['💧','🌊','💧','〰️'],floor:['·',' ','🪨','·'],path:[' ','👣',' ',' '],flower:['🌸','🌼',' ','🌷'],tree:['🌲'],rock:['🪨'],sign:['🪧'],npc:[''],bldg:[''],exitN:['⬆'],exitS:['⬇']};
+  const bg={grass:'#2d5a27',water:'#14497a',floor:'#37304a',path:'#4a3b28',flower:'#356b2f',tree:'#1e4020',rock:'#3d3d4d',sign:'#54432a',npc:'#2a3d52',bldg:'#5a4632',exitN:'#27506b',exitS:'#27506b'};
   let html='';
   for(let y=0;y<FIELD_H;y++)for(let x=0;x<FIELD_W;x++){
     const t=FLD.tiles[y*FIELD_W+x];
-    let content='';
+    let content='',cls='';
     if(FLD.px===x&&FLD.py===y)content='<span class="fld-player">🧑</span>';
     else if(t==='npc'){const n=FLD.npcs.find(n=>n.x===x&&n.y===y);content=n?n.emoji:'👤'}
+    else if(t==='bldg'){const b=FLD.bldgs.find(b=>b.x===x&&b.y===y);content=b?`<span class="fld-bldg">${b.emoji}</span>`:''}
     else{const arr=deco[t]||[''];content=arr[(x*7+y*13)%arr.length]||''}
-    html+=`<div class="fld-tile" style="background:${bg[t]||'#333'}">${content}</div>`;
+    if(t==='exitN')cls=' fld-exit-n';else if(t==='exitS')cls=' fld-exit-s';
+    html+=`<div class="fld-tile${cls}" style="background:${bg[t]||'#333'}">${content}</div>`;
   }
   g.innerHTML=html;
 }
 function setFieldMsg(t){const el=document.getElementById('field-msg');if(el)el.textContent=t}
+/* 出口タイルに乗ると隣接マップへ徒歩で遷移する */
+function fieldExitTo(destId,entry){
+  const dest=LOCS.find(l=>l.id===destId);if(!dest)return;
+  stopAmbient();
+  G.currentLoc=destId;G.flags['visited_'+destId]=true;save();
+  sfx('select');
+  openField(destId,entry);
+  setFieldMsg(`${dest.name}に やってきた！`);
+  checkStoryTriggers(destId);
+}
 function fieldMove(dx,dy){
   if(!FLD||curScreen!=='sc-field')return;
   const nx=FLD.px+dx,ny=FLD.py+dy;
   const t=tileAt(nx,ny);
-  if(t==='tree'||t==='rock'||t==='npc'||t==='sign'){sfx('cancel');return}
-  if(t==='exit'){exitField();return}
+  if(t==='tree'||t==='rock'||t==='npc'||t==='sign'||t==='bldg'){sfx('cancel');return}
+  if(t==='exitN'||t==='exitS'){
+    const ex=FLD.exits.find(e=>e.tiles.some(([tx,ty])=>tx===nx&&ty===ny));
+    if(ex){fieldExitTo(ex.to,ex.dir==='north'?'fromSouth':'fromNorth');return}
+    return;
+  }
   FLD.px=nx;FLD.py=ny;FLD.steps++;
   sfx('select');
   renderField();
   const encT=t==='grass'?'grass':t==='water'?'water':t==='floor'?'floor':null;
   if(encT&&Math.random()<.13){
     const table=encT==='water'?(FLD.loc.wildWater||FLD.loc.wild):FLD.loc.wild;
-    stopAmbient();
-    setTimeout(()=>spawnWild(FLD.loc,table),250);
+    if(table&&table.length){stopAmbient();setTimeout(()=>spawnWild(FLD.loc,table),250)}
   }
 }
 function fieldAction(){
@@ -1362,14 +1493,42 @@ function fieldAction(){
   for(const[dx,dy]of dirs){
     const x=FLD.px+dx,y=FLD.py+dy;const t=tileAt(x,y);
     if(t==='sign'&&FLD.sign){showDialog('🪧','看板',FLD.sign.msg,'とじる',null);return}
-    if(t==='npc'){const n=FLD.npcs.find(n=>n.x===x&&n.y===y);if(n){showDialog(n.emoji,n.name,n.msg,'とじる',null);return}}
+    if(t==='bldg'){
+      const b=FLD.bldgs.find(b=>b.x===x&&b.y===y);
+      if(b){buildingAction(b);return}
+    }
+    if(t==='npc'){
+      const n=FLD.npcs.find(n=>n.x===x&&n.y===y);
+      if(n){npcAction(n);return}
+    }
   }
   setFieldMsg('近くに調べるものはない。');
 }
+/* 建物（施設）に入る */
+function buildingAction(b){
+  const loc=FLD.loc;
+  if(b.kind==='lab'){labAction();return}
+  if(b.kind==='center'){healParty();sfx('healCenter');showToast('モンスターセンターで\n全員かいふくした！💚');return}
+  if(b.kind==='mart'){openShop(loc.shop);return}
+  if(b.kind==='gym'){curLocId=loc.id;locScreenMode='gym';showScreen('sc-loc');renderLocScreen(loc,'gym');return}
+  if(b.kind==='league'){curLocId=loc.id;locScreenMode='league';showScreen('sc-loc');renderLocScreen(loc,'league');return}
+}
+/* フィールド上のNPCに話しかける */
+function npcAction(n){
+  const loc=FLD.loc;
+  if(n.story){storyNpcAction(n.story);return}
+  if(n.trainer){
+    const tr=n.trainer;
+    if(G.defeatedTrainers.includes(tr.id)){showDialog(tr.emoji,tr.name,tr.post,'とじる',null);return}
+    showDialog(tr.emoji,tr.name,tr.pre,'バトル開始！',()=>startTrainerBattle(loc,tr));
+    return;
+  }
+  showDialog(n.emoji,n.name,n.msg,'とじる',null);
+}
+/* 旧「フィールドを出る」互換: 現在地のフィールドへ戻る（拠点はフィールド自体） */
 function exitField(){
   stopAmbient();
-  if(FLD){const loc=FLD.loc;showScreen('sc-loc');renderLocScreen(loc)}
-  else{showScreen('sc-map');renderWorldMap()}
+  enterFieldStay();
 }
 /* 簡易アンビエントBGM（WebAudioの短いアルペジオをループ） */
 function startAmbient(loc){
@@ -1389,6 +1548,122 @@ document.addEventListener('keydown',e=>{
   else if(k==='ArrowRight'||k==='d'){fieldMove(1,0);e.preventDefault()}
   else if(k==='Enter'||k===' '){fieldAction();e.preventDefault()}
 });
+/* ============ ストーリーイベント ============ */
+/* 会話を数珠つなぎに表示するヘルパー（showDialog の cb チェーン） */
+function dlgChain(steps,done){
+  let i=0;
+  const next=()=>{
+    if(i>=steps.length){if(done)done();return}
+    const s=steps[i++];
+    showDialog(s.emoji,s.name,s.msg,s.btn||'つぎへ',next);
+  };
+  next();
+}
+function dlgOpen(){return !document.getElementById('ov-dlg').classList.contains('hidden')}
+/* 導入: スターターを受け取った直後、研究所前での一連の会話 */
+function startIntroEvent(){
+  G.flags.story_intro=true;save();
+  openField('masara','load');
+  setTimeout(()=>{
+    if(curScreen!=='sc-field'||dlgOpen())return;
+    dlgChain([
+      {emoji:'🔬',name:'ヒイラギ博士',msg:`「おお、その子を選んだか！目利きじゃな。${G.playerName} の最初のパートナー、大事に育ててやりなさい。」`,btn:'つぎへ'},
+      {emoji:'🔬',name:'ヒイラギ博士',msg:'「この地方にはジムが5つある。各地のリーダーを倒してバッジを集め、オウカン高原のライズリーグで四傑とチャンピオンに挑むのじゃ。」',btn:'つぎへ'},
+      {emoji:'🔬',name:'ヒイラギ博士',msg:'「そうじゃ、言い忘れておった。今朝、隣の家のリョウも別のモンスターを連れて旅立ったよ。あの子は負けず嫌いでな…1番道路できっと会うじゃろう。」',btn:'つぎへ'},
+      {emoji:'🔬',name:'ヒイラギ博士',msg:'「困ったことがあれば、この研究所に来なさい。町の北の出口から1番道路に出られる。気をつけて、行ってらっしゃい！」',btn:'出発する！'},
+    ],()=>{showToast('冒険のはじまり！🎒')});
+  },450);
+}
+/* 研究所を調べたとき */
+function labAction(){
+  showDialog('🔬','ヒイラギ博士',`「やあ ${G.playerName}。バッジは ${G.badges.length} 個、図鑑は ${G.caught.length} 種類じゃな。うむ、順調じゃ。モンスターを弱らせてからオーブを投げると捕まえやすいぞ。困ったらいつでも来なさい。」`,'とじる',null);
+}
+/* ライバル・リョウの節目イベント（既存のライバルトレーナーをイベント化） */
+function rivalEvent(trId){
+  const loc=LOCS.find(l=>l.id===G.currentLoc);if(!loc)return;
+  const tr=getTrainersForLoc(loc).find(t=>t.id===trId);if(!tr)return;
+  setTimeout(()=>{
+    if(curScreen!=='sc-field'||dlgOpen())return;
+    showDialog(tr.emoji,'ライバルのリョウ',tr.pre,'バトル開始！',()=>startTrainerBattle(loc,tr));
+  },500);
+}
+function checkStoryTriggers(locId){
+  if(locId==='route1'&&!G.defeatedTrainers.includes('tr_ryo1')){rivalEvent('tr_ryo1');return}
+  if(locId==='route3'&&G.badges.includes('thunder_badge')&&!G.defeatedTrainers.includes('tr_ryo2')){rivalEvent('tr_ryo2');return}
+  if(locId==='lastroad'&&!G.defeatedTrainers.includes('tr_ryo3')){rivalEvent('tr_ryo3');return}
+  if(locId==='haunted'&&G.badges.includes('leaf_badge')&&!G.flags.story_v1_done&&!G.flags.story_v1_intro){
+    G.flags.story_v1_intro=true;save();
+    setTimeout(()=>{
+      if(curScreen!=='sc-field'||dlgOpen())return;
+      showDialog('🕯️','守り人','「大変じゃ！タワーのモンスターが何者かに盗まれた！黒い服の男がまだこの中にいるはず…頼む、取り戻してくれ！」','わかった',null);
+    },500);
+  }
+}
+/* 敵対組織「ノクターン」 */
+const NOCTURNE={
+  v1:{id:'story_nocturne1',name:'ノクターン団員',emoji:'🕶️',role:'trainer',pre:'チッ、見つかったか！盗んだモンスターは返さない！力ずくで来るなら相手してやる！',post:'つ、強い…！モンスターは返すから許してくれ…！',rewardMoney:1200,rewardOrbs:2,rewardExp:800,party:[{sp:'C',lv:29},{sp:'CC',lv:27}]},
+  v2:{id:'story_nocturne2',name:'ノクターン幹部 カゲロウ',emoji:'🎩',role:'trainer',pre:'フフ…ミヤコのマートを襲ったのは囮にすぎん。本命は別にあるのだ。ここで消えてもらおうか。',post:'幹部である私が負けるとは…だが、ボスの計画は止まらないぞ…',rewardMoney:3000,rewardOrbs:3,rewardExp:1600,party:[{sp:'CC',lv:33},{sp:'EL2',lv:32},{sp:'GR2',lv:34}]},
+  v3:{id:'story_nocturne3',name:'ノクターンボス オブシディアン',emoji:'😈',role:'trainer',pre:'よくぞここまで来た。だが遅い！伝説のモンスター・セレスティアは我らノクターンがいただく！邪魔者は消す！',post:'バカな…私の野望が…！セレスティアよ、なぜ私に従わぬ…！',rewardMoney:8000,rewardOrbs:5,rewardExp:4000,party:[{sp:'BBB',lv:46},{sp:'CCA',lv:48},{sp:'BB',lv:44}]},
+};
+function storyNpcAction(kind){
+  const loc=FLD?FLD.loc:null;if(!loc)return;
+  if(kind==='legend'){
+    if(G.flags.story_legend_done){showDialog('✨','セレスティア','（穏やかな光に包まれている…）','とじる',null);return}
+    showDialog('✨','セレスティア','（伝説のモンスター・セレスティアが静かにこちらを見ている。戦いを望んでいるようだ…！）','バトル開始！',()=>startLegendBattle());
+    return;
+  }
+  const tr=NOCTURNE[kind];if(!tr)return;
+  const doneFlag='story_'+kind+'_done';
+  if(G.flags[doneFlag]){showDialog(tr.emoji,tr.name,'「も、もう悪さはしない…」','とじる',null);return}
+  showDialog(tr.emoji,tr.name,tr.pre,'バトル開始！',()=>startTrainerBattle(loc,tr));
+}
+/* トレーナー勝利後の後処理（ストーリー解決 or フィールド復帰） */
+function afterTrainerWin(tr){
+  if(tr.id==='story_nocturne1'){
+    G.flags.story_v1_done=true;G.superOrbs=(G.superOrbs||0)+2;save();
+    showDialog('🕯️','守り人','「ありがとう！盗まれたモンスターも無事に戻ったよ。礼にスーパーオーブを2つ進呈しよう。大事に使っておくれ。」','もどる',()=>backToWorld());
+    return;
+  }
+  if(tr.id==='story_nocturne2'){
+    G.flags.story_v2_done=true;save();
+    showDialog('💼','マート店員','「助かりました！ノクターンという組織、最近あちこちでモンスターを盗んでいるらしいです。どうかお気をつけて…」','もどる',()=>backToWorld());
+    return;
+  }
+  if(tr.id==='story_nocturne3'){
+    G.flags.story_v3_done=true;save();
+    FLD=null; /* 伝説モンスターが現れるようフィールドを再構築する */
+    showDialog('✨','セレスティア','（ノクターンのボスが去った後、まばゆい光とともに伝説のモンスター・セレスティアが姿を現した！近づいて「調べる」と戦うことができる。）','もどる',()=>backToWorld());
+    return;
+  }
+  backToWorld();
+}
+/* 伝説モンスター戦（捕獲可能） */
+function startLegendBattle(){
+  const loc=FLD?FLD.loc:LOCS.find(l=>l.id==='lastroad');
+  const player=getFirstAlive(G.party);
+  if(!player){showToast('手持ちが全員ひんし！');return}
+  const enemy=makeMon('AAA',50);addSeen('AAA');
+  BT={type:'wild',loc,enemy,player,playerIdx:G.party.indexOf(player),isWild:true,caught:false,legend:true,returnTo:'field'};
+  showScreen('sc-battle');
+  const btn=document.getElementById('btn-catch');btn.style.display='flex';
+  document.getElementById('orb-label').textContent=`オーブ(${getTotalBalls()})`;
+  renderBattle();battleEnter();setMsg(`でんせつの ${M['AAA'].name}が\n あらわれた！`);
+  disableMenu(true);setTimeout(()=>disableMenu(false),900);
+}
+/* エンディング（チャンピオン撃破後・初回のみ） */
+function showEnding(){
+  G.flags.endingSeen=true;G.flags.champion=true;save();
+  const hero=document.getElementById('ending-hero');if(hero)hero.textContent=G.playerName||'ゆうしゃ';
+  const roll=document.getElementById('ending-roll');
+  if(roll){roll.classList.remove('credits-roll');void roll.offsetWidth;roll.classList.add('credits-roll')}
+  document.getElementById('ov-ending').classList.remove('hidden');document.getElementById('ov-ending').classList.add('flex');
+  spawnConfettiEl('ending-stars');
+  sfx('win');
+}
+function closeEnding(){
+  document.getElementById('ov-ending').classList.add('hidden');document.getElementById('ov-ending').classList.remove('flex');
+  backToWorld();
+}
 function startE4Sequence(){
   const prog=G.e4Progress||0;
   if(prog>=ELITE_FOUR.length){showToast('すでにチャンピオンを倒した！');return}
@@ -1397,7 +1672,7 @@ function startE4Sequence(){
     const enemies=e4.party.map(p=>makeMon(p.sp,p.lv));
     const player=getFirstAlive(G.party);
     if(!player){showToast('手持ちが全員ひんし！');return}
-    BT={type:'e4',e4,e4idx:prog,enemies,enemyIdx:0,playerIdx:G.party.indexOf(player),enemy:enemies[0],player,isWild:false,caught:false};
+    BT={type:'e4',e4,e4idx:prog,loc:LOCS.find(l=>l.id==='sekiei'),enemies,enemyIdx:0,playerIdx:G.party.indexOf(player),enemy:enemies[0],player,isWild:false,caught:false,returnTo:'loc',locMode:'league'};
     enemies.forEach(m=>addSeen(m.sp));
     showScreen('sc-battle');
     document.getElementById('btn-catch').style.display='none';
@@ -1658,7 +1933,7 @@ const CATCH_MUL={AA:.65,BB:.65,CC:.65,GR2:.65,WA2:.65,EL2:.65,AAA:.35,BBB:.35,CC
 function onRun(){
   if(BT.type==='trainer'||BT.type==='e4'){setMsg('トレーナー戦では\nにげられない！');return}
   const rate=Math.min(.9,(BT.player.spd/(BT.enemy.spd||1))*.8+.2);
-  if(Math.random()<rate){setMsg('うまくにげられた！');setTimeout(()=>{showScreen('sc-map');renderWorldMap()},1200)}
+  if(Math.random()<rate){setMsg('うまくにげられた！');setTimeout(()=>{backToWorld()},1200)}
   else{setMsg('にげられなかった！');disableMenu(true);setTimeout(()=>{enemyTurnCb(()=>{disableMenu(false);showMain()})},1200)}
 }
 // BATTLE LOGIC
@@ -1803,7 +2078,7 @@ async function enemyFaint(){
       save();await wait(1500);
       await processQueues();
       if(pendBadge){showBadgeCeremony(pendBadge);pendBadge=null;return}
-      showDialog(tr.emoji,tr.name,tr.post,'もどる',()=>{showScreen('sc-map');renderWorldMap()});
+      showDialog(tr.emoji,tr.name,tr.post,'もどる',()=>{afterTrainerWin(tr)});
     } else {
       // e4
       const e4=BT.e4;G.money=(G.money||0)+(e4.rewardMoney||0);
@@ -1819,7 +2094,7 @@ async function enemyFaint(){
         document.getElementById('ov-win').classList.add('flex');
         spawnConfetti();spawnConfettiEl('win-stars');
       } else {
-        showDialog(e4.emoji,e4.name,e4.post,'次の戦いへ',()=>{showScreen('sc-map');renderWorldMap()});
+        showDialog(e4.emoji,e4.name,e4.post,'次の戦いへ',()=>{backToWorld()});
       }
     }
   } else {
@@ -1828,7 +2103,8 @@ async function enemyFaint(){
     setMsg(`${mname(p)} が 経験値\n${expGain} もらった！`);
     giveExp(p,expGain);save();await wait(1400);
     await processQueues();
-    if(!lvUpQueue.length&&!evoQueue.length){showScreen('sc-map');renderWorldMap()}
+    if(BT.legend){G.flags.story_legend_done=true;save();showToast('伝説のモンスターとの戦いが終わった…')}
+    if(!lvUpQueue.length&&!evoQueue.length){backToWorld()}
   }
 }
 async function playerFaint(){
@@ -1837,9 +2113,10 @@ async function playerFaint(){
   await wait(600);document.getElementById('p-anim').className='';await wait(500);
   const next=G.party.find((m,i)=>i!==BT.playerIdx&&alive(m));
   if(!next){
-    setMsg('もうたたかえない…\nスタートタウンへ。');
-    G.party.forEach(m=>{if(m.hp<=0)m.hp=1});save();
-    await wait(1800);showScreen('sc-map');renderWorldMap();return;
+    setMsg('もうたたかえない…\nハルカゼ町へ もどされた。');
+    G.party.forEach(m=>{if(m.hp<=0)m.hp=1});
+    G.currentLoc='masara';FLD=null;save();
+    await wait(1800);openField('masara','load');return;
   }
   setMsg(`${mname(next)}、\nたのむ！`);await wait(900);
   BT.player=next;BT.playerIdx=G.party.indexOf(next);
@@ -1912,7 +2189,7 @@ async function processQueues(){
   if(BT&&BT.player&&curScreen==='sc-battle'){renderMon(BT.player,'p');disableMenu(false);showMain();}
   save();
   if(curScreen==='sc-battle'&&!lvUpQueue.length&&!evoQueue.length){
-    showScreen('sc-map');renderWorldMap();
+    backToWorld();
   }
 }
 let lvResolveFn=null;
@@ -1986,15 +2263,17 @@ function closeEvo(){
 function catchToParty(){
   if(!pendCatch)return;
   if(G.party.length<6)G.party.push(pendCatch);else G.box.push(pendCatch);
+  if(BT&&BT.legend){G.flags.story_legend_done=true}
   pendCatch=null;save();
   document.getElementById('ov-catch').classList.add('hidden');document.getElementById('ov-catch').classList.remove('flex');
-  showScreen('sc-map');renderWorldMap();
+  backToWorld();
 }
 function catchToBox(){
   if(!pendCatch)return;
   G.box.push(pendCatch);pendCatch=null;save();
+  if(BT&&BT.legend){G.flags.story_legend_done=true;save()}
   document.getElementById('ov-catch').classList.add('hidden');document.getElementById('ov-catch').classList.remove('flex');
-  showScreen('sc-map');renderWorldMap();
+  backToWorld();
 }
 // BADGE CEREMONY
 function showBadgeCeremony(badge){
@@ -2008,11 +2287,13 @@ function showBadgeCeremony(badge){
 }
 function closeBadge(){
   document.getElementById('ov-badge').classList.add('hidden');document.getElementById('ov-badge').classList.remove('flex');
-  showScreen('sc-map');renderWorldMap();
+  backToWorld();
 }
 function winReturn(){
   document.getElementById('ov-win').classList.add('hidden');document.getElementById('ov-win').classList.remove('flex');
-  showScreen('sc-map');renderWorldMap();
+  if(!G.flags.endingSeen){showEnding();return}
+  G.flags.champion=true;save();
+  backToWorld();
 }
 // PARTY
 function renderParty(){
