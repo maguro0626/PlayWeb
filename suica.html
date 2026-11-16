@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>スイカゲーム DX | PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{
     --bg1:#0b1026; --bg2:#1b1140; --bg3:#3b1163;
@@ -104,6 +105,47 @@
   .overlay .big{font-size:clamp(28px,7vw,42px); font-weight:900; letter-spacing:.05em}
   .overlay .fin-score{font-size:19px; color:var(--accent); font-weight:900}
   .overlay .new-rec{font-size:13px; color:var(--good); font-weight:900; letter-spacing:.15em; display:none}
+  /* ---------- オンライン対戦 ---------- */
+  .mode-seg{display:flex; gap:6px; background:rgba(0,0,0,.32); padding:5px; border-radius:999px}
+  .mode-seg button{appearance:none; border:none; background:transparent; color:var(--sub); font-family:inherit;
+    font-weight:900; font-size:13.5px; padding:8px 16px; border-radius:999px; cursor:pointer; transition:.15s}
+  .mode-seg button.on{background:linear-gradient(135deg,#ffb340,#ff7a59); color:#33150a}
+  #soloPane{display:flex; flex-direction:column; align-items:center; gap:12px}
+  .online-pane{display:none; flex-direction:column; gap:9px; align-items:center; width:100%; max-width:320px}
+  .online-pane.show{display:flex}
+  .roomcode{font-size:30px; font-weight:900; letter-spacing:.28em; color:var(--accent); font-variant-numeric:tabular-nums; margin:2px 0 6px}
+  .code-input{
+    width:138px; padding:9px 10px; border-radius:12px; border:1px solid var(--line);
+    background:rgba(0,0,0,.3); color:var(--txt); font-family:inherit; font-size:16px; font-weight:900;
+    letter-spacing:.22em; text-transform:uppercase; text-align:center; outline:none;
+  }
+  #onlineStatus{font-size:12.5px; color:#ddd8f5; line-height:1.65; min-height:1.2em}
+  .err{color:#ff8f9d; font-weight:800}
+  .race-bar{
+    display:none; width:min(92vw,460px);
+    background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    padding:10px 14px; backdrop-filter:blur(10px);
+    flex-direction:column; gap:6px;
+    box-shadow:0 10px 30px rgba(0,0,0,.28);
+  }
+  .race-bar.show{display:flex}
+  .race-top{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .race-timer{font-size:32px; font-weight:900; font-variant-numeric:tabular-nums; color:#fff; line-height:1}
+  .race-timer.low{color:#ff5d6e}
+  .race-scores{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .race-side{display:flex; align-items:center; gap:7px; font-weight:900}
+  .race-side .rs{font-size:20px; font-variant-numeric:tabular-nums}
+  .race-label{font-size:11px; color:var(--sub); letter-spacing:.1em}
+  .race-fruit{font-size:19px}
+  .race-diff{font-size:14px; font-weight:900; color:var(--good); text-align:center; flex:1}
+  .race-diff.behind{color:#ff8f9d}
+  .race-conn{font-size:11.5px; color:var(--sub); text-align:center; min-height:1em}
+  .race-banner{
+    position:absolute; left:10px; right:10px; top:64px; z-index:4; text-align:center;
+    background:rgba(20,8,20,.8); border:1px solid var(--line); border-radius:12px;
+    padding:10px; font-weight:900; font-size:14.5px; line-height:1.6; display:none;
+  }
+  .race-banner.show{display:block}
   .mobile-bar{display:none; width:100%; max-width:440px; gap:10px}
   .mobile-bar .card{flex:1; padding:10px 12px}
   .mobile-bar .score-num{font-size:24px}
@@ -174,8 +216,33 @@
       </div>
     </div>
 
+    <div class="race-bar" id="raceBar">
+      <div class="race-top">
+        <div class="race-timer" id="raceTimer">3:00</div>
+        <button class="btn" id="raceLeaveBtn" type="button" style="padding:6px 13px; font-size:12px">退出</button>
+      </div>
+      <div class="race-scores">
+        <div class="race-side"><span class="race-label">あなた</span><span class="rs" id="raceMyScore">0</span><span class="race-fruit" id="raceMyFruit">🍒</span></div>
+        <div class="race-diff" id="raceDiff">同点！</div>
+        <div class="race-side"><span class="race-fruit" id="raceOppFruit">🍒</span><span class="rs" id="raceOppScore">0</span><span class="race-label">相手</span></div>
+      </div>
+      <div class="race-conn" id="raceConn"></div>
+    </div>
+
     <div class="stage-shell">
       <canvas id="game" width="440" height="660"></canvas>
+      <div class="race-banner" id="raceBanner"></div>
+      <div class="overlay" id="raceResultOverlay">
+        <div style="font-size:52px" id="raceResultEmoji">🏆</div>
+        <div class="big" id="raceResultTitle">勝ち！</div>
+        <div class="fin-score">あなた <span id="raceMyFinal">0</span> pt</div>
+        <div style="font-size:16px; font-weight:800; color:#ddd8f5">相手 <span id="raceOppFinal">0</span> pt</div>
+        <div id="raceResultNote" style="font-size:12.5px; color:var(--sub); min-height:1.2em"></div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center">
+          <button class="btn primary" id="rematchBtn" type="button" style="font-size:15px;padding:12px 22px">↻ 再戦する</button>
+          <button class="btn" id="raceExitBtn" type="button" style="font-size:15px;padding:12px 22px">退出</button>
+        </div>
+      </div>
       <div class="overlay" id="overOverlay">
         <div style="font-size:52px">🍉</div>
         <div class="big">ゲームオーバー</div>
@@ -186,10 +253,32 @@
       <div class="overlay show" id="startOverlay">
         <div style="font-size:52px">🍒</div>
         <div class="big">スイカゲーム DX</div>
-        <p style="font-size:13.5px; line-height:1.8; color:#ddd8f5">
-          フルーツを落として合体させよう。<br>さくらんぼから育てて、すいかを作れば大成功！
-        </p>
-        <button class="btn primary" id="startBtn" type="button" style="font-size:15px;padding:12px 26px">▶ スタート</button>
+        <div class="mode-seg">
+          <button type="button" id="modeSoloBtn" class="on">🍉 1人で遊ぶ</button>
+          <button type="button" id="modeOnlineBtn">⚔️ オンライン対戦</button>
+        </div>
+        <div id="soloPane">
+          <p style="font-size:13.5px; line-height:1.8; color:#ddd8f5">
+            フルーツを落として合体させよう。<br>さくらんぼから育てて、すいかを作れば大成功！
+          </p>
+          <button class="btn primary" id="startBtn" type="button" style="font-size:15px;padding:12px 26px">▶ スタート</button>
+        </div>
+        <div class="online-pane" id="onlinePane">
+          <p style="font-size:12.5px; line-height:1.7; color:#ddd8f5">
+            制限時間<b>3分</b>のスコアレース！<br>同時に遊んで、スコアが高い方の勝ち。<br>すいかを作ったらその場で勝利！
+          </p>
+          <button class="btn primary" id="hostBtn" type="button">部屋を作る</button>
+          <div id="onlineCodeWrap" style="display:none; text-align:center">
+            <div style="font-size:11.5px; color:var(--sub)">ルームコード（相手に伝えてね）</div>
+            <div class="roomcode" id="roomCodeText">------</div>
+            <button class="btn" id="copyCodeBtn" type="button">コードをコピー</button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center">
+            <input id="joinCode" class="code-input" maxlength="6" placeholder="コード" autocomplete="off">
+            <button class="btn" id="joinBtn" type="button">参加する</button>
+          </div>
+          <div id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでね。</div>
+        </div>
       </div>
     </div>
   </div>
@@ -621,6 +710,8 @@ function doMerge(a, b){
   }
   const nt = tier + 1;
   const nf = makeFruit(mx, my, nt);
+  if (nt > maxTierEver) maxTierEver = nt;
+  if (nt === MAXT) netOnWatermelon();
   nf.vx = (a.vx + b.vx)/2;
   nf.vy = Math.min((a.vy + b.vy)/2, 40) - 60;   // 少し跳ねる
   nf.va = (a.va + b.va)/2;
@@ -642,6 +733,7 @@ function addScore(pts, x, y, color, size){
   if (score > best){ best = score; localStorage.setItem(HS_KEY, String(best)); }
   addPopup(x, y, "+" + pts, color, size);
   refreshHUD();
+  netOnScore();
 }
 function addPopup(x, y, text, color, size){
   popups.push({ x, y, vy:-66, life:0.95, maxLife:0.95, text, color, size: size||18 });
@@ -693,6 +785,16 @@ function gameOver(){
   gameState = "over";
   sfxOver();
   shake = 12;
+  if (mode === "online" && racePhase === "racing"){
+    /* オンライン対戦中: 自分は終了して観戦状態へ。相手は残り時間を継続 */
+    myOver = true;
+    sendOnline({t: "over", score, best: maxTierEver});
+    $("raceBanner").innerHTML = "ゲームオーバー…💦<br>相手の終了を待っています（観戦中）";
+    $("raceBanner").classList.add("show");
+    updateRaceBar();
+    if (oppOver || oppWatermelon) finishRace();
+    return;
+  }
   const isRec = score >= best && score > 0;
   $("finScore").textContent = score.toLocaleString();
   $("newRec").style.display = isRec ? "block" : "none";
@@ -704,6 +806,7 @@ function gameOver(){
 function resetGame(){
   fruits = []; particles = []; popups = [];
   score = 0; combo = 0; overTimer = 0; shake = 0;
+  maxTierEver = 0;
   curTier = randTier(); nextTier = randTier();
   lastDrop = 0;
   startTime = performance.now();
@@ -859,6 +962,20 @@ function loop(now){
   particles = particles.filter(p=>p.life < p.maxLife);
   for (const p of popups){ p.life -= dt; p.y += p.vy * dt; p.vy *= (1-2.2*dt); }
   popups = popups.filter(p=>p.life > 0);
+  // オンライン対戦: レースタイマー
+  if (mode === "online" && racePhase === "racing"){
+    const nowMs = Date.now();
+    if (nowMs < raceStartAt){
+      raceTimerEl.textContent = "開始まで " + Math.ceil((raceStartAt - nowMs)/1000);
+      raceTimerEl.classList.remove("low");
+    } else {
+      const remain = Math.max(0, raceEndAt - nowMs);
+      const sec = Math.ceil(remain / 1000);
+      raceTimerEl.textContent = Math.floor(sec/60) + ":" + String(sec%60).padStart(2,"0");
+      raceTimerEl.classList.toggle("low", remain <= 30000);
+      if (remain <= 0) finishRace();
+    }
+  }
   draw();
 }
 requestAnimationFrame(loop);
@@ -902,6 +1019,7 @@ $("againBtn").addEventListener("click", ()=>{
   gameState = "play";
 });
 $("restartBtn").addEventListener("click", ()=>{
+  if (mode === "online") return;   // オンライン対戦中はレースバーの「退出」を使う
   sfxClick();
   $("overOverlay").classList.remove("show");
   $("startOverlay").classList.remove("show");
@@ -912,6 +1030,430 @@ $("muteBtn").addEventListener("click", function(){
   muted = !muted;
   this.textContent = muted ? "🔇 サウンド OFF" : "🔊 サウンド ON";
   if (!muted) sfxClick();
+});
+
+// =========================================================
+//  オンライン対戦（PeerJS / WebRTC P2P）— 制限時間3分のスコアレース
+//  両者が各自の盤面で同時にプレイし、スコアを送り合う。
+//  すいかを作った時点で即勝利。切断してもレースは止めず、
+//  ゲストは自動再接続、ホストは部屋を維持して再同期する。
+// =========================================================
+const PEER_PREFIX = "playweb-sc-";
+const PEER_OPTS = { config: { iceServers: [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
+] } };
+const RACE_MS = 3 * 60 * 1000;
+const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; /* I,O,0,1 を除外 */
+let mode = "solo";                 // solo | online
+let peer = null, conn = null, isHost = false, roomCode = "", onlineClosing = false;
+let racePhase = "idle";            // idle | racing | finished
+let raceStartAt = 0, raceEndAt = 0, raceStartTimer = null;
+let maxTierEver = 0;               // このゲームで作った最大の進化段階
+let myOver = false, oppOver = false, myWatermelon = false, oppWatermelon = false;
+let oppScore = 0, oppBest = 0;
+let netReconnecting = false, heartbeatTimer = null, guestRetryTimer = null, connTimer = null;
+let lastSentScore = -1, lastSentBest = -1, scoreSendTimer = null, scoreDirty = false;
+const raceTimerEl = $("raceTimer");
+
+function genRoomCode(){
+  let code = "";
+  for (let i = 0; i < 6; i++) code += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
+  return code;
+}
+function peerAvailable(){ return typeof window.Peer !== "undefined"; }
+function setOnlineStatus(html){ $("onlineStatus").innerHTML = html; }
+function setRaceConn(html){ $("raceConn").innerHTML = html || ""; }
+function sendOnline(obj){
+  if (conn && conn.open){ try{ conn.send(obj); }catch (e){} }
+}
+function armConnTimer(msg){
+  clearTimeout(connTimer);
+  connTimer = setTimeout(() => {
+    if (racePhase !== "racing" && racePhase !== "finished")
+      setOnlineStatus('<span class="err">' + msg + "</span>");
+  }, 25000);
+}
+function disarmConnTimer(){ clearTimeout(connTimer); }
+function startHeartbeat(){
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => { sendOnline({t: "ping"}); }, 8000);
+}
+function stopHeartbeat(){ if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+
+/* ---------- スコア同期（200msスロットル） ---------- */
+function sendScoreNow(){
+  lastSentScore = score; lastSentBest = maxTierEver; scoreDirty = false;
+  sendOnline({t: "score", score, best: maxTierEver});
+}
+function netOnScore(){
+  if (mode !== "online" || racePhase !== "racing") return;
+  updateRaceBar();
+  if (scoreSendTimer){ scoreDirty = true; return; }
+  if (score === lastSentScore && maxTierEver === lastSentBest) return;
+  sendScoreNow();
+  scoreSendTimer = setTimeout(() => {
+    scoreSendTimer = null;
+    if (scoreDirty){ scoreDirty = false; netOnScore(); }
+  }, 200);
+}
+function netOnWatermelon(){
+  if (mode !== "online" || racePhase !== "racing" || myWatermelon) return;
+  myWatermelon = true;
+  sendOnline({t: "watermelon", score, best: MAXT});
+  finishRace();
+}
+
+/* ---------- レース進行 ---------- */
+function updateRaceBar(){
+  $("raceMyScore").textContent = score.toLocaleString();
+  $("raceOppScore").textContent = oppScore.toLocaleString();
+  $("raceMyFruit").textContent = FRUITS[Math.max(0, Math.min(MAXT, maxTierEver))].emoji;
+  $("raceOppFruit").textContent = FRUITS[Math.max(0, Math.min(MAXT, oppBest))].emoji;
+  const d = score - oppScore;
+  const diffEl = $("raceDiff");
+  if (d > 0){ diffEl.textContent = "+" + d.toLocaleString() + " リード中！"; diffEl.className = "race-diff"; }
+  else if (d < 0){ diffEl.textContent = d.toLocaleString() + " 追いつけ！"; diffEl.className = "race-diff behind"; }
+  else { diffEl.textContent = "同点！"; diffEl.className = "race-diff"; }
+}
+function beginRaceCountdown(startAt){
+  racePhase = "racing";
+  raceStartAt = startAt;
+  raceEndAt = startAt + RACE_MS;
+  myOver = false; oppOver = false; myWatermelon = false; oppWatermelon = false;
+  oppScore = 0; oppBest = 0;
+  lastSentScore = -1; lastSentBest = -1; scoreDirty = false;
+  if (scoreSendTimer){ clearTimeout(scoreSendTimer); scoreSendTimer = null; }
+  $("startOverlay").classList.remove("show");
+  $("overOverlay").classList.remove("show");
+  $("raceResultOverlay").classList.remove("show");
+  $("raceBanner").classList.remove("show");
+  $("raceBar").classList.add("show");
+  setRaceConn("");
+  raceTimerEl.textContent = "3:00";
+  raceTimerEl.classList.remove("low");
+  updateRaceBar();
+  startHeartbeat();
+  clearTimeout(raceStartTimer);
+  raceStartTimer = setTimeout(() => {
+    resetGame();
+    gameState = "play";
+    sendScoreNow();
+  }, Math.max(0, startAt - Date.now()));
+}
+function hostStartRace(){
+  const startAt = Date.now() + 3000;
+  sendOnline({t: "start", startAt});
+  beginRaceCountdown(startAt);
+}
+function raceVerdict(){
+  if (myWatermelon && !oppWatermelon) return "win";
+  if (oppWatermelon && !myWatermelon) return "lose";
+  if (score > oppScore) return "win";
+  if (score < oppScore) return "lose";
+  return "draw";
+}
+function finishRace(){
+  if (racePhase !== "racing") return;
+  racePhase = "finished";
+  clearTimeout(raceStartTimer);
+  if (gameState === "play") gameState = "over";
+  sendOnline({t: "final", score, best: maxTierEver, over: myOver, watermelon: myWatermelon});
+  showRaceResult();
+}
+function showRaceResult(){
+  const v = raceVerdict();
+  $("raceResultEmoji").textContent = v === "win" ? "🏆" : (v === "lose" ? "😢" : "🤝");
+  $("raceResultTitle").textContent =
+    (myWatermelon && v === "win") ? "すいか完成！勝ち！" :
+    (v === "win" ? "勝ち！" : (v === "lose" ? "負け…" : "引き分け"));
+  $("raceMyFinal").textContent = score.toLocaleString();
+  $("raceOppFinal").textContent = oppScore.toLocaleString();
+  $("raceResultNote").textContent = (oppWatermelon && v === "lose") ? "相手がすいかを作った！" : "";
+  $("raceResultOverlay").classList.add("show");
+  $("raceBanner").classList.remove("show");
+  updateRaceBar();
+  if (v === "win") sfxMerge(MAXT);
+}
+
+/* ---------- 受信メッセージ処理（テストから直接呼べるよう公開） ---------- */
+function handleOnlineData(msg){
+  if (!msg || typeof msg !== "object") return;
+  if (msg.t === "ping") return;
+  if (msg.t === "hello"){
+    if (!isHost) return;
+    if (racePhase === "racing" && Date.now() < raceStartAt){
+      /* カウントダウン中の参加・再接続: 同じ開始時刻を送り直す */
+      netReconnecting = false;
+      sendOnline({t: "start", startAt: raceStartAt});
+      setRaceConn("");
+      return;
+    }
+    if (racePhase === "racing" || racePhase === "finished"){
+      /* 再接続: 現在のスコアと終了時刻を送って同期し直す */
+      netReconnecting = false;
+      sendOnline({t: "sync", score, best: maxTierEver, endAt: raceEndAt,
+                  over: myOver, watermelon: myWatermelon, phase: racePhase});
+      setRaceConn("");
+      startHeartbeat();
+      return;
+    }
+    /* 初回参加 → レース開始 */
+    setOnlineStatus("相手が参加しました！まもなくスタート…");
+    hostStartRace();
+    return;
+  }
+  if (msg.t === "start"){
+    if (isHost) return;
+    netReconnecting = false;
+    clearTimeout(guestRetryTimer);
+    setOnlineStatus("まもなくスタート…");
+    beginRaceCountdown(typeof msg.startAt === "number" ? msg.startAt : Date.now() + 3000);
+    return;
+  }
+  if (msg.t === "score"){
+    oppScore = msg.score | 0;
+    if (typeof msg.best === "number") oppBest = msg.best;
+    updateRaceBar();
+    return;
+  }
+  if (msg.t === "sync"){
+    /* ホストからの再同期（再接続時） */
+    netReconnecting = false;
+    clearTimeout(guestRetryTimer);
+    oppScore = msg.score | 0;
+    if (typeof msg.best === "number") oppBest = msg.best;
+    if (msg.endAt) raceEndAt = msg.endAt;
+    oppOver = !!msg.over;
+    oppWatermelon = !!msg.watermelon;
+    setRaceConn("");
+    startHeartbeat();
+    sendScoreNow();
+    updateRaceBar();
+    if (oppWatermelon && racePhase === "racing") finishRace();
+    return;
+  }
+  if (msg.t === "over"){
+    oppOver = true;
+    oppScore = msg.score | 0;
+    if (typeof msg.best === "number") oppBest = msg.best;
+    updateRaceBar();
+    if (racePhase === "racing"){
+      if (myOver) finishRace();
+      else {
+        $("raceBanner").innerHTML = "相手がゲームオーバー！<br>残り時間でスコアを伸ばそう🔥";
+        $("raceBanner").classList.add("show");
+      }
+    }
+    return;
+  }
+  if (msg.t === "final"){
+    oppScore = msg.score | 0;
+    if (typeof msg.best === "number") oppBest = msg.best;
+    if (msg.watermelon) oppWatermelon = true;
+    updateRaceBar();
+    if (racePhase === "finished") showRaceResult();
+    return;
+  }
+  if (msg.t === "watermelon"){
+    oppWatermelon = true;
+    oppScore = msg.score | 0;
+    if (typeof msg.best === "number") oppBest = msg.best;
+    updateRaceBar();
+    if (racePhase === "racing") finishRace();
+    return;
+  }
+  if (msg.t === "rematch"){
+    if (isHost && conn && conn.open) hostStartRace();
+    return;
+  }
+}
+
+/* ---------- 切断・再接続 ---------- */
+function onOnlineDisconnected(){
+  if (mode !== "online" || onlineClosing) return;
+  if (racePhase === "racing" || racePhase === "finished"){
+    /* 対戦中の切断: レースは各自ローカルで続くので自分のプレイは止めない */
+    netReconnecting = true;
+    conn = null;
+    stopHeartbeat();
+    setRaceConn('<span class="err">接続が切れました。再接続を試みています…（レースは続きます）</span>');
+    if (!isHost) scheduleGuestReconnect();
+    return;
+  }
+  if (conn) setOnlineStatus('<span class="err">相手との接続が切れました。</span>もう一度お試しください。');
+  conn = null;
+}
+function scheduleGuestReconnect(){
+  clearTimeout(guestRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if (mode !== "online" || !netReconnecting) return;
+    tries++;
+    if (tries > 20){
+      netReconnecting = false;
+      setRaceConn('<span class="err">再接続できませんでした。</span>');
+      return;
+    }
+    guestRetryTimer = setTimeout(attempt, 5000);
+    try{
+      if (peer){ try{ peer.destroy(); }catch (e){} }
+      peer = new Peer(undefined, PEER_OPTS);
+      peer.on("open", () => {
+        const c = peer.connect(PEER_PREFIX + roomCode, {reliable: true});
+        setupConn(c);
+        c.on("open", () => { sendOnline({t: "hello"}); sendScoreNow(); });
+      });
+      peer.on("error", () => {});
+    }catch (e){}
+  };
+  guestRetryTimer = setTimeout(attempt, 1500);
+}
+function setupConn(c){
+  conn = c;
+  c.on("data", handleOnlineData);
+  c.on("close", () => { if (conn === c) onOnlineDisconnected(); });
+  c.on("error", () => { if (conn === c) onOnlineDisconnected(); });
+  c.on("open", () => disarmConnTimer());
+  c.on("iceStateChanged", st => {
+    if (conn !== c) return;
+    if ((st === "failed" || st === "disconnected") && racePhase !== "racing" && racePhase !== "finished"){
+      disarmConnTimer();
+      setOnlineStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+function teardownOnline(){
+  onlineClosing = true;
+  netReconnecting = false;
+  stopHeartbeat();
+  clearTimeout(guestRetryTimer);
+  clearTimeout(raceStartTimer);
+  if (scoreSendTimer){ clearTimeout(scoreSendTimer); scoreSendTimer = null; }
+  try{ if (conn) conn.close(); }catch (e){}
+  try{ if (peer) peer.destroy(); }catch (e){}
+  conn = null; peer = null;
+}
+
+/* ---------- 部屋の作成・参加・退出 ---------- */
+function hostRoom(){
+  if (!peerAvailable()){
+    setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    return;
+  }
+  teardownOnline();
+  onlineClosing = false;
+  isHost = true;
+  roomCode = genRoomCode();
+  racePhase = "idle";
+  setOnlineStatus("部屋を作成中…");
+  try{ peer = new Peer(PEER_PREFIX + roomCode, PEER_OPTS); }
+  catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on("open", () => {
+    $("roomCodeText").textContent = roomCode;
+    $("onlineCodeWrap").style.display = "";
+    setOnlineStatus("相手の参加を待っています… コードを相手に伝えてね。相手が参加すると自動でスタート！");
+  });
+  peer.on("connection", c => {
+    setupConn(c);
+    if (!netReconnecting) setOnlineStatus("相手が接続しました。対局の準備中…");
+    armConnTimer("相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。");
+  });
+  peer.on("error", err => {
+    if (err && err.type === "unavailable-id"){
+      setOnlineStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    } else if (racePhase !== "racing" && racePhase !== "finished"){
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  peer.on("disconnected", () => { try{ peer.reconnect(); }catch (e){} });
+}
+function joinRoom(){
+  if (!peerAvailable()){
+    setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    return;
+  }
+  const code = ($("joinCode").value || "").trim().toUpperCase();
+  if (code.length !== 6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  teardownOnline();
+  onlineClosing = false;
+  isHost = false;
+  roomCode = code;
+  racePhase = "idle";
+  setOnlineStatus("接続中…");
+  try{ peer = new Peer(undefined, PEER_OPTS); }
+  catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on("open", () => {
+    armConnTimer("接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。");
+    const c = peer.connect(PEER_PREFIX + code, {reliable: true});
+    setupConn(c);
+    c.on("open", () => {
+      sendOnline({t: "hello"});
+      setOnlineStatus("接続しました！ホストがスタートするのを待っています…");
+    });
+  });
+  peer.on("error", err => {
+    if (err && err.type === "peer-unavailable"){
+      setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    } else if (racePhase !== "racing" && racePhase !== "finished"){
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+}
+function leaveOnline(){
+  teardownOnline();
+  onlineClosing = false;
+  racePhase = "idle";
+  gameState = "ready";
+  $("raceBar").classList.remove("show");
+  $("raceResultOverlay").classList.remove("show");
+  $("raceBanner").classList.remove("show");
+  $("overOverlay").classList.remove("show");
+  setMode("solo");
+  $("startOverlay").classList.add("show");
+  resetGame();
+}
+function copyRoomCode(){
+  if (!roomCode) return;
+  const done = () => { $("copyCodeBtn").textContent = "コピーしました！"; setTimeout(() => { $("copyCodeBtn").textContent = "コードをコピー"; }, 1600); };
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = roomCode; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); }catch (e){}
+    ta.remove(); done();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(roomCode).then(done).catch(fallback);
+  } else fallback();
+}
+function setMode(m){
+  mode = m;
+  $("modeSoloBtn").classList.toggle("on", m === "solo");
+  $("modeOnlineBtn").classList.toggle("on", m === "online");
+  $("soloPane").style.display = m === "solo" ? "" : "none";
+  $("onlinePane").classList.toggle("show", m === "online");
+  if (m === "online" && !peerAvailable()){
+    setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+  }
+}
+
+$("modeSoloBtn").addEventListener("click", ()=>{ sfxClick(); setMode("solo"); });
+$("modeOnlineBtn").addEventListener("click", ()=>{ sfxClick(); setMode("online"); });
+$("hostBtn").addEventListener("click", ()=>{ sfxClick(); audio(); hostRoom(); });
+$("joinBtn").addEventListener("click", ()=>{ sfxClick(); audio(); joinRoom(); });
+$("copyCodeBtn").addEventListener("click", ()=>{ sfxClick(); copyRoomCode(); });
+$("raceLeaveBtn").addEventListener("click", ()=>{ sfxClick(); leaveOnline(); });
+$("raceExitBtn").addEventListener("click", ()=>{ sfxClick(); leaveOnline(); });
+$("rematchBtn").addEventListener("click", ()=>{
+  sfxClick();
+  if (isHost) hostStartRace();
+  else {
+    sendOnline({t: "rematch"});
+    $("raceResultNote").textContent = "ホストの開始を待っています…";
+  }
 });
 
 refreshHUD();

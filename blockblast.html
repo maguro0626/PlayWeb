@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ブロックブラスト - PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{ --bg:#0d1021; --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.1); --txt:#f4f6ff; --sub:#9aa3c7; --acc:#fbbf24; }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -54,6 +55,21 @@
   .stageGrid button.locked{opacity:.32;cursor:not-allowed}
   .stageGrid button:not(.locked):active{transform:scale(.95)}
   footer{max-width:560px;padding:2px 18px 20px;color:var(--sub);font-size:12px;line-height:1.8;text-align:center}
+  .util-hidden{display:none!important}
+  #oppBar{width:100%;max-width:560px;padding:6px 16px 0;display:none}
+  #oppBar.show{display:block}
+  #oppBar .in{display:flex;gap:12px;align-items:center;background:linear-gradient(120deg,rgba(219,39,119,.16),rgba(59,130,246,.14));border:1px solid rgba(244,114,182,.35);border-radius:14px;padding:9px 12px}
+  #oppCv{width:84px;height:84px;border-radius:8px;background:rgba(0,0,0,.3);flex:0 0 auto}
+  .oppInfo{flex:1;min-width:0}
+  .oppName{font-weight:900;font-size:14px}
+  #oppOverTag{background:#ef4444;color:#fff;font-size:10px;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px}
+  .oppScore{font-size:13px;color:var(--sub);margin-top:2px}
+  .oppScore b{color:var(--txt);font-variant-numeric:tabular-nums}
+  .oppStatus{font-size:12px;color:#fda4af;margin-top:3px;line-height:1.5}
+  #onlineStatus{min-height:1.2em}
+  #onlineStatus .err{color:#ff9d8a;font-weight:800}
+  #joinCode{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:11px 16px;font-size:16px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;width:160px;text-align:center;font-family:inherit}
+  #bbRoomCode{font-size:36px;font-weight:900;letter-spacing:.28em}
 </style>
 </head>
 <body>
@@ -76,6 +92,16 @@
 <div id="stageBar"><div class="in">
   <div class="row"><span id="stageName">ステージ 1</span><span class="goal" id="stageGoal"></span><span class="moves" id="stageMoves"></span></div>
   <div class="bar"><i id="stageProg"></i></div>
+</div></div>
+
+<div id="oppBar"><div class="in">
+  <canvas id="oppCv" width="96" height="96"></canvas>
+  <div class="oppInfo">
+    <div class="oppName">👤 相手<span id="oppOverTag" class="util-hidden">終了</span></div>
+    <div class="oppScore">スコア <b id="oppScoreVal">0</b> ／ ライン <b id="oppLinesVal">0</b></div>
+    <div class="oppStatus" id="oppStatus">接続中…</div>
+  </div>
+  <button class="hbtn" id="battleExitBtn">退出</button>
 </div></div>
 
 <main>
@@ -109,8 +135,44 @@
         <button class="bigbtn" id="endlessBtn">∞ エンドレス</button>
       </div>
       <p>エンドレスは詰むまで続くスコアアタック。<br>ステージは目標を手数以内に達成するモードだよ。</p>
+      <div class="btnRow">
+        <button class="subbtn" id="onlineBtn" style="font-size:15px;padding:13px 22px">🌐 オンライン対戦</button>
+      </div>
+      <p>オンライン対戦は2人で<strong>同じピース列</strong>を使って競うスコアバトル。<br>ホストが部屋を作って、6文字コードを相手に伝えてね。</p>
       <div class="stageGrid" id="stageGrid"></div>
       <button class="subbtn" id="modeCloseBtn">とじる</button>
+    </div>
+
+    <div class="overlay hidden" id="onlineOv">
+      <h2>🌐 オンライン対戦</h2>
+      <p>同じピース列で競うスコアバトル。<br>ホストが部屋を作り、コードを相手に伝えてください。</p>
+      <div class="btnRow">
+        <button class="bigbtn" id="hostBtn">部屋を作る</button>
+      </div>
+      <div id="bbCodeWrap" class="util-hidden">
+        <div style="font-size:12px;color:var(--sub)">ルームコード（相手に伝えてください）</div>
+        <div id="bbRoomCode">------</div>
+        <div class="btnRow"><button class="subbtn" id="copyCodeBtn">コードをコピー</button></div>
+      </div>
+      <div class="btnRow">
+        <input id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
+        <button class="subbtn" id="joinBtn">参加する</button>
+      </div>
+      <p id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</p>
+      <div class="btnRow">
+        <button class="subbtn" id="onlineBackBtn">もどる</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="battleOv">
+      <h2 id="battleTitle">🏆 勝利！</h2>
+      <div class="big" id="battleMyScore">0</div>
+      <p id="battleStats"></p>
+      <p id="battleWait"></p>
+      <div class="btnRow">
+        <button class="bigbtn" id="rematchBtn">🔁 再戦</button>
+        <button class="subbtn" id="battleLeaveBtn">退出</button>
+      </div>
     </div>
   </div>
 </main>
@@ -173,8 +235,19 @@ const SHAPES = [
   { s: shape([[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2]]), w: 2 },
 ];
 const SHAPE_TOTAL_W = SHAPES.reduce((a,b)=>a+b.w,0);
+/* 乱数ソース: 通常は Math.random、オンライン対戦中はシード付きRNGに差し替える */
+let rngFn = Math.random;
+let seedState = 0;
+function srand(seed){ seedState = seed >>> 0; }
+function srandom(){
+  seedState = (seedState + 0x6D2B79F5) >>> 0;
+  let t = seedState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
 function pickShape(){
-  let r = Math.random()*SHAPE_TOTAL_W;
+  let r = rngFn()*SHAPE_TOTAL_W;
   for(const e of SHAPES){ r -= e.w; if(r <= 0) return e.s; }
   return SHAPES[0].s;
 }
@@ -226,7 +299,7 @@ let unlocked = +(localStorage.getItem('blockblast_unlocked') || 1);
 best = +(localStorage.getItem('blockblast_best') || 0);
 
 function emptyBoard(){ return Array.from({length:N}, ()=>Array(N).fill(0)); }
-function newPiece(){ return { shape: pickShape(), color: 1 + Math.floor(Math.random()*8), used:false, bornAt: performance.now() }; }
+function newPiece(){ return { shape: pickShape(), color: 1 + Math.floor(rngFn()*8), used:false, bornAt: performance.now() }; }
 function canPlaceAt(bd, sh, bx, by){
   for(const [cx,cy] of sh.cells){
     const x = bx+cx, y = by+cy;
@@ -239,6 +312,11 @@ function anyPlacement(bd, sh){
   return false;
 }
 function genTray(){
+  if(mode === 'online'){
+    /* 対戦中: 盤面依存の再試行をすると両者で乱数消費がずれてピース列が食い違うため、
+       ウェイト付きの純シード生成にする（同じ順序で同じピースを受け取る） */
+    return [newPiece(), newPiece(), newPiece()];
+  }
   for(let attempt=0; attempt<30; attempt++){
     const t = [newPiece(), newPiece(), newPiece()];
     if(t.some(p=>anyPlacement(board, p.shape))) return t;
@@ -733,6 +811,7 @@ function doPlace(slot, bx, by){
   if(mode === 'stage') movesLeft = Math.max(0, movesLeft - 1);
   const basePts = p.shape.n;
   score += basePts;
+  if(mode === 'online') netSendScore();
   sfx.place(); vibrate(12);
   const pc = cellXY(bx + p.shape.w/2 - 0.5, by + p.shape.h/2 - 0.5);
   rings.push({ x: pc.x + cell/2, y: pc.y + cell/2, t0: now, color: COLORS[p.color].light });
@@ -757,6 +836,7 @@ function resolveClears(rows, cols){
   function n2pts(n){ return n * n * 100; }
   score += linePts;
   linesTotal += rows.length + cols.length;
+  if(mode === 'online') netSendScore();
   const cxSum = [], cySum = [];
   cellsSet.forEach(k => {
     const [x, y] = k.split(',').map(Number);
@@ -796,6 +876,7 @@ function afterMove(){
   }
   updateHUD(); updateStageHUD();
 
+  if(mode === 'online'){ onlineAfterMove(); return; }
   if(mode === 'stage'){
     if(goalProgress() >= 1 && !stageDone){ stageClear(); return; }
     if(movesLeft <= 0 && !stageDone){ stageFail('手数を使い切っちゃった…'); return; }
@@ -931,7 +1012,7 @@ function renderStageGrid(){
     if(locked) b.className = 'locked';
     else if(i + 1 < unlocked) b.className = 'cleared';
     b.innerHTML = `<span class="no">${locked ? '🔒' : (i + 1)}</span><span class="gl">${st.goal.type === 'score' ? st.goal.target.toLocaleString() + '点' : 'ライン' + st.goal.target + '本'}<br>${st.moves}手以内</span>`;
-    if(!locked) b.addEventListener('click', ()=>{ sfx.click(); startStage(i); });
+    if(!locked) b.addEventListener('click', ()=>{ sfx.click(); if(mode === 'online') leaveBattleToLocal(); startStage(i); });
     grid.appendChild(b);
   });
 }
@@ -941,21 +1022,378 @@ function openModeSelect(){
 }
 
 /* ================================================================
+   オンライン対戦（PeerJS / WebRTC P2P）
+   2人とも同じシードのピース列で各自の盤面をプレイし、
+   配置のたびに盤面・スコアを送り合うリアルタイムスコアバトル。
+   ホストがシードを決めて {t:'start', seed} を送る。
+================================================================ */
+const BB_PEER_PREFIX = 'playweb-bb-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+let peer = null, conn = null, isHost = false, roomCode = '', onlineClosing = false;
+let battleActive = false, battleSeed = 0, myOver = false, oppOver = false;
+let oppCells = new Array(64).fill(0), oppScore = 0, oppLines = 0;
+let netReconnecting = false, connTimer = null, heartbeatTimer = null, guestRetryTimer = null;
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+function genRoomCode(){
+  let code = '';
+  for(let i = 0; i < 6; i++) code += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
+  return code;
+}
+function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function setOnlineStatus(html){ const el = $('onlineStatus'); if(el) el.innerHTML = html; }
+function setOppStatus(t){ const el = $('oppStatus'); if(el) el.textContent = t; }
+function onlineLoadError(){
+  setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+}
+function armConnTimer(msg){
+  clearTimeout(connTimer);
+  connTimer = setTimeout(() => {
+    if(!battleActive) setOnlineStatus('<span class="err">' + msg + '</span>');
+  }, 25000);
+}
+function disarmConnTimer(){ clearTimeout(connTimer); }
+function startHeartbeat(){
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => { netSend({t: 'ping'}); }, 8000);
+}
+function stopHeartbeat(){ if(heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+
+function netSend(obj){
+  if(conn && conn.open){ try{ conn.send(obj); }catch(e){} }
+}
+function flatCells(){
+  const a = [];
+  for(let y = 0; y < N; y++) for(let x = 0; x < N; x++) a.push(board[y][x]);
+  return a;
+}
+function netSendBoard(){ netSend({t: 'board', cells: flatCells(), score, lines: linesTotal}); }
+function netSendScore(){ netSend({t: 'score', score, lines: linesTotal}); }
+
+/* ---------- 相手ミニ盤面 ---------- */
+function drawOppBoard(){
+  const c = $('oppCv'); if(!c) return;
+  const g = c.getContext('2d');
+  const s = c.width / 8;
+  g.clearRect(0, 0, c.width, c.height);
+  for(let y = 0; y < 8; y++) for(let x = 0; x < 8; x++){
+    const v = oppCells[y * 8 + x] | 0;
+    g.fillStyle = (v && COLORS[v]) ? COLORS[v].base : 'rgba(255,255,255,0.06)';
+    g.beginPath();
+    if(g.roundRect) g.roundRect(x * s + 1, y * s + 1, s - 2, s - 2, 2.5);
+    else g.rect(x * s + 1, y * s + 1, s - 2, s - 2);
+    g.fill();
+  }
+}
+function updateOppInfo(){
+  $('oppScoreVal').textContent = oppScore.toLocaleString();
+  $('oppLinesVal').textContent = oppLines;
+  $('oppOverTag').classList.toggle('util-hidden', !oppOver);
+}
+
+/* ---------- 対戦フロー ---------- */
+function startBattle(seed, sendStart){
+  battleSeed = seed >>> 0;
+  mode = 'online';
+  rngFn = srandom; srand(battleSeed);
+  battleActive = true; myOver = false; oppOver = false;
+  oppCells = new Array(64).fill(0); oppScore = 0; oppLines = 0;
+  board = emptyBoard();
+  score = 0; dispScore = 0; combo = 0; maxCombo = 0; linesTotal = 0; piecesPlaced = 0;
+  gameOver = false; drag = null; returning = null; banner = null; flashLines = null;
+  particles = []; floaters = []; cellAnims = {}; beams = []; rings = [];
+  tray = genTray();
+  $('scoreVal').textContent = '0';
+  ['overOv', 'clearOv', 'modeOv', 'onlineOv', 'battleOv'].forEach(id => $(id).classList.add('hidden'));
+  $('oppBar').classList.add('show');
+  updateHUD(); updateStageHUD();
+  drawOppBoard(); updateOppInfo();
+  setOppStatus('対戦中！同じピース列でスコア勝負');
+  if(sendStart) netSend({t: 'start', seed: battleSeed});
+  startHeartbeat();
+  netSendBoard();
+}
+function onlineAfterMove(){
+  netSendBoard();
+  if(myOver) return;
+  const anyLeft = tray.some(p => p && !p.used && anyPlacement(board, p.shape));
+  if(!anyLeft){
+    myOver = true; gameOver = true;
+    netSend({t: 'over', score, lines: linesTotal});
+    if(oppOver) showBattleResult();
+    else setOppStatus('あなたは終了！相手のフィニッシュを待っています…');
+  }
+}
+function showBattleResult(){
+  let title;
+  if(score > oppScore || (score === oppScore && linesTotal > oppLines)) title = '🏆 勝利！';
+  else if(score === oppScore && linesTotal === oppLines) title = '🤝 引き分け';
+  else title = '😢 敗北…';
+  $('battleTitle').textContent = title;
+  $('battleMyScore').textContent = score.toLocaleString();
+  $('battleStats').innerHTML = `あなた: ${score.toLocaleString()}点 ／ ライン ${linesTotal} 本<br>相手: ${oppScore.toLocaleString()}点 ／ ライン ${oppLines} 本`;
+  $('battleWait').textContent = '';
+  $('battleOv').classList.remove('hidden');
+  if(title.indexOf('🏆') === 0){ sfx.fanfare(); ojisanVoice('グーっど'); }
+}
+
+/* 受信メッセージ処理（テストから直接呼べるよう関数として公開） */
+function handleBattleData(msg){
+  if(!msg || typeof msg !== 'object') return;
+  if(msg.t === 'ping'){ return; }
+  if(msg.t === 'hello'){
+    if(!isHost) return;
+    if(battleActive){
+      /* 再接続: 対戦はリセットせず、現在の自分の盤面・スコアを送って同期し直す */
+      netReconnecting = false;
+      netSendBoard(); netSendScore();
+      startHeartbeat();
+      setOppStatus('再接続しました！対戦を続けます');
+      return;
+    }
+    startBattle((Math.random() * 0xffffffff) >>> 0, true);
+  }
+  else if(msg.t === 'start'){
+    if(isHost) return;
+    netReconnecting = false;
+    clearTimeout(guestRetryTimer);
+    startBattle(msg.seed >>> 0, false);
+  }
+  else if(msg.t === 'board'){
+    if(Array.isArray(msg.cells) && msg.cells.length === 64){
+      oppCells = msg.cells.map(v => v | 0);
+      if(typeof msg.score === 'number') oppScore = msg.score;
+      if(typeof msg.lines === 'number') oppLines = msg.lines;
+      if(netReconnecting){
+        netReconnecting = false;
+        clearTimeout(guestRetryTimer);
+        startHeartbeat();
+        setOppStatus('再接続しました！対戦を続けます');
+      }
+      drawOppBoard(); updateOppInfo();
+    }
+  }
+  else if(msg.t === 'score'){
+    if(typeof msg.score === 'number') oppScore = msg.score;
+    if(typeof msg.lines === 'number') oppLines = msg.lines;
+    updateOppInfo();
+  }
+  else if(msg.t === 'over'){
+    if(typeof msg.score === 'number') oppScore = msg.score;
+    if(typeof msg.lines === 'number') oppLines = msg.lines;
+    oppOver = true;
+    updateOppInfo();
+    if(myOver) showBattleResult();
+    else setOppStatus('相手は終了！フィニッシュまで続けよう');
+  }
+  else if(msg.t === 'rematch'){
+    if(isHost && battleActive){
+      startBattle((Math.random() * 0xffffffff) >>> 0, true);
+    }
+  }
+}
+
+function onNetDisconnected(){
+  if(onlineClosing) return;
+  if(battleActive){
+    /* 対戦中の切断: 即終了にせず、盤面を保持して再接続を試みる */
+    netReconnecting = true;
+    conn = null;
+    stopHeartbeat();
+    setOppStatus('接続が切れました。再接続を試みています…（盤面は保持されます）');
+    if(!isHost) scheduleGuestReconnect();
+    return;
+  }
+  if(conn){
+    setOnlineStatus('<span class="err">相手との接続が切れました。</span>部屋を作り直すか、もう一度参加してください。');
+  }
+  conn = null;
+}
+function scheduleGuestReconnect(){
+  clearTimeout(guestRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if(mode !== 'online' || !netReconnecting) return;
+    tries++;
+    if(tries > 20){
+      netReconnecting = false;
+      setOppStatus('再接続できませんでした。退出して部屋を作り直してください。');
+      return;
+    }
+    guestRetryTimer = setTimeout(attempt, 5000);
+    try{
+      if(peer){ try{ peer.destroy(); }catch(e){} }
+      peer = new Peer(undefined, PEER_OPTS);
+      peer.on('open', () => {
+        const c = peer.connect(BB_PEER_PREFIX + roomCode, {reliable: true});
+        setupConn(c);
+      });
+      peer.on('error', () => {});
+    }catch(e){}
+  };
+  guestRetryTimer = setTimeout(attempt, 1500);
+}
+function setupConn(c){
+  conn = c;
+  c.on('data', handleBattleData);
+  c.on('close', () => { if(conn === c) onNetDisconnected(); });
+  c.on('error', () => { if(conn === c) onNetDisconnected(); });
+  c.on('open', () => {
+    disarmConnTimer();
+    if(!isHost){
+      netSend({t: 'hello'});
+      if(battleActive) netSendBoard();
+      else setOnlineStatus('接続しました！ホストからの対戦開始を待っています…');
+    }
+  });
+  c.on('iceStateChanged', st => {
+    if(conn !== c) return;
+    if((st === 'failed' || st === 'disconnected') && !battleActive){
+      disarmConnTimer();
+      setOnlineStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
+}
+function teardownNet(){
+  onlineClosing = true;
+  netReconnecting = false;
+  stopHeartbeat();
+  clearTimeout(guestRetryTimer);
+  disarmConnTimer();
+  try{ if(conn) conn.close(); }catch(e){}
+  try{ if(peer) peer.destroy(); }catch(e){}
+  conn = null; peer = null;
+}
+function hostRoom(){
+  if(!peerAvailable()){ onlineLoadError(); return; }
+  teardownNet();
+  onlineClosing = false;
+  isHost = true;
+  roomCode = genRoomCode();
+  setOnlineStatus('部屋を作成中…');
+  try{ peer = new Peer(BB_PEER_PREFIX + roomCode, PEER_OPTS); }
+  catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', () => {
+    $('bbRoomCode').textContent = roomCode;
+    $('bbCodeWrap').classList.remove('util-hidden');
+    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。');
+  });
+  peer.on('connection', c => {
+    setupConn(c);
+    if(netReconnecting) setOnlineStatus('相手が再接続しています…');
+    else setOnlineStatus('相手が接続しました。対戦の準備中…');
+    armConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  peer.on('error', err => {
+    if(err && err.type === 'unavailable-id'){
+      setOnlineStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    } else if(!battleActive) {
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
+}
+function joinRoom(){
+  if(!peerAvailable()){ onlineLoadError(); return; }
+  const code = ($('joinCode').value || '').trim().toUpperCase();
+  if(code.length !== 6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  teardownNet();
+  onlineClosing = false;
+  isHost = false;
+  roomCode = code;
+  setOnlineStatus('接続中…');
+  try{ peer = new Peer(undefined, PEER_OPTS); }
+  catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', () => {
+    armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    const c = peer.connect(BB_PEER_PREFIX + code, {reliable: true});
+    setupConn(c);
+  });
+  peer.on('error', err => {
+    if(err && err.type === 'peer-unavailable'){
+      setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    } else if(!battleActive) {
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+}
+function leaveBattleToLocal(){
+  teardownNet();
+  battleActive = false; myOver = false; oppOver = false;
+  rngFn = Math.random;
+  $('oppBar').classList.remove('show');
+  $('battleOv').classList.add('hidden');
+  $('onlineOv').classList.add('hidden');
+}
+function exitOnline(){
+  leaveBattleToLocal();
+  startEndless(true);
+  openModeSelect();
+}
+function copyRoomCode(){
+  if(!roomCode) return;
+  const done = () => { setOnlineStatus('コードをコピーしました。そのまま相手に送ってください。'); };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = roomCode; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    ta.remove(); done();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(roomCode).then(done).catch(fallback);
+  } else fallback();
+}
+
+/* ================================================================
    UI配線・初期化
 ================================================================ */
 $('againBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'stage') startStage(stageIdx); else newGame(); });
 $('overModeBtn').addEventListener('click', ()=>{ sfx.click(); $('overOv').classList.add('hidden'); openModeSelect(); });
 $('nextStageBtn').addEventListener('click', ()=>{ sfx.click(); startStage(Math.min(STAGES.length - 1, stageIdx + 1)); });
 $('clearModeBtn').addEventListener('click', ()=>{ sfx.click(); $('clearOv').classList.add('hidden'); openModeSelect(); });
-$('endlessBtn').addEventListener('click', ()=>{ sfx.click(); startEndless(false); });
+$('endlessBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'online') leaveBattleToLocal(); startEndless(false); });
 $('modeCloseBtn').addEventListener('click', ()=>{ sfx.click(); $('modeOv').classList.add('hidden'); });
 $('modeBtn').addEventListener('click', ()=>{ sfx.click(); openModeSelect(); });
-$('restartBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'stage') startStage(stageIdx); else newGame(); });
+$('restartBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'online') return; if(mode === 'stage') startStage(stageIdx); else newGame(); });
 $('soundBtn').addEventListener('click', ()=>{
   soundOn = !soundOn;
   $('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
   if(!soundOn){ try{ speechSynthesis.cancel(); }catch(e){} }
   if(soundOn) sfx.click();
+});
+
+/* ---------- オンライン対戦UI配線 ---------- */
+$('onlineBtn').addEventListener('click', ()=>{
+  sfx.click();
+  $('modeOv').classList.add('hidden');
+  $('onlineOv').classList.remove('hidden');
+  if(!peerAvailable()) onlineLoadError();
+});
+$('hostBtn').addEventListener('click', ()=>{ sfx.click(); hostRoom(); });
+$('joinBtn').addEventListener('click', ()=>{ sfx.click(); joinRoom(); });
+$('copyCodeBtn').addEventListener('click', ()=>{ sfx.click(); copyRoomCode(); });
+$('onlineBackBtn').addEventListener('click', ()=>{
+  sfx.click();
+  if(!battleActive) teardownNet();
+  $('onlineOv').classList.add('hidden');
+  openModeSelect();
+});
+$('battleExitBtn').addEventListener('click', ()=>{ sfx.click(); exitOnline(); });
+$('battleLeaveBtn').addEventListener('click', ()=>{ sfx.click(); exitOnline(); });
+$('rematchBtn').addEventListener('click', ()=>{
+  sfx.click();
+  if(isHost){
+    startBattle((Math.random() * 0xffffffff) >>> 0, true);
+  } else {
+    netSend({t: 'rematch'});
+    $('battleWait').textContent = 'ホストの開始を待っています…';
+  }
 });
 
 resize();
