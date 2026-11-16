@@ -244,6 +244,7 @@
   .topMeta{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;color:#a7b0c9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #topShards{color:#ffd97a;font-size:14.5px}
   #tabPages{flex:1 1 auto;overflow-y:auto;width:100%;max-width:560px;margin:0 auto;padding:16px 14px 22px}
+  .tabPage::after{content:'';display:block;height:34px} /* 第9弾: スクロール末尾の余白。ショップ最下部ボタンがタブバーに被る対策（padding-bottomだけでは末尾までスクロールできない環境があるため） */
   .tabPage{display:none;text-align:center}
   .tabPage.show{display:block}
   .tabHead{font-size:21px;font-weight:900;color:#f5f1e6;text-align:left;border-left:4px solid #e6b84f;padding-left:10px;margin-bottom:6px}
@@ -462,7 +463,7 @@
       💎 <b>ジェム</b>を集めてレベルアップ → 武器と魔法を強化<br>
       👑 3分ごとにボスが出現。倒すと宝箱！（宝箱は矢印が案内）<br>
       🌅 10分生き残ればクリア。次のステージが解放される<br>
-      🗺️ ステージは全6種。進むほど敵も報酬もインフレする！<br>
+      🗺️ ステージは全7種。進むほど敵も報酬もインフレする！<br>
       🎰 キャラはガチャで入手。被ると限界突破で強くなる<br>
       🏆 デイリーミッションと実績で「ほしのかけら」を稼ごう
     </div>
@@ -960,6 +961,9 @@ const CHARS = {
   /* ── 第6弾: 新キャラ2体（SR×1／SSR×1）。入手はガチャのみ ── */
   kaede:  { name: 'カエデ', desc: '【SR】紅葉猫：俊足+8%・クリ率+5%・攻撃+5%。重力場「グラビティヴォルテックス」で開幕', cost: 0, rarity: 'SR', hp: 0, atk: 1.05, spd: 1.08, mag: 1, xp: 1, proj: 0, crit: .05, start: 'vortex', body: '#c2512e', belly: '#e88a5c', earIn: '#ffd9a8', hat: '#7a2e1a', band: '#ffe9a8', cape: '#8f4a1d' },
   aurora: { name: 'オーロラ', desc: '【SSR・ガチャ限定】極光猫：全武器CD-8%・経験値+20%・攻撃+12%・磁石+15%。「プリズムビーム」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 5, atk: 1.12, spd: 1.03, mag: 1.15, xp: 1.2, proj: 0, crit: .04, cdr: .92, start: 'beam', body: '#173d33', belly: '#2a6e5c', earIn: '#7dffce', hat: '#0f2a3d', band: '#a8ecff', cape: '#123a5c' },
+  /* ── 第9弾: 新キャラ2体（SR×1／SSR×1）。入手はガチャのみ ── */
+  hanami: { name: 'ハナミ', desc: '【SR・ガチャ限定】花見猫：攻撃+10%・速度+6%・クリ率+5%。「ブーメランリーフ」で開幕', cost: 0, rarity: 'SR', gacha: true, hp: 0, atk: 1.1, spd: 1.06, mag: 1, xp: 1, proj: 0, crit: .05, start: 'leaf', body: '#f2a7c3', belly: '#ffd9ec', earIn: '#ff8fb8', hat: '#c2517a', band: '#ffe9f2', cape: '#8f2e5c' },
+  yozora: { name: 'ヨゾラ', desc: '【SSR・ガチャ限定】夜空猫：全武器CD-10%・経験値+25%・攻撃+15%・磁石+20%。「スターダストノヴァ」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 10, atk: 1.15, spd: 1.02, mag: 1.2, xp: 1.25, proj: 0, crit: .04, cdr: .90, start: 'nova', body: '#1c1440', belly: '#2e2366', earIn: '#ffd94d', hat: '#0f0a2e', band: '#c9a6ff', cape: '#241a4f' },
   /* ── 第7弾: 家族モデルUR 3体（専用人型/モフモフ描画＋キャラ完全専用武器） ── */
   rua:    { name: 'るあ', desc: '【UR・ガチャ限定】黒髪ボブの美少女：攻撃+30%・全武器CD-13%・クリ率+10%・クリダメ+40%・速度+5%。専用武器「黒薔薇の棘雨」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.3, spd: 1.05, mag: 1, xp: 1, proj: 0, crit: .10, critd: .4, cdr: .87, start: 'thornrain', human: 'rua', body: '#1a1a22', belly: '#26262f', earIn: '#e58bb1', hat: '#17171f', band: '#e58bb1', cape: '#23232e' },
   taichi: { name: 'たいち', desc: '【UR・ガチャ限定】黒髪パーマの美男子：攻撃+25%・最大HP+40・速度+8%・ノックバック×1.4・自然回復。専用武器「黒雷の太刀」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 40, atk: 1.25, spd: 1.08, mag: 1, xp: 1, proj: 0, crit: 0, knock: 1.4, regen: .5, start: 'darkslash', human: 'taichi', body: '#1a1a22', belly: '#26262f', earIn: '#9db8d8', hat: '#101016', band: '#8a94a6', cape: '#14141c' },
@@ -989,7 +993,8 @@ const ACHIEVEMENTS = {
   clearvolcano:{ name: '灼熱の征服者', desc: '火山の遺跡をクリア', reward: 500, target: 1, get: () => meta.stageClears.includes('volcano') ? 1 : 0 },
   clearsnow:  { name: '吹雪の勇者', desc: 'ゆきの雪原をクリア', reward: 600, target: 1, get: () => meta.stageClears.includes('snow') ? 1 : 0 },
   clearvoid:  { name: '虚空の覇者', desc: 'ほしくずの虚空をクリア', reward: 800, target: 1, get: () => meta.stageClears.includes('void') ? 1 : 0 },
-  clearall:   { name: '全ステージ制覇', desc: '全6ステージをクリア', reward: 1500, target: 6, get: () => meta.stageClears.length },
+  clearsakura:{ name: '桜の覇者', desc: '桜の宵宮をクリア', reward: 1000, target: 1, get: () => meta.stageClears.includes('sakura') ? 1 : 0 },
+  clearall:   { name: '全ステージ制覇', desc: '全7ステージをクリア', reward: 1500, target: 7, get: () => meta.stageClears.length },
   evofirst:   { name: '進化の目覚め', desc: '武器を初めて進化させる', reward: 300, target: 1, get: () => meta.stats.evos },
   evo10:      { name: '進化マスター', desc: '武器を10回進化させる', reward: 1000, target: 10, get: () => meta.stats.evos },
   level20:    { name: 'レベル20到達', desc: '1ランでレベル20に到達', reward: 300, target: 20, get: () => meta.stats.bestLevel },
@@ -997,7 +1002,7 @@ const ACHIEVEMENTS = {
   endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 500, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
   endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 1200, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
   coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 400, target: 1, get: () => meta.stats.coopClears },
-  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 1000, target: 33, get: () => meta.unlocked.length },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 1000, target: 35, get: () => meta.unlocked.length },
   shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 500, target: 1000, get: () => meta.stats.shardsEarned },
   shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 2000, target: 10000, get: () => meta.stats.shardsEarned },
   gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 600, target: 10000, get: () => meta.stats.gems },
@@ -1142,7 +1147,7 @@ function selectTitle(id){
 }
 
 /* ── ステージ定義（出現テーブルは [敵, 重み] の時間帯別3フェーズ） ── */
-const STAGE_ORDER = ['grass', 'beach', 'bamboo', 'volcano', 'snow', 'void'];
+const STAGE_ORDER = ['grass', 'beach', 'bamboo', 'volcano', 'snow', 'void', 'sakura'];
 const STAGES = {
   grass:   { name: '星空の草原', icon: '🌌', desc: '月夜の草原。はじまりの場所', mul: 1, shard: 1,
              bossName: 'よるのぬし', miniName: 'かげのきりさき', bossArt: 'owl',
@@ -1174,12 +1179,19 @@ const STAGES = {
              pool: [ [['penguin', 1]],
                      [['penguin', .5], ['icefox', .3], ['snowman', .2]],
                      [['penguin', .26], ['icefox', .24], ['snowman', .24], ['bat', .12], ['ghost', .14], ['armor', .12]] ] },
-  void:    { name: 'ほしくずの虚空', icon: '🌠', desc: '星屑の虚空。最難の終着点', mul: 3.2, shard: 3,
+  void:    { name: 'ほしくずの虚空', icon: '🌠', desc: '星屑の虚空。星の果ての試練', mul: 3.2, shard: 3,
              bossName: 'こくうのおおぬし', miniName: 'ほしくずの守護者', bossArt: 'void',
              pal: { top: '#05030f', mid: '#0d0621', bot: '#1a0b38', deco: 'void', decoCol: 'rgba(160,120,255,.5)', flower1: '#ffd94d', flower2: '#c9a6ff', patch: 'rgba(120,80,255,.08)', sky: 'planet', skyCol: '#c9a6ff' },
              pool: [ [['starbit', 1]],
                      [['starbit', .45], ['wraith', .3], ['meteor', .25], ['ameba', .15]],
-                     [['starbit', .3], ['wraith', .26], ['meteor', .24], ['crow', .1], ['imp', .1], ['ameba', .14]] ] }
+                     [['starbit', .3], ['wraith', .26], ['meteor', .24], ['crow', .1], ['imp', .1], ['ameba', .14]] ] },
+  /* ── 第9弾: 新ステージ「桜の宵宮」（虚空クリアで解放。最難・かけら×3.6） ── */
+  sakura:  { name: '桜の宵宮', icon: '🌸', desc: '桜舞う宵の宮。花びらと影の祝祭', mul: 3.8, shard: 3.6,
+             bossName: 'さくらのおおぬし', miniName: 'はなのまもりびと', bossArt: 'lantern',
+             pal: { top: '#2a0f2e', mid: '#4a1a3a', bot: '#1c1024', deco: 'grass', decoCol: 'rgba(255,170,210,.5)', flower1: '#ffd9ec', flower2: '#ffb3d9', patch: 'rgba(255,180,220,.08)', sky: 'moon', skyCol: '#ffe3f2' },
+             pool: [ [['shroom', 1]],
+                     [['shroom', .4], ['ghost', .3], ['lantern', .3]],
+                     [['shroom', .24], ['ghost', .22], ['lantern', .2], ['crow', .14], ['bat', .1], ['ameba', .1]] ] }
 };
 function stageDef(){ return STAGES[S.stage] || STAGES.grass; }
 function stageUnlocked(id){
@@ -4827,7 +4839,7 @@ function renderRebirth(){
   let cond;
   if (lv >= INHERIT_MAX) cond = '継承Lvは上限（20）に達しています。';
   else if (rebirthEligible()) cond = '✅ 転生の条件を満たしています。';
-  else cond = '🔒 条件： いずれかのステージを「ヘル」でクリア、または全6ステージを「ノーマル」でクリア。';
+  else cond = '🔒 条件： いずれかのステージを「ヘル」でクリア、または全7ステージを「ノーマル」でクリア。';
   $('rebirthDetail').innerHTML =
     `${cond}<br>` +
     `<span class="lose">【失うもの】パワーアップの強化段階 すべて（現在 ${upStages} 段階・星の加護ふくむ）／ 所持ほしのかけら ⭐${meta.shards} → 0</span><br>` +
