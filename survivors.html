@@ -153,6 +153,8 @@
   .gachaCard.rarSSR{border-color:#ffd94d;background:linear-gradient(170deg,rgba(196,142,20,.45),rgba(96,64,8,.6));box-shadow:0 0 24px rgba(255,217,77,.7);animation:evoGlow 1.1s ease-in-out infinite alternate}
   .gachaCard.rarSSR .gRar{color:#ffd94d}
   .gachaCard.rarUR{border-color:#ff7ad9;background:linear-gradient(170deg,rgba(255,122,217,.4),rgba(122,92,255,.5),rgba(20,8,48,.65));box-shadow:0 0 30px rgba(255,122,217,.85),0 0 14px rgba(125,249,255,.6);animation:evoGlow .8s ease-in-out infinite alternate}
+  .gachaCard.awaken{border-color:#ffd94d !important;background:linear-gradient(170deg,rgba(255,217,77,.45),rgba(160,110,20,.4),rgba(30,22,4,.7)) !important;box-shadow:0 0 34px rgba(255,217,77,.95),0 0 16px rgba(255,243,201,.8);animation:evoGlow .7s ease-in-out infinite alternate}
+  .gachaCard.awaken .gRes{color:#ffd94d;font-size:11.5px}
   .gachaCard.rarUR .gRar{color:#ff9de2;text-shadow:0 0 8px rgba(255,122,217,.9)}
   /* ── 難易度（第4弾） ── */
   .stageCard.diffCard.sel{border-color:#ff9d5c;box-shadow:0 0 14px rgba(255,140,60,.45)}
@@ -266,6 +268,8 @@
   .homeSubRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .homeSubRow .subBtn{margin-top:0;flex:1 1 42%;padding:11px 8px}
   .dailyChip{display:flex;align-items:center;gap:8px;width:100%;background:#171e33;border:1px solid #2c3857;border-radius:12px;padding:9px 12px;margin:6px 0;font-size:12.5px;color:#dfe6f5;font-family:inherit;cursor:pointer;text-align:left}
+  .dailyChip.lucky{border-color:#3f9e57;background:#14251a}
+  .dailyChip.lucky .dcProg{color:#8aff9e;font-weight:900}
   .dailyChip:active{transform:scale(.98)}
   .dailyChip .dcName{font-weight:800;line-height:1.45}
   .dailyChip .dcTier{font-size:10px;font-weight:900;color:#0c101f;background:#8b96b5;border-radius:999px;padding:1px 7px;white-space:nowrap}
@@ -400,6 +404,7 @@
       ・10連は <b>SR以上1体確定</b><br>
       ・天井： SSRは90連外すと次の1回で <b>SSR確定</b>（天井まで最大91連）／ URは300連外すと次の1回で <b>UR確定</b>（最大301連）<br>
       ・所持済みが被ると <b>限界突破</b>（最大5凸： 1凸ごとに与ダメージ+4%・最大HP+3%）<br>
+      ・URが5凸に到達すると <b>🌟フル覚醒</b>： イラストが豪華な覚醒バージョンに変化！<br>
       ・5凸済みが被ると かけら返還（R ⭐200／SR ⭐600／SSR ⭐2,000／UR ⭐5,000）
     </div>
     <div class="gachaBtns">
@@ -465,6 +470,8 @@
       🌅 10分生き残ればクリア。次のステージが解放される<br>
       🗺️ ステージは全7種。進むほど敵も報酬もインフレする！<br>
       🎰 キャラはガチャで入手。被ると限界突破で強くなる<br>
+      🌟 URキャラを5凸すると「覚醒イラスト」に変化！ 金のオーラと専用装飾が解放される<br>
+      🍀 毎日の「ラッキーキャラ」で遊ぶと、そのランのかけら+15%<br>
       🏆 デイリーミッションと実績で「ほしのかけら」を稼ごう
     </div>
     <button class="subBtn" id="howtoCloseBtn">とじる</button>
@@ -782,7 +789,24 @@ const WEAPONS = {
   beam:    { name: 'プリズムビーム', icon: '🔆', desc: '最寄りの敵へ虹色のレーザーを放ち、直線上の敵をまとめて貫く', lv: [
     { dmg: 30, cd: 2.2, count: 1, range: 520 }, { dmg: 38, cd: 2.1, count: 1, range: 540 },
     { dmg: 48, cd: 2.0, count: 2, range: 560 }, { dmg: 60, cd: 1.9, count: 2, range: 580 },
-    { dmg: 76, cd: 1.75, count: 3, range: 620 } ] }
+    { dmg: 76, cd: 1.75, count: 3, range: 620 } ] },
+  /* ── 第10弾: 新武器4種 ── */
+  mshower: { name: 'メテオシャワー', icon: '☄️', desc: '敵の群れの頭上に隕石を降らせ、着弾地点に燃える大地を残す', lv: [
+    { dmg: 30, cd: 3.4, count: 2, aoe: 70, burn: 6, burnDur: 2.5 }, { dmg: 38, cd: 3.25, count: 2, aoe: 76, burn: 8, burnDur: 2.7 },
+    { dmg: 48, cd: 3.1, count: 3, aoe: 82, burn: 10, burnDur: 2.9 }, { dmg: 60, cd: 2.95, count: 3, aoe: 90, burn: 13, burnDur: 3.1 },
+    { dmg: 76, cd: 2.8, count: 4, aoe: 98, burn: 17, burnDur: 3.4 } ] },
+  frost:   { name: 'フロストノヴァ', icon: '🧊', desc: '自分の周囲に冷気の衝撃波。範囲内の敵にダメージ＋凍結（完全停止）', lv: [
+    { dmg: 16, cd: 3.6, range: 130, freeze: .7 }, { dmg: 21, cd: 3.45, range: 140, freeze: .8 },
+    { dmg: 27, cd: 3.3, range: 150, freeze: .9 }, { dmg: 34, cd: 3.15, range: 162, freeze: 1.0 },
+    { dmg: 44, cd: 3.0, range: 175, freeze: 1.2 } ] },
+  bfly:    { name: 'ホーミングバタフライ', icon: '🦋', desc: '魔法の蝶が近くの敵を追いかけて体当たりし続ける', lv: [
+    { dmg: 12, cd: 3.2, count: 2, dur: 4.5 }, { dmg: 15, cd: 3.05, count: 3, dur: 4.8 },
+    { dmg: 19, cd: 2.9, count: 3, dur: 5.2 }, { dmg: 24, cd: 2.75, count: 4, dur: 5.6 },
+    { dmg: 31, cd: 2.6, count: 5, dur: 6 } ] },
+  morb:    { name: 'まほうのオーブ', icon: '🔮', desc: '自分の周りをゆっくり回る魔法の球体。触れた敵をはじき飛ばす', lv: [
+    { dmg: 14, count: 2, radius: 66, rot: 2.2 }, { dmg: 18, count: 2, radius: 72, rot: 2.35 },
+    { dmg: 23, count: 3, radius: 78, rot: 2.5 }, { dmg: 29, count: 3, radius: 85, rot: 2.65 },
+    { dmg: 37, count: 4, radius: 92, rot: 2.8 } ] }
 };
 /* ── 進化武器（Lv10＋対応パッシブで進化。lv 配列は全段同一の完成形ステータス） ── */
 function evoLv(st){ return [st, st, st, st, st]; }
@@ -842,6 +866,11 @@ WEAPONS.pawstamp =  { name: 'にくきゅうスタンプ', icon: '🐾', desc: '
 WEAPONS.noir =      { name: 'エターナルノワール', icon: '🥀', desc: '【るあ専用・進化】永遠の黒薔薇園が広大に残り続け、棘が敵を刻み鈍らせ続ける', evo: true, onlyChar: 'rua', lv: evoLv({ dmg: 120, cd: 2.6, range: 300, dur: 4.5, slow: .6, slowDur: .8 }) };
 WEAPONS.tenha =     { name: '天覇黒雷剣', icon: '⚔️', desc: '【たいち専用・進化】全方位の回転斬りが周囲を断ち、黒雷が8連鎖する', evo: true, onlyChar: 'taichi', lv: evoLv({ dmg: 210, cd: 2.4, range: 300, chains: 8 }) };
 WEAPONS.mofu =      { name: 'モフモフキングダム', icon: '👑', desc: '【すい専用・進化】肉球スタンプが連続で落ち、命中数に応じて少し回復する', evo: true, onlyChar: 'sui', lv: evoLv({ dmg: 260, cd: 2.2, aoe: 170, count: 3 }) };
+/* ── 第10弾: 新武器4種の進化形 ── */
+WEAPONS.gmeteor =   { name: 'グランメテオフォール', icon: '🌋', desc: '巨大隕石の豪雨が戦場を焼き払い、長い炎を残す', evo: true, lv: evoLv({ dmg: 150, cd: 2.2, count: 7, aoe: 130, burn: 30, burnDur: 4 }) };
+WEAPONS.abzero =    { name: 'アブソリュートゼロ', icon: '❄️', desc: '絶対零度の衝撃波。広範囲の敵を長時間凍結させる', evo: true, lv: evoLv({ dmg: 85, cd: 2.4, range: 235, freeze: 2.2 }) };
+WEAPONS.bflystorm = { name: 'バタフライストーム', icon: '🌸', desc: '蝶の大群が敵を追い回し、消える時に爆発する', evo: true, lv: evoLv({ dmg: 48, cd: 2.0, count: 8, dur: 7, aoe: 78 }) };
+WEAPONS.planetorb = { name: 'プラネットオーブ', icon: '🪐', desc: '惑星級のオーブ6個が周回し、触れた敵を大きくはじき飛ばす', evo: true, lv: evoLv({ dmg: 55, count: 6, radius: 118, rot: 3.2 }) };
 /* ── 進化ペア: 基礎武器 →（必要パッシブ）→ 進化形。全ての基礎武器に進化あり ── */
 const EVOLUTIONS = {
   star:    { req: 'multi', to: 'galaxy' },
@@ -871,7 +900,11 @@ const EVOLUTIONS = {
   urbarrage:{ req: 'multi', to: 'urstorm' },
   thornrain:{ req: 'critd', to: 'noir' },
   darkslash:{ req: 'haste', to: 'tenha' },
-  pawstamp: { req: 'regen', to: 'mofu' }
+  pawstamp: { req: 'regen', to: 'mofu' },
+  mshower: { req: 'power', to: 'gmeteor' },
+  frost:   { req: 'guard', to: 'abzero' },
+  bfly:    { req: 'multi', to: 'bflystorm' },
+  morb:    { req: 'knock', to: 'planetorb' }
 };
 /* ── 武器レベル上限10（第3弾）: Lv6〜10 は Lv5 を基準に自動でデータを足す ──
    成長ルール: 威力 +10%/段（複利）／再使用 -3%/段／範囲・半径 +3%/段／
@@ -899,8 +932,11 @@ const MAX_WLV = 10;
       if (s.max !== undefined) s.max = base.max + (k >= 2 ? 1 : 0) + (k >= 4 ? 1 : 0);
       if (s.rate !== undefined) s.rate = Math.max(.15, +(base.rate * Math.pow(.97, k)).toFixed(3));
       if (s.r !== undefined) s.r = Math.round(base.r * (1 + .03 * k));
+      if (s.burn !== undefined) s.burn = Math.round(base.burn * Math.pow(1.10, k));
+      if (s.burnDur !== undefined) s.burnDur = +(base.burnDur * (1 + .05 * k)).toFixed(2);
+      if (s.freeze !== undefined) s.freeze = Math.min(2, +(base.freeze + .05 * k).toFixed(2));
       if (s.count !== undefined) {
-        if (id === 'orbit' || id === 'saw') s.count = base.count + (k >= 5 ? 1 : 0);
+        if (id === 'orbit' || id === 'saw' || id === 'morb') s.count = base.count + (k >= 5 ? 1 : 0);
         else s.count = base.count + (k >= 3 ? 1 : 0) + (k >= 5 ? 1 : 0);
       }
       w.lv.push(s);
@@ -967,7 +1003,11 @@ const CHARS = {
   /* ── 第7弾: 家族モデルUR 3体（専用人型/モフモフ描画＋キャラ完全専用武器） ── */
   rua:    { name: 'るあ', desc: '【UR・ガチャ限定】黒髪ボブの美少女：攻撃+30%・全武器CD-13%・クリ率+10%・クリダメ+40%・速度+5%。専用武器「黒薔薇の棘雨」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.3, spd: 1.05, mag: 1, xp: 1, proj: 0, crit: .10, critd: .4, cdr: .87, start: 'thornrain', human: 'rua', body: '#1a1a22', belly: '#26262f', earIn: '#e58bb1', hat: '#17171f', band: '#e58bb1', cape: '#23232e' },
   taichi: { name: 'たいち', desc: '【UR・ガチャ限定】黒髪パーマの美男子：攻撃+25%・最大HP+40・速度+8%・ノックバック×1.4・自然回復。専用武器「黒雷の太刀」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 40, atk: 1.25, spd: 1.08, mag: 1, xp: 1, proj: 0, crit: 0, knock: 1.4, regen: .5, start: 'darkslash', human: 'taichi', body: '#1a1a22', belly: '#26262f', earIn: '#9db8d8', hat: '#101016', band: '#8a94a6', cape: '#14141c' },
-  sui:    { name: 'すい', desc: '【UR・ガチャ限定】ラグドールの翠（白毛・青い目・モフモフ）：ジェム価値×1.8・経験値+40%・磁石×1.5・自然回復◎・速度+5%。専用武器「にくきゅうスタンプ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1, spd: 1.05, mag: 1.5, xp: 1.4, proj: 0, crit: 0, gemv: 1.8, regen: 1.2, start: 'pawstamp', fluffy: true, eye: '#3f9be0', point: '#b9c4d4', body: '#f7f4ee', belly: '#ffffff', earIn: '#ffc4d6', hat: '#8fa8c8', band: '#bcd8f5', cape: '#7d94b5' }
+  sui:    { name: 'すい', desc: '【UR・ガチャ限定】ラグドールの翠（白毛・青い目・モフモフ）：ジェム価値×1.8・経験値+40%・磁石×1.5・自然回復◎・速度+5%。専用武器「にくきゅうスタンプ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1, spd: 1.05, mag: 1.5, xp: 1.4, proj: 0, crit: 0, gemv: 1.8, regen: 1.2, start: 'pawstamp', fluffy: true, eye: '#3f9be0', point: '#b9c4d4', body: '#f7f4ee', belly: '#ffffff', earIn: '#ffc4d6', hat: '#8fa8c8', band: '#bcd8f5', cape: '#7d94b5' },
+  /* ── 第10弾: 新キャラ3体（R×1／SR×1／SSR×1）。入手はガチャのみ ── */
+  azuki:  { name: 'あずき', desc: '【R】小豆色の猫：磁石+30%・のんびり屋。「まほうのオーブ」で開幕', cost: 0, rarity: 'R', hp: 5, atk: 1, spd: .98, mag: 1.3, xp: 1, proj: 0, crit: 0, start: 'morb', body: '#8a4a3a', belly: '#c98a72', earIn: '#ffb37c', hat: '#6e2f2a', band: '#ffd9a8', cape: '#4a2e4e' },
+  kohaku: { name: 'こはく', desc: '【SR】琥珀色の猫：経験値+15%・速度+5%。「ホーミングバタフライ」で開幕', cost: 0, rarity: 'SR', hp: 0, atk: 1.02, spd: 1.05, mag: 1, xp: 1.15, proj: 0, crit: .02, start: 'bfly', body: '#d9903f', belly: '#f7cf9a', earIn: '#ffe1a8', hat: '#a85f1e', band: '#fff3c9', cape: '#7a4a12' },
+  rutile: { name: 'ルチル', desc: '【SSR・ガチャ限定】宝石の猫：攻撃+18%・クリ率+6%。「メテオシャワー」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 0, atk: 1.18, spd: 1, mag: 1.05, xp: 1, proj: 0, crit: .06, start: 'mshower', body: '#e8cf7a', belly: '#fdf3cf', earIn: '#ff9d7a', hat: '#8a6d1e', band: '#fff7cc', cape: '#5d4a8a' }
 };
 /* ── 恒久アップグレード（ショップ） ── */
 const UPGRADES = {
@@ -1002,12 +1042,16 @@ const ACHIEVEMENTS = {
   endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 500, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
   endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 1200, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
   coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 400, target: 1, get: () => meta.stats.coopClears },
-  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 1000, target: 35, get: () => meta.unlocked.length },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 1000, target: 38, get: () => meta.unlocked.length },
   shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 500, target: 1000, get: () => meta.stats.shardsEarned },
   shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 2000, target: 10000, get: () => meta.stats.shardsEarned },
   gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 600, target: 10000, get: () => meta.stats.gems },
   boss50:     { name: 'ボスハンター', desc: 'ボス・中ボス累計50体撃破', reward: 800, target: 50, get: () => meta.stats.bossKills },
-  runs50:     { name: 'ベテランまじょねこ', desc: '50回プレイ', reward: 600, target: 50, get: () => meta.stats.runs }
+  runs50:     { name: 'ベテランまじょねこ', desc: '50回プレイ', reward: 600, target: 50, get: () => meta.stats.runs },
+  /* ── 第10弾: 実績3件追加 ── */
+  evo25:      { name: '進化の錬金術師', desc: '武器を累計25回進化させる', reward: 1500, target: 25, get: () => meta.stats.evos },
+  gems50k:    { name: 'ジェムマスター', desc: 'ジェム累計50,000個収集', reward: 1200, target: 50000, get: () => meta.stats.gems },
+  playtime2h: { name: '歴戦のまじょねこ', desc: '累計プレイ時間2時間', reward: 1000, target: 7200, fmt: 'time', get: () => meta.stats.playTime }
 };
 /* ── 称号（実績の達成件数で解放。ゲームプレイ効果なし） ── */
 const TITLES = {
@@ -1028,14 +1072,17 @@ const MISSIONS = {
   kills300:  { name: '敵を300体倒す', stat: 'kills', target: 300, tier: 1, reward: 200 },
   gems400:   { name: 'ジェムを400個集める', stat: 'gems', target: 400, tier: 1, reward: 200 },
   survive300:{ name: '1ランで5分生き残る', stat: 'time', target: 300, tier: 1, reward: 200 },
+  level12:   { name: 'レベル12に到達する', stat: 'level', target: 12, tier: 1, reward: 200 },
   kills800:  { name: '敵を800体倒す', stat: 'kills', target: 800, tier: 2, reward: 350 },
   level15:   { name: 'レベル15に到達する', stat: 'level', target: 15, tier: 2, reward: 350 },
   boss2:     { name: 'ボス・中ボスを2体倒す', stat: 'boss', target: 2, tier: 2, reward: 350 },
   chest2:    { name: '宝箱を2個開ける', stat: 'chest', target: 2, tier: 2, reward: 350 },
+  kills1200: { name: '敵を1,200体倒す', stat: 'kills', target: 1200, tier: 2, reward: 350 },
   gems1200:  { name: 'ジェムを1200個集める', stat: 'gems', target: 1200, tier: 3, reward: 600 },
   survive480:{ name: '1ランで8分生き残る', stat: 'time', target: 480, tier: 3, reward: 600 },
   level22:   { name: 'レベル22に到達する', stat: 'level', target: 22, tier: 3, reward: 600 },
-  evo1:      { name: '武器を1回進化させる', stat: 'evo', target: 1, tier: 3, reward: 600 }
+  evo1:      { name: '武器を1回進化させる', stat: 'evo', target: 1, tier: 3, reward: 600 },
+  boss4:     { name: 'ボス・中ボスを4体倒す', stat: 'boss', target: 4, tier: 3, reward: 600 }
 };
 function dailyKeyStr(d){
   d = d || new Date();
@@ -1380,7 +1427,7 @@ const S = {
   eidSeq: 0, pidSeq: 0, snapT: 0, chestPicker: null,
   stage: 'grass', nextMiniAt: 95, miniIdx: 0, nextSurgeAt: 100,
   /* 第4弾: 難易度とランダムイベント */
-  difficulty: 'normal', nextEventAt: 120, fountains: [],
+  difficulty: 'normal', nextEventAt: 120, fountains: [], gemRushT: 0,
   merchant: null, merchantUntil: 0, merchantGuestBought: false
 };
 /* プレイヤー生成。mf = 自分のメタ補正（upgrades）。ゲスト機体はキャラ補正のみ（mf=null） */
@@ -1388,7 +1435,7 @@ function makePlayer(){
   return {
     x: 0, y: 0, r: 15, hp: 100, level: 1, xp: 0, xpNext: 3,
     face: 1, dirX: 1, dirY: 0, moving: false, bob: 0, blink: 0, hurtT: 0,
-    weapons: [{ id: 'star', lv: 1 }], passives: {}, cds: {}, orbitAng: 0, sawAng: 0,
+    weapons: [{ id: 'star', lv: 1 }], passives: {}, cds: {}, orbitAng: 0, sawAng: 0, morbAng: 0,
     char: 'nowa', alive: true, reviveT: 0, bellUsed: 0, ai: false, gemCnt: 0,
     input: { x: 0, y: 0 }, tx: 0, ty: 0, snapMaxHp: 0,
     mAtk: 1, mSpd: 1, mMag: 1, mXp: 1, mHp: 0, mBell: 0, mCrit: 0, mInh: 1,
@@ -1415,7 +1462,7 @@ function resetPlayer(p, charId, mf){
   p.mInh = mf ? inheritDmgMul() : 1; // 星の継承ボーナスは自分のメタを持つ機体（ホスト/ソロ自機・ゲスト自機プロキシ）にのみ適用
   p.buffAtkT = 0; p.buffMagT = 0;
   p.x = 0; p.y = 0; p.face = 1; p.dirX = 1; p.dirY = 0; p.moving = false; p.hurtT = 0;
-  p.weapons = [{ id: (CHARS[p.char] && CHARS[p.char].start) || 'star', lv: 1 }]; p.passives = {}; p.cds = {}; p.orbitAng = 0; p.sawAng = 0;
+  p.weapons = [{ id: (CHARS[p.char] && CHARS[p.char].start) || 'star', lv: 1 }]; p.passives = {}; p.cds = {}; p.orbitAng = 0; p.sawAng = 0; p.morbAng = 0;
   p.alive = true; p.reviveT = 0; p.bellUsed = 0; p.ai = false; p.gemCnt = 0;
   p.input.x = 0; p.input.y = 0; p.snapMaxHp = 0; p._snapInit = false; p.tx = 0; p.ty = 0;
   p.hp = maxHp(p);
@@ -1434,6 +1481,15 @@ function isURChar(p){ return !!p && charRarity(p.char) === 'UR'; }
 /* 限界突破（ガチャの被りで最大5凸）: 1凸ごとに与ダメージ+4%・最大HP+3% */
 const LB_MAX = 5;
 function lbOf(charId){ const n = (meta.lb && meta.lb[charId]) | 0; return Math.max(0, Math.min(LB_MAX, n)); }
+/* ── 第10弾: UR 5凸「覚醒イラスト」判定（URキャラが限界突破MAXで豪華イラストに変わる） ── */
+function isAwakened(charId){ const ch = CHARS[charId]; return !!ch && ch.rarity === 'UR' && lbOf(charId) >= LB_MAX; }
+/* ── 第10弾: 日替わりラッキーキャラ（日付シードで決定的に所持キャラから1体。そのキャラのランは かけら+15%） ── */
+function luckyCharId(){
+  const ids = (meta.unlocked || []).filter(id => CHARS[id]);
+  if (!ids.length) return 'nowa';
+  return ids[hashStr('majoneko-lucky-' + dailyKeyStr()) % ids.length];
+}
+function isLuckyChar(charId){ return !!charId && charId === luckyCharId(); }
 function maxHp(p){ p = p || P; if (p.snapMaxHp) return p.snapMaxHp; const base = 100 + (CHARS[p.char] ? CHARS[p.char].hp : 0) + 20 * (p.passives.heart || 0) + p.mHp; const lb = lbOf(p.char); return lb ? Math.floor(base * (1 + .03 * lb)) : base; }
 function moveSpeed(p){ p = p || P; return 168 * (1 + .07 * (p.passives.boots || 0)) * (CHARS[p.char] ? CHARS[p.char].spd : 1) * p.mSpd; }
 function magnetR(p){ p = p || P; return (72 + 30 * (p.passives.magnet || 0)) * (CHARS[p.char] ? CHARS[p.char].mag : 1) * p.mMag * (p.buffMagT > 0 ? 1.6 : 1); }
@@ -1455,7 +1511,7 @@ function resetGame(){
   S.nextMiniAt = 95; S.miniIdx = 0; S.nextSurgeAt = 100;
   /* 第4弾: 難易度はホスト/ソロが選択に従い、ランダムイベントも初期化 */
   if (NET.role !== 'guest') S.difficulty = curDiff();
-  S.nextEventAt = rand(90, 150); S.fountains = [];
+  S.nextEventAt = rand(90, 150); S.fountains = []; S.gemRushT = 0;
   S.merchantGuestBought = false; S.merchantUntil = 0;
   closeMerchant();
   if (!coopMode || NET.role !== 'guest') S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass';
@@ -1515,7 +1571,8 @@ function spawnEnemy(type, x, y, scaleMul, elite){
     hp: base.hp * hs, maxHp: base.hp * hs,
     spd: base.spd * rand(.85, 1.15) * (1 + Math.min(.45, S.time / 1600)), dmg: base.dmg * dmgScale(),
     r: base.r, xp: base.xp, vx: 0, vy: 0, flash: 0, hitCd: 0, orbitCd: 0, sawCd: 0, famCd: 0, auraCd: 0, wob: rand(0, TAU),
-    fuse: -1, summonT: 5, dead: false, slowT: 0, slowMul: 1, elite: !!elite, shootT: rand(1, 2.4)
+    fuse: -1, summonT: 5, dead: false, slowT: 0, slowMul: 1, elite: !!elite, shootT: rand(1, 2.4),
+    morbCd: 0, bflyCd: 0, freezeT: 0
   };
   if (e.elite) { e.hp *= 10; e.maxHp = e.hp; e.r *= 1.55; e.xp *= 5; e.dmg *= 1.5; e.spd *= .95; }
   enemies.push(e); dexSee(type); return e;
@@ -1573,7 +1630,7 @@ function updateSpawning(dt){
 /* ═══════════════ ランダムイベント（第4弾） ═══════════════
    90〜150秒間隔でランダムに1つ発生。ホスト/ソロのシミュレーション側が決定し、
    協力時は {t:'event'} でゲストにも同じイベントを告知する（実体はスナップショットで同期）。 */
-const EVENT_KINDS = ['gemrain', 'starfall', 'merchant', 'surge', 'fountain'];
+const EVENT_KINDS = ['gemrain', 'starfall', 'merchant', 'surge', 'fountain', 'gemrush'];
 function trimGems(){ if (gems.length > 420) gems.splice(0, gems.length - 420); }
 function triggerEvent(kind){
   if (NET.role === 'guest') return null;
@@ -1617,6 +1674,11 @@ function triggerEvent(kind){
     S.fountains.push(f);
     showBanner('⛲ 回復の泉が湧いた！ 中にとどまると回復');
     payload.x = Math.round(f.x); payload.y = Math.round(f.y);
+  } else if (kind === 'gemrush') {
+    /* 第10弾: 星屑ラッシュ。30秒間、ジェムの価値（経験値・かけら換算）が2倍 */
+    S.gemRushT = 30;
+    showBanner('✨ 星屑ラッシュ！ 30秒間 ジェムの価値2倍！');
+    fx.push({ type: 'ring', x: foc.x, y: foc.y, r: 90, ttl: .5, max: .5, color: '#ffd94d' });
   } else if (kind === 'merchant') {
     S.merchantUntil = performance.now() + 15000;
     S.merchantGuestBought = false;
@@ -1635,6 +1697,7 @@ function guestOnEvent(msg){
     if (typeof msg.x === 'number') fx.push({ type: 'ring', x: msg.x, y: msg.y, r: 90, ttl: .5, max: .5, color: '#ffe94d' });
   }
   else if (msg.kind === 'surge') showBanner('🌪️ 大発生！ 倒せばジェムたっぷり！');
+  else if (msg.kind === 'gemrush') showBanner('✨ 星屑ラッシュ！ 30秒間 ジェムの価値2倍！');
   else if (msg.kind === 'fountain') showBanner('⛲ 回復の泉が湧いた！ 中にとどまると回復');
   else if (msg.kind === 'merchant') {
     S.merchantUntil = performance.now() + 15000;
@@ -1933,6 +1996,27 @@ function fireWeapon(p, w, dt){
         damageEnemy(e, st.dmg * dm, Math.cos(ka) * 60, Math.sin(ka) * 60, p);
         if (isSanct) { e.slowT = Math.max(e.slowT, .45); e.slowMul = Math.min(e.slowMul, .7); }
         if (Math.random() < .3) addParts(e.x, e.y, 2, isSanct ? '#ff9de2' : '#b7a6ff', 70, 3);
+      }
+    }
+    return;
+  }
+  if (w.id === 'morb' || w.id === 'planetorb') {
+    /* 第10弾: まほうのオーブ。自分の周りをゆっくり回る球体が接触ダメージ＋強ノックバック（進化形は惑星級） */
+    const isPlanet = w.id === 'planetorb';
+    const br = isPlanet ? 24 : 17, kb = isPlanet ? 400 : 260;
+    p.morbAng += st.rot * dt;
+    for (const e of enemies) {
+      if (e.dead || e.morbCd > 0) continue;
+      for (let i = 0; i < st.count; i++) {
+        const a = p.morbAng + (i / st.count) * TAU;
+        const bx = p.x + Math.cos(a) * st.radius, by = p.y + Math.sin(a) * st.radius;
+        if (dist2(bx, by, e.x, e.y) < (br + e.r) * (br + e.r)) {
+          e.morbCd = .42;
+          const ka = Math.atan2(e.y - p.y, e.x - p.x);
+          damageEnemy(e, st.dmg * dm, Math.cos(ka) * kb, Math.sin(ka) * kb, p);
+          addParts(bx, by, 3, isPlanet ? '#ffd94d' : '#c9a6ff', 120, 3);
+          break;
+        }
       }
     }
     return;
@@ -2289,6 +2373,48 @@ function fireWeapon(p, w, dt){
     }
     S.shake = Math.max(S.shake, 5);
     beep(220, 70, .2, 'sine', .3);
+  } else if (w.id === 'mshower' || w.id === 'gmeteor') {
+    /* 第10弾: メテオシャワー。敵の群れの頭上に隕石を落とし、着弾地点に燃焼ゾーンを残す（進化形は巨大・多数） */
+    const isGrand = w.id === 'gmeteor';
+    const first = densestCluster(p.x, p.y, st.aoe, 800);
+    if (!first) { p.cds[w.id] = .25; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    const usedPts = [];
+    for (let i = 0; i < st.count; i++) {
+      const tgt = i === 0 ? first : densestCluster(p.x, p.y, st.aoe, 800, usedPts);
+      if (!tgt) break;
+      usedPts.push({ x: tgt.x, y: tgt.y });
+      projs.push({ pid: ++S.pidSeq, own: p, type: 'mfall', x: tgt.x, y: tgt.y, vx: 0, vy: 0, dmg: st.dmg * dm, aoe: st.aoe, burn: st.burn * dm, burnDur: st.burnDur, ttl: 5, fallT: .55, fallMax: .55, big: isGrand ? 1 : 0 });
+    }
+    beep(180, 60, .25, 'sawtooth', .12);
+  } else if (w.id === 'frost' || w.id === 'abzero') {
+    /* 第10弾: フロストノヴァ。周囲へ冷気の衝撃波: ダメージ＋凍結（完全停止） */
+    const isAbs = w.id === 'abzero';
+    let any = false;
+    for (const e of enemies) { if (!e.dead && dist2(p.x, p.y, e.x, e.y) < (st.range + 60) * (st.range + 60)) { any = true; break; } }
+    if (!any) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    fx.push({ type: 'ring', x: p.x, y: p.y, r: st.range, ttl: .32, max: .32, color: '#9fe8ff' });
+    fx.push({ type: 'ring', x: p.x, y: p.y, r: st.range * .55, ttl: .24, max: .24, color: '#e8fbff' });
+    for (const e of enemies) {
+      if (e.dead) continue;
+      if (dist2(p.x, p.y, e.x, e.y) < (st.range + e.r) * (st.range + e.r)) {
+        const ka = Math.atan2(e.y - p.y, e.x - p.x);
+        damageEnemy(e, st.dmg * dm, Math.cos(ka) * 90, Math.sin(ka) * 90, p);
+        e.freezeT = Math.max(e.freezeT || 0, st.freeze);
+        if (Math.random() < .5) addParts(e.x, e.y, 3, '#bfeaff', 90, 3);
+      }
+    }
+    S.shake = Math.max(S.shake, isAbs ? 4 : 2);
+    beep(1400, 500, .18, 'sine', .16);
+  } else if (w.id === 'bfly' || w.id === 'bflystorm') {
+    /* 第10弾: ホーミングバタフライ。敵を追う蝶を放つ（進化形は消滅時に爆発） */
+    if (!nearestEnemy(p.x, p.y, 760)) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    for (let i = 0; i < st.count; i++) {
+      projs.push({ pid: ++S.pidSeq, own: p, type: 'bfly', x: p.x + rand(-22, 22), y: p.y - 24 + rand(-8, 8), vx: rand(-60, 60), vy: rand(-60, 60), dmg: st.dmg * dm, aoe: st.aoe || 0, ttl: st.dur, seed: rand(0, TAU), big: w.id === 'bflystorm' ? 1 : 0 });
+    }
+    beep(760, 1180, .08, 'sine', .1);
   }
 }
 function updateProjectiles(dt){
@@ -2303,6 +2429,14 @@ function updateProjectiles(dt){
         p.vx = Math.cos(na) * sp; p.vy = Math.sin(na) * sp;
       }
       if (Math.random() < .6) parts.push({ x: p.x, y: p.y, vx: rand(-16, 16), vy: rand(-16, 16), ttl: .3, max: .3, color: '#ffb37c', size: 3 });
+    }
+    if (p.type === 'mfall') {
+      /* 第10弾: 隕石。fallT の間は予告サークルのみ、0で着弾して爆発＋燃焼ゾーンを残す */
+      p.fallT -= dt;
+      if (p.fallT > 0) continue;
+      p.dead = true;
+      explodeMeteor(p);
+      continue;
     }
     if (p.type === 'mine') {
       if (p.ttl <= 0) { explodeMine(p); p.dead = true; continue; }
@@ -2347,6 +2481,29 @@ function updateProjectiles(dt){
           e.famCd = .45;
           damageEnemy(e, p.dmg, p.vx * .3, p.vy * .3, p.own);
           addParts(e.x, e.y, 2, '#ffe9a8', 80, 2.5);
+        }
+      }
+      continue;
+    }
+    if (p.type === 'bfly') {
+      /* 第10弾: 蝶は敵を追尾して体当たり（敵ごとに0.4秒のヒット間隔）。進化形は寿命で爆発 */
+      if (p.ttl <= 0) { p.dead = true; if (p.big) explodeBfly(p); continue; }
+      const o = p.own;
+      const tgt = nearestEnemy(p.x, p.y, 560);
+      let tx, ty;
+      if (tgt) { tx = tgt.x; ty = tgt.y; }
+      else if (o) { const wt = performance.now() / 650 + p.seed; tx = o.x + Math.cos(wt) * 52; ty = o.y - 26 + Math.sin(wt * 1.3) * 14; }
+      else { tx = p.x; ty = p.y; }
+      const dx = tx - p.x, dy = ty - p.y, dd = Math.hypot(dx, dy) || 1, sp = 470;
+      p.vx += (dx / dd * sp - p.vx) * Math.min(1, dt * 6);
+      p.vy += (dy / dd * sp - p.vy) * Math.min(1, dt * 6);
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      for (const e of enemies) {
+        if (e.dead || e.bflyCd > 0) continue;
+        if (dist2(p.x, p.y, e.x, e.y) < (14 + e.r) * (14 + e.r)) {
+          e.bflyCd = .4;
+          damageEnemy(e, p.dmg, p.vx * .25, p.vy * .25, p.own);
+          addParts(e.x, e.y, 2, '#ffc4ec', 80, 2.5);
         }
       }
       continue;
@@ -2473,6 +2630,23 @@ function updateProjectiles(dt){
   }
   projs = projs.filter(p => !p.dead);
 }
+/* 第10弾: 隕石の着弾（範囲ダメージ＋燃焼ゾーンを残す） */
+function explodeMeteor(p){
+  addParts(p.x, p.y, 14, '#ffb37c', 210, 4);
+  addParts(p.x, p.y, 8, '#ff7a2e', 150, 3.5);
+  fx.push({ type: 'ring', x: p.x, y: p.y, r: p.aoe, ttl: .22, max: .22, color: '#ff9d5c' });
+  for (const e of enemies) if (!e.dead && dist2(p.x, p.y, e.x, e.y) < (p.aoe + e.r) * (p.aoe + e.r)) damageEnemy(e, p.dmg, (e.x - p.x) * 1.6, (e.y - p.y) * 1.6, p.own);
+  if (p.burn > 0) projs.push({ pid: ++S.pidSeq, own: p.own, type: 'patch', x: p.x, y: p.y, vx: 0, vy: 0, dmg: p.burn, r: Math.round(p.aoe * .8), ttl: p.burnDur, tickT: 0, big: p.big ? 1 : 0 });
+  S.shake = Math.max(S.shake, p.big ? 5 : 3);
+  sfx.boom();
+}
+/* 第10弾: バタフライストームの消滅爆発 */
+function explodeBfly(p){
+  addParts(p.x, p.y, 10, '#ffc4ec', 170, 3.5);
+  fx.push({ type: 'ring', x: p.x, y: p.y, r: p.aoe, ttl: .2, max: .2, color: '#ff9de2' });
+  for (const e of enemies) if (!e.dead && dist2(p.x, p.y, e.x, e.y) < (p.aoe + e.r) * (p.aoe + e.r)) damageEnemy(e, p.dmg, (e.x - p.x) * 1.4, (e.y - p.y) * 1.4, p.own);
+  beep(520, 900, .08, 'sine', .1);
+}
 function explodeMine(p){
   addParts(p.x, p.y, 14, '#ffe94d', 210, 4);
   fx.push({ type: 'ring', x: p.x, y: p.y, r: p.aoe, ttl: .2, max: .2, color: '#ffe94d' });
@@ -2495,8 +2669,14 @@ function nearestAlivePlayer(x, y){
 function updateEnemies(dt){
   for (const e of enemies) {
     if (e.dead) continue;
-    e.flash = Math.max(0, e.flash - dt); e.hitCd -= dt; e.orbitCd -= dt; e.sawCd -= dt; e.famCd -= dt; e.auraCd -= dt;
+    e.flash = Math.max(0, e.flash - dt); e.hitCd -= dt; e.orbitCd -= dt; e.sawCd -= dt; e.famCd -= dt; e.auraCd -= dt; e.morbCd -= dt; e.bflyCd -= dt;
     if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slowMul = 1; }
+    if (e.freezeT > 0) { // 第10弾: 凍結中は完全停止（行動・攻撃なし。ノックバックの滑りだけ残る）
+      e.freezeT -= dt;
+      e.x += e.vx * dt; e.y += e.vy * dt;
+      e.vx *= Math.pow(.0015, dt); e.vy *= Math.pow(.0015, dt);
+      continue;
+    }
     const tp = nearestAlivePlayer(e.x, e.y);
     if (!tp) break;
     const dx = tp.x - e.x, dy = tp.y - e.y, d = Math.hypot(dx, dy) || 1;
@@ -2589,9 +2769,10 @@ function updateGems(dt){
       g.x += (bp.x - g.x) / d * sp * dt; g.y += (bp.y - g.y) / d * sp * dt;
       if (bd2 < (bp.r + 13) * (bp.r + 13)) {
         g.dead = true; sfx.pickup();
-        S.gemsCollected += g.val;
+        const rushMul = S.gemRushT > 0 ? 2 : 1; // 第10弾: 星屑ラッシュ中はジェムの価値2倍（経験値・かけら換算の両方）
+        S.gemsCollected += g.val * rushMul;
         meta.stats.gems++; metaDirty = true; addDailyProg('gems', 1);
-        gainXp(g.val * gemValMul(bp) * xpMul(bp));
+        gainXp(g.val * rushMul * gemValMul(bp) * xpMul(bp));
         addParts(g.x, g.y, 3, '#7df9ff', 90, 3);
         if ((bp.passives.vital || 0) > 0) { // せいめいの実: ジェム25個ごとに回復
           bp.gemCnt = (bp.gemCnt || 0) + 1;
@@ -2831,6 +3012,9 @@ function weaponDetailRows(p, w){
   if (w.id === 'uraura' || w.id === 'ursanct') rows.push(['ヒット間隔', '0.35 秒']);
   if (w.id === 'vortex' || w.id === 'horizon') rows.push(['ヒット間隔', '0.4 秒']);
   if (w.id === 'thornrain' || w.id === 'noir') rows.push(['ヒット間隔', '0.5 秒']);
+  if (w.id === 'morb' || w.id === 'planetorb') rows.push(['ヒット間隔', '0.42 秒']);
+  if (st.freeze !== undefined) rows.push(['凍結時間', st.freeze + ' 秒']);
+  if (st.burn !== undefined) rows.push(['燃焼ダメージ', '' + Math.round(st.burn * dmgMul(p)) + ' / 0.3秒（' + st.burnDur + ' 秒）']);
   if (st.count !== undefined) rows.push(['弾数・個数', '' + (st.count + (WD_PROJ_IDS[w.id] ? projBonus(p) : 0))]);
   if (w.id === 'ice' || w.id === 'blizzard') rows.push(['弾数', '' + ((w.id === 'blizzard' ? 2 : 1) + projBonus(p))]);
   if (st.chains !== undefined) rows.push(['連鎖数', '' + st.chains]);
@@ -2896,6 +3080,8 @@ function startGame(){
   $('partnerWrap').style.display = 'none';
   $('spectateMsg').style.display = 'none';
   renderWeaponsBar(); updateHud();
+  if (isLuckyChar(P.char)) showToast('🍀 今日のラッキーキャラ！ このランは かけら+15%');
+  if (isAwakened(P.char)) showToast('✨ 覚醒イラストで出発！');
 }
 function pauseGame(){
   if (S.state !== 'play' || coopMode) return;
@@ -2965,7 +3151,9 @@ function showBest(){
 function awardShards(clearedRun){
   let gain = Math.max(0, Math.floor(S.gemsCollected) - S.shardsPaid);
   if (clearedRun && !S.clearBonusPaid) { gain += 50; S.clearBonusPaid = true; }
-  gain = Math.floor(gain * stageDef().shard * diffDef().shard * inheritShardMul());
+  let shardMulAll = stageDef().shard * diffDef().shard * inheritShardMul();
+  if (isLuckyChar(P.char)) shardMulAll *= 1.15; // 第10弾: 今日のラッキーキャラで遊ぶと かけら+15%
+  gain = Math.floor(gain * shardMulAll);
   S.shardsPaid = Math.floor(S.gemsCollected);
   S.lastShardGain = gain;
   meta.shards += gain;
@@ -3151,6 +3339,7 @@ function update(dt){
     if (p.buffAtkT > 0) p.buffAtkT = Math.max(0, p.buffAtkT - dt);
     if (p.buffMagT > 0) p.buffMagT = Math.max(0, p.buffMagT - dt);
   }
+  if (S.gemRushT > 0) S.gemRushT = Math.max(0, S.gemRushT - dt); // 第10弾: 星屑ラッシュの残り時間
   fireWeapons(dt);
   updateProjectiles(dt);
   updateEnemies(dt);
@@ -3728,6 +3917,14 @@ function drawEnemy(e, now){
     ctx.save(); ctx.globalAlpha = .38;
     ctx.fillStyle = '#8fd8ff'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.08, 0, TAU); ctx.fill(); ctx.restore();
   }
+  if (e.freezeT > 0) { // 第10弾: 凍結表示（氷に閉じ込められた見た目）
+    ctx.save(); ctx.globalAlpha = .55;
+    ctx.fillStyle = '#bfeaff'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.12, 0, TAU); ctx.fill();
+    ctx.globalAlpha = .9; ctx.strokeStyle = '#e8fbff'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(e.x - e.r * .5, e.y - e.r * .7); ctx.lineTo(e.x - e.r * .1, e.y + e.r * .2); ctx.lineTo(e.x - e.r * .55, e.y + e.r * .6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e.x + e.r * .55, e.y - e.r * .6); ctx.lineTo(e.x + e.r * .15, e.y + e.r * .3); ctx.stroke();
+    ctx.restore();
+  }
   if ((e.type === 'ghost' || e.type === 'boss' || e.type === 'miniboss' || e.type === 'golem' || e.type === 'shell' || e.type === 'snowman' || e.type === 'meteor' || e.type === 'wraith' || e.type === 'armor' || e.type === 'ameba' || e.elite) && e.hp < e.maxHp) {
     const w = e.r * 2;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(e.x - e.r, e.y - e.r - 12, w, 5);
@@ -3852,11 +4049,113 @@ function drawHumanBody(p, ch, now){
     ctx.fillStyle = '#d7e3f2'; ctx.beginPath(); ctx.arc(11.9, -11.4, 1, 0, TAU); ctx.fill();
   }
 }
+/* 第10弾: 覚醒イラスト（UR 5凸）のゲーム内エフェクト。本体の後・ワールド座標でキャラ別の豪華装飾を描く */
+function drawAwakenPlayerExtras(p, now, bobY){
+  const cx = p.x, cy = p.y + bobY;
+  // 共通: 回る金のきらめき
+  for (let i = 0; i < 3; i++) {
+    const a = now / 650 + (i / 3) * TAU;
+    drawStar(cx + Math.cos(a) * 30, cy - 8 + Math.sin(a) * 22, 3.6, now / 300 + i, i % 2 ? '#ffd94d' : '#fff3c9');
+  }
+  if (p.char === 'celestia') {
+    // 光輪＋翼＋星の冠
+    ctx.save();
+    ctx.strokeStyle = '#ffd94d'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(cx, cy - 50, 15, 4.6, 0, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,217,77,.4)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(cx, cy - 50, 15, 4.6, 0, 0, TAU); ctx.stroke();
+    const flap = Math.sin(now / 260) * .18;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    for (const s of [-1, 1]) {
+      ctx.save(); ctx.translate(cx + s * 17, cy - 12); ctx.rotate(s * (.5 + flap));
+      ctx.beginPath(); ctx.ellipse(s * 8, 0, 10.5, 4.2, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(s * 6, 4.5, 7.5, 3.2, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    drawStar(cx, cy - 40, 5, now / 500, '#ffd94d');
+    ctx.restore();
+  } else if (p.char === 'nebula') {
+    // 周回する星と小惑星＋星雲のグロー
+    ctx.save();
+    const grad = ctx.createRadialGradient(cx, cy - 6, 6, cx, cy - 6, 42);
+    grad.addColorStop(0, 'rgba(138,108,255,0)');
+    grad.addColorStop(1, 'rgba(138,108,255,.28)');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx, cy - 6, 42, 0, TAU); ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      const a = now / 800 + (i / 3) * TAU;
+      const ox = cx + Math.cos(a) * 32, oy = cy - 8 + Math.sin(a) * 13;
+      if (i === 0) { ctx.fillStyle = '#7df9ff'; ctx.beginPath(); ctx.arc(ox, oy, 3.4, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(125,249,255,.7)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(ox, oy, 6.4, 2.2, -.4, 0, TAU); ctx.stroke(); }
+      else drawStar(ox, oy, 3.4, now / 260 + i * 2, i === 1 ? '#ff9de2' : '#ffe94d');
+    }
+    ctx.restore();
+  } else if (p.char === 'rua') {
+    // 舞う薔薇の花びら＋金の薔薇の髪飾り
+    ctx.save();
+    for (let i = 0; i < 4; i++) {
+      const ph = ((now / 26 + i * 37) % 52);
+      const px = cx + Math.sin(now / 700 + i * 1.9) * 24, py = cy - 34 + ph;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(now / 300 + i * 1.7); ctx.globalAlpha = .85 * (1 - ph / 60);
+      ctx.fillStyle = i % 2 ? '#e58bb1' : '#c22f4e';
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.6, 2.1, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    const gx = cx + 13.5 * p.face, gy = cy - 27;
+    ctx.fillStyle = '#8a6d1e'; ctx.beginPath(); ctx.arc(gx, gy, 4.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd94d'; ctx.beginPath(); ctx.arc(gx, gy, 3.4, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#c22f4e'; ctx.beginPath(); ctx.arc(gx, gy, 1.9, 0, TAU); ctx.fill();
+    ctx.restore();
+  } else if (p.char === 'taichi') {
+    // 黒雷のオーラ（両脇に瞬く黒い稲妻）
+    ctx.save(); ctx.lineJoin = 'round';
+    for (const s of [-1, 1]) {
+      const flick = Math.sin(now / 47 + s * 2.4) > -.2 ? 1 : .25;
+      const bx = cx + s * 21, by = cy - 26;
+      ctx.globalAlpha = flick;
+      ctx.strokeStyle = '#241a4f'; ctx.lineWidth = 3.6;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - s * 4, by + 11); ctx.lineTo(bx + s * 1.5, by + 13); ctx.lineTo(bx - s * 3.5, by + 25); ctx.stroke();
+      ctx.strokeStyle = '#8a7dff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - s * 4, by + 11); ctx.lineTo(bx + s * 1.5, by + 13); ctx.lineTo(bx - s * 3.5, by + 25); ctx.stroke();
+    }
+    ctx.restore();
+  } else if (p.char === 'sui') {
+    // モフモフ増量の綿雲＋宝石のきらめき＋大きなリボン
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * TAU + now / 2400;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 19, cy + 1 + Math.sin(a) * 15, 5.4, 0, TAU); ctx.fill();
+    }
+    // リボン（帽子の横）
+    const rx = cx + 14, ry = cy - 33;
+    ctx.fillStyle = '#ff8fab';
+    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 8, ry - 5); ctx.lineTo(rx - 7.4, ry + 4.4); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + 8, ry - 5); ctx.lineTo(rx + 7.4, ry + 4.4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffd94d'; ctx.beginPath(); ctx.arc(rx, ry, 2.7, 0, TAU); ctx.fill();
+    // 宝石のきらめき
+    drawStar(cx - 10, cy + 12, 3.2, now / 280, '#7df9ff');
+    drawStar(cx + 11, cy + 9, 2.6, now / 280 + 2, '#ff9de2');
+    ctx.restore();
+  }
+}
 function drawPlayer(p, now){
   const ch = CHARS[p.char] || CHARS.nowa;
   const bobY = p.moving ? Math.abs(Math.sin(p.bob)) * -2.4 : Math.sin(now / 600) * 1.1;
   ctx.save(); ctx.translate(p.x, p.y + bobY);
   ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 15 - bobY, 15, 5, 0, 0, TAU); ctx.fill();
+  if (isAwakened(p.char)) { // 第10弾: 覚醒の金のオーラリング（本体の後ろ）
+    ctx.save();
+    const pulse = 1 + Math.sin(now / 380) * .05;
+    const grad = ctx.createRadialGradient(0, -6, 8, 0, -6, 40 * pulse);
+    grad.addColorStop(0, 'rgba(255,217,77,0)');
+    grad.addColorStop(.75, 'rgba(255,217,77,.10)');
+    grad.addColorStop(1, 'rgba(255,217,77,.34)');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, -6, 40 * pulse, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#ffd94d'; ctx.lineWidth = 2.2;
+    ctx.setLineDash([7, 6]); ctx.lineDashOffset = -now / 40;
+    ctx.beginPath(); ctx.arc(0, -6, 31 * pulse, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
   ctx.scale(p.face, 1);
   if (ch.human) { drawHumanBody(p, ch, now); } else {
   const eyeCol = ch.eye || '#ffd94d';
@@ -3984,6 +4283,27 @@ function drawPlayer(p, now){
     }
     ctx.restore();
   }
+  // 第10弾: まほうのオーブ／プラネットオーブ（周回する魔法の球体）
+  const mw = p.weapons.find(w => w.id === 'morb' || w.id === 'planetorb');
+  if (mw && S.state !== 'title') {
+    const isPlanet = mw.id === 'planetorb';
+    const mst = WEAPONS[mw.id].lv[mw.lv - 1];
+    ctx.save(); ctx.strokeStyle = isPlanet ? 'rgba(255,217,77,.35)' : 'rgba(201,166,255,.3)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, mst.radius, 0, TAU); ctx.stroke(); ctx.restore();
+    for (let i = 0; i < mst.count; i++) {
+      const a = p.morbAng + (i / mst.count) * TAU;
+      const bx = p.x + Math.cos(a) * mst.radius, by = p.y + Math.sin(a) * mst.radius;
+      ctx.save(); ctx.translate(bx, by);
+      const or_ = isPlanet ? 13 : 9.5;
+      ctx.fillStyle = isPlanet ? 'rgba(255,217,77,.3)' : 'rgba(201,166,255,.3)'; ctx.beginPath(); ctx.arc(0, 0, or_ + 4.5, 0, TAU); ctx.fill();
+      const og = ctx.createRadialGradient(-2.5, -3, 1, 0, 0, or_);
+      og.addColorStop(0, '#ffffff'); og.addColorStop(.45, isPlanet ? '#ffd94d' : '#c9a6ff'); og.addColorStop(1, isPlanet ? '#c9862e' : '#5b3aa8');
+      ctx.fillStyle = og; ctx.beginPath(); ctx.arc(0, 0, or_, 0, TAU); ctx.fill();
+      if (isPlanet) { ctx.strokeStyle = 'rgba(255,243,201,.85)'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.ellipse(0, 0, or_ + 5.5, 3.6, -.35, 0, TAU); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  if (isAwakened(p.char) && S.state !== 'title') drawAwakenPlayerExtras(p, now, bobY);
   if (p.hurtT > 0) {
     ctx.save(); ctx.globalAlpha = (p.hurtT / .35) * .38;
     ctx.fillStyle = '#ff3d55'; ctx.beginPath(); ctx.arc(p.x, p.y, 21, 0, TAU); ctx.fill(); ctx.restore();
@@ -4207,6 +4527,37 @@ function draw(){
         ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(-1.8, 1.6); ctx.lineTo(1.8, 1.6); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
         ctx.restore();
       }
+    }
+    else if (p.type === 'mfall') {
+      /* 第10弾: 隕石の落下予告サークル＋上空から落ちてくる岩 */
+      const k = clamp(p.fallT / (p.fallMax || .55), 0, 1);
+      ctx.save();
+      ctx.globalAlpha = .45 + .3 * Math.sin(now / 60);
+      ctx.strokeStyle = '#ff9d5c'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.aoe * (1 - k * .25), 0, TAU); ctx.stroke();
+      ctx.globalAlpha = .18; ctx.fillStyle = '#ff9d5c';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.aoe * (1 - k * .25), 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      const rx = p.x + k * 110, ry = p.y - k * 175;
+      ctx.fillStyle = 'rgba(255,157,92,.35)'; ctx.beginPath(); ctx.arc(rx, ry, p.big ? 19 : 13, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffb37c'; ctx.beginPath(); ctx.arc(rx, ry, p.big ? 13 : 9, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff3c9'; ctx.beginPath(); ctx.arc(rx - 2, ry - 2, 3.5, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    else if (p.type === 'bfly') {
+      /* 第10弾: 魔法の蝶（羽ばたき） */
+      ctx.save(); ctx.translate(p.x, p.y);
+      const fl = Math.sin(now / 60 + (p.seed || 0) * 7) * .6;
+      if (p.big) ctx.scale(1.5, 1.5);
+      for (const s of [-1, 1]) {
+        ctx.save(); ctx.scale(s, 1); ctx.rotate(fl * .5);
+        ctx.fillStyle = p.big ? 'rgba(255,157,226,.8)' : 'rgba(201,166,255,.8)';
+        ctx.beginPath(); ctx.ellipse(7, -2, 7.5, 4.6, -.5, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(6, 3.4, 5.5, 3.4, .5, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = '#2c1e4f'; ctx.beginPath(); ctx.ellipse(0, 0, 2.2, 5, 0, 0, TAU); ctx.fill();
+      ctx.restore();
     }
     else { ctx.fillStyle = 'rgba(255,160,90,.35)'; ctx.beginPath(); ctx.arc(p.x, p.y, 12, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffd9a0'; ctx.beginPath(); ctx.arc(p.x, p.y, 6.5, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, TAU); ctx.fill(); }
   }
@@ -4493,10 +4844,90 @@ function drawCharIconHuman(c, ch){
   }
   c.restore();
 }
+/* 第10弾: 覚醒イラストのアイコン装飾（104×104キャンバス上に重ねる。金リング＋きらめき＋キャラ別） */
+function drawAwakenIcon(c, charId){
+  const star2 = (x, y, r, rot, col) => {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rr = i % 2 === 0 ? r : r * .48, a = rot + i * Math.PI / 5 - Math.PI / 2;
+      const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+      i === 0 ? c.moveTo(px, py) : c.lineTo(px, py);
+    }
+    c.closePath(); c.fillStyle = col; c.fill();
+  };
+  c.save();
+  // 共通: 金の二重リング＋きらめき
+  c.strokeStyle = 'rgba(255,217,77,.35)'; c.lineWidth = 7;
+  c.beginPath(); c.arc(52, 54, 46, 0, TAU); c.stroke();
+  c.strokeStyle = '#ffd94d'; c.lineWidth = 2.6;
+  c.beginPath(); c.arc(52, 54, 46, 0, TAU); c.stroke();
+  c.strokeStyle = '#fff3c9'; c.lineWidth = 1.2;
+  c.beginPath(); c.arc(52, 54, 41.5, 0, TAU); c.stroke();
+  star2(14, 18, 4.6, .4, '#ffd94d'); star2(90, 24, 3.8, 1.1, '#fff3c9'); star2(88, 84, 4.2, .2, '#ffd94d'); star2(13, 80, 3.4, .9, '#ffe94d');
+  if (charId === 'celestia') {
+    // 光輪＋翼＋星の冠
+    c.strokeStyle = '#ffd94d'; c.lineWidth = 3.4;
+    c.beginPath(); c.ellipse(52, 7, 17, 5, 0, 0, TAU); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.95)';
+    for (const s of [-1, 1]) {
+      c.save(); c.translate(52 + s * 38, 58); c.rotate(s * .55);
+      c.beginPath(); c.ellipse(s * 7, 0, 11, 4.6, 0, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(s * 5, 5.4, 8, 3.4, 0, 0, TAU); c.fill();
+      c.restore();
+    }
+    star2(52, 16, 5.4, .3, '#ffd94d');
+  } else if (charId === 'nebula') {
+    // 周回する星＋星雲グロー
+    c.fillStyle = 'rgba(138,108,255,.22)'; c.beginPath(); c.arc(52, 54, 40, 0, TAU); c.fill();
+    star2(20, 44, 4.4, .5, '#7df9ff'); star2(84, 40, 4, 1.2, '#ff9de2'); star2(70, 88, 4.6, .1, '#ffe94d');
+    c.fillStyle = '#7df9ff'; c.beginPath(); c.arc(30, 82, 3.4, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(125,249,255,.8)'; c.lineWidth = 1.4;
+    c.beginPath(); c.ellipse(30, 82, 7, 2.4, -.4, 0, TAU); c.stroke();
+  } else if (charId === 'rua') {
+    // 金の薔薇の髪飾り＋花びら＋金のチョーカー
+    c.fillStyle = '#ffd94d'; c.beginPath(); c.arc(74, 30, 6.4, 0, TAU); c.fill();
+    c.fillStyle = '#c22f4e'; c.beginPath(); c.arc(74, 30, 4.2, 0, TAU); c.fill();
+    c.fillStyle = '#e58bb1'; c.beginPath(); c.arc(74, 30, 2.2, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(229,139,177,.85)';
+    for (const [px, py, pr] of [[16, 62, .4], [88, 62, 1.1], [24, 88, .9], [80, 92, .2]]) {
+      c.save(); c.translate(px, py); c.rotate(pr);
+      c.beginPath(); c.ellipse(0, 0, 4.4, 2.4, 0, 0, TAU); c.fill(); c.restore();
+    }
+    c.fillStyle = '#ffd94d'; c.beginPath(); c.arc(52, 74, 3.4, 0, TAU); c.fill();
+    c.fillStyle = '#7df9ff'; c.beginPath(); c.arc(52, 74, 1.8, 0, TAU); c.fill();
+  } else if (charId === 'taichi') {
+    // 黒雷（両脇）＋銀の装飾
+    c.lineJoin = 'round';
+    for (const s of [-1, 1]) {
+      const bx = 52 + s * 40, by = 22;
+      c.strokeStyle = '#241a4f'; c.lineWidth = 5;
+      c.beginPath(); c.moveTo(bx, by); c.lineTo(bx - s * 5, by + 15); c.lineTo(bx + s * 2, by + 18); c.lineTo(bx - s * 4.5, by + 34); c.stroke();
+      c.strokeStyle = '#8a7dff'; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(bx, by); c.lineTo(bx - s * 5, by + 15); c.lineTo(bx + s * 2, by + 18); c.lineTo(bx - s * 4.5, by + 34); c.stroke();
+    }
+    star2(64, 84, 4.2, .3, '#d7e3f2');
+    c.fillStyle = '#d7e3f2'; c.beginPath(); c.arc(40, 86, 2.4, 0, TAU); c.fill();
+  } else if (charId === 'sui') {
+    // 宝石の首輪＋大きなリボン＋モフモフ増量
+    c.fillStyle = 'rgba(255,255,255,.9)';
+    for (const [px, py] of [[16, 40], [88, 40], [12, 62], [92, 62]]) { c.beginPath(); c.arc(px, py, 5.6, 0, TAU); c.fill(); }
+    const gems = ['#7df9ff', '#ff9de2', '#ffd94d', '#ff9de2', '#7df9ff'];
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI * (.22 + .14 * i), gx = 52 + Math.cos(a) * 24, gy = 62 + Math.sin(a) * 24;
+      c.fillStyle = gems[i]; c.beginPath(); c.arc(gx, gy, 3.1, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(255,255,255,.85)'; c.beginPath(); c.arc(gx - 1, gy - 1, 1.1, 0, TAU); c.fill();
+    }
+    c.fillStyle = '#ff8fab';
+    c.beginPath(); c.moveTo(76, 18); c.lineTo(64, 11); c.lineTo(65.4, 22); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(76, 18); c.lineTo(88, 11); c.lineTo(86.6, 22); c.closePath(); c.fill();
+    c.fillStyle = '#ffd94d'; c.beginPath(); c.arc(76, 18, 3.2, 0, TAU); c.fill();
+  }
+  c.restore();
+}
 function drawCharIcon(cnv, charId){
   const c = cnv.getContext('2d'); const ch = CHARS[charId] || CHARS.nowa;
   c.clearRect(0, 0, 104, 104);
-  if (ch.human) { drawCharIconHuman(c, ch); return; }
+  if (ch.human) { drawCharIconHuman(c, ch); if (isAwakened(charId)) drawAwakenIcon(c, charId); return; }
   c.save(); c.translate(52, 60);
   c.fillStyle = ch.body;
   c.beginPath(); c.moveTo(-18, -8); c.lineTo(-24, -30); c.lineTo(-6, -18); c.closePath(); c.fill();
@@ -4525,6 +4956,7 @@ function drawCharIcon(cnv, charId){
   c.beginPath(); c.moveTo(-19, -20); c.quadraticCurveTo(-11, -44, 6, -54); c.quadraticCurveTo(17, -57, 14, -44); c.quadraticCurveTo(18, -29, 19, -20); c.closePath(); c.fill();
   c.fillStyle = ch.band; c.fillRect(-19.5, -23.4, 39, 5);
   c.restore();
+  if (isAwakened(charId)) drawAwakenIcon(c, charId);
 }
 function renderStages(){
   const row = $('stageRow'); if (!row) return;
@@ -4601,6 +5033,16 @@ function renderHome(){
   if (hs) hs.textContent = ch.desc;
   const wrap = $('homeDaily'); if (!wrap) return;
   wrap.innerHTML = '';
+  /* 第10弾: 今日のラッキーキャラのチップ */
+  {
+    const lid = luckyCharId(), lc = CHARS[lid];
+    const b = document.createElement('button');
+    b.className = 'dailyChip lucky';
+    b.dataset.lucky = lid;
+    b.innerHTML = `<span class="dcTier" style="background:#2e7a3d;color:#eaffea">🍀 ラッキー</span><span class="dcName">今日のラッキー: ${lc ? lc.name : ''}</span><span class="dcProg">${meta.char === lid ? 'かけら+15% 適用中！' : 'このキャラで かけら+15%'}</span>`;
+    b.onclick = () => { initAudio(); showTab('chars'); };
+    wrap.appendChild(b);
+  }
   const d = ensureDaily();
   for (const id of d.ids) {
     const ms = MISSIONS[id]; if (!ms) continue;
@@ -4671,6 +5113,8 @@ function renderChars(){
     `<div class="cdRow">開始武器： <b>${startW ? startW.icon + ' ' + startW.name : ''}</b>` +
     (excl ? `<br>専用武器： <b>${WEAPONS[excl].icon} ${WEAPONS[excl].name}</b>（このキャラ専用）` : (rar === 'UR' ? '<br>UR専用武器が使用可能' : '')) +
     (unlocked ? `<br>限界突破： <b>★${lb}</b> / ${LB_MAX}（与ダメージ +${4 * lb}% ・ 最大HP +${3 * lb}%）` : '') +
+    (isAwakened(id) ? `<br><span style="color:#ffd94d;font-weight:900">✨ 覚醒イラスト解放済み（5凸）</span>` : (rar === 'UR' && unlocked ? `<br><span style="color:#c9a6ff">🌟 5凸で覚醒イラストが解放される</span>` : '')) +
+    (unlocked && isLuckyChar(id) ? `<br><span style="color:#8aff9e;font-weight:900">🍀 今日のラッキーキャラ（このキャラのランは かけら+15%）</span>` : '') +
     `</div>` +
     (unlocked
       ? (meta.char === id ? '' : `<button class="bigBtn" id="charUseBtn">このキャラで出発する</button>`)
@@ -4698,7 +5142,7 @@ function renderChars(){
     b.className = 'charCard' + (meta.char === cid ? ' sel' : '') + (charView === cid && meta.char !== cid ? ' view' : '');
     b.dataset.char = cid;
     b.style.borderTopColor = RARITY_COLORS[charRarityEff(cid)];
-    b.innerHTML = `<canvas width="104" height="104"></canvas><div class="chName">${unl ? c.name : '？？？'}</div><div class="lbStars">${clb > 0 ? '★'.repeat(clb) : ''}</div><div class="chCost">${unl ? (meta.char === cid ? '✔ 選択中' : charRarityEff(cid)) : '🔒 ' + charRarityEff(cid)}</div>`;
+    b.innerHTML = `<canvas width="104" height="104"></canvas><div class="chName">${unl ? c.name + (isLuckyChar(cid) ? ' 🍀' : '') + (isAwakened(cid) ? ' ✨' : '') : '？？？'}</div><div class="lbStars">${clb > 0 ? '★'.repeat(clb) : ''}</div><div class="chCost">${unl ? (meta.char === cid ? '✔ 選択中' : charRarityEff(cid)) : '🔒 ' + charRarityEff(cid)}</div>`;
     drawCharIcon(b.querySelector('canvas'), cid);
     if (!unl) b.querySelector('canvas').style.filter = 'brightness(0) opacity(.5)';
     b.onclick = () => {
@@ -4791,7 +5235,7 @@ function resolveGachaChar(rarity){
   const id = pool[Math.floor(Math.random() * pool.length)];
   if (!meta.unlocked.includes(id)) { meta.unlocked.push(id); return { id, rarity, kind: 'new', refund: 0, lb: 0 }; }
   const lb = lbOf(id);
-  if (lb < LB_MAX) { meta.lb[id] = lb + 1; return { id, rarity, kind: 'lb', refund: 0, lb: lb + 1 }; }
+  if (lb < LB_MAX) { const nlb = lb + 1; meta.lb[id] = nlb; return { id, rarity, kind: 'lb', refund: 0, lb: nlb, awaken: rarity === 'UR' && nlb >= LB_MAX }; }
   const refund = GACHA_REFUND[rarity];
   meta.shards += refund;
   return { id, rarity, kind: 'refund', refund, lb };
@@ -4821,7 +5265,8 @@ function renderGacha(){
     const d = document.createElement('div');
     d.className = 'gachaCard rar' + r.rarity;
     d.dataset.gachaChar = r.id; d.dataset.rarity = r.rarity;
-    const resTxt = r.kind === 'new' ? '✨ NEW！ 解放' : r.kind === 'lb' ? `⬆ 限界突破 ${r.lb}凸` : `⭐ ${r.refund} 返還（5凸済）`;
+    const resTxt = r.awaken ? '🌟 フル覚醒！ イラストが変化した！' : r.kind === 'new' ? '✨ NEW！ 解放' : r.kind === 'lb' ? `⬆ 限界突破 ${r.lb}凸` : `⭐ ${r.refund} 返還（5凸済）`;
+    if (r.awaken) { d.classList.add('awaken'); if (!r.awakenShown) { r.awakenShown = true; showToast('🌟 フル覚醒！ イラストが変化した！'); } }
     d.innerHTML = `<div class="gRar">${r.rarity}</div><canvas width="104" height="104"></canvas><div class="gName">${ch.name}</div><div class="gRes">${resTxt}</div>`;
     drawCharIcon(d.querySelector('canvas'), r.id);
     wrap.appendChild(d);
@@ -5418,7 +5863,10 @@ window.__surv = {
   INHERIT_MAX, inheritDmgMul, inheritShardMul, rebirthEligible, canRebirth, doRebirth, renderRebirth,
   EVENT_KINDS, triggerEvent, guestOnEvent, MERCHANT_ITEMS, buyMerchant, openMerchant, closeMerchant,
   get fountains(){ return S.fountains; }, get merchant(){ return S.merchant; },
-  awardShards, saveBest, gameOver
+  awardShards, saveBest, gameOver,
+  /* 第10弾: 覚醒イラスト・ラッキーキャラ・星屑ラッシュ */
+  isAwakened, luckyCharId, isLuckyChar, drawCharIcon, guestOnEvent,
+  get gemRushT(){ return S.gemRushT; }, setGemRushT: s => { S.gemRushT = s; }
 };
 
 
