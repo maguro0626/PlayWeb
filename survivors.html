@@ -663,6 +663,22 @@ WEAPONS.prismend =  { name: 'プリズムエンド', icon: '🌈', desc: '虹の
 WEAPONS.urwrath =   { name: '星神の怒り', icon: '🌟', desc: '【UR専用・進化】星神の怒りが戦場のすべてを裁く', evo: true, ur: true, lv: evoLv({ dmg: 480, cd: 2.2, range: 1400 }) };
 WEAPONS.ursanct =   { name: '星霊の聖域', icon: '🔮', desc: '【UR専用・進化】巨大な聖域が敵を焼き、動きを鈍らせる', evo: true, ur: true, lv: evoLv({ dmg: 130, radius: 290 }) };
 WEAPONS.urstorm =   { name: '星屑の大嵐', icon: '🌌', desc: '【UR専用・進化】46発の星弾が全方位を嵐のように貫く', evo: true, ur: true, lv: evoLv({ dmg: 115, cd: .95, count: 46, pierce: 99 }) };
+/* ── 第7弾: キャラ完全専用武器（onlyChar: そのキャラでプレイ中のみ候補に出る。開始武器） ── */
+WEAPONS.thornrain = { name: '黒薔薇の棘雨', icon: '🌹', desc: '【るあ専用】黒薔薇の棘が敵の群れに降り注ぎ、ダメージ＋鈍足を与える', onlyChar: 'rua', lv: [
+  { dmg: 26, cd: 3.4, range: 130, dur: 1.6, slow: .45, slowDur: .7 }, { dmg: 34, cd: 3.2, range: 140, dur: 1.7, slow: .46, slowDur: .75 },
+  { dmg: 44, cd: 3.0, range: 150, dur: 1.8, slow: .48, slowDur: .8 }, { dmg: 56, cd: 2.8, range: 165, dur: 2.0, slow: .5, slowDur: .85 },
+  { dmg: 72, cd: 2.6, range: 180, dur: 2.2, slow: .52, slowDur: .9 } ] };
+WEAPONS.darkslash = { name: '黒雷の太刀', icon: '🗡️', desc: '【たいち専用】巨大な黒雷の斬撃が前方を貫き、命中した敵から黒い雷が連鎖する', onlyChar: 'taichi', lv: [
+  { dmg: 55, cd: 2.6, range: 210, chains: 2 }, { dmg: 70, cd: 2.5, range: 220, chains: 3 },
+  { dmg: 88, cd: 2.4, range: 235, chains: 3 }, { dmg: 110, cd: 2.3, range: 250, chains: 4 },
+  { dmg: 140, cd: 2.1, range: 265, chains: 5 } ] };
+WEAPONS.pawstamp =  { name: 'にくきゅうスタンプ', icon: '🐾', desc: '【すい専用】巨大な肉球スタンプが敵の群れに落ち、範囲ダメージ＋大きなノックバック', onlyChar: 'sui', lv: [
+  { dmg: 70, cd: 3.2, aoe: 95, count: 1 }, { dmg: 90, cd: 3.05, aoe: 102, count: 1 },
+  { dmg: 115, cd: 2.9, aoe: 110, count: 1 }, { dmg: 145, cd: 2.75, aoe: 118, count: 1 },
+  { dmg: 185, cd: 2.6, aoe: 128, count: 1 } ] };
+WEAPONS.noir =      { name: 'エターナルノワール', icon: '🥀', desc: '【るあ専用・進化】永遠の黒薔薇園が広大に残り続け、棘が敵を刻み鈍らせ続ける', evo: true, onlyChar: 'rua', lv: evoLv({ dmg: 120, cd: 2.6, range: 300, dur: 4.5, slow: .6, slowDur: .8 }) };
+WEAPONS.tenha =     { name: '天覇黒雷剣', icon: '⚔️', desc: '【たいち専用・進化】全方位の回転斬りが周囲を断ち、黒雷が8連鎖する', evo: true, onlyChar: 'taichi', lv: evoLv({ dmg: 210, cd: 2.4, range: 300, chains: 8 }) };
+WEAPONS.mofu =      { name: 'モフモフキングダム', icon: '👑', desc: '【すい専用・進化】肉球スタンプが連続で落ち、命中数に応じて少し回復する', evo: true, onlyChar: 'sui', lv: evoLv({ dmg: 260, cd: 2.2, aoe: 170, count: 3 }) };
 /* ── 進化ペア: 基礎武器 →（必要パッシブ）→ 進化形。全ての基礎武器に進化あり ── */
 const EVOLUTIONS = {
   star:    { req: 'multi', to: 'galaxy' },
@@ -689,7 +705,10 @@ const EVOLUTIONS = {
   beam:    { req: 'crit',  to: 'prismend' },
   urjudge: { req: 'critd', to: 'urwrath' },
   uraura:  { req: 'guard', to: 'ursanct' },
-  urbarrage:{ req: 'multi', to: 'urstorm' }
+  urbarrage:{ req: 'multi', to: 'urstorm' },
+  thornrain:{ req: 'critd', to: 'noir' },
+  darkslash:{ req: 'haste', to: 'tenha' },
+  pawstamp: { req: 'regen', to: 'mofu' }
 };
 /* ── 武器レベル上限10（第3弾）: Lv6〜10 は Lv5 を基準に自動でデータを足す ──
    成長ルール: 威力 +10%/段（複利）／再使用 -3%/段／範囲・半径 +3%/段／
@@ -778,7 +797,11 @@ const CHARS = {
   nebula: { name: 'ネビュラ', desc: '【UR・ガチャ限定】星雲猫：経験値+50%・ジェム価値×2.0・速度+10%・攻撃+15%。UR専用武器「星屑バラージ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.15, spd: 1.1, mag: 1.25, xp: 1.5, proj: 0, crit: .05, gemv: 2.0, start: 'urbarrage', body: '#2c1450', belly: '#4a2a80', earIn: '#7df9ff', hat: '#12081f', band: '#7df9ff', cape: '#1a0b38' },
   /* ── 第6弾: 新キャラ2体（SR×1／SSR×1）。入手はガチャのみ ── */
   kaede:  { name: 'カエデ', desc: '【SR】紅葉猫：俊足+8%・クリ率+5%・攻撃+5%。重力場「グラビティヴォルテックス」で開幕', cost: 0, rarity: 'SR', hp: 0, atk: 1.05, spd: 1.08, mag: 1, xp: 1, proj: 0, crit: .05, start: 'vortex', body: '#c2512e', belly: '#e88a5c', earIn: '#ffd9a8', hat: '#7a2e1a', band: '#ffe9a8', cape: '#8f4a1d' },
-  aurora: { name: 'オーロラ', desc: '【SSR・ガチャ限定】極光猫：全武器CD-8%・経験値+20%・攻撃+12%・磁石+15%。「プリズムビーム」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 5, atk: 1.12, spd: 1.03, mag: 1.15, xp: 1.2, proj: 0, crit: .04, cdr: .92, start: 'beam', body: '#173d33', belly: '#2a6e5c', earIn: '#7dffce', hat: '#0f2a3d', band: '#a8ecff', cape: '#123a5c' }
+  aurora: { name: 'オーロラ', desc: '【SSR・ガチャ限定】極光猫：全武器CD-8%・経験値+20%・攻撃+12%・磁石+15%。「プリズムビーム」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 5, atk: 1.12, spd: 1.03, mag: 1.15, xp: 1.2, proj: 0, crit: .04, cdr: .92, start: 'beam', body: '#173d33', belly: '#2a6e5c', earIn: '#7dffce', hat: '#0f2a3d', band: '#a8ecff', cape: '#123a5c' },
+  /* ── 第7弾: 家族モデルUR 3体（専用人型/モフモフ描画＋キャラ完全専用武器） ── */
+  rua:    { name: 'るあ', desc: '【UR・ガチャ限定】黒髪ボブの美少女：攻撃+30%・全武器CD-13%・クリ率+10%・クリダメ+40%・速度+5%。専用武器「黒薔薇の棘雨」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1.3, spd: 1.05, mag: 1, xp: 1, proj: 0, crit: .10, critd: .4, cdr: .87, start: 'thornrain', human: 'rua', body: '#1a1a22', belly: '#26262f', earIn: '#e58bb1', hat: '#17171f', band: '#e58bb1', cape: '#23232e' },
+  taichi: { name: 'たいち', desc: '【UR・ガチャ限定】黒髪パーマの美男子：攻撃+25%・最大HP+40・速度+8%・ノックバック×1.4・自然回復。専用武器「黒雷の太刀」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 40, atk: 1.25, spd: 1.08, mag: 1, xp: 1, proj: 0, crit: 0, knock: 1.4, regen: .5, start: 'darkslash', human: 'taichi', body: '#1a1a22', belly: '#26262f', earIn: '#9db8d8', hat: '#101016', band: '#8a94a6', cape: '#14141c' },
+  sui:    { name: 'すい', desc: '【UR・ガチャ限定】ラグドールの翠（白毛・青い目・モフモフ）：ジェム価値×1.8・経験値+40%・磁石×1.5・自然回復◎・速度+5%。専用武器「にくきゅうスタンプ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 0, atk: 1, spd: 1.05, mag: 1.5, xp: 1.4, proj: 0, crit: 0, gemv: 1.8, regen: 1.2, start: 'pawstamp', fluffy: true, eye: '#3f9be0', point: '#b9c4d4', body: '#f7f4ee', belly: '#ffffff', earIn: '#ffc4d6', hat: '#8fa8c8', band: '#bcd8f5', cape: '#7d94b5' }
 };
 /* ── 恒久アップグレード（ショップ） ── */
 const UPGRADES = {
@@ -812,7 +835,7 @@ const ACHIEVEMENTS = {
   endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 50, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
   endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 120, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
   coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 40, target: 1, get: () => meta.stats.coopClears },
-  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 30, get: () => meta.unlocked.length },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 33, get: () => meta.unlocked.length },
   shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 50, target: 1000, get: () => meta.stats.shardsEarned },
   shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 200, target: 10000, get: () => meta.stats.shardsEarned },
   gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 60, target: 10000, get: () => meta.stats.gems },
@@ -1647,6 +1670,22 @@ function fireWeapons(dt){
     for (const w of p.weapons) fireWeapon(p, w, dt);
   }
 }
+/* 第7弾: 敵が一番密集している場所を探す（棘雨・スタンプの落下地点）。exclude は既に狙った地点の配列 */
+function densestCluster(cx, cy, radius, maxDist, exclude){
+  const cands = [];
+  for (const e of enemies) { if (!e.dead && dist2(cx, cy, e.x, e.y) < maxDist * maxDist) cands.push(e); }
+  if (!cands.length) return null;
+  const step = Math.max(1, Math.ceil(cands.length / 48));
+  let best = null, bestN = -1;
+  for (let i = 0; i < cands.length; i += step) {
+    const e = cands[i];
+    if (exclude && exclude.some(pt => dist2(pt.x, pt.y, e.x, e.y) < radius * radius * .64)) continue;
+    let n = 0;
+    for (const o of cands) if (dist2(e.x, e.y, o.x, o.y) < radius * radius) n++;
+    if (n > bestN) { bestN = n; best = e; }
+  }
+  return best || cands[0];
+}
 function fireWeapon(p, w, dt){
   const st = WEAPONS[w.id].lv[w.lv - 1];
   const dm = dmgMul(p);
@@ -1958,6 +1997,84 @@ function fireWeapon(p, w, dt){
       }
     }
     beep(1250, 280, .16, 'sawtooth', .12);
+  } else if (w.id === 'thornrain' || w.id === 'noir') {
+    /* 第7弾・るあ専用: 敵の群れの上に黒薔薇の棘ゾーンを発生させる（継続ダメージ＋鈍足。進化形は広く長く残る薔薇園） */
+    const isNoir = w.id === 'noir';
+    const tgt = densestCluster(p.x, p.y, st.range, 780);
+    if (!tgt) { p.cds[w.id] = .25; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    projs.push({ pid: ++S.pidSeq, own: p, type: 'thorn', x: tgt.x, y: tgt.y, vx: 0, vy: 0, dmg: st.dmg * dm, r: st.range, ttl: st.dur, tickT: 0, slow: st.slow, slowDur: st.slowDur, spin: rand(0, TAU), big: isNoir ? 1 : 0 });
+    fx.push({ type: 'ring', x: tgt.x, y: tgt.y, r: st.range * .6, ttl: .3, max: .3, color: '#e58bb1' });
+    addParts(tgt.x, tgt.y, isNoir ? 16 : 10, '#2a2438', 120, 4);
+    addParts(tgt.x, tgt.y, 6, '#e58bb1', 90, 3);
+    beep(520, 240, .16, 'triangle', .14);
+  } else if (w.id === 'darkslash' || w.id === 'tenha') {
+    /* 第7弾・たいち専用: 黒雷の斬撃。基礎形は前方扇状の大斬撃、進化形は全方位の回転斬り。命中した敵から黒雷が連鎖 */
+    const isTenha = w.id === 'tenha';
+    if (!nearestEnemy(p.x, p.y, st.range + 90)) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    const fa = Math.atan2(p.dirY, p.dirX);
+    fx.push({ type: 'slash', x: p.x, y: p.y, ang: fa, range: st.range, ttl: .24, max: .24, full: isTenha ? 1 : 0 });
+    const hitSet = new Set();
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d > st.range + e.r) continue;
+      if (!isTenha) {
+        let da = Math.atan2(e.y - p.y, e.x - p.x) - fa;
+        while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
+        if (Math.abs(da) > .85) continue;
+      }
+      hitSet.add(e);
+      const ka = Math.atan2(e.y - p.y, e.x - p.x);
+      damageEnemy(e, st.dmg * dm, Math.cos(ka) * 260, Math.sin(ka) * 260, p);
+      if (Math.random() < .5) addParts(e.x, e.y, 3, '#8a7dff', 150, 3.5);
+    }
+    /* 黒雷の連鎖: 命中した敵から近くの未命中へ飛ぶ（威力半分） */
+    let cur = hitSet.size ? [...hitSet][hitSet.size - 1] : null;
+    const pts = cur ? [{ x: cur.x, y: cur.y }] : [];
+    for (let c = 0; c < st.chains && cur; c++) {
+      const nx = nearestEnemy(cur.x, cur.y, 165, hitSet);
+      if (!nx) break;
+      hitSet.add(nx);
+      pts.push({ x: nx.x, y: nx.y });
+      damageEnemy(nx, st.dmg * dm * .5, 0, 0, p);
+      addParts(nx.x, nx.y, 4, '#4a3d8f', 130, 3.5);
+      cur = nx;
+    }
+    if (pts.length > 1) fx.push({ type: 'bolt', pts, ttl: .18, max: .18 });
+    S.shake = Math.max(S.shake, isTenha ? 6 : 4);
+    beep(160, 60, .22, 'sawtooth', .2); sfx.thunder();
+  } else if (w.id === 'pawstamp' || w.id === 'mofu') {
+    /* 第7弾・すい専用: 巨大な肉球スタンプが敵の群れに落ちる（範囲＋大ノックバック）。進化形は連続スタンプ＋命中数で微回復 */
+    const isMofu = w.id === 'mofu';
+    const first = densestCluster(p.x, p.y, st.aoe, 740);
+    if (!first) { p.cds[w.id] = .25; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    const usedPts = [];
+    let totalHits = 0;
+    for (let sIdx = 0; sIdx < (st.count || 1); sIdx++) {
+      const tgt = sIdx === 0 ? first : densestCluster(p.x, p.y, st.aoe, 740, usedPts);
+      if (!tgt) break;
+      usedPts.push({ x: tgt.x, y: tgt.y });
+      fx.push({ type: 'stamp', x: tgt.x, y: tgt.y, r: st.aoe, ttl: .34, max: .34 });
+      fx.push({ type: 'ring', x: tgt.x, y: tgt.y, r: st.aoe * .8, ttl: .28, max: .28, color: '#ff9db8' });
+      for (const e of enemies) {
+        if (e.dead) continue;
+        if (dist2(tgt.x, tgt.y, e.x, e.y) < (st.aoe + e.r) * (st.aoe + e.r)) {
+          const ka = Math.atan2(e.y - tgt.y, e.x - tgt.x);
+          damageEnemy(e, st.dmg * dm, Math.cos(ka) * 400, Math.sin(ka) * 400, p);
+          totalHits++;
+          if (Math.random() < .4) addParts(e.x, e.y, 2, '#ffc4d6', 110, 3);
+        }
+      }
+    }
+    if (isMofu && totalHits > 0 && p.alive) { // モフモフの癒し: 命中1体につき+2、1回あたり最大+30
+      const heal = Math.min(30, totalHits * 2);
+      if (heal > 0 && p.hp < maxHp(p)) { p.hp = Math.min(maxHp(p), p.hp + heal); addText(p.x, p.y - 32, '+' + heal, '#7be495', 15); }
+    }
+    S.shake = Math.max(S.shake, 5);
+    beep(220, 70, .2, 'sine', .3);
   }
 }
 function updateProjectiles(dt){
@@ -2063,6 +2180,23 @@ function updateProjectiles(dt){
           if (dist2(p.x, p.y, e.x, e.y) < (p.r + e.r) * (p.r + e.r)) {
             damageEnemy(e, p.dmg, 0, 0, p.own);
             if (Math.random() < .5) addParts(e.x, e.y, 1, '#ff9d5c', 60, 3);
+          }
+        }
+      }
+      continue;
+    }
+    if (p.type === 'thorn') {
+      /* 第7弾: 黒薔薇の棘ゾーン。0.5秒ごとに範囲内へダメージ＋鈍足（薔薇園は長く残る） */
+      if (p.ttl <= 0) { p.dead = true; continue; }
+      p.tickT -= dt;
+      if (p.tickT <= 0) {
+        p.tickT = .5;
+        for (const e of enemies) {
+          if (e.dead) continue;
+          if (dist2(p.x, p.y, e.x, e.y) < (p.r + e.r) * (p.r + e.r)) {
+            damageEnemy(e, p.dmg, 0, 0, p.own);
+            e.slowT = Math.max(e.slowT, p.slowDur); e.slowMul = Math.min(e.slowMul, 1 - p.slow);
+            if (Math.random() < .35) addParts(e.x, e.y, 2, '#e58bb1', 60, 3);
           }
         }
       }
@@ -2277,6 +2411,7 @@ function buildPool(p){
   for (const id in WEAPONS) {
     if (WEAPONS[id].evo) continue; // 進化形は通常候補に出さない（進化でのみ入手）
     if (WEAPONS[id].ur && !isURChar(p)) continue; // UR専用武器はURキャラの本人にだけ出す
+    if (WEAPONS[id].onlyChar && p.char !== WEAPONS[id].onlyChar) continue; // キャラ完全専用武器はそのキャラの本人にだけ出す（第7弾）
     const owned = p.weapons.find(w => w.id === id);
     if (!owned && p.weapons.length < MAX_WEAPONS) pool.push({ kind: 'weapon', id, isNew: true });
     else if (owned && owned.lv < MAX_WLV) pool.push({ kind: 'weapon', id, isNew: false });
@@ -2472,6 +2607,7 @@ function weaponDetailRows(p, w){
   if (w.id === 'saw' || w.id === 'gigasaw') rows.push(['ヒット間隔', '0.32 秒']);
   if (w.id === 'uraura' || w.id === 'ursanct') rows.push(['ヒット間隔', '0.35 秒']);
   if (w.id === 'vortex' || w.id === 'horizon') rows.push(['ヒット間隔', '0.4 秒']);
+  if (w.id === 'thornrain' || w.id === 'noir') rows.push(['ヒット間隔', '0.5 秒']);
   if (st.count !== undefined) rows.push(['弾数・個数', '' + (st.count + (WD_PROJ_IDS[w.id] ? projBonus(p) : 0))]);
   if (w.id === 'ice' || w.id === 'blizzard') rows.push(['弾数', '' + ((w.id === 'blizzard' ? 2 : 1) + projBonus(p))]);
   if (st.chains !== undefined) rows.push(['連鎖数', '' + st.chains]);
@@ -2496,6 +2632,7 @@ function openWeaponDetail(id){
   const rows = weaponDetailRows(p, w);
   let tags = 'Lv ' + w.lv + ' / ' + MAX_WLV;
   if (def.ur) tags += ' ・ <span class="wdTagUR">UR専用武器</span>';
+  if (def.onlyChar) tags += ' ・ <span class="wdTagUR">' + (CHARS[def.onlyChar] ? CHARS[def.onlyChar].name : '') + '専用武器</span>';
   if (def.evo) tags += ' ・ <span class="wdTagEvo">進化武器</span>';
   let evoHtml = '';
   const ev = EVOLUTIONS[id];
@@ -3374,15 +3511,135 @@ function drawEnemy(e, now){
     ctx.fillStyle = '#ff5d7a'; ctx.fillRect(e.x - e.r, e.y - e.r - 12, w * clamp(e.hp / e.maxHp, 0, 1), 5);
   }
 }
+/* 第7弾: 人型キャラ（るあ=黒髪ボブの美少女／たいち=黒髪パーマの美男子）のちびキャラ描画。
+   drawPlayer の transform（原点=足元中心, scale=向き）の中で描く */
+function drawHumanBody(p, ch, now){
+  const isRua = ch.human === 'rua';
+  const skin = isRua ? '#ffe6d4' : '#ffdcc0';
+  const hair = isRua ? '#16161f' : '#0f0f15';
+  const step = p.moving ? Math.sin(p.bob * 2) * 2.2 : 0;
+  // 脚＋靴
+  ctx.fillStyle = isRua ? '#23232e' : '#191922';
+  ctx.fillRect(-7.5, 6 - Math.max(0, step), 5.6, 8);
+  ctx.fillRect(1.9, 6 - Math.max(0, -step), 5.6, 8);
+  ctx.fillStyle = '#0a0a10';
+  ctx.fillRect(-8.4, 13 - Math.max(0, step), 7.2, 3.4);
+  ctx.fillRect(1.4, 13 - Math.max(0, -step), 7.2, 3.4);
+  // 胴体（黒基調の服）
+  ctx.fillStyle = isRua ? '#1d1d28' : '#14141d';
+  ctx.beginPath();
+  ctx.moveTo(-9, -3); ctx.lineTo(9, -3); ctx.lineTo(10.5, 8); ctx.lineTo(-10.5, 8); ctx.closePath(); ctx.fill();
+  if (isRua) { // 白インナー＋チョーカー＋ピンクのリボン（Y2K）
+    ctx.fillStyle = '#e9e9f2'; ctx.fillRect(-3.4, -3, 6.8, 5.5);
+    ctx.fillStyle = '#0a0a10'; ctx.fillRect(-4.8, -4.8, 9.6, 2.1);
+    ctx.fillStyle = '#e58bb1'; ctx.beginPath(); ctx.arc(0, -3.7, 1.8, 0, TAU); ctx.fill();
+  } else { // 開襟＋シルバーのボタン（クール）
+    ctx.fillStyle = '#2b2b38';
+    ctx.beginPath(); ctx.moveTo(-4.6, -3); ctx.lineTo(0, 3.6); ctx.lineTo(4.6, -3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c9ccd8'; ctx.beginPath(); ctx.arc(0, 5.8, 1.3, 0, TAU); ctx.fill();
+  }
+  // 腕（袖＋手）
+  const armSw = p.moving ? Math.sin(p.bob * 2) * 2.4 : Math.sin(now / 600) * .8;
+  ctx.strokeStyle = isRua ? '#1d1d28' : '#14141d'; ctx.lineWidth = 4.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-8.6, -1); ctx.lineTo(-11.4, 6 + armSw); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8.6, -1); ctx.lineTo(11.4, 6 - armSw); ctx.stroke();
+  ctx.strokeStyle = skin; ctx.lineWidth = 3.4;
+  ctx.beginPath(); ctx.moveTo(-11.4, 6 + armSw); ctx.lineTo(-12.1, 8.8 + armSw); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(11.4, 6 - armSw); ctx.lineTo(12.1, 8.8 - armSw); ctx.stroke();
+  if (isRua) {
+    // 黒髪ボブの後ろ髪: 丸みのあるシルエット、サイドはまっすぐ肩まで（ふわっとさせない）
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.moveTo(-13.6, 3);
+    ctx.quadraticCurveTo(-14.6, -12, -12.4, -19.5);
+    ctx.quadraticCurveTo(-9.5, -28.5, 0, -28.5);
+    ctx.quadraticCurveTo(9.5, -28.5, 12.4, -19.5);
+    ctx.quadraticCurveTo(14.6, -12, 13.6, 3);
+    ctx.quadraticCurveTo(0, 6.8, -13.6, 3);
+    ctx.closePath(); ctx.fill();
+  } else {
+    // 黒髪パーマの後ろ髪: 短めで頭に沿う
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.moveTo(-12.2, -5);
+    ctx.quadraticCurveTo(-13.2, -19, -8, -25);
+    ctx.quadraticCurveTo(0, -29.5, 8, -25);
+    ctx.quadraticCurveTo(13.2, -19, 12.2, -5);
+    ctx.quadraticCurveTo(6, -9, 0, -8.4);
+    ctx.quadraticCurveTo(-6, -9, -12.2, -5);
+    ctx.closePath(); ctx.fill();
+  }
+  // 頭（顔）
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, -14.5, 10.8, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(-10.6, -13.5, 2.3, 0, TAU); ctx.arc(10.6, -13.5, 2.3, 0, TAU); ctx.fill();
+  if (isRua) {
+    // 前髪（目の上でまっすぐ）
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.moveTo(-10.8, -14.6);
+    ctx.quadraticCurveTo(-11.2, -25.8, 0, -26.2);
+    ctx.quadraticCurveTo(11.2, -25.8, 10.8, -14.6);
+    ctx.quadraticCurveTo(5, -18.4, 0, -18);
+    ctx.quadraticCurveTo(-5, -18.4, -10.8, -14.6);
+    ctx.closePath(); ctx.fill();
+    drawStar(11.6, -20.5, 3.1, .4, '#e58bb1'); // 星のヘアピン
+    if (p.blink > 0) {
+      ctx.strokeStyle = '#241722'; ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.moveTo(-7.2, -12.6); ctx.lineTo(-2.4, -12.6); ctx.moveTo(2.4, -12.6); ctx.lineTo(7.2, -12.6); ctx.stroke();
+    } else {
+      // 大きな猫目（縦長の瞳＋ハイライト＋まつげ）
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = '#241722';
+        ctx.beginPath(); ctx.ellipse(s * 4.9, -12.4, 2.7, 3.9, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(s * 4.9 - .8, -13.8, 1.05, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(s * 4.9 + .9, -10.9, .55, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#241722'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(s * 7.3, -15.2); ctx.lineTo(s * 8.6, -16.3); ctx.stroke();
+      }
+    }
+    // ほっぺ＋小さな口
+    ctx.fillStyle = 'rgba(255,130,165,.5)';
+    ctx.beginPath(); ctx.ellipse(-7.4, -8.4, 2.6, 1.4, 0, 0, TAU); ctx.ellipse(7.4, -8.4, 2.6, 1.4, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#c25e7e'; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(0, -7.6, 1.6, .25, Math.PI - .25); ctx.stroke();
+  } else {
+    // パーマの前髪: うねるカールを並べる
+    ctx.fillStyle = hair;
+    const curls = [[-8.6, -22.6, 3.9], [-4.4, -24.6, 4.3], [0, -25.4, 4.5], [4.4, -24.6, 4.3], [8.6, -22.6, 3.9], [-6.4, -19.8, 3.1], [6.4, -19.8, 3.1], [0, -21.4, 3.4]];
+    for (const [cx, cy, cr] of curls) { ctx.beginPath(); ctx.arc(cx, cy, cr, 0, TAU); ctx.fill(); }
+    // 眉＋クールな細目
+    ctx.strokeStyle = '#17110d'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-7.4, -16.8); ctx.lineTo(-2.6, -17.4); ctx.moveTo(2.6, -17.4); ctx.lineTo(7.4, -16.8); ctx.stroke();
+    if (p.blink > 0) {
+      ctx.beginPath(); ctx.moveTo(-7, -12.4); ctx.lineTo(-2.6, -12.4); ctx.moveTo(2.6, -12.4); ctx.lineTo(7, -12.4); ctx.stroke();
+    } else {
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = '#17110d';
+        ctx.beginPath(); ctx.ellipse(s * 4.8, -12.2, 2.3, 2.7, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(s * 4.8 - .7, -13.2, .8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#17110d'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(s * 2.4, -14.6); ctx.lineTo(s * 7.2, -14.9); ctx.stroke(); // まぶたのライン
+      }
+    }
+    // 口（少しだけ笑う）＋銀のピアス
+    ctx.strokeStyle = '#a86a4a'; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(1.2, -7.4, 2, .3, Math.PI * .75); ctx.stroke();
+    ctx.fillStyle = '#d7e3f2'; ctx.beginPath(); ctx.arc(11.9, -11.4, 1, 0, TAU); ctx.fill();
+  }
+}
 function drawPlayer(p, now){
   const ch = CHARS[p.char] || CHARS.nowa;
   const bobY = p.moving ? Math.abs(Math.sin(p.bob)) * -2.4 : Math.sin(now / 600) * 1.1;
   ctx.save(); ctx.translate(p.x, p.y + bobY);
   ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 15 - bobY, 15, 5, 0, 0, TAU); ctx.fill();
   ctx.scale(p.face, 1);
-  // しっぽ
+  if (ch.human) { drawHumanBody(p, ch, now); } else {
+  const eyeCol = ch.eye || '#ffd94d';
+  // しっぽ（すいはグレーのポイント＋太くてモフモフ）
   const wag = Math.sin(now / 240) * 4;
-  ctx.strokeStyle = ch.body; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+  ctx.strokeStyle = ch.fluffy ? ch.point : ch.body; ctx.lineWidth = ch.fluffy ? 7.5 : 4.5; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(-11, 7); ctx.quadraticCurveTo(-22, 9, -24, -2 + wag); ctx.stroke();
   // マント
   const flut = p.moving ? Math.sin(p.bob * 1.4) * 3 : Math.sin(now / 500) * 1.4;
@@ -3390,9 +3647,16 @@ function drawPlayer(p, now){
   ctx.beginPath(); ctx.moveTo(-4, -4);
   ctx.quadraticCurveTo(-19 - Math.abs(flut), 6, -15 + flut, 17);
   ctx.quadraticCurveTo(-4, 13, 3, 15); ctx.quadraticCurveTo(6, 4, 4, -4); ctx.closePath(); ctx.fill();
-  // 体
-  ctx.fillStyle = ch.body; ctx.beginPath(); ctx.arc(0, 2, 14.5, 0, TAU); ctx.fill();
-  ctx.fillStyle = ch.belly; ctx.beginPath(); ctx.ellipse(2, 6, 7.5, 5.5, 0, 0, TAU); ctx.fill();
+  // 体（すいはモフモフの輪郭＋大きな体）
+  if (ch.fluffy) {
+    ctx.fillStyle = ch.body;
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * TAU;
+      ctx.beginPath(); ctx.arc(Math.cos(a) * 13.5, 2 + Math.sin(a) * 13.5, 6.4, 0, TAU); ctx.fill();
+    }
+  }
+  ctx.fillStyle = ch.body; ctx.beginPath(); ctx.arc(0, 2, ch.fluffy ? 16.5 : 14.5, 0, TAU); ctx.fill();
+  ctx.fillStyle = ch.belly; ctx.beginPath(); ctx.ellipse(2, 6, ch.fluffy ? 9.5 : 7.5, ch.fluffy ? 7 : 5.5, 0, 0, TAU); ctx.fill();
   // 耳
   ctx.fillStyle = ch.body;
   ctx.beginPath(); ctx.moveTo(-11, -6); ctx.lineTo(-14.5, -19); ctx.lineTo(-3.5, -11.5); ctx.closePath(); ctx.fill();
@@ -3400,12 +3664,17 @@ function drawPlayer(p, now){
   ctx.fillStyle = ch.earIn;
   ctx.beginPath(); ctx.moveTo(-10.6, -9); ctx.lineTo(-12.4, -16); ctx.lineTo(-6, -11.6); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.moveTo(10.6, -9); ctx.lineTo(12.4, -16); ctx.lineTo(6, -11.6); ctx.closePath(); ctx.fill();
+  if (ch.fluffy) { // ラグドールのポイント: 耳の先は薄いグレー
+    ctx.fillStyle = ch.point;
+    ctx.beginPath(); ctx.moveTo(-14.5, -19); ctx.lineTo(-12.1, -13.2); ctx.lineTo(-9, -15.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(14.5, -19); ctx.lineTo(12.1, -13.2); ctx.lineTo(9, -15.2); ctx.closePath(); ctx.fill();
+  }
   // 顔
   if (p.blink > 0) {
-    ctx.strokeStyle = '#ffd94d'; ctx.lineWidth = 1.8;
+    ctx.strokeStyle = eyeCol; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(-3, -2); ctx.moveTo(3, -2); ctx.lineTo(8, -2); ctx.stroke();
   } else {
-    ctx.fillStyle = '#ffd94d';
+    ctx.fillStyle = eyeCol;
     ctx.beginPath(); ctx.ellipse(-5.5, -2, 2.5, 3.5, 0, 0, TAU); ctx.ellipse(5.5, -2, 2.5, 3.5, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = '#14100a';
     ctx.beginPath(); ctx.ellipse(-5.5, -1.6, 1.1, 2.2, 0, 0, TAU); ctx.ellipse(5.5, -1.6, 1.1, 2.2, 0, 0, TAU); ctx.fill();
@@ -3426,6 +3695,7 @@ function drawPlayer(p, now){
   ctx.quadraticCurveTo(11, -18, 11.5, -12.5); ctx.closePath(); ctx.fill();
   ctx.fillStyle = ch.band; ctx.fillRect(-11.8, -14.6, 23.6, 3.1);
   drawStar(5.5, -31.5, 4.6, now / 700, '#ffe94d');
+  }
   ctx.restore();
   // オービットの月の刃（進化形ルナシールドは大きな盾刃＋シールドリング）
   const ow = p.weapons.find(w => w.id === 'orbit' || w.id === 'lunaorb');
@@ -3657,6 +3927,31 @@ function draw(){
       ctx.strokeStyle = '#e6d5ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, Math.max(6, rr * .16), 0, TAU); ctx.stroke();
       ctx.restore();
     }
+    else if (p.type === 'thorn') {
+      ctx.save(); ctx.translate(p.x, p.y);
+      const rr = p.r || 150, fade = clamp(p.ttl, 0, 1);
+      ctx.globalAlpha = .3 * fade; ctx.fillStyle = p.big ? '#1c1030' : '#241a33';
+      ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.fill();
+      ctx.globalAlpha = .85 * fade; ctx.strokeStyle = p.big ? '#ff7ad9' : '#e58bb1'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, rr * .97, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = .95 * fade; ctx.fillStyle = '#0d0a14';
+      const spikes = p.big ? 18 : 12;
+      for (let i = 0; i < spikes; i++) {
+        const a = (i / spikes) * TAU + (p.spin || 0);
+        ctx.save(); ctx.rotate(a);
+        ctx.beginPath(); ctx.moveTo(rr - 5, -5.5); ctx.lineTo(rr + 13, 0); ctx.lineTo(rr - 5, 5.5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      const roses = p.big ? 5 : 3;
+      for (let i = 0; i < roses; i++) {
+        const a = (p.spin || 0) * 1.7 + i * 2.4, d = i === 0 ? 0 : rr * .45;
+        const rx = Math.cos(a) * d, ry = Math.sin(a) * d, s = (p.big ? 13 : 10) * (i === 0 ? 1.3 : .9);
+        ctx.fillStyle = '#17101f'; ctx.beginPath(); ctx.arc(rx, ry, s, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#3d2438'; ctx.beginPath(); ctx.arc(rx, ry, s * .62, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e58bb1'; ctx.beginPath(); ctx.arc(rx, ry, s * .3, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
     else if (p.type === 'fam') {
       ctx.save(); ctx.translate(p.x, p.y);
       const fl = Math.sin(now / 70 + (p.seed || 0) * 5) * .5;
@@ -3733,6 +4028,47 @@ function draw(){
       ctx.save(); ctx.globalAlpha = al * .34; ctx.fillStyle = '#ff8a3d';
       ctx.beginPath(); ctx.moveTo(f.x, f.y);
       ctx.arc(f.x, f.y, f.range, f.ang - .62, f.ang + .62); ctx.closePath(); ctx.fill(); ctx.restore();
+    } else if (f.type === 'slash') {
+      /* 第7弾: 黒雷の斬撃（基礎形は前方の扇、進化形は全方位の輪） */
+      ctx.save(); ctx.translate(f.x, f.y);
+      if (f.full) {
+        const rr = f.range * (1.12 - al * .22);
+        ctx.globalAlpha = al * .4; ctx.strokeStyle = '#8a7dff'; ctx.lineWidth = 13;
+        ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = al; ctx.strokeStyle = '#0d0a18'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = '#e6e8ff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, rr * .93, 0, TAU); ctx.stroke();
+      } else {
+        ctx.rotate(f.ang);
+        const rr = f.range * (1.06 - al * .14);
+        ctx.globalAlpha = al * .5; ctx.fillStyle = '#241a3d';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, rr, -.85, .85); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = al; ctx.strokeStyle = '#c9ccff'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(0, 0, rr * .94, -.85, .85); ctx.stroke();
+        ctx.strokeStyle = '#0d0a18'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0, 0, rr * .8, -.8, .8); ctx.stroke();
+      }
+      ctx.restore();
+    } else if (f.type === 'stamp') {
+      /* 第7弾: 巨大な肉球スタンプの落下 */
+      ctx.save(); ctx.translate(f.x, f.y);
+      const k = 1 - al, sc = 1.35 - .35 * k, rr = f.r || 100;
+      ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, al * 1.9) * .95;
+      ctx.fillStyle = 'rgba(255,157,184,.25)';
+      ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ff8fab';
+      ctx.beginPath(); ctx.ellipse(0, rr * .24, rr * .5, rr * .38, 0, 0, TAU); ctx.fill();
+      for (let i = 0; i < 4; i++) {
+        const ta = -.95 + i * .63;
+        const tx = Math.sin(ta) * rr * .64, ty = -Math.cos(ta) * rr * .5 + rr * .02;
+        ctx.save(); ctx.translate(tx, ty); ctx.rotate(ta);
+        ctx.beginPath(); ctx.ellipse(0, 0, rr * .16, rr * .23, 0, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      ctx.beginPath(); ctx.ellipse(-rr * .16, rr * .12, rr * .14, rr * .09, -.5, 0, TAU); ctx.fill();
+      ctx.restore();
     } else if (f.type === 'ring') {
       ctx.save(); ctx.globalAlpha = al * .8; ctx.strokeStyle = f.color; ctx.lineWidth = 3.5;
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1.15 - al * .15), 0, TAU); ctx.stroke(); ctx.restore();
@@ -3840,9 +4176,104 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ═══════════════ メタ進行UI（キャラ選択・ショップ） ═══════════════ */
+/* 第7弾: 人型キャラのアイコン（バストアップ） */
+function drawCharIconHuman(c, ch){
+  const isRua = ch.human === 'rua';
+  const skin = isRua ? '#ffe6d4' : '#ffdcc0';
+  const hair = isRua ? '#16161f' : '#0f0f15';
+  c.save(); c.translate(52, 56);
+  // 肩・服
+  c.fillStyle = isRua ? '#1d1d28' : '#14141d';
+  c.beginPath();
+  c.moveTo(-27, 48); c.quadraticCurveTo(-25, 20, -13, 15); c.lineTo(13, 15); c.quadraticCurveTo(25, 20, 27, 48); c.closePath(); c.fill();
+  if (isRua) {
+    c.fillStyle = '#e9e9f2'; c.fillRect(-6, 16, 12, 11);
+    c.fillStyle = '#0a0a10'; c.fillRect(-8, 12.6, 16, 3.4);
+    c.fillStyle = '#e58bb1'; c.beginPath(); c.arc(0, 14.3, 3, 0, TAU); c.fill();
+    // 黒髪ボブの後ろ髪
+    c.fillStyle = hair;
+    c.beginPath();
+    c.moveTo(-25.5, 24);
+    c.quadraticCurveTo(-27.5, -6, -22.5, -24);
+    c.quadraticCurveTo(-14, -43, 0, -43);
+    c.quadraticCurveTo(14, -43, 22.5, -24);
+    c.quadraticCurveTo(27.5, -6, 25.5, 24);
+    c.quadraticCurveTo(0, 30, -25.5, 24);
+    c.closePath(); c.fill();
+  } else {
+    c.fillStyle = '#2b2b38';
+    c.beginPath(); c.moveTo(-7.5, 15); c.lineTo(0, 26); c.lineTo(7.5, 15); c.closePath(); c.fill();
+    // 黒髪パーマの後ろ髪
+    c.fillStyle = hair;
+    c.beginPath();
+    c.moveTo(-21, -2); c.quadraticCurveTo(-22.5, -24, -10, -33);
+    c.quadraticCurveTo(0, -37, 10, -33);
+    c.quadraticCurveTo(22.5, -24, 21, -2);
+    c.quadraticCurveTo(10, -6, 0, -5.4);
+    c.quadraticCurveTo(-10, -6, -21, -2);
+    c.closePath(); c.fill();
+  }
+  // 顔
+  c.fillStyle = skin; c.beginPath(); c.arc(0, -7, 19.5, 0, TAU); c.fill();
+  c.beginPath(); c.arc(-19, -6, 4, 0, TAU); c.arc(19, -6, 4, 0, TAU); c.fill();
+  if (isRua) {
+    // 前髪（目の上）
+    c.fillStyle = hair;
+    c.beginPath();
+    c.moveTo(-19.5, -9);
+    c.quadraticCurveTo(-20, -29.5, 0, -30);
+    c.quadraticCurveTo(20, -29.5, 19.5, -9);
+    c.quadraticCurveTo(9.5, -14.8, 0, -14.2);
+    c.quadraticCurveTo(-9.5, -14.8, -19.5, -9);
+    c.closePath(); c.fill();
+    // 星のヘアピン
+    c.fillStyle = '#e58bb1';
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rr = i % 2 === 0 ? 5 : 2.4, a = i * Math.PI / 5 - Math.PI / 2;
+      const px = 17.5 + Math.cos(a) * rr, py = -21 + Math.sin(a) * rr;
+      i === 0 ? c.moveTo(px, py) : c.lineTo(px, py);
+    }
+    c.closePath(); c.fill();
+    // 大きな猫目
+    for (const s of [-1, 1]) {
+      c.fillStyle = '#241722';
+      c.beginPath(); c.ellipse(s * 8.2, -5.4, 4.4, 6.2, 0, 0, TAU); c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(s * 8.2 - 1.3, -7.6, 1.7, 0, TAU); c.fill();
+      c.beginPath(); c.arc(s * 8.2 + 1.4, -3.4, .9, 0, TAU); c.fill();
+      c.strokeStyle = '#241722'; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(s * 12, -10.4); c.lineTo(s * 14, -12.2); c.stroke();
+    }
+    c.fillStyle = 'rgba(255,130,165,.5)';
+    c.beginPath(); c.ellipse(-12.4, .6, 4.2, 2.2, 0, 0, TAU); c.ellipse(12.4, .6, 4.2, 2.2, 0, 0, TAU); c.fill();
+    c.strokeStyle = '#c25e7e'; c.lineWidth = 2;
+    c.beginPath(); c.arc(0, .4, 2.6, .25, Math.PI - .25); c.stroke();
+  } else {
+    // パーマのカール
+    c.fillStyle = hair;
+    const curls = [[-14.5, -24.5, 6.4], [-7.4, -28.5, 7.2], [0, -30, 7.6], [7.4, -28.5, 7.2], [14.5, -24.5, 6.4], [-10.5, -19.5, 5], [10.5, -19.5, 5], [0, -22.5, 5.6]];
+    for (const [cx, cy, cr] of curls) { c.beginPath(); c.arc(cx, cy, cr, 0, TAU); c.fill(); }
+    c.strokeStyle = '#17110d'; c.lineWidth = 2.6; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-12.4, -14.4); c.lineTo(-4.4, -15.2); c.moveTo(4.4, -15.2); c.lineTo(12.4, -14.4); c.stroke();
+    for (const s of [-1, 1]) {
+      c.fillStyle = '#17110d';
+      c.beginPath(); c.ellipse(s * 8.2, -6, 3.8, 4.5, 0, 0, TAU); c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(s * 8.2 - 1.1, -7.6, 1.3, 0, TAU); c.fill();
+      c.strokeStyle = '#17110d'; c.lineWidth = 2.4;
+      c.beginPath(); c.moveTo(s * 4, -10.2); c.lineTo(s * 12.4, -10.6); c.stroke();
+    }
+    c.strokeStyle = '#a86a4a'; c.lineWidth = 2;
+    c.beginPath(); c.arc(2, .2, 3.4, .3, Math.PI * .75); c.stroke();
+    c.fillStyle = '#d7e3f2'; c.beginPath(); c.arc(21.5, -3.4, 1.7, 0, TAU); c.fill();
+  }
+  c.restore();
+}
 function drawCharIcon(cnv, charId){
   const c = cnv.getContext('2d'); const ch = CHARS[charId] || CHARS.nowa;
   c.clearRect(0, 0, 104, 104);
+  if (ch.human) { drawCharIconHuman(c, ch); return; }
   c.save(); c.translate(52, 60);
   c.fillStyle = ch.body;
   c.beginPath(); c.moveTo(-18, -8); c.lineTo(-24, -30); c.lineTo(-6, -18); c.closePath(); c.fill();
@@ -3850,9 +4281,19 @@ function drawCharIcon(cnv, charId){
   c.fillStyle = ch.earIn;
   c.beginPath(); c.moveTo(-17, -12); c.lineTo(-20, -25); c.lineTo(-9, -17); c.closePath(); c.fill();
   c.beginPath(); c.moveTo(17, -12); c.lineTo(20, -25); c.lineTo(9, -17); c.closePath(); c.fill();
-  c.fillStyle = ch.body; c.beginPath(); c.arc(0, 2, 24, 0, TAU); c.fill();
+  if (ch.fluffy) { // 耳の先のグレーポイント＋モフモフの輪郭
+    c.fillStyle = ch.point;
+    c.beginPath(); c.moveTo(-24, -30); c.lineTo(-20.3, -20.6); c.lineTo(-15.2, -24.2); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(24, -30); c.lineTo(20.3, -20.6); c.lineTo(15.2, -24.2); c.closePath(); c.fill();
+    c.fillStyle = ch.body;
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * TAU;
+      c.beginPath(); c.arc(Math.cos(a) * 21.5, 2 + Math.sin(a) * 21.5, 9.5, 0, TAU); c.fill();
+    }
+  }
+  c.fillStyle = ch.body; c.beginPath(); c.arc(0, 2, ch.fluffy ? 26 : 24, 0, TAU); c.fill();
   c.fillStyle = ch.belly; c.beginPath(); c.ellipse(3, 9, 12, 8.5, 0, 0, TAU); c.fill();
-  c.fillStyle = '#ffd94d';
+  c.fillStyle = ch.eye || '#ffd94d';
   c.beginPath(); c.ellipse(-9, -2, 4, 5.6, 0, 0, TAU); c.ellipse(9, -2, 4, 5.6, 0, 0, TAU); c.fill();
   c.fillStyle = '#14100a';
   c.beginPath(); c.ellipse(-9, -1.4, 1.8, 3.4, 0, 0, TAU); c.ellipse(9, -1.4, 1.8, 3.4, 0, 0, TAU); c.fill();
