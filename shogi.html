@@ -901,7 +901,7 @@ function otherSide(o){return o==='player'?'npc':'player';}
 function canControl(side){
   if(mode==='cpu')return side==='player';
   if(mode==='local')return true;
-  return onlinePhase==='playing'&&side===mySide;
+  return onlinePhase==='playing'&&!netDown&&side===mySide;
 }
 function updateTurnStatus(){
   if(!gameActive)return;
@@ -998,6 +998,34 @@ function armConnTimer(){
   }, 25000);
 }
 function disarmConnTimer(){ clearTimeout(connTimer); }
+let netDown = false, heartbeatTimer = null, guestRetryTimer = null;
+function startHeartbeat(){
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => { if (conn && conn.open){ try{ conn.send({t:'ping'}); }catch(e){} } }, 8000);
+}
+function stopHeartbeat(){ if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+function scheduleGuestReconnect(){
+  clearTimeout(guestRetryTimer);
+  let tries = 0;
+  const attempt = () => {
+    if (mode !== 'online' || !netDown) return;
+    tries++;
+    if (tries > 20){
+      netDown = false; onlinePhase = 'idle';
+      setOnlineInfo('再接続できませんでした。モードを選び直してください');
+      updateOnlinePanel();
+      return;
+    }
+    guestRetryTimer = setTimeout(attempt, 5000);
+    try{
+      if (peer){ try{ peer.destroy(); }catch(e){} }
+      peer = new Peer(undefined, PEER_OPTS);
+      peer.on('open', () => { conn = peer.connect('playweb-sg-' + roomCode, {reliable:true}); wireConnection(false); });
+      peer.on('error', () => {});
+    }catch(e){}
+  };
+  guestRetryTimer = setTimeout(attempt, 1500);
+}
 function updateOnlinePanel(){
   const main=document.getElementById('online-main');
   const codeWrap=document.getElementById('online-code-wrap');
@@ -1087,28 +1115,41 @@ function wireConnection(isHost){
   conn.on('open',()=>{
     disarmConnTimer();
     if(isHost){
+      const resume = onlinePhase==='playing';
       onlinePhase='playing';
-      resetGame();
-      updateModeUI();
-      sendState();
-      showToast('対戦開始！あなたは先手です');
+      if(resume){
+        netDown=false;
+        sendState();
+        setOnlineInfo('対戦中（あなたは先手）');
+        showToast('再接続しました！対局を続けます');
+      }else{
+        resetGame();
+        updateModeUI();
+        sendState();
+        showToast('対戦開始！あなたは先手です');
+      }
+      startHeartbeat();
     }else{
       try{conn.send({t:'hello'});}catch(e){}
       setOnlineInfo('ホストの応答を待っています…');
     }
   });
   conn.on('data',onNetData);
-  conn.on('close',onNetDisconnect);
-  conn.on('error',()=>onNetDisconnect());
+  const myConn = conn;
+  conn.on('close',()=>{ if(conn===myConn) onNetDisconnect(); });
+  conn.on('error',()=>{ if(conn===myConn) onNetDisconnect(); });
 }
 function onNetData(msg){
   if(!msg||!msg.t)return;
+  if(msg.t==='ping')return;
   if(msg.t==='hello'){
     if(mySide==='player'&&onlinePhase==='playing')sendState();
     return;
   }
   if(msg.t==='state'){
     if(onlinePhase!=='playing'){onlinePhase='playing';}
+    if(netDown){ netDown=false; showToast('再接続しました！対局を続けます'); }
+    startHeartbeat();
     updateOnlinePanel();
     applyState(msg.state);
     return;
@@ -1133,22 +1174,21 @@ function onNetData(msg){
 }
 function onNetDisconnect(){
   if(mode!=='online')return;
-  const wasActive=onlinePhase==='playing';
+  if(onlinePhase==='playing'){
+    /* 対局中の切断: 盤面を保持して自動再接続する */
+    netDown=true;conn=null;
+    stopHeartbeat();
+    setStatus('接続が切れました。再接続を試みています…');
+    setOnlineInfo('再接続を試みています…（盤面は保持されます）');
+    showToast('接続が切れました。再接続を試みています…');
+    if(mySide==='npc')scheduleGuestReconnect();
+    return;
+  }
   onlinePhase='idle';conn=null;
   updateOnlinePanel();
-  if(wasActive){
-    setStatus('接続が切れました');
-    const ov=document.createElement('div');
-    ov.className='modal-overlay';
-    ov.innerHTML=`<div class="modal-card">
-      <h2>接続が切れました</h2>
-      <p class="sub">相手との接続が切れました</p>
-      <button class="btn btn-dark" style="width:100%;padding:13px;" onclick="this.closest('.modal-overlay').remove()">閉じる</button>
-    </div>`;
-    document.body.appendChild(ov);
-  }
 }
 function leaveOnline(manual){
+  netDown=false;stopHeartbeat();clearTimeout(guestRetryTimer);
   try{if(conn)conn.close();}catch(e){}
   try{if(peer)peer.destroy();}catch(e){}
   conn=null;peer=null;onlinePhase='idle';roomCode='';
