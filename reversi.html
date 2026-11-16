@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>リバーシ | PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='%2314532d'/%3E%3Ccircle cx='38' cy='38' r='15' fill='%23111'/%3E%3Ccircle cx='62' cy='62' r='15' fill='%23f5f5f5'/%3E%3C/svg%3E">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -118,6 +119,20 @@
   .empty-note{color:#9a8a68;font-size:13px}
   .tips{font-size:12.5px;line-height:1.75;color:#cbbfa3}
 
+  /* mode switch + online */
+  .mode-switch{display:flex;gap:6px;margin-bottom:12px}
+  .mode-btn{flex:1;padding:9px 4px;font-size:13px;border-radius:10px;background:rgba(255,255,255,.08);color:#f5efe4;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+  .mode-btn.on{background:linear-gradient(180deg,#f6da8d,#d9a94f);color:#3a2a10;box-shadow:0 4px 10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.6)}
+  #onlinePanel{background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:12px;margin-bottom:14px}
+  #onlinePanel.hidden{display:none}
+  #onlinePanel .row{display:flex;gap:8px;flex-wrap:wrap}
+  #onlinePanel button{padding:9px 13px;font-size:13.5px}
+  #onlinePanel input{flex:1;min-width:110px;font-family:inherit;font-size:16px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;padding:9px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#241b12;color:#ffe9b0}
+  #onlineStatus{font-size:13px;line-height:1.7;color:#e6d5ac;margin-top:9px;min-height:1.2em}
+  #onlineStatus .err{color:#ff9d8a;font-weight:800}
+  .roomcode{font-size:34px;font-weight:900;letter-spacing:.22em;text-align:center;color:#ffd76a;background:rgba(0,0,0,.3);border:1px dashed rgba(255,215,106,.5);border-radius:12px;padding:8px 4px 8px 12px;margin:8px 0}
+  .hidden-util{display:none!important}
+
   /* toast + modal */
   #toast{position:fixed;left:50%;top:18px;transform:translate(-50%,-16px);z-index:60;background:rgba(16,26,18,.94);color:#ffe9b0;border:1px solid rgba(255,215,106,.4);padding:11px 20px;border-radius:999px;font-weight:800;font-size:14.5px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;box-shadow:0 10px 26px rgba(0,0,0,.5);max-width:92vw;text-align:center}
   #toast.show{opacity:1;transform:translate(-50%,0)}
@@ -164,6 +179,31 @@
       </div>
     </section>
     <aside class="panel">
+      <h2>対戦モード</h2>
+      <div class="mode-switch">
+        <button class="mode-btn on" id="modeCpu">CPUと対戦</button>
+        <button class="mode-btn" id="modeLocal">2人で対面</button>
+        <button class="mode-btn" id="modeOnline">オンライン</button>
+      </div>
+      <div id="onlinePanel" class="hidden">
+        <div class="row">
+          <button id="hostBtn">部屋を作る</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
+          <button id="joinBtn" class="ghost">参加する</button>
+        </div>
+        <div id="onlineCodeWrap" class="hidden-util">
+          <div style="font-size:12px;color:#cbbd97;margin-top:10px">ルームコード（相手に伝えてください）</div>
+          <div class="roomcode" id="roomCodeText">------</div>
+          <div class="row"><button id="copyCodeBtn" class="ghost">コードをコピー</button></div>
+        </div>
+        <div id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+        <div class="row" style="margin-top:8px">
+          <button id="onlineLeaveBtn" class="ghost">やめる</button>
+        </div>
+      </div>
+      <div id="cpuSettings">
       <h2>設定</h2>
       <div class="setting">
         <label for="difficulty">CPUの強さ</label>
@@ -179,6 +219,7 @@
           <option value="black" selected>先手（黒）</option>
           <option value="white">後手（白）</option>
         </select>
+      </div>
       </div>
       <h2>対局履歴</h2>
       <ol id="moveList"></ol>
@@ -564,6 +605,18 @@ let rendered = Array.from({length: 8}, () => Array(8).fill(EMPTY));
 let record = {win: 0, lose: 0, draw: 0};
 let toastTimer = null;
 
+/* 対戦モード: 'cpu' | 'local'（対面2人） | 'online' */
+let mode = 'cpu';
+let myColor = BLACK;        /* オンライン時の自分の色（ホスト=黒 / ゲスト=白） */
+let peer = null, conn = null, isHost = false, roomCode = '', onlineActive = false, onlineClosing = false;
+
+/* 現在の手番をこの端末のプレイヤーが打てるかどうか */
+function isLocalTurn(){
+  if (mode === 'local') return true;
+  if (mode === 'online') return onlineActive && turn === myColor;
+  return turn === human;
+}
+
 function $(id){ return document.getElementById(id); }
 const els = {};
 let cellEls = [];
@@ -658,9 +711,9 @@ function renderHistory(){
 }
 
 function render(){
-  const showHints = !gameOver && !thinking && !passing && turn === human;
+  const showHints = !gameOver && !thinking && !passing && isLocalTurn();
   const hintMap = new Map();
-  if (showHints) for (const m of legalMoves(board, human)) hintMap.set(m.r * 8 + m.c, m.flips.length);
+  if (showHints) for (const m of legalMoves(board, turn)) hintMap.set(m.r * 8 + m.c, m.flips.length);
 
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){
     const idx = r * 8 + c, ce = cellEls[idx];
@@ -705,8 +758,16 @@ function render(){
   els.evalBlack.style.width = pct + '%';
   els.evalText.textContent = txt;
 
-  els.blackWho.textContent = human === BLACK ? 'あなた' : 'CPU';
-  els.whiteWho.textContent = human === WHITE ? 'あなた' : 'CPU';
+  if (mode === 'local'){
+    els.blackWho.textContent = '1P';
+    els.whiteWho.textContent = '2P';
+  } else if (mode === 'online'){
+    els.blackWho.textContent = myColor === BLACK ? 'あなた' : '相手';
+    els.whiteWho.textContent = myColor === WHITE ? 'あなた' : '相手';
+  } else {
+    els.blackWho.textContent = human === BLACK ? 'あなた' : 'CPU';
+    els.whiteWho.textContent = human === WHITE ? 'あなた' : 'CPU';
+  }
   els.blackCard.classList.toggle('active', !gameOver && turn === BLACK);
   els.whiteCard.classList.toggle('active', !gameOver && turn === WHITE);
 
@@ -714,6 +775,12 @@ function render(){
   if (gameOver) msg = '対局終了';
   else if (passing) msg = `${colorName(turn)}はパスします`;
   else if (thinking){ msg = 'CPUが考え中…'; thinkingCls = true; }
+  else if (mode === 'local') msg = `${colorName(turn)}（${turn === BLACK ? '1P' : '2P'}）の番です`;
+  else if (mode === 'online'){
+    if (!onlineActive) msg = 'オンライン対戦の接続待ちです';
+    else if (turn === myColor) msg = `あなたの番です（${colorName(myColor)}）`;
+    else msg = '相手の手番です';
+  }
   else if (turn === human) msg = `あなたの番です（${colorName(human)}）`;
   else msg = 'CPUの番です';
   els.statusMsg.textContent = msg;
@@ -721,7 +788,9 @@ function render(){
   els.thinking.classList.toggle('hidden', !thinking);
 
   renderHistory();
-  els.undoBtn.disabled = thinking || passing || !history.some(h => h.player === human && h.r >= 0);
+  els.undoBtn.disabled = mode === 'online' || thinking || passing ||
+    (mode === 'local' ? !history.some(h => h.r >= 0) : !history.some(h => h.player === human && h.r >= 0));
+  els.newBtn.disabled = mode === 'online';
   els.record.textContent = `通算成績： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
 }
 
@@ -732,7 +801,7 @@ function showToast(text){
   toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
 }
 
-function doMove(m){
+function doMove(m, fromRemote){
   const color = turn;
   history.push({
     player: color, r: m.r, c: m.c, flips: m.flips.slice(),
@@ -743,6 +812,10 @@ function doMove(m){
   applyMove(board, m, color);
   moveLog.push({player: color, r: m.r, c: m.c, flips: m.flips.length});
   lastMove = {r: m.r, c: m.c};
+  if (mode === 'online' && !fromRemote){
+    const cnt = countDiscs(board);
+    sendOnline({t: 'move', i: m.r * 8 + m.c, b: cnt.b, w: cnt.w});
+  }
   playPlace();
   playFlip(m.flips.length);
   turn = opp(turn);
@@ -775,7 +848,7 @@ function startTurn(){
     }, 850);
     return;
   }
-  if (turn === cpu){
+  if (mode === 'cpu' && turn === cpu){
     thinking = true;
     render();
     setTimeout(() => {
@@ -791,23 +864,41 @@ function startTurn(){
 function endGame(){
   gameOver = true;
   const {b, w} = countDiscs(board);
-  const hd = human === BLACK ? b : w;
-  const cd = human === BLACK ? w : b;
-  let title, snd;
-  if (hd > cd){ title = 'あなたの勝ち！'; snd = playWin; }
-  else if (hd < cd){ title = 'CPUの勝ち…'; snd = playLose; }
-  else { title = '引き分け'; snd = playDraw; }
-  if (!recorded){
-    recorded = true;
-    if (hd > cd) record.win++;
-    else if (hd < cd) record.lose++;
-    else record.draw++;
-    saveRecord();
+  let title, snd, scoreText, recText;
+  if (mode === 'local'){
+    if (b > w){ title = '黒（1P）の勝ち！'; snd = playWin; }
+    else if (b < w){ title = '白（2P）の勝ち！'; snd = playWin; }
+    else { title = '引き分け'; snd = playDraw; }
+    scoreText = `黒 ${b} — ${w} 白`;
+    recText = '対面対戦は通算成績に記録されません';
+  } else if (mode === 'online'){
+    const mine = myColor === BLACK ? b : w;
+    const theirs = myColor === BLACK ? w : b;
+    if (mine > theirs){ title = 'あなたの勝ち！'; snd = playWin; }
+    else if (mine < theirs){ title = '相手の勝ち…'; snd = playLose; }
+    else { title = '引き分け'; snd = playDraw; }
+    scoreText = `黒 ${b} — ${w} 白（あなた ${mine} : 相手 ${theirs}）`;
+    recText = 'オンライン対戦は通算成績に記録されません';
+  } else {
+    const hd = human === BLACK ? b : w;
+    const cd = human === BLACK ? w : b;
+    if (hd > cd){ title = 'あなたの勝ち！'; snd = playWin; }
+    else if (hd < cd){ title = 'CPUの勝ち…'; snd = playLose; }
+    else { title = '引き分け'; snd = playDraw; }
+    if (!recorded){
+      recorded = true;
+      if (hd > cd) record.win++;
+      else if (hd < cd) record.lose++;
+      else record.draw++;
+      saveRecord();
+    }
+    scoreText = `黒 ${b} — ${w} 白（あなた ${hd} : CPU ${cd}）`;
+    recText = `通算成績： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
   }
   render();
   els.resultTitle.textContent = title;
-  els.resultScore.textContent = `黒 ${b} — ${w} 白（あなた ${hd} : CPU ${cd}）`;
-  els.resultRecord.textContent = `通算成績： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
+  els.resultScore.textContent = scoreText;
+  els.resultRecord.textContent = recText;
   snd();
   setTimeout(() => els.modal.classList.remove('hidden'), 700);
 }
@@ -830,16 +921,21 @@ function newGame(){
 }
 
 function undo(){
-  if (thinking || passing) return;
-  /* パスは「手」として数えず、自分の実着手があった所まで戻る */
-  if (!history.some(h => h.player === human && h.r >= 0)) return;
+  if (mode === 'online' || thinking || passing) return;
+  /* パスは「手」として数えず、実着手があった所まで戻る。
+     CPU戦では自分の手まで、対面では直前の手まで戻す */
+  let target = human;
+  if (mode === 'local'){
+    for (let i = history.length - 1; i >= 0; i--) if (history[i].r >= 0){ target = history[i].player; break; }
+  }
+  if (!history.some(h => h.player === target && h.r >= 0)) return;
   while (history.length){
     const rec = history.pop();
     board = rec.boardBefore;
     turn = rec.player;
     lastMove = rec.prevLastMove;
     moveLog.length = rec.logLenBefore;
-    if (rec.player === human && rec.r >= 0) break;
+    if (rec.player === target && rec.r >= 0) break;
   }
   gameOver = false;
   els.modal.classList.add('hidden');
@@ -848,8 +944,8 @@ function undo(){
 }
 
 function onCellClick(r, c){
-  if (gameOver || thinking || passing || turn !== human) return;
-  const m = legalMoves(board, human).find(x => x.r === r && x.c === c);
+  if (gameOver || thinking || passing || !isLocalTurn()) return;
+  const m = legalMoves(board, turn).find(x => x.r === r && x.c === c);
   if (!m){
     if (board[r][c] === EMPTY){
       playInvalid();
@@ -865,6 +961,221 @@ function onCellClick(r, c){
 
 function updateSoundBtn(){
   els.soundBtn.textContent = soundOn ? '🔊 音 ON' : '🔇 音 OFF';
+}
+
+/* ============================================================
+   オンライン対戦（PeerJS / WebRTC P2P）
+   ホスト=黒（先手） / ゲスト=白（後手）。状態同期は
+   着手 {t:'move', i, b, w} を基本とし、石数が一致しない場合は
+   ホストの盤面 {t:'state'} を正として上書きする。
+   ============================================================ */
+const PEER_PREFIX = 'playweb-rv-';
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+function genRoomCode(){
+  let code = '';
+  for (let i = 0; i < 6; i++) code += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
+  return code;
+}
+function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function setOnlineStatus(html){ if (els.onlineStatus) els.onlineStatus.innerHTML = html; }
+function onlineLoadError(){
+  setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+  showToast('オンライン機能を読み込めませんでした。通信環境を確認してください');
+}
+function sendOnline(obj){
+  if (conn && conn.open){ try{ conn.send(obj); }catch (e){} }
+}
+function currentState(){
+  const flat = [];
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) flat.push(board[r][c]);
+  return {board: flat, turn};
+}
+function sendState(){ sendOnline({t: 'state', state: currentState()}); }
+
+/* ホストから受け取った盤面で上書きする（ゲスト側の同期・開始・再戦） */
+function applyState(st){
+  if (!st || !Array.isArray(st.board) || st.board.length !== 64) return;
+  gameSeq++;
+  board = initialBoard();
+  for (let i = 0; i < 64; i++) board[i >> 3][i & 7] = st.board[i] | 0;
+  turn = st.turn === WHITE ? WHITE : BLACK;
+  history = [];
+  moveLog = [];
+  lastMove = null;
+  gameOver = false;
+  thinking = false;
+  passing = false;
+  recorded = true;
+  flipDelayMap = new Map();
+  rendered = Array.from({length: 8}, () => Array(8).fill(EMPTY));
+  els.modal.classList.add('hidden');
+  onlineActive = true;
+  render();
+  if (!legalMoves(board, turn).length && !legalMoves(board, opp(turn)).length) endGame();
+}
+
+/* ホスト側: パスが未解決なら確定させてから状態を送る（同期ずれ防止） */
+function settlePasses(){
+  let guard = 0;
+  while (guard++ < 4){
+    if (legalMoves(board, turn).length) break;
+    if (!legalMoves(board, opp(turn)).length) break;
+    history.push({
+      player: turn, r: -1, c: -1, flips: [],
+      boardBefore: copyBoard(board), prevLastMove: lastMove, logLenBefore: moveLog.length
+    });
+    moveLog.push({player: turn, r: -1, c: -1, flips: 0});
+    turn = opp(turn);
+  }
+  passing = false;
+}
+
+/* 受信メッセージ処理（テストから直接呼べるよう関数として公開） */
+function handleOnlineData(msg){
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'hello'){
+    if (!isHost) return;
+    onlineActive = true;
+    newGame();
+    sendState();
+    setOnlineStatus('相手が参加しました！対局開始。あなたは<strong>黒（先手）</strong>です。');
+    showToast('相手が参加しました。対局開始！');
+  }
+  else if (msg.t === 'state'){
+    if (isHost) return;
+    applyState(msg.state);
+    setOnlineStatus('対局中。あなたは<strong>白（後手）</strong>です。');
+  }
+  else if (msg.t === 'move'){
+    const i = msg.i | 0;
+    if (i < 0 || i > 63) return;
+    const r = i >> 3, c = i & 7;
+    const m = legalMoves(board, turn).find(x => x.r === r && x.c === c);
+    if (!m){ /* 盤面がずれている */
+      if (isHost){ settlePasses(); sendState(); }
+      else sendOnline({t: 'sync'});
+      return;
+    }
+    doMove(m, true);
+    const cnt = countDiscs(board);
+    if (typeof msg.b === 'number' && (msg.b !== cnt.b || msg.w !== cnt.w)){
+      if (isHost){ settlePasses(); sendState(); }
+      else sendOnline({t: 'sync'});
+    }
+  }
+  else if (msg.t === 'sync'){
+    if (isHost){ settlePasses(); sendState(); startTurn(); }
+  }
+  else if (msg.t === 'rematch'){
+    if (isHost){
+      newGame();
+      sendState();
+      showToast('相手がもう一局を希望 — 新しい対局を開始しました');
+    }
+  }
+}
+
+function onOnlineDisconnected(){
+  if (mode !== 'online' || onlineClosing) return;
+  const wasActive = onlineActive;
+  onlineActive = false;
+  if (wasActive || conn){
+    setOnlineStatus('<span class="err">相手との接続が切れました。</span>モードを選び直すか、もう一度部屋を作ってください。');
+    showToast('相手との接続が切れました');
+  }
+  conn = null;
+  render();
+}
+function setupConn(c){
+  conn = c;
+  c.on('data', handleOnlineData);
+  c.on('close', onOnlineDisconnected);
+  c.on('error', onOnlineDisconnected);
+}
+function teardownOnline(){
+  onlineClosing = true;
+  onlineActive = false;
+  try{ if (conn) conn.close(); }catch (e){}
+  try{ if (peer) peer.destroy(); }catch (e){}
+  conn = null; peer = null;
+  if (els.onlineCodeWrap) els.onlineCodeWrap.classList.add('hidden-util');
+}
+function hostRoom(){
+  if (!peerAvailable()){ onlineLoadError(); return; }
+  teardownOnline();
+  onlineClosing = false;
+  isHost = true;
+  myColor = BLACK;
+  roomCode = genRoomCode();
+  setOnlineStatus('部屋を作成中…');
+  try{ peer = new Peer(PEER_PREFIX + roomCode); }
+  catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', () => {
+    els.roomCodeText.textContent = roomCode;
+    els.onlineCodeWrap.classList.remove('hidden-util');
+    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。あなたは<strong>黒（先手）</strong>です。');
+  });
+  peer.on('connection', c => {
+    setupConn(c);
+    setOnlineStatus('相手が接続しました。対局の準備中…');
+  });
+  peer.on('error', err => {
+    if (err && err.type === 'unavailable-id'){
+      setOnlineStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    } else {
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  peer.on('disconnected', () => { try{ peer.reconnect(); }catch (e){} });
+}
+function joinRoom(){
+  if (!peerAvailable()){ onlineLoadError(); return; }
+  const code = (els.joinCode.value || '').trim().toUpperCase();
+  if (code.length !== 6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  teardownOnline();
+  onlineClosing = false;
+  isHost = false;
+  myColor = WHITE;
+  roomCode = code;
+  setOnlineStatus('接続中…');
+  try{ peer = new Peer(); }
+  catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', () => {
+    const c = peer.connect(PEER_PREFIX + code, {reliable: true});
+    setupConn(c);
+    c.on('open', () => {
+      sendOnline({t: 'hello'});
+      setOnlineStatus('接続しました！ホストからの対局開始を待っています… あなたは<strong>白（後手）</strong>です。');
+    });
+  });
+  peer.on('error', err => {
+    if (err && err.type === 'peer-unavailable'){
+      setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    } else {
+      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+}
+function leaveOnline(){
+  teardownOnline();
+  onlineClosing = false;
+  setOnlineStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  render();
+}
+function setMode(m){
+  if (mode === m) return;
+  if (mode === 'online') leaveOnline();
+  mode = m;
+  els.modeCpu.classList.toggle('on', m === 'cpu');
+  els.modeLocal.classList.toggle('on', m === 'local');
+  els.modeOnline.classList.toggle('on', m === 'online');
+  els.onlinePanel.classList.toggle('hidden', m !== 'online');
+  els.cpuSettings.style.display = m === 'cpu' ? '' : 'none';
+  if (m === 'online' && !peerAvailable()){
+    setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+  }
+  playClick();
+  newGame();
 }
 
 function init(){
@@ -894,6 +1205,19 @@ function init(){
   els.resultRecord = $('resultRecord');
   els.againBtn = $('againBtn');
   els.closeModalBtn = $('closeModalBtn');
+  els.modeCpu = $('modeCpu');
+  els.modeLocal = $('modeLocal');
+  els.modeOnline = $('modeOnline');
+  els.onlinePanel = $('onlinePanel');
+  els.onlineStatus = $('onlineStatus');
+  els.hostBtn = $('hostBtn');
+  els.joinBtn = $('joinBtn');
+  els.joinCode = $('joinCode');
+  els.onlineCodeWrap = $('onlineCodeWrap');
+  els.roomCodeText = $('roomCodeText');
+  els.copyCodeBtn = $('copyCodeBtn');
+  els.onlineLeaveBtn = $('onlineLeaveBtn');
+  els.cpuSettings = $('cpuSettings');
 
   loadRecord();
   loadSettings();
@@ -903,7 +1227,24 @@ function init(){
   buildBoard();
 
   els.newBtn.addEventListener('click', () => { playClick(); newGame(); });
-  els.againBtn.addEventListener('click', () => { playClick(); newGame(); });
+  els.againBtn.addEventListener('click', () => {
+    playClick();
+    if (mode === 'online'){
+      els.modal.classList.add('hidden');
+      if (!conn || !conn.open){
+        showToast('接続が切れているため、もう一局できません');
+      } else if (isHost){
+        newGame();
+        sendState();
+        showToast('新しい対局を開始しました');
+      } else {
+        sendOnline({t: 'rematch'});
+        showToast('もう一局を申し込みました。相手の応答を待っています…');
+      }
+      return;
+    }
+    newGame();
+  });
   els.closeModalBtn.addEventListener('click', () => { playClick(); els.modal.classList.add('hidden'); });
   els.undoBtn.addEventListener('click', undo);
   els.soundBtn.addEventListener('click', () => {
@@ -924,6 +1265,25 @@ function init(){
     saveSettings();
     playClick();
     newGame();
+  });
+
+  els.modeCpu.addEventListener('click', () => setMode('cpu'));
+  els.modeLocal.addEventListener('click', () => setMode('local'));
+  els.modeOnline.addEventListener('click', () => setMode('online'));
+  els.hostBtn.addEventListener('click', hostRoom);
+  els.joinBtn.addEventListener('click', joinRoom);
+  els.onlineLeaveBtn.addEventListener('click', leaveOnline);
+  els.joinCode.addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
+  els.copyCodeBtn.addEventListener('click', async () => {
+    try{ await navigator.clipboard.writeText(roomCode); showToast('コードをコピーしました'); }
+    catch (e){
+      const ta = document.createElement('textarea');
+      ta.value = roomCode;
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); showToast('コードをコピーしました'); }
+      catch (_){ showToast('コピーできませんでした'); }
+      ta.remove();
+    }
   });
 
   newGame();
