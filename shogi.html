@@ -979,6 +979,25 @@ function setOnlineInfo(txt){
   const el=document.getElementById('online-info');
   if(el)el.textContent=txt;
 }
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+let connTimer = null;
+function armConnTimer(){
+  clearTimeout(connTimer);
+  connTimer = setTimeout(() => {
+    if (onlinePhase !== 'playing'){
+      onlinePhase = 'idle';
+      setOnlineInfo('接続を確立できませんでした。コードの確認や、ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください');
+      updateOnlinePanel();
+    }
+  }, 25000);
+}
+function disarmConnTimer(){ clearTimeout(connTimer); }
 function updateOnlinePanel(){
   const main=document.getElementById('online-main');
   const codeWrap=document.getElementById('online-code-wrap');
@@ -1010,7 +1029,7 @@ function startHost(){
   roomCode=genRoomCode();
   mySide='player';onlinePhase='creating';
   try{
-    peer=new Peer('playweb-sg-'+roomCode);
+    peer=new Peer('playweb-sg-'+roomCode, PEER_OPTS);
   }catch(e){
     onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();return;
   }
@@ -1034,11 +1053,12 @@ function joinRoom(){
   leaveOnline(false);
   roomCode=code;mySide='npc';onlinePhase='joining';
   try{
-    peer=new Peer();
+    peer=new Peer(undefined, PEER_OPTS);
   }catch(e){
     onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();return;
   }
   peer.on('open',()=>{
+    armConnTimer();
     conn=peer.connect('playweb-sg-'+code,{reliable:true});
     wireConnection(false);
   });
@@ -1055,7 +1075,17 @@ function joinRoom(){
 }
 function wireConnection(isHost){
   if(!conn)return;
+  if(isHost) armConnTimer();
+  conn.on('iceStateChanged', st => {
+    if ((st === 'failed' || st === 'disconnected') && onlinePhase !== 'playing'){
+      disarmConnTimer();
+      onlinePhase = 'idle';
+      setOnlineInfo('接続を確立できませんでした。ネットワーク環境を変えてもう一度お試しください');
+      updateOnlinePanel();
+    }
+  });
   conn.on('open',()=>{
+    disarmConnTimer();
     if(isHost){
       onlinePhase='playing';
       resetGame();

@@ -970,6 +970,21 @@ function updateSoundBtn(){
    ホストの盤面 {t:'state'} を正として上書きする。
    ============================================================ */
 const PEER_PREFIX = 'playweb-rv-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+let connTimer = null;
+function armConnTimer(msg){
+  clearTimeout(connTimer);
+  connTimer = setTimeout(() => {
+    if (!onlineActive) setOnlineStatus('<span class="err">' + msg + '</span>');
+  }, 25000);
+}
+function disarmConnTimer(){ clearTimeout(connTimer); }
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
 function genRoomCode(){
   let code = '';
@@ -1091,6 +1106,13 @@ function setupConn(c){
   c.on('data', handleOnlineData);
   c.on('close', onOnlineDisconnected);
   c.on('error', onOnlineDisconnected);
+  c.on('open', () => disarmConnTimer());
+  c.on('iceStateChanged', st => {
+    if ((st === 'failed' || st === 'disconnected') && !onlineActive){
+      disarmConnTimer();
+      setOnlineStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+    }
+  });
 }
 function teardownOnline(){
   onlineClosing = true;
@@ -1108,7 +1130,7 @@ function hostRoom(){
   myColor = BLACK;
   roomCode = genRoomCode();
   setOnlineStatus('部屋を作成中…');
-  try{ peer = new Peer(PEER_PREFIX + roomCode); }
+  try{ peer = new Peer(PEER_PREFIX + roomCode, PEER_OPTS); }
   catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   peer.on('open', () => {
     els.roomCodeText.textContent = roomCode;
@@ -1118,6 +1140,7 @@ function hostRoom(){
   peer.on('connection', c => {
     setupConn(c);
     setOnlineStatus('相手が接続しました。対局の準備中…');
+    armConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
   });
   peer.on('error', err => {
     if (err && err.type === 'unavailable-id'){
@@ -1138,9 +1161,10 @@ function joinRoom(){
   myColor = WHITE;
   roomCode = code;
   setOnlineStatus('接続中…');
-  try{ peer = new Peer(); }
+  try{ peer = new Peer(undefined, PEER_OPTS); }
   catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   peer.on('open', () => {
+    armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
     const c = peer.connect(PEER_PREFIX + code, {reliable: true});
     setupConn(c);
     c.on('open', () => {
