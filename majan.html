@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>麻雀 - PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="manifest" href="manifest.json">
 <style>
 :root{
@@ -309,6 +310,35 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
   font-weight:900;background:none;border:none;cursor:pointer;border-radius:10px;}
 .fade-in{animation:fadeIn .4s cubic-bezier(.16,1,.3,1);}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+/* ── ONLINE (PeerJS) ─────────────────── */
+.net-input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);
+  background:rgba(0,0,0,0.45);color:#fff;font-size:14px;font-weight:800;text-align:center;outline:none;}
+.net-input::placeholder{color:rgba(255,255,255,0.35);font-weight:700;}
+.net-input:focus{border-color:var(--gold);}
+.net-sub{padding:11px;font-size:13px;margin-top:7px;}
+.net-status{font-size:11px;font-weight:800;color:#ffe27a;min-height:15px;margin-top:7px;line-height:1.5;}
+.net-status .err{color:#f87171;}
+.net-divider{display:flex;align-items:center;gap:10px;margin:16px 0 4px;color:rgba(255,255,255,0.45);
+  font-size:10px;font-weight:900;letter-spacing:.18em;}
+.net-divider::before,.net-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.18);}
+.lobby-card{text-align:center;}
+.lobby-title{font-size:21px;font-weight:900;color:var(--gold);letter-spacing:.08em;margin-bottom:4px;}
+.lobby-code{font-size:30px;font-weight:900;letter-spacing:.3em;color:#fff;margin:6px 0 2px;font-variant-numeric:tabular-nums;}
+.copy-btn{padding:6px 14px;border-radius:99px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);
+  color:#fff;font-size:11px;font-weight:900;cursor:pointer;}
+.net-player-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:10px;
+  background:rgba(255,255,255,0.06);margin-bottom:5px;font-size:13px;font-weight:800;color:rgba(255,255,255,0.85);}
+.net-player-row .seat-wind{color:var(--gold);font-weight:900;}
+.net-player-row .st{font-size:10px;color:rgba(255,255,255,0.45);font-weight:900;}
+.net-player-row .st.disc{color:#f87171;}
+.net-player-row .st.conn{color:#4ade80;}
+.net-leave{margin-top:8px;background:rgba(255,255,255,0.12);color:#fff;box-shadow:none;font-size:13px;padding:11px;}
+.big-cta:disabled{opacity:.45;cursor:default;box-shadow:none;}
+#net-timer{position:fixed;bottom:118px;left:50%;transform:translateX(-50%);z-index:170;display:none;
+  background:rgba(5,3,0,0.92);border:1px solid rgba(255,215,0,0.5);color:#ffe27a;border-radius:99px;
+  padding:6px 16px;font-size:12px;font-weight:900;letter-spacing:.05em;box-shadow:0 10px 26px rgba(0,0,0,0.55);}
+#net-timer.urgent{color:#f87171;border-color:rgba(248,113,113,0.7);}
 </style>
 </head>
 <body>
@@ -463,8 +493,39 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
     </div>
     <button class="big-cta" id="start-btn" style="margin-top:6px;">対局開始</button>
     <div class="start-note">赤ドラ・カン・裏ドラ・一発ありの本格リーチ麻雀。<br>全員 25,000 点持ち、0 点を割ると飛び終了です。</div>
+    <div class="net-divider">オンライン対戦</div>
+    <div class="start-sec">
+      <div class="lb">最大4人対戦（空き席はCPUが埋めます）</div>
+      <input id="net-name" class="net-input" type="text" maxlength="10" placeholder="あなたの名前（未入力でもOK）">
+      <button class="big-cta net-sub" id="net-host-btn">🏠 部屋を作る（ホスト）</button>
+      <div style="display:flex;gap:6px;margin-top:7px;">
+        <input id="net-code" class="net-input" type="text" maxlength="6" placeholder="コード6文字" style="flex:1.2;text-transform:uppercase;">
+        <button class="big-cta net-sub" id="net-join-btn" style="flex:1;margin-top:0;">参加する</button>
+      </div>
+      <div id="net-status" class="net-status"></div>
+    </div>
   </div>
 </div>
+
+<!-- ONLINE LOBBY -->
+<div id="net-lobby" class="overlay">
+  <div class="win-card lobby-card">
+    <div class="lobby-title">🌐 オンラインロビー</div>
+    <div id="net-lobby-code-wrap">
+      <div style="font-size:10px;font-weight:900;letter-spacing:.2em;color:rgba(255,255,255,0.5);">ルームコード（相手に伝えてね）</div>
+      <div class="lobby-code" id="net-lobby-code">------</div>
+      <button class="copy-btn" id="net-copy-btn">📋 コードをコピー</button>
+    </div>
+    <div id="net-lobby-join-note" class="net-status" style="display:none;">参加中… ホストの対局開始を待っています</div>
+    <div id="net-players" style="margin:14px 0 6px;text-align:left;"></div>
+    <button class="big-cta" id="net-start-btn">対局開始</button>
+    <button class="big-cta net-leave" id="net-leave-btn">退出する</button>
+    <div id="net-lobby-note" class="net-status"></div>
+  </div>
+</div>
+
+<!-- ONLINE COUNTDOWN -->
+<div id="net-timer"></div>
 
 <script>
 'use strict';
@@ -993,6 +1054,7 @@ function startMatch(){
   newRound();
 }
 function newRound(){
+  if (typeof NET !== 'undefined' && NET.mode === 'host') NET.handSeq++;
   clearTimeout(G?.actionTimeout);
   _selTile = null; _riichiMode = false; _riichiCandidates = [];
   hideActionArea(); hideSelfActions(); closeChiSel();
@@ -1041,6 +1103,7 @@ function drawPhase(){
   updateStatus(p === HUMAN ? 'Your Turn' : 'CPU Thinking...');
   renderAll();
   if (p === HUMAN) refreshSelfActions();
+  else if (NET.mode === 'host' && NET.seatKind[p] === 'guest' && NET.conns[p] && !NET.seatDisc[p]) netPromptTurn(p);
   else setTimeout(() => cpuTurn(p), cpuDelay());
 }
 function cpuDelay(){ return G.difficulty === 1 ? 650 : G.difficulty === 2 ? 900 : 1200; }
@@ -1090,6 +1153,7 @@ function doDiscard(player, tile){
 }
 
 function resolveDiscard(dp, tile){
+  if (NET.mode === 'host'){ resolveDiscardNet(dp, tile); return; }
   if (G.gameOver) return;
   const pacts = {};
   for (let p = 0; p < 4; p++){
@@ -1221,6 +1285,7 @@ function doKan(p, opt, dp = -1){
   G.current = p; G.phase = 'discard';
   renderAll();
   if (p === HUMAN) refreshSelfActions();
+  else if (NET.mode === 'host' && NET.seatKind[p] === 'guest' && NET.conns[p] && !NET.seatDisc[p]) netPromptTurn(p);
   else setTimeout(() => cpuTurn(p), cpuDelay());
 }
 
@@ -1245,9 +1310,11 @@ function exhaustiveDraw(){
   renderAll();
   snd.lose();
   showDrawOverlay(tenpai, changes);
+  if (NET.mode === 'host') netBroadcastResultDraw(tenpai, changes);
 }
 /* ── PLAYER INPUT ── */
 function onTileClick(tile){
+  if (NET.mode === 'guest'){ netGuestTileClick(tile); return; }
   if (G.phase !== 'discard' || G.current !== HUMAN || G.animating) return;
   if (G.riichi[HUMAN] && !(G.drawnTile && tile.id === G.drawnTile.id)) return;
   snd.select();
@@ -1313,6 +1380,7 @@ function startRiichi(){
 
 /* 他家の捨て牌へのアクション（ロン/ポン/チー/カン） */
 function showActions(acts, tile, dp){
+  if (NET.mode === 'host' && NET.hostCallCtx){ showActionsNetHost(acts, tile, dp); return; }
   const area = document.getElementById('action-area');
   area.innerHTML = ''; area.classList.add('show');
   const types = [...new Set(acts.map(a => a.type))];
@@ -1404,6 +1472,7 @@ function handleWin(winner, loser, winRes, isTsumo, yaku){
   renderAll();
   setTimeout(() => showWinOverlay(winner, loser, winRes, isTsumo, yaku, info, changes), 650);
   spawnConfetti(winner === HUMAN);
+  if (NET.mode === 'host') netBroadcastResultWin(winner, loser, isTsumo, yaku, info, changes);
 }
 
 function scoreRowsHTML(changes, highlight){
@@ -1414,7 +1483,7 @@ function scoreRowsHTML(changes, highlight){
     const dStr = d > 0 ? '+' + d.toLocaleString() : d < 0 ? d.toLocaleString() : '±0';
     const dCol = d > 0 ? '#4ade80' : d < 0 ? '#f87171' : 'rgba(255,255,255,0.3)';
     html += `<div class="score-row ${p === highlight ? 'winner' : ''}">
-      <span class="pn ${p === HUMAN ? 'me' : ''}">${names[(p - G.dealer + 4) % 4]}${p === HUMAN ? '（あなた）' : ''}</span>
+      <span class="pn ${p === HUMAN ? 'me' : ''}">${names[(p - G.dealer + 4) % 4]}${p === HUMAN ? '（あなた）' : (NET.mode !== 'off' && NET.names[p] && NET.names[p] !== 'CPU' ? '（' + NET.names[p] + '）' : '')}</span>
       <span style="display:flex;gap:10px;align-items:center;">
         ${changes ? `<span class="dl" style="color:${dCol};">${dStr}</span>` : ''}
         <span class="tt">${G.scores[p].toLocaleString()} 点</span>
@@ -1517,6 +1586,7 @@ function closeWin(){
 
 function finalGameOver(){
   G.gameOver = true;
+  if (NET.mode === 'host') netBroadcastFinal();
   const winner = G.scores.indexOf(Math.max(...G.scores));
   document.getElementById('win-emoji').textContent = '🏆';
   document.getElementById('win-title').textContent = winner === HUMAN ? '優勝！' : '対局終了';
@@ -1531,7 +1601,7 @@ function finalGameOver(){
   sorted.forEach((p, rank) => {
     const row = document.createElement('div');
     row.className = 'score-row' + (p === winner ? ' winner' : '');
-    row.innerHTML = `<span class="pn ${p === HUMAN ? 'me' : ''}">${medals[rank]} ${['東','南','西','北'][(p - G.dealer + 4) % 4]}家${p === HUMAN ? '（あなた）' : ''}</span>
+    row.innerHTML = `<span class="pn ${p === HUMAN ? 'me' : ''}">${medals[rank]} ${['東','南','西','北'][(p - G.dealer + 4) % 4]}家${p === HUMAN ? '（あなた）' : (NET.mode !== 'off' && NET.names[p] && NET.names[p] !== 'CPU' ? '（' + NET.names[p] + '）' : '')}</span>
       <span class="tt">${G.scores[p].toLocaleString()} 点</span>`;
     scEl.appendChild(row);
   });
@@ -1634,6 +1704,7 @@ function renderAll(){
   renderMelds();
   renderHandSouth();
   renderWaits();
+  if (NET.mode === 'host') netScheduleBroadcast();
 }
 function renderInfoBar(){
   document.getElementById('round-wind').textContent = WIND_KANJI[roundWind()];
@@ -1661,7 +1732,7 @@ function renderPanels(){
     const waits = (p === HUMAN && G.hands[p].length === 13) ? getTenpai(G.hands[p], G.melds[p]).length > 0 : false;
     el.innerHTML = `<div class="ppanel ${vert ? 'vert' : ''} ${G.current === p && !G.gameOver ? 'turn' : ''}">
       <div class="wb ${isDealer ? 'dealer' : ''}">${WIND_KANJI[sw]}</div>
-      <div><div class="nm">${p === HUMAN ? 'あなた' : 'CPU'}${isDealer ? '・親' : ''}</div>
+      <div><div class="nm">${p === HUMAN ? 'あなた' : (NET.mode !== 'off' ? (NET.names[p] || 'CPU') : 'CPU')}${isDealer ? '・親' : ''}</div>
       <div class="sc ${G.scores[p] < 0 ? 'neg' : ''}">${G.scores[p].toLocaleString()}</div></div>
       ${G.riichi[p] ? '<span class="rb">リーチ</span>' : (waits ? '<span class="tb">テンパイ</span>' : '')}
     </div>`;
@@ -1870,10 +1941,962 @@ document.getElementById('new-match-btn').addEventListener('click', () => {
   document.getElementById('start-overlay').classList.add('show');
 });
 document.getElementById('start-btn').addEventListener('click', () => {
+  if (typeof NET !== 'undefined' && NET.mode !== 'off'){ showToast('オンライン対戦中はソロ対局を開始できません'); return; }
   document.getElementById('start-overlay').classList.remove('show');
   ac(); snd.call();
   startMatch();
 });
+/* ============================================================
+   オンライン対戦（PeerJS / WebRTC P2P・ホスト権威スター型）
+   - ホストはプレイヤー index 1（HUMAN）として既存エンジンをそのまま駆動する
+   - ゲストへ送る状態は個別化する: 自分の手牌だけ実牌、他家は「枚数だけ」
+     （他人の手牌の中身は絶対に送らない）
+   - ゲスト側は受信状態を「自分の席が index 1 になるよう回転」させた
+     ビュー状態に変換し、既存の描画コードをそのまま使う
+   - 鳴きは全員の応答を集めてから ロン＞ポン/カン＞チー で解決する
+   ============================================================ */
+const MJ_PEER_PREFIX = 'playweb-mj-';
+const MJ_PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const MJ_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+const MJ_CALL_DEADLINE = 8000;   /* 鳴き応答の制限時間(ms) */
+const MJ_TURN_DEADLINE = 30000;  /* ゲスト打牌の制限時間(ms) */
+const MJ_REJOIN_GRACE = 60000;   /* 再参加の猶予(ms)。過ぎたらCPUが引き継ぐ */
+
+const NET = {
+  mode: 'off',               /* 'off' | 'host' | 'guest' */
+  peer: null, conn: null,    /* guest: conn = ホストへの接続 */
+  conns: {},                 /* host: seat -> conn */
+  roomCode: '', myName: '', mySeat: -1,
+  names: ['CPU', 'CPU', 'CPU', 'CPU'],      /* 表示名（host: 絶対index / guest: ビューindex） */
+  baseNames: ['CPU', 'CPU', 'CPU', 'CPU'],  /* host専用: サフィックスなしの名前 */
+  seatKind: ['cpu', 'cpu', 'cpu', 'cpu'],   /* 'host' | 'guest' | 'cpu'（絶対index） */
+  seatDisc: [false, false, false, false],
+  matchActive: false, handSeq: 0, viewHandSeq: -1,
+  bcastTimer: null, hbTimer: null, connTimer: null, retryTimer: null,
+  discTimers: {}, turnTimer: null, turnSeat: -1, turnDeadlineAt: 0,
+  callCtx: null, hostCallCtx: null, callQid: 0,
+  welcomed: false, leaving: false, hostGone: false, reconnecting: false,
+  myTurn: false, turnOptions: null, riichiPending: false, callOpen: false,
+  absPlayers: null, lastState: null,
+};
+
+/* ── 共通ユーティリティ ── */
+const serT = t => t ? ({ suit: t.suit, num: t.num, aka: !!t.aka, id: t.id }) : null;
+const desT = o => o ? ({ suit: o.suit, num: o.num, aka: !!o.aka, id: o.id }) : null;
+function netPeerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function netGenCode(){ let c = ''; for (let i = 0; i < 6; i++) c += MJ_CODE_CHARS[(Math.random() * MJ_CODE_CHARS.length) | 0]; return c; }
+function netSanitizeName(n){
+  const s = String(n || '').replace(/\s+/g, ' ').trim().slice(0, 10);
+  return s || null;
+}
+function netInputName(){ return netSanitizeName(document.getElementById('net-name').value); }
+function netSetStatus(html){ const el = document.getElementById('net-status'); if (el) el.innerHTML = html; }
+function netLobbyNote(html){ const el = document.getElementById('net-lobby-note'); if (el) el.innerHTML = html; }
+function netSendTo(conn, obj){ if (conn && conn.open){ try { conn.send(obj); } catch(e) {} } }
+function netSend(seat, obj){ netSendTo(NET.conns[seat], obj); }
+function netSendAll(obj){ for (const p of [0, 1, 2, 3]) if (NET.seatKind[p] === 'guest') netSend(p, obj); }
+function netSendToHost(obj){ netSendTo(NET.conn, obj); }
+function netSeatOfConn(conn){
+  for (const p of [0, 1, 2, 3]) if (NET.conns[p] === conn) return p;
+  return undefined;
+}
+function netPlayersPayload(){
+  return [0, 1, 2, 3].map(p => ({ seat: p, name: NET.baseNames[p], kind: NET.seatKind[p], disc: !!NET.seatDisc[p] }));
+}
+function netStartHeartbeat(){
+  netStopHeartbeat();
+  NET.hbTimer = setInterval(() => {
+    if (NET.mode === 'host'){ for (const p of [0, 1, 2, 3]) netSend(p, { t: 'ping' }); }
+    else if (NET.mode === 'guest'){ netSendToHost({ t: 'ping' }); }
+  }, 8000);
+}
+function netStopHeartbeat(){ if (NET.hbTimer) clearInterval(NET.hbTimer); NET.hbTimer = null; }
+function netTeardownNet(){
+  netStopHeartbeat(); netStopTimer(); netConnBadge(false);
+  clearTimeout(NET.bcastTimer); clearTimeout(NET.connTimer); clearTimeout(NET.retryTimer); clearTimeout(NET.turnTimer);
+  for (const k of Object.keys(NET.discTimers)) clearTimeout(NET.discTimers[k]);
+  NET.discTimers = {};
+  for (const p of [0, 1, 2, 3]){ try { if (NET.conns[p]) NET.conns[p].close(); } catch(e) {} }
+  NET.conns = {};
+  try { if (NET.conn) NET.conn.close(); } catch(e) {}
+  NET.conn = null;
+  try { if (NET.peer) NET.peer.destroy(); } catch(e) {}
+  NET.peer = null;
+  NET.mode = 'off'; NET.matchActive = false; NET.mySeat = -1;
+  NET.seatKind = ['cpu', 'cpu', 'cpu', 'cpu']; NET.seatDisc = [false, false, false, false];
+  NET.names = ['CPU', 'CPU', 'CPU', 'CPU']; NET.baseNames = ['CPU', 'CPU', 'CPU', 'CPU'];
+  NET.callCtx = null; NET.hostCallCtx = null; NET.turnSeat = -1;
+  NET.myTurn = false; NET.turnOptions = null; NET.callOpen = false; NET.riichiPending = false;
+  NET.welcomed = false; NET.reconnecting = false; NET.viewHandSeq = -1; NET.absPlayers = null; NET.lastState = null;
+}
+
+/* ── カウントダウン / 接続バッジ（#net-timer を共用） ── */
+let _netTimerInt = null;
+function netStartTimer(ms){
+  netStopTimer();
+  const el = document.getElementById('net-timer'); if (!el) return;
+  const end = Date.now() + ms;
+  el.dataset.kind = 'timer'; el.style.display = '';
+  const tick = () => {
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    el.textContent = '⏳ 残り ' + left + ' 秒';
+    el.classList.toggle('urgent', left <= 3);
+    if (left <= 0) netStopTimer();
+  };
+  tick();
+  _netTimerInt = setInterval(tick, 250);
+}
+function netStopTimer(){
+  if (_netTimerInt) clearInterval(_netTimerInt);
+  _netTimerInt = null;
+  const el = document.getElementById('net-timer');
+  if (el && el.dataset.kind === 'timer'){ el.style.display = 'none'; el.classList.remove('urgent'); }
+}
+function netConnBadge(show, text){
+  const el = document.getElementById('net-timer'); if (!el) return;
+  if (show){ el.dataset.kind = 'badge'; el.textContent = text; el.style.display = ''; }
+  else if (el.dataset.kind === 'badge'){ el.style.display = 'none'; }
+}
+
+/* ============================================================
+   ホスト側
+   ============================================================ */
+function netHostCreateRoom(){
+  if (!netPeerAvailable()){ netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  netTeardownNet();
+  NET.mode = 'host';
+  NET.myName = netInputName() || 'ホスト';
+  NET.baseNames = ['CPU', NET.myName, 'CPU', 'CPU'];
+  NET.names = [...NET.baseNames];
+  NET.seatKind = ['cpu', 'host', 'cpu', 'cpu'];
+  NET.roomCode = netGenCode();
+  netSetStatus('部屋を作成中…');
+  try { NET.peer = new Peer(MJ_PEER_PREFIX + NET.roomCode, MJ_PEER_OPTS); }
+  catch(e){ NET.mode = 'off'; netSetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  NET.peer.on('open', () => {
+    document.getElementById('start-overlay').classList.remove('show');
+    document.getElementById('net-lobby').classList.add('show');
+    document.getElementById('net-lobby-code').textContent = NET.roomCode;
+    document.getElementById('net-lobby-code-wrap').style.display = '';
+    document.getElementById('net-lobby-join-note').style.display = 'none';
+    document.getElementById('net-start-btn').style.display = '';
+    netLobbyNote('ゲスト1人以上で対局を開始できます。残りの席はCPUが埋めます。');
+    netRenderLobbyHost();
+    netStartHeartbeat();
+  });
+  NET.peer.on('connection', c => {
+    netSetupHostConn(c);
+    const to = setTimeout(() => { if (!c.open){ try { c.close(); } catch(e) {} } }, 25000);
+    c.on('open', () => clearTimeout(to));
+  });
+  NET.peer.on('error', err => {
+    if (err && err.type === 'unavailable-id'){
+      netSetStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+      NET.mode = 'off';
+    } else if (NET.mode === 'host' && !NET.matchActive){
+      netSetStatus('<span class="err">接続エラーが発生しました。</span>');
+    }
+  });
+  NET.peer.on('disconnected', () => { try { NET.peer.reconnect(); } catch(e) {} });
+}
+function netSetupHostConn(c){
+  c.on('data', msg => netHostOnConnData(c, msg));
+  c.on('close', () => netHostOnConnGone(c));
+  c.on('error', () => netHostOnConnGone(c));
+  c.on('iceStateChanged', st => { if (st === 'failed' || st === 'disconnected') netHostOnConnGone(c); });
+}
+function netHostOnConnData(conn, msg){
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'ping') return;
+  if (msg.t === 'join'){ netHostHandleJoin(conn, msg); return; }
+  const seat = netSeatOfConn(conn);
+  if (seat === undefined) return;
+  if (msg.t === 'act') netHandleAct(seat, msg);
+  else if (msg.t === 'call') netHandleCallResponse(seat, msg);
+}
+function netHostHandleJoin(conn, msg){
+  const name = netSanitizeName(msg.name) || 'プレイヤー';
+  if (NET.matchActive){
+    if (msg.rejoin){
+      const seat = [0, 1, 2, 3].find(p => NET.seatKind[p] === 'guest' && NET.seatDisc[p] && NET.baseNames[p] === name);
+      if (seat !== undefined){ netHostRebindGuest(seat, conn); return; }
+    }
+    netSendTo(conn, { t: 'error', msg: '対局中です。次の対局までお待ちください' });
+    return;
+  }
+  if (netSeatOfConn(conn) !== undefined) return;
+  const seat = [0, 2, 3].find(p => NET.seatKind[p] !== 'guest');
+  if (seat === undefined){ netSendTo(conn, { t: 'error', msg: '部屋が満員です' }); return; }
+  NET.conns[seat] = conn;
+  NET.seatKind[seat] = 'guest';
+  NET.seatDisc[seat] = false;
+  NET.baseNames[seat] = name;
+  NET.names[seat] = name;
+  netSendTo(conn, { t: 'welcome', seat, players: netPlayersPayload(), gameLength: SETTINGS.len });
+  netBroadcastLobby();
+  netRenderLobbyHost();
+  showToast(name + ' さんが参加しました');
+}
+function netHostRebindGuest(seat, conn){
+  NET.conns[seat] = conn;
+  NET.seatDisc[seat] = false;
+  clearTimeout(NET.discTimers[seat]);
+  NET.names[seat] = NET.baseNames[seat];
+  netSendTo(conn, { t: 'welcome', seat, players: netPlayersPayload(), gameLength: G ? G.gameLength : SETTINGS.len, rejoin: true });
+  netSendState(seat);
+  netSendAll({ t: 'notice', msg: NET.baseNames[seat] + ' さんが再接続しました' });
+  showToast(NET.baseNames[seat] + ' さんが再接続しました');
+  if (G && !G.gameOver){
+    if (G.current === seat && G.phase === 'discard') netPromptTurn(seat);
+    else if (NET.callCtx && NET.callCtx.pending.has(seat)) netSendCallQuery(seat, NET.callCtx);
+  }
+  netScheduleBroadcast();
+}
+function netHostOnConnGone(conn){
+  const seat = netSeatOfConn(conn);
+  if (seat === undefined) return;
+  if (NET.conns[seat] !== conn) return; /* 同一性チェック: 再接続済みの古いconnは無視 */
+  NET.conns[seat] = null;
+  if (!NET.matchActive){
+    NET.seatKind[seat] = 'cpu'; NET.seatDisc[seat] = false;
+    NET.names[seat] = 'CPU'; NET.baseNames[seat] = 'CPU';
+    netBroadcastLobby();
+    netRenderLobbyHost();
+    return;
+  }
+  NET.seatDisc[seat] = true;
+  NET.names[seat] = NET.baseNames[seat] + '（切断中）';
+  netSendAll({ t: 'notice', msg: NET.baseNames[seat] + ' さんの接続が切れました' });
+  showToast(NET.baseNames[seat] + ' さんが切断しました');
+  /* その席の打牌待ちなら猶予を10秒に短縮する */
+  if (NET.turnSeat === seat && NET.turnTimer){
+    const remain = NET.turnDeadlineAt - Date.now();
+    if (remain > 10000){
+      clearTimeout(NET.turnTimer);
+      NET.turnDeadlineAt = Date.now() + 10000;
+      NET.turnTimer = setTimeout(() => netTurnTimeout(seat), 10000);
+    }
+  }
+  clearTimeout(NET.discTimers[seat]);
+  NET.discTimers[seat] = setTimeout(() => {
+    if (NET.seatDisc[seat] && NET.seatKind[seat] === 'guest'){
+      NET.seatKind[seat] = 'cpu';
+      NET.seatDisc[seat] = false;
+      NET.names[seat] = NET.baseNames[seat];
+      netSendAll({ t: 'notice', msg: NET.baseNames[seat] + ' の席をCPUが引き継ぎました' });
+      showToast(NET.baseNames[seat] + ' の席をCPUが引き継ぎました');
+      netScheduleBroadcast();
+    }
+  }, MJ_REJOIN_GRACE);
+  netScheduleBroadcast();
+}
+function netBroadcastLobby(){
+  const payload = { t: 'lobby', players: netPlayersPayload() };
+  for (const p of [0, 1, 2, 3]) if (NET.seatKind[p] === 'guest') netSend(p, payload);
+}
+function netRenderLobbyHost(){
+  netRenderLobbyPlayers(netPlayersPayload(), true);
+  const guests = [0, 2, 3].filter(p => NET.seatKind[p] === 'guest').length;
+  document.getElementById('net-start-btn').disabled = guests < 1;
+}
+function netRenderLobbyPlayers(players, isHost){
+  const el = document.getElementById('net-players'); if (!el) return;
+  const kindLabel = { host: '👑 ホスト', guest: '👤 ゲスト', cpu: '🤖 CPU' };
+  el.innerHTML = players.map(pl => {
+    const st = pl.kind === 'cpu' ? '<span class="st">空き席（CPUが埋めます）</span>'
+      : pl.disc ? '<span class="st disc">切断中</span>'
+      : '<span class="st conn">接続中</span>';
+    return `<div class="net-player-row"><span><span class="seat-wind">${kindLabel[pl.kind] || ''}</span>　${pl.kind === 'cpu' ? 'CPU' : pl.name}</span>${st}</div>`;
+  }).join('');
+  if (!isHost){
+    /* ゲスト側: 自分の行を目立たせる等の追加処理は不要 */
+  }
+}
+function netHostStartMatch(){
+  if (NET.mode !== 'host') return;
+  const guests = [0, 2, 3].filter(p => NET.seatKind[p] === 'guest');
+  if (!guests.length) return;
+  NET.matchActive = true;
+  NET.handSeq = 0;
+  document.getElementById('net-lobby').classList.remove('show');
+  document.getElementById('start-overlay').classList.remove('show');
+  ac(); snd.call();
+  startMatch();
+  netSendAll({ t: 'notice', msg: '対局が開始されました' });
+  netScheduleBroadcast();
+}
+function netHostLeave(){
+  if (NET.matchActive) netSendAll({ t: 'hostleft' });
+  netTeardownNet();
+  G = null;
+  document.getElementById('net-lobby').classList.remove('show');
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('start-overlay').classList.add('show');
+  netSetStatus('');
+}
+
+/* ── ホスト: 状態の個別配信 ── */
+function netBuildState(seat){
+  return {
+    you: seat, handSeq: NET.handSeq,
+    dealer: G.dealer, roundNum: G.roundNum, honba: G.honba, riichiSticks: G.riichiSticks,
+    gameLength: G.gameLength, kanCount: G.kanCount,
+    scores: [...G.scores], riichi: [...G.riichi], tempFuriten: [...G.tempFuriten],
+    current: G.current, phase: G.phase, gameOver: G.gameOver,
+    wallCount: G.wall.length,
+    dora: G.doraIndicators.map(serT),
+    /* 自分の席だけ実牌。他家は count のみ（手牌の中身は送らない） */
+    hands: [0, 1, 2, 3].map(p => p === seat
+      ? { tiles: G.hands[p].map(serT), drawnId: (G.current === p && G.drawnTile) ? G.drawnTile.id : null }
+      : { count: G.hands[p].length }),
+    discards: G.discards.map(ds => ds.map(serT)),
+    melds: G.melds.map(ms => ms.map(m => ({ type: m.type, tiles: m.tiles.map(serT), from: m.from, calledId: m.calledTile ? m.calledTile.id : null }))),
+    riichiIdx: [...G._riichiDiscardIdx],
+    lastDiscard: G.lastDiscard ? { tile: serT(G.lastDiscard), by: G.lastDiscardBy } : null,
+    players: netPlayersPayload(),
+  };
+}
+function netSendState(seat){
+  if (!G || NET.mode !== 'host') return;
+  netSend(seat, Object.assign({ t: 'state' }, netBuildState(seat)));
+}
+function netScheduleBroadcast(){
+  if (NET.mode !== 'host' || !NET.matchActive || !G) return;
+  clearTimeout(NET.bcastTimer);
+  NET.bcastTimer = setTimeout(() => {
+    if (!G) return;
+    for (const p of [0, 1, 2, 3]) if (NET.seatKind[p] === 'guest' && NET.conns[p]) netSendState(p);
+  }, 60);
+}
+function netBroadcastResultWin(winner, loser, isTsumo, yaku, info, changes){
+  netSendAll({
+    t: 'result', kind: 'win', winner, loser, isTsumo,
+    yaku: yaku.map(y => ({ name: y.name, han: y.han, isDora: !!y.isDora, yakuman: !!y.yakuman })),
+    info: info ? { han: info.han, fu: info.fu, label: info.label } : null,
+    changes: [...changes],
+    winnerHand: G.hands[winner].map(serT),
+    winTile: serT(G._winTile),
+    ura: G.riichi[winner] ? G.uraDoraIndicators.map(serT) : [],
+    scores: [...G.scores],
+  });
+}
+function netBroadcastResultDraw(tenpai, changes){
+  netSendAll({ t: 'result', kind: 'draw', tenpai: [...tenpai], changes: [...changes], scores: [...G.scores] });
+}
+function netBroadcastFinal(){
+  netSendAll({ t: 'final', scores: [...G.scores] });
+}
+
+/* ── ホスト: ゲストの番（ツモ後・鳴き後の打牌待ち） ── */
+function netPromptTurn(seat){
+  if (NET.mode !== 'host' || !G || G.gameOver) return;
+  if (G.current !== seat || G.phase !== 'discard') return;
+  if (!NET.conns[seat] || NET.seatDisc[seat]) return;
+  const hand = G.hands[seat];
+  let canTsumo = false;
+  const wr = checkWin(hand, G.melds[seat]);
+  if (wr.win){
+    const yaku = getYaku(seat, wr, true, G.drawnTile, G.ippatsu[seat]);
+    canTsumo = yaku.some(y => !y.isDora);
+  }
+  const kans = G.riichi[seat] ? [] : getKanOptions(seat).map(o => {
+    const t0 = o.type === 'kakan' ? G.melds[seat][o.meldIdx].tiles[0] : o.tiles[0];
+    return { type: o.type, suit: t0.suit, num: t0.num };
+  });
+  netSendState(seat);
+  netSend(seat, { t: 'turn', options: { tsumo: canTsumo, riichi: canRiichi(seat), kans }, deadlineMs: MJ_TURN_DEADLINE });
+  clearTimeout(NET.turnTimer);
+  NET.turnSeat = seat;
+  NET.turnDeadlineAt = Date.now() + MJ_TURN_DEADLINE;
+  NET.turnTimer = setTimeout(() => netTurnTimeout(seat), MJ_TURN_DEADLINE);
+}
+function netTurnTimeout(seat){
+  if (NET.mode !== 'host' || !G || G.gameOver) return;
+  if (G.current !== seat || G.phase !== 'discard') return;
+  /* 無応答: リーチ中はツモ切り、それ以外はCPUの判断で自動打牌 */
+  const tile = G.riichi[seat] ? G.drawnTile : cpuDiscard(seat);
+  if (tile) doDiscard(seat, tile);
+}
+function netHandleAct(seat, msg){
+  if (NET.mode !== 'host' || !G || G.gameOver) return;
+  const err = m => netSend(seat, { t: 'error', msg: m });
+  if (msg.kind === 'discard'){
+    if (G.current !== seat || G.phase !== 'discard'){ err('今は打牌できません'); return; }
+    const tile = G.hands[seat].find(t => t.id === msg.id);
+    if (!tile){ err('その牌は持っていません'); return; }
+    if (G.riichi[seat] && !(G.drawnTile && tile.id === G.drawnTile.id)){ err('リーチ中はツモ切りのみです'); return; }
+    if (msg.riichi){
+      if (!canRiichi(seat)){ err('リーチできません'); return; }
+      const rest = G.hands[seat].filter(t => t.id !== tile.id);
+      if (!getTenpai(rest, G.melds[seat]).length){ err('その牌ではテンパイしません'); return; }
+      clearTimeout(NET.turnTimer);
+      doRiichi(seat, tile);
+    } else {
+      clearTimeout(NET.turnTimer);
+      doDiscard(seat, tile);
+    }
+  }
+  else if (msg.kind === 'tsumo'){
+    if (G.current !== seat || G.phase !== 'discard') return;
+    const wr = checkWin(G.hands[seat], G.melds[seat]);
+    if (!wr.win) return;
+    const yaku = getYaku(seat, wr, true, G.drawnTile, G.ippatsu[seat]);
+    if (!yaku.some(y => !y.isDora)) return;
+    clearTimeout(NET.turnTimer);
+    G._winTile = G.drawnTile;
+    handleWin(seat, -1, wr, true, yaku);
+  }
+  else if (msg.kind === 'kan'){
+    if (G.current !== seat || G.phase !== 'discard' || G.riichi[seat]) return;
+    const opt = getKanOptions(seat).find(o => {
+      const t0 = o.type === 'kakan' ? G.melds[seat][o.meldIdx].tiles[0] : o.tiles[0];
+      return o.type === msg.ktype && t0.suit === msg.suit && t0.num === msg.num;
+    });
+    if (!opt){ err('カンできません'); return; }
+    clearTimeout(NET.turnTimer);
+    doKan(seat, opt); /* 嶺上ツモ後は doKan 末尾から再度 netPromptTurn される */
+  }
+}
+
+/* ── ホスト: 鳴き応答の集約と優先順位解決 ── */
+function netSendCallQuery(seat, ctx){
+  const acts = ctx.pacts[seat] || [];
+  const types = [...new Set(acts.map(a => a.type))];
+  const chiOpts = acts.filter(a => a.type === 'chi').map(a => ({ fromIds: a.fromHand.map(t => t.id), seq: a.seq.map(serT) }));
+  netSend(seat, { t: 'call?', qid: ctx.qid, tile: serT(ctx.tile), dp: ctx.dp, options: types, chiOpts, deadlineMs: MJ_CALL_DEADLINE });
+}
+function resolveDiscardNet(dp, tile){
+  if (G.gameOver) return;
+  const pacts = {};
+  for (let p = 0; p < 4; p++){
+    if (p === dp) continue;
+    const acts = getActions(p, tile, dp);
+    if (acts.length) pacts[p] = acts;
+  }
+  const ctx = {
+    qid: ++NET.callQid, dp, tile, pacts,
+    decisions: {}, pending: new Set(), hostPending: false, done: false, timer: null,
+  };
+  /* CPU席・切断中ゲスト席は即座にCPU判断（ただし結果は全員の応答が揃うまで保留） */
+  for (const p of Object.keys(pacts).map(Number)){
+    if (p === HUMAN) continue;
+    if (NET.seatKind[p] === 'guest' && NET.conns[p] && !NET.seatDisc[p]) ctx.pending.add(p);
+    else ctx.decisions[p] = cpuAction(p, pacts[p]);
+  }
+  ctx.hostPending = !!pacts[HUMAN];
+  const finish = () => {
+    if (ctx.done) return;
+    ctx.done = true;
+    clearTimeout(ctx.timer);
+    if (NET.callCtx === ctx) NET.callCtx = null;
+    NET.hostCallCtx = null;
+    hideActionArea(); closeChiSel();
+    /* ロン見逃しはフリテン（ソロの人間プレイヤーと同じ扱いを全員に適用） */
+    for (const p of Object.keys(pacts).map(Number)){
+      const d = ctx.decisions[p];
+      if (pacts[p].some(a => a.type === 'ron') && (!d || d.type !== 'ron')) G.tempFuriten[p] = true;
+    }
+    const order = [1, 2, 3].map(i => (dp + i) % 4); /* 打牌者から近い順（頭ハネ） */
+    for (const p of order){
+      const d = ctx.decisions[p];
+      if (d && d.type === 'ron'){
+        G.animating = false;
+        const wr = checkWin([...G.hands[p], tile], G.melds[p]);
+        G._winTile = tile;
+        const yaku = getYaku(p, wr, false, tile, G.ippatsu[p]);
+        handleWin(p, dp, wr, false, yaku);
+        return;
+      }
+    }
+    for (const p of order){
+      const d = ctx.decisions[p];
+      if (d && d.type === 'kan'){
+        G.animating = false;
+        doKan(p, { type: 'minkan', tile, fromHand: d.fromHand }, dp);
+        return;
+      }
+      if (d && d.type === 'pon'){
+        G.animating = false;
+        applyCallPon(p, d, dp, tile);
+        return;
+      }
+    }
+    for (const p of order){
+      const d = ctx.decisions[p];
+      if (d && d.type === 'chi'){
+        G.animating = false;
+        applyCallChi(p, d, dp, tile);
+        return;
+      }
+    }
+    G.animating = false;
+    advanceTurn(dp);
+  };
+  ctx.finish = finish;
+  if (!ctx.pending.size && !ctx.hostPending){ finish(); return; }
+  NET.callCtx = ctx;
+  ctx.timer = setTimeout(() => {
+    for (const p of ctx.pending) ctx.decisions[p] = null; /* 無応答はパス */
+    ctx.pending.clear();
+    if (ctx.hostPending){ ctx.decisions[HUMAN] = null; ctx.hostPending = false; }
+    finish();
+  }, MJ_CALL_DEADLINE);
+  for (const p of ctx.pending) netSendCallQuery(p, ctx);
+  if (ctx.hostPending){
+    NET.hostCallCtx = {
+      choose: (kind, act) => {
+        if (ctx.done) return;
+        ctx.decisions[HUMAN] = kind === 'pass' ? null : (act || (pacts[HUMAN] || []).find(a => a.type === kind) || null);
+        ctx.hostPending = false;
+        NET.hostCallCtx = null;
+        hideActionArea(); closeChiSel();
+        netMaybeFinishCall(ctx);
+      },
+    };
+    showActions(pacts[HUMAN], tile, dp); /* NET.hostCallCtx がある間はネット用ボタンになる */
+  }
+}
+function netMaybeFinishCall(ctx){
+  if (ctx.done) return;
+  if (ctx.pending.size === 0 && !ctx.hostPending) ctx.finish();
+}
+function netHandleCallResponse(seat, msg){
+  const ctx = NET.callCtx;
+  if (!ctx || ctx.done) return;
+  if (msg.qid !== ctx.qid) return;
+  if (!ctx.pending.has(seat)) return;
+  ctx.pending.delete(seat);
+  const acts = ctx.pacts[seat] || [];
+  let act = null;
+  if (msg.kind === 'ron') act = acts.find(a => a.type === 'ron') || null;
+  else if (msg.kind === 'pon') act = acts.find(a => a.type === 'pon') || null;
+  else if (msg.kind === 'kan') act = acts.find(a => a.type === 'kan') || null;
+  else if (msg.kind === 'chi'){
+    const ids = msg.fromIds || [];
+    act = acts.find(a => a.type === 'chi' && a.fromHand.length === ids.length && a.fromHand.every(t => ids.includes(t.id))) || null;
+  }
+  ctx.decisions[seat] = act;
+  netMaybeFinishCall(ctx);
+}
+function applyCallPon(p, act, dp, tile){
+  takeCalledTile(dp, tile);
+  G.hands[p] = G.hands[p].filter(t => !act.fromHand.some(h => h.id === t.id));
+  G.melds[p].push({ type: 'pon', tiles: [...act.fromHand, tile], from: dp, calledTile: tile });
+  G.current = p; G.phase = 'discard'; G.drawnTile = null;
+  snd.call(); say('ポン', p === HUMAN ? 1.05 : 0.85); showCallBanner('ポン！', '#2ecc71');
+  renderAll();
+  netDispatchAfterCall(p);
+}
+function applyCallChi(p, act, dp, tile){
+  takeCalledTile(dp, act.tile);
+  G.hands[p] = G.hands[p].filter(t => !act.fromHand.some(h => h.id === t.id));
+  G.melds[p].push({ type: 'chi', tiles: act.seq, from: dp, calledTile: act.tile });
+  G.current = p; G.phase = 'discard'; G.drawnTile = null;
+  snd.call(); say('チー', p === HUMAN ? 1.05 : 0.85); showCallBanner('チー！', '#38a1f2');
+  renderAll();
+  netDispatchAfterCall(p);
+}
+function netDispatchAfterCall(p){
+  if (p === HUMAN){ refreshSelfActions(); }
+  else if (NET.seatKind[p] === 'guest' && NET.conns[p] && !NET.seatDisc[p]) netPromptTurn(p);
+  else setTimeout(() => cpuTurn(p), cpuDelay());
+}
+/* ホスト本人の鳴き選択UI（showActions から呼ばれるネット用分岐） */
+function showActionsNetHost(acts, tile, dp){
+  const ctx = NET.hostCallCtx; if (!ctx) return;
+  const area = document.getElementById('action-area');
+  area.innerHTML = ''; area.classList.add('show');
+  const types = [...new Set(acts.map(a => a.type))];
+  const labels = { ron: 'ロン', pon: 'ポン', chi: 'チー', kan: 'カン' };
+  for (const type of types){
+    const ta = acts.filter(a => a.type === type);
+    if (type === 'chi' && ta.length > 1){
+      for (const a of ta){
+        const btn = document.createElement('button');
+        btn.className = 'act-btn btn-chi';
+        btn.innerHTML = 'チー ' + a.seq.map(t => tileHTML(t, 'mtile', 18, 26)).join('');
+        btn.onclick = () => { snd.call(); ctx.choose('chi', a); };
+        area.appendChild(btn);
+      }
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'act-btn btn-' + type;
+      btn.textContent = labels[type] || type;
+      btn.onclick = () => { snd.call(); ctx.choose(type, ta[0]); };
+      area.appendChild(btn);
+    }
+  }
+  const pb = document.createElement('button');
+  pb.className = 'act-btn btn-pass'; pb.textContent = 'スキップ';
+  pb.onclick = () => { ctx.choose('pass'); };
+  area.appendChild(pb);
+}
+
+/* ============================================================
+   ゲスト側
+   ============================================================ */
+function netGuestJoinFromUI(){
+  if (!netPeerAvailable()){ netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  const code = (document.getElementById('net-code').value || '').trim().toUpperCase();
+  if (code.length !== 6){ netSetStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  netTeardownNet();
+  NET.mode = 'guest';
+  NET.myName = netInputName() || 'プレイヤー';
+  NET.roomCode = code;
+  NET.hostGone = false; NET.leaving = false;
+  netSetStatus('接続中…');
+  clearTimeout(NET.connTimer);
+  NET.connTimer = setTimeout(() => {
+    if (!NET.welcomed && !NET.reconnecting)
+      netSetStatus('<span class="err">接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。</span>');
+  }, 25000);
+  netGuestDial();
+  netStartHeartbeat();
+}
+function netGuestDial(){
+  if (NET.peer){ try { NET.peer.destroy(); } catch(e) {} }
+  try { NET.peer = new Peer(undefined, MJ_PEER_OPTS); }
+  catch(e){ if (!NET.reconnecting) netSetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  NET.peer.on('open', () => {
+    const c = NET.peer.connect(MJ_PEER_PREFIX + NET.roomCode, { reliable: true });
+    netGuestSetupConn(c);
+  });
+  NET.peer.on('error', err => {
+    if (NET.mode !== 'guest' || NET.reconnecting) return;
+    if (err && err.type === 'peer-unavailable') netSetStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    else netSetStatus('<span class="err">接続エラーが発生しました。</span>');
+  });
+}
+function netGuestSetupConn(c){
+  NET.conn = c;
+  c.on('data', msg => { if (NET.conn === c) netGuestOnData(msg); });
+  c.on('open', () => { netSendToHost({ t: 'join', name: NET.myName, rejoin: !!NET.welcomed }); });
+  c.on('close', () => { if (NET.conn === c) netGuestOnDisconnected(); });
+  c.on('error', () => { if (NET.conn === c) netGuestOnDisconnected(); });
+  c.on('iceStateChanged', st => { if (NET.conn === c && (st === 'failed' || st === 'disconnected') && NET.welcomed) netGuestOnDisconnected(); });
+}
+function netGuestOnDisconnected(){
+  if (NET.mode !== 'guest' || NET.leaving) return;
+  NET.conn = null;
+  NET.myTurn = false; NET.callOpen = false; NET.turnOptions = null;
+  hideActionArea(); hideSelfActions(); closeChiSel(); netStopTimer();
+  if (NET.hostGone){ netGuestShowHostLost(); return; }
+  if (!NET.welcomed) return; /* 初回接続失敗はステータス表示のみ */
+  if (NET.reconnecting) return;
+  NET.reconnecting = true;
+  netConnBadge(true, 'ホストとの接続が切れました。再接続を試みています…');
+  let tries = 0;
+  const attempt = () => {
+    if (NET.mode !== 'guest' || !NET.reconnecting) return;
+    tries++;
+    if (tries > 6){ NET.reconnecting = false; netConnBadge(false); netGuestShowHostLost(); return; }
+    NET.retryTimer = setTimeout(attempt, 5000);
+    netGuestDial();
+  };
+  NET.retryTimer = setTimeout(attempt, 1500);
+}
+function netGuestShowHostLost(){
+  NET.reconnecting = false;
+  netConnBadge(false);
+  netTeardownNet();
+  G = null;
+  document.getElementById('net-lobby').classList.remove('show');
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('start-overlay').classList.add('show');
+  netSetStatus('<span class="err">ホストとの接続が切れました。対局を終了します。</span>');
+  showToast('ホストとの接続が切れました');
+}
+function netGuestLeave(){
+  NET.leaving = true;
+  netTeardownNet();
+  G = null;
+  document.getElementById('net-lobby').classList.remove('show');
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('start-overlay').classList.add('show');
+  netSetStatus('');
+}
+function netShowLobbyGuest(players){
+  document.getElementById('start-overlay').classList.remove('show');
+  document.getElementById('net-lobby').classList.add('show');
+  document.getElementById('net-lobby-code').textContent = NET.roomCode;
+  document.getElementById('net-lobby-code-wrap').style.display = '';
+  document.getElementById('net-lobby-join-note').style.display = '';
+  document.getElementById('net-start-btn').style.display = 'none';
+  netLobbyNote('対局の長さはホストの設定に合わせます');
+  netRenderLobbyPlayers(players, false);
+}
+function netGuestOnData(msg){
+  if (!msg || typeof msg !== 'object') return;
+  switch (msg.t){
+    case 'ping': return;
+    case 'welcome': {
+      NET.mySeat = msg.seat;
+      NET.welcomed = true;
+      NET.reconnecting = false;
+      clearTimeout(NET.retryTimer); clearTimeout(NET.connTimer);
+      netConnBadge(false);
+      if (!NET.matchActive) netShowLobbyGuest(msg.players);
+      else showToast('再接続しました');
+      return;
+    }
+    case 'lobby': if (!NET.matchActive) netRenderLobbyPlayers(msg.players, false); return;
+    case 'state': {
+      if (!NET.matchActive){
+        NET.matchActive = true;
+        document.getElementById('net-lobby').classList.remove('show');
+        document.getElementById('start-overlay').classList.remove('show');
+      }
+      netGuestApplyState(msg);
+      return;
+    }
+    case 'turn': netGuestOnTurn(msg); return;
+    case 'call?': netGuestOnCall(msg); return;
+    case 'result': netGuestOnResult(msg); return;
+    case 'final': netGuestOnFinal(msg); return;
+    case 'notice': showToast(msg.msg); return;
+    case 'error': {
+      showToast(msg.msg);
+      netSetStatus('<span class="err">' + msg.msg + '</span>');
+      if (NET.myTurn && NET.turnOptions) netShowSelfActions(NET.turnOptions);
+      return;
+    }
+    case 'hostleft': NET.hostGone = true; NET.reconnecting = false; netGuestShowHostLost(); return;
+  }
+}
+/* 受信した個別状態を「自分の席が index 1」になるよう回転させてビュー状態にする */
+function netGuestApplyState(st){
+  NET.lastState = st;
+  NET.absPlayers = st.players;
+  const r = (1 - st.you + 4) % 4;
+  const rotSeat = a => (a === null || a === undefined || a < 0) ? a : (a + r) % 4;
+  const rotArr = a => { const V = [null, null, null, null]; for (let abs = 0; abs < 4; abs++) V[(abs + r) % 4] = a[abs]; return V; };
+  const handsAbs = st.hands.map((h, abs) => {
+    if (abs === st.you) return h.tiles.map(desT);
+    return Array.from({ length: h.count }, (_, i) => ({ suit: 'z', num: 0, aka: false, id: -1000 - abs * 100 - i }));
+  });
+  const meldsAbs = st.melds.map(ms => ms.map(m => {
+    const tiles = m.tiles.map(desT);
+    return { type: m.type, tiles, from: rotSeat(m.from), calledTile: m.calledId != null ? (tiles.find(t => t.id === m.calledId) || null) : null };
+  }));
+  const prevScores = (G && G.scores) ? [...G.scores] : null;
+  G = {
+    wall: new Array(st.wallCount).fill(null), dead: [], kanCount: st.kanCount,
+    doraIndicators: st.dora.map(desT), uraDoraIndicators: [],
+    hands: rotArr(handsAbs),
+    discards: rotArr(st.discards.map(ds => ds.map(desT))),
+    melds: rotArr(meldsAbs),
+    dealer: rotSeat(st.dealer), roundNum: st.roundNum, honba: st.honba, riichiSticks: st.riichiSticks,
+    scores: rotArr(st.scores), difficulty: SETTINGS.diff, gameLength: st.gameLength,
+    riichi: rotArr(st.riichi), ippatsu: [false, false, false, false], tempFuriten: rotArr(st.tempFuriten),
+    current: rotSeat(st.current), drawnTile: null,
+    lastDiscard: st.lastDiscard ? desT(st.lastDiscard.tile) : null,
+    lastDiscardBy: st.lastDiscard ? rotSeat(st.lastDiscard.by) : -1,
+    phase: st.phase === 'draw' ? 'action' : st.phase,
+    animating: false, actionTimeout: null,
+    gameOver: !!st.gameOver, rinshanDraw: false, _winTile: null,
+    _riichiDiscardIdx: rotArr(st.riichiIdx), _dealerKept: false,
+  };
+  _prevScores = prevScores || [...G.scores];
+  const myHand = st.hands[st.you];
+  if (myHand && myHand.drawnId != null){
+    const dt = G.hands[HUMAN].find(t => t.id === myHand.drawnId);
+    if (dt) G.drawnTile = dt;
+  }
+  NET.names = rotArr(st.players.map(p => p.name + (p.disc ? '（切断中）' : '')));
+  if (NET.viewHandSeq !== st.handSeq){
+    NET.viewHandSeq = st.handSeq;
+    document.getElementById('win-overlay').classList.remove('show');
+    hideActionArea(); hideSelfActions(); closeChiSel();
+    NET.myTurn = false; NET.callOpen = false; NET.turnOptions = null;
+    netStopTimer();
+  }
+  /* 自分の番でなくなっていたら入力UIを取り下げる */
+  if (NET.myTurn && !(st.current === st.you && st.phase === 'discard')) netGuestEndTurnUI();
+  if (NET.callOpen && st.phase !== 'action'){ NET.callOpen = false; hideActionArea(); closeChiSel(); netStopTimer(); }
+  renderAll();
+  if (G.gameOver) updateStatus('—');
+  else if (st.current === st.you) updateStatus('Your Turn');
+  else {
+    const pl = st.players[st.current];
+    updateStatus((pl && pl.kind === 'cpu' ? 'CPU' : (pl ? pl.name : '')) + ' の番');
+  }
+}
+function netGuestEndTurnUI(){
+  NET.myTurn = false; NET.turnOptions = null; NET.riichiPending = false;
+  _riichiMode = false; _riichiCandidates = [];
+  hideSelfActions(); netStopTimer();
+}
+function netGuestOnTurn(msg){
+  NET.myTurn = true;
+  NET.turnOptions = msg.options;
+  NET.riichiPending = false;
+  _riichiMode = false; _riichiCandidates = []; _selTile = null;
+  if (G){ G.phase = 'discard'; G.current = HUMAN; G.animating = false; renderAll(); }
+  netShowSelfActions(msg.options);
+  netStartTimer(Math.max(1000, (msg.deadlineMs || MJ_TURN_DEADLINE) - 300));
+}
+function netShowSelfActions(opts){
+  const bar = document.getElementById('self-action');
+  bar.innerHTML = '';
+  const btns = [];
+  if (opts.tsumo) btns.push({ label: 'ツモ', cls: 'btn-tsumo', fn: () => { netSendToHost({ t: 'act', kind: 'tsumo' }); netGuestEndTurnUI(); } });
+  if (opts.riichi) btns.push({ label: 'リーチ', cls: 'btn-riichi', fn: () => {
+    NET.riichiPending = true; _riichiMode = true;
+    _riichiCandidates = netRiichiCandidates();
+    showToast('リーチ！\n捨て牌を選んでください');
+    renderHandSouth(); renderWaits();
+  } });
+  (opts.kans || []).forEach(k => btns.push({
+    label: 'カン（' + tileName({ suit: k.suit, num: k.num }) + '）', cls: 'btn-kan',
+    fn: () => { netSendToHost({ t: 'act', kind: 'kan', ktype: k.type, suit: k.suit, num: k.num }); netGuestEndTurnUI(); },
+  }));
+  if (!btns.length){ bar.classList.remove('show'); return; }
+  for (const b of btns){
+    const btn = document.createElement('button');
+    btn.className = 'act-btn ' + b.cls;
+    btn.textContent = b.label;
+    btn.onclick = () => { snd.call(); b.fn(); };
+    bar.appendChild(btn);
+  }
+  bar.classList.add('show');
+}
+function netRiichiCandidates(){
+  if (!G) return [];
+  const hand = G.hands[HUMAN];
+  return hand.filter(t => getTenpai(hand.filter(x => x.id !== t.id), G.melds[HUMAN]).length > 0).map(t => t.id);
+}
+function netGuestTileClick(tile){
+  if (!NET.myTurn || !G) return;
+  if (G.riichi[HUMAN] && !(G.drawnTile && tile.id === G.drawnTile.id)) return;
+  snd.select();
+  if (NET.riichiPending){
+    if (!_riichiCandidates.includes(tile.id)){ showToast('その牌ではテンパイしません'); return; }
+    NET.riichiPending = false; _riichiMode = false; _riichiCandidates = [];
+    netSendToHost({ t: 'act', kind: 'discard', id: tile.id, riichi: true });
+    netGuestEndTurnUI();
+    renderHandSouth(); renderWaits();
+    return;
+  }
+  if (_selTile && _selTile.id === tile.id){
+    _selTile = null;
+    netSendToHost({ t: 'act', kind: 'discard', id: tile.id });
+    netGuestEndTurnUI();
+  } else {
+    _selTile = tile;
+    renderHandSouth();
+  }
+}
+function netGuestOnCall(msg){
+  NET.callOpen = true;
+  _lastChiActs = null; /* ソロ用のチー選択復帰処理を無効化 */
+  const area = document.getElementById('action-area');
+  area.innerHTML = ''; area.classList.add('show');
+  const labels = { ron: 'ロン', pon: 'ポン', chi: 'チー', kan: 'カン' };
+  const send = (kind, extra) => {
+    netSendToHost(Object.assign({ t: 'call', qid: msg.qid, kind }, extra || {}));
+    NET.callOpen = false;
+    hideActionArea(); closeChiSel(); netStopTimer();
+  };
+  const mkBtn = (label, cls, fn) => {
+    const btn = document.createElement('button');
+    btn.className = 'act-btn ' + cls; btn.textContent = label;
+    btn.onclick = () => { snd.call(); fn(); };
+    return btn;
+  };
+  for (const type of msg.options){
+    if (type === 'chi' && (msg.chiOpts || []).length > 1){
+      area.appendChild(mkBtn('チー', 'btn-chi', () => {
+        const sel = document.getElementById('chi-selector');
+        const opts = document.getElementById('chi-options');
+        opts.innerHTML = ''; sel.classList.add('show');
+        msg.chiOpts.forEach(o => {
+          const b = document.createElement('div');
+          b.className = 'chi-opt';
+          b.innerHTML = o.seq.map(t => tileHTML(desT(t), 'mtile', 24, 34)).join('');
+          b.onclick = () => send('chi', { fromIds: o.fromIds });
+          opts.appendChild(b);
+        });
+      }));
+    } else if (type === 'chi'){
+      area.appendChild(mkBtn('チー', 'btn-chi', () => send('chi', { fromIds: (msg.chiOpts && msg.chiOpts[0]) ? msg.chiOpts[0].fromIds : [] })));
+    } else {
+      area.appendChild(mkBtn(labels[type] || type, 'btn-' + type, () => send(type)));
+    }
+  }
+  area.appendChild(mkBtn('スキップ', 'btn-pass', () => send('pass')));
+  netStartTimer(Math.max(1000, (msg.deadlineMs || MJ_CALL_DEADLINE) - 300));
+}
+function netGuestRotHelpers(){
+  const r = (1 - NET.mySeat + 4) % 4;
+  return {
+    rotSeat: a => (a === null || a === undefined || a < 0) ? a : (a + r) % 4,
+    rotArr: a => { const V = [null, null, null, null]; for (let abs = 0; abs < 4; abs++) V[(abs + r) % 4] = a[abs]; return V; },
+  };
+}
+function netGuestOnResult(msg){
+  NET.myTurn = false; NET.callOpen = false; NET.turnOptions = null;
+  hideActionArea(); hideSelfActions(); closeChiSel(); netStopTimer();
+  if (!G) return;
+  const { rotSeat, rotArr } = netGuestRotHelpers();
+  if (msg.kind === 'win'){
+    const wv = rotSeat(msg.winner);
+    G.hands[wv] = msg.winnerHand.map(desT); /* 和了者の手牌は公開情報 */
+    G._winTile = msg.winTile ? desT(msg.winTile) : null;
+    G.uraDoraIndicators = (msg.ura || []).map(desT);
+    G.scores = rotArr(msg.scores);
+    showWinOverlay(wv, msg.loser < 0 ? -1 : rotSeat(msg.loser), null, msg.isTsumo, msg.yaku, msg.info, rotArr(msg.changes));
+    const sub = document.getElementById('win-subtitle');
+    const wName = NET.absPlayers && NET.absPlayers[msg.winner] ? NET.absPlayers[msg.winner].name : '';
+    if (wv !== HUMAN && wName) sub.textContent = sub.textContent.replace('（CPU）', '（' + wName + '）');
+    const btn = document.getElementById('win-continue');
+    btn.textContent = '次の局を待っています…';
+    btn.onclick = () => { document.getElementById('win-overlay').classList.remove('show'); showToast('ホストが次の局を開始します'); };
+    if (wv === HUMAN) spawnConfetti(true);
+    snd.win();
+  } else if (msg.kind === 'draw'){
+    G.scores = rotArr(msg.scores);
+    showDrawOverlay(rotArr(msg.tenpai), rotArr(msg.changes));
+    const btn = document.getElementById('win-continue');
+    btn.textContent = '次の局を待っています…';
+    btn.onclick = () => { document.getElementById('win-overlay').classList.remove('show'); showToast('ホストが次の局を開始します'); };
+  }
+}
+function netGuestOnFinal(msg){
+  if (!G) return;
+  const { rotArr } = netGuestRotHelpers();
+  G.scores = rotArr(msg.scores);
+  G.gameOver = true;
+  finalGameOver();
+  const btn = document.getElementById('win-continue');
+  btn.textContent = 'タイトルへ戻る';
+  btn.onclick = () => {
+    document.getElementById('win-overlay').classList.remove('show');
+    netGuestLeave();
+  };
+}
+
+/* ── オンラインUIの結線 ── */
+document.getElementById('net-host-btn').addEventListener('click', () => { ac(); netHostCreateRoom(); });
+document.getElementById('net-join-btn').addEventListener('click', () => { ac(); netGuestJoinFromUI(); });
+document.getElementById('net-copy-btn').addEventListener('click', () => {
+  const code = NET.roomCode || document.getElementById('net-lobby-code').textContent;
+  const done = () => showToast('コードをコピーしました');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code).then(done).catch(() => showToast('コード: ' + code));
+  } else showToast('コード: ' + code);
+});
+document.getElementById('net-start-btn').addEventListener('click', () => { netHostStartMatch(); });
+document.getElementById('net-leave-btn').addEventListener('click', () => {
+  if (NET.mode === 'host') netHostLeave();
+  else if (NET.mode === 'guest') netGuestLeave();
+});
+
 let _lastChiActs = null;
 const _origShowChiSel = showChiSel;
 showChiSel = function(acts, dp){ _lastChiActs = { acts, dp }; _origShowChiSel(acts, dp); };

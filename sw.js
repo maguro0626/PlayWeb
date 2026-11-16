@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v15';
+const CACHE_NAME = 'game-platform-cache-v16';
 
 // ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
 // キャッシュしたいファイルを1つずつ正確に書く必要があります。
@@ -64,12 +64,19 @@ const urlsToCache = [
 
 // インストール時にリストのファイルをすべて事前キャッシュ！
 self.addEventListener('install', event => {
+  // 新バージョンは待たずに即有効化する（ポータルの更新ボタンと連動）
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       console.log('Opened cache and pre-caching all assets');
       return cache.addAll(urlsToCache);
     })
   );
+});
+
+// ポータルの更新ボタンからの即時有効化リクエスト
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // 通信の処理（キャッシュ優先、なければネットワークへ）
@@ -101,6 +108,6 @@ self.addEventListener('activate', event => {
         cacheNames.filter(name => name !== CACHE_NAME)
           .map(name => caches.delete(name))
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });

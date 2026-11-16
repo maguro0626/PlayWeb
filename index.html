@@ -75,6 +75,15 @@
   .news .date{color:#67e8f9;font-weight:800;font-size:12px;margin-right:10px;font-variant-numeric:tabular-nums}
   .news .new{color:#fff;background:linear-gradient(90deg,#f59e0b,#ef4444);font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:2px}
   footer{text-align:center;color:#5d6284;font-size:12px;margin-top:44px;line-height:2}
+  #updateBtn{position:relative;margin-top:18px;background:linear-gradient(90deg,#0ea5e9,#2563eb);color:#fff;border:none;border-radius:999px;padding:11px 26px;font-size:14.5px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(37,99,235,.35);transition:transform .15s,opacity .15s}
+  #updateBtn:hover{transform:translateY(-1px)}
+  #updateBtn:disabled{opacity:.6;cursor:wait;transform:none}
+  #updateBtn .dot{position:absolute;top:-3px;right:-3px;width:13px;height:13px;border-radius:50%;background:#ef4444;border:2px solid #0b1026;animation:updPulse 1.2s ease-in-out infinite}
+  @keyframes updPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+  #updText{margin-top:9px;font-size:12px;color:var(--sub)}
+  #updText.found{color:#fca5a5;font-weight:700}
+  #pwToast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#16a34a;color:#fff;font-weight:800;font-size:14px;padding:12px 22px;border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:all .35s;z-index:99}
+  #pwToast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -88,6 +97,8 @@
       <span class="stat">📱 スマホ対応</span>
       <span class="stat">💾 オフライン可</span>
     </div>
+    <button id="updateBtn" onclick="forceUpdate()">🔄 更新する</button>
+    <div id="updText">ゲームが更新されないときは、このボタンで最新版にできます</div>
   </div>
 
   <div class="toolbar">
@@ -106,7 +117,8 @@
 
   <div class="secTitle">📢 アップデート</div>
   <ul class="news">
-    <li><span class="date">2026.11</span>ブロックブラスト／テトリス／スイカゲームにオンライン対戦を追加！<span class="new">NEW</span><br>ルームコードで友達と対戦。ブロックブラストは同じピースでスコア対決、テトリスはおじゃまライン対戦、スイカは3分スコアレース。</li>
+    <li><span class="date">2026.11</span>大富豪／UNO／麻雀が最大4人のオンライン対戦に対応！<span class="new">NEW</span><br>空いた席はCPUが埋めるので、2人からでも対戦できます。ホームに「更新する」ボタンも追加しました。</li>
+    <li><span class="date">2026.11</span>ブロックブラスト／テトリス／スイカゲームにオンライン対戦を追加！<br>ルームコードで友達と対戦。ブロックブラストは同じピースでスコア対決、テトリスはおじゃまライン対戦、スイカは3分スコアレース。</li>
     <li><span class="date">2026.11</span>新作「ブロックブラスト」登場！<br>8×8ブロックパズル。コンボ・同時消しボーナスと派手なエフェクトで爽快感抜群。</li>
     <li><span class="date">2026.11</span>新作「クレープ工房」登場！<span class="new">NEW</span><br>生地のばし・焼き加減・自由な具材配置まで再現したクレープ作りシミュレーター。</li>
     <li><span class="date">2026.11</span>テトリス／スイカゲーム／マインスイーパ／オセロを全面リニューアル。<br>グラフィック・ゲーム性・演出を大幅に強化しました。</li>
@@ -127,10 +139,10 @@ const GAMES = [
   { id:'minesweeper',title:'マインスイーパ', emoji:'💣', grad:'linear-gradient(135deg,#f43f5e,#881337)', path:'minesweeper.html', cat:'puzzle', tags:['パズル','ロジック'], renewed:true, desc:'初クリック安全＆一括オープンのコード対応。3つの難易度とベストタイム記録。' },
   { id:'reversi',    title:'オセロ',         emoji:'⚫', grad:'linear-gradient(135deg,#e4e4e7,#71717a)', path:'reversi.html',  cat:'board', tags:['ボード','対CPU'], renewed:true, desc:'本気で強いAI搭載（3段階）。フリップアニメーションと形勢表示で白熱の対局。オンライン対戦・対面2人対応。' },
   { id:'shogi',      title:'将棋',           emoji:'☗', grad:'linear-gradient(135deg,#fde68a,#d97706)', path:'shogi.html',     cat:'board', tags:['ボード','対CPU'], desc:'持ち駒・成り・王手判定まで備えた本格将棋。CPUとの真剣勝負。オンライン対戦・対面2人対応。' },
-  { id:'majan',      title:'麻雀',           emoji:'🀄', grad:'linear-gradient(135deg,#065f46,#022c22)', path:'majan.html',     cat:'board', tags:['ボード','テーブル'], desc:'役・点数計算まで実装した本格麻雀。じっくり打ち込める一作。' },
-  { id:'daihugou',   title:'大富豪',         emoji:'👑', grad:'linear-gradient(135deg,#facc15,#b45309)', path:'daihugou.html',  cat:'card', tags:['カード','対CPU'], desc:'革命・8切り・ジョーカーあり。CPU相手に大富豪を目指せ。' },
+  { id:'majan',      title:'麻雀',           emoji:'🀄', grad:'linear-gradient(135deg,#065f46,#022c22)', path:'majan.html',     cat:'board', tags:['ボード','テーブル'], desc:'役・点数計算まで実装した本格麻雀。じっくり打ち込める一作。最大4人オンライン対戦（空き席はCPU）対応。' },
+  { id:'daihugou',   title:'大富豪',         emoji:'👑', grad:'linear-gradient(135deg,#facc15,#b45309)', path:'daihugou.html',  cat:'card', tags:['カード','対CPU'], desc:'革命・8切り・ジョーカーあり。CPU相手に大富豪を目指せ。最大4人オンライン対戦（空き席はCPU）対応。' },
   { id:'hanahuda',   title:'花札',           emoji:'🎴', grad:'linear-gradient(135deg,#881337,#450a0a)', path:'hanahuda.html',  cat:'card', tags:['カード','和風'], desc:'こいこいルールで遊べる花札。役をそろえて高得点を狙おう。' },
-  { id:'uno',        title:'UNO',            emoji:'🎨', grad:'linear-gradient(135deg,#ef4444,#eab308 55%,#2563eb)', path:'uno.html', cat:'card', tags:['カード','対CPU'], desc:'おなじみのカードゲーム。特殊カードを駆使して最初に上がろう。' },
+  { id:'uno',        title:'UNO',            emoji:'🎨', grad:'linear-gradient(135deg,#ef4444,#eab308 55%,#2563eb)', path:'uno.html', cat:'card', tags:['カード','対CPU'], desc:'おなじみのカードゲーム。特殊カードを駆使して最初に上がろう。最大4人オンライン対戦（空き席はCPU）対応。' },
   { id:'breakout',   title:'ブロック崩し',   emoji:'🧆', grad:'linear-gradient(135deg,#6366f1,#7e22ce)', path:'blockzushi.html', cat:'action', tags:['アクション'], desc:'パドルでボールを跳ね返すクラシックアクション。' },
   { id:'jump',       title:'ジャンプラン',   emoji:'👟', grad:'linear-gradient(135deg,#38bdf8,#22c55e)', path:'jump.html',      cat:'action', tags:['アクション'], desc:'障害物をジャンプでかわして走り続けるランゲーム。' },
   { id:'caring',     title:'育成ゲーム',     emoji:'🥚', grad:'linear-gradient(135deg,#f9a8d4,#ec4899)', path:'caring.html',    cat:'story', tags:['育成','まったり'], desc:'たまごから育てる癒やし系育成ゲーム。成長を見守ろう。' },
@@ -198,6 +210,70 @@ document.querySelectorAll('.chip').forEach(ch=>{
 $('q').addEventListener('input', e=>{ query = e.target.value.trim().toLowerCase(); render(); });
 $('statCount').textContent = GAMES.length;
 render();
+</script>
+<div id="pwToast">✅ 最新版に更新しました</div>
+<script>
+/* ─── 更新ボタン: キャッシュを消して最新版を取得する ─── */
+let swReg = null;
+const hadController = !!navigator.serviceWorker && !!navigator.serviceWorker.controller;
+function markUpdateAvailable(){
+  const b = document.getElementById('updateBtn');
+  if (b && !b.querySelector('.dot')){
+    b.insertAdjacentHTML('beforeend', '<span class="dot"></span>');
+  }
+  const t = document.getElementById('updText');
+  if (t){ t.textContent = '新しいバージョンがあります！押すと更新します'; t.classList.add('found'); }
+}
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', async () => {
+    try{
+      swReg = await navigator.serviceWorker.register('./sw.js');
+      if (swReg.waiting && hadController) markUpdateAvailable();
+      swReg.addEventListener('updatefound', () => {
+        const nw = swReg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && hadController) markUpdateAvailable();
+        });
+      });
+      swReg.update().catch(() => {});
+    }catch (e){}
+  });
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    sessionStorage.setItem('pw_updated', '1');
+    location.reload();
+  });
+}
+async function forceUpdate(){
+  const btn = document.getElementById('updateBtn');
+  if (btn){ btn.disabled = true; btn.textContent = '🔄 更新を確認しています…'; }
+  try{
+    if ('caches' in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if (swReg){
+      await swReg.update().catch(() => {});
+      if (swReg.waiting){
+        swReg.waiting.postMessage({type: 'SKIP_WAITING'});
+        setTimeout(() => { sessionStorage.setItem('pw_updated', '1'); location.reload(); }, 1500);
+        return;
+      }
+    }
+  }catch (e){}
+  sessionStorage.setItem('pw_updated', '1');
+  location.reload();
+}
+if (sessionStorage.getItem('pw_updated')){
+  sessionStorage.removeItem('pw_updated');
+  window.addEventListener('load', () => {
+    const t = document.getElementById('pwToast');
+    if (t){ t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2600); }
+  });
+}
 </script>
 </body>
 </html>

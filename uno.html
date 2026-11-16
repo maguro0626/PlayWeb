@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>UNO | PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{
     --ink:#f5f2ea; --ink-dim:rgba(245,242,234,.62); --panel:rgba(20,10,14,.55);
@@ -285,6 +286,28 @@
   .center-zone{flex:1;display:flex;align-items:center;justify-content:center;gap:30px;padding:4px 16px;position:relative;min-height:0;}
   .action-bar{padding:6px 12px calc(12px + env(safe-area-inset-bottom));display:flex;gap:9px;flex-shrink:0;}
 
+  /* ============ ONLINE / LOBBY ============ */
+  .net-input{width:100%;box-sizing:border-box;padding:11px 13px;border-radius:13px;border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.08);color:var(--ink);font-size:14px;font-weight:700;font-family:inherit;outline:none;}
+  .net-input::placeholder{color:var(--ink-dim);}
+  .net-input:focus{border-color:rgba(255,255,255,.55);}
+  .net-row{display:flex;gap:8px;}
+  .net-row .net-input{flex:1;}
+  .net-sub-btn{padding:11px 14px;border-radius:13px;border:1px solid rgba(255,255,255,.25);cursor:pointer;white-space:nowrap;
+    background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-weight:900;font-size:13px;transition:transform .13s;}
+  .net-sub-btn:active{transform:scale(.95);}
+  .net-status{font-size:11px;font-weight:700;color:var(--ink-dim);line-height:1.7;min-height:16px;}
+  .net-status .err{color:#fda4af;}
+  #overlay-lobby{background:rgba(8,2,4,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+  .lobby-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:13px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.09);margin-bottom:7px;font-size:13px;font-weight:800;}
+  .lobby-row .l-seat{font-size:10px;font-weight:900;color:var(--ink-dim);letter-spacing:.1em;min-width:34px;}
+  .lobby-row .l-state{margin-left:auto;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.12);color:var(--ink-dim);}
+  .lobby-row .l-state.on{background:rgba(34,197,94,.25);color:#86efac;}
+  .lobby-row .l-state.off{background:rgba(236,28,36,.25);color:#fda4af;}
+  .lobby-code{font-size:26px;font-weight:900;letter-spacing:.35em;color:var(--gold);font-variant-numeric:tabular-nums;}
+  .primary-btn:disabled{opacity:.45;cursor:default;}
+
   @media (max-width:400px){
     .uno-card{width:50px;height:72px;}
     .uno-card.card-md{width:66px;height:94px;}
@@ -349,6 +372,25 @@
     </div>
 
     <button onclick="startMatch()" class="start-btn">▶ ゲームスタート</button>
+
+    <div class="settings-card" id="online-card">
+      <div>
+        <div class="set-label">🌐 オンライン対戦（最大4人・空き席はCPU）</div>
+        <input id="net-name" class="net-input" type="text" maxlength="12" placeholder="あなたの名前（例: たろう）" autocomplete="off">
+      </div>
+      <div>
+        <button onclick="netCreateRoom()" class="primary-btn" style="padding:13px;">🏠 部屋を作る（ホスト）</button>
+        <div class="net-status" id="net-create-status" style="margin-top:6px;"></div>
+      </div>
+      <div>
+        <div class="set-label">部屋に参加する（ゲスト）</div>
+        <div class="net-row">
+          <input id="net-code" class="net-input" type="text" maxlength="6" placeholder="コード6文字" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em;">
+          <button onclick="netJoinRoom()" class="net-sub-btn">参加する</button>
+        </div>
+        <div class="net-status" id="net-join-status" style="margin-top:6px;"></div>
+      </div>
+    </div>
 
     <div class="rules-note">
       ラウンド勝者は、みんなの残り手札の点数をゲット（数字＝その数、アクション＝20点、ワイルド系＝50点）<br>
@@ -418,6 +460,34 @@
       </button>
     </div>
   </main>
+</div>
+
+<!-- ONLINE LOBBY -->
+<div id="overlay-lobby" class="overlay hidden">
+  <div class="end-card" style="text-align:left;">
+    <div style="font-size:19px;font-weight:900;text-align:center;">🌐 オンラインロビー</div>
+    <div style="text-align:center;margin:12px 0 4px;">
+      <div style="font-size:9px;font-weight:900;letter-spacing:.2em;color:var(--ink-dim);">ルームコード</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+        <span class="lobby-code" id="lobby-code">------</span>
+        <button class="bar-btn" id="lobby-copy" onclick="netCopyCode()">📋 コピー</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--ink-dim);font-weight:700;">友達にコードを教えて参加してもらおう</div>
+    </div>
+    <div id="lobby-players" style="margin-top:12px;"></div>
+    <div id="lobby-target-wrap">
+      <div class="set-label" style="margin-top:12px;">目標スコア（ホスト設定）</div>
+      <div class="seg-wrap" id="lobby-target-seg">
+        <button class="seg-btn" onclick="netSetTarget(0)">1本勝負</button>
+        <button class="seg-btn" onclick="netSetTarget(100)">100点</button>
+        <button class="seg-btn active" onclick="netSetTarget(300)">300点</button>
+        <button class="seg-btn" onclick="netSetTarget(500)">500点</button>
+      </div>
+    </div>
+    <div class="net-status" id="lobby-status" style="margin:10px 0 2px;"></div>
+    <button id="lobby-start" onclick="netHostStartMatch()" class="primary-btn" style="margin-top:8px;" disabled>対戦スタート（残りの席はCPU）</button>
+    <button onclick="netLeaveLobby()" class="ghost-btn">退出する</button>
+  </div>
 </div>
 
 <!-- COLOR PICKER -->
@@ -675,6 +745,7 @@ function buildPlayers(){
 }
 
 function startMatch(){
+  if(NET.active){ if(NET.host)netHostStartMatch(); return; }
   clearAllTimers();
   const players=buildPlayers();
   G={
@@ -705,6 +776,7 @@ function startMatch(){
 async function startRound(){
   clearAllTimers();
   G.deck=shuffle(makeDeck());
+  if(G.online){let __ci=0;G.deck.forEach(c=>{c.id='c'+(__ci++);});G.netDrawn={};G.netActBusy=false;}
   G.discard=[];
   G.players.forEach(p=>{p.hand=[];p.out=false;});
   G.direction=1;
@@ -743,6 +815,7 @@ async function startRound(){
 }
 
 function nextRound(){
+  if(NET.active&&!NET.host)return; // オンラインのラウンド開始はホストのみ
   Snd.click();
   hideEl('overlay-round');
   G.round++;
@@ -750,9 +823,10 @@ function nextRound(){
 }
 
 function backToSetup(){
+  if(NET.active)netTeardown();
   clearAllTimers();
   if(G)G.phase='ended';
-  hideEl('screen-game');hideEl('overlay-end');hideEl('overlay-round');hideEl('overlay-cutin');hideEl('overlay-colorpick');hideEl('overlay-ctarget');
+  hideEl('screen-game');hideEl('overlay-end');hideEl('overlay-round');hideEl('overlay-cutin');hideEl('overlay-colorpick');hideEl('overlay-ctarget');hideEl('overlay-lobby');
   showEl('screen-setup');
   document.querySelectorAll('.confetti-p,.victory-flash,.eff-flash,.toast-pop,.uno-callout').forEach(e=>e.remove());
   renderStats();
@@ -798,6 +872,13 @@ async function beginTurn(idx){
 
   const p=G.players[idx];
   if(p.out){nextTurn(idx);return;}
+
+  if(p.isRemote){
+    // オンライン: リモートプレイヤーの操作待ち（act が来るまで進行しない）
+    G.busy=true;
+    netBroadcastAll();
+    return;
+  }
 
   if(p.isNPC){
     G.busy=true;
@@ -931,6 +1012,7 @@ function applyDrawTo(victimIdx,n){
    PLAYER ACTIONS
 ============================================================ */
 function playerPlayCard(ci,el){
+  if(NET.active&&!NET.host){netGuestPlayCard(ci);return;}
   if(G.phase!=='playing'||G.busy||G.currentIdx!==0)return;
   const p=G.players[0];
   const card=p.hand[ci];if(!card)return;
@@ -1008,6 +1090,7 @@ async function afterPlayerPlay(card){
 }
 
 function playerDraw(){
+  if(NET.active&&!NET.host){netSendAct({draw:true});return;}
   if(G.phase!=='playing'||G.busy||G.currentIdx!==0)return;
   if(G.drawnCard)return;
   G.busy=true;
@@ -1042,6 +1125,7 @@ function playerDraw(){
 }
 
 function playerPass(){
+  if(NET.active&&!NET.host){netSendAct({pass:true});return;}
   if(G.phase!=='playing'||G.currentIdx!==0)return;
   G.drawnCard=null;
   document.getElementById('btn-pass').classList.add('hidden');
@@ -1099,6 +1183,16 @@ function scheduleNPCChallengePlayer(){
 }
 
 function playerUno(){
+  if(NET.active&&!NET.host){
+    netSendAct({uno:true});
+    const gp=G.players[0];
+    if(gp&&gp.hand.length===1&&!G.pUnoDeclared){
+      G.pUnoDeclared=true;
+      document.getElementById('p-uno-badge').classList.remove('hidden');
+      Snd.uno();showPlayerUnoBubble();updateActionBar();
+    }
+    return;
+  }
   const p=G.players[0];
   if(p.hand.length===1&&!G.pUnoDeclared){
     G.pUnoDeclared=true;
@@ -1116,6 +1210,16 @@ function playerUno(){
 }
 
 function playerChallenge(){
+  if(NET.active&&!NET.host){
+    const gtargets=Object.entries(G.unoWin)
+      .filter(([i,w])=>w.open&&!w.declared)
+      .map(([i,w])=>({idx:parseInt(i),win:w}))
+      .filter(t=>t.idx!==0);
+    if(gtargets.length===0){netSendAct({challenge:null});showToast('指摘しました…','📣');}
+    else if(gtargets.length===1){netSendAct({challenge:netViewToSeat(gtargets[0].idx)});}
+    else showChallengeTargetPicker(gtargets);
+    return;
+  }
   const targets=Object.entries(G.unoWin)
     .filter(([i,w])=>w.open&&!w.declared)
     .map(([i,w])=>({idx:parseInt(i),win:w}))
@@ -1137,6 +1241,7 @@ function playerChallenge(){
 
 function execChallenge(targetIdx){
   document.getElementById('overlay-ctarget').classList.add('hidden');
+  if(NET.active&&!NET.host){netSendAct({challenge:netViewToSeat(targetIdx)});return;}
   const w=G.unoWin[targetIdx];
   if(!w||!w.open||w.declared){
     const c=drawCard();if(c)G.players[0].hand.push(c);
@@ -1177,9 +1282,11 @@ function endRound(winnerIdx){
   G.scores[winnerIdx]+=roundPts;
   G.starter=winnerIdx; // winner starts the next round
 
-  STATS.rounds++;
-  if(isPlayer)STATS.roundWins++;
-  saveStats();
+  if(!G.online){
+    STATS.rounds++;
+    if(isPlayer)STATS.roundWins++;
+    saveStats();
+  }
 
   const fl=document.createElement('div');fl.className='victory-flash';document.body.appendChild(fl);setTimeout(()=>fl.remove(),800);
   spawnConfetti(isPlayer);
@@ -1187,6 +1294,7 @@ function endRound(winnerIdx){
   else{Snd.lose();showEffect('ROUND UP…','red');}
 
   const matchOver=G.target===0||G.scores[winnerIdx]>=G.target;
+  if(G.online)netOnEndRound(winnerIdx,gains,roundPts,matchOver);
   addTimer(()=>{
     if(matchOver)showMatchEnd(winnerIdx,roundPts);
     else showRoundResult(winnerIdx,roundPts,gains);
@@ -1222,9 +1330,11 @@ function showMatchEnd(winnerIdx,roundPts){
   let champ=0;
   G.scores.forEach((s,i)=>{if(s>G.scores[champ])champ=i;});
   const isPlayer=champ===0;
-  STATS.matches++;
-  if(isPlayer)STATS.matchWins++;
-  saveStats();
+  if(!G.online){
+    STATS.matches++;
+    if(isPlayer)STATS.matchWins++;
+    saveStats();
+  }
 
   const w=G.players[champ];
   document.getElementById('end-emoji').textContent=isPlayer?'🎉':'😔';
@@ -1596,6 +1706,858 @@ function spawnConfetti(playerWon){
     else{el.style.cssText+=`;width:${4+Math.random()*4}px;height:${9+Math.random()*10}px;border-radius:2px`;}
     document.body.appendChild(el);
     setTimeout(()=>el.remove(),5500);
+  }
+}
+
+/* ============================================================
+   ONLINE (PeerJS / WebRTC P2P) — ホスト権威・スター型
+   ホストが全員の手札と進行を管理し、各ゲストには「その人の
+   手札だけ＋全員の枚数・場・スコア」を個別に送る。
+   他人の手札の中身は一切送信しない。
+   ※スター型の限界: ホストが切断すると対戦は終了する。
+============================================================ */
+const NET_PEER_OPTS={config:{iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'},
+]}};
+const NET_PREFIX='playweb-un-';
+const NET_CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+const GUEST_DEFS=[
+  {emoji:'🦊',bg:'#f59e0b'},
+  {emoji:'🐼',bg:'#64748b'},
+  {emoji:'🦉',bg:'#8b5cf6'},
+];
+const NET={
+  active:false,host:false,inGame:false,peer:null,code:'',name:'',
+  seats:{},            // host: seat(1..3) -> {name,conn,connected,discTimer}
+  guestConn:null,mySeat:0,joined:false,joining:false,reconnecting:false,
+  syncTimer:null,pingTimer:null,joinTimer:null,rejoinTimer:null,rejoinTries:0,
+  shownRound:null,leaving:false,
+};
+function peerAvailable(){return typeof window.Peer!=='undefined';}
+function genRoomCode(){
+  let code='';
+  for(let i=0;i<6;i++)code+=NET_CODE_CHARS[(Math.random()*NET_CODE_CHARS.length)|0];
+  return code;
+}
+function netSetStatus(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html;}
+function netInputName(){
+  const v=(document.getElementById('net-name').value||'').trim();
+  return v||'';
+}
+function netSendTo(seat,obj){
+  const s=NET.seats[seat];
+  if(s&&s.conn&&s.conn.open){try{s.conn.send(obj);}catch(e){}}
+}
+function netSendAct(obj){
+  if(NET.guestConn&&NET.guestConn.open){try{NET.guestConn.send({t:'act',...obj});}catch(e){}}
+}
+function netViewToSeat(viewIdx){return (viewIdx+NET.mySeat)%4;}
+
+/* ---------- ロビー共通 ---------- */
+function netLobbyPlayers(){
+  const list=[{seat:0,name:NET.name||'ホスト',kind:'host',connected:true}];
+  for(let s=1;s<=3;s++){
+    const g=NET.seats[s];
+    if(g)list.push({seat:s,name:g.name,kind:'guest',connected:!!g.connected});
+    else list.push({seat:s,name:'CPU（NPC）',kind:'cpu',connected:true});
+  }
+  return list;
+}
+function netRenderLobby(players){
+  const wrap=document.getElementById('lobby-players');
+  if(!wrap)return;
+  const emojis={host:'🎮',guest:'🙂',cpu:'🤖'};
+  wrap.innerHTML=players.map(p=>{
+    const chip=p.kind==='host'?'<span class="l-state on">ホスト</span>'
+      :p.kind==='cpu'?'<span class="l-state">CPU</span>'
+      :p.connected?'<span class="l-state on">参加中</span>':'<span class="l-state off">切断中</span>';
+    return `<div class="lobby-row"><span class="l-seat">席${p.seat+1}</span><span>${emojis[p.kind]||'🙂'}</span><span>${p.name}</span>${chip}</div>`;
+  }).join('');
+  if(NET.host&&!NET.inGame){
+    const n=players.filter(p=>p.kind==='guest'&&p.connected).length;
+    const btn=document.getElementById('lobby-start');
+    if(btn)btn.disabled=n<1;
+    netSetStatus('lobby-status',n>=1
+      ?`ゲスト ${n}人 が参加中。スタートできます（残りの席はCPUが入ります）`
+      :'ゲストの参加を待っています…（1人以上でスタートできます）');
+  }
+}
+function netBroadcastLobby(){
+  if(!NET.host)return;
+  const players=netLobbyPlayers();
+  netRenderLobby(players);
+  for(let s=1;s<=3;s++)netSendTo(s,{t:'lobby',players});
+}
+function netSetTarget(v){
+  setTarget(v);
+  syncSeg('lobby-target-seg',[0,100,300,500],v);
+}
+function netCopyCode(){
+  const done=()=>showToast('コードをコピーしました','📋');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(NET.code).then(done).catch(()=>showToast('コード: '+NET.code,'📋'));
+  } else showToast('コード: '+NET.code,'📋');
+}
+function netLeaveLobby(){
+  if(NET.inGame){backToSetup();return;}
+  netTeardown();
+  hideEl('overlay-lobby');
+  showEl('screen-setup');
+}
+
+/* ---------- ホスト: 部屋作成 ---------- */
+function netCreateRoom(){
+  if(!peerAvailable()){
+    netSetStatus('net-create-status','<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    return;
+  }
+  if(NET.active||NET.peer)return;
+  NET.name=netInputName()||'ホスト';
+  NET.code=genRoomCode();
+  NET.host=true;NET.leaving=false;
+  netSetStatus('net-create-status','部屋を作成しています…');
+  let retried=false;
+  const make=()=>{
+    try{NET.peer=new Peer(NET_PREFIX+NET.code,NET_PEER_OPTS);}
+    catch(e){netSetStatus('net-create-status','<span class="err">部屋の作成に失敗しました。</span>');NET.host=false;return;}
+    NET.peer.on('open',()=>{
+      NET.active=true;
+      document.getElementById('lobby-code').textContent=NET.code;
+      document.getElementById('lobby-target-wrap').style.display='';
+      document.getElementById('lobby-start').style.display='';
+      syncSeg('lobby-target-seg',[0,100,300,500],SETTINGS.target);
+      netRenderLobby(netLobbyPlayers());
+      netSetStatus('net-create-status','');
+      showEl('overlay-lobby');
+    });
+    NET.peer.on('connection',c=>netWireGuestConn(c));
+    NET.peer.on('error',e=>{
+      if(e&&e.type==='unavailable-id'&&!retried){
+        retried=true;NET.code=genRoomCode();
+        try{NET.peer.destroy();}catch(err){}
+        make();return;
+      }
+      if(!NET.active)netSetStatus('net-create-status','<span class="err">接続エラーが発生しました。もう一度お試しください。</span>');
+    });
+  };
+  make();
+}
+
+function netWireGuestConn(c){
+  let seat=null;
+  const joinTimer=setTimeout(()=>{if(seat===null){try{c.close();}catch(e){}}},25000);
+  c.on('data',msg=>{
+    if(!msg||!msg.t)return;
+    if(msg.t==='ping')return;
+    if(msg.t==='join'){
+      seat=netHandleJoin(c,msg,seat);
+      if(seat!==null)clearTimeout(joinTimer);
+      return;
+    }
+    if(seat===null)return;
+    if(msg.t==='act')netHandleAct(seat,msg);
+  });
+  const onClose=()=>{if(seat!==null)netGuestDisconnected(seat,c);};
+  c.on('close',onClose);
+  c.on('error',onClose);
+}
+
+function netHandleJoin(c,msg,prevSeat){
+  const name=(msg.name||'').trim()||null;
+  const send=o=>{try{c.send(o);}catch(e){}};
+  if(prevSeat!==null&&NET.seats[prevSeat]&&NET.seats[prevSeat].conn===c)return prevSeat;
+  // 再参加: 切断中の同名ゲストの席を返す
+  if(msg.rejoin&&name){
+    for(let s=1;s<=3;s++){
+      const st=NET.seats[s];
+      if(st&&st.name===name&&!st.connected){
+        st.conn=c;st.connected=true;
+        if(st.discTimer){clearTimeout(st.discTimer);st.discTimer=null;}
+        send({t:'welcome',seat:s,players:netLobbyPlayers()});
+        netBroadcastLobby();
+        if(NET.inGame){
+          netSendTo(s,netBuildState(s));
+          netNotice(`${name} が再接続しました`);
+        }
+        return s;
+      }
+    }
+  }
+  if(NET.inGame){send({t:'error',msg:'対戦中です。終了までお待ちください。'});return null;}
+  for(let s=1;s<=3;s++){
+    if(!NET.seats[s]){
+      NET.seats[s]={name:name||('プレイヤー'+s),conn:c,connected:true,discTimer:null};
+      send({t:'welcome',seat:s,players:netLobbyPlayers()});
+      netBroadcastLobby();
+      return s;
+    }
+  }
+  send({t:'error',msg:'部屋が満員です。'});
+  return null;
+}
+
+function netGuestDisconnected(seat,c){
+  const st=NET.seats[seat];
+  if(!st||st.conn!==c)return; // 同一性チェック（古いconnのcloseで現行を壊さない）
+  st.connected=false;st.conn=null;
+  if(!NET.inGame){
+    delete NET.seats[seat];
+    netBroadcastLobby();
+    return;
+  }
+  netBroadcastAll();
+  netNotice(`${st.name} が切断しました（60秒以内に同じ名前で再参加すると席に戻れます）`);
+  st.discTimer=setTimeout(()=>netCpuTakeover(seat),60000);
+}
+
+function netCpuTakeover(seat){
+  const st=NET.seats[seat];
+  if(!st||st.connected)return;
+  delete NET.seats[seat];
+  const p=G&&G.players?G.players[seat]:null;
+  if(p){p.isRemote=false;p.isNPC=true;}
+  netNotice('切断したプレイヤーの席をCPUが引き継ぎました');
+  netBroadcastAll();
+  if(G&&G.phase==='playing'&&G.currentIdx===seat&&!G.netActBusy){
+    G.busy=true;
+    doNPCTurn(seat);
+  }
+}
+
+function netNotice(msg){
+  showToast(msg,'📣');
+  for(let s=1;s<=3;s++)netSendTo(s,{t:'notice',msg});
+}
+
+/* ---------- ホスト: マッチ開始 ---------- */
+function buildOnlinePlayers(){
+  const players=[{name:NET.name||'ホスト',emoji:'🎮',isNPC:false,hand:[],bg:'#18181b',out:false}];
+  for(let s=1;s<=3;s++){
+    const g=NET.seats[s];
+    if(g&&g.connected){
+      const d=GUEST_DEFS[s-1];
+      players.push({name:g.name,emoji:d.emoji,isNPC:false,isRemote:true,hand:[],bg:d.bg,out:false});
+    } else {
+      const d=NPC_DEFS[s-1];
+      players.push({name:d.name,emoji:d.emoji,isNPC:true,hand:[],bg:d.bg,out:false});
+    }
+  }
+  return players;
+}
+
+function netHostStartMatch(){
+  if(!NET.host||!NET.active)return;
+  clearAllTimers();
+  const players=buildOnlinePlayers();
+  G={
+    numPlayers:4,
+    difficulty:SETTINGS.difficulty,
+    target:SETTINGS.target,
+    deck:[],discard:[],players,
+    scores:players.map(()=>0),
+    round:1,
+    starter:0,
+    currentIdx:0,
+    direction:1,
+    activeColor:'red',
+    unoWin:{},
+    pUnoDeclared:false,
+    pUnoWindow:false,
+    drawnCard:null,
+    busy:false,
+    phase:'playing',
+    pendingDraw:0,
+    online:true,
+    netDrawn:{},
+    netActBusy:false,
+  };
+  NET.inGame=true;
+  NET.shownRound=1;
+  hideEl('screen-setup');showEl('screen-game');
+  hideEl('overlay-end');hideEl('overlay-round');hideEl('overlay-cutin');hideEl('overlay-colorpick');hideEl('overlay-ctarget');hideEl('overlay-lobby');
+  document.querySelectorAll('.confetti-p,.victory-flash,.eff-flash,.toast-pop,.uno-callout').forEach(e=>e.remove());
+  for(let s=1;s<=3;s++)netSendTo(s,{t:'start'});
+  clearInterval(NET.syncTimer);
+  NET.syncTimer=setInterval(()=>{if(NET.host&&NET.inGame)netBroadcastAll();},800);
+  clearInterval(NET.pingTimer);
+  NET.pingTimer=setInterval(()=>{for(let s=1;s<=3;s++)netSendTo(s,{t:'ping'});},8000);
+  startRound();
+}
+
+/* ---------- ホスト: 状態配信（個別化・秘匿） ---------- */
+function netUnoOpenOf(i){
+  if(i===0)return !!G.pUnoWindow;
+  const w=G.unoWin[i];return !!(w&&w.open);
+}
+function netUnoDeclaredOf(i){
+  if(i===0)return !!G.pUnoDeclared;
+  const w=G.unoWin[i];return !!(w&&w.declared);
+}
+function netBuildState(seat){
+  const top=topCard();
+  return {
+    t:'state',
+    you:seat,
+    phase:G.phase,
+    round:G.round,
+    target:G.target,
+    current:G.currentIdx,
+    direction:G.direction,
+    activeColor:G.activeColor,
+    top:top?{color:top.color,value:top.value}:null,
+    deckCount:G.deck?G.deck.length:0,
+    hand:G.players[seat].hand.map(c=>({id:c.id,color:c.color,value:c.value})),
+    drawnId:seat===0?(G.drawnCard?G.drawnCard.id:null):(G.netDrawn[seat]?G.netDrawn[seat].id:null),
+    canPass:seat===0?!!G.drawnCard:!!G.netDrawn[seat],
+    players:G.players.map((p,i)=>({
+      name:p.name,emoji:p.emoji,bg:p.bg,
+      count:p.hand.length,
+      score:G.scores[i],
+      out:!!p.out,
+      kind:p.isNPC?'cpu':(i===0?'host':'guest'),
+      connected:i===0?true:(NET.seats[i]?!!NET.seats[i].connected:true),
+      unoOpen:netUnoOpenOf(i),
+      unoDeclared:netUnoDeclaredOf(i),
+    })),
+  };
+}
+function netBroadcastAll(){
+  if(!NET.host||!NET.active||!G||!G.players)return;
+  for(let s=1;s<=3;s++){
+    if(NET.seats[s]&&NET.seats[s].connected)netSendTo(s,netBuildState(s));
+  }
+}
+function netOnEndRound(winnerIdx,gains,roundPts,matchOver){
+  let champ=null;
+  if(matchOver){
+    champ=0;
+    G.scores.forEach((s,i)=>{if(s>G.scores[champ])champ=i;});
+  }
+  const msg={
+    t:'roundEnd',
+    winner:winnerIdx,
+    roundPts,
+    gains:[...gains],
+    scores:[...G.scores],
+    handPts:G.players.map(p=>handPoints(p)),
+    round:G.round,
+    target:G.target,
+    matchOver,
+    champ,
+    players:G.players.map(p=>({name:p.name,emoji:p.emoji})),
+  };
+  for(let s=1;s<=3;s++)netSendTo(s,msg);
+}
+
+/* ---------- ホスト: ゲスト操作の検証と実行 ---------- */
+function netHandleAct(seat,msg){
+  if(!NET.host||!NET.inGame||!G||G.phase!=='playing')return;
+  const p=G.players[seat];
+  if(!p||p.isNPC||!p.isRemote)return;
+  if(msg.uno){netDoUno(seat);return;}
+  if(msg.challenge!==undefined){netDoChallenge(seat,msg.challenge);return;}
+  if(G.currentIdx!==seat){
+    netSendTo(seat,{t:'error',msg:'あなたのターンではありません'});
+    return;
+  }
+  if(G.netActBusy)return;
+  if(msg.draw){netDoDraw(seat);return;}
+  if(msg.pass){netDoPass(seat);return;}
+  if(msg.play){netDoPlay(seat,msg);return;}
+}
+
+function netDoUno(seat){
+  const p=G.players[seat];
+  let w=G.unoWin[seat];
+  const declared=w&&w.declared;
+  if(p.hand.length===1&&!declared){
+    if(!w){w={open:false,declared:false,openedAt:Date.now()};G.unoWin[seat]=w;}
+    w.declared=true;
+    Snd.uno();
+    showUnoBubble(seat);
+  } else {
+    const c=drawCard();if(c)p.hand.push(c);
+    Snd.bad();
+    netSendTo(seat,{t:'error',msg:'UNO宣言のタイミングが違いました。ペナルティ1枚'});
+    renderAll();
+  }
+  netBroadcastAll();
+}
+
+function netDoChallenge(seat,target){
+  let ok=false;
+  if(target!==null&&target!==undefined&&target!==seat&&G.players[target]){
+    if(target===0){
+      if(G.pUnoWindow&&!G.pUnoDeclared){G.pUnoWindow=false;ok=true;}
+    } else {
+      const w=G.unoWin[target];
+      if(w&&w.open&&!w.declared){w.open=false;ok=true;}
+    }
+  }
+  if(ok){
+    const c1=drawCard(),c2=drawCard();
+    if(c1)G.players[target].hand.push(c1);
+    if(c2)G.players[target].hand.push(c2);
+    Snd.good();
+    showCutinSuccess(G.players[target]);
+    showToast(`${G.players[seat].name} の指摘が成功！`,'📣');
+  } else {
+    const c=drawCard();if(c)G.players[seat].hand.push(c);
+    Snd.bad();
+    netSendTo(seat,{t:'error',msg:'指摘は外れ！ペナルティで1枚引きます'});
+  }
+  renderAll();
+  netBroadcastAll();
+}
+
+function netDoDraw(seat){
+  const p=G.players[seat];
+  if(G.netDrawn[seat]){netSendTo(seat,{t:'error',msg:'すでにカードを引いています'});return;}
+  const drawn=drawCard();
+  if(!drawn)return;
+  p.hand.push(drawn);
+  Snd.draw();
+  renderAll();
+  if(canPlay(drawn,topCard(),G.activeColor)){
+    G.netDrawn[seat]=drawn;
+    netBroadcastAll();
+  } else {
+    netBroadcastAll();
+    G.netActBusy=true;
+    addTimer(()=>{
+      if(G.phase==='playing'&&G.currentIdx===seat)netFinishAction(seat,false);
+      else G.netActBusy=false;
+    },520);
+  }
+}
+
+function netDoPass(seat){
+  if(!G.netDrawn[seat]){netSendTo(seat,{t:'error',msg:'引いたカードがある時だけパスできます'});return;}
+  G.netDrawn[seat]=null;
+  renderAll();
+  netFinishAction(seat,false);
+}
+
+function netDoPlay(seat,msg){
+  const p=G.players[seat];
+  const card=p.hand.find(c=>c.id===msg.play);
+  if(!card){netSendTo(seat,{t:'error',msg:'そのカードは手札にありません'});return;}
+  if(G.netDrawn[seat]&&card!==G.netDrawn[seat]){
+    netSendTo(seat,{t:'error',msg:'引いたカードだけ出せます'});return;
+  }
+  if(!canPlay(card,topCard(),G.activeColor)){
+    netSendTo(seat,{t:'error',msg:'そのカードは出せません'});return;
+  }
+  if(card.color==='wild'&&!COLORS.includes(msg.color)){
+    netSendTo(seat,{t:'error',msg:'ワイルドは色を選んでください'});return;
+  }
+  G.netActBusy=true;
+  netRemotePlay(seat,card,msg.color);
+}
+
+async function netRemotePlay(seat,card,colorChoice){
+  const p=G.players[seat];
+  const ci=p.hand.indexOf(card);
+  if(ci===-1){G.netActBusy=false;return;}
+  p.hand.splice(ci,1);
+  G.netDrawn[seat]=null;
+
+  G.activeColor=(card.color==='wild')?colorChoice:card.color;
+  G.discard.push(card);
+  Snd.play();
+  renderAll();
+  netBroadcastAll();
+
+  if(p.hand.length===1){
+    openUnoWin(seat);
+    netScheduleNPCChallengeSeat(seat);
+    netBroadcastAll();
+  } else if(p.hand.length===0){
+    G.netActBusy=false;
+    endRound(seat);
+    return;
+  }
+
+  if(card.color==='wild'){showColorBanner(G.activeColor,p.name);Snd.color();await sleep(700);}
+
+  const victim=nxtIdx(seat);
+  let skipTurn=false;
+
+  if(card.value==='skip'){
+    showEffect('SKIP!',card.color);Snd.skip();skipTurn=true;await sleep(700);
+  } else if(card.value==='reverse'){
+    G.direction*=-1;updateDirIndicator(true);
+    showEffect('REVERSE!',card.color);Snd.reverse();await sleep(700);
+    if(G.numPlayers===2)skipTurn=true;
+  } else if(card.value==='draw2'){
+    applyDrawTo(victim,2);skipTurn=true;
+    await sleep(620);
+  } else if(card.value==='wild4'){
+    applyDrawTo(victim,4);skipTurn=true;
+    await sleep(620);
+  }
+
+  if(G.phase!=='playing'){G.netActBusy=false;return;}
+  netBroadcastAll();
+  netFinishAction(seat,skipTurn);
+}
+
+function netFinishAction(seat,skip){
+  G.busy=false;
+  G.netActBusy=false;
+  netBroadcastAll();
+  if(G.phase!=='playing')return;
+  if(skip)addTimer(()=>beginTurn(skipIdx(seat)),300);
+  else nextTurn(seat);
+}
+
+/* CPUがリモートプレイヤーのUNO言い忘れを指摘する（既存ルールの席一般化） */
+function netScheduleNPCChallengeSeat(seat){
+  const probs=[0.18,0.50,0.90];
+  const prob=probs[G.difficulty-1];
+  for(let i=0;i<G.numPlayers;i++){
+    const pl=G.players[i];
+    if(!pl.isNPC||pl.out)continue;
+    if(Math.random()<prob){
+      const delay=1000+Math.random()*2200;
+      const npcRef=pl;
+      addTimer(()=>{
+        const w=G.unoWin[seat];
+        if(w&&w.open&&!w.declared&&G.phase==='playing'){
+          w.open=false;
+          for(let d=0;d<2;d++){const c=drawCard();if(c)G.players[seat].hand.push(c);}
+          renderAll();
+          Snd.bad();
+          showToast(`${npcRef.emoji} ${npcRef.name}「UNO言ってないですやん！」→ ${G.players[seat].name} が2枚引いた`,'📣');
+          netBroadcastAll();
+        }
+      },delay);
+    }
+  }
+}
+
+/* ---------- ゲスト: 参加 ---------- */
+function netJoinRoom(){
+  if(!peerAvailable()){
+    netSetStatus('net-join-status','<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    return;
+  }
+  if(NET.active||NET.joining)return;
+  const code=(document.getElementById('net-code').value||'').trim().toUpperCase();
+  if(code.length!==6){
+    netSetStatus('net-join-status','<span class="err">6文字のルームコードを入力してください。</span>');
+    return;
+  }
+  NET.name=netInputName()||'ゲスト';
+  NET.code=code;
+  NET.host=false;NET.leaving=false;NET.joining=true;
+  netSetStatus('net-join-status','接続しています…');
+  netGuestConnect(false);
+}
+
+function netGuestConnect(rejoin){
+  try{
+    if(NET.peer){try{NET.peer.destroy();}catch(e){}}
+    NET.peer=new Peer(undefined,NET_PEER_OPTS);
+  }catch(e){
+    netSetStatus('net-join-status','<span class="err">接続に失敗しました。</span>');
+    return;
+  }
+  NET.peer.on('open',()=>{
+    const c=NET.peer.connect(NET_PREFIX+NET.code,{reliable:true});
+    NET.guestConn=c;
+    netWireHostConn(c);
+    clearTimeout(NET.joinTimer);
+    NET.joinTimer=setTimeout(()=>{
+      if(!NET.joined){
+        if(NET.reconnecting)scheduleGuestRejoin();
+        else{
+          netSetStatus('net-join-status','<span class="err">接続を確立できませんでした。コードと通信環境を確認してもう一度お試しください。</span>');
+          NET.joining=false;
+        }
+      }
+    },25000);
+    c.on('open',()=>{
+      try{c.send({t:'join',name:NET.name,rejoin:!!rejoin});}catch(e){}
+    });
+  });
+  NET.peer.on('error',e=>{
+    if(e&&e.type==='peer-unavailable'){
+      if(NET.reconnecting){scheduleGuestRejoin();return;}
+      netSetStatus('net-join-status','<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+      NET.joining=false;NET.active=false;
+      try{NET.peer.destroy();}catch(err){}
+      NET.peer=null;
+    }
+  });
+}
+
+function netWireHostConn(c){
+  c.on('data',msg=>netGuestOnData(msg));
+  const onClose=()=>{
+    if(NET.guestConn!==c)return; // 同一性チェック
+    if(NET.leaving||!NET.active)return;
+    netGuestConnectionLost();
+  };
+  c.on('close',onClose);
+  c.on('error',onClose);
+}
+
+function netGuestConnectionLost(){
+  if(NET.leaving)return;
+  if(!NET.inGame&&!NET.joined){
+    netSetStatus('net-join-status','<span class="err">接続が切れました。</span>');
+    NET.joining=false;
+    return;
+  }
+  // 対戦中/ロビー待機中の切断: 同じコード＋同じ名前で再参加を試みる（60秒以内なら席が戻る）
+  NET.reconnecting=true;
+  NET.joined=false;
+  showToast('ホストとの接続が切れました。再接続を試みています…','🔄');
+  NET.rejoinTries=0;
+  scheduleGuestRejoin();
+}
+
+function scheduleGuestRejoin(){
+  if(NET.leaving||!NET.reconnecting)return;
+  clearTimeout(NET.rejoinTimer);
+  NET.rejoinTries++;
+  if(NET.rejoinTries>12){
+    NET.reconnecting=false;
+    netGuestHostLeft();
+    return;
+  }
+  NET.rejoinTimer=setTimeout(()=>netGuestConnect(true),5000);
+}
+
+function netGuestHostLeft(){
+  netTeardown();
+  if(G)G.phase='ended';
+  hideEl('screen-game');hideEl('overlay-end');hideEl('overlay-round');hideEl('overlay-lobby');
+  showEl('screen-setup');
+  showToast('ホストとの接続が切れました。対戦を終了します','📴');
+}
+
+function netGuestEnterGame(){
+  NET.inGame=true;
+  NET.shownRound=null;
+  hideEl('screen-setup');hideEl('overlay-lobby');
+  showEl('screen-game');
+  hideEl('overlay-end');hideEl('overlay-round');
+}
+
+function netGuestOnData(msg){
+  if(!msg||!msg.t)return;
+  switch(msg.t){
+    case 'ping':return;
+    case 'welcome':{
+      NET.mySeat=msg.seat;
+      NET.joined=true;NET.joining=false;NET.active=true;
+      clearTimeout(NET.joinTimer);
+      const wasReconnect=NET.reconnecting;
+      NET.reconnecting=false;NET.rejoinTries=0;
+      if(!NET.inGame){
+        document.getElementById('lobby-code').textContent=NET.code;
+        document.getElementById('lobby-target-wrap').style.display='none';
+        document.getElementById('lobby-start').style.display='none';
+        netRenderLobby(msg.players||[]);
+        netSetStatus('lobby-status','参加しました！ホストがスタートするのを待っています…');
+        netSetStatus('net-join-status','');
+        showEl('overlay-lobby');
+      }
+      if(wasReconnect)showToast('再接続しました！','✅');
+      return;
+    }
+    case 'lobby':
+      if(!NET.inGame)netRenderLobby(msg.players||[]);
+      return;
+    case 'start':
+      netGuestEnterGame();
+      return;
+    case 'state':
+      if(!NET.inGame)netGuestEnterGame();
+      netApplyState(msg);
+      return;
+    case 'roundEnd':
+      netShowRoundEnd(msg);
+      return;
+    case 'notice':
+      showToast(msg.msg,'📣');
+      return;
+    case 'error':
+      showToast(msg.msg,'⚠️');
+      if(!NET.inGame&&!NET.reconnecting)netSetStatus('lobby-status','<span class="err">'+msg.msg+'</span>');
+      return;
+    case 'hostLeft':
+      NET.leaving=true;
+      netGuestHostLeft();
+      return;
+  }
+}
+
+/* ---------- ゲスト: 状態をシャドウGに反映（自分が index 0 になるよう回転） ---------- */
+function netApplyState(st){
+  if(!st||!Array.isArray(st.players)||st.players.length!==4)return;
+  NET.mySeat=st.you;
+  const n=4,you=st.you;
+  const players=[];
+  for(let v=0;v<n;v++){
+    const hp=st.players[(v+you)%n];
+    players.push({
+      name:hp.name,emoji:hp.emoji,bg:hp.bg,
+      isNPC:hp.kind==='cpu',
+      isRemote:hp.kind==='guest',
+      hand:v===0
+        ?(st.hand||[]).map(c=>({id:c.id,color:c.color,value:c.value}))
+        :Array.from({length:hp.count},()=>({color:'back',value:'back'})),
+      out:!!hp.out,
+    });
+  }
+  const scores=[];
+  for(let v=0;v<n;v++)scores[v]=st.players[(v+you)%n].score;
+  const unoWin={};
+  st.players.forEach((hp,i)=>{
+    const v=(i-you+n)%n;
+    if(hp.unoOpen||hp.unoDeclared)unoWin[v]={open:!!hp.unoOpen,declared:!!hp.unoDeclared};
+  });
+  const myInfo=st.players[you];
+  G={
+    numPlayers:n,
+    difficulty:2,
+    target:st.target,
+    deck:Array.from({length:st.deckCount||0},()=>({color:'back',value:'back'})),
+    discard:st.top?[{color:st.top.color,value:st.top.value}]:[],
+    players,
+    scores,
+    round:st.round,
+    starter:0,
+    currentIdx:(st.current-you+n)%n,
+    direction:st.direction,
+    activeColor:st.activeColor,
+    unoWin,
+    pUnoDeclared:!!myInfo.unoDeclared,
+    pUnoWindow:!!myInfo.unoOpen,
+    drawnCard:null,
+    busy:!(st.current===you&&st.phase==='playing'),
+    phase:st.phase,
+    pendingDraw:0,
+    online:true,
+    netDrawn:{},
+    netActBusy:false,
+  };
+  if(st.drawnId){
+    G.drawnCard=players[0].hand.find(c=>c.id===st.drawnId)||null;
+  }
+  if(st.round!==NET.shownRound){
+    hideEl('overlay-round');hideEl('overlay-end');
+  }
+  renderAll();
+  const passBtn=document.getElementById('btn-pass');
+  if(passBtn){
+    if(st.canPass&&st.current===you&&st.phase==='playing')passBtn.classList.remove('hidden');
+    else passBtn.classList.add('hidden');
+  }
+  const badge=document.getElementById('p-uno-badge');
+  if(badge){
+    if(myInfo.unoDeclared&&players[0].hand.length===1)badge.classList.remove('hidden');
+    else badge.classList.add('hidden');
+  }
+  if(st.phase==='dealing'){
+    const el=document.getElementById('status-text');
+    if(el)el.textContent='配布中…';
+  } else if(st.phase==='playing'){
+    updateStatus();
+  }
+}
+
+/* ---------- ゲスト: ラウンド結果表示 ---------- */
+function netShowRoundEnd(msg){
+  NET.shownRound=msg.round;
+  const you=NET.mySeat;
+  const order=msg.players.map((p,i)=>i).sort((a,b)=>msg.scores[b]-msg.scores[a]);
+  const rows=order.map(i=>{
+    const p=msg.players[i];
+    const isWin=i===msg.winner;
+    return `<tr class="${isWin?'winner-row':''}">
+      <td>${p.emoji} ${p.name}${i===you?'（あなた）':''}${isWin?' 👑':''}</td>
+      <td class="r-points">${isWin?'+'+msg.roundPts+'点':'残り'+msg.handPts[i]+'点'}</td>
+      <td class="r-total">累計 ${msg.scores[i]}点</td>
+    </tr>`;
+  }).join('');
+  const waitBtn=btn=>{
+    if(!btn)return;
+    btn.disabled=true;
+    btn.textContent='ホストの開始を待っています…';
+    btn.onclick=null;
+  };
+  if(msg.matchOver){
+    const champ=msg.champ;
+    const w=msg.players[champ];
+    document.getElementById('end-emoji').textContent=champ===you?'🎉':'😔';
+    document.getElementById('end-title').textContent=champ===you?'総合優勝！':`${w.emoji} ${w.name} の総合優勝`;
+    document.getElementById('end-sub').textContent=
+      msg.target===0
+        ?`1本勝負 — ${msg.players[msg.winner].name} が上がって ${msg.roundPts}点 ゲット`
+        :`目標 ${msg.target}点 到達！ 全 ${msg.round} ラウンドの激闘でした`;
+    document.getElementById('end-table').innerHTML=rows;
+    waitBtn(document.querySelector('#overlay-end .primary-btn'));
+    showEl('overlay-end');
+    if(champ===you){Snd.win();spawnConfetti(true);}else Snd.lose();
+  } else {
+    const w=msg.players[msg.winner];
+    document.getElementById('round-title').textContent=
+      msg.winner===you?'🏆 ラウンド勝利！':`${w.emoji} ${w.name} のラウンド勝利`;
+    document.getElementById('round-sub').textContent=
+      `ROUND ${msg.round} 終了 — ${w.name} が ${msg.roundPts}点 ゲット！ 目標 ${msg.target}点まで あと ${Math.max(0,msg.target-Math.max(...msg.scores))}点`;
+    document.getElementById('round-table').innerHTML=rows;
+    waitBtn(document.querySelector('#overlay-round .primary-btn'));
+    showEl('overlay-round');
+    if(msg.winner===you)Snd.roundWin();else Snd.lose();
+  }
+}
+
+/* ---------- 共通: 後片付け ---------- */
+function netTeardown(){
+  if(NET.host&&NET.peer){
+    for(let s=1;s<=3;s++)netSendTo(s,{t:'hostLeft'});
+  }
+  NET.leaving=true;
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  clearInterval(NET.syncTimer);clearInterval(NET.pingTimer);
+  clearTimeout(NET.joinTimer);clearTimeout(NET.rejoinTimer);
+  for(let s=1;s<=3;s++){
+    const st=NET.seats[s];
+    if(st&&st.discTimer)clearTimeout(st.discTimer);
+  }
+  NET.active=false;NET.host=false;NET.inGame=false;NET.peer=null;
+  NET.seats={};NET.guestConn=null;NET.joined=false;NET.joining=false;NET.reconnecting=false;
+  hideEl('overlay-lobby');
+  if(G)G.online=false;
+  // ゲスト用に書き換えた結果画面ボタンを元に戻す
+  const rb=document.querySelector('#overlay-round .primary-btn');
+  if(rb){rb.disabled=false;rb.textContent='次のラウンドへ ▶';rb.onclick=()=>nextRound();}
+  const eb=document.querySelector('#overlay-end .primary-btn');
+  if(eb){eb.disabled=false;eb.textContent='もう一度プレイ';eb.onclick=()=>startMatch();}
+}
+
+/* ---------- ゲスト: カードを出す（色選択つき） ---------- */
+function netGuestPlayCard(ci){
+  if(!G||!G.players||!G.players[0])return;
+  const card=G.players[0].hand[ci];
+  if(!card)return;
+  if(card.color==='wild'){
+    G.phase='colorpick';
+    showColorPicker().then(color=>{
+      if(G)G.phase='playing';
+      Snd.color();
+      netSendAct({play:card.id,color});
+    });
+  } else {
+    netSendAct({play:card.id});
   }
 }
 
