@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>まじょねこサバイバーズ | PlayWeb</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{width:100%;height:100%;overflow:hidden;background:#070a1c;font-family:'Hiragino Maru Gothic ProN','Hiragino Sans','Noto Sans JP',sans-serif;color:#eef0ff;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -54,6 +55,37 @@
   .statBox .v{font-size:21px;font-weight:900;color:#fff}
   .statBox .k{font-size:11px;color:#bdb8ff;font-weight:700;margin-top:2px}
   h2.panelTitle{font-size:clamp(22px,6vw,30px);font-weight:900;color:#fff;text-shadow:0 2px 12px rgba(124,108,255,.6)}
+  /* ── メタ進行（ショップ/キャラ） ── */
+  .shardBox{font-size:15px;color:#ffe9a8;font-weight:900;margin:8px 0 2px}
+  .charRow{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:12px 0 2px}
+  .charCard{flex:1 1 104px;max-width:122px;background:rgba(255,255,255,.05);border:2px solid rgba(160,150,255,.35);border-radius:15px;padding:9px 6px 8px;cursor:pointer;color:#fff;font-family:inherit;transition:transform .12s,border-color .12s}
+  .charCard:hover{transform:translateY(-3px)}
+  .charCard.sel{border-color:#ffe9a8;box-shadow:0 0 14px rgba(255,217,77,.35)}
+  .charCard canvas{width:52px;height:52px}
+  .charCard .chName{font-weight:900;font-size:14px;margin-top:2px}
+  .charCard .chDesc{font-size:10.5px;color:#cfccff;line-height:1.5;min-height:32px}
+  .charCard .chCost{font-size:11.5px;color:#ffe9a8;font-weight:800}
+  .shopRow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(160,150,255,.25);border-radius:14px;padding:10px 12px;margin:8px 0;text-align:left}
+  .shopRow .sIcon{font-size:26px;width:36px;text-align:center}
+  .shopRow .sInfo{flex:1;min-width:0}
+  .shopRow .sName{font-weight:900;font-size:14.5px}
+  .shopRow .sDesc{font-size:11.5px;color:#cfccff;line-height:1.5}
+  .shopRow .sPips{font-size:11px;color:#ffd94d;letter-spacing:2px}
+  .buyBtn{background:linear-gradient(90deg,#f5a623,#ef6c9e);color:#fff;border:none;border-radius:999px;padding:9px 15px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .buyBtn:disabled{background:rgba(255,255,255,.14);color:#9a96c9;cursor:default}
+  .buyBtn:active:not(:disabled){transform:scale(.94)}
+  .codeInput{width:170px;text-align:center;font-size:19px;font-weight:900;letter-spacing:4px;text-transform:uppercase;background:rgba(255,255,255,.08);border:1.5px solid rgba(180,170,255,.55);border-radius:12px;padding:10px 6px;color:#fff;font-family:inherit;margin-top:10px}
+  .roomCode{font-size:30px;font-weight:900;letter-spacing:6px;color:#ffe9a8;margin:6px 0}
+  #lobbyStatus{font-size:13px;color:#dcd8ff;line-height:1.7;margin-top:10px;min-height:22px}
+  #lobbyStatus .err{color:#ff8fa5}
+  /* ── 協力HUD ── */
+  #partnerWrap{position:absolute;top:70px;left:10px;width:min(170px,36vw);display:none}
+  #partnerName{font-size:11px;font-weight:800;color:#bfe9ff;text-shadow:0 1px 3px #000;margin-bottom:2px}
+  #partnerBarBg{height:10px;background:rgba(8,8,25,.72);border:1.5px solid rgba(160,220,255,.5);border-radius:999px;overflow:hidden}
+  #partnerFill{height:100%;width:100%;background:linear-gradient(90deg,#38b6ff,#7df9ff);transition:width .15s}
+  #netStatus{position:absolute;top:76px;left:50%;transform:translateX(-50%);font-size:12.5px;font-weight:800;color:#ffd9a8;text-shadow:0 1px 4px #000;white-space:nowrap}
+  #spectateMsg{position:absolute;top:34%;left:50%;transform:translateX(-50%);font-size:clamp(17px,4.6vw,24px);font-weight:900;color:#ffb3c8;text-shadow:0 2px 10px #000;text-align:center;display:none;line-height:1.6;white-space:nowrap}
+  #lvWait{font-size:13px;color:#ffd9a8;font-weight:800;margin-top:12px;display:none}
   /* joystick */
   #stickBase{position:fixed;width:110px;height:110px;border-radius:50%;border:2px solid rgba(200,190,255,.55);background:rgba(90,80,200,.14);display:none;z-index:6;pointer-events:none;transform:translate(-50%,-50%)}
   #stickKnob{position:fixed;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 35% 32%,#cfc6ff,#7c6cff);display:none;z-index:6;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 4px 14px rgba(0,0,0,.5)}
@@ -76,6 +108,9 @@
     <button class="iconBtn" id="pauseBtn" title="ポーズ">⏸</button>
   </div>
   <div id="weaponsBar"></div>
+  <div id="partnerWrap"><div id="partnerName">相方</div><div id="partnerBarBg"><div id="partnerFill"></div></div></div>
+  <div id="netStatus"></div>
+  <div id="spectateMsg"></div>
   <div id="banner"></div>
 </div>
 
@@ -94,8 +129,44 @@
       🌅 10分生き残れば夜明け＝クリア（エンドレスも可）
     </div>
     <div class="bestBox" id="bestBox"></div>
+    <div class="shardBox" id="shardBox"></div>
+    <div class="charRow" id="charRow"></div>
     <button class="bigBtn" id="startBtn">▶ ぼうけん開始</button><br>
+    <button class="subBtn" id="coopBtn">🤝 協力プレイ（2人）</button>
+    <button class="subBtn" id="shopBtn">⭐ パワーアップ</button><br>
     <button class="subBtn" id="titleMuteBtn">🔊 サウンド ON</button>
+  </div>
+</div>
+
+<!-- パワーアップ（ショップ） -->
+<div class="overlay" id="shopScr">
+  <div class="panel">
+    <h2 class="panelTitle">⭐ パワーアップ</h2>
+    <p class="subTitle">ランで集めた「ほしのかけら」で、ずっと強くなれる！<br>買った強化は次のランから（キャラ解放はすぐ）反映されます。</p>
+    <div class="shardBox" id="shopShardBox"></div>
+    <div id="shopList"></div>
+    <button class="subBtn" id="shopCloseBtn">とじる</button>
+  </div>
+</div>
+
+<!-- 協力ロビー -->
+<div class="overlay" id="lobbyScr">
+  <div class="panel">
+    <h2 class="panelTitle">🤝 協力プレイ</h2>
+    <p class="subTitle">2人で同じ草原を生き抜く協力モード。<br>ホストが世界を進め、ゲストは操作だけを送ります。<br>※ホストが切断すると協力プレイは終了します。</p>
+    <button class="bigBtn" id="hostBtn">🏠 部屋を作る</button>
+    <div id="roomCodeWrap" style="display:none">
+      <p class="subTitle">ルームコード（相手に伝えてね）</p>
+      <div class="roomCode" id="roomCodeText">------</div>
+      <button class="subBtn" id="copyCodeBtn">コードをコピー</button>
+    </div>
+    <div>
+      <input class="codeInput" id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
+      <button class="subBtn" id="joinBtn">参加する</button>
+    </div>
+    <div id="lobbyStatus">「部屋を作る」か、相手のコードで「参加する」を選んでね。</div>
+    <button class="bigBtn" id="coopStartBtn" style="display:none">▶ 協力スタート</button><br>
+    <button class="subBtn" id="lobbyBackBtn">← もどる</button>
   </div>
 </div>
 
@@ -105,6 +176,7 @@
     <h2 class="panelTitle">⭐ レベルアップ！</h2>
     <p class="subTitle">強化を1つ選んでね</p>
     <div class="cards" id="lvCards"></div>
+    <div id="lvWait">相方の選択を待っています…</div>
   </div>
 </div>
 
@@ -141,9 +213,14 @@
       <div class="statBox"><div class="v" id="endLevel">1</div><div class="k">到達レベル</div></div>
     </div>
     <div class="bestBox" id="endBest"></div>
+    <div class="shardBox" id="endShards"></div>
     <div id="endBtns">
       <button class="bigBtn" id="retryBtn">🔄 もう一度</button><br>
       <button class="subBtn" id="endTitleBtn">タイトルへ</button>
+    </div>
+    <div id="guestEndBtns" style="display:none">
+      <p class="subTitle" id="guestEndNote">再戦はホストが選びます</p>
+      <button class="subBtn" id="guestTitleBtn">タイトルへ</button>
     </div>
     <div id="clearBtns" style="display:none">
       <button class="bigBtn" id="endlessBtn">🌌 エンドレスで続ける</button><br>
@@ -273,16 +350,68 @@ const WEAPONS = {
   flame:   { name: 'フレイムウェーブ', icon: '🔥', desc: '向いている方向へ扇状の炎を放つ', lv: [
     { dmg: 16, cd: 2.4, range: 155 }, { dmg: 22, cd: 2.25, range: 165 },
     { dmg: 28, cd: 2.1, range: 175 }, { dmg: 36, cd: 1.95, range: 190 },
-    { dmg: 46, cd: 1.8, range: 205 } ] }
+    { dmg: 46, cd: 1.8, range: 205 } ] },
+  bolt:    { name: 'ライトニングボルト', icon: '🌩️', desc: '最寄りの敵1体に落雷（単体大ダメージ＋小範囲）', lv: [
+    { dmg: 40, cd: 2.6, aoe: 48 }, { dmg: 52, cd: 2.45, aoe: 54 },
+    { dmg: 66, cd: 2.3, aoe: 60 }, { dmg: 84, cd: 2.1, aoe: 66 },
+    { dmg: 108, cd: 1.9, aoe: 74 } ] },
+  ice:     { name: 'アイスランス', icon: '❄️', desc: '貫通する氷の槍を連射。当たった敵は鈍足になる', lv: [
+    { dmg: 11, cd: .52, pierce: 2, slow: .45, slowDur: 1.3 }, { dmg: 14, cd: .48, pierce: 3, slow: .48, slowDur: 1.4 },
+    { dmg: 18, cd: .44, pierce: 3, slow: .5, slowDur: 1.5 }, { dmg: 23, cd: .4, pierce: 4, slow: .52, slowDur: 1.6 },
+    { dmg: 30, cd: .35, pierce: 5, slow: .55, slowDur: 1.8 } ] },
+  leaf:    { name: 'ブーメランリーフ', icon: '🍃', desc: '往復する葉の刃。行きも帰りも当たる', lv: [
+    { dmg: 14, count: 1, range: 235 }, { dmg: 18, count: 1, range: 255 },
+    { dmg: 23, count: 2, range: 275 }, { dmg: 29, count: 2, range: 300 },
+    { dmg: 38, count: 3, range: 330 } ] },
+  nova:    { name: 'スターダストノヴァ', icon: '💫', desc: '一定間隔で全方位に星屑を一斉発射', lv: [
+    { dmg: 13, cd: 3.2, count: 8 }, { dmg: 16, cd: 3.0, count: 10 },
+    { dmg: 20, cd: 2.8, count: 13 }, { dmg: 25, cd: 2.55, count: 16 },
+    { dmg: 32, cd: 2.3, count: 20 } ] }
 };
+const MAX_WEAPONS = 6;
 const PASSIVES = {
   boots:  { name: 'はやてのブーツ', icon: '👢', max: 5, desc: '移動速度 +7%' },
   magnet: { name: 'ほしの磁石', icon: '🧲', max: 5, desc: 'ジェムを引き寄せる範囲 +30' },
   heart:  { name: 'まもりの心臓', icon: '❤️', max: 5, desc: '最大HP +20（+20回復）' },
   power:  { name: 'ちからの結晶', icon: '💪', max: 5, desc: '全ての攻撃力 +10%' },
-  multi:  { name: 'ぶんしんの鈴', icon: '🔔', max: 3, desc: '弾の数 +1（星・彗星）' },
-  regen:  { name: 'つきの雫', icon: '💧', max: 5, desc: '毎秒HP +0.6 回復' }
+  multi:  { name: 'ぶんしんの鈴', icon: '🔔', max: 3, desc: '弾の数 +1（星・彗星・ノヴァ）' },
+  regen:  { name: 'つきの雫', icon: '💧', max: 5, desc: '毎秒HP +0.6 回復' },
+  xpp:    { name: 'けいけんの実', icon: '🍀', max: 5, desc: 'ジェム取得量 +15%' },
+  guard:  { name: 'まもりの鈴', icon: '🎐', max: 5, desc: '受けるダメージ -6%' }
 };
+/* ── キャラ定義（ステータス補正＋描画カラー） ── */
+const CHARS = {
+  nowa:  { name: 'ノワ',   desc: '黒猫・バランス型', cost: 0,   hp: 0,   atk: 1,    spd: 1,    mag: 1,   xp: 1,   proj: 0, body: '#17171f', belly: '#26262f', earIn: '#e58bb1', hat: '#5b3aa8', band: '#ffd94d', cape: '#4b2e83' },
+  milk:  { name: 'ミルク', desc: '白猫：速い・磁石広い・HP低め', cost: 100, hp: -20, atk: 1,    spd: 1.12, mag: 1.4, xp: 1,   proj: 0, body: '#f2eee6', belly: '#ffffff', earIn: '#ff9db8', hat: '#e58bb1', band: '#fff2b0', cape: '#7fb6dd' },
+  cocoa: { name: 'ココア', desc: '茶猫：HP・攻撃が高い・遅い', cost: 150, hp: 40,  atk: 1.15, spd: .92,  mag: 1,   xp: 1,   proj: 0, body: '#6b4226', belly: '#8a5a33', earIn: '#ffb37c', hat: '#b3541e', band: '#ffe9a8', cape: '#7a2e2e' },
+  sora:  { name: 'ソラ',   desc: '青猫：弾数+1・経験値◎・攻撃低め', cost: 200, hp: 0, atk: .9,   spd: 1,    mag: 1,   xp: 1.2, proj: 1, body: '#2b4a7a', belly: '#3a63a0', earIn: '#9fd8ff', hat: '#274b8f', band: '#8be9ff', cape: '#1e6f5c' }
+};
+/* ── 恒久アップグレード（ショップ） ── */
+const UPGRADES = {
+  atk:  { name: 'こうげきアップ', icon: '⚔️', max: 5, costs: [20, 35, 55, 80, 110],  desc: '攻撃力 +5% / 段階' },
+  hp:   { name: 'たいりょくアップ', icon: '❤️', max: 5, costs: [20, 35, 55, 80, 110],  desc: '最大HP +10 / 段階' },
+  spd:  { name: 'スピードアップ', icon: '👟', max: 5, costs: [20, 35, 55, 80, 110],  desc: '移動速度 +3% / 段階' },
+  mag:  { name: 'マグネットアップ', icon: '🧲', max: 5, costs: [20, 35, 55, 80, 110],  desc: '磁石範囲 +20% / 段階' },
+  xp:   { name: 'けいけんアップ', icon: '🍀', max: 5, costs: [25, 40, 60, 85, 120],  desc: '経験値 +10% / 段階' },
+  bell: { name: '復活の鈴', icon: '🔔', max: 1, costs: [150], desc: 'ラン中1回だけ、倒れてもHP50%で自動復活' }
+};
+/* ── メタ進行の保存 ── */
+const META_KEY = 'majoneko_survivors_meta';
+const COOP_BEST_KEY = 'majoneko_survivors_best_coop';
+let meta = loadMeta();
+function loadMeta(){
+  let m = null;
+  try { m = JSON.parse(localStorage.getItem(META_KEY) || 'null'); } catch (e) {}
+  if (!m || typeof m !== 'object') m = {};
+  return {
+    shards: Math.max(0, m.shards | 0),
+    upgrades: (m.upgrades && typeof m.upgrades === 'object') ? m.upgrades : {},
+    unlocked: Array.isArray(m.unlocked) && m.unlocked.length ? m.unlocked : ['nowa'],
+    char: CHARS[m.char] ? m.char : 'nowa'
+  };
+}
+function saveMeta(){ try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {} }
+if (!meta.unlocked.includes(meta.char)) meta.char = 'nowa';
 const ENEMY_TYPES = {
   mouse:  { hp: 9,  spd: 57,  dmg: 8,  r: 13, xp: 1 },
   bat:    { hp: 6,  spd: 110, dmg: 6,  r: 11, xp: 1 },
@@ -296,34 +425,69 @@ const ENEMY_TYPES = {
 /* ── 状態 ── */
 const S = {
   state: 'title', time: 0, kills: 0, cleared: false, endless: false,
-  spawnT: 0, bossIdx: 0, nextBossAt: 180, bossRef: null, shake: 0, hurtFlash: 0, timeScale: 1
+  spawnT: 0, bossIdx: 0, nextBossAt: 180, bossRef: null, shake: 0, hurtFlash: 0, timeScale: 1,
+  gemsCollected: 0, shardsPaid: 0, clearBonusPaid: false, lastShardGain: 0,
+  eidSeq: 0, pidSeq: 0, snapT: 0, chestPicker: null
 };
-const P = {
-  x: 0, y: 0, r: 15, hp: 100, level: 1, xp: 0, xpNext: 5,
-  face: 1, dirX: 1, dirY: 0, moving: false, bob: 0, blink: 0, hurtT: 0,
-  weapons: [], passives: {}, cds: {}, orbitAng: 0
+/* プレイヤー生成。mf = 自分のメタ補正（upgrades）。ゲスト機体はキャラ補正のみ（mf=null） */
+function makePlayer(){
+  return {
+    x: 0, y: 0, r: 15, hp: 100, level: 1, xp: 0, xpNext: 3,
+    face: 1, dirX: 1, dirY: 0, moving: false, bob: 0, blink: 0, hurtT: 0,
+    weapons: [{ id: 'star', lv: 1 }], passives: {}, cds: {}, orbitAng: 0,
+    char: 'nowa', alive: true, reviveT: 0, bellUsed: false, ai: false,
+    input: { x: 0, y: 0 }, tx: 0, ty: 0, snapMaxHp: 0,
+    mAtk: 1, mSpd: 1, mMag: 1, mXp: 1, mHp: 0, mBell: false
+  };
+}
+const players = [makePlayer(), makePlayer()];
+const P = players[0];   // ホスト／ソロの自機（チームXP・レベルはここに保持）
+const P2 = players[1];  // 協力時のゲスト機体（ゲスト側では自分の描画プロキシ）
+let coopMode = false;   // 協力ラン中か（ホスト権威 or ゲスト描画）
+/* ── 協力ネット状態（本体はファイル後半） ── */
+const NET = {
+  role: null, peer: null, conn: null, code: '', active: false, inGame: false,
+  guestChar: 'nowa', guestReady: false, reconnecting: false, retryTimer: null, retryCount: 0,
+  heartbeatTimer: null, connTimer: null, lastInputSent: 0, lastInputVal: '', snap: null, started: false
 };
+let lvPhase = null;     // 協力レベルアップの待ち合わせ状態
+function resetPlayer(p, charId, mf){
+  const up = mf || {};
+  p.char = CHARS[charId] ? charId : 'nowa';
+  p.mAtk = 1 + .05 * (up.atk || 0); p.mSpd = 1 + .03 * (up.spd || 0);
+  p.mMag = 1 + .20 * (up.mag || 0); p.mXp = 1 + .10 * (up.xp || 0);
+  p.mHp = 10 * (up.hp || 0); p.mBell = (up.bell || 0) > 0;
+  p.x = 0; p.y = 0; p.face = 1; p.dirX = 1; p.dirY = 0; p.moving = false; p.hurtT = 0;
+  p.weapons = [{ id: 'star', lv: 1 }]; p.passives = {}; p.cds = {}; p.orbitAng = 0;
+  p.alive = true; p.reviveT = 0; p.bellUsed = false; p.ai = false;
+  p.input.x = 0; p.input.y = 0; p.snapMaxHp = 0; p._snapInit = false; p.tx = 0; p.ty = 0;
+  p.hp = maxHp(p);
+}
+function localPlayer(){ return (typeof NET !== 'undefined' && NET.role === 'guest') ? P2 : P; }
+function alivePlayers(){ return players.filter(p => p.alive && (coopMode || p === P)); }
+function activePlayers(){ return coopMode ? players : [P]; }
 let enemies = [], projs = [], gems = [], parts = [], texts = [], clouds = [], fx = [], pickups = [];
 const cam = { x: 0, y: 0 };
 
-function maxHp(){ return 100 + 20 * (P.passives.heart || 0); }
-function moveSpeed(){ return 168 * (1 + .07 * (P.passives.boots || 0)); }
-function magnetR(){ return 72 + 30 * (P.passives.magnet || 0); }
-function dmgMul(){ return 1 + .10 * (P.passives.power || 0); }
-function projBonus(){ return P.passives.multi || 0; }
-function xpForLevel(l){ return Math.floor(5 + (l - 1) * 4 + Math.pow(l - 1, 1.8) * 1.3); }
+function maxHp(p){ p = p || P; if (p.snapMaxHp) return p.snapMaxHp; return 100 + (CHARS[p.char] ? CHARS[p.char].hp : 0) + 20 * (p.passives.heart || 0) + p.mHp; }
+function moveSpeed(p){ p = p || P; return 168 * (1 + .07 * (p.passives.boots || 0)) * (CHARS[p.char] ? CHARS[p.char].spd : 1) * p.mSpd; }
+function magnetR(p){ p = p || P; return (72 + 30 * (p.passives.magnet || 0)) * (CHARS[p.char] ? CHARS[p.char].mag : 1) * p.mMag; }
+function dmgMul(p){ p = p || P; return (1 + .10 * (p.passives.power || 0)) * (CHARS[p.char] ? CHARS[p.char].atk : 1) * p.mAtk; }
+function projBonus(p){ p = p || P; return (p.passives.multi || 0) + (CHARS[p.char] ? CHARS[p.char].proj : 0); }
+function xpMul(p){ p = p || P; return (1 + .15 * (p.passives.xpp || 0)) * (CHARS[p.char] ? CHARS[p.char].xp : 1) * p.mXp; }
+function xpForLevel(l){ return Math.max(2, Math.floor((5 + (l - 1) * 4 + Math.pow(l - 1, 1.8) * 1.3) * .6)); }
 
 function resetGame(){
   S.time = 0; S.kills = 0; S.cleared = false; S.endless = false;
   S.spawnT = 0; S.bossIdx = 0; S.nextBossAt = 180; S.bossRef = null; S.shake = 0; S.hurtFlash = 0;
-  P.x = 0; P.y = 0; P.hp = maxHpBase(); P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
-  P.face = 1; P.dirX = 1; P.dirY = 0; P.hurtT = 0;
-  P.weapons = [{ id: 'star', lv: 1 }]; P.passives = {}; P.cds = {}; P.orbitAng = 0;
-  P.hp = maxHp();
+  S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.lastShardGain = 0;
+  S.eidSeq = 0; S.pidSeq = 0; S.snapT = 0; S.chestPicker = null; lvPhase = null;
+  resetPlayer(P, meta.char, meta.upgrades);
+  P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
+  if (coopMode) { resetPlayer(P2, NET.guestChar || 'nowa', null); P2.x = 70; P2.y = 0; }
   enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = [];
   pickupCombo = 0;
 }
-function maxHpBase(){ return 100; }
 
 /* ── スポーン ── */
 function hpScale(){ const m = S.time / 60; return 1 + m * .45 + m * m * .035; }
@@ -339,20 +503,23 @@ function pickType(){
 function spawnEnemy(type, x, y, scaleMul){
   if (enemies.length >= 250) return null;
   const base = ENEMY_TYPES[type];
+  const foc = alivePlayers()[0] || P;
   const a = rand(0, TAU), d = Math.hypot(viewW, viewH) / 2 + rand(60, 140);
   const e = {
-    type, x: x !== undefined ? x : P.x + Math.cos(a) * d, y: y !== undefined ? y : P.y + Math.sin(a) * d,
+    eid: ++S.eidSeq,
+    type, x: x !== undefined ? x : foc.x + Math.cos(a) * d, y: y !== undefined ? y : foc.y + Math.sin(a) * d,
     hp: base.hp * hpScale() * (scaleMul || 1), maxHp: base.hp * hpScale() * (scaleMul || 1),
     spd: base.spd * rand(.85, 1.15) * (1 + Math.min(.3, S.time / 2000)), dmg: base.dmg * (1 + S.time / 1200),
     r: base.r, xp: base.xp, vx: 0, vy: 0, flash: 0, hitCd: 0, orbitCd: 0, wob: rand(0, TAU),
-    fuse: -1, summonT: 5, dead: false
+    fuse: -1, summonT: 5, dead: false, slowT: 0, slowMul: 1
   };
   enemies.push(e); return e;
 }
 function spawnBoss(){
   const idx = S.bossIdx;
+  const foc = alivePlayers()[0] || P;
   const a = rand(0, TAU), d = Math.hypot(viewW, viewH) / 2 + 120;
-  const b = spawnEnemy('boss', P.x + Math.cos(a) * d, P.y + Math.sin(a) * d, 1);
+  const b = spawnEnemy('boss', foc.x + Math.cos(a) * d, foc.y + Math.sin(a) * d, 1);
   if (!b) return;
   const mul = (1 + idx * .85) * (1 + S.time / 900);
   b.hp = 950 * mul; b.maxHp = b.hp; b.spd = 40 + idx * 2;
@@ -406,7 +573,7 @@ function killEnemy(e){
   addParts(e.x, e.y, e.type === 'boss' ? 42 : 9, colors[e.type] || '#aaa', e.type === 'boss' ? 260 : 150, 4.5);
   if (e.type === 'boss') {
     S.shake = Math.max(S.shake, 10); sfx.boom();
-    dropGems(e.x, e.y, 65);
+    dropGems(e.x, e.y, 130);
     pickups.push({ x: e.x, y: e.y, kind: 'chest', ph: 0 });
     showBanner('👑 よるのぬし を たおした！');
     document.getElementById('bossWrap').style.display = 'none';
@@ -416,24 +583,43 @@ function killEnemy(e){
       const s = spawnEnemy('slimeS', e.x + rand(-16, 16), e.y + rand(-16, 16), 1);
       if (s) { s.hp = ENEMY_TYPES.slimeS.hp * hpScale(); s.maxHp = s.hp; }
     }
-    dropGems(e.x, e.y, e.xp);
+    dropGems(e.x, e.y, e.xp + bonusDrop());
   } else if (e.type === 'shroom') {
-    explodeShroom(e); dropGems(e.x, e.y, e.xp);
+    explodeShroom(e); dropGems(e.x, e.y, e.xp + bonusDrop());
   } else {
-    dropGems(e.x, e.y, e.xp);
+    dropGems(e.x, e.y, e.xp + bonusDrop());
   }
 }
+/* 通常敵は確率で 2〜5 値の追加ジェムを落とす（体感の底上げ） */
+function bonusDrop(){ return Math.random() < .35 ? 2 + Math.floor(Math.random() * 4) : 0; }
 function explodeShroom(e){
   clouds.push({ x: e.x, y: e.y, r: 72, ttl: 3.5, max: 3.5 });
   addParts(e.x, e.y, 16, '#b06cff', 190, 5);
   sfx.boom();
 }
-function damagePlayer(dmg){
-  if (P.hurtT > 0 || S.state !== 'play') return;
-  P.hp -= dmg; P.hurtT = .35; S.hurtFlash = .55; S.shake = Math.max(S.shake, 5);
+function damagePlayer(p, dmg){
+  if (!p || !p.alive || p.hurtT > 0 || S.state !== 'play') return;
+  dmg *= 1 - .06 * (p.passives.guard || 0);   // まもりの鈴
+  p.hp -= dmg; p.hurtT = .35;
+  if (p === localPlayer()) { S.hurtFlash = .55; S.shake = Math.max(S.shake, 5); }
   sfx.hurt();
-  addParts(P.x, P.y, 8, '#ff5d7a', 170, 4);
-  if (P.hp <= 0) { P.hp = 0; gameOver(false); }
+  addParts(p.x, p.y, 8, '#ff5d7a', 170, 4);
+  if (p.hp <= 0) { p.hp = 0; onPlayerDown(p); }
+}
+/* プレイヤーが倒れたとき：協力なら観戦→30秒復活、ソロなら復活の鈴 or ゲームオーバー */
+function onPlayerDown(p){
+  if (coopMode) {
+    p.alive = false; p.reviveT = 30;
+    showBanner(`💫 ${CHARS[p.char].name} が ダウン！`);
+    if (players.every(q => !q.alive)) gameOver(false);
+  } else if (p.mBell && !p.bellUsed) {
+    p.bellUsed = true; p.hp = Math.floor(maxHp(p) * .5); p.hurtT = 1.2;
+    showBanner(`🔔 復活の鈴が ${CHARS[p.char].name} を救った！`);
+    sfx.levelup();
+    addParts(p.x, p.y, 22, '#ffe94d', 200, 4.5);
+  } else {
+    gameOver(false);
+  }
 }
 
 /* ── 武器 ── */
@@ -447,79 +633,127 @@ function nearestEnemy(x, y, maxD, exclude){
   return best;
 }
 function fireWeapons(dt){
-  for (const w of P.weapons) {
-    const st = WEAPONS[w.id].lv[w.lv - 1];
-    if (w.id === 'orbit') {
-      P.orbitAng += st.rot * dt;
-      for (const e of enemies) {
-        if (e.dead || e.orbitCd > 0) continue;
-        for (let i = 0; i < st.count; i++) {
-          const a = P.orbitAng + (i / st.count) * TAU;
-          const bx = P.x + Math.cos(a) * st.radius, by = P.y + Math.sin(a) * st.radius;
-          if (dist2(bx, by, e.x, e.y) < (15 + e.r) * (15 + e.r)) {
-            e.orbitCd = .38;
-            const ka = Math.atan2(e.y - P.y, e.x - P.x);
-            damageEnemy(e, st.dmg * dmgMul(), Math.cos(ka) * 130, Math.sin(ka) * 130);
-            break;
-          }
+  for (const p of activePlayers()) {
+    if (!p.alive) continue;
+    for (const w of p.weapons) fireWeapon(p, w, dt);
+  }
+}
+function fireWeapon(p, w, dt){
+  const st = WEAPONS[w.id].lv[w.lv - 1];
+  const dm = dmgMul(p);
+  if (w.id === 'orbit') {
+    p.orbitAng += st.rot * dt;
+    for (const e of enemies) {
+      if (e.dead || e.orbitCd > 0) continue;
+      for (let i = 0; i < st.count; i++) {
+        const a = p.orbitAng + (i / st.count) * TAU;
+        const bx = p.x + Math.cos(a) * st.radius, by = p.y + Math.sin(a) * st.radius;
+        if (dist2(bx, by, e.x, e.y) < (15 + e.r) * (15 + e.r)) {
+          e.orbitCd = .38;
+          const ka = Math.atan2(e.y - p.y, e.x - p.x);
+          damageEnemy(e, st.dmg * dm, Math.cos(ka) * 130, Math.sin(ka) * 130);
+          break;
         }
       }
-      continue;
     }
-    P.cds[w.id] = (P.cds[w.id] || 0) - dt;
-    if (P.cds[w.id] > 0) continue;
-    if (w.id === 'star') {
-      const tgt = nearestEnemy(P.x, P.y, 640);
-      if (!tgt) { P.cds[w.id] = .12; continue; }
-      P.cds[w.id] = st.cd;
-      const n = st.count + projBonus();
-      for (let i = 0; i < n; i++) {
-        const t2 = i === 0 ? tgt : (nearestEnemy(P.x, P.y, 640, new Set([tgt])) || tgt);
-        const a = Math.atan2(t2.y - P.y, t2.x - P.x) + (i - (n - 1) / 2) * .09;
-        projs.push({ type: 'star', x: P.x, y: P.y, vx: Math.cos(a) * 540, vy: Math.sin(a) * 540, dmg: st.dmg * dmgMul(), pierce: st.pierce, ttl: 1.1 });
-      }
-      sfx.shoot();
-    } else if (w.id === 'comet') {
-      if (!nearestEnemy(P.x, P.y, 700)) { P.cds[w.id] = .15; continue; }
-      P.cds[w.id] = st.cd;
-      const n = st.count + projBonus();
-      for (let i = 0; i < n; i++) {
-        const a = rand(0, TAU);
-        projs.push({ type: 'comet', x: P.x + Math.cos(a) * 18, y: P.y + Math.sin(a) * 18, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, dmg: st.dmg * dmgMul(), aoe: st.aoe, ttl: 2.6, seed: rand(0, TAU) });
-      }
-      sfx.shoot();
-    } else if (w.id === 'thunder') {
-      const first = nearestEnemy(P.x, P.y, 540);
-      if (!first) { P.cds[w.id] = .15; continue; }
-      P.cds[w.id] = st.cd;
-      const hitSet = new Set(); let cur = first; const pts = [{ x: P.x, y: P.y - 10 }];
-      for (let c = 0; c < st.chains && cur; c++) {
-        pts.push({ x: cur.x, y: cur.y });
-        hitSet.add(cur);
-        damageEnemy(cur, st.dmg * dmgMul(), 0, 0);
-        addParts(cur.x, cur.y, 5, '#ffe94d', 150, 3.5);
-        cur = nearestEnemy(cur.x, cur.y, 155, hitSet);
-      }
-      fx.push({ type: 'bolt', pts, ttl: .16, max: .16 });
-      sfx.thunder();
-    } else if (w.id === 'flame') {
-      P.cds[w.id] = st.cd;
-      const fa = Math.atan2(P.dirY, P.dirX);
-      fx.push({ type: 'cone', x: P.x, y: P.y, ang: fa, range: st.range, ttl: .22, max: .22 });
-      for (const e of enemies) {
-        if (e.dead) continue;
-        const d = Math.hypot(e.x - P.x, e.y - P.y);
-        if (d > st.range + e.r) continue;
-        let da = Math.atan2(e.y - P.y, e.x - P.x) - fa;
-        while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
-        if (Math.abs(da) < .62) damageEnemy(e, st.dmg * dmgMul(), Math.cos(fa) * 110, Math.sin(fa) * 110);
-      }
-      for (let i = 0; i < 10; i++) {
-        const a = fa + rand(-.5, .5), v = rand(120, st.range * 1.4);
-        parts.push({ x: P.x, y: P.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, ttl: rand(.2, .45), max: .45, color: ['#ff9d5c', '#ff5d3d', '#ffd94d'][i % 3], size: rand(3, 6) });
-      }
-      beep(300, 90, .18, 'sawtooth', .14);
+    return;
+  }
+  p.cds[w.id] = (p.cds[w.id] || 0) - dt;
+  if (p.cds[w.id] > 0) return;
+  if (w.id === 'star') {
+    const tgt = nearestEnemy(p.x, p.y, 640);
+    if (!tgt) { p.cds[w.id] = .12; return; }
+    p.cds[w.id] = st.cd;
+    const n = st.count + projBonus(p);
+    for (let i = 0; i < n; i++) {
+      const t2 = i === 0 ? tgt : (nearestEnemy(p.x, p.y, 640, new Set([tgt])) || tgt);
+      const a = Math.atan2(t2.y - p.y, t2.x - p.x) + (i - (n - 1) / 2) * .09;
+      projs.push({ pid: ++S.pidSeq, type: 'star', x: p.x, y: p.y, vx: Math.cos(a) * 540, vy: Math.sin(a) * 540, dmg: st.dmg * dm, pierce: st.pierce, ttl: 1.1, hitSet: new Set() });
     }
+    sfx.shoot();
+  } else if (w.id === 'comet') {
+    if (!nearestEnemy(p.x, p.y, 700)) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd;
+    const n = st.count + projBonus(p);
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, TAU);
+      projs.push({ pid: ++S.pidSeq, type: 'comet', x: p.x + Math.cos(a) * 18, y: p.y + Math.sin(a) * 18, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, dmg: st.dmg * dm, aoe: st.aoe, ttl: 2.6, seed: rand(0, TAU) });
+    }
+    sfx.shoot();
+  } else if (w.id === 'thunder') {
+    const first = nearestEnemy(p.x, p.y, 540);
+    if (!first) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd;
+    const hitSet = new Set(); let cur = first; const pts = [{ x: p.x, y: p.y - 10 }];
+    for (let c = 0; c < st.chains && cur; c++) {
+      pts.push({ x: cur.x, y: cur.y });
+      hitSet.add(cur);
+      damageEnemy(cur, st.dmg * dm, 0, 0);
+      addParts(cur.x, cur.y, 5, '#ffe94d', 150, 3.5);
+      cur = nearestEnemy(cur.x, cur.y, 155, hitSet);
+    }
+    fx.push({ type: 'bolt', pts, ttl: .16, max: .16 });
+    sfx.thunder();
+  } else if (w.id === 'bolt') {
+    const tgt = nearestEnemy(p.x, p.y, 640);
+    if (!tgt) { p.cds[w.id] = .15; return; }
+    p.cds[w.id] = st.cd;
+    fx.push({ type: 'bolt', pts: [{ x: tgt.x + rand(-14, 14), y: tgt.y - 320 }, { x: tgt.x, y: tgt.y }], ttl: .2, max: .2 });
+    fx.push({ type: 'ring', x: tgt.x, y: tgt.y, r: st.aoe, ttl: .2, max: .2, color: '#ffe94d' });
+    damageEnemy(tgt, st.dmg * dm, 0, 0);
+    for (const e of enemies) {
+      if (e.dead || e === tgt) continue;
+      if (dist2(tgt.x, tgt.y, e.x, e.y) < st.aoe * st.aoe) damageEnemy(e, st.dmg * dm * .5, 0, 0);
+    }
+    addParts(tgt.x, tgt.y, 8, '#ffe94d', 170, 4);
+    sfx.thunder(); beep(90, 45, .22, 'triangle', .4);
+  } else if (w.id === 'ice') {
+    const tgt = nearestEnemy(p.x, p.y, 660);
+    if (!tgt) { p.cds[w.id] = .1; return; }
+    p.cds[w.id] = st.cd;
+    const baseA = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    const n = 1 + projBonus(p);
+    for (let i = 0; i < n; i++) {
+      const a = baseA + (i - (n - 1) / 2) * .11;
+      projs.push({ pid: ++S.pidSeq, type: 'ice', x: p.x, y: p.y, vx: Math.cos(a) * 580, vy: Math.sin(a) * 580, dmg: st.dmg * dm, pierce: st.pierce, ttl: 1.15, slow: st.slow, slowDur: st.slowDur, hitSet: new Set() });
+    }
+    beep(1150, 1500, .05, 'sine', .1);
+  } else if (w.id === 'leaf') {
+    const tgt = nearestEnemy(p.x, p.y, 700);
+    p.cds[w.id] = 1.5;
+    const baseA = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : Math.atan2(p.dirY, p.dirX);
+    for (let i = 0; i < st.count; i++) {
+      const a = baseA + (i - (st.count - 1) / 2) * .38;
+      projs.push({ pid: ++S.pidSeq, type: 'leaf', x: p.x, y: p.y, vx: Math.cos(a) * 530, vy: Math.sin(a) * 530, dmg: st.dmg * dm, ttl: 3.2, owner: p, phase: 'out', traveled: 0, range: st.range, hitSet: new Set(), spin: rand(0, TAU) });
+    }
+    beep(520, 760, .07, 'triangle', .12);
+  } else if (w.id === 'nova') {
+    p.cds[w.id] = st.cd;
+    const n = st.count + projBonus(p);
+    const off = rand(0, TAU);
+    for (let i = 0; i < n; i++) {
+      const a = off + (i / n) * TAU;
+      projs.push({ pid: ++S.pidSeq, type: 'nova', x: p.x, y: p.y, vx: Math.cos(a) * 430, vy: Math.sin(a) * 430, dmg: st.dmg * dm, pierce: 0, ttl: .85, hitSet: new Set() });
+    }
+    fx.push({ type: 'ring', x: p.x, y: p.y, r: 44, ttl: .22, max: .22, color: '#c9a6ff' });
+    beep(880, 1320, .1, 'sine', .16);
+  } else if (w.id === 'flame') {
+    p.cds[w.id] = st.cd;
+    const fa = Math.atan2(p.dirY, p.dirX);
+    fx.push({ type: 'cone', x: p.x, y: p.y, ang: fa, range: st.range, ttl: .22, max: .22 });
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d > st.range + e.r) continue;
+      let da = Math.atan2(e.y - p.y, e.x - p.x) - fa;
+      while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
+      if (Math.abs(da) < .62) damageEnemy(e, st.dmg * dm, Math.cos(fa) * 110, Math.sin(fa) * 110);
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = fa + rand(-.5, .5), v = rand(120, st.range * 1.4);
+      parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, ttl: rand(.2, .45), max: .45, color: ['#ff9d5c', '#ff5d3d', '#ffd94d'][i % 3], size: rand(3, 6) });
+    }
+    beep(300, 90, .18, 'sawtooth', .14);
   }
 }
 function updateProjectiles(dt){
@@ -535,18 +769,38 @@ function updateProjectiles(dt){
       }
       if (Math.random() < .6) parts.push({ x: p.x, y: p.y, vx: rand(-16, 16), vy: rand(-16, 16), ttl: .3, max: .3, color: '#ffb37c', size: 3 });
     }
+    if (p.type === 'leaf' && p.owner) {
+      p.spin += dt * 11;
+      if (p.phase === 'out') {
+        p.traveled += Math.hypot(p.vx, p.vy) * dt;
+        if (p.traveled >= p.range) { p.phase = 'back'; p.hitSet.clear(); }
+      } else {
+        const dx = p.owner.x - p.x, dy = p.owner.y - p.y, d = Math.hypot(dx, dy) || 1;
+        const sp = 560;
+        p.vx = dx / d * sp; p.vy = dy / d * sp;
+        if (d < 30) p.dead = true;
+      }
+    }
     // 低fps時でも弾が敵をすり抜けないよう移動をサブステップ化
     const steps = Math.max(1, Math.ceil(dt / .02)), sdt = dt / steps;
     for (let s = 0; s < steps && !p.dead; s++) {
       p.x += p.vx * sdt; p.y += p.vy * sdt;
       for (const e of enemies) {
         if (e.dead) continue;
-        const rr = (p.type === 'star' ? 9 : 11) + e.r;
+        if (p.hitSet && p.hitSet.has(e)) continue;
+        const rr = (p.type === 'star' || p.type === 'nova' ? 9 : 11) + e.r;
         if (dist2(p.x, p.y, e.x, e.y) < rr * rr) {
-          if (p.type === 'star') {
+          if (p.type === 'comet') { explodeComet(p); p.dead = true; }
+          else {
             damageEnemy(e, p.dmg, p.vx * .18, p.vy * .18);
-            if (p.pierce > 0) { p.pierce--; } else { p.dead = true; }
-          } else { explodeComet(p); p.dead = true; }
+            if (p.hitSet) p.hitSet.add(e);
+            if (p.type === 'ice') {
+              e.slowT = Math.max(e.slowT, p.slowDur); e.slowMul = Math.min(e.slowMul, 1 - p.slow);
+              addParts(e.x, e.y, 3, '#9fe8ff', 90, 3);
+            }
+            if (p.type === 'leaf') { /* 往復とも当たる：貫通扱い */ }
+            else if (p.pierce > 0) { p.pierce--; } else { p.dead = true; }
+          }
           break;
         }
       }
@@ -563,11 +817,19 @@ function explodeComet(p){
 }
 
 /* ── 敵・雲・ジェム更新 ── */
+function nearestAlivePlayer(x, y){
+  let best = null, bd = Infinity;
+  for (const p of alivePlayers()) { const d = dist2(x, y, p.x, p.y); if (d < bd) { bd = d; best = p; } }
+  return best;
+}
 function updateEnemies(dt){
   for (const e of enemies) {
     if (e.dead) continue;
     e.flash = Math.max(0, e.flash - dt); e.hitCd -= dt; e.orbitCd -= dt;
-    const dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy) || 1;
+    if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slowMul = 1; }
+    const tp = nearestAlivePlayer(e.x, e.y);
+    if (!tp) break;
+    const dx = tp.x - e.x, dy = tp.y - e.y, d = Math.hypot(dx, dy) || 1;
     let mx = dx / d, my = dy / d;
     if (e.type === 'bat') { const s = Math.sin(S.time * 6 + e.wob); mx += -dy / d * s * .55; my += dx / d * s * .55; }
     if (e.type === 'shroom') {
@@ -578,12 +840,13 @@ function updateEnemies(dt){
       e.summonT -= dt;
       if (e.summonT <= 0) { e.summonT = 6; for (let i = 0; i < 3; i++) spawnEnemy(Math.random() < .5 ? 'mouse' : 'bat', e.x + rand(-70, 70), e.y + rand(-70, 70), 1); }
     }
-    e.x += (mx * e.spd + e.vx) * dt; e.y += (my * e.spd + e.vy) * dt;
+    const spdEff = e.spd * (e.slowT > 0 ? e.slowMul : 1);
+    e.x += (mx * spdEff + e.vx) * dt; e.y += (my * spdEff + e.vy) * dt;
     e.vx *= Math.pow(.0015, dt); e.vy *= Math.pow(.0015, dt);
-    if (d < e.r + P.r && e.hitCd <= 0) {
+    if (d < e.r + tp.r && e.hitCd <= 0) {
       e.hitCd = .65;
-      P.x += (dx / d) * 14; P.y += (dy / d) * 14;
-      damagePlayer(e.dmg);
+      tp.x += (dx / d) * 14; tp.y += (dy / d) * 14;
+      damagePlayer(tp, e.dmg);
     }
   }
   // 敵同士の軽い分離
@@ -603,113 +866,185 @@ function updateEnemies(dt){
   for (const c of clouds) c.ttl -= dt;
   clouds = clouds.filter(c => c.ttl > 0);
   for (const c of clouds) {
-    if (dist2(P.x, P.y, c.x, c.y) < (c.r - 6) * (c.r - 6)) {
-      P.hp -= 13 * dt;
-      if (Math.random() < dt * 6) addParts(P.x, P.y - 8, 1, '#b06cff', 60, 4);
-      if (P.hp <= 0) { P.hp = 0; gameOver(false); }
+    for (const p of alivePlayers()) {
+      if (dist2(p.x, p.y, c.x, c.y) < (c.r - 6) * (c.r - 6)) {
+        p.hp -= 13 * dt;
+        if (Math.random() < dt * 6) addParts(p.x, p.y - 8, 1, '#b06cff', 60, 4);
+        if (p.hp <= 0) { p.hp = 0; onPlayerDown(p); }
+      }
     }
   }
 }
 function updateGems(dt){
-  const mr = magnetR();
   for (const g of gems) {
-    const d2 = dist2(g.x, g.y, P.x, P.y);
-    if (d2 < mr * mr) {
-      const d = Math.sqrt(d2) || 1, sp = 460 * (1 - d / (mr + 60)) + 130;
-      g.x += (P.x - g.x) / d * sp * dt; g.y += (P.y - g.y) / d * sp * dt;
+    // 最も近いプレイヤーの磁石に引かれ、そのプレイヤーが拾う（XPはチーム共有）
+    let bp = null, bd2 = Infinity, bmr = 0;
+    for (const p of alivePlayers()) {
+      const mr = magnetR(p), d2 = dist2(g.x, g.y, p.x, p.y);
+      if (d2 < mr * mr && d2 < bd2) { bd2 = d2; bp = p; bmr = mr; }
     }
-    if (d2 < (P.r + 13) * (P.r + 13)) {
-      g.dead = true; pickupCombo = pickupCombo; sfx.pickup(); gainXp(g.val);
-      addParts(g.x, g.y, 3, '#7df9ff', 90, 3);
+    if (bp) {
+      const d = Math.sqrt(bd2) || 1, sp = 460 * (1 - d / (bmr + 60)) + 130;
+      g.x += (bp.x - g.x) / d * sp * dt; g.y += (bp.y - g.y) / d * sp * dt;
+      if (bd2 < (bp.r + 13) * (bp.r + 13)) {
+        g.dead = true; sfx.pickup();
+        S.gemsCollected += g.val;
+        gainXp(g.val * xpMul(bp));
+        addParts(g.x, g.y, 3, '#7df9ff', 90, 3);
+      }
     }
   }
   gems = gems.filter(g => !g.dead);
   if (performance.now() - lastPickupSnd > 500) pickupCombo = 0;
   for (const pk of pickups) {
     pk.ph += dt * 3;
-    if (dist2(pk.x, pk.y, P.x, P.y) < 34 * 34) { pk.dead = true; openChest(); }
+    for (const p of alivePlayers()) {
+      if (dist2(pk.x, pk.y, p.x, p.y) < 34 * 34) { pk.dead = true; openChest(p); break; }
+    }
   }
   pickups = pickups.filter(p => !p.dead);
 }
 function gainXp(v){
   P.xp += v;
-  if (P.xp >= P.xpNext && S.state === 'play') openLevelUp();
+  if (P.xp >= P.xpNext && S.state === 'play') levelUpSequence();
 }
 
 /* ── レベルアップ / 宝箱 ── */
-function buildPool(){
+function buildPool(p){
   const pool = [];
   for (const id in WEAPONS) {
-    const owned = P.weapons.find(w => w.id === id);
-    if (!owned && P.weapons.length < 4) pool.push({ kind: 'weapon', id, isNew: true });
+    const owned = p.weapons.find(w => w.id === id);
+    if (!owned && p.weapons.length < MAX_WEAPONS) pool.push({ kind: 'weapon', id, isNew: true });
     else if (owned && owned.lv < 5) pool.push({ kind: 'weapon', id, isNew: false });
   }
   for (const id in PASSIVES) {
-    if ((P.passives[id] || 0) < PASSIVES[id].max) pool.push({ kind: 'passive', id });
+    if ((p.passives[id] || 0) < PASSIVES[id].max) pool.push({ kind: 'passive', id });
   }
   return pool;
 }
-function openLevelUp(){
-  S.state = 'levelup'; sfx.levelup();
-  fx.push({ type: 'pillar', x: P.x, y: P.y, ttl: .8, max: .8 });
-  const pool = buildPool();
+function rollPicks(p){
+  const pool = buildPool(p);
   const picks = [];
   while (picks.length < 3 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   while (picks.length < 3) picks.push({ kind: 'bonus', id: picks.length % 2 ? 'heal' : 'gems' });
+  return picks;
+}
+/* カードUIを表示し、選択されたら cb(pk) を呼ぶ。player は表示用（Lv表示）のビルド参照 */
+function showPickUI(player, picks, cb){
   const wrap = document.getElementById('lvCards'); wrap.innerHTML = '';
+  document.getElementById('lvWait').style.display = 'none';
   for (const pk of picks) {
     const b = document.createElement('button'); b.className = 'card';
     if (pk.kind === 'weapon') {
-      const w = WEAPONS[pk.id], owned = P.weapons.find(x => x.id === pk.id);
+      const w = WEAPONS[pk.id], owned = player.weapons.find(x => x.id === pk.id);
       if (pk.isNew) b.classList.add('newCard');
-      b.innerHTML = `<div class="cIcon">${w.icon}</div><div class="cName">${w.name}</div><div class="cLv">${pk.isNew ? '✨ 新しい武器！' : 'Lv ' + owned.lv + ' → ' + (owned.lv + 1)}</div><div class="cDesc">${w.desc}</div>`;
+      b.innerHTML = `<div class="cIcon">${w.icon}</div><div class="cName">${w.name}</div><div class="cLv">${pk.isNew ? '✨ 新しい武器！' : 'Lv ' + (owned ? owned.lv : 0) + ' → ' + ((owned ? owned.lv : 0) + 1)}</div><div class="cDesc">${w.desc}</div>`;
     } else if (pk.kind === 'passive') {
-      const ps = PASSIVES[pk.id], cur = P.passives[pk.id] || 0;
+      const ps = PASSIVES[pk.id], cur = player.passives[pk.id] || 0;
       b.innerHTML = `<div class="cIcon">${ps.icon}</div><div class="cName">${ps.name}</div><div class="cLv">Lv ${cur} → ${cur + 1}</div><div class="cDesc">${ps.desc}</div>`;
     } else if (pk.id === 'heal') {
       b.innerHTML = `<div class="cIcon">🍰</div><div class="cName">まほうのケーキ</div><div class="cLv">回復</div><div class="cDesc">HPを40回復する</div>`;
     } else {
       b.innerHTML = `<div class="cIcon">💎</div><div class="cName">ほしのカケラ</div><div class="cLv">ボーナス</div><div class="cDesc">経験値ジェムをその場で15個分ゲット</div>`;
     }
-    b.onclick = () => { applyPick(pk); };
+    b.onclick = () => { cb(pk); };
     wrap.appendChild(b);
   }
   document.getElementById('levelScr').classList.add('show');
 }
-function applyPick(pk){
+function applyPick(p, pk){
+  if (!pk) return;
   if (pk.kind === 'weapon') {
-    const owned = P.weapons.find(x => x.id === pk.id);
-    if (owned) owned.lv++; else P.weapons.push({ id: pk.id, lv: 1 });
+    const owned = p.weapons.find(x => x.id === pk.id);
+    if (owned) owned.lv = Math.min(5, owned.lv + 1);
+    else if (p.weapons.length < MAX_WEAPONS) p.weapons.push({ id: pk.id, lv: 1 });
   } else if (pk.kind === 'passive') {
-    P.passives[pk.id] = (P.passives[pk.id] || 0) + 1;
-    if (pk.id === 'heart') P.hp = Math.min(maxHp(), P.hp + 20);
+    p.passives[pk.id] = Math.min(PASSIVES[pk.id].max, (p.passives[pk.id] || 0) + 1);
+    if (pk.id === 'heart') p.hp = Math.min(maxHp(p), p.hp + 20);
   } else if (pk.id === 'heal') {
-    P.hp = Math.min(maxHp(), P.hp + 40);
+    p.hp = Math.min(maxHp(p), p.hp + 40);
   } else {
-    P.xp += 15;
+    P.xp += 15; // チーム共有XPへ
   }
+  if (p === localPlayer()) renderWeaponsBar();
+}
+/* 1レベル分を消費して選択フェーズへ（協力時は両者の選択を待ち合わせる） */
+function levelUpSequence(){
+  P.xp -= P.xpNext; if (P.xp < 0) P.xp = 0;
+  P.level++; P.xpNext = xpForLevel(P.level);
+  S.state = 'levelup'; sfx.levelup();
+  for (const p of alivePlayers()) fx.push({ type: 'pillar', x: p.x, y: p.y, ttl: .8, max: .8 });
+  if (coopMode && NET.role === 'host') {
+    lvPhase = { hostDone: false, guestDone: false, guestChoices: rollPicks(P2) };
+    sendNet({ t: 'choices', picks: lvPhase.guestChoices });
+    showPickUI(P, rollPicks(P), pk => {
+      applyPick(P, pk);
+      lvPhase.hostDone = true;
+      document.getElementById('lvCards').innerHTML = '';
+      document.getElementById('lvWait').style.display = 'block';
+      checkLvDone();
+    });
+  } else if (coopMode && NET.role === 'guest') {
+    // ゲスト側はホストからの choices 受信で UI を出す（ここには来ない想定の保険）
+    S.state = 'levelup';
+  } else {
+    showPickUI(P, rollPicks(P), pk => { applyPick(P, pk); finishLevelUp(); });
+  }
+}
+function finishLevelUp(){
   document.getElementById('levelScr').classList.remove('show');
-  P.xp -= P.xpNext; P.level++; P.xpNext = xpForLevel(P.level);
-  renderWeaponsBar();
-  if (P.xp >= P.xpNext) { openLevelUp(); return; }
+  if (P.xp >= P.xpNext) { levelUpSequence(); return; }
   S.state = 'play';
 }
-function openChest(){
+function checkLvDone(){
+  if (!lvPhase || !lvPhase.hostDone || !lvPhase.guestDone) return;
+  lvPhase = null;
+  document.getElementById('levelScr').classList.remove('show');
+  document.getElementById('lvWait').style.display = 'none';
+  if (P.xp >= P.xpNext) { levelUpSequence(); return; }
+  S.state = 'play';
+  sendNet({ t: 'resume' });
+}
+/* ゲストが切断したままなら、その分の選択を自動で済ませる */
+function autoPickGuest(){
+  if (lvPhase && !lvPhase.guestDone) {
+    applyPick(P2, lvPhase.guestChoices[0]);
+    lvPhase.guestDone = true;
+    checkLvDone();
+  }
+  if (S.state === 'chest' && S.chestPicker === P2) { S.chestPicker = null; S.state = 'play'; }
+}
+function openChest(picker){
   S.state = 'chest'; sfx.chest();
+  S.chestPicker = picker;
+  if (coopMode && NET.role === 'host' && picker === P2) {
+    sendNet({ t: 'chest' }); // ゲスト本人が選ぶ
+    return;
+  }
+  if (coopMode && NET.role === 'guest') return; // ゲスト側は {t:'chest'} 受信で開く
   document.getElementById('chestScr').classList.add('show');
 }
-document.getElementById('chestLvBtn').onclick = () => {
+function applyChestChoice(p, which){
   document.getElementById('chestScr').classList.remove('show');
-  S.state = 'play'; gainXp(P.xpNext - P.xp);
-  if (S.state === 'play') { P.xp += P.xpNext; openLevelUp(); }
+  S.chestPicker = null;
+  if (which === 'lv') {
+    S.state = 'play';
+    levelUpSequence(); // 無料で1レベル分（XP消費は0クランプ）
+  } else {
+    const w = p.weapons[Math.floor(Math.random() * p.weapons.length)];
+    if (w && w.lv < 5) { w.lv++; showBanner(`🔮 ${WEAPONS[w.id].name} が Lv${w.lv} に強化！`); }
+    else { p.hp = maxHp(p); dropGems(p.x, p.y, 40); showBanner('🔮 最大強化ずみ！ HP全回復＋ジェム'); }
+    if (p === localPlayer()) renderWeaponsBar();
+    S.state = 'play';
+  }
+}
+document.getElementById('chestLvBtn').onclick = () => {
+  if (NET.role === 'guest') { document.getElementById('chestScr').classList.remove('show'); sendNet({ t: 'chestpick', which: 'lv' }); return; }
+  applyChestChoice(S.chestPicker || P, 'lv');
 };
 document.getElementById('chestRareBtn').onclick = () => {
-  document.getElementById('chestScr').classList.remove('show');
-  const w = P.weapons[Math.floor(Math.random() * P.weapons.length)];
-  if (w.lv < 5) { w.lv++; showBanner(`🔮 ${WEAPONS[w.id].name} が Lv${w.lv} に強化！`); }
-  else { P.hp = maxHp(); dropGems(P.x, P.y, 20); showBanner('🔮 最大強化ずみ！ HP全回復＋ジェム'); }
-  renderWeaponsBar();
-  S.state = 'play';
+  if (NET.role === 'guest') { document.getElementById('chestScr').classList.remove('show'); sendNet({ t: 'chestpick', which: 'rare' }); return; }
+  applyChestChoice(S.chestPicker || P, 'rare');
 };
 
 /* ── ゲームフロー ── */
@@ -720,8 +1055,9 @@ function showBanner(txt){
   showBanner._t = setTimeout(() => { b.style.opacity = 0; }, 2400);
 }
 function renderWeaponsBar(){
+  const me = localPlayer();
   const bar = $('weaponsBar'); bar.innerHTML = '';
-  for (const w of P.weapons) {
+  for (const w of me.weapons) {
     const d = document.createElement('div'); d.className = 'wIcon';
     d.innerHTML = WEAPONS[w.id].icon + `<span>${w.lv}</span>`;
     bar.appendChild(d);
@@ -729,114 +1065,201 @@ function renderWeaponsBar(){
 }
 function startGame(){
   initAudio();
+  coopMode = false;
   resetGame();
   S.state = 'play';
   $('titleScr').classList.remove('show');
   $('endScr').classList.remove('show');
+  $('lobbyScr').classList.remove('show');
   $('hud').style.display = 'block';
   $('bossWrap').style.display = 'none';
+  $('partnerWrap').style.display = 'none';
+  $('spectateMsg').style.display = 'none';
   renderWeaponsBar(); updateHud();
 }
 function pauseGame(){
-  if (S.state !== 'play') return;
+  if (S.state !== 'play' || coopMode) return;
   S.state = 'pause';
   $('pauseInfo').textContent = `生存 ${fmtTime(S.time)} ／ 撃破 ${S.kills} ／ Lv ${P.level}`;
   $('pauseScr').classList.add('show');
 }
 function resumeGame(){ if (S.state !== 'pause') return; S.state = 'play'; $('pauseScr').classList.remove('show'); }
 function quitToTitle(){
+  cleanupNet();
+  coopMode = false;
   S.state = 'title';
   $('pauseScr').classList.remove('show'); $('endScr').classList.remove('show');
+  $('levelScr').classList.remove('show'); $('chestScr').classList.remove('show'); $('lobbyScr').classList.remove('show');
   $('hud').style.display = 'none'; $('titleScr').classList.add('show');
-  showBest();
+  $('netStatus').textContent = '';
+  showBest(); renderTitleMeta();
 }
 function saveBest(clearedRun){
+  const key = coopMode ? COOP_BEST_KEY : 'majoneko_survivors_best'; // 協力の記録はソロと混ぜない
   let best = null;
-  try { best = JSON.parse(localStorage.getItem('majoneko_survivors_best') || 'null'); } catch (e) {}
+  try { best = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
   const rec = { time: Math.floor(S.time), kills: S.kills, level: P.level };
   let isNew = false;
   if (!best || rec.time > best.time || (rec.time === best.time && rec.kills > best.kills)) {
-    localStorage.setItem('majoneko_survivors_best', JSON.stringify(rec)); isNew = true;
+    localStorage.setItem(key, JSON.stringify(rec)); isNew = true;
   }
   return isNew;
 }
 function showBest(){
-  let best = null;
+  let best = null, cbest = null;
   try { best = JSON.parse(localStorage.getItem('majoneko_survivors_best') || 'null'); } catch (e) {}
-  $('bestBox').textContent = best ? `🏆 ベスト： 生存 ${fmtTime(best.time)} ／ 撃破 ${best.kills} ／ Lv ${best.level}` : '';
+  try { cbest = JSON.parse(localStorage.getItem(COOP_BEST_KEY) || 'null'); } catch (e) {}
+  let txt = best ? `🏆 ベスト： 生存 ${fmtTime(best.time)} ／ 撃破 ${best.kills} ／ Lv ${best.level}` : '';
+  if (cbest) txt += (txt ? '<br>' : '') + `🤝 協力ベスト： 生存 ${fmtTime(cbest.time)} ／ 撃破 ${cbest.kills} ／ Lv ${cbest.level}`;
+  $('bestBox').innerHTML = txt;
+}
+/* ラン終了時のかけら精算：集めたジェム総量（未精算分）＋クリアボーナス50 */
+function awardShards(clearedRun){
+  let gain = Math.max(0, Math.floor(S.gemsCollected) - S.shardsPaid);
+  if (clearedRun && !S.clearBonusPaid) { gain += 50; S.clearBonusPaid = true; }
+  S.shardsPaid = Math.floor(S.gemsCollected);
+  S.lastShardGain = gain;
+  meta.shards += gain;
+  saveMeta();
+  return gain;
 }
 function gameOver(clearedRun){
   if (S.state === 'over') return;
   const isNew = saveBest(clearedRun);
+  const gain = awardShards(clearedRun);
+  if (coopMode && NET.role === 'host') { sendNet(buildSnapshot()); sendNet({ t: 'end', cleared: clearedRun }); }
+  showEndScreen(clearedRun, isNew, gain);
+}
+function showEndScreen(clearedRun, isNew, gain){
+  const myName = CHARS[localPlayer().char].name;
   if (clearedRun) {
     S.state = 'clear'; sfx.win();
     $('endTitle').textContent = '🌅 夜明けが来た！';
-    $('endMsg').textContent = '10分間生き抜いた！ ノワは無事に朝を迎えたよ。';
+    $('endMsg').textContent = coopMode ? '10分間生き抜いた！ 2人で無事に朝を迎えたよ。' : `10分間生き抜いた！ ${myName}は無事に朝を迎えたよ。`;
     $('endBtns').style.display = 'none'; $('clearBtns').style.display = 'block';
   } else {
     S.state = 'over'; sfx.boom(); S.shake = 12;
     $('endTitle').textContent = '💫 ゲームオーバー';
-    $('endMsg').textContent = 'ノワは星の草原で力尽きた…';
+    $('endMsg').textContent = coopMode ? '2人は星の草原で力尽きた…' : `${myName}は星の草原で力尽きた…`;
     $('endBtns').style.display = 'block'; $('clearBtns').style.display = 'none';
+  }
+  if (NET.role === 'guest') { // ゲストは再戦・継続を選べない（ホストが決める）
+    $('endBtns').style.display = 'none'; $('clearBtns').style.display = 'none';
+    $('guestEndBtns').style.display = 'block';
+    $('guestEndNote').textContent = clearedRun ? 'エンドレスで続けるかはホストが選びます' : '再戦はホストが選びます';
+  } else {
+    $('guestEndBtns').style.display = 'none';
   }
   $('endTime').textContent = fmtTime(S.time);
   $('endKills').textContent = S.kills;
   $('endLevel').textContent = P.level;
   $('endBest').textContent = isNew ? '🏆 ベスト記録更新！' : '';
+  $('endShards').textContent = `⭐ ほしのかけら +${gain}（所持 ${meta.shards}）`;
   $('endScr').classList.add('show');
 }
 $('startBtn').onclick = startGame;
-$('retryBtn').onclick = () => { $('endScr').classList.remove('show'); startGame(); };
+$('retryBtn').onclick = () => {
+  $('endScr').classList.remove('show');
+  if (coopMode && NET.role === 'host') startCoopGame(); else startGame();
+};
 $('endTitleBtn').onclick = quitToTitle;
+$('guestTitleBtn').onclick = quitToTitle;
 $('resumeBtn').onclick = resumeGame;
 $('quitBtn').onclick = quitToTitle;
 $('pauseBtn').onclick = () => { if (S.state === 'play') pauseGame(); };
-$('endlessBtn').onclick = () => { S.endless = true; $('endScr').classList.remove('show'); S.state = 'play'; showBanner('🌌 エンドレスモード！ 限界に挑戦'); };
+$('endlessBtn').onclick = () => {
+  S.endless = true; $('endScr').classList.remove('show'); S.state = 'play';
+  if (coopMode && NET.role === 'host') sendNet({ t: 'endless' });
+  showBanner('🌌 エンドレスモード！ 限界に挑戦');
+};
 $('finishBtn').onclick = () => { $('clearBtns').style.display = 'none'; $('endBtns').style.display = 'block'; $('endTitle').textContent = '🌅 クリア！'; };
 $('muteBtn').onclick = () => { initAudio(); setMuted(!muted); };
 $('titleMuteBtn').onclick = () => { initAudio(); setMuted(!muted); };
 setMuted(muted); showBest();
 
 function updateHud(){
-  $('hpFill').style.width = clamp(P.hp / maxHp() * 100, 0, 100) + '%';
-  $('hpText').textContent = `${Math.ceil(P.hp)} / ${maxHp()}`;
+  const me = localPlayer();
+  $('hpFill').style.width = clamp(me.hp / maxHp(me) * 100, 0, 100) + '%';
+  $('hpText').textContent = `${Math.ceil(me.hp)} / ${maxHp(me)}`;
   $('xpFill').style.width = clamp(P.xp / P.xpNext * 100, 0, 100) + '%';
   $('lvBadge').textContent = 'Lv ' + P.level;
   $('timerText').textContent = fmtTime(S.time) + (S.endless ? ' ∞' : '');
   $('timerText').style.color = (!S.endless && S.time > 540) ? '#ffd94d' : '#fff';
   $('killText').textContent = '💀 ' + S.kills;
-  if (S.bossRef && !S.bossRef.dead) $('bossFill').style.width = clamp(S.bossRef.hp / S.bossRef.maxHp * 100, 0, 100) + '%';
+  const boss = (NET.role === 'guest') ? S.guestBoss : (S.bossRef && !S.bossRef.dead ? S.bossRef : null);
+  if (boss) $('bossFill').style.width = clamp(boss.hp / boss.maxHp * 100, 0, 100) + '%';
+  if (coopMode) {
+    const partner = (NET.role === 'guest') ? P : P2;
+    $('partnerWrap').style.display = 'block';
+    $('partnerName').textContent = (NET.role === 'guest' ? 'ホスト' : 'ゲスト') + '：' + CHARS[partner.char].name + (partner.alive ? '' : `（ダウン…復活まで ${Math.ceil(partner.reviveT)}秒）`);
+    $('partnerFill').style.width = clamp(partner.hp / maxHp(partner) * 100, 0, 100) + '%';
+    const sm = $('spectateMsg');
+    if (!me.alive) {
+      sm.style.display = 'block';
+      sm.innerHTML = `💫 ダウン中…<br>復活まで あと ${Math.ceil(me.reviveT)} 秒`;
+    } else sm.style.display = 'none';
+  }
 }
 
 /* ── メイン更新 ── */
-function update(dt){
-  S.time += dt;
-  if (!S.cleared && S.time >= 600) { S.cleared = true; gameOver(true); return; }
-  // 移動
+function readLocalInput(){
   let mx = 0, my = 0;
   if (keys['w'] || keys['arrowup']) my -= 1;
   if (keys['s'] || keys['arrowdown']) my += 1;
   if (keys['a'] || keys['arrowleft']) mx -= 1;
   if (keys['d'] || keys['arrowright']) mx += 1;
   if (joy.active && (Math.abs(joy.dx) > .12 || Math.abs(joy.dy) > .12)) { mx = joy.dx; my = joy.dy; }
-  const ml = Math.hypot(mx, my);
-  P.moving = ml > .05;
-  if (P.moving) {
-    const nx = mx / (ml > 1 ? ml : 1), ny = my / (ml > 1 ? ml : 1);
-    P.x += nx * moveSpeed() * dt; P.y += ny * moveSpeed() * dt;
-    P.dirX = nx; P.dirY = ny;
-    if (Math.abs(nx) > .15) P.face = nx > 0 ? 1 : -1;
-    P.bob += dt * 11;
+  return { x: mx, y: my };
+}
+function movePlayer(p, iv, dt){
+  const ml = Math.hypot(iv.x, iv.y);
+  p.moving = ml > .05 && p.alive;
+  if (p.moving) {
+    const nx = iv.x / (ml > 1 ? ml : 1), ny = iv.y / (ml > 1 ? ml : 1);
+    p.x += nx * moveSpeed(p) * dt; p.y += ny * moveSpeed(p) * dt;
+    p.dirX = nx; p.dirY = ny;
+    if (Math.abs(nx) > .15) p.face = nx > 0 ? 1 : -1;
+    p.bob += dt * 11;
   }
-  P.blink -= dt; if (P.blink < -rand(2.2, 4)) P.blink = .12;
-  P.hurtT = Math.max(0, P.hurtT - dt);
-  if ((P.passives.regen || 0) > 0) P.hp = Math.min(maxHp(), P.hp + .6 * P.passives.regen * dt);
+  p.blink -= dt; if (p.blink < -rand(2.2, 4)) p.blink = .12;
+  p.hurtT = Math.max(0, p.hurtT - dt);
+  if ((p.passives.regen || 0) > 0 && p.alive) p.hp = Math.min(maxHp(p), p.hp + .6 * p.passives.regen * dt);
+}
+function update(dt){
+  S.time += dt;
+  if (!S.cleared && S.time >= 600) { S.cleared = true; gameOver(true); return; }
+  // 移動：自機はローカル入力、協力ゲスト機は受信入力（切断中はAIがホストに追従）
+  movePlayer(P, readLocalInput(), dt);
+  if (coopMode) {
+    if (P2.ai) {
+      const dx = P.x - P2.x, dy = P.y - P2.y, d = Math.hypot(dx, dy);
+      movePlayer(P2, d > 70 ? { x: dx / d, y: dy / d } : { x: 0, y: 0 }, dt);
+    } else {
+      movePlayer(P2, P2.input, dt);
+    }
+    // 復活タイマー
+    for (const p of players) {
+      if (!p.alive && p.reviveT > 0) {
+        p.reviveT -= dt;
+        if (p.reviveT <= 0 && players.some(q => q !== p && q.alive)) {
+          p.alive = true; p.hp = Math.floor(maxHp(p) * .5); p.hurtT = 1;
+          showBanner(`✨ ${CHARS[p.char].name} が 復活！`);
+          addParts(p.x, p.y, 18, '#7dffce', 170, 4);
+        }
+      }
+    }
+  }
   updateSpawning(dt);
   fireWeapons(dt);
   updateProjectiles(dt);
   updateEnemies(dt);
   if (S.state !== 'play') return; // 敵の毒などで終了した場合はここまで
   updateGems(dt);
+  // 協力：約10Hzでスナップショット配信
+  if (coopMode && NET.role === 'host') {
+    S.snapT -= dt;
+    if (S.snapT <= 0) { S.snapT = .1; sendNet(buildSnapshot()); }
+  }
   for (const t of texts) { t.y -= 44 * dt; t.ttl -= dt; }
   texts = texts.filter(t => t.ttl > 0);
   for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy = p.vy * .92 + 130 * dt; p.ttl -= dt; }
@@ -1019,39 +1442,44 @@ function drawEnemy(e, now){
     ctx.save(); ctx.globalAlpha = Math.min(.75, e.flash / .09 * .75);
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.05, 0, TAU); ctx.fill(); ctx.restore();
   }
+  if (e.slowT > 0 || e.slow) { // アイスランスの鈍足表示
+    ctx.save(); ctx.globalAlpha = .38;
+    ctx.fillStyle = '#8fd8ff'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.08, 0, TAU); ctx.fill(); ctx.restore();
+  }
   if ((e.type === 'ghost' || e.type === 'boss') && e.hp < e.maxHp) {
     const w = e.r * 2;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(e.x - e.r, e.y - e.r - 12, w, 5);
     ctx.fillStyle = '#ff5d7a'; ctx.fillRect(e.x - e.r, e.y - e.r - 12, w * clamp(e.hp / e.maxHp, 0, 1), 5);
   }
 }
-function drawPlayer(now){
-  const bobY = P.moving ? Math.abs(Math.sin(P.bob)) * -2.4 : Math.sin(now / 600) * 1.1;
-  ctx.save(); ctx.translate(P.x, P.y + bobY);
+function drawPlayer(p, now){
+  const ch = CHARS[p.char] || CHARS.nowa;
+  const bobY = p.moving ? Math.abs(Math.sin(p.bob)) * -2.4 : Math.sin(now / 600) * 1.1;
+  ctx.save(); ctx.translate(p.x, p.y + bobY);
   ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 15 - bobY, 15, 5, 0, 0, TAU); ctx.fill();
-  ctx.scale(P.face, 1);
+  ctx.scale(p.face, 1);
   // しっぽ
   const wag = Math.sin(now / 240) * 4;
-  ctx.strokeStyle = '#17171f'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+  ctx.strokeStyle = ch.body; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(-11, 7); ctx.quadraticCurveTo(-22, 9, -24, -2 + wag); ctx.stroke();
   // マント
-  const flut = P.moving ? Math.sin(P.bob * 1.4) * 3 : Math.sin(now / 500) * 1.4;
-  ctx.fillStyle = '#4b2e83';
+  const flut = p.moving ? Math.sin(p.bob * 1.4) * 3 : Math.sin(now / 500) * 1.4;
+  ctx.fillStyle = ch.cape;
   ctx.beginPath(); ctx.moveTo(-4, -4);
   ctx.quadraticCurveTo(-19 - Math.abs(flut), 6, -15 + flut, 17);
   ctx.quadraticCurveTo(-4, 13, 3, 15); ctx.quadraticCurveTo(6, 4, 4, -4); ctx.closePath(); ctx.fill();
   // 体
-  ctx.fillStyle = '#17171f'; ctx.beginPath(); ctx.arc(0, 2, 14.5, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#26262f'; ctx.beginPath(); ctx.ellipse(2, 6, 7.5, 5.5, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = ch.body; ctx.beginPath(); ctx.arc(0, 2, 14.5, 0, TAU); ctx.fill();
+  ctx.fillStyle = ch.belly; ctx.beginPath(); ctx.ellipse(2, 6, 7.5, 5.5, 0, 0, TAU); ctx.fill();
   // 耳
-  ctx.fillStyle = '#17171f';
+  ctx.fillStyle = ch.body;
   ctx.beginPath(); ctx.moveTo(-11, -6); ctx.lineTo(-14.5, -19); ctx.lineTo(-3.5, -11.5); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.moveTo(11, -6); ctx.lineTo(14.5, -19); ctx.lineTo(3.5, -11.5); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#e58bb1';
+  ctx.fillStyle = ch.earIn;
   ctx.beginPath(); ctx.moveTo(-10.6, -9); ctx.lineTo(-12.4, -16); ctx.lineTo(-6, -11.6); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.moveTo(10.6, -9); ctx.lineTo(12.4, -16); ctx.lineTo(6, -11.6); ctx.closePath(); ctx.fill();
   // 顔
-  if (P.blink > 0) {
+  if (p.blink > 0) {
     ctx.strokeStyle = '#ffd94d'; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(-3, -2); ctx.moveTo(3, -2); ctx.lineTo(8, -2); ctx.stroke();
   } else {
@@ -1069,21 +1497,21 @@ function drawPlayer(now){
   ctx.fillStyle = '#ffd94d'; ctx.beginPath(); ctx.arc(0, 13.5, 3.4, 0, TAU); ctx.fill();
   ctx.fillStyle = '#b8860b'; ctx.beginPath(); ctx.arc(0, 14.8, 1.2, 0, TAU); ctx.fill();
   // とんがり帽子
-  ctx.fillStyle = '#5b3aa8'; ctx.beginPath(); ctx.ellipse(0, -11.5, 16.5, 4.8, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = ch.hat; ctx.beginPath(); ctx.ellipse(0, -11.5, 16.5, 4.8, 0, 0, TAU); ctx.fill();
   ctx.beginPath(); ctx.moveTo(-11.5, -12.5);
   ctx.quadraticCurveTo(-7, -27, 3.5, -33);
   ctx.quadraticCurveTo(10.5, -35.5, 8.5, -27);
   ctx.quadraticCurveTo(11, -18, 11.5, -12.5); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#ffd94d'; ctx.fillRect(-11.8, -14.6, 23.6, 3.1);
+  ctx.fillStyle = ch.band; ctx.fillRect(-11.8, -14.6, 23.6, 3.1);
   drawStar(5.5, -31.5, 4.6, now / 700, '#ffe94d');
   ctx.restore();
   // オービットの月の刃
-  const ow = P.weapons.find(w => w.id === 'orbit');
+  const ow = p.weapons.find(w => w.id === 'orbit');
   if (ow && S.state !== 'title') {
     const st = WEAPONS.orbit.lv[ow.lv - 1];
     for (let i = 0; i < st.count; i++) {
-      const a = P.orbitAng + (i / st.count) * TAU;
-      const bx = P.x + Math.cos(a) * st.radius, by = P.y + Math.sin(a) * st.radius;
+      const a = p.orbitAng + (i / st.count) * TAU;
+      const bx = p.x + Math.cos(a) * st.radius, by = p.y + Math.sin(a) * st.radius;
       ctx.save(); ctx.translate(bx, by); ctx.rotate(a + Math.PI / 2);
       ctx.fillStyle = 'rgba(255,233,168,.28)'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.arc(0, 0, 11.5, 0, TAU); ctx.arc(5.5, -2.5, 9.5, 0, TAU);
@@ -1091,15 +1519,16 @@ function drawPlayer(now){
       ctx.restore();
     }
   }
-  if (P.hurtT > 0) {
-    ctx.save(); ctx.globalAlpha = (P.hurtT / .35) * .38;
-    ctx.fillStyle = '#ff3d55'; ctx.beginPath(); ctx.arc(P.x, P.y, 21, 0, TAU); ctx.fill(); ctx.restore();
+  if (p.hurtT > 0) {
+    ctx.save(); ctx.globalAlpha = (p.hurtT / .35) * .38;
+    ctx.fillStyle = '#ff3d55'; ctx.beginPath(); ctx.arc(p.x, p.y, 21, 0, TAU); ctx.fill(); ctx.restore();
   }
 }
 function draw(){
   const now = performance.now();
   const shx = S.shake ? rand(-S.shake, S.shake) * .6 : 0, shy = S.shake ? rand(-S.shake, S.shake) * .6 : 0;
-  cam.x = P.x - viewW / 2 + shx; cam.y = P.y - viewH / 2 + shy;
+  const camFocus = localPlayer().alive ? localPlayer() : (alivePlayers()[0] || localPlayer());
+  cam.x = camFocus.x - viewW / 2 + shx; cam.y = camFocus.y - viewH / 2 + shy;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawBackground(cam.x, cam.y);
   ctx.save(); ctx.translate(-cam.x, -cam.y);
@@ -1116,9 +1545,44 @@ function draw(){
   for (const e of enemies) drawEnemy(e, now);
   for (const p of projs) {
     if (p.type === 'star') { drawStar(p.x, p.y, 8.5, now / 90, '#ffe94d'); drawStar(p.x, p.y, 4, now / 90, '#fff7cc'); }
+    else if (p.type === 'nova') { drawStar(p.x, p.y, 7, now / 110, '#d9b8ff'); drawStar(p.x, p.y, 3.2, now / 110, '#fff'); }
+    else if (p.type === 'ice') {
+      const a = Math.atan2(p.vy || 0, p.vx || 1);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
+      ctx.fillStyle = 'rgba(159,232,255,.35)'; ctx.beginPath(); ctx.ellipse(0, 0, 15, 7, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#c9f2ff'; ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-9, -4.6); ctx.lineTo(-5, 0); ctx.lineTo(-9, 4.6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(2, 0, 2.4, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    else if (p.type === 'leaf') {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.spin || 0) + now / 90);
+      ctx.fillStyle = 'rgba(110,255,160,.3)'; ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#4be07a'; ctx.beginPath(); ctx.ellipse(0, 0, 11, 5.6, .7, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#1d7a44'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-8, 3); ctx.quadraticCurveTo(0, -2, 9, -4); ctx.stroke();
+      ctx.restore();
+    }
     else { ctx.fillStyle = 'rgba(255,160,90,.35)'; ctx.beginPath(); ctx.arc(p.x, p.y, 12, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffd9a0'; ctx.beginPath(); ctx.arc(p.x, p.y, 6.5, 0, TAU); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, TAU); ctx.fill(); }
   }
-  drawPlayer(now);
+  for (const pl of activePlayers()) {
+    if (pl.alive) drawPlayer(pl, now);
+    else { // ダウン中マーカー
+      ctx.save(); ctx.translate(pl.x, pl.y);
+      ctx.globalAlpha = .55 + .3 * Math.sin(now / 200);
+      ctx.font = '900 20px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('💫', 0, 4);
+      ctx.restore();
+    }
+    if (coopMode) { // 協力時は名前ラベル
+      ctx.save();
+      ctx.font = '900 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 3;
+      const label = (pl === localPlayer() ? '▼ ' : '') + CHARS[pl.char].name;
+      ctx.strokeText(label, pl.x, pl.y - 44);
+      ctx.fillStyle = pl === localPlayer() ? '#ffe9a8' : '#bfe9ff';
+      ctx.fillText(label, pl.x, pl.y - 44);
+      ctx.restore();
+    }
+  }
   for (const f of fx) {
     const al = clamp(f.ttl / f.max, 0, 1);
     if (f.type === 'bolt') {
@@ -1169,7 +1633,8 @@ function draw(){
   ctx.restore();
   ctx.fillStyle = vigGrad; ctx.fillRect(0, 0, viewW, viewH);
   if (S.hurtFlash > 0) { ctx.fillStyle = `rgba(255,45,70,${S.hurtFlash * .3})`; ctx.fillRect(0, 0, viewW, viewH); }
-  if (P.hp > 0 && P.hp < maxHp() * .25 && S.state === 'play') {
+  const meDraw = localPlayer();
+  if (meDraw.hp > 0 && meDraw.hp < maxHp(meDraw) * .25 && S.state === 'play') {
     ctx.fillStyle = `rgba(255,30,50,${.07 + .05 * Math.sin(now / 200)})`; ctx.fillRect(0, 0, viewW, viewH);
   }
 }
@@ -1180,7 +1645,8 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > .05) dt = .05;
-  if (S.state === 'play') update(dt);
+  if (NET.role === 'guest' && NET.inGame) guestFrame(dt);
+  else if (S.state === 'play') update(dt);
   else { for (const f of fx) f.ttl -= dt; fx = fx.filter(f => f.ttl > 0); }
   draw();
 }
@@ -1196,14 +1662,428 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+/* ═══════════════ メタ進行UI（キャラ選択・ショップ） ═══════════════ */
+function drawCharIcon(cnv, charId){
+  const c = cnv.getContext('2d'); const ch = CHARS[charId] || CHARS.nowa;
+  c.clearRect(0, 0, 104, 104);
+  c.save(); c.translate(52, 60);
+  c.fillStyle = ch.body;
+  c.beginPath(); c.moveTo(-18, -8); c.lineTo(-24, -30); c.lineTo(-6, -18); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(18, -8); c.lineTo(24, -30); c.lineTo(6, -18); c.closePath(); c.fill();
+  c.fillStyle = ch.earIn;
+  c.beginPath(); c.moveTo(-17, -12); c.lineTo(-20, -25); c.lineTo(-9, -17); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(17, -12); c.lineTo(20, -25); c.lineTo(9, -17); c.closePath(); c.fill();
+  c.fillStyle = ch.body; c.beginPath(); c.arc(0, 2, 24, 0, TAU); c.fill();
+  c.fillStyle = ch.belly; c.beginPath(); c.ellipse(3, 9, 12, 8.5, 0, 0, TAU); c.fill();
+  c.fillStyle = '#ffd94d';
+  c.beginPath(); c.ellipse(-9, -2, 4, 5.6, 0, 0, TAU); c.ellipse(9, -2, 4, 5.6, 0, 0, TAU); c.fill();
+  c.fillStyle = '#14100a';
+  c.beginPath(); c.ellipse(-9, -1.4, 1.8, 3.4, 0, 0, TAU); c.ellipse(9, -1.4, 1.8, 3.4, 0, 0, TAU); c.fill();
+  c.fillStyle = '#ff8fab'; c.beginPath(); c.moveTo(-2.6, 3.4); c.lineTo(2.6, 3.4); c.lineTo(0, 6.4); c.closePath(); c.fill();
+  c.fillStyle = ch.hat; c.beginPath(); c.ellipse(0, -19, 27, 7.6, 0, 0, TAU); c.fill();
+  c.beginPath(); c.moveTo(-19, -20); c.quadraticCurveTo(-11, -44, 6, -54); c.quadraticCurveTo(17, -57, 14, -44); c.quadraticCurveTo(18, -29, 19, -20); c.closePath(); c.fill();
+  c.fillStyle = ch.band; c.fillRect(-19.5, -23.4, 39, 5);
+  c.restore();
+}
+function renderTitleMeta(){
+  if (S.state === 'title') P.char = meta.char;
+  $('shardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  const row = $('charRow'); row.innerHTML = '';
+  for (const id in CHARS) {
+    const ch = CHARS[id];
+    const unlocked = meta.unlocked.includes(id);
+    const b = document.createElement('button');
+    b.className = 'charCard' + (meta.char === id ? ' sel' : '');
+    b.dataset.char = id;
+    b.innerHTML = `<canvas width="104" height="104"></canvas><div class="chName">${ch.name}</div><div class="chDesc">${ch.desc}</div><div class="chCost">${unlocked ? (meta.char === id ? '✔ 選択中' : 'タップで選択') : `⭐ ${ch.cost} で解放`}</div>`;
+    drawCharIcon(b.querySelector('canvas'), id);
+    b.onclick = () => {
+      initAudio();
+      if (unlocked) { meta.char = id; saveMeta(); }
+      else if (meta.shards >= ch.cost) { meta.shards -= ch.cost; meta.unlocked.push(id); meta.char = id; saveMeta(); sfx.chest(); }
+      else { $('shardBox').textContent = `⭐ ほしのかけらが あと ${ch.cost - meta.shards} 不足しています（所持 ${meta.shards}）`; return; }
+      renderTitleMeta();
+    };
+    row.appendChild(b);
+  }
+}
+function renderShop(){
+  $('shopShardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  const list = $('shopList'); list.innerHTML = '';
+  for (const id in UPGRADES) {
+    const up = UPGRADES[id], lv = meta.upgrades[id] || 0, maxed = lv >= up.max;
+    const cost = maxed ? null : up.costs[lv];
+    const row = document.createElement('div'); row.className = 'shopRow';
+    row.innerHTML = `<div class="sIcon">${up.icon}</div><div class="sInfo"><div class="sName">${up.name}</div><div class="sDesc">${up.desc}</div><div class="sPips">${'●'.repeat(lv)}${'○'.repeat(up.max - lv)}</div></div>`;
+    const btn = document.createElement('button'); btn.className = 'buyBtn';
+    btn.dataset.upgrade = id;
+    btn.textContent = maxed ? 'MAX' : `⭐ ${cost}`;
+    btn.disabled = maxed || meta.shards < cost;
+    btn.onclick = () => { buyUpgrade(id); };
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+}
+function buyUpgrade(id){
+  const up = UPGRADES[id]; if (!up) return false;
+  const lv = meta.upgrades[id] || 0;
+  if (lv >= up.max) return false;
+  const cost = up.costs[lv];
+  if (meta.shards < cost) return false;
+  meta.shards -= cost; meta.upgrades[id] = lv + 1; saveMeta();
+  renderShop(); renderTitleMeta();
+  return true;
+}
+$('shopBtn').onclick = () => { initAudio(); renderShop(); $('shopScr').classList.add('show'); };
+$('shopCloseBtn').onclick = () => { $('shopScr').classList.remove('show'); };
+$('coopBtn').onclick = () => {
+  initAudio();
+  $('lobbyScr').classList.add('show');
+  if (!peerAvailable()) setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+};
+
+/* ═══════════════ 協力プレイ（PeerJS・ホスト権威） ═══════════════
+   ホストが全シミュレーションを実行し、約10Hzでスナップショットを配信。
+   ゲストは入力ベクトルだけを送り、スナップショットを補間描画する。
+   XPはチーム共有。レベルアップは両者の選択がそろうまで全員停止。
+   協力のベスト記録はソロ用キーとは別のキーに保存する。 */
+const PEER_PREFIX = 'playweb-sv-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
+function genRoomCode(){
+  let code = '';
+  for (let i = 0; i < 6; i++) code += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
+  return code;
+}
+function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function setLobbyStatus(html){ $('lobbyStatus').innerHTML = html; }
+function sendNet(obj){ if (NET.conn && NET.conn.open) { try { NET.conn.send(obj); } catch (e) {} } }
+function startHeartbeat(){ stopHeartbeat(); NET.heartbeatTimer = setInterval(() => sendNet({ t: 'ping' }), 8000); }
+function stopHeartbeat(){ if (NET.heartbeatTimer) clearInterval(NET.heartbeatTimer); NET.heartbeatTimer = null; }
+function armConnTimer(msg){
+  disarmConnTimer();
+  NET.connTimer = setTimeout(() => { if (!NET.active) setLobbyStatus('<span class="err">' + msg + '</span>'); }, 25000);
+}
+function disarmConnTimer(){ if (NET.connTimer) clearTimeout(NET.connTimer); NET.connTimer = null; }
+function cleanupNet(){
+  stopHeartbeat(); disarmConnTimer();
+  if (NET.retryTimer) { clearTimeout(NET.retryTimer); NET.retryTimer = null; }
+  if (NET.conn) { try { NET.conn.close(); } catch (e) {} NET.conn = null; }
+  if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
+  NET.role = null; NET.active = false; NET.inGame = false; NET.guestReady = false;
+  NET.reconnecting = false; NET.started = false; NET.snap = null;
+}
+function setupConn(c){
+  const stale = NET.conn;
+  if (stale && stale !== c) { try { stale.close(); } catch (e) {} }
+  NET.conn = c;
+  c.on('data', msg => { if (NET.conn !== c) return; handleNetData(msg); });
+  c.on('open', () => { if (NET.conn !== c) return; disarmConnTimer(); });
+  c.on('close', () => { if (NET.conn !== c) return; onConnClose(); });
+  c.on('error', () => {});
+}
+function onConnClose(){
+  stopHeartbeat();
+  if (NET.role === 'host') {
+    if (NET.inGame) {
+      P2.ai = true;
+      $('netStatus').textContent = '⚠ 相方が切断中… AIが操作しています（再接続待ち）';
+      autoPickGuest();
+    } else if (NET.started === false) {
+      NET.guestReady = false;
+      $('coopStartBtn').style.display = 'none';
+      setLobbyStatus('相手が切断しました。参加を待っています…');
+    }
+  } else if (NET.role === 'guest') {
+    if (NET.inGame) {
+      $('netStatus').textContent = '⚠ 接続が切れました。再接続しています…';
+      scheduleGuestReconnect();
+    } else {
+      setLobbyStatus('<span class="err">ホストとの接続が切れました。</span>');
+    }
+  }
+}
+function hostCreateRoom(){
+  if (!peerAvailable()) { setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  cleanupNet();
+  NET.role = 'host';
+  NET.code = genRoomCode();
+  try { NET.peer = new Peer(PEER_PREFIX + NET.code, PEER_OPTS); }
+  catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
+  NET.peer.on('open', () => {
+    $('roomCodeText').textContent = NET.code;
+    $('roomCodeWrap').style.display = 'block';
+    setLobbyStatus('相手の参加を待っています… コードを相手に伝えてください。');
+  });
+  NET.peer.on('connection', c => {
+    setupConn(c);
+    if (!NET.active) armConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  NET.peer.on('error', err => {
+    if (err && err.type === 'unavailable-id') { try { NET.peer.destroy(); } catch (e) {} hostCreateRoom(); }
+  });
+}
+function guestJoin(code){
+  if (!peerAvailable()) { setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  cleanupNet();
+  NET.role = 'guest'; NET.code = code;
+  try { NET.peer = new Peer(undefined, PEER_OPTS); }
+  catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
+  NET.peer.on('open', () => {
+    const c = NET.peer.connect(PEER_PREFIX + code, { reliable: true });
+    setupConn(c);
+    c.on('open', () => { NET.active = true; sendNet({ t: 'hello', char: meta.char }); startHeartbeat(); });
+    armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+  });
+  NET.peer.on('error', err => {
+    if (err && err.type === 'peer-unavailable' && !NET.inGame) setLobbyStatus('<span class="err">そのコードの部屋が見つかりませんでした。コードを確認してください。</span>');
+  });
+  setLobbyStatus('接続しています…');
+}
+function scheduleGuestReconnect(){
+  if (NET.retryTimer) clearTimeout(NET.retryTimer);
+  NET.reconnecting = true; NET.retryCount = 0;
+  const attempt = () => {
+    if (NET.role !== 'guest' || !NET.reconnecting) return;
+    NET.retryCount++;
+    if (NET.retryCount > 20) { NET.reconnecting = false; guestHostGone(); return; }
+    NET.retryTimer = setTimeout(attempt, 5000);
+    try {
+      if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} }
+      NET.peer = new Peer(undefined, PEER_OPTS);
+      NET.peer.on('open', () => {
+        const c = NET.peer.connect(PEER_PREFIX + NET.code, { reliable: true });
+        setupConn(c);
+        c.on('open', () => { NET.reconnecting = false; sendNet({ t: 'hello', char: meta.char, rejoin: true }); startHeartbeat(); $('netStatus').textContent = ''; });
+      });
+      NET.peer.on('error', err => {
+        if (err && err.type === 'peer-unavailable') { NET.reconnecting = false; guestHostGone(); }
+      });
+    } catch (e) {}
+  };
+  NET.retryTimer = setTimeout(attempt, 1500);
+}
+function guestHostGone(){
+  if (NET.retryTimer) { clearTimeout(NET.retryTimer); NET.retryTimer = null; }
+  NET.reconnecting = false;
+  quitToTitle();
+  $('bestBox').innerHTML = '⚠ ホストとの接続が切れました（協力プレイは終了しました）';
+}
+function startCoopGame(){
+  initAudio();
+  coopMode = true; NET.inGame = true; NET.started = true;
+  resetGame();
+  S.state = 'play';
+  $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
+  $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
+  $('netStatus').textContent = P2.ai ? '⚠ 相方が切断中… AIが操作しています（再接続待ち）' : '';
+  sendNet({ t: 'start', hostChar: P.char });
+  sendNet(buildSnapshot());
+  renderWeaponsBar(); updateHud();
+}
+function buildSnapshot(){
+  return {
+    t: 'state', time: S.time, kills: S.kills, gemsCollected: Math.floor(S.gemsCollected),
+    team: { level: P.level, xp: Math.floor(P.xp), xpNext: P.xpNext },
+    phase: S.state, endless: S.endless, cleared: S.cleared,
+    boss: (S.bossRef && !S.bossRef.dead) ? { hp: S.bossRef.hp, maxHp: S.bossRef.maxHp } : null,
+    players: activePlayers().map(p => ({
+      x: Math.round(p.x), y: Math.round(p.y), hp: Math.ceil(p.hp), mhp: maxHp(p),
+      face: p.face, dirX: p.dirX, dirY: p.dirY, moving: p.moving, char: p.char,
+      alive: p.alive, reviveT: Math.max(0, Math.ceil(p.reviveT)), hurtT: p.hurtT, orbitAng: p.orbitAng,
+      weapons: p.weapons.map(w => ({ id: w.id, lv: w.lv })), passives: p.passives
+    })),
+    enemies: enemies.filter(e => !e.dead).map(e => ({ id: e.eid, type: e.type, x: Math.round(e.x), y: Math.round(e.y), hp: Math.ceil(e.hp), maxHp: Math.ceil(e.maxHp), r: e.r, flash: e.flash, slow: e.slowT > 0, wob: e.wob, fuse: e.fuse })),
+    projs: projs.map(p => ({ id: p.pid, type: p.type, x: Math.round(p.x), y: Math.round(p.y), vx: Math.round(p.vx), vy: Math.round(p.vy), spin: p.spin || 0 })),
+    gems: gems.map(g => ({ x: Math.round(g.x), y: Math.round(g.y), val: g.val })),
+    pickups: pickups.map(pk => ({ x: Math.round(pk.x), y: Math.round(pk.y) }))
+  };
+}
+function handleNetData(msg){
+  if (!msg || !msg.t || msg.t === 'ping') return;
+  if (NET.role === 'host') hostOnData(msg);
+  else if (NET.role === 'guest') guestOnData(msg);
+}
+function hostOnData(msg){
+  if (msg.t === 'hello') {
+    NET.guestChar = CHARS[msg.char] ? msg.char : 'nowa';
+    NET.guestReady = true; NET.active = true;
+    startHeartbeat();
+    if (NET.inGame) {
+      P2.ai = false;
+      $('netStatus').textContent = '';
+      if (S.state === 'levelup' && lvPhase && !lvPhase.guestDone) sendNet({ t: 'choices', picks: lvPhase.guestChoices });
+      sendNet(buildSnapshot());
+    } else {
+      $('coopStartBtn').style.display = 'inline-block';
+      setLobbyStatus(`相手（${CHARS[NET.guestChar].name}）が接続しました！「協力スタート」で開始できます。`);
+    }
+  } else if (msg.t === 'input') {
+    if (!P2.ai) { P2.input.x = clamp(msg.dx || 0, -1, 1); P2.input.y = clamp(msg.dy || 0, -1, 1); }
+  } else if (msg.t === 'pick') {
+    if (lvPhase && !lvPhase.guestDone && S.state === 'levelup') {
+      applyPick(P2, lvPhase.guestChoices[msg.idx | 0]);
+      lvPhase.guestDone = true;
+      checkLvDone();
+    }
+  } else if (msg.t === 'chestpick') {
+    if (S.state === 'chest' && S.chestPicker === P2) applyChestChoice(P2, msg.which === 'lv' ? 'lv' : 'rare');
+  }
+}
+function guestOnData(msg){
+  if (msg.t === 'start') {
+    NET.active = true; NET.inGame = true; NET.started = true;
+    coopMode = true;
+    renderEnemyMap.clear(); renderProjMap.clear();
+    resetPlayer(P, CHARS[msg.hostChar] ? msg.hostChar : 'nowa', null);
+    resetPlayer(P2, meta.char, meta.upgrades);
+    P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
+    enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = [];
+    S.time = 0; S.kills = 0; S.cleared = false; S.endless = false;
+    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.guestBoss = null;
+    S.state = 'play';
+    $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
+    $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
+    $('netStatus').textContent = '';
+    renderWeaponsBar();
+  } else if (msg.t === 'state') {
+    applySnapshot(msg);
+  } else if (msg.t === 'choices') {
+    S.state = 'levelup';
+    showPickUI(P2, msg.picks, pk => {
+      sendNet({ t: 'pick', idx: msg.picks.indexOf(pk) });
+      $('lvCards').innerHTML = '';
+      const w = $('lvWait'); w.style.display = 'block'; w.textContent = 'ホストの選択を待っています…';
+    });
+  } else if (msg.t === 'chest') {
+    S.state = 'chest';
+    $('chestScr').classList.add('show');
+  } else if (msg.t === 'resume') {
+    $('levelScr').classList.remove('show');
+    $('lvWait').style.display = 'none';
+    if (S.state === 'levelup') S.state = 'play';
+  } else if (msg.t === 'endless') {
+    S.endless = true; $('endScr').classList.remove('show'); S.state = 'play';
+    showBanner('🌌 エンドレスモード！ 限界に挑戦');
+  } else if (msg.t === 'end') {
+    const isNew = saveBest(!!msg.cleared);
+    const gain = awardShards(!!msg.cleared);
+    showEndScreen(!!msg.cleared, isNew, gain);
+  }
+}
+const renderEnemyMap = new Map(), renderProjMap = new Map();
+function applySnapshot(snap){
+  NET.snap = snap;
+  S.time = snap.time; S.kills = snap.kills; S.gemsCollected = snap.gemsCollected || 0;
+  S.endless = !!snap.endless; S.cleared = !!snap.cleared;
+  P.level = snap.team.level; P.xp = snap.team.xp; P.xpNext = snap.team.xpNext;
+  S.guestBoss = snap.boss || null;
+  $('bossWrap').style.display = snap.boss ? 'block' : 'none';
+  snap.players.forEach((sp, i) => {
+    const p = players[i]; if (!p) return;
+    p.tx = sp.x; p.ty = sp.y;
+    if (!p._snapInit) { p.x = sp.x; p.y = sp.y; p._snapInit = true; }
+    p.hp = sp.hp; p.snapMaxHp = sp.mhp; p.char = sp.char; p.face = sp.face;
+    p.dirX = sp.dirX; p.dirY = sp.dirY; p.moving = sp.moving; p.hurtT = sp.hurtT;
+    p.alive = sp.alive; p.reviveT = sp.reviveT; p.orbitAng = sp.orbitAng;
+    p.weapons = sp.weapons; p.passives = sp.passives || {};
+    if (sp.moving) p.bob += .18;
+  });
+  const seen = new Set();
+  for (const se of snap.enemies) {
+    seen.add(se.id);
+    let e = renderEnemyMap.get(se.id);
+    if (!e) { e = { eid: se.id, dead: false, vx: 0, vy: 0, hitCd: 0, orbitCd: 0, slowT: 0 }; renderEnemyMap.set(se.id, e); e.x = se.x; e.y = se.y; e.tx = se.x; e.ty = se.y; }
+    e.tx = se.x; e.ty = se.y; e.type = se.type; e.hp = se.hp; e.maxHp = se.maxHp; e.r = se.r;
+    e.flash = se.flash; e.slow = se.slow; e.wob = se.wob; e.fuse = se.fuse;
+  }
+  for (const id of [...renderEnemyMap.keys()]) if (!seen.has(id)) renderEnemyMap.delete(id);
+  enemies = [...renderEnemyMap.values()];
+  const pseen = new Set();
+  for (const sp of snap.projs) {
+    pseen.add(sp.id);
+    let pr = renderProjMap.get(sp.id);
+    if (!pr) { pr = {}; renderProjMap.set(sp.id, pr); pr.x = sp.x; pr.y = sp.y; pr.tx = sp.x; pr.ty = sp.y; }
+    pr.tx = sp.x; pr.ty = sp.y; pr.type = sp.type; pr.vx = sp.vx; pr.vy = sp.vy; pr.spin = sp.spin || 0;
+  }
+  for (const id of [...renderProjMap.keys()]) if (!pseen.has(id)) renderProjMap.delete(id);
+  projs = [...renderProjMap.values()];
+  gems = snap.gems.map((g, i) => ({ x: g.x, y: g.y, val: g.val, ph: i * 1.37 }));
+  pickups = snap.pickups.map(pk => ({ x: pk.x, y: pk.y, kind: 'chest', ph: performance.now() / 300 }));
+  if (snap.phase === 'play') {
+    if (S.state === 'levelup') { $('levelScr').classList.remove('show'); $('lvWait').style.display = 'none'; }
+    if (S.state === 'chest') $('chestScr').classList.remove('show');
+    if (S.state !== 'over' && S.state !== 'clear') S.state = 'play';
+  } else if (snap.phase === 'levelup') S.state = 'levelup';
+  else if (snap.phase === 'chest') S.state = 'chest';
+  const wkey = JSON.stringify(P2.weapons);
+  if (applySnapshot._wk !== wkey) { applySnapshot._wk = wkey; renderWeaponsBar(); }
+  updateHud();
+}
+function guestFrame(dt){
+  const k = Math.min(1, dt * 14);
+  for (const p of players) {
+    if (p._snapInit) { p.x += (p.tx - p.x) * k; p.y += (p.ty - p.y) * k; }
+    p.blink -= dt; if (p.blink < -2.5) p.blink = .12;
+  }
+  for (const e of enemies) { if (e.tx !== undefined) { e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k; } }
+  for (const pr of projs) { if (pr.tx !== undefined) { pr.x += (pr.tx - pr.x) * k; pr.y += (pr.ty - pr.y) * k; } }
+  const iv = readLocalInput();
+  const now = performance.now();
+  const key = iv.x.toFixed(2) + ',' + iv.y.toFixed(2);
+  if (NET.conn && NET.conn.open && (key !== NET.lastInputVal || now - NET.lastInputSent > 250)) {
+    NET.lastInputVal = key; NET.lastInputSent = now;
+    sendNet({ t: 'input', dx: iv.x, dy: iv.y });
+  }
+  for (const f of fx) f.ttl -= dt;
+  fx = fx.filter(f => f.ttl > 0);
+  S.shake = Math.max(0, S.shake - dt * 26);
+  S.hurtFlash = Math.max(0, S.hurtFlash - dt * 1.6);
+}
+$('hostBtn').onclick = () => { initAudio(); hostCreateRoom(); };
+$('joinBtn').onclick = () => {
+  initAudio();
+  const code = $('joinCode').value.trim().toUpperCase();
+  if (code.length !== 6) { setLobbyStatus('<span class="err">6文字のコードを入力してください。</span>'); return; }
+  guestJoin(code);
+};
+$('copyCodeBtn').onclick = () => {
+  if (navigator.clipboard) navigator.clipboard.writeText(NET.code).catch(() => {});
+  $('copyCodeBtn').textContent = 'コピーしました！';
+  setTimeout(() => { $('copyCodeBtn').textContent = 'コードをコピー'; }, 1500);
+};
+$('coopStartBtn').onclick = () => { if (NET.role === 'host' && NET.guestReady) startCoopGame(); };
+$('lobbyBackBtn').onclick = () => {
+  $('lobbyScr').classList.remove('show');
+  if (!NET.inGame) cleanupNet();
+  $('roomCodeWrap').style.display = 'none';
+  $('coopStartBtn').style.display = 'none';
+  setLobbyStatus('「部屋を作る」か、相手のコードで「参加する」を選んでね。');
+};
+renderTitleMeta();
+
 /* ── テスト用フック ── */
 window.__surv = {
-  S, P,
-  get enemies(){ return enemies; }, get gems(){ return gems; },
-  start: startGame, hurt: n => damagePlayer(n),
+  S, P, P2, players, meta, NET, WEAPONS, PASSIVES, CHARS, UPGRADES,
+  get enemies(){ return enemies; }, get gems(){ return gems; }, get projs(){ return projs; },
+  get coopMode(){ return coopMode; },
+  start: startGame, hurt: n => damagePlayer(P, n), hurtP2: n => damagePlayer(P2, n),
   gainXp: n => gainXp(n), setTime: s => { S.time = s; },
   spawn: t => spawnEnemy(t), boss: () => spawnBoss(),
-  pause: pauseGame, resume: resumeGame
+  pause: pauseGame, resume: resumeGame,
+  xpForLevel, maxHp: () => maxHp(), dmgMul: () => dmgMul(), moveSpeed: () => moveSpeed(), magnetR: () => magnetR(), xpMul: () => xpMul(),
+  giveWeapon: (id, lv) => { const o = P.weapons.find(w => w.id === id); if (o) o.lv = lv || 5; else P.weapons.push({ id, lv: lv || 5 }); renderWeaponsBar(); },
+  setShards: n => { meta.shards = n; saveMeta(); renderTitleMeta(); },
+  buyUpgrade, renderShop, renderTitleMeta,
+  selectChar: id => { if (CHARS[id]) { if (!meta.unlocked.includes(id)) meta.unlocked.push(id); meta.char = id; saveMeta(); renderTitleMeta(); } },
+  hostCreateRoom, guestJoin, startCoopGame, buildSnapshot, handleNetData, applySnapshot,
+  quitToTitle
 };
 
 
