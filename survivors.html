@@ -50,6 +50,9 @@
   .card .cLv{font-size:11.5px;color:#ffd9ec;font-weight:800}
   .card .cDesc{font-size:11.5px;color:#cfccff;line-height:1.55;margin-top:5px}
   .card.newCard{border-color:#7dffce;box-shadow:0 0 18px rgba(80,255,190,.25)}
+  .card.evoCard{border-color:#ffd94d;background:linear-gradient(170deg,rgba(196,142,20,.6),rgba(96,64,8,.8));box-shadow:0 0 26px rgba(255,217,77,.65);animation:evoGlow 1.1s ease-in-out infinite alternate}
+  .card.evoCard .cLv{color:#ffe94d}
+  @keyframes evoGlow{from{box-shadow:0 0 14px rgba(255,217,77,.4)}to{box-shadow:0 0 30px rgba(255,217,77,.85)}}
   .statsGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin:16px 0 4px}
   .statBox{background:rgba(255,255,255,.06);border:1px solid rgba(160,150,255,.3);border-radius:13px;padding:10px 4px}
   .statBox .v{font-size:21px;font-weight:900;color:#fff}
@@ -137,17 +140,19 @@
       💎 <b>ジェム</b>を集めてレベルアップ → 武器と魔法を強化<br>
       👑 3分ごとにボスが出現。倒すと宝箱！（宝箱は矢印が案内）<br>
       🌅 10分生き残ればクリア。次のステージが解放される<br>
-      🗺️ ステージは全4種。進むほど敵も報酬もインフレする！
+      🗺️ ステージは全6種。進むほど敵も報酬もインフレする！
     </div>
     <div class="bestBox" id="bestBox"></div>
     <div class="shardBox" id="shardBox"></div>
+    <div class="bestBox" id="titleNameBox"></div>
     <div class="secLabel">🗺️ ステージ</div>
     <div class="charRow" id="stageRow"></div>
     <div class="secLabel">🐱 キャラクター</div>
     <div class="charRow" id="charRow"></div>
     <button class="bigBtn" id="startBtn">▶ ぼうけん開始</button><br>
     <button class="subBtn" id="coopBtn">🤝 協力プレイ（2人）</button>
-    <button class="subBtn" id="shopBtn">⭐ パワーアップ</button><br>
+    <button class="subBtn" id="shopBtn">⭐ パワーアップ</button>
+    <button class="subBtn" id="achBtn">🏆 実績・ミッション</button><br>
     <button class="subBtn" id="titleMuteBtn">🔊 サウンド ON</button>
   </div>
 </div>
@@ -160,6 +165,22 @@
     <div class="shardBox" id="shopShardBox"></div>
     <div id="shopList"></div>
     <button class="subBtn" id="shopCloseBtn">とじる</button>
+  </div>
+</div>
+
+<!-- 実績・デイリーミッション・称号 -->
+<div class="overlay" id="achScr">
+  <div class="panel">
+    <h2 class="panelTitle">🏆 実績・ミッション</h2>
+    <p class="subTitle">達成すると「ほしのかけら」がもらえる！<br>称号は見た目だけのごほうび。お気に入りを名乗ろう。</p>
+    <div class="shardBox" id="achShardBox"></div>
+    <div class="secLabel">👑 称号</div>
+    <div class="charRow" id="titleRow"></div>
+    <div class="secLabel">📅 デイリーミッション（本日分）</div>
+    <div id="dailyList"></div>
+    <div class="secLabel">🏆 実績</div>
+    <div id="achList"></div>
+    <button class="subBtn" id="achCloseBtn">とじる</button>
   </div>
 </div>
 
@@ -402,6 +423,27 @@ const WEAPONS = {
     { dmg: 22, cd: 5.0, count: 2, dur: 5.6 }, { dmg: 29, cd: 4.7, count: 2, dur: 6.2 },
     { dmg: 38, cd: 4.4, count: 3, dur: 6.8 } ] }
 };
+/* ── 進化武器（Lv5＋対応パッシブで進化。lv 配列は全段同一の完成形ステータス） ── */
+function evoLv(st){ return [st, st, st, st, st]; }
+WEAPONS.galaxy =    { name: 'ギャラクシーレイ', icon: '🌌', desc: '太い銀河の光線がすべてを貫く', evo: true, lv: evoLv({ dmg: 46, cd: .6, count: 4, pierce: 99 }) };
+WEAPONS.zeus =      { name: 'ゼウスサンダー', icon: '⛈️', desc: '神の雷が9連鎖する', evo: true, lv: evoLv({ dmg: 78, cd: 1.25, chains: 9 }) };
+WEAPONS.lunaorb =   { name: 'ルナシールドオーブ', icon: '🛡️', desc: '巨大な月の盾刃が敵を弾き飛ばす', evo: true, lv: evoLv({ dmg: 38, count: 6, radius: 122, rot: 3.9 }) };
+WEAPONS.meteor =    { name: 'メテオストーム', icon: '🌠', desc: '隕石の嵐が大爆発をまき散らす', evo: true, lv: evoLv({ dmg: 74, cd: 1.0, count: 5, aoe: 112 }) };
+WEAPONS.inferno =   { name: 'インフェルノウェーブ', icon: '🌋', desc: '地獄の炎が広範囲を焼き尽くす', evo: true, lv: evoLv({ dmg: 68, cd: 1.55, range: 265 }) };
+WEAPONS.blizzard =  { name: 'ブリザードランス', icon: '🥶', desc: '凍結級の吹雪の槍。敵はほぼ止まる', evo: true, lv: evoLv({ dmg: 42, cd: .3, pierce: 99, slow: .82, slowDur: 2.6 }) };
+WEAPONS.typhoon =   { name: 'タイフーンリーフ', icon: '🌀', desc: '嵐の葉が戦場を旋回する', evo: true, lv: evoLv({ dmg: 54, count: 5, range: 430 }) };
+WEAPONS.supernova = { name: 'スーパーノヴァ', icon: '✨', desc: '超新星爆発の星屑が全方位を覆う', evo: true, lv: evoLv({ dmg: 44, cd: 1.9, count: 32, pierce: 1 }) };
+/* ── 進化ペア: 基礎武器 →（必要パッシブ）→ 進化形。第2弾で残り武器にも追加予定 ── */
+const EVOLUTIONS = {
+  star:    { req: 'multi', to: 'galaxy' },
+  thunder: { req: 'haste', to: 'zeus' },
+  orbit:   { req: 'guard', to: 'lunaorb' },
+  comet:   { req: 'critd', to: 'meteor' },
+  flame:   { req: 'power', to: 'inferno' },
+  ice:     { req: 'boots', to: 'blizzard' },
+  leaf:    { req: 'magnet', to: 'typhoon' },
+  nova:    { req: 'xpp',   to: 'supernova' }
+};
 const MAX_WEAPONS = 6;
 const PASSIVES = {
   boots:  { name: 'はやてのブーツ', icon: '👢', max: 5, desc: '移動速度 +7%' },
@@ -439,8 +481,132 @@ const UPGRADES = {
   crit: { name: 'クリティカルアップ', icon: '🔍', max: 5, costs: [30, 50, 75, 105, 140], desc: 'クリティカル率 +3% / 段階' },
   startxp: { name: 'スタートダッシュ', icon: '🌟', max: 3, costs: [40, 70, 110], desc: 'ラン開始直後から経験値 +10 / 段階（序盤が速い）' }
 };
+/* ── 実績（get() は現在の進捗値を返す。達成で claim すると報酬のかけら） ── */
+const ACHIEVEMENTS = {
+  firstkill:  { name: 'はじめての撃破', desc: '敵を1体倒す', reward: 5, target: 1, get: () => meta.stats.kills },
+  kills1k:    { name: '千体斬り', desc: '累計1,000体撃破', reward: 30, target: 1000, get: () => meta.stats.kills },
+  kills10k:   { name: '万体斬り', desc: '累計10,000体撃破', reward: 100, target: 10000, get: () => meta.stats.kills },
+  kills50k:   { name: '星屑の死神', desc: '累計50,000体撃破', reward: 250, target: 50000, get: () => meta.stats.kills },
+  cleargrass: { name: '草原の夜明け', desc: '星空の草原をクリア', reward: 20, target: 1, get: () => meta.stageClears.includes('grass') ? 1 : 0 },
+  clearbeach: { name: '夕日の勝者', desc: '夕焼けビーチをクリア', reward: 30, target: 1, get: () => meta.stageClears.includes('beach') ? 1 : 0 },
+  clearbamboo:{ name: '霧を抜けて', desc: '霧の竹林神社をクリア', reward: 40, target: 1, get: () => meta.stageClears.includes('bamboo') ? 1 : 0 },
+  clearvolcano:{ name: '灼熱の征服者', desc: '火山の遺跡をクリア', reward: 50, target: 1, get: () => meta.stageClears.includes('volcano') ? 1 : 0 },
+  clearsnow:  { name: '吹雪の勇者', desc: 'ゆきの雪原をクリア', reward: 60, target: 1, get: () => meta.stageClears.includes('snow') ? 1 : 0 },
+  clearvoid:  { name: '虚空の覇者', desc: 'ほしくずの虚空をクリア', reward: 80, target: 1, get: () => meta.stageClears.includes('void') ? 1 : 0 },
+  clearall:   { name: '全ステージ制覇', desc: '全6ステージをクリア', reward: 150, target: 6, get: () => meta.stageClears.length },
+  evofirst:   { name: '進化の目覚め', desc: '武器を初めて進化させる', reward: 30, target: 1, get: () => meta.stats.evos },
+  evo10:      { name: '進化マスター', desc: '武器を10回進化させる', reward: 100, target: 10, get: () => meta.stats.evos },
+  level20:    { name: 'レベル20到達', desc: '1ランでレベル20に到達', reward: 30, target: 20, get: () => meta.stats.bestLevel },
+  level30:    { name: 'レベル30到達', desc: '1ランでレベル30に到達', reward: 80, target: 30, get: () => meta.stats.bestLevel },
+  endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 50, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
+  endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 120, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
+  coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 40, target: 1, get: () => meta.stats.coopClears },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 100, target: 8, get: () => meta.unlocked.length },
+  shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 50, target: 1000, get: () => meta.stats.shardsEarned },
+  shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 200, target: 10000, get: () => meta.stats.shardsEarned },
+  gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 60, target: 10000, get: () => meta.stats.gems },
+  boss50:     { name: 'ボスハンター', desc: 'ボス・中ボス累計50体撃破', reward: 80, target: 50, get: () => meta.stats.bossKills },
+  runs50:     { name: 'ベテランまじょねこ', desc: '50回プレイ', reward: 60, target: 50, get: () => meta.stats.runs }
+};
+/* ── 称号（実績の達成件数で解放。ゲームプレイ効果なし） ── */
+const TITLES = {
+  rookie:     { name: '見習いまじょねこ', need: 0 },
+  hunter:     { name: '夜の狩人', need: 4 },
+  starseeker: { name: '星屑ハンター', need: 8 },
+  moonhero:   { name: '月夜の勇者', need: 12 },
+  starlord:   { name: '星屑の覇者', need: 16 },
+  legend:     { name: '伝説のまじょねこ', need: 20 }
+};
+/* ── デイリーミッション（日付シードで毎日3件を決定） ── */
+const MISSIONS = {
+  kills300:  { name: '敵を300体倒す', stat: 'kills', target: 300, reward: 25 },
+  kills800:  { name: '敵を800体倒す', stat: 'kills', target: 800, reward: 45 },
+  gems400:   { name: 'ジェムを400個集める', stat: 'gems', target: 400, reward: 25 },
+  gems1200:  { name: 'ジェムを1200個集める', stat: 'gems', target: 1200, reward: 50 },
+  survive300:{ name: '1ランで5分生き残る', stat: 'time', target: 300, reward: 30 },
+  survive480:{ name: '1ランで8分生き残る', stat: 'time', target: 480, reward: 55 },
+  level15:   { name: 'レベル15に到達する', stat: 'level', target: 15, reward: 30 },
+  level22:   { name: 'レベル22に到達する', stat: 'level', target: 22, reward: 55 },
+  boss2:     { name: 'ボス・中ボスを2体倒す', stat: 'boss', target: 2, reward: 35 },
+  chest2:    { name: '宝箱を2個開ける', stat: 'chest', target: 2, reward: 35 },
+  evo1:      { name: '武器を1回進化させる', stat: 'evo', target: 1, reward: 40 }
+};
+function dailyKeyStr(d){
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function missionsForDate(key){
+  let seed = hashStr('majoneko-daily-' + key);
+  const ids = Object.keys(MISSIONS);
+  const out = [];
+  while (out.length < 3 && ids.length) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    out.push(ids.splice(seed % ids.length, 1)[0]);
+  }
+  return out;
+}
+function ensureDaily(){
+  const key = dailyKeyStr();
+  if (!meta.daily || meta.daily.date !== key || !Array.isArray(meta.daily.ids) || !meta.daily.ids.length) {
+    meta.daily = { date: key, ids: missionsForDate(key), prog: {}, claimed: [] };
+    saveMeta();
+  }
+  return meta.daily;
+}
+function addDailyProg(stat, n){
+  const d = ensureDaily();
+  let changed = false;
+  for (const id of d.ids) {
+    const ms = MISSIONS[id];
+    if (!ms || ms.stat !== stat || d.claimed.includes(id)) continue;
+    const cur = d.prog[id] || 0;
+    if (cur >= ms.target) continue;
+    d.prog[id] = Math.min(ms.target, cur + n);
+    changed = true;
+  }
+  if (changed) metaDirty = true;
+}
+/* time / level 系は「その日の最大値」で進捗を更新する */
+function checkDailyMarks(){
+  const d = ensureDaily();
+  for (const id of d.ids) {
+    const ms = MISSIONS[id];
+    if (!ms || d.claimed.includes(id)) continue;
+    if (ms.stat === 'time') d.prog[id] = Math.max(d.prog[id] || 0, Math.min(ms.target, Math.floor(S.time)));
+    else if (ms.stat === 'level') d.prog[id] = Math.max(d.prog[id] || 0, Math.min(ms.target, P.level));
+  }
+}
+function achDone(id){ const a = ACHIEVEMENTS[id]; return !!a && a.get() >= a.target; }
+function achCount(){ return Object.keys(ACHIEVEMENTS).filter(id => achDone(id)).length; }
+function claimAch(id){
+  if (!achDone(id) || meta.achClaimed.includes(id)) return false;
+  meta.achClaimed.push(id);
+  meta.shards += ACHIEVEMENTS[id].reward;
+  saveMeta();
+  renderAch(); renderTitleMeta();
+  return true;
+}
+function claimDaily(id){
+  const d = ensureDaily();
+  const ms = MISSIONS[id];
+  if (!ms || !d.ids.includes(id) || d.claimed.includes(id) || (d.prog[id] || 0) < ms.target) return false;
+  d.claimed.push(id);
+  meta.shards += ms.reward;
+  saveMeta();
+  renderAch(); renderTitleMeta();
+  return true;
+}
+function selectTitle(id){
+  if (!TITLES[id] || achCount() < TITLES[id].need) return false;
+  meta.title = id;
+  saveMeta();
+  renderTitleMeta();
+  return true;
+}
+
 /* ── ステージ定義（出現テーブルは [敵, 重み] の時間帯別3フェーズ） ── */
-const STAGE_ORDER = ['grass', 'beach', 'bamboo', 'volcano'];
+const STAGE_ORDER = ['grass', 'beach', 'bamboo', 'volcano', 'snow', 'void'];
 const STAGES = {
   grass:   { name: '星空の草原', icon: '🌌', desc: '月夜の草原。はじまりの場所', mul: 1, shard: 1,
              bossName: 'よるのぬし', miniName: 'かげのきりさき', bossArt: 'owl',
@@ -465,7 +631,19 @@ const STAGES = {
              pal: { top: '#1c0505', mid: '#330d0a', bot: '#170a06', deco: 'lava', decoCol: 'rgba(255,110,40,.55)', flower1: '#ff9d5c', flower2: '#ff5d3d', patch: 'rgba(0,0,0,.3)', sky: 'redmoon', skyCol: '#ff6b4a' },
              pool: [ [['imp', .6], ['magma', .4]],
                      [['imp', .35], ['magma', .35], ['bat', .15], ['golem', .15]],
-                     [['imp', .24], ['magma', .26], ['golem', .22], ['ghost', .16], ['crow', .12]] ] }
+                     [['imp', .24], ['magma', .26], ['golem', .22], ['ghost', .16], ['crow', .12]] ] },
+  snow:    { name: 'ゆきの雪原', icon: '❄️', desc: '吹雪の雪原。こおりの獣が牙をむく', mul: 2.6, shard: 2.4,
+             bossName: 'ゆきのおおぬし', miniName: 'こおりの番人', bossArt: 'snowman',
+             pal: { top: '#13253e', mid: '#274b63', bot: '#7fa8bf', deco: 'snow', decoCol: 'rgba(230,245,255,.6)', flower1: '#ffffff', flower2: '#bfe6ff', patch: 'rgba(255,255,255,.1)', sky: 'moon', skyCol: '#eaf6ff' },
+             pool: [ [['penguin', 1]],
+                     [['penguin', .5], ['icefox', .3], ['snowman', .2]],
+                     [['penguin', .26], ['icefox', .24], ['snowman', .24], ['bat', .12], ['ghost', .14]] ] },
+  void:    { name: 'ほしくずの虚空', icon: '🌠', desc: '星屑の虚空。最難の終着点', mul: 3.2, shard: 3,
+             bossName: 'こくうのおおぬし', miniName: 'ほしくずの守護者', bossArt: 'void',
+             pal: { top: '#05030f', mid: '#0d0621', bot: '#1a0b38', deco: 'void', decoCol: 'rgba(160,120,255,.5)', flower1: '#ffd94d', flower2: '#c9a6ff', patch: 'rgba(120,80,255,.08)', sky: 'planet', skyCol: '#c9a6ff' },
+             pool: [ [['starbit', 1]],
+                     [['starbit', .45], ['wraith', .3], ['meteor', .25]],
+                     [['starbit', .3], ['wraith', .26], ['meteor', .24], ['crow', .1], ['imp', .1]] ] }
 };
 function stageDef(){ return STAGES[S.stage] || STAGES.grass; }
 function stageUnlocked(id){
@@ -482,16 +660,33 @@ function loadMeta(){
   let m = null;
   try { m = JSON.parse(localStorage.getItem(META_KEY) || 'null'); } catch (e) {}
   if (!m || typeof m !== 'object') m = {};
+  const st = (m.stats && typeof m.stats === 'object') ? m.stats : {};
+  const dy = (m.daily && typeof m.daily === 'object') ? m.daily : {};
   return {
     shards: Math.max(0, m.shards | 0),
     upgrades: (m.upgrades && typeof m.upgrades === 'object') ? m.upgrades : {},
     unlocked: Array.isArray(m.unlocked) && m.unlocked.length ? m.unlocked : ['nowa'],
     char: CHARS[m.char] ? m.char : 'nowa',
     stageClears: Array.isArray(m.stageClears) ? m.stageClears.filter(s => STAGES[s]) : [],
-    stageSel: STAGES[m.stageSel] ? m.stageSel : 'grass'
+    stageSel: STAGES[m.stageSel] ? m.stageSel : 'grass',
+    /* 第1弾拡張の新フィールド（旧セーブは初期値で補完） */
+    stats: {
+      kills: st.kills | 0, gems: st.gems | 0, evos: st.evos | 0, bossKills: st.bossKills | 0,
+      clears: st.clears | 0, coopClears: st.coopClears | 0, endlessBest: st.endlessBest | 0,
+      bestLevel: st.bestLevel | 0, shardsEarned: st.shardsEarned | 0, runs: st.runs | 0
+    },
+    achClaimed: Array.isArray(m.achClaimed) ? m.achClaimed.filter(id => ACHIEVEMENTS[id]) : [],
+    daily: {
+      date: typeof dy.date === 'string' ? dy.date : '',
+      ids: Array.isArray(dy.ids) ? dy.ids.filter(id => MISSIONS[id]) : [],
+      prog: (dy.prog && typeof dy.prog === 'object') ? dy.prog : {},
+      claimed: Array.isArray(dy.claimed) ? dy.claimed.filter(id => MISSIONS[id]) : []
+    },
+    title: TITLES[m.title] ? m.title : 'rookie'
   };
 }
 function saveMeta(){ try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {} }
+let metaDirty = false;
 if (!meta.unlocked.includes(meta.char)) meta.char = 'nowa';
 const ENEMY_TYPES = {
   mouse:  { hp: 9,  spd: 57,  dmg: 8,  r: 13, xp: 1 },
@@ -509,6 +704,12 @@ const ENEMY_TYPES = {
   magma:  { hp: 18, spd: 42,  dmg: 10, r: 15, xp: 2 },
   golem:  { hp: 120, spd: 22, dmg: 20, r: 26, xp: 5 },
   imp:    { hp: 7,  spd: 128, dmg: 7,  r: 10, xp: 1 },
+  snowman:{ hp: 78, spd: 30,  dmg: 16, r: 21, xp: 3 },
+  icefox: { hp: 13, spd: 138, dmg: 9,  r: 12, xp: 2 },
+  penguin:{ hp: 24, spd: 60,  dmg: 11, r: 14, xp: 2 },
+  wraith: { hp: 58, spd: 50,  dmg: 17, r: 18, xp: 4 },
+  meteor: { hp: 170, spd: 23, dmg: 22, r: 26, xp: 6 },
+  starbit:{ hp: 8,  spd: 126, dmg: 8,  r: 10, xp: 2 },
   miniboss:{ hp: 430, spd: 44, dmg: 20, r: 36, xp: 25 },
   boss:   { hp: 950, spd: 40, dmg: 24, r: 46, xp: 0 }
 };
@@ -516,7 +717,7 @@ const ENEMY_TYPES = {
 const S = {
   state: 'title', time: 0, kills: 0, cleared: false, endless: false,
   spawnT: 0, bossIdx: 0, nextBossAt: 180, bossRef: null, shake: 0, hurtFlash: 0, timeScale: 1,
-  gemsCollected: 0, shardsPaid: 0, clearBonusPaid: false, lastShardGain: 0,
+  gemsCollected: 0, shardsPaid: 0, clearBonusPaid: false, lastShardGain: 0, statsCounted: false,
   eidSeq: 0, pidSeq: 0, snapT: 0, chestPicker: null,
   stage: 'grass', nextMiniAt: 95, miniIdx: 0, nextSurgeAt: 120
 };
@@ -573,9 +774,10 @@ function gemValMul(p){ p = p || P; return 1 + .2 * (p.passives.gemval || 0); }
 function xpForLevel(l){ return Math.max(2, Math.floor((5 + (l - 1) * 4 + Math.pow(l - 1, 1.8) * 1.3) * .6)); }
 
 function resetGame(){
+  ensureDaily();
   S.time = 0; S.kills = 0; S.cleared = false; S.endless = false;
   S.spawnT = 0; S.bossIdx = 0; S.nextBossAt = 180; S.bossRef = null; S.shake = 0; S.hurtFlash = 0;
-  S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.lastShardGain = 0;
+  S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.lastShardGain = 0; S.statsCounted = false;
   S.eidSeq = 0; S.pidSeq = 0; S.snapT = 0; S.chestPicker = null; lvPhase = null;
   S.nextMiniAt = 95; S.miniIdx = 0; S.nextSurgeAt = 120;
   if (!coopMode || NET.role !== 'guest') S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass';
@@ -721,9 +923,12 @@ function damageEnemy(e, dmg, kx, ky, src){
 function killEnemy(e){
   if (e.dead) return;
   e.dead = true; S.kills++;
+  meta.stats.kills++; metaDirty = true; addDailyProg('kills', 1);
+  if (e.type === 'boss' || e.type === 'miniboss') { meta.stats.bossKills++; addDailyProg('boss', 1); }
   const colors = { mouse: '#5a5f7d', bat: '#8a6cff', slime: '#4be0b0', slimeS: '#4be0b0', shroom: '#c084fc', ghost: '#ffb347', boss: '#ff8ab0',
     crab: '#ff8a5c', jelly: '#7fd4ff', shell: '#d9c9a8', kappa: '#4be07a', lantern: '#ffb37c', crow: '#5a6cff',
-    magma: '#ff5d3d', golem: '#a89a86', imp: '#ff6b9d', miniboss: '#c084fc' };
+    magma: '#ff5d3d', golem: '#a89a86', imp: '#ff6b9d', miniboss: '#c084fc',
+    snowman: '#eaf6ff', icefox: '#a8e6ff', penguin: '#ffd94d', wraith: '#c9a6ff', meteor: '#a89a86', starbit: '#ffe94d' };
   addParts(e.x, e.y, e.type === 'boss' ? 42 : e.elite ? 22 : 9, colors[e.type] || '#aaa', e.type === 'boss' ? 260 : 150, 4.5);
   if (e.type === 'boss') {
     S.shake = Math.max(S.shake, 10); sfx.boom();
@@ -820,17 +1025,19 @@ function fireWeapons(dt){
 function fireWeapon(p, w, dt){
   const st = WEAPONS[w.id].lv[w.lv - 1];
   const dm = dmgMul(p);
-  if (w.id === 'orbit') {
+  if (w.id === 'orbit' || w.id === 'lunaorb') {
+    const isLuna = w.id === 'lunaorb';
+    const br = isLuna ? 24 : 15, kb = isLuna ? 340 : 130;
     p.orbitAng += st.rot * dt;
     for (const e of enemies) {
       if (e.dead || e.orbitCd > 0) continue;
       for (let i = 0; i < st.count; i++) {
         const a = p.orbitAng + (i / st.count) * TAU;
         const bx = p.x + Math.cos(a) * st.radius, by = p.y + Math.sin(a) * st.radius;
-        if (dist2(bx, by, e.x, e.y) < (15 + e.r) * (15 + e.r)) {
+        if (dist2(bx, by, e.x, e.y) < (br + e.r) * (br + e.r)) {
           e.orbitCd = .38;
           const ka = Math.atan2(e.y - p.y, e.x - p.x);
-          damageEnemy(e, st.dmg * dm, Math.cos(ka) * 130, Math.sin(ka) * 130, p);
+          damageEnemy(e, st.dmg * dm, Math.cos(ka) * kb, Math.sin(ka) * kb, p);
           break;
         }
       }
@@ -839,7 +1046,8 @@ function fireWeapon(p, w, dt){
   }
   p.cds[w.id] = (p.cds[w.id] || 0) - dt;
   if (p.cds[w.id] > 0) return;
-  if (w.id === 'star') {
+  if (w.id === 'star' || w.id === 'galaxy') {
+    const isGal = w.id === 'galaxy';
     const tgt = nearestEnemy(p.x, p.y, 640);
     if (!tgt) { p.cds[w.id] = .12; return; }
     p.cds[w.id] = st.cd * cdMul(p);
@@ -847,10 +1055,10 @@ function fireWeapon(p, w, dt){
     for (let i = 0; i < n; i++) {
       const t2 = i === 0 ? tgt : (nearestEnemy(p.x, p.y, 640, new Set([tgt])) || tgt);
       const a = Math.atan2(t2.y - p.y, t2.x - p.x) + (i - (n - 1) / 2) * .09;
-      projs.push({ pid: ++S.pidSeq, own: p, type: 'star', x: p.x, y: p.y, vx: Math.cos(a) * 540, vy: Math.sin(a) * 540, dmg: st.dmg * dm, pierce: st.pierce, ttl: 1.1, hitSet: new Set() });
+      projs.push({ pid: ++S.pidSeq, own: p, type: 'star', x: p.x, y: p.y, vx: Math.cos(a) * (isGal ? 780 : 540), vy: Math.sin(a) * (isGal ? 780 : 540), dmg: st.dmg * dm, pierce: st.pierce, ttl: isGal ? 1.3 : 1.1, big: isGal ? 1 : 0, hitSet: new Set() });
     }
     sfx.shoot();
-  } else if (w.id === 'comet') {
+  } else if (w.id === 'comet' || w.id === 'meteor') {
     if (!nearestEnemy(p.x, p.y, 700)) { p.cds[w.id] = .15; return; }
     p.cds[w.id] = st.cd * cdMul(p);
     const n = st.count + projBonus(p);
@@ -859,7 +1067,7 @@ function fireWeapon(p, w, dt){
       projs.push({ pid: ++S.pidSeq, own: p, type: 'comet', x: p.x + Math.cos(a) * 18, y: p.y + Math.sin(a) * 18, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, dmg: st.dmg * dm, aoe: st.aoe, ttl: 2.6, seed: rand(0, TAU) });
     }
     sfx.shoot();
-  } else if (w.id === 'thunder') {
+  } else if (w.id === 'thunder' || w.id === 'zeus') {
     const first = nearestEnemy(p.x, p.y, 540);
     if (!first) { p.cds[w.id] = .15; return; }
     p.cds[w.id] = st.cd * cdMul(p);
@@ -886,18 +1094,18 @@ function fireWeapon(p, w, dt){
     }
     addParts(tgt.x, tgt.y, 8, '#ffe94d', 170, 4);
     sfx.thunder(); beep(90, 45, .22, 'triangle', .4);
-  } else if (w.id === 'ice') {
+  } else if (w.id === 'ice' || w.id === 'blizzard') {
     const tgt = nearestEnemy(p.x, p.y, 660);
     if (!tgt) { p.cds[w.id] = .1; return; }
     p.cds[w.id] = st.cd * cdMul(p);
     const baseA = Math.atan2(tgt.y - p.y, tgt.x - p.x);
-    const n = 1 + projBonus(p);
+    const n = (w.id === 'blizzard' ? 2 : 1) + projBonus(p);
     for (let i = 0; i < n; i++) {
       const a = baseA + (i - (n - 1) / 2) * .11;
       projs.push({ pid: ++S.pidSeq, own: p, type: 'ice', x: p.x, y: p.y, vx: Math.cos(a) * 580, vy: Math.sin(a) * 580, dmg: st.dmg * dm, pierce: st.pierce, ttl: 1.15, slow: st.slow, slowDur: st.slowDur, hitSet: new Set() });
     }
     beep(1150, 1500, .05, 'sine', .1);
-  } else if (w.id === 'leaf') {
+  } else if (w.id === 'leaf' || w.id === 'typhoon') {
     const tgt = nearestEnemy(p.x, p.y, 700);
     p.cds[w.id] = 1.5 * cdMul(p);
     const baseA = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : Math.atan2(p.dirY, p.dirX);
@@ -906,17 +1114,17 @@ function fireWeapon(p, w, dt){
       projs.push({ pid: ++S.pidSeq, type: 'leaf', x: p.x, y: p.y, vx: Math.cos(a) * 530, vy: Math.sin(a) * 530, dmg: st.dmg * dm, ttl: 3.2, owner: p, phase: 'out', traveled: 0, range: st.range, hitSet: new Set(), spin: rand(0, TAU) });
     }
     beep(520, 760, .07, 'triangle', .12);
-  } else if (w.id === 'nova') {
+  } else if (w.id === 'nova' || w.id === 'supernova') {
     p.cds[w.id] = st.cd * cdMul(p);
     const n = st.count + projBonus(p);
     const off = rand(0, TAU);
     for (let i = 0; i < n; i++) {
       const a = off + (i / n) * TAU;
-      projs.push({ pid: ++S.pidSeq, own: p, type: 'nova', x: p.x, y: p.y, vx: Math.cos(a) * 430, vy: Math.sin(a) * 430, dmg: st.dmg * dm, pierce: 0, ttl: .85, hitSet: new Set() });
+      projs.push({ pid: ++S.pidSeq, own: p, type: 'nova', x: p.x, y: p.y, vx: Math.cos(a) * 430, vy: Math.sin(a) * 430, dmg: st.dmg * dm, pierce: st.pierce || 0, ttl: .85, hitSet: new Set() });
     }
     fx.push({ type: 'ring', x: p.x, y: p.y, r: 44, ttl: .22, max: .22, color: '#c9a6ff' });
     beep(880, 1320, .1, 'sine', .16);
-  } else if (w.id === 'flame') {
+  } else if (w.id === 'flame' || w.id === 'inferno') {
     p.cds[w.id] = st.cd * cdMul(p);
     const fa = Math.atan2(p.dirY, p.dirX);
     fx.push({ type: 'cone', x: p.x, y: p.y, ang: fa, range: st.range, ttl: .22, max: .22 });
@@ -1072,7 +1280,7 @@ function updateProjectiles(dt){
       for (const e of enemies) {
         if (e.dead) continue;
         if (p.hitSet && p.hitSet.has(e)) continue;
-        const rr = (p.type === 'star' || p.type === 'nova' ? 9 : 11) + e.r;
+        const rr = (p.big ? 17 : (p.type === 'star' || p.type === 'nova' ? 9 : 11)) + e.r;
         if (dist2(p.x, p.y, e.x, e.y) < rr * rr) {
           if (p.type === 'comet' || p.type === 'missile') { explodeComet(p); p.dead = true; }
           else {
@@ -1131,7 +1339,7 @@ function updateEnemies(dt){
     }
     if (e.type === 'boss') {
       e.summonT -= dt;
-      if (e.summonT <= 0) { e.summonT = 6; for (let i = 0; i < 3; i++) spawnEnemy(Math.random() < .5 ? 'mouse' : 'bat', e.x + rand(-70, 70), e.y + rand(-70, 70), 1); }
+      if (e.summonT <= 0) { e.summonT = 6; for (let i = 0; i < 3; i++) spawnEnemy(pickType(), e.x + rand(-70, 70), e.y + rand(-70, 70), 1); }
     }
     const spdEff = e.spd * (e.slowT > 0 ? e.slowMul : 1);
     e.x += (mx * spdEff + e.vx) * dt; e.y += (my * spdEff + e.vy) * dt;
@@ -1182,6 +1390,7 @@ function updateGems(dt){
       if (bd2 < (bp.r + 13) * (bp.r + 13)) {
         g.dead = true; sfx.pickup();
         S.gemsCollected += g.val;
+        meta.stats.gems++; metaDirty = true; addDailyProg('gems', 1);
         gainXp(g.val * gemValMul(bp) * xpMul(bp));
         addParts(g.x, g.y, 3, '#7df9ff', 90, 3);
       }
@@ -1206,6 +1415,7 @@ function gainXp(v){
 function buildPool(p){
   const pool = [];
   for (const id in WEAPONS) {
+    if (WEAPONS[id].evo) continue; // 進化形は通常候補に出さない（進化でのみ入手）
     const owned = p.weapons.find(w => w.id === id);
     if (!owned && p.weapons.length < MAX_WEAPONS) pool.push({ kind: 'weapon', id, isNew: true });
     else if (owned && owned.lv < 5) pool.push({ kind: 'weapon', id, isNew: false });
@@ -1213,11 +1423,22 @@ function buildPool(p){
   for (const id in PASSIVES) {
     if ((p.passives[id] || 0) < PASSIVES[id].max) pool.push({ kind: 'passive', id });
   }
+  /* 進化候補: Lv5到達＋対応パッシブ所持のときだけ出現 */
+  for (const base in EVOLUTIONS) {
+    const ev = EVOLUTIONS[base];
+    const owned = p.weapons.find(w => w.id === base);
+    if (owned && owned.lv >= 5 && (p.passives[ev.req] || 0) >= 1 && !p.weapons.some(w => w.id === ev.to)) {
+      pool.push({ kind: 'evo', id: base });
+    }
+  }
   return pool;
 }
 function rollPicks(p){
   const pool = buildPool(p);
   const picks = [];
+  /* 進化候補は金枠として必ず先頭に提示する */
+  const evoIdx = pool.findIndex(x => x.kind === 'evo');
+  if (evoIdx >= 0) picks.push(pool.splice(evoIdx, 1)[0]);
   while (picks.length < 3 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   while (picks.length < 3) picks.push({ kind: 'bonus', id: picks.length % 2 ? 'heal' : 'gems' });
   return picks;
@@ -1228,7 +1449,11 @@ function showPickUI(player, picks, cb){
   document.getElementById('lvWait').style.display = 'none';
   for (const pk of picks) {
     const b = document.createElement('button'); b.className = 'card';
-    if (pk.kind === 'weapon') {
+    if (pk.kind === 'evo') {
+      const ev = EVOLUTIONS[pk.id], ew = WEAPONS[ev.to], bw = WEAPONS[pk.id];
+      b.classList.add('evoCard');
+      b.innerHTML = `<div class="cIcon">${ew.icon}</div><div class="cName">⚡進化！ ${ew.name}</div><div class="cLv">✨ ${bw.name} が進化する！</div><div class="cDesc">${ew.desc}</div>`;
+    } else if (pk.kind === 'weapon') {
       const w = WEAPONS[pk.id], owned = player.weapons.find(x => x.id === pk.id);
       if (pk.isNew) b.classList.add('newCard');
       b.innerHTML = `<div class="cIcon">${w.icon}</div><div class="cName">${w.name}</div><div class="cLv">${pk.isNew ? '✨ 新しい武器！' : 'Lv ' + (owned ? owned.lv : 0) + ' → ' + ((owned ? owned.lv : 0) + 1)}</div><div class="cDesc">${w.desc}</div>`;
@@ -1247,7 +1472,16 @@ function showPickUI(player, picks, cb){
 }
 function applyPick(p, pk){
   if (!pk) return;
-  if (pk.kind === 'weapon') {
+  if (pk.kind === 'evo') {
+    const ev = EVOLUTIONS[pk.id];
+    const owned = ev && p.weapons.find(x => x.id === pk.id);
+    if (owned) {
+      owned.id = ev.to; owned.lv = 5;
+      if (p === localPlayer()) { meta.stats.evos++; metaDirty = true; saveMeta(); addDailyProg('evo', 1); }
+      if (S.state !== 'over') showBanner('⚡ ' + WEAPONS[ev.to].name + ' に進化！');
+      sfx.chest();
+    }
+  } else if (pk.kind === 'weapon') {
     const owned = p.weapons.find(x => x.id === pk.id);
     if (owned) owned.lv = Math.min(5, owned.lv + 1);
     else if (p.weapons.length < MAX_WEAPONS) p.weapons.push({ id: pk.id, lv: 1 });
@@ -1309,6 +1543,7 @@ function autoPickGuest(){
 }
 function openChest(picker){
   S.state = 'chest'; sfx.chest();
+  if (picker === localPlayer()) addDailyProg('chest', 1);
   S.chestPicker = picker;
   if (coopMode && NET.role === 'host' && picker === P2) {
     sendNet({ t: 'chest' }); // ゲスト本人が選ぶ
@@ -1429,13 +1664,29 @@ function awardShards(clearedRun){
   S.shardsPaid = Math.floor(S.gemsCollected);
   S.lastShardGain = gain;
   meta.shards += gain;
+  meta.stats.shardsEarned += gain;
   saveMeta();
   return gain;
+}
+/* ラン終了時の実績統計（クリア後のエンドレス→死亡でも二重に数えない） */
+function recordRunStats(clearedRun){
+  meta.stats.bestLevel = Math.max(meta.stats.bestLevel, P.level);
+  if (S.time > 600) meta.stats.endlessBest = Math.max(meta.stats.endlessBest, Math.floor(S.time));
+  if (!S.statsCounted) {
+    S.statsCounted = true;
+    meta.stats.runs++;
+    if (clearedRun) {
+      meta.stats.clears++;
+      if (coopMode) meta.stats.coopClears++;
+    }
+  }
+  saveMeta();
 }
 function gameOver(clearedRun){
   if (S.state === 'over') return;
   const isNew = saveBest(clearedRun);
   const gain = awardShards(clearedRun);
+  recordRunStats(clearedRun);
   if (coopMode && NET.role === 'host') { sendNet(buildSnapshot()); sendNet({ t: 'end', cleared: clearedRun }); }
   showEndScreen(clearedRun, isNew, gain);
 }
@@ -1538,6 +1789,8 @@ function movePlayer(p, iv, dt){
 }
 function update(dt){
   S.time += dt;
+  checkDailyMarks();
+  if (metaDirty) { S._metaT = (S._metaT || 0) + dt; if (S._metaT > 4) { S._metaT = 0; metaDirty = false; saveMeta(); } }
   if (!S.cleared && S.time >= 600) { S.cleared = true; gameOver(true); return; }
   // 移動：自機はローカル入力、協力ゲスト機は受信入力（切断中はAIがホストに追従）
   movePlayer(P, readLocalInput(), dt);
@@ -1616,6 +1869,12 @@ function drawBackground(camX, camY){
     ctx.fillStyle = 'rgba(230,245,220,.10)';
     for (let i = 0; i < 3; i++) ctx.fillRect(0, 60 + i * 90 + Math.sin(performance.now() / 3000 + i) * 8, viewW, 26);
   }
+  if (pal.sky === 'planet') { // 虚空の惑星: 輪のある天体
+    ctx.strokeStyle = 'rgba(201,166,255,.75)'; ctx.lineWidth = 4; ctx.beginPath();
+    ctx.ellipse(viewW - 92, 84, 52, 15, -.42, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,217,77,.4)'; ctx.lineWidth = 2; ctx.beginPath();
+    ctx.ellipse(viewW - 92, 84, 62, 19, -.42, 0, TAU); ctx.stroke();
+  }
   // パララックス層（遠景のきらめき）
   const cell = 115, ox = -camX * .35, oy = -camY * .35;
   const sx0 = Math.floor((camX * .35) / cell) - 1, sy0 = Math.floor((camY * .35) / cell) - 1;
@@ -1675,6 +1934,25 @@ function drawBackground(camX, camY){
         ctx.fillStyle = pal.flower1; ctx.globalAlpha = .8;
         ctx.beginPath(); ctx.arc(px, py, 2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
       }
+    } else if (pal.deco === 'snow') {
+      if (h < .4) { // 雪のきらめきと吹きだまり
+        ctx.fillStyle = pal.decoCol; ctx.globalAlpha = .55;
+        ctx.beginPath(); ctx.ellipse(px, py, 7, 2.6, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(px + 4, py - 2, 1.3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      } else if (h > .94) { // 氷の結晶
+        ctx.strokeStyle = pal.flower2; ctx.lineWidth = 1.3; ctx.beginPath();
+        for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; ctx.moveTo(px - Math.cos(a) * 4, py - Math.sin(a) * 4); ctx.lineTo(px + Math.cos(a) * 4, py + Math.sin(a) * 4); }
+        ctx.stroke();
+      }
+    } else if (pal.deco === 'void') {
+      if (h < .38) { // 星屑のかけら（明滅）
+        const tw = .4 + .6 * Math.abs(Math.sin(performance.now() / 700 + h * 14));
+        ctx.fillStyle = h > .2 ? pal.flower2 : pal.flower1; ctx.globalAlpha = tw;
+        drawStar(px, py, 3.4, h * 3, ctx.fillStyle); ctx.globalAlpha = 1;
+      } else if (h > .95) { // 小さな浮遊岩
+        ctx.fillStyle = pal.decoCol; ctx.globalAlpha = .5;
+        ctx.beginPath(); ctx.moveTo(px - 5, py); ctx.lineTo(px + 1, py - 5); ctx.lineTo(px + 6, py + 1); ctx.lineTo(px, py + 4); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      }
     }
   }
   // 大きなパッチ
@@ -1722,6 +2000,39 @@ function drawChest(pk, now){
 function drawBossArt(e, now){
   const art = e.type === 'miniboss' ? 'owl' : stageDef().bossArt;
   if (e.type === 'miniboss') ctx.scale(.8, .8);
+  if (art === 'snowman') { // ゆきのおおぬし: 巨大雪だるま
+    const sway = Math.sin(now / 500 + e.wob) * .05;
+    ctx.save(); ctx.rotate(sway);
+    ctx.fillStyle = '#e8f2fa'; ctx.beginPath(); ctx.arc(0, 26, 40, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f6fbff'; ctx.beginPath(); ctx.arc(0, -18, 30, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#7a5a3a'; ctx.lineWidth = 5; ctx.beginPath();
+    ctx.moveTo(-28, 6); ctx.lineTo(-52, -12); ctx.moveTo(28, 6); ctx.lineTo(52, -12); ctx.stroke();
+    ctx.fillStyle = '#14100a'; ctx.beginPath(); ctx.arc(-10, -24, 3.6, 0, TAU); ctx.arc(10, -24, 3.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ff8a3d'; ctx.beginPath(); ctx.moveTo(0, -19); ctx.lineTo(17, -15); ctx.lineTo(0, -12); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#3a6ea8'; ctx.beginPath(); ctx.arc(0, 12, 3.4, 0, TAU); ctx.arc(0, 28, 3.4, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#274b63'; ctx.fillRect(-20, -52, 40, 8);
+    ctx.fillStyle = '#33597a'; ctx.fillRect(-13, -78, 26, 27);
+    ctx.fillStyle = '#a8e6ff'; ctx.beginPath(); ctx.arc(13, -64, 4, 0, TAU); ctx.fill();
+    ctx.restore();
+    return;
+  }
+  if (art === 'void') { // こくうのおおぬし: 星を従えた闇の球体
+    const pul = 1 + Math.sin(now / 600) * .05;
+    ctx.save(); ctx.scale(pul, pul);
+    const vg = ctx.createRadialGradient(0, 0, 6, 0, 0, 48);
+    vg.addColorStop(0, '#2a1052'); vg.addColorStop(.7, '#12082e'); vg.addColorStop(1, '#05030f');
+    ctx.fillStyle = vg; ctx.beginPath(); ctx.arc(0, 0, 46, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(201,166,255,.8)'; ctx.lineWidth = 3; ctx.beginPath();
+    ctx.ellipse(0, 6, 58, 17, -.35 + Math.sin(now / 900) * .06, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#c9a6ff'; ctx.beginPath(); ctx.arc(-13, -8, 5.5, 0, TAU); ctx.arc(14, -2, 4, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-13, -8, 2, 0, TAU); ctx.arc(14, -2, 1.5, 0, TAU); ctx.fill();
+    for (let k = 0; k < 5; k++) {
+      const a = now / 1400 + k * (TAU / 5);
+      drawStar(Math.cos(a) * 56, Math.sin(a) * 30 - 4, 4.5, now / 300 + k, k % 2 ? '#ffd94d' : '#c9a6ff');
+    }
+    ctx.restore();
+    return;
+  }
   if (art === 'crab') {
     const wig = Math.sin(now / 300 + e.wob) * .1;
     ctx.strokeStyle = '#a03d14'; ctx.lineWidth = 6;
@@ -1962,6 +2273,63 @@ function drawEnemy(e, now){
     ctx.fillStyle = '#ffe94d'; ctx.beginPath(); ctx.arc(-3.4, -1, 1.7, 0, TAU); ctx.arc(3.4, -1, 1.7, 0, TAU); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-2.4, 3.6); ctx.lineTo(-1.2, 6); ctx.lineTo(0, 3.6); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(2.4, 3.6); ctx.lineTo(1.2, 6); ctx.lineTo(0, 3.6); ctx.closePath(); ctx.fill();
+  } else if (e.type === 'snowman') {
+    ctx.fillStyle = '#dfeef8'; ctx.beginPath(); ctx.arc(0, 9, e.r * .92, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f6fbff'; ctx.beginPath(); ctx.arc(0, -8, e.r * .68, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#14100a'; ctx.beginPath(); ctx.arc(-4.5, -10, 1.7, 0, TAU); ctx.arc(4.5, -10, 1.7, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ff8a3d'; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(9, -5); ctx.lineTo(0, -3.4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#3a6ea8'; ctx.beginPath(); ctx.arc(0, 4, 1.8, 0, TAU); ctx.arc(0, 12, 1.8, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#274b63'; ctx.fillRect(-9, -24, 18, 3.6);
+    ctx.fillStyle = '#33597a'; ctx.fillRect(-6, -33, 12, 10);
+  } else if (e.type === 'icefox') {
+    const wag = Math.sin(now / 130 + e.wob * 9) * .35;
+    ctx.strokeStyle = '#bfe9ff'; ctx.lineWidth = 3.4; ctx.beginPath();
+    ctx.moveTo(-8, 4); ctx.quadraticCurveTo(-17, 2 + wag * 6, -19, -6 + wag * 5); ctx.stroke();
+    ctx.fillStyle = '#dff3ff'; ctx.beginPath(); ctx.ellipse(0, 1, 12, 8.6, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-7, -5); ctx.lineTo(-9, -14); ctx.lineTo(-2.5, -8); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(7, -5); ctx.lineTo(9, -14); ctx.lineTo(2.5, -8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#8fd0f5'; ctx.beginPath(); ctx.moveTo(-7, -6.4); ctx.lineTo(-8, -11.4); ctx.lineTo(-4.4, -8); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(7, -6.4); ctx.lineTo(8, -11.4); ctx.lineTo(4.4, -8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1b3a55'; ctx.beginPath(); ctx.arc(-3.4, -1, 1.6, 0, TAU); ctx.arc(3.4, -1, 1.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5aa7dd'; ctx.beginPath(); ctx.arc(0, 2.2, 1.5, 0, TAU); ctx.fill();
+  } else if (e.type === 'penguin') {
+    const wd = Math.sin(now / 170 + e.wob * 7) * .12; ctx.rotate(wd);
+    ctx.fillStyle = '#22304a'; ctx.beginPath(); ctx.ellipse(0, 1, 11, 13, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f4f8ff'; ctx.beginPath(); ctx.ellipse(0, 4, 7, 9, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#22304a';
+    ctx.beginPath(); ctx.moveTo(-10, -2); ctx.quadraticCurveTo(-16, 3, -12, 8); ctx.quadraticCurveTo(-9, 4, -8.6, 0); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10, -2); ctx.quadraticCurveTo(16, 3, 12, 8); ctx.quadraticCurveTo(9, 4, 8.6, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#14100a'; ctx.beginPath(); ctx.arc(-3.4, -5, 1.6, 0, TAU); ctx.arc(3.4, -5, 1.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(-2.6, -2.4); ctx.lineTo(2.6, -2.4); ctx.lineTo(0, .6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.ellipse(-4.6, 14.6, 3.6, 1.7, 0, 0, TAU); ctx.ellipse(4.6, 14.6, 3.6, 1.7, 0, 0, TAU); ctx.fill();
+  } else if (e.type === 'wraith') {
+    ctx.globalAlpha = .88;
+    ctx.fillStyle = '#241543';
+    ctx.beginPath(); ctx.arc(0, -3, 17, Math.PI, 0);
+    ctx.lineTo(17, 13);
+    for (let i = 0; i < 4; i++) { ctx.quadraticCurveTo(17 - i * 8.5 - 2.1, 7, 17 - i * 8.5 - 4.25, 13); ctx.quadraticCurveTo(17 - i * 8.5 - 6.4, 19, 17 - (i + 1) * 8.5, 13); }
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#c9a6ff'; ctx.beginPath(); ctx.ellipse(-5.6, -5, 2.5, 3.6, 0, 0, TAU); ctx.ellipse(5.6, -5, 2.5, 3.6, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#0a0518'; ctx.beginPath(); ctx.ellipse(0, 4.5, 3.4, 4.6, 0, 0, TAU); ctx.fill();
+    drawStar(0, -19, 4.6, now / 600, '#ffd94d');
+  } else if (e.type === 'meteor') {
+    ctx.save(); ctx.rotate(Math.sin(now / 900 + e.wob) * .14);
+    ctx.fillStyle = '#4a3f35'; ctx.beginPath();
+    ctx.moveTo(-e.r, 6); ctx.lineTo(-e.r * .6, -e.r * .7); ctx.lineTo(2, -e.r); ctx.lineTo(e.r * .8, -e.r * .4); ctx.lineTo(e.r, e.r * .5); ctx.lineTo(e.r * .3, e.r * .9); ctx.lineTo(-e.r * .5, e.r * .8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5d4f42'; ctx.beginPath(); ctx.arc(-6, -4, 6.5, 0, TAU); ctx.arc(8, 6, 5, 0, TAU); ctx.fill();
+    const gl4 = .5 + .5 * Math.sin(now / 300 + e.wob * 6);
+    ctx.strokeStyle = 'rgba(160,120,255,' + (.4 + .5 * gl4) + ')'; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(-14, 10); ctx.lineTo(-4, 0); ctx.lineTo(-10, -12); ctx.moveTo(6, 14); ctx.lineTo(12, 2); ctx.stroke();
+    ctx.fillStyle = '#ffd94d'; ctx.beginPath(); ctx.arc(-3, -1, 2, 0, TAU); ctx.arc(5, -3, 2, 0, TAU); ctx.fill();
+    ctx.restore();
+  } else if (e.type === 'starbit') {
+    const tw = .7 + .3 * Math.sin(now / 160 + e.wob * 11);
+    ctx.globalAlpha = tw;
+    drawStar(0, 0, 11, now / 260 + e.wob, '#ffe98a');
+    drawStar(0, 0, 5.4, now / 260 + e.wob, '#fff7cc');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#8a6d1f'; ctx.beginPath(); ctx.arc(-2.6, -1, 1.3, 0, TAU); ctx.arc(2.6, -1, 1.3, 0, TAU); ctx.fill();
   } else if (e.type === 'boss' || e.type === 'miniboss') {
     drawBossArt(e, now);
   }
@@ -1974,7 +2342,7 @@ function drawEnemy(e, now){
     ctx.save(); ctx.globalAlpha = .38;
     ctx.fillStyle = '#8fd8ff'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.08, 0, TAU); ctx.fill(); ctx.restore();
   }
-  if ((e.type === 'ghost' || e.type === 'boss' || e.type === 'miniboss' || e.type === 'golem' || e.type === 'shell' || e.elite) && e.hp < e.maxHp) {
+  if ((e.type === 'ghost' || e.type === 'boss' || e.type === 'miniboss' || e.type === 'golem' || e.type === 'shell' || e.type === 'snowman' || e.type === 'meteor' || e.type === 'wraith' || e.elite) && e.hp < e.maxHp) {
     const w = e.r * 2;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(e.x - e.r, e.y - e.r - 12, w, 5);
     ctx.fillStyle = '#ff5d7a'; ctx.fillRect(e.x - e.r, e.y - e.r - 12, w * clamp(e.hp / e.maxHp, 0, 1), 5);
@@ -2033,17 +2401,24 @@ function drawPlayer(p, now){
   ctx.fillStyle = ch.band; ctx.fillRect(-11.8, -14.6, 23.6, 3.1);
   drawStar(5.5, -31.5, 4.6, now / 700, '#ffe94d');
   ctx.restore();
-  // オービットの月の刃
-  const ow = p.weapons.find(w => w.id === 'orbit');
+  // オービットの月の刃（進化形ルナシールドは大きな盾刃＋シールドリング）
+  const ow = p.weapons.find(w => w.id === 'orbit' || w.id === 'lunaorb');
   if (ow && S.state !== 'title') {
-    const st = WEAPONS.orbit.lv[ow.lv - 1];
+    const isLuna = ow.id === 'lunaorb';
+    const st = WEAPONS[ow.id].lv[ow.lv - 1];
+    if (isLuna) {
+      ctx.save(); ctx.strokeStyle = 'rgba(201,166,255,.4)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, st.radius, 0, TAU); ctx.stroke(); ctx.restore();
+    }
     for (let i = 0; i < st.count; i++) {
       const a = p.orbitAng + (i / st.count) * TAU;
       const bx = p.x + Math.cos(a) * st.radius, by = p.y + Math.sin(a) * st.radius;
       ctx.save(); ctx.translate(bx, by); ctx.rotate(a + Math.PI / 2);
-      ctx.fillStyle = 'rgba(255,233,168,.28)'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, TAU); ctx.fill();
+      const sc = isLuna ? 1.7 : 1;
+      ctx.scale(sc, sc);
+      ctx.fillStyle = isLuna ? 'rgba(201,166,255,.35)' : 'rgba(255,233,168,.28)'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.arc(0, 0, 11.5, 0, TAU); ctx.arc(5.5, -2.5, 9.5, 0, TAU);
-      ctx.fillStyle = '#ffe9a8'; ctx.fill('evenodd');
+      ctx.fillStyle = isLuna ? '#e6d5ff' : '#ffe9a8'; ctx.fill('evenodd');
       ctx.restore();
     }
   }
@@ -2093,7 +2468,12 @@ function draw(){
   for (const pk of pickups) drawChest(pk, now);
   for (const e of enemies) drawEnemy(e, now);
   for (const p of projs) {
-    if (p.type === 'star') { drawStar(p.x, p.y, 8.5, now / 90, '#ffe94d'); drawStar(p.x, p.y, 4, now / 90, '#fff7cc'); }
+    if (p.type === 'star') {
+      if (p.big) { // ギャラクシーレイ: 太い銀河の光線
+        ctx.save(); ctx.globalAlpha = .3; ctx.fillStyle = '#c9a6ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 17, 0, TAU); ctx.fill(); ctx.restore();
+        drawStar(p.x, p.y, 15, now / 90, '#b18cff'); drawStar(p.x, p.y, 8, now / 90, '#efe6ff');
+      } else { drawStar(p.x, p.y, 8.5, now / 90, '#ffe94d'); drawStar(p.x, p.y, 4, now / 90, '#fff7cc'); }
+    }
     else if (p.type === 'nova') { drawStar(p.x, p.y, 7, now / 110, '#d9b8ff'); drawStar(p.x, p.y, 3.2, now / 110, '#fff'); }
     else if (p.type === 'ice') {
       const a = Math.atan2(p.vy || 0, p.vx || 1);
@@ -2339,6 +2719,15 @@ function renderTitleMeta(){
   if (S.state === 'title') { P.char = meta.char; S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass'; }
   renderStages();
   $('shardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  const tnb = $('titleNameBox');
+  if (tnb) tnb.innerHTML = `👑 称号「${TITLES[meta.title] ? TITLES[meta.title].name : TITLES.rookie.name}」 ・ 🏆 実績 ${achCount()}/${Object.keys(ACHIEVEMENTS).length}`;
+  const ab = $('achBtn');
+  if (ab) {
+    const d0 = ensureDaily();
+    const claimable = Object.keys(ACHIEVEMENTS).filter(id => achDone(id) && !meta.achClaimed.includes(id)).length
+      + d0.ids.filter(id => (d0.prog[id] || 0) >= MISSIONS[id].target && !d0.claimed.includes(id)).length;
+    ab.textContent = claimable > 0 ? `🏆 実績・ミッション 🎁×${claimable}` : '🏆 実績・ミッション';
+  }
   const row = $('charRow'); row.innerHTML = '';
   for (const id in CHARS) {
     const ch = CHARS[id];
@@ -2387,6 +2776,56 @@ function buyUpgrade(id){
 }
 $('shopBtn').onclick = () => { initAudio(); renderShop(); $('shopScr').classList.add('show'); };
 $('shopCloseBtn').onclick = () => { $('shopScr').classList.remove('show'); };
+/* ── 実績パネル描画 ── */
+function fmtProgVal(a, v){
+  if (a.fmt === 'time') return fmtTime(Math.floor(v));
+  return v.toLocaleString();
+}
+function renderAch(){
+  ensureDaily();
+  $('achShardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  const tRow = $('titleRow'); tRow.innerHTML = '';
+  const cnt = achCount();
+  for (const id in TITLES) {
+    const t = TITLES[id];
+    const ok = cnt >= t.need;
+    const b = document.createElement('button');
+    b.className = 'charCard' + (meta.title === id ? ' sel' : '');
+    b.dataset.title = id;
+    b.innerHTML = `<div class="chName">👑 ${t.name}</div><div class="chDesc">${ok ? (meta.title === id ? '✔ 名乗っている' : 'タップで名乗る') : `実績 ${t.need} 件達成で解放（現在 ${cnt} 件）`}</div>`;
+    b.onclick = () => { initAudio(); if (selectTitle(id)) { sfx.pickup(); renderAch(); } };
+    tRow.appendChild(b);
+  }
+  const d = ensureDaily();
+  const dList = $('dailyList'); dList.innerHTML = '';
+  for (const id of d.ids) {
+    const ms = MISSIONS[id]; if (!ms) continue;
+    const prog = Math.min(ms.target, d.prog[id] || 0);
+    const done = prog >= ms.target, claimed = d.claimed.includes(id);
+    const rowEl = document.createElement('div'); rowEl.className = 'shopRow';
+    rowEl.innerHTML = `<div class="shopInfo"><div class="shopName">📅 ${ms.name}</div><div class="shopDesc">進捗 ${prog.toLocaleString()} / ${ms.target.toLocaleString()} ・ 報酬 ⭐${ms.reward}</div></div>`;
+    const btn = document.createElement('button'); btn.className = 'buyBtn';
+    btn.textContent = claimed ? '✔ 受取済' : done ? `⭐ ${ms.reward} 受取` : '進行中';
+    btn.disabled = claimed || !done;
+    btn.onclick = () => { initAudio(); if (claimDaily(id)) sfx.chest(); };
+    rowEl.appendChild(btn); dList.appendChild(rowEl);
+  }
+  const aList = $('achList'); aList.innerHTML = '';
+  for (const id in ACHIEVEMENTS) {
+    const a = ACHIEVEMENTS[id];
+    const cur = Math.min(a.target, Math.floor(a.get()));
+    const done = achDone(id), claimed = meta.achClaimed.includes(id);
+    const rowEl = document.createElement('div'); rowEl.className = 'shopRow';
+    rowEl.innerHTML = `<div class="shopInfo"><div class="shopName">${done ? '🏆' : '🔒'} ${a.name}</div><div class="shopDesc">${a.desc}（${fmtProgVal(a, cur)} / ${fmtProgVal(a, a.target)}）・ 報酬 ⭐${a.reward}</div></div>`;
+    const btn = document.createElement('button'); btn.className = 'buyBtn';
+    btn.textContent = claimed ? '✔ 受取済' : done ? `⭐ ${a.reward} 受取` : '未達成';
+    btn.disabled = claimed || !done;
+    btn.onclick = () => { initAudio(); if (claimAch(id)) sfx.chest(); };
+    rowEl.appendChild(btn); aList.appendChild(rowEl);
+  }
+}
+$('achBtn').onclick = () => { initAudio(); renderAch(); $('achScr').classList.add('show'); };
+$('achCloseBtn').onclick = () => { $('achScr').classList.remove('show'); renderTitleMeta(); };
 $('coopBtn').onclick = () => {
   initAudio();
   $('lobbyScr').classList.add('show');
@@ -2551,7 +2990,7 @@ function buildSnapshot(){
       weapons: p.weapons.map(w => ({ id: w.id, lv: w.lv })), passives: p.passives
     })),
     enemies: enemies.filter(e => !e.dead).map(e => ({ id: e.eid, type: e.type, x: Math.round(e.x), y: Math.round(e.y), hp: Math.ceil(e.hp), maxHp: Math.ceil(e.maxHp), r: e.r, flash: e.flash, slow: e.slowT > 0, wob: e.wob, fuse: e.fuse, elite: !!e.elite })),
-    projs: projs.map(p => ({ id: p.pid, type: p.type, x: Math.round(p.x), y: Math.round(p.y), vx: Math.round(p.vx), vy: Math.round(p.vy), spin: p.spin || 0, r: p.r || 0, armT: p.armT || 0 })),
+    projs: projs.map(p => ({ id: p.pid, type: p.type, x: Math.round(p.x), y: Math.round(p.y), vx: Math.round(p.vx), vy: Math.round(p.vy), spin: p.spin || 0, r: p.r || 0, armT: p.armT || 0, big: p.big || 0 })),
     gems: gems.map(g => ({ x: Math.round(g.x), y: Math.round(g.y), val: g.val })),
     pickups: pickups.map(pk => ({ x: Math.round(pk.x), y: Math.round(pk.y) }))
   };
@@ -2598,7 +3037,7 @@ function guestOnData(msg){
     P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
     enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = [];
     S.time = 0; S.kills = 0; S.cleared = false; S.endless = false;
-    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.guestBoss = null;
+    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0;
     S.state = 'play';
     $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
     $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
@@ -2609,6 +3048,7 @@ function guestOnData(msg){
   } else if (msg.t === 'choices') {
     S.state = 'levelup';
     showPickUI(P2, msg.picks, pk => {
+      if (pk.kind === 'evo') { meta.stats.evos++; saveMeta(); addDailyProg('evo', 1); }
       sendNet({ t: 'pick', idx: msg.picks.indexOf(pk) });
       $('lvCards').innerHTML = '';
       const w = $('lvWait'); w.style.display = 'block'; w.textContent = 'ホストの選択を待っています…';
@@ -2626,6 +3066,7 @@ function guestOnData(msg){
   } else if (msg.t === 'end') {
     const isNew = saveBest(!!msg.cleared);
     const gain = awardShards(!!msg.cleared);
+    recordRunStats(!!msg.cleared);
     showEndScreen(!!msg.cleared, isNew, gain);
   }
 }
@@ -2636,6 +3077,13 @@ function applySnapshot(snap){
   S.time = snap.time; S.kills = snap.kills; S.gemsCollected = snap.gemsCollected || 0;
   S.endless = !!snap.endless; S.cleared = !!snap.cleared;
   P.level = snap.team.level; P.xp = snap.team.xp; P.xpNext = snap.team.xpNext;
+  /* ゲスト側の実績統計: スナップショットの差分で概算する */
+  if (applySnapshot._lk === undefined) { applySnapshot._lk = S.kills; applySnapshot._lg = S.gemsCollected; }
+  const dk = S.kills - applySnapshot._lk, dg = Math.floor(S.gemsCollected) - Math.floor(applySnapshot._lg);
+  if (dk > 0) { meta.stats.kills += dk; addDailyProg('kills', dk); metaDirty = true; }
+  if (dg > 0) { meta.stats.gems += dg; addDailyProg('gems', dg); metaDirty = true; }
+  applySnapshot._lk = S.kills; applySnapshot._lg = S.gemsCollected;
+  checkDailyMarks();
   S.guestBoss = snap.boss || null;
   $('bossWrap').style.display = snap.boss ? 'block' : 'none';
   if (snap.boss) $('bossName').textContent = '👑 ' + stageDef().bossName;
@@ -2664,7 +3112,7 @@ function applySnapshot(snap){
     pseen.add(sp.id);
     let pr = renderProjMap.get(sp.id);
     if (!pr) { pr = {}; renderProjMap.set(sp.id, pr); pr.x = sp.x; pr.y = sp.y; pr.tx = sp.x; pr.ty = sp.y; }
-    pr.tx = sp.x; pr.ty = sp.y; pr.type = sp.type; pr.vx = sp.vx; pr.vy = sp.vy; pr.spin = sp.spin || 0; pr.r = sp.r || 0; pr.armT = sp.armT || 0;
+    pr.tx = sp.x; pr.ty = sp.y; pr.type = sp.type; pr.vx = sp.vx; pr.vy = sp.vy; pr.spin = sp.spin || 0; pr.r = sp.r || 0; pr.armT = sp.armT || 0; pr.big = sp.big || 0;
   }
   for (const id of [...renderProjMap.keys()]) if (!pseen.has(id)) renderProjMap.delete(id);
   projs = [...renderProjMap.values()];
@@ -2720,6 +3168,7 @@ $('lobbyBackBtn').onclick = () => {
   $('coopStartBtn').style.display = 'none';
   setLobbyStatus('「部屋を作る」か、相手のコードで「参加する」を選んでね。');
 };
+ensureDaily();
 renderTitleMeta();
 
 /* ── テスト用フック ── */
@@ -2745,7 +3194,10 @@ window.__surv = {
   buyUpgrade, renderShop, renderTitleMeta, renderStages,
   selectChar: id => { if (CHARS[id]) { if (!meta.unlocked.includes(id)) meta.unlocked.push(id); meta.char = id; saveMeta(); renderTitleMeta(); } },
   hostCreateRoom, guestJoin, startCoopGame, buildSnapshot, handleNetData, applySnapshot,
-  quitToTitle
+  quitToTitle,
+  EVOLUTIONS, ACHIEVEMENTS, MISSIONS, TITLES, ENEMY_TYPES,
+  buildPool, rollPicks, applyPick, achDone, claimAch, claimDaily, ensureDaily,
+  missionsForDate, dailyKeyStr, achCount, selectTitle, addDailyProg, renderAch, saveMeta
 };
 
 
