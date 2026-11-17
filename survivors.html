@@ -240,11 +240,12 @@
   /* ═══ 第8弾: アプリシェル（上部バー／タブページ／下部タブバー） ═══ */
   #titleScr{position:fixed;inset:0;display:none;flex-direction:column;background:linear-gradient(180deg,#0d1122,#0a0d18);z-index:10}
   #titleScr.show{display:flex}
-  #topBar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#0c101f;border-bottom:1px solid #26304d;flex:0 0 auto}
-  .topBrand{font-weight:900;font-size:16px;color:#f5f1e6;letter-spacing:.5px;white-space:nowrap}
+  #topBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#0c101f;border-bottom:1px solid #26304d;flex:0 0 auto}
+  .topBrand{font-weight:900;font-size:16px;color:#f5f1e6;letter-spacing:.5px;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .topBrand .tbGold{color:#e6b84f;margin-left:5px}
-  .topMeta{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;color:#a7b0c9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #topShards{color:#ffd97a;font-size:14.5px}
+  .topMeta{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#a7b0c9;flex:1 1 auto;min-width:0;justify-content:flex-end}
+  #topTitleName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #topShards{color:#ffd97a;font-size:14.5px;flex:0 0 auto;white-space:nowrap}
   #tabPages{flex:1 1 auto;overflow-y:auto;width:100%;max-width:560px;margin:0 auto;padding:16px 14px 22px}
   .tabPage::after{content:'';display:block;height:34px} /* 第9弾: スクロール末尾の余白。ショップ最下部ボタンがタブバーに被る対策（padding-bottomだけでは末尾までスクロールできない環境があるため） */
   .tabPage{display:none;text-align:center}
@@ -308,6 +309,31 @@
   #claimAllBtn{width:100%;margin-top:10px;padding:13px}
   #claimAllResult{text-align:center}
   @media (max-width:430px){ #tabPages{padding:12px 10px 18px} .heroBox canvas{width:108px;height:108px} .cdHead canvas{width:76px;height:76px;flex-basis:76px} .charGrid{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))} }
+  /* ═══ 第11弾: ポップで可愛く（ダークネイビー＋ゴールド基調とタブ構成は維持。
+     角丸を大きく、差し色にパステルピンク/ミントを少量、影は柔らかく。やり過ぎない範囲で） ═══ */
+  .bigBtn{background:linear-gradient(180deg,#ffd479,#f79ec1);color:#4a2432;box-shadow:0 8px 20px rgba(247,158,193,.32),inset 0 -3px 0 rgba(176,94,90,.22)}
+  .gachaBtn{background:linear-gradient(180deg,#ffb3d1,#f78fb8);color:#4d1730;box-shadow:0 6px 18px rgba(247,143,184,.32),inset 0 -3px 0 rgba(176,80,110,.20)}
+  .buyBtn{box-shadow:0 3px 8px rgba(0,0,0,.30)}
+  .card{border-radius:20px;box-shadow:0 6px 14px rgba(0,0,0,.35)}
+  .card.infCard{border-color:#7dffce;background:#122420;box-shadow:0 0 16px rgba(125,255,206,.28)}
+  .card.bagCard{border-color:#ffd94d;background:#241c10;box-shadow:0 0 16px rgba(255,217,77,.30)}
+  .charCard,.stageCard{border-radius:18px;box-shadow:0 4px 10px rgba(0,0,0,.28)}
+  #charDetail{border-radius:22px;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+  .dailyChip{border-radius:16px}
+  .shopRow{border-radius:18px;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+  .gachaCard{border-radius:18px}
+  .gachaRates{border-radius:16px}
+  .panel{border-radius:26px}
+  .codeInput{border-radius:16px}
+  .wIcon{border-radius:14px}
+  .tabHead{border-left-color:#f79ec1}
+  .secLabel{color:#f2b8d8}
+  .heroName{text-shadow:0 2px 16px rgba(247,158,193,.45)}
+  #xpFill{background:linear-gradient(90deg,#7dffce,#4fc3e8);box-shadow:0 0 10px rgba(125,255,206,.55)}
+  #lvBadge{border-color:#f79ec1;color:#ffc7dd}
+  #toast{border-color:#f79ec1;color:#ffe3f0}
+  /* 第11弾: 上部バーが狭幅でも切れないように（称号だけが省略され、残高は必ず全文見える） */
+  @media (max-width:400px){ .topBrand{font-size:14px} .topMeta{font-size:11px;gap:6px} #topShards{font-size:13.5px} }
 </style>
 </head>
 <body>
@@ -1290,6 +1316,7 @@ function doRebirth(){
   meta.shards = 0;          // 所持かけらも0に
   meta.inherit = (meta.inherit | 0) + 1;
   saveMeta();
+  updateShardUI(); // 第11弾: 転生リセットの直後に残高表示を同期
   return true;
 }
 
@@ -1428,7 +1455,9 @@ const S = {
   stage: 'grass', nextMiniAt: 95, miniIdx: 0, nextSurgeAt: 100,
   /* 第4弾: 難易度とランダムイベント */
   difficulty: 'normal', nextEventAt: 120, fountains: [], gemRushT: 0,
-  merchant: null, merchantUntil: 0, merchantGuestBought: false
+  merchant: null, merchantUntil: 0, merchantGuestBought: false,
+  /* 第11弾: フィナーレ（金のエリート）の出現管理 */
+  finaleSpawned: 0, nextFinaleAt: 750
 };
 /* プレイヤー生成。mf = 自分のメタ補正（upgrades）。ゲスト機体はキャラ補正のみ（mf=null） */
 function makePlayer(){
@@ -1439,7 +1468,7 @@ function makePlayer(){
     char: 'nowa', alive: true, reviveT: 0, bellUsed: 0, ai: false, gemCnt: 0,
     input: { x: 0, y: 0 }, tx: 0, ty: 0, snapMaxHp: 0,
     mAtk: 1, mSpd: 1, mMag: 1, mXp: 1, mHp: 0, mBell: 0, mCrit: 0, mInh: 1,
-    buffAtkT: 0, buffMagT: 0
+    buffAtkT: 0, buffMagT: 0, inf: {}
   };
 }
 const players = [makePlayer(), makePlayer()];
@@ -1462,7 +1491,7 @@ function resetPlayer(p, charId, mf){
   p.mInh = mf ? inheritDmgMul() : 1; // 星の継承ボーナスは自分のメタを持つ機体（ホスト/ソロ自機・ゲスト自機プロキシ）にのみ適用
   p.buffAtkT = 0; p.buffMagT = 0;
   p.x = 0; p.y = 0; p.face = 1; p.dirX = 1; p.dirY = 0; p.moving = false; p.hurtT = 0;
-  p.weapons = [{ id: (CHARS[p.char] && CHARS[p.char].start) || 'star', lv: 1 }]; p.passives = {}; p.cds = {}; p.orbitAng = 0; p.sawAng = 0; p.morbAng = 0;
+  p.weapons = [{ id: (CHARS[p.char] && CHARS[p.char].start) || 'star', lv: 1 }]; p.passives = {}; p.inf = {}; p.cds = {}; p.orbitAng = 0; p.sawAng = 0; p.morbAng = 0;
   p.alive = true; p.reviveT = 0; p.bellUsed = 0; p.ai = false; p.gemCnt = 0;
   p.input.x = 0; p.input.y = 0; p.snapMaxHp = 0; p._snapInit = false; p.tx = 0; p.ty = 0;
   p.hp = maxHp(p);
@@ -1490,16 +1519,18 @@ function luckyCharId(){
   return ids[hashStr('majoneko-lucky-' + dailyKeyStr()) % ids.length];
 }
 function isLuckyChar(charId){ return !!charId && charId === luckyCharId(); }
-function maxHp(p){ p = p || P; if (p.snapMaxHp) return p.snapMaxHp; const base = 100 + (CHARS[p.char] ? CHARS[p.char].hp : 0) + 20 * (p.passives.heart || 0) + p.mHp; const lb = lbOf(p.char); return lb ? Math.floor(base * (1 + .03 * lb)) : base; }
-function moveSpeed(p){ p = p || P; return 168 * (1 + .07 * (p.passives.boots || 0)) * (CHARS[p.char] ? CHARS[p.char].spd : 1) * p.mSpd; }
-function magnetR(p){ p = p || P; return (72 + 30 * (p.passives.magnet || 0)) * (CHARS[p.char] ? CHARS[p.char].mag : 1) * p.mMag * (p.buffMagT > 0 ? 1.6 : 1); }
-function dmgMul(p){ p = p || P; let m = (1 + .10 * (p.passives.power || 0)) * (CHARS[p.char] ? CHARS[p.char].atk : 1) * p.mAtk * (p.mInh || 1) * (1 + .04 * lbOf(p.char)); if (p.buffAtkT > 0) m *= 1.2; if (CHARS[p.char] && CHARS[p.char].berserk && p.hp > 0 && p.hp < maxHp(p) * .3) m *= 1.5; return m; }
+/* 第11弾: 無限強化の所持数（ラン中のみ・p.inf に累積） */
+function infOf(p, id){ return (p && p.inf && p.inf[id]) || 0; }
+function maxHp(p){ p = p || P; if (p.snapMaxHp) return p.snapMaxHp; const base = 100 + (CHARS[p.char] ? CHARS[p.char].hp : 0) + 20 * (p.passives.heart || 0) + p.mHp + 10 * infOf(p, 'hp'); const lb = lbOf(p.char); return lb ? Math.floor(base * (1 + .03 * lb)) : base; }
+function moveSpeed(p){ p = p || P; return 168 * (1 + .07 * (p.passives.boots || 0)) * (1 + .02 * infOf(p, 'spd')) * (CHARS[p.char] ? CHARS[p.char].spd : 1) * p.mSpd; }
+function magnetR(p){ p = p || P; return (72 + 30 * (p.passives.magnet || 0)) * (CHARS[p.char] ? CHARS[p.char].mag : 1) * p.mMag * (p.buffMagT > 0 ? 1.6 : 1) * Math.pow(1.15, infOf(p, 'mag')); }
+function dmgMul(p){ p = p || P; let m = (1 + .10 * (p.passives.power || 0)) * (CHARS[p.char] ? CHARS[p.char].atk : 1) * p.mAtk * (p.mInh || 1) * (1 + .04 * lbOf(p.char)) * Math.pow(1.04, infOf(p, 'atk')); if (p.buffAtkT > 0) m *= 1.2; if (CHARS[p.char] && CHARS[p.char].berserk && p.hp > 0 && p.hp < maxHp(p) * .3) m *= 1.5; return m; }
 function projBonus(p){ p = p || P; return (p.passives.multi || 0) + (CHARS[p.char] ? CHARS[p.char].proj : 0); }
 function xpMul(p){ p = p || P; return (1 + .15 * (p.passives.xpp || 0)) * (CHARS[p.char] ? CHARS[p.char].xp : 1) * p.mXp; }
 function critRate(p){ p = p || P; return .05 + .04 * (p.passives.crit || 0) + (CHARS[p.char] ? (CHARS[p.char].crit || 0) : 0) + (p.mCrit || 0); }
 function critDmgMul(p){ p = p || P; return 1.6 + .25 * (p.passives.critd || 0) + (CHARS[p.char] ? (CHARS[p.char].critd || 0) : 0); }
-function cdMul(p){ p = p || P; return Math.pow(.94, p.passives.haste || 0) * (CHARS[p.char] ? (CHARS[p.char].cdr || 1) : 1); }
-function gemValMul(p){ p = p || P; return (1 + .2 * (p.passives.gemval || 0)) * (CHARS[p.char] ? (CHARS[p.char].gemv || 1) : 1); }
+function cdMul(p){ p = p || P; return Math.pow(.94, p.passives.haste || 0) * Math.pow(.98, infOf(p, 'cd')) * (CHARS[p.char] ? (CHARS[p.char].cdr || 1) : 1); }
+function gemValMul(p){ p = p || P; return (1 + .2 * (p.passives.gemval || 0)) * Math.pow(1.10, infOf(p, 'gemv')) * (CHARS[p.char] ? (CHARS[p.char].gemv || 1) : 1); }
 function xpForLevel(l){ return Math.max(2, Math.floor((5 + (l - 1) * 4 + Math.pow(l - 1, 1.8) * 1.3) * .6)); }
 
 function resetGame(){
@@ -1513,6 +1544,7 @@ function resetGame(){
   if (NET.role !== 'guest') S.difficulty = curDiff();
   S.nextEventAt = rand(90, 150); S.fountains = []; S.gemRushT = 0;
   S.merchantGuestBought = false; S.merchantUntil = 0;
+  S.finaleSpawned = 0; S.nextFinaleAt = 750;
   closeMerchant();
   if (!coopMode || NET.role !== 'guest') S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass';
   resetPlayer(P, meta.char, meta.upgrades);
@@ -1600,7 +1632,29 @@ function spawnMiniBoss(){
   showBanner(`⚠ 中ボス「${stageDef().miniName}」あらわる！`);
   sfx.boss();
 }
+/* ── 第11弾: フィナーレの金のエリート ──
+   通常エリートより少し硬く（scaleMul 1.5 × エリート補正 × 追加1.5倍）、
+   倒すと宝箱確定（場の上限時はジェム120に変換）＋大量ジェム */
+function spawnFinaleElites(n){
+  const foc = alivePlayers()[0] || P;
+  let spawned = 0;
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), d = rand(400, 520);
+    const e = spawnEnemy(pickType(), foc.x + Math.cos(a) * d, foc.y + Math.sin(a) * d, 1.5, true);
+    if (e) { e.gold = true; e.hp *= 1.5; e.maxHp = e.hp; spawned++; }
+  }
+  if (spawned > 0) { showBanner('🌟 フィナーレ！ 金のエリートがあらわれた！'); sfx.boss(); }
+  return spawned;
+}
 function updateSpawning(dt){
+  /* 第11弾: フィナーレ。クリア制は残り90秒（510秒）から30秒ごとに1体ずつ計3体、
+     エンドレスは10分以降150〜210秒ごとに2体。updateSpawning はホスト/ソロ側でのみ呼ばれる */
+  if (S.endless) {
+    if (S.time >= S.nextFinaleAt) { S.nextFinaleAt = S.time + rand(150, 210); spawnFinaleElites(2); }
+  } else if (!S.cleared && S.time >= 510) {
+    const due = Math.min(3, Math.floor((S.time - 510) / 30) + 1);
+    while (S.finaleSpawned < due) { if (spawnFinaleElites(1) > 0) S.finaleSpawned++; else break; }
+  }
   if (S.time >= S.nextBossAt && !S.bossRef) { spawnBoss(); S.nextBossAt += 180; }
   if (S.bossRef && S.bossRef.dead) S.bossRef = null;
   if (S.time >= S.nextMiniAt) { spawnMiniBoss(); S.nextMiniAt += 170; }
@@ -1855,8 +1909,13 @@ function killEnemy(e){
     return;
   }
   if (e.elite) { // エリート報酬：大量ジェム＋まれに宝箱（8%＋幸運で+5%/Lv）
-    dropGems(e.x, e.y, e.xp + 25);
-    if (Math.random() < ELITE_CHEST_RATE + LUCK_CHEST_BONUS * luckLv() && dropChest(e.x, e.y, 30)) showBanner('🎁 エリートが宝箱を落とした！');
+    if (e.gold) { // 第11弾: 金のエリートは宝箱確定（場の上限時はジェム120に変換）＋大量ジェム
+      dropGems(e.x, e.y, e.xp + 80);
+      if (dropChest(e.x, e.y, 120)) showBanner('🎁 金のエリートが宝箱を落とした！');
+    } else {
+      dropGems(e.x, e.y, e.xp + 25);
+      if (Math.random() < ELITE_CHEST_RATE + LUCK_CHEST_BONUS * luckLv() && dropChest(e.x, e.y, 30)) showBanner('🎁 エリートが宝箱を落とした！');
+    }
   }
   if (e.type === 'slime') {
     for (let i = 0; i < 2; i++) {
@@ -2801,6 +2860,22 @@ function gainXp(v){
 }
 
 /* ── レベルアップ / 宝箱 ── */
+/* ── 第11弾: 終盤の枯渇対策 ──
+   武器・パッシブの通常プールが尽きた（尽きかけた）ら、代わりに「無限強化」と
+   「星屑の大袋」が候補に出る。無限強化はラン中ずっと乗算で累積するが、
+   終盤の敵HPスケーリング（10分で約14.5倍＋エンドレス加速）には追いつかない伸びに抑える:
+   枯渇後に20レベル分を攻撃/CDに振っても実質DPSは約1.8倍どまり */
+const INF_UPGRADES = {
+  atk:  { icon: '⚔️', name: '星屑のちから',   desc: '与ダメージ +4%（乗算で累積）' },
+  cd:   { icon: '⏱️', name: '星屑のとき',     desc: '全武器のクールダウン -2%（乗算で累積）' },
+  spd:  { icon: '👟', name: '星屑のかぜ',     desc: '移動速度 +2%（累積）' },
+  hp:   { icon: '💗', name: '星屑のいのち',   desc: '最大HP +10 ＆ HP全回復' },
+  gemv: { icon: '💎', name: '星屑のうん',     desc: 'ジェムの価値 +10%（乗算で累積）' },
+  mag:  { icon: '🧲', name: '星屑のじしゃく', desc: '磁石の範囲 +15%（乗算で累積）' }
+};
+const INF_IDS = Object.keys(INF_UPGRADES);
+/* 星屑の大袋: 進行度（経過時間とレベル）に応じて増えるジェム量。精算でかけらに換算される */
+function starBagAmount(){ return 40 + Math.floor(S.time / 10) + P.level * 2; }
 function buildPool(p){
   const pool = [];
   for (const id in WEAPONS) {
@@ -2831,7 +2906,14 @@ function rollPicks(p){
   const evoIdx = pool.findIndex(x => x.kind === 'evo');
   if (evoIdx >= 0) picks.push(pool.splice(evoIdx, 1)[0]);
   while (picks.length < 3 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  while (picks.length < 3) picks.push({ kind: 'bonus', id: picks.length % 2 ? 'heal' : 'gems' });
+  if (picks.length < 3) {
+    /* 第11弾: 通常プールが尽きた分は「無限強化」と「星屑の大袋（最大1枠）」で埋める。
+       どちらも何度でも選べるので、終盤でもレベルアップが無意味にならない */
+    const cand = INF_IDS.map(id => ({ kind: 'inf', id }));
+    cand.push({ kind: 'bag', id: 'bag' });
+    while (picks.length < 3 && cand.length) picks.push(cand.splice(Math.floor(Math.random() * cand.length), 1)[0]);
+    while (picks.length < 3) picks.push({ kind: 'inf', id: INF_IDS[picks.length % INF_IDS.length] });
+  }
   return picks;
 }
 /* カードUIを表示し、選択されたら cb(pk) を呼ぶ。player は表示用（Lv表示）のビルド参照 */
@@ -2851,6 +2933,13 @@ function showPickUI(player, picks, cb){
     } else if (pk.kind === 'passive') {
       const ps = PASSIVES[pk.id], cur = player.passives[pk.id] || 0;
       b.innerHTML = `<div class="cIcon">${ps.icon}</div><div class="cName">${ps.name}</div><div class="cLv">Lv ${cur} → ${cur + 1}</div><div class="cDesc">${ps.desc}</div>`;
+    } else if (pk.kind === 'inf') {
+      const iu = INF_UPGRADES[pk.id], cur = infOf(player, pk.id);
+      b.classList.add('infCard');
+      b.innerHTML = `<div class="cIcon">${iu.icon}</div><div class="cName">${iu.name}</div><div class="cLv">♾️ 無限強化 ${cur}回目 → ${cur + 1}回目</div><div class="cDesc">${iu.desc}<br>武器・パッシブが尽きても積み上がる、このラン限りの強化</div>`;
+    } else if (pk.kind === 'bag') {
+      b.classList.add('bagCard');
+      b.innerHTML = `<div class="cIcon">🎁</div><div class="cName">星屑の大袋</div><div class="cLv">ボーナス</div><div class="cDesc">ほしのかけら換算ジェムを たっぷりゲット！<br>（進行度が高いほど多い）</div>`;
     } else if (pk.id === 'heal') {
       b.innerHTML = `<div class="cIcon">🍰</div><div class="cName">まほうのケーキ</div><div class="cLv">回復</div><div class="cDesc">HPを40回復する</div>`;
     } else {
@@ -2880,6 +2969,16 @@ function applyPick(p, pk){
   } else if (pk.kind === 'passive') {
     p.passives[pk.id] = Math.min(PASSIVES[pk.id].max, (p.passives[pk.id] || 0) + 1);
     if (pk.id === 'heart') p.hp = Math.min(maxHp(p), p.hp + 20);
+  } else if (pk.kind === 'inf') {
+    /* 第11弾: 無限強化は即時適用され、このラン中ずっと累積する */
+    if (!p.inf) p.inf = {};
+    p.inf[pk.id] = (p.inf[pk.id] || 0) + 1;
+    if (pk.id === 'hp') p.hp = maxHp(p); // 最大HP+10 ＆ 全回復
+  } else if (pk.kind === 'bag') {
+    /* 第11弾: 星屑の大袋。集めたジェムとして加算され、ラン精算でかけらに換算される */
+    const n = starBagAmount();
+    S.gemsCollected += n;
+    addText(p.x, p.y - 34, `🎁 ジェム +${n}`, '#ffd94d', 17);
   } else if (pk.id === 'heal') {
     p.hp = Math.min(maxHp(p), p.hp + 40);
   } else {
@@ -3159,6 +3258,7 @@ function awardShards(clearedRun){
   meta.shards += gain;
   meta.stats.shardsEarned += gain;
   saveMeta();
+  updateShardUI(); // 第11弾: ラン精算の直後に残高表示を同期
   return gain;
 }
 /* ラン終了時の実績統計（クリア後のエンドレス→死亡でも二重に数えない） */
@@ -3633,11 +3733,15 @@ function drawEnemy(e, now){
   ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0, e.r * .82, e.r * .85, e.r * .32, 0, 0, TAU); ctx.fill();
   if (e.elite) {
     ctx.save();
-    ctx.strokeStyle = '#ffd94d'; ctx.lineWidth = 2.6;
+    if (e.gold) { // 第11弾: 金のエリートは金色のグロー＋太いリング＋⭐で区別する
+      ctx.fillStyle = 'rgba(255,215,80,.30)';
+      ctx.beginPath(); ctx.arc(0, 0, e.r * 1.3, 0, TAU); ctx.fill();
+    }
+    ctx.strokeStyle = e.gold ? '#ffe94d' : '#ffd94d'; ctx.lineWidth = e.gold ? 3.6 : 2.6;
     ctx.globalAlpha = .7 + .3 * Math.sin(now / 180 + e.wob);
     ctx.beginPath(); ctx.arc(0, 0, e.r * 1.2, 0, TAU); ctx.stroke();
     ctx.globalAlpha = 1; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('👑', 0, -e.r - 5);
+    ctx.fillText(e.gold ? '⭐' : '👑', 0, -e.r - 5);
     ctx.restore();
   }
   const w = Math.sin(now / 160 + e.wob * 7);
@@ -5154,11 +5258,19 @@ function renderChars(){
     row.appendChild(b);
   }
 }
+/* ── 第11弾: かけら残高表示の集約 ──
+   上部バー（#topShards）と各タブの残高表示を必ず同じ値に同期する。
+   かけらが増減する経路はすべてこの関数（またはこれを呼ぶ render 系）を通すこと */
+function updateShardUI(){
+  const s = meta.shards;
+  const ts = $('topShards'); if (ts) ts.textContent = `⭐ ${s.toLocaleString()}`;
+  const fmt = `⭐ ほしのかけら： ${s.toLocaleString()}`;
+  for (const id of ['shopShardBox', 'gachaShardBox', 'achShardBox']) { const el = $(id); if (el) el.textContent = fmt; }
+}
 function renderTitleMeta(){
   if (S.state === 'title') { P.char = meta.char; S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass'; }
   renderStages();
-  const ts = $('topShards');
-  if (ts) ts.textContent = `⭐ ${meta.shards.toLocaleString()}`;
+  updateShardUI();
   const tn = $('topTitleName');
   if (tn) tn.textContent = `👑 ${TITLES[meta.title] ? TITLES[meta.title].name : TITLES.rookie.name}` + ((meta.inherit | 0) > 0 ? ` ・ 🌟継承Lv${meta.inherit}` : '');
   const badge = $('achBadge');
@@ -5170,7 +5282,7 @@ function renderTitleMeta(){
   renderChars();
 }
 function renderShop(){
-  $('shopShardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  updateShardUI();
   const list = $('shopList'); list.innerHTML = '';
   for (const id in UPGRADES) {
     const up = UPGRADES[id], lv = meta.upgrades[id] || 0, maxed = lv >= up.max;
@@ -5250,11 +5362,12 @@ function gachaDraw(count){
   if (count >= 10 && !rarities.some(r => r !== 'R')) rarities[rarities.length - 1] = 'SR'; // 10連はSR以上1体確定
   const results = rarities.map(r => resolveGachaChar(r));
   saveMeta();
+  updateShardUI(); // 第11弾: 抽選・返還の直後に上部バーまで即時同期
   return results;
 }
 let gachaLastResults = [];
 function renderGacha(){
-  $('gachaShardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  updateShardUI();
   const pl = gachaPityLeft();
   $('gachaPity').textContent = `🎯 SSR天井まで あと ${pl.ssr} 連 ／ UR天井まで あと ${pl.ur} 連（あと○連＝その連数以内に必ず確定が出る）`;
   $('gacha1Btn').disabled = meta.shards < GACHA_COST1;
@@ -5322,7 +5435,7 @@ function fmtProgVal(a, v){
 }
 function renderAch(){
   ensureDaily();
-  $('achShardBox').textContent = `⭐ ほしのかけら： ${meta.shards}`;
+  updateShardUI();
   const cab = $('claimAllBtn');
   if (cab) {
     const c = claimableRewards();
@@ -5615,7 +5728,7 @@ function buildSnapshot(){
       alive: p.alive, reviveT: Math.max(0, Math.ceil(p.reviveT)), hurtT: p.hurtT, orbitAng: p.orbitAng,
       weapons: p.weapons.map(w => ({ id: w.id, lv: w.lv })), passives: p.passives
     })),
-    enemies: enemies.filter(e => !e.dead).map(e => ({ id: e.eid, type: e.type, x: Math.round(e.x), y: Math.round(e.y), hp: Math.ceil(e.hp), maxHp: Math.ceil(e.maxHp), r: e.r, flash: e.flash, slow: e.slowT > 0, wob: e.wob, fuse: e.fuse, elite: !!e.elite })),
+    enemies: enemies.filter(e => !e.dead).map(e => ({ id: e.eid, type: e.type, x: Math.round(e.x), y: Math.round(e.y), hp: Math.ceil(e.hp), maxHp: Math.ceil(e.maxHp), r: e.r, flash: e.flash, slow: e.slowT > 0, wob: e.wob, fuse: e.fuse, elite: !!e.elite, gold: !!e.gold })),
     projs: projs.map(p => ({ id: p.pid, type: p.type, x: Math.round(p.x), y: Math.round(p.y), vx: Math.round(p.vx), vy: Math.round(p.vy), spin: p.spin || 0, r: p.r || 0, armT: p.armT || 0, big: p.big || 0 })),
     gems: gems.map(g => ({ x: Math.round(g.x), y: Math.round(g.y), val: g.val })),
     pickups: pickups.map(pk => ({ x: Math.round(pk.x), y: Math.round(pk.y) }))
@@ -5746,7 +5859,7 @@ function applySnapshot(snap){
     let e = renderEnemyMap.get(se.id);
     if (!e) { e = { eid: se.id, dead: false, vx: 0, vy: 0, hitCd: 0, orbitCd: 0, slowT: 0 }; renderEnemyMap.set(se.id, e); e.x = se.x; e.y = se.y; e.tx = se.x; e.ty = se.y; }
     e.tx = se.x; e.ty = se.y; e.type = se.type; e.hp = se.hp; e.maxHp = se.maxHp; e.r = se.r;
-    e.flash = se.flash; e.slow = se.slow; e.wob = se.wob; e.fuse = se.fuse; e.elite = !!se.elite;
+    e.flash = se.flash; e.slow = se.slow; e.wob = se.wob; e.fuse = se.fuse; e.elite = !!se.elite; e.gold = !!se.gold;
   }
   for (const id of [...renderEnemyMap.keys()]) if (!seen.has(id)) renderEnemyMap.delete(id);
   enemies = [...renderEnemyMap.values()];
@@ -5866,7 +5979,10 @@ window.__surv = {
   awardShards, saveBest, gameOver,
   /* 第10弾: 覚醒イラスト・ラッキーキャラ・星屑ラッシュ */
   isAwakened, luckyCharId, isLuckyChar, drawCharIcon, guestOnEvent,
-  get gemRushT(){ return S.gemRushT; }, setGemRushT: s => { S.gemRushT = s; }
+  get gemRushT(){ return S.gemRushT; }, setGemRushT: s => { S.gemRushT = s; },
+  /* 第11弾: 残高集約・無限強化・星屑の大袋・フィナーレ */
+  updateShardUI, INF_UPGRADES, INF_IDS, infOf, starBagAmount, spawnFinaleElites,
+  get finaleSpawned(){ return S.finaleSpawned; }, get nextFinaleAt(){ return S.nextFinaleAt; }
 };
 
 
