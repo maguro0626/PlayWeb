@@ -7,6 +7,9 @@
    - フレンド: localStorage 'playweb_friends' [{code, name, addedAt}]
    - チャット履歴: localStorage 'playweb_chats' {code: [{f,x,ts}]}（最大200件/人）
    - 未読: localStorage 'playweb_unread' {code: n}
+   - ボタン位置: localStorage 'playweb_fabpos' {edge:'left'|'right', bottom}
+       フローティングボタンはドラッグで左右の画面端へ移動でき、位置を全ページで共有。
+       操作がなければ数秒で控えめ表示（半透明・縮小）になるが、バッジは見えたまま。
    メッセージ種別: hello / ping / pong / chat / invite / bye
    各ページは読み込み前に次を設定する:
      window.PW_GAME = 'survivors' など（ポータルは 'portal'）
@@ -23,7 +26,8 @@
   var CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
   var PEER_PREFIX = 'playweb-u-';
   var LS_PROFILE = 'playweb_profile', LS_FRIENDS = 'playweb_friends',
-      LS_CHATS = 'playweb_chats', LS_UNREAD = 'playweb_unread';
+      LS_CHATS = 'playweb_chats', LS_UNREAD = 'playweb_unread',
+      LS_FABPOS = 'playweb_fabpos';
   var GAMES = {
     portal:     { title: 'ポータル',               file: 'index.html' },
     tetris:     { title: 'テトリス',               file: 'tetris.html' },
@@ -319,7 +323,12 @@
   var CSS = [
     '.pwf-root{font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;color:#eef0ff;font-size:14px;line-height:1.5}',
     '.pwf-root *{box-sizing:border-box}',
-    '.pwf-fab{position:fixed;right:14px;bottom:14px;z-index:100002;width:54px;height:54px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:linear-gradient(135deg,#0891b2,#7c3aed);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:0}',
+    '.pwf-fab{position:fixed;right:14px;bottom:14px;z-index:100002;width:54px;height:54px;border-radius:50%;border:none;background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;touch-action:none;-webkit-tap-highlight-color:transparent;transition:transform .35s ease}',
+    '.pwf-fab-face{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:linear-gradient(135deg,#0891b2,#7c3aed);box-shadow:0 10px 26px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:24px;transition:opacity .35s ease;pointer-events:none}',
+    '.pwf-fab.dim{transform:scale(.82)}',
+    '.pwf-fab.dim .pwf-fab-face{opacity:.35}',
+    '.pwf-fab.drag{transition:none;transform:scale(1.07)}',
+    '.pwf-fab.drag .pwf-fab-face{opacity:1}',
     '.pwf-fab-badge{position:absolute;top:-5px;right:-5px;min-width:21px;height:21px;border-radius:999px;background:#ef4444;color:#fff;font-size:11.5px;font-weight:900;padding:0 5px;display:flex;align-items:center;justify-content:center;border:2px solid #0b1026}',
     '.pwf-overlay{position:fixed;inset:0;z-index:100001;background:rgba(3,4,12,.6);display:none;justify-content:flex-end}',
     '.pwf-overlay.show{display:flex}',
@@ -465,10 +474,14 @@
     } else {
       els.fab = document.createElement('button');
       els.fab.className = 'pwf-fab';
-      els.fab.innerHTML = '👥<span class="pwf-fab-badge" id="pwfFabBadge" style="display:none"></span>';
+      els.fab.innerHTML = '<span class="pwf-fab-face">👥</span><span class="pwf-fab-badge" id="pwfFabBadge" style="display:none"></span>';
       els.fab.setAttribute('aria-label', 'フレンド');
       document.body.appendChild(els.fab);
-      els.fab.onclick = function () { openPanel(); };
+      els.fab.onclick = function () {
+        if (fabSuppressClick) { fabSuppressClick = false; return; } /* ドラッグ直後の click は無視 */
+        openPanel();
+      };
+      initFab();
       els.overlay = document.createElement('div');
       els.overlay.className = 'pwf-overlay pwf-root';
       var p = document.createElement('div');
@@ -485,12 +498,108 @@
   function $(id) { return document.getElementById(id); }
   function openPanel() {
     state.panelOpen = true;
+    fabWake();
     if (els.overlay) els.overlay.classList.add('show');
     renderAll();
   }
   function closePanel() {
     state.panelOpen = false;
     if (els.overlay) els.overlay.classList.remove('show');
+    fabWake();
+  }
+
+  /* ---------- フレンドボタン（FAB）: 控えめ表示とドラッグ移動 ---------- */
+  var FAB_DIM_MS = 3500;    /* 操作がなければこの時間で控えめ表示にする */
+  var FAB_DRAG_THRESH = 8;  /* px: これ未満の移動はタップ扱い */
+  var fabIdleTimer = null;
+  var fabSuppressClick = false;
+  var fabLastBadge = 0;
+
+  function fabMargin() { return window.innerWidth <= 480 ? 12 : 14; }
+  function loadFabPos() {
+    var p = lsGet(LS_FABPOS, null);
+    if (p && (p.edge === 'left' || p.edge === 'right') &&
+        typeof p.bottom === 'number' && isFinite(p.bottom)) return p;
+    return null;
+  }
+  function applyFabPos() {
+    if (!els.fab) return;
+    var fab = els.fab, p = loadFabPos();
+    if (!p) { /* 保存位置なし: CSS のデフォルト（右下）に戻す */
+      fab.style.left = ''; fab.style.right = ''; fab.style.top = ''; fab.style.bottom = '';
+      return;
+    }
+    var maxBottom = Math.max(8, window.innerHeight - fab.offsetHeight - 8);
+    var bottom = Math.min(Math.max(8, p.bottom), maxBottom);
+    fab.style.top = '';
+    fab.style.bottom = bottom + 'px';
+    if (p.edge === 'left') { fab.style.left = fabMargin() + 'px'; fab.style.right = 'auto'; }
+    else { fab.style.right = fabMargin() + 'px'; fab.style.left = 'auto'; }
+  }
+  function saveFabPos(edge, bottom) {
+    lsSet(LS_FABPOS, { edge: edge, bottom: Math.round(bottom) });
+  }
+  /* ボタンを通常表示に戻し、控えめ表示までのタイマーを仕切り直す */
+  function fabWake() {
+    if (!els.fab) return;
+    els.fab.classList.remove('dim');
+    if (fabIdleTimer) clearTimeout(fabIdleTimer);
+    fabIdleTimer = setTimeout(function () {
+      fabIdleTimer = null;
+      if (!els.fab) return;
+      if (state.panelOpen || els.fab.classList.contains('drag')) { fabWake(); return; }
+      els.fab.classList.add('dim');
+    }, FAB_DIM_MS);
+  }
+  function initFab() {
+    var fab = els.fab;
+    if (!fab) return;
+    applyFabPos();
+    fabWake();
+    window.addEventListener('resize', applyFabPos);
+    fab.addEventListener('pointerenter', fabWake);
+    fab.addEventListener('pointerdown', function (e) {
+      fabWake();
+      var startX = e.clientX, startY = e.clientY;
+      var rect = fab.getBoundingClientRect();
+      var offX = startX - rect.left, offY = startY - rect.top;
+      var dragging = false;
+      try { fab.setPointerCapture(e.pointerId); } catch (err) {}
+      function onMove(ev) {
+        if (!dragging) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < FAB_DRAG_THRESH) return;
+          dragging = true;
+          fab.classList.add('drag');
+          fab.style.right = 'auto'; fab.style.bottom = 'auto'; /* 自由配置（left/top）へ */
+        }
+        if (ev.cancelable) ev.preventDefault(); /* ドラッグ中の画面スクロールを止める */
+        var w = fab.offsetWidth, h = fab.offsetHeight;
+        var nx = Math.min(Math.max(0, ev.clientX - offX), Math.max(0, window.innerWidth - w));
+        var ny = Math.min(Math.max(0, ev.clientY - offY), Math.max(0, window.innerHeight - h));
+        fab.style.left = nx + 'px';
+        fab.style.top = ny + 'px';
+      }
+      function onUp() {
+        fab.removeEventListener('pointermove', onMove);
+        fab.removeEventListener('pointerup', onUp);
+        fab.removeEventListener('pointercancel', onUp);
+        if (!dragging) return; /* タップ: 通常の click（パネルを開く）に任せる */
+        dragging = false;
+        fab.classList.remove('drag');
+        fabSuppressClick = true;
+        setTimeout(function () { fabSuppressClick = false; }, 350);
+        /* 最寄りの画面端へ寄せて保存し、全ページで共有する */
+        var r = fab.getBoundingClientRect();
+        var edge = (r.left + r.width / 2) < window.innerWidth / 2 ? 'left' : 'right';
+        saveFabPos(edge, window.innerHeight - r.bottom);
+        fab.style.left = ''; fab.style.top = '';
+        applyFabPos();
+        fabWake();
+      }
+      fab.addEventListener('pointermove', onMove);
+      fab.addEventListener('pointerup', onUp);
+      fab.addEventListener('pointercancel', onUp);
+    });
   }
 
   function bindPanelEvents() {
@@ -600,6 +709,10 @@
     var n = totalUnread() + state.invites.length;
     b.style.display = n > 0 ? 'flex' : 'none';
     b.textContent = n > 99 ? '99+' : String(n);
+    /* 新着（未読・招待）が増えたらボタンを通常表示に戻して気づかせる。
+       控えめ表示中でもバッジ自体は薄くならないので見落としにくい。 */
+    if (n > fabLastBadge) fabWake();
+    fabLastBadge = n;
   }
   function renderInvites() {
     var box = $('pwfInvites');
