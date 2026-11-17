@@ -1645,6 +1645,8 @@ const S = {
   state: 'title', time: 0, kills: 0, cleared: false, endless: false,
   spawnT: 0, bossIdx: 0, nextBossAt: 180, bossRef: null, shake: 0, hurtFlash: 0, timeScale: 1,
   gemsCollected: 0, shardsPaid: 0, clearBonusPaid: false, lastShardGain: 0, statsCounted: false, timeCountedAt: 0,
+  /* 第15弾: 精算はクリア時点で確定（shardFrozen が立ったら以後のエンドレス分は変換しない）。runShardGain はこのランの精算合計（表示用） */
+  shardFrozen: false, runShardGain: 0,
   eidSeq: 0, pidSeq: 0, snapT: 0, chestPicker: null,
   stage: 'grass', nextMiniAt: 95, miniIdx: 0, nextSurgeAt: 100,
   /* 第4弾: 難易度とランダムイベント */
@@ -1734,6 +1736,7 @@ function resetGame(){
   S.time = 0; S.kills = 0; S.cleared = false; S.endless = false;
   S.spawnT = 0; S.bossIdx = 0; S.nextBossAt = 180; S.bossRef = null; S.shake = 0; S.hurtFlash = 0;
   S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.lastShardGain = 0; S.statsCounted = false; S.timeCountedAt = 0;
+  S.shardFrozen = false; S.runShardGain = 0;
   S.eidSeq = 0; S.pidSeq = 0; S.snapT = 0; S.chestPicker = null; lvPhase = null;
   S.nextMiniAt = 95; S.miniIdx = 0; S.nextSurgeAt = 100;
   /* 第4弾: 難易度はホスト/ソロが選択に従い、ランダムイベントも初期化 */
@@ -3494,15 +3497,23 @@ function showBest(){
   $('bestBox').innerHTML = txt;
 }
 /* ラン終了時のかけら精算：集めたジェム総量（未精算分）＋クリアボーナス50
-   倍率: ステージ倍率 × 難易度倍率 × 星の継承ボーナス */
+   倍率: ステージ倍率 × 難易度倍率 × 星の継承ボーナス
+   第15弾: 精算はクリア達成の瞬間（10分生存）に確定する。クリア精算が済んだランでは
+   S.shardFrozen が立ち、エンドレス継続後に稼いだジェム/スコアは ほしのかけら に変換しない。
+   クリア前に死亡した場合は従来どおり、その時点までの分を精算する */
 function awardShards(clearedRun){
-  let gain = Math.max(0, Math.floor(S.gemsCollected) - S.shardsPaid);
-  if (clearedRun && !S.clearBonusPaid) { gain += 50; S.clearBonusPaid = true; }
-  let shardMulAll = stageDef().shard * diffDef().shard * inheritShardMul();
-  if (isLuckyChar(P.char)) shardMulAll *= 1.15; // 第10弾: 今日のラッキーキャラで遊ぶと かけら+15%
-  gain = Math.floor(gain * shardMulAll);
+  let gain = 0;
+  if (!S.shardFrozen) {
+    gain = Math.max(0, Math.floor(S.gemsCollected) - S.shardsPaid);
+    if (clearedRun && !S.clearBonusPaid) { gain += 50; S.clearBonusPaid = true; }
+    let shardMulAll = stageDef().shard * diffDef().shard * inheritShardMul();
+    if (isLuckyChar(P.char)) shardMulAll *= 1.15; // 第10弾: 今日のラッキーキャラで遊ぶと かけら+15%
+    gain = Math.floor(gain * shardMulAll);
+    if (clearedRun) S.shardFrozen = true; // クリア時点で精算を確定。以後のエンドレス分は対象外
+  }
   S.shardsPaid = Math.floor(S.gemsCollected);
   S.lastShardGain = gain;
+  S.runShardGain = (S.runShardGain || 0) + gain; // このランの精算合計（リザルト表示用）
   meta.shards += gain;
   meta.stats.shardsEarned += gain;
   saveMeta();
@@ -3564,11 +3575,17 @@ function showEndScreen(clearedRun, isNew, gain){
   } else {
     $('guestEndBtns').style.display = 'none';
   }
+  /* 第15弾: かけら精算はクリア時点で確定済み。エンドレス分の扱いを正直に表示する */
+  if (clearedRun) $('endMsg').innerHTML += '<br>🌌 エンドレスで続けても ほしのかけら は増えません（エンドレス中のスコアは対象外）';
+  else if (S.endless) $('endMsg').innerHTML += '<br>🌌 エンドレス中のスコアは ほしのかけら 対象外です（クリア時点で精算済み）';
   $('endTime').textContent = fmtTime(S.time);
   $('endKills').textContent = S.kills;
   $('endLevel').textContent = P.level;
   $('endBest').textContent = isNew ? '🏆 ベスト記録更新！' : '';
-  $('endShards').textContent = `⭐ ほしのかけら +${gain}（所持 ${meta.shards}）`;
+  const totalGain = (typeof S.runShardGain === 'number') ? S.runShardGain : gain;
+  if (S.endless) $('endShards').textContent = `⭐ ほしのかけら +${totalGain}（クリア時点までの分・所持 ${meta.shards}）`;
+  else if (clearedRun) $('endShards').textContent = `⭐ ほしのかけら +${totalGain}（クリア時点の精算・所持 ${meta.shards}）`;
+  else $('endShards').textContent = `⭐ ほしのかけら +${totalGain}（所持 ${meta.shards}）`;
   $('endScr').classList.add('show');
 }
 $('startBtn').onclick = startGame;
@@ -6200,7 +6217,7 @@ function guestOnData(msg){
     P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
     enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = []; eshots = [];
     S.time = 0; S.kills = 0; S.cleared = false; S.endless = false; S.timeCountedAt = 0;
-    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0; applySnapshot._lv = undefined; applySnapshot._boss = false;
+    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.shardFrozen = false; S.runShardGain = 0; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0; applySnapshot._lv = undefined; applySnapshot._boss = false;
     S.state = 'play';
     $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
     $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
