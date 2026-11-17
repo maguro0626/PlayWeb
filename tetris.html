@@ -113,7 +113,7 @@
       <div class="netcol">
         <button class="bigbtn vsbtn" id="hostBtn" style="font-size:15px;padding:11px 20px">部屋を作る</button>
         <div id="onlineCodeWrap" style="display:none">
-          <p style="text-align:center">ルームコード（相手に伝えてください）</p>
+          <p style="text-align:center">ルームコード</p>
           <div class="roomcode" id="roomCodeText">------</div>
           <button class="hbtn" id="copyCodeBtn" style="width:100%">コードをコピー</button>
         </div>
@@ -121,7 +121,7 @@
           <input id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
           <button class="hbtn" id="joinBtn" style="white-space:nowrap">参加する</button>
         </div>
-        <div id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+        <div id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。</div>
         <button class="hbtn" id="onlineLeaveBtn">← もどる</button>
       </div>
     </div>
@@ -673,6 +673,8 @@ function vsWin(note){
 }
 function showVsResult(win, note){
   stopHeartbeat();
+  /* フレンド戦績: オンライン対戦の結果表示タイミングで記録（vsTopOut/vsWin 経由で1試合1回だけ呼ばれる） */
+  if(window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(win ? 'win' : 'lose');
   $('vsResultTitle').textContent = win ? '🏆 WIN!' : 'LOSE…';
   $('vsResultText').innerHTML = (note ? note + '<br>' : '') +
     'SCORE　<b>' + score.toLocaleString() + '</b>　/　' + lines + ' ライン<br>' +
@@ -814,9 +816,10 @@ function hostRoom(){
   try{ peer = new Peer(PEER_PREFIX + roomCode, PEER_OPTS); }
   catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   peer.on('open', () => {
+    window.PW_ROOM_CODE = roomCode;
     $('roomCodeText').textContent = roomCode;
     $('onlineCodeWrap').style.display = '';
-    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    setOnlineStatus('フレンドの参加を待っています…（オンラインはフレンド招待制です）');
   });
   peer.on('connection', c => {
     setupConn(c);
@@ -879,7 +882,7 @@ function leaveBattleToSolo(){
   $('pauseOv').classList.add('hidden');
   $('oppBox').style.display = 'none';
   $('startOv').classList.remove('hidden');
-  setOnlineStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  setOnlineStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。');
 }
 
 /* ---- オンライン対戦 UI の配線 ---- */

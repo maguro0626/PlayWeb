@@ -10,12 +10,25 @@
    - ボタン位置: localStorage 'playweb_fabpos' {edge:'left'|'right', bottom}
        フローティングボタンはドラッグで左右の画面端へ移動でき、位置を全ページで共有。
        操作がなければ数秒で控えめ表示（半透明・縮小）になるが、バッジは見えたまま。
-   メッセージ種別: hello / ping / pong / chat / invite / bye
+   メッセージ種別: hello / ping / pong / chat / invite / bye / matchjoin / matchroster
    各ページは読み込み前に次を設定する:
      window.PW_GAME = 'survivors' など（ポータルは 'portal'）
      window.PW_JOIN_CFG = {openers, input, joinBtn|joinCall, hostBtn}（任意）
    テスト用に window.PW_FRIENDS_PEER_OPTS があれば Peer の接続先を差し替える。
    このファイルが読み込めない/PeerJS が無い環境でもゲーム単体は従来どおり動く。
+
+   【招待制オンライン（v2）】
+   オンライン対戦はフレンド招待制。ルームコードは内部的な接続IDとしてのみ使い、
+   ユーザーには見せない。ゲームページでは PW_JOIN_CFG からコード入力欄・参加/作成
+   ボタン・コード表示を自動で隠し、「フレンドを招待」「フレンド戦績」バーを差し込む。
+   ホスト開始は window.PW_AUTO_HOST()（未定義なら PW_JOIN_CFG から自動生成）、
+   参加は招待クリック→ ?join=<room>&from=<フレンドコード> の内部遷移のみ。
+   【戦績】
+   localStorage 'playweb_records' {フレンドコード: {ゲームID: {w,l,d,plays,clears,last}}}
+   対戦相手のコードは招待フローから引き継ぎ（ホスト=招待した相手、ゲスト=招待者）、
+   ゲストは参加後に matchjoin を送り、ホストは matchroster で参加者全員のコードを配る。
+   各ゲームは終了時に PWFriends.recordMatch('win'|'lose'|'draw'|'coop', {cleared}) を呼ぶ。
+   戦績はこの端末ローカルにのみ保存される（自分がそのフレンドと遊んだ記録だけ）。
    ============================================================ */
 (function () {
   'use strict';
@@ -33,7 +46,7 @@
     tetris:     { title: 'テトリス',               file: 'tetris.html' },
     suica:      { title: 'スイカゲーム',           file: 'suica.html' },
     crepe:      { title: 'クレープ工房',           file: 'crepe.html' },
-    survivors:  { title: 'まじょねこサバイバーズ', file: 'survivors.html' },
+    survivors:  { title: 'まじょねこサバイバーズ', file: 'survivors.html', coop: true },
     blockblast: { title: 'ブロックブラスト',       file: 'blockblast.html' },
     minesweeper:{ title: 'マインスイーパ',         file: 'minesweeper.html' },
     reversi:    { title: 'オセロ',                 file: 'reversi.html' },
@@ -44,10 +57,10 @@
     uno:        { title: 'UNO',                    file: 'uno.html' },
     blockzushi: { title: 'ブロック崩し',           file: 'blockzushi.html' },
     jump:       { title: 'ジャンプラン',           file: 'jump.html' },
-    caring:     { title: '育成ゲーム',             file: 'caring.html' },
+    caring:     { title: '育成ゲーム',             file: 'caring.html', coop: true },
     gamedev:    { title: 'ゲーム工房物語',         file: 'gamedev.html' },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
-    otome:      { title: '乙女ゲーム',             file: 'otome.html' }
+    otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true }
   };
   var GAME_ORDER = ['tetris','suica','crepe','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome'];
   var PEER_OPTS = { config: { iceServers: [
@@ -99,6 +112,102 @@
   if (!chats || typeof chats !== 'object') chats = {};
   var unread = lsGet(LS_UNREAD, {});
   if (!unread || typeof unread !== 'object') unread = {};
+
+  /* ---------------- 戦績（playweb_records） ---------------- */
+  var LS_RECORDS = 'playweb_records';
+  var records = lsGet(LS_RECORDS, {});
+  if (!records || typeof records !== 'object') records = {};
+  function saveRecords() { lsSet(LS_RECORDS, records); }
+  /* result: 'win' | 'lose' | 'draw' | 'coop'（coop は opts.cleared でクリア数も加算） */
+  function recordResult(gameId, friendCode, result, opts) {
+    if (!GAMES[gameId] || gameId === 'portal') return false;
+    if (!friendCode || friendCode === profile.code) return false;
+    if (result !== 'win' && result !== 'lose' && result !== 'draw' && result !== 'coop') return false;
+    opts = opts || {};
+    var byGame = records[friendCode] || (records[friendCode] = {});
+    var r = byGame[gameId] || (byGame[gameId] = { w: 0, l: 0, d: 0, plays: 0, clears: 0, last: 0 });
+    r.plays++;
+    if (result === 'win') r.w++;
+    else if (result === 'lose') r.l++;
+    else if (result === 'draw') r.d++;
+    else if (result === 'coop' && opts.cleared) r.clears++;
+    r.last = Date.now();
+    saveRecords();
+    return true;
+  }
+  function recordSummary(code) {
+    var rec = records[code];
+    if (!rec) return '';
+    var parts = [];
+    GAME_ORDER.forEach(function (g) {
+      var r = rec[g];
+      if (!r || !r.plays) return;
+      if (GAMES[g].coop) {
+        parts.push(GAMES[g].title + ' 協力' + r.plays + '回' + (r.clears ? '・クリア' + r.clears : ''));
+      } else {
+        var s = GAMES[g].title + ' ' + r.w + '勝' + r.l + '敗';
+        if (r.d) s += r.d + '分';
+        parts.push(s);
+      }
+    });
+    return parts.join(' ／ ');
+  }
+
+  /* ---------------- 対戦コンテキスト（相手のフレンドコード引き継ぎ） ----------------
+     sessionStorage 'pw_match' {game, role:'host'|'guest', room, peers:[code], joinSent}
+     ホスト: 招待した相手のコードを peers に保持する。
+     ゲスト: 招待者のコードを peers に持ち、参加後に matchjoin をホストへ送る。
+     ホストは matchjoin を受けて参加者を加え、matchroster で全員のコードを配る。 */
+  var SS_MATCH = 'pw_match';
+  var match = null;
+  try { match = JSON.parse(sessionStorage.getItem(SS_MATCH) || 'null'); } catch (e) { match = null; }
+  if (!match || typeof match !== 'object' || !Array.isArray(match.peers)) match = null;
+  function saveMatch() {
+    try {
+      if (match) sessionStorage.setItem(SS_MATCH, JSON.stringify(match));
+      else sessionStorage.removeItem(SS_MATCH);
+    } catch (e) {}
+  }
+  function setMatch(m) { match = m; saveMatch(); }
+  function matchPeers() {
+    if (!match) return [];
+    return match.peers.filter(function (c) { return c && c !== profile.code; });
+  }
+  function startHostMatch(peerCode) {
+    if (match && match.game === MY_GAME && match.role === 'host') {
+      if (match.peers.indexOf(peerCode) < 0) { match.peers.push(peerCode); saveMatch(); }
+    } else {
+      setMatch({ game: MY_GAME, role: 'host', room: null, peers: [peerCode], joinSent: false });
+    }
+  }
+  function addMatchPeer(code) {
+    if (!match || !code || code === profile.code) return;
+    if (match.peers.indexOf(code) < 0) { match.peers.push(code); saveMatch(); }
+  }
+  /* 同じ試合の終了処理が二重に呼ばれても1回だけ記録するためのガード */
+  var lastMatchRecord = { key: '', ts: 0 };
+  function recordMatch(outcome, opts) {
+    if (MY_GAME === 'portal') return false;
+    var peers = matchPeers();
+    if (!peers.length) return false;
+    var key = MY_GAME + '|' + peers.slice().sort().join(',') + '|' + outcome + '|' + (opts && opts.cleared ? 1 : 0);
+    var now = Date.now();
+    if (lastMatchRecord.key === key && now - lastMatchRecord.ts < 4000) return false;
+    lastMatchRecord = { key: key, ts: now };
+    var ok = false;
+    peers.forEach(function (code) { if (recordResult(MY_GAME, code, outcome, opts)) ok = true; });
+    if (ok && state.view === 'list') renderList();
+    return ok;
+  }
+  /* ゲスト: ホストへ「参加した」ことをフレンド経路で知らせる */
+  function trySendMatchJoin() {
+    if (!match || match.role !== 'guest' || match.joinSent) return;
+    var host = match.peers[0];
+    if (!host) return;
+    if (sendRaw(host, { t: 'matchjoin', game: match.game, room: match.room || '' })) {
+      match.joinSent = true; saveMatch();
+    }
+  }
 
   function saveProfile() { lsSet(LS_PROFILE, profile); }
   function saveFriends() { lsSet(LS_FRIENDS, friends); }
@@ -205,6 +314,7 @@
       state.conns[code] = entry;
       setPresence(code, { online: true });
       sendRaw(code, { t: 'hello', name: myName(), game: MY_GAME });
+      trySendMatchJoin();
     });
     c.on('data', function (msg) {
       if (!state.conns[code] || state.conns[code].conn !== c) return;
@@ -261,6 +371,23 @@
       showInviteToast(state.invites[0]);
       renderAll();
     }
+    else if (msg.t === 'matchjoin') {
+      /* ゲストが試合に参加した通知: ホストは参加者を記録し、全員分のコードを配る */
+      var mg = GAMES[msg.game] ? msg.game : null;
+      if (!mg) return;
+      if (!match || match.game !== mg || match.role !== 'host') {
+        setMatch({ game: mg, role: 'host', room: (typeof msg.room === 'string' ? msg.room : null), peers: [], joinSent: false });
+      }
+      addMatchPeer(code);
+      var all = [profile.code].concat(match.peers);
+      match.peers.slice().forEach(function (p) {
+        sendRaw(p, { t: 'matchroster', game: mg, room: match.room || '', peers: all });
+      });
+    }
+    else if (msg.t === 'matchroster') {
+      if (!match || match.game !== msg.game || !Array.isArray(msg.peers)) return;
+      msg.peers.forEach(function (c) { addMatchPeer(c); });
+    }
     else if (msg.t === 'bye') { setPresence(code, { online: false, game: null }); }
   }
   function pushChat(code, m) {
@@ -308,16 +435,255 @@
     if (!GAMES[game] || !ROOM_RE.test(room || '')) return false;
     return sendRaw(code, { t: 'invite', game: game, room: room, from: myName() });
   }
+  /* ゲーム側が window.PW_ROOM_CODE にコードを公開している場合はそちらを優先 */
+  function currentRoomCode() {
+    if (typeof window.PW_ROOM_CODE === 'string' && ROOM_RE.test(window.PW_ROOM_CODE)) return window.PW_ROOM_CODE;
+    return detectRoomCode();
+  }
   window.PWFriends = {
-    version: 1,
+    version: 2,
     game: MY_GAME,
     profile: function () { return { name: profile.name, code: profile.code }; },
     isOnline: isOnline,
     sendInvite: sendInvite,
-    detectRoomCode: detectRoomCode,
+    detectRoomCode: currentRoomCode,
     openPanel: function () { openPanel(); },
-    closePanel: function () { closePanel(); }
+    closePanel: function () { closePanel(); },
+    openInvitePicker: function () { openInvitePicker(); },
+    closeInvitePicker: function () { closeInvitePicker(); },
+    openRecords: function (gameId) { openRecords(gameId); },
+    recordResult: recordResult,
+    recordMatch: recordMatch,
+    matchPeers: matchPeers,
+    matchInfo: function () { return match ? { game: match.game, role: match.role, room: match.room, peers: matchPeers() } : null; },
+    getRecords: function (code) { return records[code] || {}; },
+    autoHost: function () { callAutoHost(); }
   };
+
+  /* ---------------- 招待ピッカー（ゲーム内フレンド選択UI） ---------------- */
+  var pickerOpen = false;
+  var pickerInvited = {}; /* code -> true: このページで招待済み */
+  function buildPickerDom() {
+    if (els.pickerOverlay) return;
+    var ov = document.createElement('div');
+    ov.className = 'pwf-modal-overlay pwf-root';
+    ov.innerHTML = '<div class="pwf-modal">' +
+      '<div class="pwf-head"><span id="pwfPickerTitle">👥 フレンドを招待</span>' +
+      '<button class="pwf-x" id="pwfPickerClose" aria-label="閉じる">✕</button></div>' +
+      '<div id="pwfPickerList"></div>' +
+      '<div class="pwf-note" style="margin-top:10px">オンライン中のフレンドだけ招待できます。選ぶと部屋を自動で作って招待を送ります。複数人対戦のゲームでは、続けて別のフレンドも招待できます。</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    els.pickerOverlay = ov;
+    els.pickerTitle = ov.querySelector('#pwfPickerTitle');
+    els.pickerList = ov.querySelector('#pwfPickerList');
+    ov.querySelector('#pwfPickerClose').onclick = closeInvitePicker;
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeInvitePicker(); });
+  }
+  function openInvitePicker() {
+    if (MY_GAME === 'portal') { openPanel(); return; }
+    buildPickerDom();
+    pickerOpen = true;
+    els.pickerOverlay.classList.add('show');
+    renderPickerList();
+  }
+  function closeInvitePicker() {
+    pickerOpen = false;
+    if (els.pickerOverlay) els.pickerOverlay.classList.remove('show');
+  }
+  function renderPickerList() {
+    if (!els.pickerList) return;
+    var g = GAMES[MY_GAME];
+    if (els.pickerTitle) els.pickerTitle.textContent = '👥 フレンドを招待' + (g ? ' — ' + g.title : '');
+    if (!friends.length) {
+      els.pickerList.innerHTML = '<div class="pwf-note">まだフレンドがいません。オンライン対戦にはフレンドが必要です。まずフレンドコードを交換して、フレンドを追加してください。</div>' +
+        '<button class="pwf-btn pri" id="pwfPickerAdd" style="margin-top:10px">フレンドを追加する</button>';
+      var b = document.getElementById('pwfPickerAdd');
+      if (b) b.onclick = function () { closeInvitePicker(); openPanel(); };
+      return;
+    }
+    els.pickerList.innerHTML = friends.map(function (f) {
+      var on = isOnline(f.code);
+      var invited = !!pickerInvited[f.code];
+      return '<div class="pwf-friend"><span class="pwf-dot' + (on ? ' on' : '') + '"></span>' +
+        '<div class="pwf-fmeta"><div class="pwf-fname">' + esc(displayName(f.code)) + '</div>' +
+        '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.code)) + '</div></div>' +
+        (invited
+          ? '<button class="pwf-btn" disabled>招待済み ✓</button>'
+          : '<button class="pwf-btn pri" data-invite="' + f.code + '"' + (on ? '' : ' disabled') + '>' + (on ? '招待する' : 'オフライン') + '</button>') +
+        '</div>';
+    }).join('');
+    els.pickerList.querySelectorAll('[data-invite]').forEach(function (btn) {
+      btn.onclick = function () { inviteFriendFlow(btn.getAttribute('data-invite'), btn); };
+    });
+  }
+  function inviteFriendFlow(code, btn) {
+    if (MY_GAME === 'portal') return;
+    startHostMatch(code);
+    var room = currentRoomCode();
+    if (room) { finishInvite(code, room, btn); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '部屋を作成中…'; }
+    callAutoHost();
+    var t0 = Date.now();
+    (function tick() {
+      var r = currentRoomCode();
+      if (r) { finishInvite(code, r, btn); return; }
+      if (Date.now() - t0 > 30000) {
+        toast('部屋を作成できませんでした。通信環境を確認してもう一度お試しください', 'info');
+        if (pickerOpen) renderPickerList();
+        return;
+      }
+      setTimeout(tick, 600);
+    })();
+  }
+  function finishInvite(code, room, btn) {
+    if (match && match.role === 'host' && match.game === MY_GAME) { match.room = room; saveMatch(); }
+    if (sendInvite(code, MY_GAME, room)) {
+      pickerInvited[code] = true;
+      toast(displayName(code) + 'さんに招待を送りました', 'info');
+    } else {
+      toast('招待を送れませんでした（相手との接続が切れています）', 'info');
+    }
+    if (pickerOpen) renderPickerList();
+  }
+  /* PW_AUTO_HOST が無いゲームでは PW_JOIN_CFG から自動でホスト開始する */
+  function autoHostViaCfg() {
+    var cfg = window.PW_JOIN_CFG;
+    if (!cfg || !cfg.hostBtn) return Promise.resolve(false);
+    return runOpeners(cfg).then(function () { return pollEl(cfg.hostBtn, 9000); }).then(function (btn) {
+      if (btn) { try { btn.click(); } catch (e) {} return true; }
+      return false;
+    });
+  }
+  function callAutoHost() {
+    if (typeof window.PW_AUTO_HOST === 'function') { try { window.PW_AUTO_HOST(); return; } catch (e) {} }
+    autoHostViaCfg();
+  }
+
+  /* ---------------- 戦績オーバーレイ（ゲーム内・詳細） ---------------- */
+  var recordsOpen = false;
+  var recordsGame = null;
+  function fmtDate(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    return d.getFullYear() + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + ('0' + d.getDate()).slice(-2);
+  }
+  function buildRecordsDom() {
+    if (els.recordsOverlay) return;
+    var ov = document.createElement('div');
+    ov.className = 'pwf-modal-overlay pwf-root';
+    ov.innerHTML = '<div class="pwf-modal">' +
+      '<div class="pwf-head"><span>📊 フレンド戦績</span>' +
+      '<button class="pwf-x" id="pwfRecordsClose" aria-label="閉じる">✕</button></div>' +
+      '<div class="pwf-row"><span style="font-size:12px;color:#9aa1c0;white-space:nowrap">ゲーム</span>' +
+      '<select class="pwf-input" id="pwfRecordsSel"></select></div>' +
+      '<div id="pwfRecordsList" style="margin-top:12px"></div>' +
+      '<div class="pwf-note" style="margin-top:10px">戦績はこの端末にだけ保存され、あなたがそのフレンドと遊んだ記録です。</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    els.recordsOverlay = ov;
+    els.recordsSel = ov.querySelector('#pwfRecordsSel');
+    els.recordsList = ov.querySelector('#pwfRecordsList');
+    ov.querySelector('#pwfRecordsClose').onclick = closeRecords;
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeRecords(); });
+    els.recordsSel.onchange = function () { recordsGame = els.recordsSel.value; renderRecords(); };
+  }
+  function openRecords(gameId) {
+    buildRecordsDom();
+    recordsGame = (gameId && GAMES[gameId]) ? gameId : MY_GAME;
+    recordsOpen = true;
+    els.recordsOverlay.classList.add('show');
+    renderRecords();
+  }
+  function closeRecords() {
+    recordsOpen = false;
+    if (els.recordsOverlay) els.recordsOverlay.classList.remove('show');
+  }
+  function renderRecords() {
+    if (!els.recordsList) return;
+    var g = (recordsGame && GAMES[recordsGame]) ? recordsGame : MY_GAME;
+    recordsGame = g;
+    els.recordsSel.innerHTML = GAME_ORDER.map(function (id) {
+      return '<option value="' + id + '"' + (id === g ? ' selected' : '') + '>' + esc(GAMES[id].title) + '</option>';
+    }).join('');
+    if (!friends.length) {
+      els.recordsList.innerHTML = '<div class="pwf-note">まだフレンドがいません</div>';
+      return;
+    }
+    var coop = !!GAMES[g].coop;
+    els.recordsList.innerHTML = friends.map(function (f) {
+      var r = records[f.code] && records[f.code][g];
+      var name = esc(displayName(f.code));
+      if (!r || !r.plays) {
+        return '<div class="pwf-friend"><div class="pwf-fmeta"><div class="pwf-fname">' + name + '</div>' +
+          '<div class="pwf-fstat">まだ対戦記録がありません</div></div></div>';
+      }
+      var line;
+      if (coop) {
+        line = '🤝 協力 ' + r.plays + '回' + (r.clears ? ' ／ クリア ' + r.clears + '回' : '');
+      } else {
+        var decided = r.w + r.l;
+        var rate = decided ? Math.round(r.w / decided * 100) : 0;
+        line = r.w + '勝 ' + r.l + '敗' + (r.d ? ' ' + r.d + '分' : '') + ' ／ 勝率 ' + rate + '% ／ 全' + r.plays + '試合';
+      }
+      return '<div class="pwf-friend"><div class="pwf-fmeta"><div class="pwf-fname">' + name + '</div>' +
+        '<div class="pwf-fstat on" style="white-space:normal">' + esc(line) + '</div>' +
+        '<div class="pwf-fstat">最終プレイ: ' + fmtDate(r.last) + '</div></div></div>';
+    }).join('');
+  }
+
+  /* ---------------- ゲーム内UI変換（コードUIを隠し、招待/戦績バーを差し込む） ---------------- */
+  function hideEl(el) { if (el) el.classList.add('pwf-hidden'); }
+  function transformGameUI() {
+    if (MY_GAME === 'portal') return true;
+    var cfg = window.PW_JOIN_CFG;
+    if (!cfg) return true;
+    var anchor = null;
+    if (cfg.hostBtn) { try { anchor = document.querySelector(cfg.hostBtn); } catch (e) {} }
+    if (!anchor && cfg.input) { try { anchor = document.querySelector(cfg.input); } catch (e) {} }
+    if (!anchor) return false; /* DOMがまだ無い（動的生成など）→ リトライ */
+    if (cfg.input) hideEl(document.querySelector(cfg.input));
+    if (cfg.joinBtn) hideEl(document.querySelector(cfg.joinBtn));
+    hideEl(anchor && cfg.hostBtn ? document.querySelector(cfg.hostBtn) : null);
+    if (cfg.joinCall) {
+      try { document.querySelectorAll('[onclick*="' + cfg.joinCall + '"]').forEach(hideEl); } catch (e) {}
+    }
+    ['#copyCodeBtn', '#btn-copy-code', '#lobby-copy'].forEach(function (sel) {
+      try { document.querySelectorAll(sel).forEach(hideEl); } catch (e) {}
+    });
+    ROOM_CODE_SELS.forEach(function (sel) {
+      var el = null;
+      try { el = document.querySelector(sel); } catch (e) {}
+      if (el) {
+        hideEl(el);
+        var p = el.parentElement;
+        if (p && /code/i.test(p.id || '')) hideEl(p);
+      }
+    });
+    if (!document.querySelector('.pwf-gamebar')) {
+      var bar = document.createElement('div');
+      bar.className = 'pwf-gamebar pwf-root';
+      var coop = !!(GAMES[MY_GAME] && GAMES[MY_GAME].coop);
+      bar.innerHTML = '<button class="pwf-gb-invite">' + (coop ? '👥 フレンドを招待して協力プレイ' : '👥 フレンドを招待して対戦') + '</button>' +
+        '<button class="pwf-gb-records">📊 フレンド戦績</button>' +
+        '<div class="pwf-gb-note">オンラインはフレンド招待制です（コード入力はありません）</div>';
+      bar.querySelector('.pwf-gb-invite').onclick = function () { openInvitePicker(); };
+      bar.querySelector('.pwf-gb-records').onclick = function () { openRecords(MY_GAME); };
+      var target = anchor;
+      var parent = anchor.parentElement;
+      if (parent && parent.tagName === 'DIV' && parent.children.length <= 3 && parent.parentElement) target = parent;
+      if (target.parentNode) target.parentNode.insertBefore(bar, target);
+    }
+    return true;
+  }
+  function initGameUI() {
+    if (MY_GAME === 'portal') return;
+    var tries = 0;
+    (function attempt() {
+      if (transformGameUI()) return;
+      if (++tries <= 8) setTimeout(attempt, 1200);
+    })();
+  }
 
   /* ---------------- UI ---------------- */
   var CSS = [
@@ -365,10 +731,21 @@
     '.pwf-msg.th{align-self:flex-start;background:rgba(255,255,255,.09);border-bottom-left-radius:4px}',
     '.pwf-games{display:grid;grid-template-columns:1fr 1fr;gap:8px}',
     '.pwf-game{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#eef0ff;border-radius:11px;padding:11px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}',
-    '.pwf-toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:100003;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(94vw,430px)}',
+    '.pwf-toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:100006;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(94vw,430px)}',
     '.pwf-toast{pointer-events:auto;background:#14532d;color:#fff;font-size:13.5px;font-weight:700;padding:11px 16px;border-radius:13px;box-shadow:0 12px 30px rgba(0,0,0,.45);display:flex;gap:10px;align-items:center;max-width:100%}',
     '.pwf-toast.info{background:#1e293b}',
     '.pwf-toast .pwf-btn{padding:6px 12px}',
+    '.pwf-hidden{display:none!important}',
+    '.pwf-frec{font-size:11px;color:#a5b4fc;margin-top:2px;line-height:1.55}',
+    '.pwf-gamebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;padding:11px;background:rgba(124,58,237,.16);border:1px solid rgba(167,139,250,.45);border-radius:13px;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif}',
+    '.pwf-gb-invite{flex:1 1 180px;background:linear-gradient(90deg,#0891b2,#7c3aed);border:none;color:#fff;border-radius:10px;padding:11px 13px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit}',
+    '.pwf-gb-invite:active{transform:translateY(1px)}',
+    '.pwf-gb-records{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#eef0ff;border-radius:10px;padding:11px 13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}',
+    '.pwf-gb-note{flex-basis:100%;font-size:11.5px;color:#c3c8e8}',
+    '.pwf-modal-overlay{position:fixed;inset:0;z-index:100005;background:rgba(3,4,12,.62);display:none;align-items:center;justify-content:center;padding:14px}',
+    '.pwf-modal-overlay.show{display:flex}',
+    '.pwf-modal{background:#0d1020;width:min(400px,94vw);max-height:86vh;overflow-y:auto;border-radius:16px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);color:#eef0ff}',
+    'select.pwf-input{appearance:auto}',
     '@media (max-width:480px){ .pwf-fab{bottom:12px;right:12px} }'
   ].join('\n');
 
@@ -409,10 +786,17 @@
     }
     box.appendChild(t);
   }
+  /* 招待を受けて参加する: 相手のフレンドコードを引き継いで遷移する */
+  function gotoJoin(inv) {
+    try {
+      sessionStorage.setItem('pw_join_ctx', JSON.stringify({ game: inv.game, room: inv.room, from: inv.from, ts: Date.now() }));
+    } catch (e) {}
+    location.href = GAMES[inv.game].file + '?join=' + inv.room + '&from=' + inv.from;
+  }
   function showInviteToast(inv) {
     toast('🎮 ' + inv.name + 'さんから「' + GAMES[inv.game].title + '」への招待が届きました', '', {
       label: '参加する',
-      fn: function () { location.href = GAMES[inv.game].file + '?join=' + inv.room; }
+      fn: function () { gotoJoin(inv); }
     });
   }
 
@@ -683,6 +1067,8 @@
     renderList();
     if (state.view === 'chat') renderChat();
     if (state.view === 'pick') renderPicker();
+    if (pickerOpen) renderPickerList();
+    if (recordsOpen) renderRecords();
     updateBadge();
   }
   function renderProfile() {
@@ -720,14 +1106,14 @@
     if (!state.invites.length) { box.innerHTML = ''; return; }
     box.innerHTML = '<div class="pwf-sec">届いている招待</div>' + state.invites.map(function (inv, i) {
       return '<div class="pwf-invite"><b>' + esc(inv.name) + '</b> さんから「' + esc(GAMES[inv.game].title) +
-        '」への招待<br><span style="font-size:12px;color:#9aa1c0">ルームコード: ' + esc(inv.room) + '</span>' +
+        '」への招待' +
         '<div class="pwf-row" style="margin-top:8px"><button class="pwf-btn pri" data-inv-join="' + i + '">参加する</button>' +
         '<button class="pwf-btn" data-inv-del="' + i + '">閉じる</button></div></div>';
     }).join('');
     box.querySelectorAll('[data-inv-join]').forEach(function (btn) {
       btn.onclick = function () {
         var inv = state.invites[Number(btn.getAttribute('data-inv-join'))];
-        if (inv) location.href = GAMES[inv.game].file + '?join=' + inv.room;
+        if (inv) gotoJoin(inv);
       };
     });
     box.querySelectorAll('[data-inv-del]').forEach(function (btn) {
@@ -751,9 +1137,11 @@
     listEl.innerHTML = friends.map(function (f) {
       var on = isOnline(f.code);
       var un = unread[f.code] || 0;
+      var recSum = recordSummary(f.code);
       return '<div class="pwf-friend"><span class="pwf-dot' + (on ? ' on' : '') + '"></span>' +
         '<div class="pwf-fmeta"><div class="pwf-fname">' + esc(displayName(f.code)) + '</div>' +
-        '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.code)) + '</div></div>' +
+        '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.code)) + '</div>' +
+        (recSum ? '<div class="pwf-frec">' + esc(recSum) + '</div>' : '') + '</div>' +
         '<button class="pwf-iconbtn" data-act="chat" data-code="' + f.code + '">💬' + (un ? '<span class="pwf-ubadge">' + un + '</span>' : '') + '</button>' +
         '<button class="pwf-iconbtn" data-act="pick" data-code="' + f.code + '"' + (on ? '' : ' disabled style="opacity:.4"') + '>🎮</button>' +
         '<button class="pwf-iconbtn" data-act="del" data-code="' + f.code + '">✕</button></div>';
@@ -806,14 +1194,17 @@
     if (!code) return;
     $('pwfPickTitle').textContent = displayName(code) + 'さんを招待';
     var roomBox = $('pwfPickRoom');
-    var room = (MY_GAME !== 'portal') ? detectRoomCode() : null;
+    var room = (MY_GAME !== 'portal') ? currentRoomCode() : null;
     if (roomBox) {
       roomBox.innerHTML = room
-        ? '<button class="pwf-btn pri" id="pwfPickRoomBtn" style="width:100%">🏠 いま開いている部屋（' + esc(room) + '）に招待する</button>'
+        ? '<button class="pwf-btn pri" id="pwfPickRoomBtn" style="width:100%">🏠 いま開いている部屋に招待する</button>'
         : '';
       var rb = $('pwfPickRoomBtn');
       if (rb) rb.onclick = function () {
+        startHostMatch(code);
+        if (match && match.role === 'host' && match.game === MY_GAME) { match.room = room; saveMatch(); }
         if (sendInvite(code, MY_GAME, room)) {
+          pickerInvited[code] = true;
           toast(displayName(code) + 'さんに招待を送りました', 'info');
           state.view = 'list'; state.pickFor = null; renderAll();
         } else {
@@ -911,8 +1302,9 @@
       /* 部屋コードが表示され、相手がオンラインになるまで待って招待を送る */
       var t0 = Date.now();
       (function tick() {
-        var room = detectRoomCode();
+        var room = currentRoomCode();
         if (room && sendInvite(friendCode, MY_GAME, room)) {
+          if (match && match.role === 'host' && match.game === MY_GAME) { match.room = room; saveMatch(); }
           toast('🎮 部屋を作成し、フレンドに招待を送りました', 'info');
           try {
             var u = new URL(location.href);
@@ -936,12 +1328,25 @@
     var join = params.get('join');
     if (join) {
       var code = join.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
-      if (code.length === 6) { runJoinHook(code); return; }
+      if (code.length === 6) {
+        /* 招待者（ホスト）のフレンドコードを引き継ぎ、対戦相手として保持する */
+        var from = cleanCode(params.get('from') || '');
+        if (!from) {
+          try {
+            var ctx = JSON.parse(sessionStorage.getItem('pw_join_ctx') || 'null');
+            if (ctx && ctx.room === code) from = cleanCode(ctx.from || '');
+          } catch (e) {}
+        }
+        if (from.length === 8 && friendOf(from)) {
+          setMatch({ game: MY_GAME, role: 'guest', room: code, peers: [from], joinSent: false });
+        }
+        runJoinHook(code); return;
+      }
     }
     var hi = params.get('hostinvite');
     if (hi) {
       var fc = cleanCode(decodeURIComponent(hi));
-      if (fc.length === 8 && friendOf(fc)) runHostInviteHook(fc);
+      if (fc.length === 8 && friendOf(fc)) { startHostMatch(fc); runHostInviteHook(fc); }
     }
   }
 
@@ -960,8 +1365,20 @@
   }
   function init() {
     buildUI();
+    /* ゲーム側が未定義なら、PW_JOIN_CFG から自動ホスト/自動参加フックを用意する */
+    if (MY_GAME !== 'portal' && window.PW_JOIN_CFG) {
+      if (typeof window.PW_AUTO_HOST !== 'function') {
+        window.PW_AUTO_HOST = function () { autoHostViaCfg(); };
+      }
+      if (typeof window.PW_AUTO_JOIN !== 'function') {
+        window.PW_AUTO_JOIN = function (room) { runJoinHook(room); };
+      }
+    }
     startPeerWhenReady();
     initHooks();
+    initGameUI();
+    /* ゲストの matchjoin は接続が開くまで粘って送る */
+    setInterval(trySendMatchJoin, 4000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

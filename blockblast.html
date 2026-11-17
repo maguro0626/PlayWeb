@@ -138,19 +138,19 @@
       <div class="btnRow">
         <button class="subbtn" id="onlineBtn" style="font-size:15px;padding:13px 22px">🌐 オンライン対戦</button>
       </div>
-      <p>オンライン対戦は2人で<strong>同じピース列</strong>を使って競うスコアバトル。<br>ホストが部屋を作って、6文字コードを相手に伝えてね。</p>
+      <p>オンライン対戦は2人で<strong>同じピース列</strong>を使って競うスコアバトル。<br>オンラインはフレンド招待制だよ。</p>
       <div class="stageGrid" id="stageGrid"></div>
       <button class="subbtn" id="modeCloseBtn">とじる</button>
     </div>
 
     <div class="overlay hidden" id="onlineOv">
       <h2>🌐 オンライン対戦</h2>
-      <p>同じピース列で競うスコアバトル。<br>ホストが部屋を作り、コードを相手に伝えてください。</p>
+      <p>同じピース列で競うスコアバトル。<br>オンラインはフレンド招待制です。「フレンドを招待して対戦」から招待してください。</p>
       <div class="btnRow">
         <button class="bigbtn" id="hostBtn">部屋を作る</button>
       </div>
       <div id="bbCodeWrap" class="util-hidden">
-        <div style="font-size:12px;color:var(--sub)">ルームコード（相手に伝えてください）</div>
+        <div style="font-size:12px;color:var(--sub)">ルームコード</div>
         <div id="bbRoomCode">------</div>
         <div class="btnRow"><button class="subbtn" id="copyCodeBtn">コードをコピー</button></div>
       </div>
@@ -158,7 +158,7 @@
         <input id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
         <button class="subbtn" id="joinBtn">参加する</button>
       </div>
-      <p id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</p>
+      <p id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。</p>
       <div class="btnRow">
         <button class="subbtn" id="onlineBackBtn">もどる</button>
       </div>
@@ -1135,6 +1135,12 @@ function showBattleResult(){
   if(score > oppScore || (score === oppScore && linesTotal > oppLines)) title = '🏆 勝利！';
   else if(score === oppScore && linesTotal === oppLines) title = '🤝 引き分け';
   else title = '😢 敗北…';
+  /* フレンド戦績: 結果画面表示タイミングで、タイトル判定と同じ条件（同点時はライン数で決着）で記録 */
+  if(window.PWFriends && PWFriends.recordMatch){
+    if(title.indexOf('🏆') === 0) PWFriends.recordMatch('win');
+    else if(title.indexOf('🤝') === 0) PWFriends.recordMatch('draw');
+    else PWFriends.recordMatch('lose');
+  }
   $('battleTitle').textContent = title;
   $('battleMyScore').textContent = score.toLocaleString();
   $('battleStats').innerHTML = `あなた: ${score.toLocaleString()}点 ／ ライン ${linesTotal} 本<br>相手: ${oppScore.toLocaleString()}点 ／ ライン ${oppLines} 本`;
@@ -1280,9 +1286,10 @@ function hostRoom(){
   try{ peer = new Peer(BB_PEER_PREFIX + roomCode, PEER_OPTS); }
   catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   peer.on('open', () => {
+    window.PW_ROOM_CODE = roomCode;
     $('bbRoomCode').textContent = roomCode;
     $('bbCodeWrap').classList.remove('util-hidden');
-    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    setOnlineStatus('フレンドの参加を待っています…（オンラインはフレンド招待制です）');
   });
   peer.on('connection', c => {
     setupConn(c);

@@ -455,13 +455,13 @@
           <input id="join-code" type="text" maxlength="6" placeholder="ルームコード" autocomplete="off" autocapitalize="characters">
           <button class="btn btn-ghost" style="padding:11px 14px;font-weight:900;" onclick="joinRoom()">参加する（後手）</button>
         </div>
-        <p class="online-note">部屋を作った人が先手、コードで参加した人が後手になります。コードは相手にだけ教えてください。</p>
+        <p class="online-note">部屋を作った人が先手、参加した人が後手になります。オンラインはフレンド招待制です（コード入力はありません）。</p>
       </div>
       <div id="online-code-wrap" style="display:none;">
-        <div class="online-code-label">ルームコード（相手に伝えてください）</div>
-        <div class="online-code-row">
+        <div class="online-code-label">オンライン対戦</div>
+        <div class="online-code-row" id="online-code-row">
           <span id="online-code">------</span>
-          <button class="btn btn-mini" onclick="copyRoomCode()">📋 コピー</button>
+          <button class="btn btn-mini" id="btn-copy-code" onclick="copyRoomCode()">📋 コピー</button>
         </div>
       </div>
       <div class="online-row">
@@ -583,6 +583,7 @@ let kifuList=[],lastDest=null,lastMover=null,snapshots=[];
 let mode='cpu';
 let mySide='player';
 let peer=null,conn=null,roomCode='',onlinePhase='idle'; // idle|creating|joining|playing
+let matchRecorded=false; // フレンド戦績の二重記録ガード（1試合1回）
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 // ═══════════════════════════════════════════════════════════
@@ -709,6 +710,7 @@ function resetGame(){
   captured={player:[],npc:[]};
   turn='player';selected=null;validMoves=[];lastMove=null;
   gameActive=true;isAnimating=false;moveCountPlayer=0;moveCountNpc=0;
+  matchRecorded=false;
   kifuList=[];lastDest=null;lastMover=null;
   document.querySelectorAll('.confetti').forEach(e=>e.remove());
   document.querySelectorAll('.modal-overlay').forEach(e=>e.remove());
@@ -1061,7 +1063,7 @@ function startHost(){
   }catch(e){
     onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();return;
   }
-  peer.on('open',()=>{updateOnlinePanel();updateLabels();});
+  peer.on('open',()=>{window.PW_ROOM_CODE=roomCode;updateOnlinePanel();updateLabels();});
   peer.on('connection',c=>{conn=c;wireConnection(true);});
   peer.on('error',err=>{
     if(err&&err.type==='unavailable-id'){startHost();return;} // コード衝突時は引き直し
@@ -1693,6 +1695,11 @@ function endGame(winner,reason='checkmate'){
     title=win?'あなたの勝ち！':'相手の勝ち…';
     sub=reason==='resign'?(win?'相手が投了しました':'投了しました'):(win?'王将を詰めました':'詰まれてしまいました');
     statusTxt=win?'あなたの勝ち':'相手の勝ち';
+    /* フレンド戦績（friends.js）へ記録: オンライン対戦のみ・1試合1回（本ゲームに引き分け判定はないため win/lose のみ） */
+    if(!matchRecorded && window.PWFriends && PWFriends.recordMatch){
+      matchRecorded=true;
+      PWFriends.recordMatch(win?'win':'lose');
+    }
   }else{
     win=winner==='player';
     title=win?'あなたの勝ち！':'CPUの勝ち…';

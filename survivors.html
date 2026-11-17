@@ -709,7 +709,7 @@
       <input class="codeInput" id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
       <button class="subBtn" id="joinBtn">参加する</button>
     </div>
-    <div id="lobbyStatus">「部屋を作る」か、相手のコードで「参加する」を選んでね。</div>
+    <div id="lobbyStatus">「フレンドを招待して協力プレイ」からフレンドを選ぶと、部屋を作って招待を送ります。参加は招待からだけできます。</div>
     <button class="bigBtn" id="coopStartBtn" style="display:none">▶ 協力スタート</button><br>
     <button class="subBtn" id="lobbyBackBtn">← もどる</button>
   </div>
@@ -3455,6 +3455,8 @@ function gameOver(clearedRun){
   const isNew = saveBest(clearedRun);
   const gain = awardShards(clearedRun);
   recordRunStats(clearedRun);
+  /* フレンド戦績（friends.js）へ協力記録 */
+  if (coopMode && window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('coop', { cleared: !!clearedRun });
   if (coopMode && NET.role === 'host') { sendNet(buildSnapshot()); sendNet({ t: 'end', cleared: clearedRun }); }
   showEndScreen(clearedRun, isNew, gain);
 }
@@ -5939,7 +5941,7 @@ function hostCreateRoom(){
   NET.peer.on('open', () => {
     $('roomCodeText').textContent = NET.code;
     $('roomCodeWrap').style.display = 'block';
-    setLobbyStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    setLobbyStatus('フレンドの参加を待っています… 招待したフレンドが参加すると、ここに表示されます。');
   });
   NET.peer.on('connection', c => {
     setupConn(c);
@@ -6112,6 +6114,8 @@ function guestOnData(msg){
     const isNew = saveBest(!!msg.cleared);
     const gain = awardShards(!!msg.cleared);
     recordRunStats(!!msg.cleared);
+    /* フレンド戦績（friends.js）へ協力記録（ゲスト側） */
+    if (coopMode && window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('coop', { cleared: !!msg.cleared });
     showEndScreen(!!msg.cleared, isNew, gain);
   }
 }
@@ -6214,7 +6218,7 @@ $('lobbyBackBtn').onclick = () => {
   if (!NET.inGame) cleanupNet();
   $('roomCodeWrap').style.display = 'none';
   $('coopStartBtn').style.display = 'none';
-  setLobbyStatus('「部屋を作る」か、相手のコードで「参加する」を選んでね。');
+  setLobbyStatus('「フレンドを招待して協力プレイ」からフレンドを選ぶと、部屋を作って招待を送ります。参加は招待からだけできます。');
 };
 ensureDaily();
 renderTitleMeta();

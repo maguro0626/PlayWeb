@@ -4599,6 +4599,12 @@ function triggerEnding() {
   saveGlobalEndings();
   autoSave();
   showEndingScreen(ending, topChar, route);
+  /* オンライン共同リーディング: エンディング到達＝物語を完走したセッション完了として
+     フレンド戦績に記録する（ホストはここ、ゲストは 'ending' 受信側で記録） */
+  if (netRole === 'host') {
+    netSend({t:'ending', endType});
+    if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('coop', { cleared: true });
+  }
 }
 
 function showEndingScreen(ending, charId, route) {
@@ -5063,6 +5069,14 @@ function netHandleData(msg){
     else if (msg.t === 'vnend'){
       netGuestShowWait('ホストは今、コマンド画面にいます。次のシーンが始まるまでお待ちください。');
     }
+    else if (msg.t === 'ending'){
+      /* ホストがエンディングに到達: 共同リーディングのセッション完了として戦績に記録（ゲスト側） */
+      netReconnecting = false;
+      clearTimeout(netRetryTimer);
+      netStartHeartbeat();
+      if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('coop', { cleared: true });
+      netGuestShowWait('ホストがエンディングに到達しました！一緒に読んでくれてありがとうございました。');
+    }
   }
 }
 
@@ -5150,9 +5164,10 @@ function netHostRoom(){
   catch (e){ netSetStatus('<span class="err">接続の作成に失敗しました。</span>'); netRole = null; return; }
   netPeer.on('open', () => {
     document.getElementById('net-room-code').textContent = netCode;
-    document.getElementById('net-code-wrap').style.display = '';
+    /* ルームコードは内部IDとしてのみ使う（フレンド招待制）。#net-code-wrap は表示しない:
+       コード文字列は friends.js が #net-room-code の textContent から検出する */
     document.getElementById('net-leave-btn').style.display = '';
-    netSetStatus('ゲストの参加を待っています… コードを相手に伝えてください。このまま「閉じる」を押してゲームを始めてOKです。');
+    netSetStatus('ゲストの参加を待っています… 招待したフレンドの参加を待っています。このまま「閉じる」を押してゲームを始めてOKです。');
     netUpdatePill();
   });
   netPeer.on('connection', c => {

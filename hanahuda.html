@@ -428,7 +428,7 @@
       </div>
       <div class="ov-card" id="net-card">
         <h3>オンライン対戦（2人）</h3>
-        <p>部屋を作った人がホスト、コードを入力した人がゲストとして対戦します。対戦の長さはホストの設定が使われます。進行はホスト側で処理され、相手の手札の中身は送られません。</p>
+        <p>オンラインはフレンド招待制です。部屋を作った人がホスト、招待を受けて参加した人がゲストとして対戦します。対戦の長さはホストの設定が使われます。進行はホスト側で処理され、相手の手札の中身は送られません。</p>
         <button class="start-btn" id="btn-net-host" style="font-size:15px;padding:13px">部屋を作る（ホスト）</button>
         <div id="net-code-wrap" class="hidden">
           <div class="net-code" id="net-room-code">------</div>
@@ -437,7 +437,7 @@
         <input class="net-input" id="net-join-code" maxlength="6" placeholder="相手のコード（6文字）" autocomplete="off">
         <button class="ghost-btn" id="btn-net-join">参加する（ゲスト）</button>
         <button class="ghost-btn hidden" id="btn-net-leave">オンラインをやめる</button>
-        <div id="net-status">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+        <div id="net-status">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。</div>
       </div>
       <div class="ov-card">
         <h3>遊び方</h3>
@@ -1053,6 +1053,7 @@ function calcYaku(cap){
 let difficulty=2;
 let matchLen=6, roundNum=1, matchStarted=false;
 let totalP=0,totalCPU=0;
+let matchRecorded=false; // フレンド戦績の二重記録ガード（1試合1回）
 let playerHand,cpuHand,field,deck;
 let playerCap,cpuCap;
 let turn; // 'player'|'cpu'
@@ -1078,7 +1079,7 @@ let toastSyncMute=false;   // trueの間 showToast を状態同期に載せな�
 function startMatch(){
   if(typeof NET!=='undefined' && NET.mode==='guest'){ showToast('オンライン参加中です。ホストの開始を待ってください'); return; }
   if(typeof NET!=='undefined' && NET.mode==='host' && NET.phase==='lobby'){ showToast('オンラインの部屋を作成中です'); return; }
-  totalP=0;totalCPU=0;roundNum=1;matchStarted=true;
+  totalP=0;totalCPU=0;roundNum=1;matchStarted=true;matchRecorded=false;
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('result-overlay').classList.add('hidden');
   sfx.agari();
@@ -1623,6 +1624,15 @@ function showMatchResult(){
   if(totalP>totalCPU){ w.innerText='🏆 あなたの勝利！'; w.style.color='var(--gold-hi)'; sfx.win(); spawnConfetti('player'); }
   else if(totalCPU>totalP){ w.innerText=oppName()+'の勝利'; w.style.color='#dbe4ec'; sfx.lose(); }
   else { w.innerText='引き分け'; w.style.color='var(--cream)'; }
+  /* フレンド戦績（friends.js）へ記録: オンライン対戦の最終結果で1試合1回だけ。
+     ゲスト側は applyNetState で totalP=自分 / totalCPU=相手 に変換済みのため、両経路ともこの比較で自分の勝敗になる。
+     相手離脱後にCPUが引き継いだ試合（cpuTakeover）はフレンド対戦として記録しない。 */
+  if(!matchRecorded && typeof NET!=='undefined' && NET.mode!=='solo' && !NET.cpuTakeover && window.PWFriends && PWFriends.recordMatch){
+    matchRecorded=true;
+    if(totalP>totalCPU) PWFriends.recordMatch('win');
+    else if(totalP<totalCPU) PWFriends.recordMatch('lose');
+    else PWFriends.recordMatch('draw');
+  }
   document.getElementById('result-p').innerText=totalP;
   document.getElementById('result-c').innerText=totalCPU;
   d.innerText=`全${matchLen}局の累計点で勝敗が決まりました。${totalP>totalCPU?'見事な打ち回しでした！':totalCPU>totalP?'次は役の完成度とこいこいの判断で巻き返しましょう。':'互角の名勝負でした。'}`;
@@ -1824,7 +1834,7 @@ function netLeave(){
   if(NET.mode==='solo')return;
   netTeardown(true);
   restoreLabels();
-  setNetStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  setNetStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。');
   updateNetUI();
 }
 
@@ -1879,9 +1889,10 @@ function netCreateHostPeer(){
   try{ NET.peer=new Peer(HN_PREFIX+NET.code, PEER_OPTS); }
   catch(e){ setNetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   NET.peer.on('open',()=>{
+    window.PW_ROOM_CODE=NET.code;
     document.getElementById('net-room-code').textContent=NET.code;
     document.getElementById('net-code-wrap').classList.remove('hidden');
-    setNetStatus('相手の参加を待っています… コードを相手に伝えてください。相手が参加すると対戦が始まります。あなたがホストです。');
+    setNetStatus('フレンドの参加を待っています… 招待したフレンドが参加すると対戦が始まります。あなたがホストです。');
   });
   NET.peer.on('connection',c=>{
     setupGuestConn(c);
@@ -2227,6 +2238,7 @@ function applyNetState(st){
   if(st.showResult){
     if(document.getElementById('result-overlay').classList.contains('hidden')) showMatchResult();
   }else{
+    matchRecorded=false; /* ゲスト側: 新しい試合が始まったら戦績ガードを解除 */
     document.getElementById('result-overlay').classList.add('hidden');
   }
   dealAnim=false;

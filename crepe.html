@@ -139,7 +139,7 @@
         <input class="codeInput" id="vsJoinCode" maxlength="6" placeholder="コード">
         <button class="subbtn" id="vsJoinBtn">参加する</button>
       </div>
-      <p class="hint" id="vsLobbyStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</p>
+      <p class="hint" id="vsLobbyStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」から始めましょう。</p>
       <button class="subbtn" id="vsBackBtn">← もどる</button>
     </div>
 
@@ -1722,7 +1722,7 @@ function vsStartMatch(seed){
   vs.idx = 0;
   vs.myScores = Array(VS_DISHES).fill(null);
   vs.oppScores = Array(VS_DISHES).fill(null);
-  vs.myDone = false; vs.oppDone = false;
+  vs.myDone = false; vs.oppDone = false; vs.recorded = false;
   vs.active = true;
   vs.startAt = Date.now();
   mode = 'vs';
@@ -1810,6 +1810,15 @@ function showVsResult(){
     : '相手の結果を待っています…（相手が全注文を終えると結果が出ます）';
   $('vsResultOv').classList.remove('hidden');
   if(both && myTot > opTot) sfx.fanfare();
+  /* フレンド戦績（friends.js）へ記録: 両者完了で確定した時だけ1回 */
+  if(both && !vs.recorded){
+    vs.recorded = true;
+    if(window.PWFriends && PWFriends.recordMatch){
+      if(myTot > opTot) PWFriends.recordMatch('win');
+      else if(myTot < opTot) PWFriends.recordMatch('lose');
+      else PWFriends.recordMatch('draw');
+    }
+  }
 }
 /* 受信メッセージ処理（テストから直接呼べるよう関数として公開） */
 function handleVsData(msg){
@@ -1965,7 +1974,7 @@ function vsHostRoom(){
   peer.on('open', () => {
     $('vsRoomCode').textContent = roomCode;
     $('vsCodeWrap').style.display = 'block';
-    vsSetLobbyStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    vsSetLobbyStatus('フレンドの参加を待っています…');
   });
   peer.on('connection', c => {
     setupVsConn(c);

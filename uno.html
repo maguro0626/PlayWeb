@@ -383,8 +383,9 @@
         <div class="net-status" id="net-create-status" style="margin-top:6px;"></div>
       </div>
       <div>
-        <div class="set-label">部屋に参加する（ゲスト）</div>
-        <div class="net-row">
+        <!-- 招待制: コード参加UIは廃止（入力欄は friends.js の自動参加用にDOMだけ残す） -->
+        <div class="set-label pwf-hidden">部屋に参加する（ゲスト）</div>
+        <div class="net-row pwf-hidden">
           <input id="net-code" class="net-input" type="text" maxlength="6" placeholder="コード6文字" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em;">
           <button onclick="netJoinRoom()" class="net-sub-btn">参加する</button>
         </div>
@@ -466,7 +467,8 @@
 <div id="overlay-lobby" class="overlay hidden">
   <div class="end-card" style="text-align:left;">
     <div style="font-size:19px;font-weight:900;text-align:center;">🌐 オンラインロビー</div>
-    <div style="text-align:center;margin:12px 0 4px;">
+    <!-- 招待制: ルームコードは内部用（detectRoomCode で読む）ため表示しない -->
+    <div class="pwf-hidden" style="text-align:center;margin:12px 0 4px;">
       <div style="font-size:9px;font-weight:900;letter-spacing:.2em;color:var(--ink-dim);">ルームコード</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
         <span class="lobby-code" id="lobby-code">------</span>
@@ -474,6 +476,7 @@
       </div>
       <div style="font-size:10.5px;color:var(--ink-dim);font-weight:700;">友達にコードを教えて参加してもらおう</div>
     </div>
+    <div style="text-align:center;font-size:11px;color:var(--ink-dim);font-weight:700;margin-top:10px;">招待したフレンドが参加すると、ここに表示されます</div>
     <div id="lobby-players" style="margin-top:12px;"></div>
     <div id="lobby-target-wrap">
       <div class="set-label" style="margin-top:12px;">目標スコア（ホスト設定）</div>
@@ -1335,6 +1338,8 @@ function showMatchEnd(winnerIdx,roundPts){
     if(isPlayer)STATS.matchWins++;
     saveStats();
   }
+  /* フレンド戦績（friends.js）へ記録: 総合優勝=勝ち、それ以外=負け */
+  if(G.online && window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(isPlayer?'win':'lose');
 
   const w=G.players[champ];
   document.getElementById('end-emoji').textContent=isPlayer?'🎉':'😔';
@@ -2497,6 +2502,8 @@ function netShowRoundEnd(msg){
   if(msg.matchOver){
     const champ=msg.champ;
     const w=msg.players[champ];
+    /* フレンド戦績（friends.js）へ記録（ゲスト側） */
+    if(window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(champ===you?'win':'lose');
     document.getElementById('end-emoji').textContent=champ===you?'🎉':'😔';
     document.getElementById('end-title').textContent=champ===you?'総合優勝！':`${w.emoji} ${w.name} の総合優勝`;
     document.getElementById('end-sub').textContent=

@@ -85,6 +85,27 @@
   #updText.found{color:#fca5a5;font-weight:700}
   #pwToast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#16a34a;color:#fff;font-weight:800;font-size:14px;padding:12px 22px;border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:all .35s;z-index:99}
   #pwToast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* ===== セーブデータ バックアップ ===== */
+  .bkCard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;backdrop-filter:blur(6px)}
+  .bkCard p{font-size:13.5px;line-height:1.8;color:#d6d9ec}
+  .bkBtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .bkBtn{flex:1 1 150px;border:none;border-radius:999px;padding:12px 18px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;transition:transform .15s,opacity .15s}
+  .bkBtn:hover{transform:translateY(-1px)}
+  .bkBtn:active{transform:none}
+  .bkBtn.primary{background:linear-gradient(90deg,#0891b2,#7c3aed);color:#fff;box-shadow:0 6px 18px rgba(34,211,238,.28)}
+  .bkBtn.ghost{background:rgba(255,255,255,.06);color:var(--txt);border:1px solid var(--line);box-shadow:none}
+  #bkMsg{margin-top:12px;font-size:13px;line-height:1.7;display:none}
+  #bkMsg.ok{display:block;color:#86efac}
+  #bkMsg.err{display:block;color:#fca5a5;font-weight:700}
+  #bkUndoRow{margin-top:14px;padding-top:14px;border-top:1px dashed rgba(255,255,255,.12);display:none}
+  #bkUndoRow p{font-size:12.5px;color:var(--sub);margin-bottom:9px}
+  #bkUndoBtn{background:rgba(245,158,11,.14);color:#fcd34d;border:1px solid rgba(245,158,11,.4);box-shadow:none}
+  #bkModal{position:fixed;inset:0;background:rgba(3,4,10,.72);display:none;align-items:center;justify-content:center;z-index:120;padding:20px}
+  #bkModal.show{display:flex}
+  #bkModalCard{background:#12142a;border:1px solid var(--line);border-radius:20px;padding:24px 22px;max-width:420px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  #bkModalMsg{font-size:14.5px;line-height:1.85;color:var(--txt)}
+  #bkModalBtns{display:flex;gap:10px;margin-top:20px}
+  #bkModalOk{background:linear-gradient(90deg,#dc2626,#b91c1c);color:#fff;box-shadow:0 6px 18px rgba(220,38,38,.3)}
 </style>
 </head>
 <body>
@@ -119,9 +140,36 @@
   <div class="secTitle">👥 フレンド <span class="cnt">オンライン状態・チャット・ゲームへの招待</span></div>
   <div id="pwFriendsPortal"></div>
 
+  <div class="secTitle">💾 セーブデータのバックアップ <span class="cnt">全ゲーム共通</span></div>
+  <div class="bkCard">
+    <p>セーブデータはこのブラウザの中に保存されています。ブラウザのデータを消すとセーブも消えてしまいます。時々バックアップを書き出しておくと安心です。対象は全ゲーム共通で、フレンド情報も含まれます。</p>
+    <div class="bkBtns">
+      <button class="bkBtn primary" id="bkExportBtn">📤 書き出す（ダウンロード）</button>
+      <button class="bkBtn ghost" id="bkImportBtn">📥 読み込む（ファイルを選ぶ）</button>
+      <input type="file" id="bkFile" accept="application/json,.json" style="display:none">
+    </div>
+    <div id="bkMsg"></div>
+    <div id="bkUndoRow">
+      <p>読み込み前のデータを退避してあります（<span id="bkUndoWhen"></span>）。間違えて読み込んだ場合は、前の状態に戻せます。</p>
+      <div class="bkBtns" style="margin-top:0">
+        <button class="bkBtn" id="bkUndoBtn">⏪ 読み込み前に戻す</button>
+      </div>
+    </div>
+  </div>
+  <div id="bkModal">
+    <div id="bkModalCard">
+      <div id="bkModalMsg"></div>
+      <div id="bkModalBtns">
+        <button class="bkBtn ghost" id="bkModalCancel">キャンセル</button>
+        <button class="bkBtn" id="bkModalOk">実行する</button>
+      </div>
+    </div>
+  </div>
+
   <div class="secTitle">📢 アップデート</div>
   <ul class="news">
     <li><span class="date">2026.11</span>フレンド機能が登場！<span class="new">NEW</span><br>フレンドコードを交換すると、相手のオンライン状態や遊んでいるゲームが分かり、チャットやゲームへの招待ができるようになりました。各ゲームの右下の「👥」ボタンからも使えます。</li>
+    <li><span class="date">2026.11</span>セーブデータのバックアップ機能を追加しました。<br>ポータルの「💾 セーブデータのバックアップ」から、全ゲーム共通のセーブをファイルに書き出し・読み込みできます。ブラウザのデータを消す前に書き出しておくと安心です。</li>
     <li><span class="date">2026.11</span>まじょねこサバイバーズに第9弾：新ステージ「桜の宵宮」＆ガチャにサクラ・ヨゾラ参戦！<br>虚空をクリアすると解放される最難ステージ（敵×3.8・かけら×3.6）と、SRサクラ・SSRヨゾラの2体を追加。ショップ最下部のボタンがタブバーに被る不具合も修正しました。</li>
     <li><span class="date">2026.11</span>まじょねこサバイバーズが大ボリュームアップ＆モンスターライズにストーリー追加！<br>まじょねこは4ステージ・8キャラ・武器14種に増え、敵も時間とともにインフレする本格バランスに。宝箱の矢印ガイドも追加。モンスターライズはワールド選択を廃止して全マップ徒歩接続＋ライバルと悪の組織の物語を追加、十字キーの不具合も修正。</li>
     <li><span class="date">2026.11</span>モンスターライズが1本に統合＆大幅進化！<br>歩き回れるフィールド探索、本格的な捕獲・進化・技の習得、図鑑・実績を搭載した決定版に。旧セーブは自動で引き継がれます。まじょねこサバイバーズも協力プレイと育成要素が追加。</li>
@@ -288,5 +336,161 @@ if (sessionStorage.getItem('pw_updated')){
 </script>
 <script>window.PW_GAME='portal';</script>
 <script src="friends.js"></script>
+<script>
+/* ─── セーブデータのバックアップ（書き出し／読み込み／読み込み前に戻す） ─── */
+(function(){
+  "use strict";
+  const STASH_KEY = 'playweb_pre_import_backup';
+  const $ = id => document.getElementById(id);
+
+  function collectData(){
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if (k === STASH_KEY) continue; // 退避データ自体は対象外（読み込み時の退避を壊さないため）
+      data[k] = localStorage.getItem(k);
+    }
+    return data;
+  }
+  function applyData(data){
+    // 現在のキー（退避キーを除く）をすべて消してから、バックアップの内容で復元する
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+    keys.forEach(k => { if (k !== STASH_KEY) localStorage.removeItem(k); });
+    Object.keys(data).forEach(k => { if (k !== STASH_KEY) localStorage.setItem(k, data[k]); });
+  }
+  function saveStash(){
+    const stash = { savedAt: new Date().toISOString(), data: collectData() };
+    localStorage.setItem(STASH_KEY, JSON.stringify(stash));
+  }
+  function loadStash(){
+    try {
+      const s = JSON.parse(localStorage.getItem(STASH_KEY) || 'null');
+      if (s && typeof s.savedAt === 'string' && s.data && typeof s.data === 'object' && !Array.isArray(s.data)) return s;
+    } catch (e){}
+    return null;
+  }
+  function fmtDate(iso){
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '日時不明';
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+  function fmtDateTime(iso){
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '日時不明';
+    const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hh + ':' + mm;
+  }
+  function showMsg(kind, text){
+    const m = $('bkMsg');
+    m.className = kind;
+    m.textContent = text;
+  }
+  function refreshUndo(){
+    const stash = loadStash();
+    $('bkUndoRow').style.display = stash ? 'block' : 'none';
+    if (stash) $('bkUndoWhen').textContent = fmtDateTime(stash.savedAt) + ' に保存';
+  }
+  /* 確認モーダル: Promise<boolean> を返す */
+  let modalResolve = null;
+  function showConfirm(message, okLabel){
+    $('bkModalMsg').textContent = message;
+    $('bkModalOk').textContent = okLabel;
+    $('bkModal').classList.add('show');
+    return new Promise(res => { modalResolve = res; });
+  }
+  function closeModal(result){
+    $('bkModal').classList.remove('show');
+    if (modalResolve){ const r = modalResolve; modalResolve = null; r(result); }
+  }
+  $('bkModalOk').addEventListener('click', () => closeModal(true));
+  $('bkModalCancel').addEventListener('click', () => closeModal(false));
+  $('bkModal').addEventListener('click', e => { if (e.target === $('bkModal')) closeModal(false); });
+
+  /* ── 書き出し ── */
+  $('bkExportBtn').addEventListener('click', () => {
+    const data = collectData();
+    const payload = { app: 'playweb-backup', version: 1, exportedAt: new Date().toISOString(), data };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const now = new Date();
+    const ymd = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'playweb-backup-' + ymd + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    showMsg('ok', '✅ バックアップを書き出しました（' + Object.keys(data).length + '件のデータ）。ダウンロードしたファイルを大切に保管してください。');
+  });
+
+  /* ── 読み込み ── */
+  $('bkImportBtn').addEventListener('click', () => { $('bkFile').value = ''; $('bkFile').click(); });
+  $('bkFile').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    let payload = null;
+    try {
+      payload = JSON.parse(await file.text());
+    } catch (err){
+      showMsg('err', '⚠️ ファイルを読み取れませんでした。PlayWebのバックアップファイルを選んでください。データは変更されていません。');
+      return;
+    }
+    const valid = payload && typeof payload === 'object' && !Array.isArray(payload)
+      && payload.app === 'playweb-backup' && payload.version === 1
+      && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)
+      && Object.keys(payload.data).every(k => typeof payload.data[k] === 'string');
+    if (!valid){
+      showMsg('err', '⚠️ このファイルはPlayWebのバックアップではないため、読み込めませんでした。データは変更されていません。');
+      return;
+    }
+    const count = Object.keys(payload.data).length;
+    const ok = await showConfirm(
+      fmtDate(payload.exportedAt) + 'のバックアップ（' + count + '件のデータ）で、現在のセーブデータを上書きします。よろしいですか？\n（読み込み前のデータは自動で退避され、後から戻せます）',
+      '上書きする'
+    );
+    if (!ok){ showMsg('ok', '読み込みをキャンセルしました。データは変更されていません。'); return; }
+    try {
+      saveStash(); // 上書き前に現在のデータを退避
+    } catch (err){
+      showMsg('err', '⚠️ 読み込み前のデータを退避できなかったため、読み込みを中止しました（ブラウザの保存容量不足の可能性があります）。先に現在のデータを書き出してからお試しください。データは変更されていません。');
+      return;
+    }
+    try {
+      applyData(payload.data);
+    } catch (err){
+      showMsg('err', '⚠️ 読み込みの途中でエラーが発生しました。「読み込み前に戻す」から元の状態に戻せます。');
+      refreshUndo();
+      return;
+    }
+    showMsg('ok', '✅ バックアップを読み込みました。まもなくページを再読み込みします…');
+    setTimeout(() => location.reload(), 900);
+  });
+
+  /* ── 読み込み前に戻す（現在のデータと退避データを入れ替えるので、やり直しも可能） ── */
+  $('bkUndoBtn').addEventListener('click', async () => {
+    const stash = loadStash();
+    if (!stash){ refreshUndo(); return; }
+    const ok = await showConfirm(
+      '退避してあるデータ（' + fmtDateTime(stash.savedAt) + ' に保存）で、現在のセーブデータを上書きして前の状態に戻します。よろしいですか？\n（今のデータも退避されるので、もう一度戻すこともできます）',
+      '前に戻す'
+    );
+    if (!ok) return;
+    try {
+      const current = collectData();
+      applyData(stash.data);
+      localStorage.setItem(STASH_KEY, JSON.stringify({ savedAt: new Date().toISOString(), data: current }));
+    } catch (err){
+      showMsg('err', '⚠️ 復旧の途中でエラーが発生しました。');
+      refreshUndo();
+      return;
+    }
+    showMsg('ok', '✅ 前の状態に戻しました。まもなくページを再読み込みします…');
+    setTimeout(() => location.reload(), 900);
+  });
+
+  refreshUndo();
+})();
+</script>
 </body>
 </html>

@@ -198,7 +198,7 @@
           <div class="roomcode" id="roomCodeText">------</div>
           <div class="row"><button id="copyCodeBtn" class="ghost">コードをコピー</button></div>
         </div>
-        <div id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+        <div id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを選ぶと、部屋を作って招待を送ります。参加は届いた招待からだけできます。</div>
         <div class="row" style="margin-top:8px">
           <button id="onlineLeaveBtn" class="ghost">やめる</button>
         </div>
@@ -879,6 +879,12 @@ function endGame(){
     else { title = '引き分け'; snd = playDraw; }
     scoreText = `黒 ${b} — ${w} 白（あなた ${mine} : 相手 ${theirs}）`;
     recText = 'オンライン対戦は通算成績に記録されません';
+    /* フレンド戦績（friends.js）へ記録 */
+    if (window.PWFriends && PWFriends.recordMatch){
+      if (mine > theirs) PWFriends.recordMatch('win');
+      else if (mine < theirs) PWFriends.recordMatch('lose');
+      else PWFriends.recordMatch('draw');
+    }
   } else {
     const hd = human === BLACK ? b : w;
     const cd = human === BLACK ? w : b;
@@ -1243,7 +1249,7 @@ function joinRoom(){
 function leaveOnline(){
   teardownOnline();
   onlineClosing = false;
-  setOnlineStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  setOnlineStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを選ぶと、部屋を作って招待を送ります。参加は届いた招待からだけできます。');
   render();
 }
 function setMode(m){

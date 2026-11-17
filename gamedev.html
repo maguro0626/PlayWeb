@@ -350,7 +350,7 @@ let VS = {
   seed:0, years:3, totalWeeks:144, trendSchedule:null,
   myName:'', oppName:'ライバル会社', pendingName:'', pendingYears:3,
   oppProg:null, oppFinal:null, oppBankrupt:false, myFinal:null,
-  lastProgKey:'', finishReason:'', resultShown:false,
+  lastProgKey:'', finishReason:'', resultShown:false, matchRecorded:false,
 };
 function currentSaveKey(){ return VS.active ? VS_SAVE_KEY : SAVE_KEY; }
 let S = null;
@@ -1380,6 +1380,23 @@ function openVsLobby(){
   $('#vs-close').onclick = () => { closeModal(); if(!S.started) showStart(); };
   $('#vs-host-btn').onclick = () => { VS.pendingName = ($('#vs-name').value || '').trim() || 'ほしぞら工房'; vsHostRoom(); };
   $('#vs-join-btn').onclick = () => { VS.pendingName = ($('#vs-name').value || '').trim() || 'ほしぞら工房'; vsJoinRoom(($('#vs-join-code').value || '').trim().toUpperCase()); };
+  /* フレンド招待制（friends.js）: ロビーは動的生成のため friends.js の自動変換が届かない場合がある。
+     PWFriends がある環境ではコードUIを隠し、招待/戦績バーをここで差し込む（自動変換済みの場合は二重に入れない） */
+  if(window.PWFriends){
+    ['#vs-join-code', '#vs-join-btn', '#vs-host-btn', '#vs-code-wrap'].forEach(s => { const el = $(s); if(el) el.classList.add('pwf-hidden'); });
+    vsSetStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。');
+    if(!document.querySelector('.pwf-gamebar')){
+      const bar = document.createElement('div');
+      bar.className = 'pwf-gamebar pwf-root';
+      bar.innerHTML = '<button class="pwf-gb-invite">👥 フレンドを招待して対戦</button>' +
+        '<button class="pwf-gb-records">📊 フレンド戦績</button>' +
+        '<div class="pwf-gb-note">オンラインはフレンド招待制です（コード入力はありません）</div>';
+      bar.querySelector('.pwf-gb-invite').onclick = () => { if(window.PWFriends) PWFriends.openInvitePicker(); };
+      bar.querySelector('.pwf-gb-records').onclick = () => { if(window.PWFriends) PWFriends.openRecords('gamedev'); };
+      const hostBtn = $('#vs-host-btn');
+      if(hostBtn && hostBtn.parentNode) hostBtn.parentNode.insertBefore(bar, hostBtn);
+    }
+  }
 }
 function vsHostRoom(){
   if(!vsPeerAvailable()){ vsSetStatus('<span style="color:#e5484d">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
@@ -1390,6 +1407,7 @@ function vsHostRoom(){
   try{ VS.peer = new Peer(VS_PEER_PREFIX + VS.roomCode, VS_PEER_OPTS); }
   catch(e){ vsSetStatus('<span style="color:#e5484d">接続の作成に失敗しました。</span>'); return; }
   VS.peer.on('open', () => {
+    window.PW_ROOM_CODE = VS.roomCode;
     const w = $('#vs-code-wrap'); if(w) w.style.display = '';
     const c = $('#vs-code'); if(c) c.textContent = VS.roomCode;
     const cp = $('#vs-copy'); if(cp) cp.onclick = async () => { try{ await navigator.clipboard.writeText(VS.roomCode); toast('コードをコピーしました'); }catch(e){} };
@@ -1459,7 +1477,7 @@ function startVersus(seed, years, oppName){
   S.trendGenre = VS.trendSchedule[0];
   VS.oppName = oppName || 'ライバル会社';
   VS.oppProg = null; VS.oppFinal = null; VS.oppBankrupt = false;
-  VS.myFinal = null; VS.lastProgKey = ''; VS.finishReason = ''; VS.resultShown = false;
+  VS.myFinal = null; VS.lastProgKey = ''; VS.finishReason = ''; VS.resultShown = false; VS.matchRecorded = false;
   refreshCandidates(true); refreshContracts();
   addLog(`⚔️ ${VS.oppName}との${years}年対決スタート！`);
   delete $('#modal-box').dataset.locked;
@@ -1588,6 +1606,12 @@ function showVsResult(){
     return;
   }
   else { verdict = vsJudge(mine, opp); title = verdict > 0 ? '🏆 勝利！' : verdict < 0 ? '💦 敗北…' : '🤝 引き分け'; reasonTxt = `${VS.years}年間のライバル対決が終了しました！`; }
+  /* フレンド戦績（friends.js）へ記録: 最終判定が確定した時点で1試合1回だけ（相手結果待ちの間は記録しない）。
+     verdict は vsJudge（ファン数→資金で比較）／倒産=-1／相手倒産=+1 から決まる自分の勝敗 */
+  if(!VS.matchRecorded && window.PWFriends && PWFriends.recordMatch){
+    VS.matchRecorded = true;
+    PWFriends.recordMatch(verdict > 0 ? 'win' : verdict < 0 ? 'lose' : 'draw');
+  }
   const row = (label, mv, ov) => `<div class="history-item"><span style="flex:1">${label}</span><span style="width:104px;text-align:right"><b>${mv}</b></span><span style="width:104px;text-align:right"><b>${ov}</b></span></div>`;
   showModal(`
     <div id="vs-result-box">

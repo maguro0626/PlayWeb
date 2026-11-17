@@ -171,7 +171,7 @@
           <input id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
           <button class="subbtn" id="joinBtn">参加する</button>
         </div>
-        <div id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+        <div id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」から始めましょう。</div>
       </div>
     </div>
 
@@ -1376,6 +1376,11 @@ function finishRace(){
   hideOv();
   hideRaceBanner();
   $('raceTimer').textContent = '0:00';
+  /* フレンド戦績（friends.js）へ記録: finishRace はレース終了時に1回だけ通る */
+  if (window.PWFriends && PWFriends.recordMatch){
+    const v = raceVerdict();
+    PWFriends.recordMatch(v === 'win' ? 'win' : v === 'lose' ? 'lose' : 'draw');
+  }
   showRaceResult();
 }
 function showRaceResult(){
@@ -1558,7 +1563,7 @@ function hostRoom(){
   peer.on('open', () => {
     $('roomCodeText').textContent = roomCode;
     $('onlineCodeWrap').classList.remove('hidden-util');
-    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。相手が参加すると自動でスタート！');
+    setOnlineStatus('フレンドの参加を待っています… 相手が参加すると自動でスタート！');
   });
   peer.on('connection', c => {
     setupConn(c);

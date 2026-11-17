@@ -704,16 +704,17 @@ function buildMenu(){
   charHTML += '</div>';
   let onlineHTML = '';
   if (netMode === 'online'){
-    onlineHTML = '<div class="sec-lbl">ONLINE RACE — ルーム</div><div class="online-box">';
+    onlineHTML = '<div class="sec-lbl">ONLINE RACE — フレンド対戦</div><div class="online-box">';
     if (netRole === 'host'){
-      onlineHTML += `<div class="online-row">ルームコード： <span class="room-code">${roomCode}</span> <button class="mini-btn" id="btn-copy-code">📋 コピー</button></div>`;
-      onlineHTML += `<div class="online-note">${guestReady ? '✅ 相手が参加しています。ステージを選んで「レーススタート」を押してください。' : '相手にコードを伝えて、参加を待っています…'}</div>`;
+      onlineHTML += `<div class="online-note">${guestReady ? '✅ 相手が参加しています。ステージを選んで「レーススタート」を押してください。' : 'フレンドの参加を待っています…「フレンドを招待」から招待を送ってください。'}</div>`;
     } else if (netRole === 'guest'){
-      onlineHTML += `<div class="online-note">✅ 参加中（コード： <b>${roomCode}</b>）— ステージはホストが決めます。ホストのスタートを待ってください。</div>`;
+      onlineHTML += '<div class="online-note">✅ 参加中 — ステージはホストが決めます。ホストのスタートを待ってください。</div>';
     } else {
-      onlineHTML += '<div class="online-row"><button class="mini-btn big" id="btn-host">🏠 部屋を作る</button></div>';
-      onlineHTML += '<div class="online-row"><input id="join-code" class="code-input" maxlength="6" placeholder="ルームコード（6文字）" autocomplete="off"><button class="mini-btn big" id="btn-join">🚪 参加する</button></div>';
+      onlineHTML += '<div class="online-note">オンラインはフレンド招待制です。ホストになる場合は「フレンドを招待」から招待を送り、参加する場合はフレンドからの招待を受けてください（コード入力はありません）。</div>';
     }
+    onlineHTML += '<div class="online-row">' +
+      (netRole === 'guest' ? '' : '<button class="mini-btn big" id="btn-invite-friend">👥 フレンドを招待して対戦</button>') +
+      '<button class="mini-btn big" id="btn-friend-records">📊 フレンド戦績</button></div>';
     onlineHTML += '<div id="online-status" class="online-status"></div>';
     if (netRole) onlineHTML += '<div class="online-row"><button class="mini-btn" id="btn-leave">退出する</button></div>';
     onlineHTML += '<div class="online-note">※レースは通常ステージ（Stage 1〜6）のみ。先にゴールした方の勝ちです。</div></div>';
@@ -742,12 +743,10 @@ function buildMenu(){
   if (netMode === 'online'){
     const st = document.getElementById('online-status');
     if (st) st.innerHTML = onlineStatusHTML;
-    const bh = document.getElementById('btn-host');
-    if (bh) bh.addEventListener('click', () => { sfx.click(); hostRoom(); });
-    const bj = document.getElementById('btn-join');
-    if (bj) bj.addEventListener('click', () => { sfx.click(); joinRoom(); });
-    const bc = document.getElementById('btn-copy-code');
-    if (bc) bc.addEventListener('click', () => copyRoomCode());
+    const bi = document.getElementById('btn-invite-friend');
+    if (bi) bi.addEventListener('click', () => { sfx.click(); if (window.PWFriends) PWFriends.openInvitePicker(); });
+    const br = document.getElementById('btn-friend-records');
+    if (br) br.addEventListener('click', () => { sfx.click(); if (window.PWFriends) PWFriends.openRecords('jump'); });
     const bl = document.getElementById('btn-leave');
     if (bl) bl.addEventListener('click', () => { sfx.click(); leaveOnline(); buildMenu(); });
   }
@@ -759,9 +758,9 @@ function buildMenu(){
     } else {
       sb.textContent = netRole === 'host' ? '👥 相手の参加を待っています…'
         : netRole === 'guest' ? '🏁 ホストのスタートを待っています…'
-        : '🌐 部屋を作るか、コードで参加してください';
+        : '👥 フレンドを招待してください';
       sb.style.opacity = '.55';
-      sb.addEventListener('click', () => showToast('オンライン対戦はルームから開始します'));
+      sb.addEventListener('click', () => showToast('オンライン対戦はフレンド招待制です'));
     }
   } else {
     sb.addEventListener('click', () => { sfx.click(); startGame(); });
@@ -1506,7 +1505,7 @@ let netRole = null;             // 'host' | 'guest'
 let peer = null, conn = null, roomCode = '';
 let netClosing = false;
 let guestReady = false;         // ホスト側: ゲストが参加済みか
-let onlineStatusHTML = '「部屋を作る」か、相手のコードで「参加する」を選んでください。';
+let onlineStatusHTML = 'フレンドを招待するとレースが始まります。';
 let raceActive = false, raceFinished = false;
 let raceStage = 1, raceStartAt = 0;
 let raceStartTimer = null, raceInt = null, raceLive = false;
@@ -1635,6 +1634,8 @@ function raceStatsHTML(){
 function finishRace(result, reason){
   if (raceFinished) return;
   raceFinished = true;
+  /* レースの勝敗確定地点: フレンド戦績へ記録（result は 'win'|'lose'|'draw'） */
+  if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(result);
   stopRaceTimers();
   sendProg(true);
   updateRaceBar();
@@ -1892,11 +1893,12 @@ function hostRoom(){
   netRole = 'host';
   guestReady = false;
   roomCode = genRoomCode();
+  window.PW_ROOM_CODE = roomCode; /* friends.js の招待フローが検出に使う（画面には出さない） */
   setOnlineStatus('部屋を作成中…');
   try{ peer = new Peer(PEER_PREFIX + roomCode, PEER_OPTS); }
   catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); netRole = null; buildMenu(); return; }
   peer.on('open', () => {
-    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    setOnlineStatus('相手の参加を待っています… 招待したフレンドの参加を待っています。');
     buildMenu();
   });
   peer.on('connection', c => {
@@ -1915,15 +1917,16 @@ function hostRoom(){
   peer.on('disconnected', () => { try{ peer.reconnect(); }catch (e){} });
   buildMenu();
 }
-function joinRoom(){
+function joinRoom(codeArg){
   if (!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
   const input = document.getElementById('join-code');
-  const code = ((input && input.value) || '').trim().toUpperCase();
+  const code = (typeof codeArg === 'string' && codeArg ? codeArg : ((input && input.value) || '')).trim().toUpperCase();
   if (code.length !== 6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
   teardownNet();
   netClosing = false;
   netRole = 'guest';
   roomCode = code;
+  window.PW_ROOM_CODE = code;
   setOnlineStatus('接続中…');
   try{ peer = new Peer(undefined, PEER_OPTS); }
   catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); netRole = null; buildMenu(); return; }
@@ -1950,13 +1953,31 @@ function leaveOnline(){
   teardownNet();
   netClosing = false;
   netRole = null;
+  window.PW_ROOM_CODE = '';
   guestReady = false;
   reconnecting = false;
   raceActive = false; raceFinished = false; raceLive = false;
   document.getElementById('race-bar').classList.add('hidden');
-  setOnlineStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  setOnlineStatus('フレンドを招待するとレースが始まります。');
 }
 document.getElementById('race-exit').addEventListener('click', () => { sfx.click(); exitRaceToMenu(); });
+
+/* ---------- フレンド招待制（friends.js 連携） ----------
+   オンラインUIは buildMenu() が動的生成するため friends.js の自動変換が効かない。
+   ここで UI なしのホスト作成/参加を公開し、招待フローから使えるようにする。
+   ルームコードは window.PW_ROOM_CODE 経由で friends.js が検出する（画面には出さない）。 */
+window.PW_AUTO_HOST = function(){
+  if (netRole === 'host' && roomCode) return;
+  netMode = 'online';
+  hostRoom();
+};
+window.PW_AUTO_JOIN = function(code){
+  const c = (code || '').toString().trim().toUpperCase();
+  if (c.length !== 6) return;
+  if (netRole === 'guest' && roomCode === c) return;
+  netMode = 'online';
+  joinRoom(c);
+};
 
 /* ---------- 初期化 ---------- */
 buildMenu();
@@ -1965,6 +1986,12 @@ updateHearts();
 refreshSoundBtn();
 fitCanvas();
 requestAnimationFrame(loop);
+/* 招待リンク（?join= / ?hostinvite=）で来た場合は、コード入力UIを経由せず直接参加/作成する */
+try {
+  const _pwParams = new URLSearchParams(location.search);
+  if (_pwParams.get('join')) window.PW_AUTO_JOIN(_pwParams.get('join'));
+  else if (_pwParams.get('hostinvite')) window.PW_AUTO_HOST();
+} catch (e) {}
 </script>
 <script>window.PW_GAME='jump';window.PW_JOIN_CFG={openers:[{click:'.mode-tab[data-mode="online"]'}],input:'#join-code',joinBtn:'#btn-join',hostBtn:'#btn-host'};</script>
 <script src="friends.js"></script>

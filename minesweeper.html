@@ -111,7 +111,7 @@
       <span class="codeDisp" id="roomCodeText">------</span>
       <button class="hbtn" id="copyCodeBtn">📋 コピー</button>
     </div>
-    <div class="ostatus" id="onlineStatus">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+    <div class="ostatus" id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」から始めましょう。</div>
     <div class="progWrap" id="progWrap" style="display:none">
       <div class="progRow"><span class="plabel">あなた</span><div class="progBar"><div class="progFill me" id="myProgFill"></div></div><span class="progPct" id="myProgText">0% (0)</span></div>
       <div class="progRow"><span class="plabel">相手</span><div class="progBar"><div class="progFill opp" id="oppProgFill"></div></div><span class="progPct" id="oppProgText">0% (0)</span></div>
@@ -381,6 +381,17 @@ function resolveRace(){
   else return;
   raceResolved=true; raceActive=false;
   over=true; clearInterval(timerInt);
+  /* フレンド戦績（friends.js）へ記録: resolveRace は勝敗確定時に1回だけ通る（退出時は通らない）。
+     対戦レース形式: 自分/相手の地雷=負け/勝ち、両者クリア時はタイム差、同タイムは引き分け */
+  if(window.PWFriends && PWFriends.recordMatch){
+    let outcome = null;
+    if(myResult==='boom') outcome = 'lose';
+    else if(oppResult==='boom') outcome = 'win';
+    else if(myResult==='clear' && oppResult==='clear') outcome = myClearMs < oppClearMs ? 'win' : myClearMs > oppClearMs ? 'lose' : 'draw';
+    else if(myResult==='clear') outcome = 'win';
+    else if(oppResult==='clear') outcome = 'lose';
+    if(outcome) PWFriends.recordMatch(outcome);
+  }
   showResult(title, detail);
 }
 
@@ -535,7 +546,7 @@ function hostRoom(){
     $('roomCodeText').textContent=roomCode;
     $('codeWrap').style.display='';
     $('leaveBtn').style.display='';
-    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。難易度はあなたの選択が適用されます。');
+    setOnlineStatus('フレンドの参加を待っています… 難易度はあなたの選択が適用されます。');
   });
   peer.on('connection', c=>{
     setupConn(c);
@@ -593,7 +604,7 @@ function leaveOnline(){
   $('codeWrap').style.display='none';
   $('resultModal').classList.remove('show');
   document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x.dataset.m==='solo'));
-  setOnlineStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  setOnlineStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」から始めましょう。');
   init();
 }
 function copyRoomCode(){

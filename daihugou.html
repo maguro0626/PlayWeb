@@ -417,8 +417,11 @@
         <button class="net-btn" onclick="netJoinRoom()">参加する</button>
       </div>
       <div id="net-lobby" class="hidden">
-        <div id="net-room-line">ルームコード： <span id="net-room-code">------</span>
-          <button class="hbtn" onclick="netCopyCode()">📋 コピー</button></div>
+        <!-- 招待制移行: ルームコード行（コード表示＋コピーボタン）は friends.js の
+             .pwf-hidden で常時非表示にする。friends.js は #net-room-code のテキスト
+             自体は detectRoomCode() で読めるため招待フローは壊れない。 -->
+        <div id="net-room-line" class="pwf-hidden">ルームコード： <span id="net-room-code">------</span>
+          <button class="hbtn" id="btn-copy-code" onclick="netCopyCode()">📋 コピー</button></div>
         <ul id="net-members"></ul>
         <button class="start-btn hidden" id="net-start-btn" onclick="netHostStartGame()">CPUで埋めてスタート ▶</button>
         <button class="net-btn hidden" id="net-lobby-exit" onclick="netExitLobby()" style="margin-top:10px; width:100%">退出する</button>
@@ -1680,6 +1683,7 @@ function netInputName(def) {
   return netCleanName(el ? el.value : '') || def;
 }
 function netShowLobbyUI() {
+  if (NET.code) window.PW_ROOM_CODE = NET.code; /* friends.js の招待フロー用（表示は隠したまま） */
   document.getElementById('net-lobby').classList.remove('hidden');
   document.getElementById('net-room-code').textContent = NET.code || '------';
   document.getElementById('net-lobby-exit').classList.remove('hidden');
@@ -1784,7 +1788,7 @@ function netHostCreatePeer() {
   NET.peer.on('open', () => {
     opened = true;
     netDisarmTimer();
-    netSetStatus('参加者を待っています。コードを伝えてください。ゲストが1人以上来たらスタートできます。');
+    netSetStatus('参加者を待っています。フレンドを招待すると参加できます。ゲストが1人以上来たらスタートできます。');
     netBroadcastLobby();
   });
   NET.peer.on('connection', c => netHostWireConn(c));
@@ -1794,6 +1798,7 @@ function netHostCreatePeer() {
       /* コード衝突: 別のコードで作り直す */
       NET.idRetried = true;
       NET.code = netGenCode();
+      window.PW_ROOM_CODE = NET.code;
       document.getElementById('net-room-code').textContent = NET.code;
       try { NET.peer.destroy(); } catch (e) {}
       netHostCreatePeer();
@@ -1944,7 +1949,7 @@ function netHostStartGame() {
   game.roundNum = 0;
   document.getElementById('screen-setup').classList.add('hidden');
   document.getElementById('screen-game').classList.remove('hidden');
-  netBarShow(`🌐 オンライン対戦中（コード: ${NET.code}）`);
+  netBarShow(`🌐 オンライン対戦中`); /* 招待制移行: ルームコードは画面に表示しない */
   NET.seats.forEach((s, i) => { if (i > 0 && s && s.conn) netSendTo(s.conn, { t: 'start' }); });
   netStartPing();
   startRound();
@@ -2020,6 +2025,10 @@ function netHostEndRound() {
   game.rankMap = game.players.map(p => ({ id: p.id, name: p.name, rank: p.rankThisRound, pos: p.rankPos }));
   /* 戦績はホスト自身の順位で記録（ソロと同じ） */
   const me = game.players[0];
+  /* フレンド戦績（friends.js）へ記録: 1ラウンド（全員が上がり最終順位が確定した時点）を
+     1ゲームとして、1位（大富豪）='win'、それ以外='lose' を1回だけ記録する。
+     ここはホスト専用経路（endRound から委譲）。ゲストは netGuestShowResult で記録する。 */
+  if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(me.rankPos === 0 ? 'win' : 'lose');
   stats.rounds++;
   stats.ranks[me.rankThisRound] = (stats.ranks[me.rankThisRound] || 0) + 1;
   if (me.rankPos === 0) {
@@ -2221,6 +2230,10 @@ function netGuestShowResult(st) {
   const sorted = [...st.results].sort((a, b) => a.pos - b.pos);
   const medals = ['🥇', '🥈', '🥉', '4️⃣'];
   const myRes = st.results.find(r => r.id === myId);
+  /* フレンド戦績（friends.js）へ記録（ゲスト側）: ラウンドの最終順位で1回だけ。
+     冒頭の NET.resultRound ガードにより同一ラウンドの再送では二重記録しない。
+     1位（大富豪）='win'、それ以外='lose'。 */
+  if (myRes && window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(myRes.pos === 0 ? 'win' : 'lose');
   let html = '';
   sorted.forEach((r, i) => {
     html += `<div class="rank-row ${r.id === myId ? 'me' : ''}">

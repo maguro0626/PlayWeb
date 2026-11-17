@@ -1597,6 +1597,12 @@ function finalGameOver(){
   document.getElementById('win-pts').textContent = '最終順位';
   const scEl = document.getElementById('win-scores'); scEl.innerHTML = '';
   const sorted = [0, 1, 2, 3].sort((a, b) => G.scores[b] - G.scores[a]);
+  /* フレンド戦績（friends.js）へ記録: 対局（東風/半荘）終了時の最終順位で1回だけ。
+     1位='win'、2〜4位='lose'。ホストは本関数、ゲストは netGuestOnFinal 経由で本関数を通る。
+     CPU戦・ソロ（NET.mode==='off'）では記録しない。局ごとの結果では記録しない。 */
+  if (NET.mode !== 'off' && window.PWFriends && PWFriends.recordMatch){
+    PWFriends.recordMatch(sorted.indexOf(HUMAN) === 0 ? 'win' : 'lose');
+  }
   const medals = ['🥇', '🥈', '🥉', '4️⃣'];
   sorted.forEach((p, rank) => {
     const row = document.createElement('div');
@@ -2080,6 +2086,7 @@ function netHostCreateRoom(){
   try { NET.peer = new Peer(MJ_PEER_PREFIX + NET.roomCode, MJ_PEER_OPTS); }
   catch(e){ NET.mode = 'off'; netSetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   NET.peer.on('open', () => {
+    window.PW_ROOM_CODE = NET.roomCode; /* friends.js の招待フロー用（表示は friends.js が隠す） */
     document.getElementById('start-overlay').classList.remove('show');
     document.getElementById('net-lobby').classList.add('show');
     document.getElementById('net-lobby-code').textContent = NET.roomCode;
@@ -2622,6 +2629,7 @@ function netGuestLeave(){
   netSetStatus('');
 }
 function netShowLobbyGuest(players){
+  window.PW_ROOM_CODE = NET.roomCode;
   document.getElementById('start-overlay').classList.remove('show');
   document.getElementById('net-lobby').classList.add('show');
   document.getElementById('net-lobby-code').textContent = NET.roomCode;

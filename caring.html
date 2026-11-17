@@ -1461,6 +1461,7 @@ function evolve(newStage) {
   if (!M[newStage]) return;
   const before = M[G.stage] ? M[G.stage].name : '';
   G.stage = newStage;
+  if (coPlaying && STAGE_ORDER.indexOf(newStage) >= 13) coReachedFinal = true; /* 最終形態に到達 */
   if (!G.discovered.includes(newStage)) G.discovered.push(newStage);
   G.totalHappy = 0; G.totalFed = 0; G.totalScold = 0; G.totalClean = 0; G.missedCare = 0;
   G.hunger = 4; G.happy = 4; G.isSick = false; G.poop = false;
@@ -2043,6 +2044,7 @@ const CA_PEER_OPTS = { config: { iceServers: [
 ] } };
 let netMode = 'solo';            // 'solo' | 'host' | 'guest'
 let coPlaying = false;           // 共同育成セッション中
+let coReachedFinal = false;      // 共同育成中に最終形態へ進化したか（フレンド戦績の cleared 判定）
 let onlineClosing = false;
 let caPeer = null, caConn = null;
 let caIsHost = false, caRoomCode = '';
@@ -2128,6 +2130,7 @@ function startCoOpHost() {
   careLog = [];
   tickCount = 0;
   coPlaying = true;
+  coReachedFinal = false;
   document.body.classList.add('online-on');
   ['dead-overlay', 'evo-overlay', 'sleep-overlay'].forEach(id => document.getElementById(id).classList.add('hidden'));
   document.getElementById('light-icon').textContent = '💡';
@@ -2150,6 +2153,7 @@ function applyCoState(st) {
   if (!coPlaying) {
     backupSolo();
     coPlaying = true;
+    coReachedFinal = false;
     document.body.classList.add('online-on');
     document.getElementById('net-lobby').classList.add('hidden');
     document.getElementById('net-leave').classList.remove('hidden');
@@ -2157,6 +2161,7 @@ function applyCoState(st) {
   hostName = st.hostName || hostName;
   guestConnected = true;
   G = Object.assign({}, G, st.g);
+  if (STAGE_ORDER.indexOf(G.stage) >= 13) coReachedFinal = true; /* ゲスト側: 最終形態の同期を受けたら達成扱い */
   if (Array.isArray(st.log)) careLog = st.log;
   tickCount = st.tick || 0;
   document.getElementById('sleep-overlay').classList.toggle('hidden', !G.isSleeping);
@@ -2314,10 +2319,11 @@ function hostRoom() {
   catch(e) { netMode = 'solo'; setNetStatus('<span class="net-err">接続の作成に失敗しました。</span>'); return; }
   caPeer.on('open', () => {
     document.getElementById('net-code-text').textContent = caRoomCode;
-    document.getElementById('net-code-wrap').classList.remove('hidden');
+    /* ルームコードは内部IDとしてのみ使う（フレンド招待制）。#net-code-wrap は表示しない:
+       コード文字列は friends.js が #net-code-text の textContent から検出する */
     document.getElementById('net-lobby').classList.add('hidden');
     document.getElementById('net-leave').classList.remove('hidden');
-    setNetStatus('相手の参加を待っています… コードを相手に伝えてください。相手が参加すると共同育成が始まります。');
+    setNetStatus('相手の参加を待っています… 招待したフレンドが参加すると共同育成が始まります。');
     updateNetDot();
   });
   caPeer.on('connection', c => {
@@ -2365,6 +2371,12 @@ function leaveOnline() {
   endCoOp('オンラインを終了しました。ソロ育成に戻ります。');
 }
 function endCoOp(msg) {
+  /* 共同育成セッション終了地点（ホスト/ゲスト共通の終了経路: 自発終了・相手からの終了通知・再接続断念）。
+     育成ゲームに勝敗/クリア概念は無いが、最終形態への進化を「達成」として cleared に記録する */
+  if (coPlaying && window.PWFriends && PWFriends.recordMatch) {
+    try { PWFriends.recordMatch('coop', { cleared: !!coReachedFinal }); } catch(e) {}
+  }
+  coReachedFinal = false;
   teardownCa();
   if (soloBackup) {
     G = soloBackup.g;
