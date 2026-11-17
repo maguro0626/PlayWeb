@@ -259,6 +259,17 @@ html,body {
   background-color:#000; cursor:pointer;
 }
 .vn-cg-overlay.visible { display:block; animation:fadeIn 0.5s ease; }
+/* 画像ファイルが無いCG用のプレースホルダ表示 */
+.vn-cg-overlay.noimg {
+  background:radial-gradient(ellipse at 50% 35%, #3a2a5a 0%, #1a1030 55%, #0a0618 100%);
+}
+.vn-cg-title {
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; letter-spacing:0.12em; color:var(--gold,#c9a227);
+  text-shadow:0 2px 12px rgba(0,0,0,0.8); pointer-events:none;
+  padding:0 24px; text-align:center;
+}
 
 /* ── 立ち絵 — 上半分表示 ── */
 
@@ -322,17 +333,18 @@ html,body {
 
 /* キャラクター画像本体の設定 */
 .vn-sprite img {
-  position: absolute; 
+  position: absolute;
   bottom: 0;             /* 下端を基準に表示 */
-  left: 50%; 
+  left: 50%;
   transform: translateX(-50%);
-  
-  /* --- サイズをデフォルトにする修正 --- */
-  height: auto;          /* 200%からautoに変更 */
-  width: auto;           /* 元の幅を維持 */
+
+  /* 立ち絵PNGは横長キャンバス(1408x768等)の中央に全身が描かれているため、
+     高さをステージ高に合わせないと原寸(例:1380px幅)で表示され巨大化・見切れする。
+     height:100% で全身が収まる */
+  height: 100%;
+  width: auto;
   max-width: none;
-  /* ---------------------------------- */
-  
+
   display: block;
   image-rendering: auto;
 }
@@ -815,6 +827,17 @@ html,body {
   position:absolute; inset:0; z-index:20;
   background:#000; display:none;
   align-items:center; justify-content:center; cursor:pointer;
+}
+/* 画像ファイルが無いCGのプレースホルダ */
+.album-cg-noimg {
+  width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at 50% 35%, #3a2a5a 0%, #1a1030 60%, #0a0618 100%);
+  font-size:30px;
+}
+.album-viewer-noimg {
+  font-size:22px; letter-spacing:0.12em; color:var(--gold,#c9a227);
+  text-shadow:0 2px 12px rgba(0,0,0,0.8); padding:0 24px; text-align:center;
 }
 .album-viewer.open { display:flex; }
 .album-viewer img { max-width:100%; max-height:100%; object-fit:contain; }
@@ -1357,7 +1380,7 @@ body.net-guest #vn-btn-save, body.net-guest #vn-btn-menu { display:none; }
       </div>
     </div>
 
-    <div class="vn-cg-overlay" id="vn-cg-overlay"></div>
+    <div class="vn-cg-overlay" id="vn-cg-overlay"><div class="vn-cg-title" id="vn-cg-title" style="display:none"></div></div>
 
     <div class="vn-textbox" id="vn-textbox">
       <div class="vn-namebox" id="vn-namebox">
@@ -1497,6 +1520,7 @@ body.net-guest #vn-btn-save, body.net-guest #vn-btn-menu { display:none; }
   <div class="album-endings" id="album-endings"></div>
   <div class="album-viewer" id="album-viewer">
     <img id="album-viewer-img" src="" alt="">
+    <div id="album-viewer-noimg" class="album-viewer-noimg" style="display:none"></div>
   </div>
 </div>
 
@@ -1654,7 +1678,7 @@ const CHAR_ORDER = ['rinto','souma','kaito','aoi','hayate'];
 
 /* ── サブキャラクター（立ち絵準備中・将来実装予定） ── */
 const SUB_CHARS = {
-  haruko: { id:'haruko',  name:'月城 晴子', nameShort:'晴子先生', initial:'晴', color:'#3a5a2a', accent:'#88cc66', tag:'主人公の母', spriteReady:false },
+  haruko: { id:'haruko',  name:'月城 晴子', nameShort:'晴子', initial:'晴', color:'#3a5a2a', accent:'#88cc66', tag:'主人公の母', spriteReady:false },
   haruka: { id:'haruka',  name:'椎名 遥',   nameShort:'遥',       initial:'遥', color:'#5a2a5a', accent:'#cc88cc', tag:'親友',     spriteReady:false },
   kurosaki:{ id:'kurosaki',name:'黒崎 先生',nameShort:'黒崎先生', initial:'崎', color:'#2a2a4a', accent:'#8888cc', tag:'担任教師',  spriteReady:false }
 };
@@ -1710,7 +1734,7 @@ const DATE_SPOTS = [
   { id:'observatory', label:'天文台',         icon:'🔭', desc:'夜空を眺める神秘的なデート', bonus:{rinto:15,hayate:12,souma:8,kaito:5,aoi:10} },
   { id:'beach',       label:'海岸',           icon:'🌊', desc:'潮風薫る開放的なデート',     bonus:{kaito:15,hayate:10,souma:8,rinto:5,aoi:8} },
   { id:'cafe',        label:'市街カフェ',     icon:'☕', desc:'ゆったり語り合うカフェデート', bonus:{souma:12,hayate:12,rinto:10,aoi:8,kaito:8} },
-  { id:'cinema',      label:'映画館',         icon:'🎬', desc:'隣り合って映画を楽しむ',      bonus:{aoi:12,souma:10,hayate:8,rinto:8,kaito:10} },
+  { id:'cinema',      label:'映画館',         icon:'🎬', desc:'隣り合って映画を楽しむ',      bonus:{aoi:12,souma:10,hayate:8,rinto:8,kaito:10}, bg:'city_shopping' },
   { id:'library',     label:'図書館',         icon:'📖', desc:'静かな空間で過ごす',          bonus:{rinto:15,souma:15,aoi:10,hayate:8,kaito:5} },
   { id:'park',        label:'公園',           icon:'🌸', desc:'ゆっくり散歩するデート',      bonus:{souma:10,kaito:10,hayate:8,rinto:8,aoi:10} },
   { id:'shopping_mall',label:'ショッピングモール',icon:'🛍️',desc:'一緒に買い物を楽しむ', bonus:{aoi:10,kaito:10,souma:8,rinto:5,hayate:8} },
@@ -2580,11 +2604,11 @@ const CHAR_EVENTS = [
     lines:[
       {type:'bgm',value:'school_day'},
       {type:'narrative',text:'体育祭が終わった翌週。放課後、黒崎先生に呼ばれた。'},
-      {type:'dialogue',speaker:'黒崎',text:'月城。最近のお前の様子を見てきたが、随分馴染んできたな。'},
+      {type:'dialogue',speaker:'黒崎先生',text:'月城。最近のお前の様子を見てきたが、随分馴染んできたな。'},
       {type:'dialogue',speaker:'日和',text:'はい、ありがとうございます。'},
-      {type:'dialogue',speaker:'黒崎',text:'努力している姿は見えている。\nただ、勉強も大切だ。内申点に関わるから、試験対策はしっかりな。'},
+      {type:'dialogue',speaker:'黒崎先生',text:'努力している姿は見えている。\nただ、勉強も大切だ。内申点に関わるから、試験対策はしっかりな。'},
       {type:'dialogue',speaker:'日和',text:'はい、頑張ります。'},
-      {type:'dialogue',speaker:'黒崎',text:'……何か困ったことがあれば、いつでも来い。'},
+      {type:'dialogue',speaker:'黒崎先生',text:'……何か困ったことがあれば、いつでも来い。'},
       {type:'narrative',text:'厳しいけれど、温かい先生だった。'},
       {type:'end',flag:'kurosaki_first_done'}
     ],
@@ -2597,7 +2621,7 @@ const CHAR_EVENTS = [
     lines:[
       {type:'bgm',value:'afternoon_walk'},
       {type:'narrative',text:'夏休みのある日。台所からいい匂いがして、お母さんが声をかけてきた。'},
-      {type:'dialogue',speaker:'晴子',text:'日和ー！　ご飯できたよー。最近学校どう？'},
+      {type:'dialogue',speaker:'晴子',text:'{playerName}ー！　ご飯できたよー。最近学校どう？'},
       {type:'dialogue',speaker:'日和',text:'まあまあかな。友達もできてきたし。'},
       {type:'dialogue',speaker:'晴子',text:'そっか！　よかった！\nあの、こんなこと言うのもなんだけど——好きな人とかできた？（にっこり）'},
       {type:'choice',options:[
@@ -3112,12 +3136,16 @@ function getProtagonistSpritePath() {
   return 'otome_images/st_hiyori_01.png';
 }
 
+/* 実在するCG画像ファイル（otome_images/ に実際に置かれているものだけ）。
+   ファイル名は大文字の "CG_" 始まり。従来の生成式は小文字 "cg_" を組み立てていたため
+   全CGが404になっていた。ここに無いCGは画像なしとしてプレースホルダ表示にする */
+const CG_IMAGE_FILES = {
+  rinto_cg1:'CG_rinto_01.png', rinto_cg2:'CG_rinto_02.png',
+  souma_cg1:'CG_souma_01.png', kaito_cg1:'CG_kaito_01.png'
+};
 function getCgPath(cgId) {
-  const def = CG_DEFS.find(c=>c.id===cgId);
-  if (!def) return `otome_images/${cgId}.png`;
-  const charCgs = CG_DEFS.filter(c=>c.char===def.char);
-  const idx = charCgs.findIndex(c=>c.id===cgId) + 1;
-  return `otome_images/cg_${def.char}_${String(idx).padStart(2,'0')}.png`;
+  const f = CG_IMAGE_FILES[cgId];
+  return f ? `otome_images/${f}` : '';
 }
 
 /* ══════════════════════════════════════════
@@ -3384,6 +3412,22 @@ function vnSetSprite(position, charId, expression) {
       return;
     }
     imgEl.style.opacity = '';
+    // 表情差分ファイル（_02〜_05）は未用意で、読み込みに失敗すると立ち絵が消えてしまう。
+    // 失敗時はデフォルト表情（_01）にフォールバックする
+    imgEl.onerror = ()=>{
+      const cur=imgEl.getAttribute('src')||'';
+      if (cur && !/_01\.png$/.test(cur)) {
+        imgEl.src = getSpritePath(charId, 'default');
+        imgEl.style.display = '';
+      } else {
+        imgEl.style.display = 'none';
+      }
+    };
+    if (position==='left') {
+      // 主人公表示時に付けた暗転フィルタが他キャラに残らないようにする
+      const wrapEl=document.getElementById('sprite-left');
+      if (wrapEl) wrapEl.style.filter='';
+    }
     const src = getSpritePath(charId, expression);
     imgEl.src = src;
     imgEl.style.display = '';
@@ -3404,8 +3448,11 @@ function vnSetProtagonistSprite(show) {
     imgEl.style.display = '';
     // ちょっと暗くして背景に馴染ませる
     document.getElementById('sprite-left').style.filter = 'brightness(0.85)';
+    // 表示状態を登録する（従来は未登録だったため、非表示に戻せず地の文等でも残り続けていた）
+    vnActiveSprites['left'] = 'hiyori';
   } else if (!show && vnActiveSprites['left']==='hiyori') {
     imgEl.src=''; imgEl.style.display='none';
+    document.getElementById('sprite-left').style.filter = '';
     vnActiveSprites['left'] = null;
   }
 }
@@ -3506,11 +3553,30 @@ function vnSelectChoice(opt, idx) {
   else vnAdvance();
 }
 
-function vnShowCG(cgId) {
+/* CGオーバーレイの表示を適用する（画像が無いCGはグラデーション＋タイトルのプレースホルダ）。
+   ローカル表示とネット同期ゲスト表示で共用 */
+function applyCgOverlay(cgId) {
   const overlay=document.getElementById('vn-cg-overlay');
+  const titleEl=document.getElementById('vn-cg-title');
+  if (!cgId) { overlay.classList.remove('visible'); return; }
   const path=getCgPath(cgId);
-  overlay.style.backgroundImage=`url(${path})`;
+  if (path) {
+    overlay.style.backgroundImage=`url(${path})`;
+    overlay.classList.remove('noimg');
+    if (titleEl) titleEl.style.display='none';
+  } else {
+    // インラインの backgroundImage を空にして、.noimg のグラデーションを効かせる
+    overlay.style.backgroundImage='';
+    overlay.classList.add('noimg');
+    if (titleEl) {
+      titleEl.style.display='';
+      titleEl.textContent=(CG_DEFS.find(c=>c.id===cgId)?.title||'CG');
+    }
+  }
   overlay.classList.add('visible');
+}
+function vnShowCG(cgId) {
+  applyCgOverlay(cgId);
   if(!GS.unlockedCG.includes(cgId)){
     GS.unlockedCG.push(cgId);
     const def=CG_DEFS.find(c=>c.id===cgId);
@@ -3578,9 +3644,11 @@ function vnPlayLine(line) {
     if(isProtagonist) speaker=GS.playerName;
     // スキップ不可の行（設定で未読/既読スキップがOFF）ではスキップを止める
     if(vnSkip && !vnLineSkippable(speaker,line.text.replace(/\{playerName\}/g,GS.playerName))) vnStopSkip();
-    // 主人公立ち絵は line.showProtagonist===true のときのみ表示
+    // 主人公立ち絵は protagonist_sprite 行（または showProtagonist 指定）で表示し、
+    // 地の文・シーン終了・他キャラが左ポジションを取るまで維持する。
+    // ※従来は全セリフ行で非表示化していたが、非表示処理自体が効いていなかったため
+    //   実質「維持」動作になっていた。登録漏れ修正に合わせ、意図した維持動作に統一する
     if(line.showProtagonist===true) vnSetProtagonistSprite(true);
-    else vnSetProtagonistSprite(false);
     vnShowText(speaker,line.text,line.char); return;
   }
   if(line.type==='end') {
@@ -4064,9 +4132,9 @@ const COMMAND_VN_POOL = {
       {type:'narrative',text:'アルバイトを頑張った。\n少し疲れたが、達成感があった。'}
     ]},
     { bg:'school_hallway', bgColor:'#1a1818', encounterReq:'kurosaki', subChar:true, lines:[
-      {type:'dialogue',speaker:'黒崎',text:'月城か。バイトと学業の両立、大変だろうが無理するなよ。'},
+      {type:'dialogue',speaker:'黒崎先生',text:'月城か。バイトと学業の両立、大変だろうが無理するなよ。'},
       {type:'dialogue',speaker:'日和',text:'はい、気をつけます。'},
-      {type:'dialogue',speaker:'黒崎',text:'……（少し和らいで）頑張っている姿は、ちゃんと見えている。'}
+      {type:'dialogue',speaker:'黒崎先生',text:'……（少し和らいで）頑張っている姿は、ちゃんと見えている。'}
     ]}
   ]
 };
@@ -4131,6 +4199,7 @@ function triggerBombWarning(charId) {
     {type:'sprite',char:'yuzuki',position:'center',expression:'default'},
     {type:'narrative',text:`廊下で、${ch.name}と姫宮 柚希が話しているのを見かけた。\n……ライバルの影が、近づいている。`},
     {type:'dialogue',speaker:'柚希',char:'yuzuki',text:`${ch.nameShort}くん、今週末って空いてる？　一緒に行きたいところがあって♡`},
+    {type:'sprite',char:charId,position:'right',expression:'default'},
     {type:'dialogue',speaker:ch.nameShort,char:charId,text:'……（少し考える顔）'},
     {type:'choice',options:[
       {text:'割り込んで声をかける',aff:{[charId]:8},next:'bomb_warn_interrupt'},
@@ -4139,16 +4208,17 @@ function triggerBombWarning(charId) {
   ];
   const warnBranches={
     bomb_warn_interrupt:[
-      {type:'sprite',char:'yuzuki',position:'left',expression:'default'},
+      // 柚希はメイン側で center 表示済み。ここで left にも出すと同一キャラが二重表示になるため追加しない
       {type:'sprite',char:charId,position:'right',expression:'default'},
       {type:'dialogue',speaker:'日和',text:`${ch.nameShort}くん！　ちょうどよかった、聞きたいことがあって。`},
       {type:'dialogue',speaker:ch.nameShort,char:charId,text:'あ、{playerName}。（少し和らいだ顔）……なに？'},
       {type:'dialogue',speaker:'柚希',char:'yuzuki',text:'……（{playerName}を見て微笑む）いいタイミングね。じゃあまたね、${ch.nameShort}くん♡'},
+      {type:'sprite',char:'yuzuki',position:'center',expression:'default',hide:true},
       {type:'narrative',text:`柚希が去っていった。\n——間に合った。\n（${ch.nameShort} 好感度 ▲8）`},
       {type:'end'}
     ],
     bomb_warn_ignore:[
-      {type:'sprite',char:'yuzuki',position:'left',expression:'default',hide:true},
+      {type:'sprite',char:'yuzuki',position:'center',expression:'default',hide:true},
       {type:'sprite',char:charId,position:'right',expression:'default',hide:true},
       {type:'narrative',text:'見ないふりをして立ち去った。\n胸の奥に、もやもやしたものが残った。'},
       {type:'end'}
@@ -4279,14 +4349,16 @@ function goOnDate(charId, spot) {
   showToast(`💗 ${CHARS[charId].name}との${spot.label}デート！ 好感度 +${bonus}`,'heart',3500);
   playSe('date_event');
   // デートのVNシーン（簡易版）
+  // 背景はスポットIDと同名の bg_<id>_01.png が基本。無いスポットは bg で代替を指定（映画館→ショッピングモール）
+  const bgId=spot.bg||spot.id;
   const dateLine=[
-    {type:'bg',value:spot.id,bgColor:'#101828'},
+    {type:'bg',value:bgId,bgColor:'#101828'},
     {type:'bgm',value:'heartbeat'},
     {type:'sprite',char:charId,position:'center',expression:'default'},
     {type:'narrative',text:`${CHARS[charId].name}と${spot.label}でのデート。\n${spot.desc}。\n好感度が上がった！ (+${bonus})`},
     {type:'end'}
   ];
-  startVN(dateLine,{},spot.id,'#101828',()=>{proceedToNextWeek();},`${CHARS[charId].nameShort}とのデート`);
+  startVN(dateLine,{},bgId,'#101828',()=>{proceedToNextWeek();},`${CHARS[charId].nameShort}とのデート`);
 }
 document.getElementById('date-skip-btn').onclick=()=>{
   playSe('cancel');
@@ -4389,8 +4461,15 @@ function renderAlbumGrid() {
     const unlocked=GS.unlockedCG.includes(def.id);
     const thumb=document.createElement('div'); thumb.className='album-cg-thumb'+(unlocked?'':' locked');
     if(unlocked){
-      const img=document.createElement('img'); img.src=getCgPath(def.id); img.alt=def.title; img.onerror=()=>{};
-      thumb.appendChild(img);
+      const p=getCgPath(def.id);
+      if(p){
+        const img=document.createElement('img'); img.src=p; img.alt=def.title; img.onerror=()=>{ img.style.display='none'; };
+        thumb.appendChild(img);
+      } else {
+        // 画像ファイルが無いCGは壊れた画像アイコンではなくプレースホルダで表示
+        const ph=document.createElement('div'); ph.className='album-cg-noimg'; ph.textContent='🖼';
+        thumb.appendChild(ph);
+      }
       const label=document.createElement('div'); label.className='album-cg-label'; label.textContent=def.title; thumb.appendChild(label);
       thumb.onclick=()=>openCgViewer(def.id);
     } else {
@@ -4401,7 +4480,16 @@ function renderAlbumGrid() {
 }
 function openCgViewer(cgId) {
   const viewer=document.getElementById('album-viewer');
-  document.getElementById('album-viewer-img').src=getCgPath(cgId);
+  const img=document.getElementById('album-viewer-img');
+  const ph=document.getElementById('album-viewer-noimg');
+  const p=getCgPath(cgId);
+  if(p){
+    img.style.display=''; img.src=p;
+    if(ph) ph.style.display='none';
+  } else {
+    img.style.display='none'; img.src='';
+    if(ph){ ph.style.display=''; ph.textContent=(CG_DEFS.find(c=>c.id===cgId)?.title||''); }
+  }
   viewer.classList.add('open');
 }
 document.getElementById('album-viewer').onclick=()=>document.getElementById('album-viewer').classList.remove('open');
@@ -4616,7 +4704,8 @@ function showEndingScreen(ending, charId, route) {
   document.getElementById('ending-badge').textContent=ending.badge||'END';
   document.getElementById('ending-title').textContent=ending.title||'---';
   document.getElementById('ending-char-name').textContent=charId?`${CHARS[charId]?.name||''} ルート`:'';
-  document.getElementById('ending-text').textContent=ending.text||'';
+  // {playerName} を実際の主人公名に置換する（従来は未置換で "{playerName}" と表示されていた）
+  document.getElementById('ending-text').textContent=(ending.text||'').replace(/\{playerName\}/g,GS.playerName);
 
   showScreen('ending');
   setTimeout(()=>bgEl.classList.add('visible'),100);
@@ -4792,15 +4881,17 @@ const _vnHideCGOrig = vnHideCG;
 vnHideCG = function(){ netCgId = null; return _vnHideCGOrig(); };
 
 function netProtagonistShown(){
+  if (vnActiveSprites['left'] === 'hiyori') return true;
+  if (vnActiveSprites['left']) return false;
   const img = document.getElementById('sprite-left-img');
-  if (!img || vnActiveSprites['left']) return false;
+  if (!img) return false;
   return img.style.display !== 'none' && (img.getAttribute('src') || '').includes('st_hiyori');
 }
 function netBuildScene(extra){
   const scene = {
     bg: GS.currentBg || '',
     bgColor: document.getElementById('vn-bg-color').style.background || '',
-    sprites: {left: vnActiveSprites.left, center: vnActiveSprites.center, right: vnActiveSprites.right},
+    sprites: {left: vnActiveSprites.left === 'hiyori' ? null : vnActiveSprites.left, center: vnActiveSprites.center, right: vnActiveSprites.right},
     expr: {...netSpriteExpr},
     protagonist: netProtagonistShown(),
     cg: netCgId,
@@ -4952,13 +5043,7 @@ function netApplyScene(sc){
   /* CG */
   if (netGuestView.cg !== sc.cg){
     netGuestView.cg = sc.cg;
-    const ov = document.getElementById('vn-cg-overlay');
-    if (sc.cg){
-      ov.style.backgroundImage = 'url(' + getCgPath(sc.cg) + ')';
-      ov.classList.add('visible');
-    } else {
-      ov.classList.remove('visible');
-    }
+    applyCgOverlay(sc.cg);
   }
   /* 帯 */
   if (sc.date) document.getElementById('vn-band-date').textContent = sc.date;
