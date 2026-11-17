@@ -125,6 +125,9 @@
   #netStatus{position:absolute;top:76px;left:50%;transform:translateX(-50%);font-size:12.5px;font-weight:800;color:#ffd9a8;text-shadow:0 1px 4px #000;white-space:nowrap}
   #spectateMsg{position:absolute;top:34%;left:50%;transform:translateX(-50%);font-size:clamp(17px,4.6vw,24px);font-weight:900;color:#ffb3c8;text-shadow:0 2px 10px #000;text-align:center;display:none;line-height:1.6;white-space:nowrap}
   #lvWait{font-size:13px;color:#ffd9a8;font-weight:800;margin-top:12px;display:none}
+  #lvOps{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  #lvOps .subBtn{min-width:128px}
+  #lvOpsNote{display:none;font-size:11px;margin-top:8px;opacity:.75}
   /* joystick */
   #stickBase{position:fixed;width:110px;height:110px;border-radius:50%;border:2px solid rgba(200,190,255,.55);background:rgba(90,80,200,.14);display:none;z-index:6;pointer-events:none;transform:translate(-50%,-50%)}
   #stickKnob{position:fixed;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 35% 32%,#cfc6ff,#7c6cff);display:none;z-index:6;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 4px 14px rgba(0,0,0,.5)}
@@ -550,6 +553,8 @@
       <div class="charRow" id="stageRow"></div>
       <div class="secLabel">⚔️ 難易度（クリアで次の難易度が解放）</div>
       <div class="charRow" id="diffRow"></div>
+      <div class="secLabel">⏱ 制限時間（長いほど かけら倍率アップ）</div>
+      <div class="charRow" id="timeRow"></div>
       <div class="secLabel">📅 今日のミッション</div>
       <div id="homeDaily"></div>
       <button class="bigBtn heroStart" id="startBtn">▶ 出発</button>
@@ -594,7 +599,7 @@
     <p class="subTitle">キャラは<b>ガチャでしか手に入らない</b>。被ると限界突破でさらに強化。</p>
     <div class="shardBox" id="gachaShardBox"></div>
     <div class="gachaRates">
-      <span class="rUR">UR 0.05%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ／るあ／たいち／すい／セラフィア／ルシフェル）※UR専用武器が使える<br>
+      <span class="rUR">UR 0.05%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ／るあ／たいち／すい／セラフィア／ルシフェル／タマモ）※UR専用武器が使える<br>
       <span class="rSSR">SSR 2%</span>： ガチャ限定の強キャラ<br>
       <span class="rSR">SR 17.5%</span>： 頼れる実力派ねこ<br>
       <span class="rR">R 80.45%</span>： 個性豊かなねこたち<br>
@@ -664,8 +669,9 @@
       ✨ <b>攻撃</b>： ぜんぶ自動！ 移動に集中しよう<br>
       💎 <b>ジェム</b>を集めてレベルアップ → 武器と魔法を強化<br>
       👑 3分ごとにボスが出現。倒すと宝箱！（宝箱は矢印が案内）<br>
-      🌅 10分生き残ればクリア。次のステージが解放される<br>
-      🗺️ ステージは全7種。進むほど敵も報酬もインフレする！<br>
+      🌅 制限時間（10分／20分／30分）生き残ればクリア。次のステージが解放される<br>
+      ⏱ 長時間モードは かけら倍率＆クリアボーナスが時間比でアップ！<br>
+      🗺️ ステージは全8種。進むほど敵も報酬もインフレする！<br>
       🎰 キャラはガチャで入手。被ると限界突破で強くなる<br>
       🌟 URキャラを5凸すると「覚醒イラスト」に変化！ 金のオーラと専用装飾が解放される<br>
       🍀 毎日の「ラッキーキャラ」で遊ぶと、そのランのかけら+15%<br>
@@ -734,6 +740,11 @@
     <p class="subTitle">強化を1つ選んでね</p>
     <div class="cards" id="lvCards"></div>
     <div id="lvWait">相方の選択を待っています…</div>
+    <div id="lvOps" style="display:none">
+      <button class="subBtn" id="lvRerollBtn">🔀 再抽選</button>
+      <button class="subBtn" id="lvSkipBtn">⏭ スキップ</button>
+    </div>
+    <p class="subTitle" id="lvOpsNote">再抽選・スキップは 1プレイに各2回まで（スキップは報酬なし）</p>
   </div>
 </div>
 
@@ -741,9 +752,10 @@
 <div class="overlay" id="chestScr">
   <div class="panel">
     <h2 class="panelTitle">🎁 宝箱をひらいた！</h2>
-    <p class="subTitle">ボスのおたから。どちらか1つ選んでね</p>
+    <p class="subTitle">ボスのおたから。好きな報酬を1つ選んでね（宝箱を開けるたびに選べます）</p>
     <div class="cards">
-      <button class="card" id="chestLvBtn"><div class="cIcon">⭐</div><div class="cName">即時レベルアップ</div><div class="cDesc">そのまま1レベル上がって、通常の強化も選べる</div></button>
+      <button class="card" id="chestLvBtn"><div class="cIcon">⭐</div><div class="cName">即時レベルアップ</div><div class="cDesc">経験値はそのままで1レベル上がり、レベルアップの強化が選べる</div></button>
+      <button class="card" id="chestGemBtn"><div class="cIcon">💎</div><div class="cName">ジェム全回収</div><div class="cDesc">フィールドに落ちている経験値ジェムを全部吸い寄せて回収する</div></button>
       <button class="card" id="chestRareBtn"><div class="cIcon">🔮</div><div class="cName">レア強化</div><div class="cDesc">持っている武器1つをランダムで超強化（最大Lvなら大回復）</div></button>
     </div>
   </div>
@@ -1100,6 +1112,12 @@ WEAPONS.hellorb = { name: 'ヘルオーブ', icon: '👿', desc: '【ルシフ�
   { dmg: 108, cd: 1.8, count: 2, aoe: 108, burn: 25, burnDur: 3.0 } ] };
 WEAPONS.seraphim = { name: 'セラフィムレイ', icon: '👼', desc: '【セラフィア専用・進化】熾天使の羽根の大群が戦場を光で満たす', evo: true, onlyChar: 'angel', lv: evoLv({ dmg: 95, cd: .95, count: 12, pierce: 6 }) };
 WEAPONS.pandemonium = { name: 'パンデモニウム', icon: '😈', desc: '【ルシフェル専用・進化】万魔殿の業火。巨大な火球が爆ぜ、戦場を地獄に変える', evo: true, onlyChar: 'devil', lv: evoLv({ dmg: 200, cd: 1.7, count: 2, aoe: 150, burn: 48, burnDur: 3.6 }) };
+/* ── 第17弾: 九尾の妖狐猫タマモの専用武器 ── */
+WEAPONS.kagura = { name: '神楽の鈴', icon: '🔔', desc: '【タマモ専用】神楽のお札が近くの敵へ扇状に飛び、次々と貫く', onlyChar: 'tamamo', lv: [
+  { dmg: 34, cd: 1.35, count: 3, pierce: 3 }, { dmg: 43, cd: 1.28, count: 3, pierce: 3 },
+  { dmg: 54, cd: 1.2, count: 4, pierce: 4 }, { dmg: 68, cd: 1.12, count: 5, pierce: 4 },
+  { dmg: 86, cd: 1.05, count: 6, pierce: 5 } ] };
+WEAPONS.yaoyorozu = { name: '八百万の神楽', icon: '🎐', desc: '【タマモ専用・進化】八百万のお札の大群が戦場を白く染め、すべてを貫く', evo: true, onlyChar: 'tamamo', lv: evoLv({ dmg: 105, cd: .9, count: 14, pierce: 8 }) };
 /* ── 第10弾: 新武器4種の進化形 ── */
 WEAPONS.gmeteor =   { name: 'グランメテオフォール', icon: '🌋', desc: '巨大隕石の豪雨が戦場を焼き払い、長い炎を残す', evo: true, lv: evoLv({ dmg: 150, cd: 2.2, count: 7, aoe: 130, burn: 30, burnDur: 4 }) };
 WEAPONS.abzero =    { name: 'アブソリュートゼロ', icon: '❄️', desc: '絶対零度の衝撃波。広範囲の敵を長時間凍結させる', evo: true, lv: evoLv({ dmg: 85, cd: 2.4, range: 235, freeze: 2.2 }) };
@@ -1140,7 +1158,8 @@ const EVOLUTIONS = {
   bfly:    { req: 'multi', to: 'bflystorm' },
   morb:    { req: 'knock', to: 'planetorb' },
   holyfeather: { req: 'crit', to: 'seraphim' },
-  hellorb: { req: 'power', to: 'pandemonium' }
+  hellorb: { req: 'power', to: 'pandemonium' },
+  kagura: { req: 'luck', to: 'yaoyorozu' }
 };
 /* ── 武器レベル上限10（第3弾）: Lv6〜10 は Lv5 を基準に自動でデータを足す ──
    成長ルール: 威力 +10%/段（複利）／再使用 -3%/段／範囲・半径 +3%/段／
@@ -1180,7 +1199,7 @@ const MAX_WLV = 10;
   }
 })();
 const MAX_WEAPONS = 6;
-const MAX_PASSIVES = 6; /* 第16弾: パッシブ（アイテム）の所持も武器と同じ6種まで */
+const MAX_PASSIVES = 8; /* 第17弾: アイテム枠（パッシブ）を8種に増加（第16弾で6種化） */
 const PASSIVES = {
   boots:  { name: 'はやてのブーツ', icon: '👢', max: 5, desc: '移動速度 +7%' },
   magnet: { name: 'ほしの磁石', icon: '🧲', max: 5, desc: 'ジェムを引き寄せる範囲 +30' },
@@ -1247,7 +1266,12 @@ const CHARS = {
   rutile: { name: 'ルチル', desc: '【SSR・ガチャ限定】宝石の猫：攻撃+18%・クリ率+6%。「メテオシャワー」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 0, atk: 1.18, spd: 1, mag: 1.05, xp: 1, proj: 0, crit: .06, start: 'mshower', body: '#e8cf7a', belly: '#fdf3cf', earIn: '#ff9d7a', hat: '#8a6d1e', band: '#fff7cc', cape: '#5d4a8a' },
   /* ── 第16弾: 新UR 2体（天使猫・悪魔猫、専用武器つき） ── */
   angel:  { name: 'セラフィア', desc: '【UR・ガチャ限定】天使猫（白＋金・光輪と羽）：攻撃+30%・全武器CD-12%・クリ率+8%・クリダメ+40%・自然回復。専用武器「ホーリーフェザー」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 20, atk: 1.3, spd: 1.05, mag: 1.1, xp: 1.1, proj: 0, crit: .08, critd: .4, cdr: .88, regen: .6, start: 'holyfeather', angel: true, eye: '#4db2ff', body: '#fdf6ec', belly: '#ffffff', earIn: '#ffd94d', hat: '#e8b93c', band: '#fff3c9', cape: '#f7e7bd' },
-  devil:  { name: 'ルシフェル', desc: '【UR・ガチャ限定】悪魔猫（黒＋紫・角とコウモリ羽）：攻撃+45%・クリ率+12%・クリダメ+35%・ノックバック◎。専用武器「ヘルオーブ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: -10, atk: 1.45, spd: 1.06, mag: 1, xp: 1.05, proj: 0, crit: .12, critd: .35, knock: 1.2, start: 'hellorb', devil: true, eye: '#ff5c8a', body: '#241a33', belly: '#3a2a52', earIn: '#b06cff', hat: '#4a2a6e', band: '#8a5cff', cape: '#1c0f2e' }
+  devil:  { name: 'ルシフェル', desc: '【UR・ガチャ限定】悪魔猫（黒＋紫・角とコウモリ羽）：攻撃+45%・クリ率+12%・クリダメ+35%・ノックバック◎。専用武器「ヘルオーブ」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: -10, atk: 1.45, spd: 1.06, mag: 1, xp: 1.05, proj: 0, crit: .12, critd: .35, knock: 1.2, start: 'hellorb', devil: true, eye: '#ff5c8a', body: '#241a33', belly: '#3a2a52', earIn: '#b06cff', hat: '#4a2a6e', band: '#8a5cff', cape: '#1c0f2e' },
+  /* ── 第17弾: 新キャラ4体（R／SR／SSR／UR 各1体）。入手はガチャのみ ── */
+  momo:   { name: 'モモ', desc: '【R】桃色猫：磁石+20%・経験値+10%・のんびり屋。「ムーンオービット」で開幕', cost: 0, rarity: 'R', hp: 5, atk: 1, spd: 1.02, mag: 1.2, xp: 1.1, proj: 0, crit: 0, start: 'orbit', body: '#f7b8c4', belly: '#ffeef2', earIn: '#ff8fab', hat: '#e58bb1', band: '#ffffff', cape: '#c95d8a' },
+  ame:    { name: 'アメ', desc: '【SR】雨上がり猫：全武器CD-5%・磁石+15%・速度+4%・クリ率+3%。「フロストノヴァ」で開幕', cost: 0, rarity: 'SR', hp: 0, atk: 1.05, spd: 1.04, mag: 1.15, xp: 1.05, proj: 0, crit: .03, cdr: .95, start: 'frost', body: '#7fb6dd', belly: '#dff2ff', earIn: '#a8ecff', hat: '#3d5a80', band: '#7df9ff', cape: '#274b8f' },
+  hotaru: { name: 'ホタル', desc: '【SSR・ガチャ限定】蛍猫：攻撃+16%・クリ率+7%・経験値+15%・磁石+10%。「ホーミングバタフライ」で開幕', cost: 0, rarity: 'SSR', gacha: true, hp: 5, atk: 1.16, spd: 1.02, mag: 1.1, xp: 1.15, proj: 0, crit: .07, start: 'bfly', eye: '#c6ff7d', body: '#1e4028', belly: '#2f5d3a', earIn: '#b8ff9d', hat: '#0f2a18', band: '#d8ffb0', cape: '#173d1e' },
+  tamamo: { name: 'タマモ', desc: '【UR・ガチャ限定】九尾の妖狐猫（白＋紫・九尾と神楽鈴）：攻撃+42%・全武器CD-14%・クリ率+10%・クリダメ+45%・経験値+15%。専用武器「神楽の鈴」で開幕', cost: 0, rarity: 'UR', gacha: true, hp: 15, atk: 1.42, spd: 1.05, mag: 1.15, xp: 1.15, proj: 0, crit: .10, critd: .45, cdr: .86, start: 'kagura', fox: true, eye: '#b06cff', body: '#f5efff', belly: '#ffffff', earIn: '#c9a6ff', hat: '#7a3aa8', band: '#ffd94d', cape: '#5b2a8f' }
 };
 /* ── 恒久アップグレード（ショップ） ── */
 const UPGRADES = {
@@ -1259,7 +1283,15 @@ const UPGRADES = {
   bell: { name: '復活の鈴', icon: '🔔', max: 2, costs: [150, 300], desc: 'ラン中、倒れてもHP50%で自動復活（段階ごとに+1回）' },
   crit: { name: 'クリティカルアップ', icon: '🔍', max: 5, costs: [30, 50, 75, 105, 140], desc: 'クリティカル率 +3% / 段階' },
   startxp: { name: 'スタートダッシュ', icon: '🌟', max: 3, costs: [40, 70, 110], desc: 'ラン開始直後から経験値 +10 / 段階（序盤が速い）' },
-  blessing: { name: '星の加護', icon: '🌟', max: 10, costs: [2000, 3000, 4500, 6500, 9000, 12000, 16000, 21000, 27000, 34000], desc: '攻撃力 +2% / 段階（星の加護。全10段階で総額⭐135,000）' }
+  blessing: { name: '星の加護', icon: '🌟', max: 10, costs: [2000, 3000, 4500, 6500, 9000, 12000, 16000, 21000, 27000, 34000], desc: '攻撃力 +2% / 段階（星の加護。全10段階で総額⭐135,000）' },
+  /* ── 第17弾: かけらの新しい消費先5ライン（合計⭐86,300の受け皿）。いずれも星の継承（転生）で
+     他の強化と同様にリセットされる。価格は「通常月の収入（数万⭐）では一気に買えず、
+     貯めた分で少しずつ進む」水準に設定（最安ライン全段でも⭐13,800〜） ── */
+  gemup:    { name: '星屑あつめ', icon: '💰', max: 5, costs: [1000, 2000, 3500, 5500, 8500], desc: 'ほしのかけらの獲得 +5% / 段階（精算時に乗算。全5段階で総額⭐20,500）' },
+  xpring:   { name: '経験の指輪', icon: '💍', max: 5, costs: [800, 1500, 2600, 4200, 6500], desc: '経験値 +6% / 段階（けいけんアップと乗算。全5段階で総額⭐15,600）' },
+  mag2:     { name: '星屑マグネット', icon: '🧲', max: 5, costs: [700, 1300, 2300, 3700, 5800], desc: '磁石範囲 +12% / 段階（マグネットアップと乗算。全5段階で総額⭐13,800）' },
+  startgem: { name: '星屑ポケット', icon: '👝', max: 4, costs: [1200, 2400, 4200, 6800], desc: 'ラン精算時にジェム +25 / 段階をボーナス加算（全4段階で総額⭐14,600）' },
+  guard2:   { name: '星屑の鎧', icon: '🛡️', max: 5, costs: [1200, 2200, 3600, 5800, 9000], desc: '受けるダメージ -3% / 段階（長時間モードのお供に。全5段階で総額⭐21,800）' }
 };
 /* ── 実績（get() は現在の進捗値を返す。達成で claim すると報酬のかけら） ── */
 const ACHIEVEMENTS = {
@@ -1274,7 +1306,8 @@ const ACHIEVEMENTS = {
   clearsnow:  { name: '吹雪の勇者', desc: 'ゆきの雪原をクリア', reward: 600, target: 1, get: () => meta.stageClears.includes('snow') ? 1 : 0 },
   clearvoid:  { name: '虚空の覇者', desc: 'ほしくずの虚空をクリア', reward: 800, target: 1, get: () => meta.stageClears.includes('void') ? 1 : 0 },
   clearsakura:{ name: '桜の覇者', desc: '桜の宵宮をクリア', reward: 1000, target: 1, get: () => meta.stageClears.includes('sakura') ? 1 : 0 },
-  clearall:   { name: '全ステージ制覇', desc: '全7ステージをクリア', reward: 1500, target: 7, get: () => meta.stageClears.length },
+  cleartenku: { name: '天宮の覇者', desc: '星屑の天宮をクリア', reward: 1200, target: 1, get: () => meta.stageClears.includes('tenku') ? 1 : 0 },
+  clearall:   { name: '全ステージ制覇', desc: '全8ステージをクリア', reward: 1500, target: 8, get: () => meta.stageClears.length },
   evofirst:   { name: '進化の目覚め', desc: '武器を初めて進化させる', reward: 300, target: 1, get: () => meta.stats.evos },
   evo10:      { name: '進化マスター', desc: '武器を10回進化させる', reward: 1000, target: 10, get: () => meta.stats.evos },
   level20:    { name: 'レベル20到達', desc: '1ランでレベル20に到達', reward: 300, target: 20, get: () => meta.stats.bestLevel },
@@ -1282,7 +1315,7 @@ const ACHIEVEMENTS = {
   endless15:  { name: 'エンドレス15分', desc: 'エンドレスで15分生存', reward: 500, target: 900, fmt: 'time', get: () => meta.stats.endlessBest },
   endless20:  { name: 'エンドレス20分', desc: 'エンドレスで20分生存', reward: 1200, target: 1200, fmt: 'time', get: () => meta.stats.endlessBest },
   coopclear:  { name: '協力の絆', desc: '協力プレイでクリア', reward: 400, target: 1, get: () => meta.stats.coopClears },
-  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 1000, target: 40, get: () => meta.unlocked.length },
+  allchars:   { name: 'みんな集合！', desc: 'キャラを全て解放', reward: 1000, target: 44, get: () => meta.unlocked.length },
   shards1k:   { name: 'かけらコレクター', desc: 'ほしのかけら累計1,000獲得', reward: 500, target: 1000, get: () => meta.stats.shardsEarned },
   shards10k:  { name: 'かけらマスター', desc: 'ほしのかけら累計10,000獲得', reward: 2000, target: 10000, get: () => meta.stats.shardsEarned },
   gems10k:    { name: 'ジェムハンター', desc: 'ジェム累計10,000個収集', reward: 600, target: 10000, get: () => meta.stats.gems },
@@ -1434,7 +1467,7 @@ function selectTitle(id){
 }
 
 /* ── ステージ定義（出現テーブルは [敵, 重み] の時間帯別3フェーズ） ── */
-const STAGE_ORDER = ['grass', 'beach', 'bamboo', 'volcano', 'snow', 'void', 'sakura'];
+const STAGE_ORDER = ['grass', 'beach', 'bamboo', 'volcano', 'snow', 'void', 'sakura', 'tenku'];
 const STAGES = {
   grass:   { name: '星空の草原', icon: '🌌', desc: '月夜の草原。はじまりの場所', mul: 1, shard: 1,
              bossName: 'よるのぬし', miniName: 'かげのきりさき', bossArt: 'owl',
@@ -1478,7 +1511,14 @@ const STAGES = {
              pal: { top: '#2a0f2e', mid: '#4a1a3a', bot: '#1c1024', deco: 'grass', decoCol: 'rgba(255,170,210,.5)', flower1: '#ffd9ec', flower2: '#ffb3d9', patch: 'rgba(255,180,220,.08)', sky: 'moon', skyCol: '#ffe3f2' },
              pool: [ [['shroom', 1]],
                      [['shroom', .4], ['ghost', .3], ['lantern', .3]],
-                     [['shroom', .24], ['ghost', .22], ['lantern', .2], ['crow', .14], ['bat', .1], ['ameba', .1]] ] }
+                     [['shroom', .24], ['ghost', .22], ['lantern', .2], ['crow', .14], ['bat', .1], ['ameba', .1]] ] },
+  /* ── 第17弾: 新ステージ「星屑の天宮」（桜の宵宮クリアで解放。最難・かけら×4.4） ── */
+  tenku:   { name: '星屑の天宮', icon: '🏛️', desc: '雲の上の星屑神殿。天使の星屑と古の守護者が待つ', mul: 4.6, shard: 4.4,
+             bossName: 'てんくうのおおぬし', miniName: 'てんくうの守護者', bossArt: 'void',
+             pal: { top: '#170f33', mid: '#38235f', bot: '#1d1436', deco: 'void', decoCol: 'rgba(255,217,77,.45)', flower1: '#ffe9a8', flower2: '#c9a6ff', patch: 'rgba(255,217,77,.07)', sky: 'planet', skyCol: '#ffd94d' },
+             pool: [ [['tenbit', 1]],
+                     [['tenbit', .45], ['starbit', .3], ['wraith', .25]],
+                     [['tenbit', .26], ['starbit', .22], ['wraith', .2], ['armor', .14], ['meteor', .1], ['golem', .08]] ] }
 };
 function stageDef(){ return STAGES[S.stage] || STAGES.grass; }
 function stageUnlocked(id){
@@ -1496,6 +1536,18 @@ const DIFFS = {
   abyss:  { name: 'アビス',   icon: '🕳️', hp: 5.5, dmg: 5.5, shard: 5.0 }
 };
 function diffDef(){ return DIFFS[S.difficulty] || DIFFS.normal; }
+/* ── 第17弾: 制限時間モード（10分／20分／30分）。クリア条件はその時間まで生存。
+   敵の強さ・湧きは分ベースのカーブをそのまま延長し、「クリア後の加速（従来の600秒超）」は
+   選択モードのクリア時刻を起点に読み替える。かけら倍率とクリアボーナスは時間比（×1/×2/×3）。
+   難易度（ハード/ヘル/アビス）とは独立に併用できる。ベスト記録はモード別キーで分離する ── */
+const TIME_MODES = {
+  600:  { sec: 600,  name: '10分', shard: 1, bonus: 50 },
+  1200: { sec: 1200, name: '20分', shard: 2, bonus: 100 },
+  1800: { sec: 1800, name: '30分', shard: 3, bonus: 150 }
+};
+const TIME_MODE_ORDER = [600, 1200, 1800];
+function timeModeDef(){ return TIME_MODES[S.timeMode] || TIME_MODES[600]; }
+function clearTime(){ return timeModeDef().sec; }
 function diffCleared(stageId, d){
   if (((meta.diffClears || {})[stageId] || []).includes(d)) return true;
   if (d === 'normal') return meta.stageClears.includes(stageId); // 移行前の記録・直接書換えにも追随
@@ -1561,6 +1613,8 @@ function loadMeta(){
       return out;
     })(),
     diff: DIFFS[m.diff] ? m.diff : 'normal',
+    /* 第17弾: 制限時間モードの選択（旧セーブは10分で移行） */
+    timeMode: TIME_MODES[m.timeMode] ? m.timeMode : 600,
     /* 第4弾拡張: 転生「星の継承」の継承Lv */
     inherit: Math.max(0, Math.min(INHERIT_MAX, m.inherit | 0)),
     /* 第1弾拡張の新フィールド（旧セーブは初期値で補完） */
@@ -1615,6 +1669,7 @@ const ENEMY_TYPES = {
   wraith: { hp: 58, spd: 50,  dmg: 17, r: 18, xp: 4 },
   meteor: { hp: 170, spd: 23, dmg: 22, r: 26, xp: 6 },
   starbit:{ hp: 8,  spd: 126, dmg: 8,  r: 10, xp: 2 },
+  tenbit: { hp: 22, spd: 118, dmg: 12, r: 12, xp: 3 },
   bee:    { hp: 5,  spd: 168, dmg: 6,  r: 9,  xp: 1 },
   ameba:  { hp: 34, spd: 42,  dmg: 10, r: 17, xp: 2 },
   amebaS: { hp: 8,  spd: 86,  dmg: 6,  r: 9,  xp: 1 },
@@ -1646,6 +1701,7 @@ const ENEMY_DEX = {
   wraith: { name: 'ほしの亡霊', icon: '👻', desc: '虚空を漂う星の亡霊' },
   meteor: { name: 'いんせきゴーレム', icon: '☄️', desc: '隕石が意思を持った巨像' },
   starbit:{ name: 'ほしくず', icon: '⭐', desc: '意思を持った星のかけら' },
+  tenbit: { name: 'てんしの星屑', icon: '🌟', desc: '天宮を守る翼もつ星屑。速くてしぶとい' },
   bee:    { name: 'かぜハチ', icon: '🐝', desc: '風のように速い小さな羽音' },
   ameba:  { name: 'ぶんれつアメーバ', icon: '🦠', desc: '倒すと3体に分裂する' },
   amebaS: { name: 'ちびアメーバ', icon: '🦠', desc: '分裂した小さなアメーバ' },
@@ -1664,13 +1720,15 @@ function luckMul(){ return 1 + .3 * luckLv(); }
 const S = {
   state: 'title', time: 0, kills: 0, cleared: false, endless: false,
   spawnT: 0, bossIdx: 0, nextBossAt: 180, bossRef: null, shake: 0, hurtFlash: 0, timeScale: 1,
-  gemsCollected: 0, shardsPaid: 0, clearBonusPaid: false, lastShardGain: 0, statsCounted: false, timeCountedAt: 0,
+  gemsCollected: 0, shardsPaid: 0, clearBonusPaid: false, startGemPaid: false, lastShardGain: 0, statsCounted: false, timeCountedAt: 0,
   /* 第15弾: 精算はクリア時点で確定（shardFrozen が立ったら以後のエンドレス分は変換しない）。runShardGain はこのランの精算合計（表示用） */
   shardFrozen: false, runShardGain: 0,
   eidSeq: 0, pidSeq: 0, snapT: 0, chestPicker: null,
   stage: 'grass', nextMiniAt: 95, miniIdx: 0, nextSurgeAt: 100,
   /* 第4弾: 難易度とランダムイベント */
   difficulty: 'normal', nextEventAt: 120, fountains: [], gemRushT: 0,
+  /* 第17弾: 制限時間モード（秒）。ホスト/ソロは meta.timeMode、ゲストは開始メッセージに従う */
+  timeMode: 600,
   merchant: null, merchantUntil: 0, merchantGuestBought: false,
   /* 第11弾: フィナーレ（金のエリート）の出現管理 */
   finaleSpawned: 0, nextFinaleAt: 750
@@ -1702,7 +1760,9 @@ function resetPlayer(p, charId, mf){
   const up = mf || {};
   p.char = CHARS[charId] ? charId : 'nowa';
   p.mAtk = 1 + .05 * (up.atk || 0) + .02 * (up.blessing || 0); p.mSpd = 1 + .03 * (up.spd || 0);
-  p.mMag = 1 + .20 * (up.mag || 0); p.mXp = 1 + .10 * (up.xp || 0);
+  p.mMag = (1 + .20 * (up.mag || 0)) * (1 + .12 * (up.mag2 || 0)); /* 第17弾: 星屑マグネット */
+  p.mXp = (1 + .10 * (up.xp || 0)) * (1 + .06 * (up.xpring || 0)); /* 第17弾: 経験の指輪 */
+  p.mGuardUp = .03 * (up.guard2 || 0); /* 第17弾: 星屑の鎧（被ダメージ軽減率） */
   p.mHp = 10 * (up.hp || 0); p.mBell = up.bell || 0; p.mCrit = .03 * (up.crit || 0);
   p.mInh = mf ? inheritDmgMul() : 1; // 星の継承ボーナスは自分のメタを持つ機体（ホスト/ソロ自機・ゲスト自機プロキシ）にのみ適用
   p.buffAtkT = 0; p.buffMagT = 0;
@@ -1759,15 +1819,16 @@ function resetGame(){
   ensureDaily();
   S.time = 0; S.kills = 0; S.cleared = false; S.endless = false;
   S.spawnT = 0; S.bossIdx = 0; S.nextBossAt = 180; S.bossRef = null; S.shake = 0; S.hurtFlash = 0;
-  S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.lastShardGain = 0; S.statsCounted = false; S.timeCountedAt = 0;
+  S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.startGemPaid = false; S.lastShardGain = 0; S.statsCounted = false; S.timeCountedAt = 0;
   S.shardFrozen = false; S.runShardGain = 0;
   S.eidSeq = 0; S.pidSeq = 0; S.snapT = 0; S.chestPicker = null; lvPhase = null;
+  lvOps = { skip: LV_OP_MAX, reroll: LV_OP_MAX }; lvSession = null; /* 第17弾: 再抽選/スキップ回数はラン毎リセット */
   S.nextMiniAt = 95; S.miniIdx = 0; S.nextSurgeAt = 100;
   /* 第4弾: 難易度はホスト/ソロが選択に従い、ランダムイベントも初期化 */
-  if (NET.role !== 'guest') S.difficulty = curDiff();
+  if (NET.role !== 'guest') { S.difficulty = curDiff(); S.timeMode = TIME_MODES[meta.timeMode] ? meta.timeMode : 600; }
   S.nextEventAt = rand(90, 150); S.fountains = []; S.gemRushT = 0;
   S.merchantGuestBought = false; S.merchantUntil = 0;
-  S.finaleSpawned = 0; S.nextFinaleAt = 750;
+  S.finaleSpawned = 0; S.nextFinaleAt = clearTime() + 150; /* 第17弾: エンドレスのフィナーレ初回はクリア時刻+150秒（10分モードでは従来どおり750秒） */
   closeMerchant();
   if (!coopMode || NET.role !== 'guest') S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass';
   resetPlayer(P, meta.char, meta.upgrades);
@@ -1789,20 +1850,20 @@ function stageMul(){ return stageDef().mul; }
 function hpScale(){
   const m = S.time / 60;
   let s = 1 + m * .45 + m * m * .09;
-  if (S.time > 600) { const em = (S.time - 600) / 60; s *= 1 + em * .55 + em * em * .15; }
+  if (S.time > clearTime()) { const em = (S.time - clearTime()) / 60; s *= 1 + em * .55 + em * em * .15; } /* 第17弾: 加速の起点はモードのクリア時刻 */
   return s * stageMul() * diffDef().hp;
 }
 function dmgScale(){
   const m = S.time / 60;
   let s = 1 + m * .09;
-  if (S.time > 600) s += (S.time - 600) / 60 * .16;
+  if (S.time > clearTime()) s += (S.time - clearTime()) / 60 * .16;
   return s * Math.sqrt(stageMul()) * diffDef().dmg;
 }
 function eliteChance(){
   const t = S.time;
   if (t < 120) return 0;
   if (t < 300) return .02;
-  if (t < 600) return .035;
+  if (t < clearTime()) return .035;
   return .055;
 }
 function pickType(){
@@ -1870,12 +1931,13 @@ function spawnFinaleElites(n){
   return spawned;
 }
 function updateSpawning(dt){
-  /* 第11弾: フィナーレ。クリア制は残り90秒（510秒）から30秒ごとに1体ずつ計3体、
-     エンドレスは10分以降150〜210秒ごとに2体。updateSpawning はホスト/ソロ側でのみ呼ばれる */
+  /* 第11弾: フィナーレ。クリア制は残り90秒から30秒ごとに1体ずつ計3体、
+     エンドレスはクリア以降150〜210秒ごとに2体。updateSpawning はホスト/ソロ側でのみ呼ばれる。
+     第17弾: 開始時刻はモードのクリア時刻−90秒に相対配置（10分モードでは従来どおり510秒） */
   if (S.endless) {
     if (S.time >= S.nextFinaleAt) { S.nextFinaleAt = S.time + rand(150, 210); spawnFinaleElites(2); }
-  } else if (!S.cleared && S.time >= 510) {
-    const due = Math.min(3, Math.floor((S.time - 510) / 30) + 1);
+  } else if (!S.cleared && S.time >= clearTime() - 90) {
+    const due = Math.min(3, Math.floor((S.time - (clearTime() - 90)) / 30) + 1);
     while (S.finaleSpawned < due) { if (spawnFinaleElites(1) > 0) S.finaleSpawned++; else break; }
   }
   if (S.time >= S.nextBossAt && !S.bossRef) { spawnBoss(); S.nextBossAt += 180; }
@@ -2180,6 +2242,7 @@ function explodeShroom(e){
 function damagePlayer(p, dmg){
   if (!p || !p.alive || p.hurtT > 0 || S.state !== 'play') return;
   dmg *= 1 - .06 * (p.passives.guard || 0);   // まもりの鈴
+  dmg *= 1 - (p.mGuardUp || 0);              // 第17弾: 星屑の鎧（ショップ恒久強化）
   p.hp -= dmg; p.hurtT = .35;
   if ((p.passives.thorns || 0) > 0) { // とげのマント: 周囲の敵へ反射ダメージ
     const ref = dmg * .5 * p.passives.thorns + 4;
@@ -2678,6 +2741,19 @@ function fireWeapon(p, w, dt){
       projs.push({ pid: ++S.pidSeq, own: p, type: 'hellorb', x: p.x + Math.cos(a) * 18, y: p.y + Math.sin(a) * 18, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, dmg: st.dmg * dm, aoe: st.aoe, burn: st.burn * dm, burnDur: st.burnDur, ttl: 2.8, seed: rand(0, TAU), big: w.id === 'pandemonium' ? 1 : 0 });
     }
     beep(140, 70, .2, 'sawtooth', .12);
+  } else if (w.id === 'kagura' || w.id === 'yaoyorozu') {
+    /* 第17弾・タマモ専用: 神楽のお札が近くの敵へ扇状に飛び、貫通する（進化形は八百万の大群） */
+    const isEvo = w.id === 'yaoyorozu';
+    const tgt = nearestEnemy(p.x, p.y, 700);
+    if (!tgt) { p.cds[w.id] = .12; return; }
+    p.cds[w.id] = st.cd * cdMul(p);
+    const n = st.count + projBonus(p);
+    const baseA = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    for (let i = 0; i < n; i++) {
+      const a = baseA + (n > 1 ? (i / (n - 1) - .5) * .42 : 0);
+      projs.push({ pid: ++S.pidSeq, own: p, type: 'ofuda', x: p.x, y: p.y, vx: Math.cos(a) * 640, vy: Math.sin(a) * 640, dmg: st.dmg * dm, pierce: st.pierce, ttl: 1.05, big: isEvo ? 1 : 0, spin: a, hitSet: new Set() });
+    }
+    beep(1180, 1560, .07, 'sine', .1);
   } else if (w.id === 'mshower' || w.id === 'gmeteor') {
     /* 第10弾: メテオシャワー。敵の群れの頭上に隕石を落とし、着弾地点に燃焼ゾーンを残す（進化形は巨大・多数） */
     const isGrand = w.id === 'gmeteor';
@@ -3075,11 +3151,11 @@ function updateGems(dt){
     // 最も近いプレイヤーの磁石に引かれ、そのプレイヤーが拾う（XPはチーム共有）
     let bp = null, bd2 = Infinity, bmr = 0;
     for (const p of alivePlayers()) {
-      const mr = magnetR(p), d2 = dist2(g.x, g.y, p.x, p.y);
+      const mr = g.vac ? 1e9 : magnetR(p), d2 = dist2(g.x, g.y, p.x, p.y); /* 第17弾: vac（宝箱の全回収）は磁石範囲無制限で最寄りプレイヤーへ */
       if (d2 < mr * mr && d2 < bd2) { bd2 = d2; bp = p; bmr = mr; }
     }
     if (bp) {
-      const d = Math.sqrt(bd2) || 1, sp = 460 * (1 - d / (bmr + 60)) + 130;
+      const d = Math.sqrt(bd2) || 1, sp = g.vac ? 1500 : 460 * (1 - d / (bmr + 60)) + 130;
       g.x += (bp.x - g.x) / d * sp * dt; g.y += (bp.y - g.y) / d * sp * dt;
       if (bd2 < (bp.r + 13) * (bp.r + 13)) {
         g.dead = true; sfx.pickup();
@@ -3145,7 +3221,7 @@ function buildPool(p){
   for (const id in PASSIVES) {
     const cur = p.passives[id] || 0;
     if (cur >= PASSIVES[id].max) continue;
-    if (cur === 0 && passiveKinds >= MAX_PASSIVES) continue; /* 第16弾: 新規パッシブは6種まで（所持済みのレベルアップは継続可） */
+    if (cur === 0 && passiveKinds >= MAX_PASSIVES) continue; /* 第17弾: 新規パッシブは8種まで（所持済みのレベルアップは継続可） */
     pool.push({ kind: 'passive', id });
   }
   /* 進化候補: Lv10到達＋対応パッシブ所持のときだけ出現 */
@@ -3175,8 +3251,30 @@ function rollPicks(p){
   }
   return picks;
 }
-/* カードUIを表示し、選択されたら cb(pk) を呼ぶ。player は表示用（Lv表示）のビルド参照 */
-function showPickUI(player, picks, cb){
+/* ── 第17弾: レベルアップ選択の「再抽選」「スキップ」（各・1プレイ最大2回） ──
+   回数はラン毎にリセットされるローカル管理（協力時は各プレイヤーが自分の分を持つ）。
+   スキップは「そのまま無し」＝報酬なしで選択を終えるだけ（レベル自体は既に上がっている）。
+   経験値・かけら精算（shardFrozen）には一切触れないので、既存の経済と矛盾しない。
+   ゲストの再抽選はホスト権威: ゲストは {t:'reroll'} を送り、ホストが引き直して返す。
+   ゲストのスキップは {t:'skip'} でホストに完了だけを伝える（何も適用しない）。 */
+const LV_OP_MAX = 2;
+let lvOps = { skip: LV_OP_MAX, reroll: LV_OP_MAX };
+let lvSession = null; // { player, cb, skipFn } 選択UIを開いている間だけ有効
+function renderLvOps(){
+  const row = $('lvOps'), note = $('lvOpsNote'); if (!row) return;
+  if (!lvSession) { row.style.display = 'none'; if (note) note.style.display = 'none'; return; }
+  row.style.display = 'flex'; if (note) note.style.display = 'block';
+  const rb = $('lvRerollBtn'), sb = $('lvSkipBtn');
+  rb.textContent = `🔀 再抽選（あと${lvOps.reroll}回）`;
+  sb.textContent = `⏭ スキップ（あと${lvOps.skip}回）`;
+  rb.disabled = lvOps.reroll <= 0;
+  sb.disabled = lvOps.skip <= 0;
+}
+function closeLvSession(){ lvSession = null; renderLvOps(); }
+/* カードUIを表示し、選択されたら cb(pk) を呼ぶ。player は表示用（Lv表示）のビルド参照。
+   skipFn は「スキップ」が押されたときに選択を正常終了させる処理（呼び出し側が用意する） */
+function showPickUI(player, picks, cb, skipFn){
+  lvSession = { player, cb, skipFn };
   const wrap = document.getElementById('lvCards'); wrap.innerHTML = '';
   document.getElementById('lvWait').style.display = 'none';
   for (const pk of picks) {
@@ -3229,7 +3327,32 @@ function showPickUI(player, picks, cb){
     wrap.appendChild(b);
   }
   document.getElementById('levelScr').classList.add('show');
+  renderLvOps();
 }
+document.getElementById('lvRerollBtn').onclick = () => {
+  initAudio();
+  if (!lvSession || lvOps.reroll <= 0) return;
+  if (coopMode && NET.role === 'guest') {
+    /* ゲストの再抽選はホストが引き直す（権威はホスト）。応答の choices で再描画される */
+    lvOps.reroll--; renderLvOps();
+    $('lvRerollBtn').disabled = true; // 連打防止（応答で再描画される）
+    sendNet({ t: 'reroll' });
+    beep(520, 880, .08, 'sine', .15);
+    return;
+  }
+  lvOps.reroll--;
+  beep(520, 880, .08, 'sine', .15);
+  showPickUI(lvSession.player, rollPicks(lvSession.player), lvSession.cb, lvSession.skipFn);
+};
+document.getElementById('lvSkipBtn').onclick = () => {
+  initAudio();
+  if (!lvSession || lvOps.skip <= 0) return;
+  lvOps.skip--;
+  const fn = lvSession.skipFn;
+  closeLvSession();
+  beep(330, 262, .08, 'sine', .12);
+  if (fn) fn();
+};
 function applyPick(p, pk){
   if (!pk) return;
   if (pk.kind === 'evo') {
@@ -3266,40 +3389,52 @@ function applyPick(p, pk){
   }
   if (p === localPlayer()) renderWeaponsBar();
 }
-/* 1レベル分を消費して選択フェーズへ（協力時は両者の選択を待ち合わせる） */
-function levelUpSequence(){
-  P.xp -= P.xpNext; if (P.xp < 0) P.xp = 0;
+/* 1レベル分を消費して選択フェーズへ（協力時は両者の選択を待ち合わせる）
+   第17弾: opts.free（宝箱の「即時レベルアップ」）のときは経験値を一切消費しない。
+   レベルは上がり、選択も通常どおり行えるが、貯まっていたXPはそのまま残る。
+   free の回はチェーン（XPが次の必要量以上でも自動で次のレベルアップに入る）を抑止し、
+   宝箱1回＝レベルアップ選択1回分にちょうど収める（残りのXPは次のジェム取得時に通常判定される） */
+let lvFreePick = false;
+function levelUpSequence(opts){
+  const free = !!(opts && opts.free);
+  if (!free) { P.xp -= P.xpNext; if (P.xp < 0) P.xp = 0; }
   P.level++; P.xpNext = xpForLevel(P.level);
+  lvFreePick = free;
   S.state = 'levelup'; sfx.levelup();
   for (const p of alivePlayers()) fx.push({ type: 'pillar', x: p.x, y: p.y, ttl: .8, max: .8 });
   if (coopMode && NET.role === 'host') {
     lvPhase = { hostDone: false, guestDone: false, guestChoices: rollPicks(P2) };
     sendNet({ t: 'choices', picks: lvPhase.guestChoices });
-    showPickUI(P, rollPicks(P), pk => {
-      applyPick(P, pk);
+    const hostDoneFn = () => {
       lvPhase.hostDone = true;
+      closeLvSession();
       document.getElementById('lvCards').innerHTML = '';
       document.getElementById('lvWait').style.display = 'block';
       checkLvDone();
-    });
+    };
+    showPickUI(P, rollPicks(P), pk => { applyPick(P, pk); hostDoneFn(); }, hostDoneFn); /* スキップ時も同じ完了処理（何も適用しない） */
   } else if (coopMode && NET.role === 'guest') {
     // ゲスト側はホストからの choices 受信で UI を出す（ここには来ない想定の保険）
     S.state = 'levelup';
   } else {
-    showPickUI(P, rollPicks(P), pk => { applyPick(P, pk); finishLevelUp(); });
+    showPickUI(P, rollPicks(P), pk => { applyPick(P, pk); finishLevelUp(); }, () => finishLevelUp()); /* スキップ: 何も選ばず終了 */
   }
 }
 function finishLevelUp(){
+  closeLvSession();
   document.getElementById('levelScr').classList.remove('show');
-  if (P.xp >= P.xpNext) { levelUpSequence(); return; }
+  if (!lvFreePick && P.xp >= P.xpNext) { levelUpSequence(); return; }
+  lvFreePick = false;
   S.state = 'play';
 }
 function checkLvDone(){
   if (!lvPhase || !lvPhase.hostDone || !lvPhase.guestDone) return;
   lvPhase = null;
+  closeLvSession();
   document.getElementById('levelScr').classList.remove('show');
   document.getElementById('lvWait').style.display = 'none';
-  if (P.xp >= P.xpNext) { levelUpSequence(); return; }
+  if (!lvFreePick && P.xp >= P.xpNext) { levelUpSequence(); return; }
+  lvFreePick = false;
   S.state = 'play';
   sendNet({ t: 'resume' });
 }
@@ -3327,8 +3462,17 @@ function applyChestChoice(p, which){
   document.getElementById('chestScr').classList.remove('show');
   S.chestPicker = null;
   if (which === 'lv') {
+    /* 第17弾: 宝箱のレベルアップは「経験値そのまま」で1回選択できる（XP消費なし） */
     S.state = 'play';
-    levelUpSequence(); // 無料で1レベル分（XP消費は0クランプ）
+    levelUpSequence({ free: true });
+  } else if (which === 'gems') {
+    /* 第17弾: フィールドの全経験値ジェムを吸い寄せて回収する（vac フラグ→ updateGems が高速で引き寄せる）。
+       回収は通常の取得経路を通るので、協力時はチーム共有XPにそのまま入る */
+    let n = 0;
+    for (const g of gems) { if (!g.dead && !g.vac) { g.vac = true; n++; } }
+    showBanner(`💎 フィールドのジェム ${n}個が吸い寄せられてくる！`);
+    sfx.pickup();
+    S.state = 'play';
   } else {
     const w = p.weapons[Math.floor(Math.random() * p.weapons.length)];
     if (w && w.lv < MAX_WLV) { w.lv++; showBanner(`🔮 ${WEAPONS[w.id].name} が Lv${w.lv} に強化！`); }
@@ -3344,6 +3488,10 @@ document.getElementById('chestLvBtn').onclick = () => {
 document.getElementById('chestRareBtn').onclick = () => {
   if (NET.role === 'guest') { document.getElementById('chestScr').classList.remove('show'); sendNet({ t: 'chestpick', which: 'rare' }); return; }
   applyChestChoice(S.chestPicker || P, 'rare');
+};
+document.getElementById('chestGemBtn').onclick = () => {
+  if (NET.role === 'guest') { document.getElementById('chestScr').classList.remove('show'); sendNet({ t: 'chestpick', which: 'gems' }); return; }
+  applyChestChoice(S.chestPicker || P, 'gems');
 };
 
 /* ── ゲームフロー ── */
@@ -3429,7 +3577,7 @@ function openPassiveDetail(id){
    数値は現在のLv・パッシブ・キャラ補正・一時バフ込みの実効値で計算する。
    ソロでは開いている間だけゲームを止める（state='wdetail'）。
    協力中はゲームを止めず、閉じるまで表示し続ける（自分の画面だけ止めると同期がずれるため） ── */
-const WD_PROJ_IDS = { star: 1, galaxy: 1, comet: 1, meteor: 1, arrow: 1, moonbow: 1, fan: 1, galefan: 1, nova: 1, supernova: 1, urbarrage: 1, urstorm: 1, missile: 1, starfleet: 1, holyfeather: 1, seraphim: 1 };
+const WD_PROJ_IDS = { star: 1, galaxy: 1, comet: 1, meteor: 1, arrow: 1, moonbow: 1, fan: 1, galefan: 1, nova: 1, supernova: 1, urbarrage: 1, urstorm: 1, missile: 1, starfleet: 1, holyfeather: 1, seraphim: 1, kagura: 1, yaoyorozu: 1 };
 const WD_FIXED_CD = { leaf: 1.5, typhoon: 1.5, scythe: 1.9, moonreaper: 1.9 };
 let wDetailId = null, wDetailPaused = false;
 function weaponDetailRows(p, w){
@@ -3533,7 +3681,7 @@ function quitToTitle(){
   $('netStatus').textContent = '';
   showBest(); renderTitleMeta();
 }
-function stageBestKey(coop){ return (coop ? COOP_BEST_KEY : 'majoneko_survivors_best') + '_' + S.stage; }
+function stageBestKey(coop){ return (coop ? COOP_BEST_KEY : 'majoneko_survivors_best') + '_' + S.stage + (S.timeMode && S.timeMode !== 600 ? '_' + S.timeMode : ''); } /* 第17弾: 20/30分モードは別キー（10分は従来キーと互換） */
 function readBest(key){
   let b = null;
   try { b = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
@@ -3564,10 +3712,11 @@ function saveBest(clearedRun){
   }
   return isNew;
 }
-function stageBestRec(stageId, coop){
-  const key = (coop ? COOP_BEST_KEY : 'majoneko_survivors_best') + '_' + stageId;
+function stageBestRec(stageId, coop, modeSec){
+  const ms = modeSec || meta.timeMode || 600; /* 第17弾: 既定は選択中モードのベストを表示 */
+  const key = (coop ? COOP_BEST_KEY : 'majoneko_survivors_best') + '_' + stageId + (ms !== 600 ? '_' + ms : '');
   let b = readBest(key);
-  if (!b && stageId === 'grass') b = readBest(coop ? COOP_BEST_KEY : 'majoneko_survivors_best');
+  if (!b && stageId === 'grass' && ms === 600) b = readBest(coop ? COOP_BEST_KEY : 'majoneko_survivors_best');
   return b;
 }
 function showBest(){
@@ -3586,8 +3735,9 @@ function awardShards(clearedRun){
   let gain = 0;
   if (!S.shardFrozen) {
     gain = Math.max(0, Math.floor(S.gemsCollected) - S.shardsPaid);
-    if (clearedRun && !S.clearBonusPaid) { gain += 50; S.clearBonusPaid = true; }
-    let shardMulAll = stageDef().shard * diffDef().shard * inheritShardMul();
+    if (!S.startGemPaid) { gain += 25 * (meta.upgrades.startgem || 0); S.startGemPaid = true; } /* 第17弾: 星屑ポケット（精算ごとに1回だけ加算） */
+    if (clearedRun && !S.clearBonusPaid) { gain += timeModeDef().bonus; S.clearBonusPaid = true; } /* 第17弾: クリアボーナスは時間比（50/100/150） */
+    let shardMulAll = stageDef().shard * diffDef().shard * inheritShardMul() * timeModeDef().shard * (1 + .05 * (meta.upgrades.gemup || 0)); /* 第17弾: モード倍率（×1/×2/×3）と星屑あつめ */
     if (isLuckyChar(P.char)) shardMulAll *= 1.15; // 第10弾: 今日のラッキーキャラで遊ぶと かけら+15%
     gain = Math.floor(gain * shardMulAll);
     if (clearedRun) S.shardFrozen = true; // クリア時点で精算を確定。以後のエンドレス分は対象外
@@ -3607,7 +3757,7 @@ function recordRunStats(clearedRun){
   const tNow = Math.floor(S.time);
   meta.stats.playTime += Math.max(0, tNow - (S.timeCountedAt || 0)); // 総プレイ時間（クリア→エンドレス継続でも差分だけ加算）
   S.timeCountedAt = tNow;
-  if (S.time > 600) meta.stats.endlessBest = Math.max(meta.stats.endlessBest, Math.floor(S.time));
+  if (S.time > clearTime()) meta.stats.endlessBest = Math.max(meta.stats.endlessBest, Math.floor(S.time));
   if (!S.statsCounted) {
     S.statsCounted = true;
     meta.stats.runs++;
@@ -3641,7 +3791,7 @@ function showEndScreen(clearedRun, isNew, gain){
     const diffMsg = S.difficulty !== 'normal'
       ? `<br>⚔️ 難易度「${diffDef().name}」をクリア！`
       : (nextDiff ? `<br>⚔️ 難易度「${nextDiff.name}」が解放された！` : '');
-    $('endMsg').innerHTML = (coopMode ? '10分間生き抜いた！ 2人で無事に朝を迎えたよ。' : `10分間生き抜いた！ ${myName}は無事に朝を迎えたよ。`) + unlockMsg + diffMsg;
+    $('endMsg').innerHTML = (coopMode ? `${timeModeDef().name}生き抜いた！ 2人で無事に朝を迎えたよ。` : `${timeModeDef().name}生き抜いた！ ${myName}は無事に朝を迎えたよ。`) + unlockMsg + diffMsg;
     $('endBtns').style.display = 'none'; $('clearBtns').style.display = 'block';
   } else {
     S.state = 'over'; sfx.boom(); S.shake = 12;
@@ -3690,27 +3840,35 @@ $('muteBtn').onclick = () => { initAudio(); setMuted(!muted); };
 $('titleMuteBtn').onclick = () => { initAudio(); setMuted(!muted); };
 setMuted(muted); setRadarEnabled(radarEnabled); showBest();
 
+/* 第17弾: HUDのDOM書き込みは「値が変わった時だけ」に抑制する。
+   従来はホスト毎フレーム／ゲスト10Hzで textContent・style を無条件に書き直しており、
+   レイアウト再計算の火種になっていた。表示内容は従来と同一 */
+const hudCache = {};
+function hudText(key, el, val){ if (hudCache[key] !== val) { hudCache[key] = val; el.textContent = val; } }
+function hudWidth(key, el, val){ if (hudCache[key] !== val) { hudCache[key] = val; el.style.width = val; } }
+function hudStyle(key, el, prop, val){ if (hudCache[key] !== val) { hudCache[key] = val; el.style[prop] = val; } }
 function updateHud(){
   const me = localPlayer();
-  $('hpFill').style.width = clamp(me.hp / maxHp(me) * 100, 0, 100) + '%';
-  $('hpText').textContent = `${Math.ceil(me.hp)} / ${maxHp(me)}`;
-  $('xpFill').style.width = clamp(P.xp / P.xpNext * 100, 0, 100) + '%';
-  $('lvBadge').textContent = 'Lv ' + P.level;
-  $('timerText').textContent = fmtTime(S.time) + (S.endless ? ' ∞' : '');
-  $('timerText').style.color = (!S.endless && S.time > 540) ? '#ffd94d' : '#fff';
-  $('killText').textContent = '💀 ' + S.kills;
+  hudWidth('hpW', $('hpFill'), clamp(me.hp / maxHp(me) * 100, 0, 100).toFixed(1) + '%');
+  hudText('hpT', $('hpText'), `${Math.ceil(me.hp)} / ${maxHp(me)}`);
+  hudWidth('xpW', $('xpFill'), clamp(P.xp / P.xpNext * 100, 0, 100).toFixed(1) + '%');
+  hudText('lv', $('lvBadge'), 'Lv ' + P.level);
+  hudText('tm', $('timerText'), fmtTime(S.time) + (S.endless ? ' ∞' : ''));
+  hudStyle('tmC', $('timerText'), 'color', (!S.endless && S.time > clearTime() - 60) ? '#ffd94d' : '#fff');
+  hudText('kl', $('killText'), '💀 ' + S.kills);
   const boss = (NET.role === 'guest') ? S.guestBoss : (S.bossRef && !S.bossRef.dead ? S.bossRef : null);
-  if (boss) $('bossFill').style.width = clamp(boss.hp / boss.maxHp * 100, 0, 100) + '%';
+  if (boss) hudWidth('bsW', $('bossFill'), clamp(boss.hp / boss.maxHp * 100, 0, 100).toFixed(1) + '%');
   if (coopMode) {
     const partner = (NET.role === 'guest') ? P : P2;
-    $('partnerWrap').style.display = 'block';
-    $('partnerName').textContent = (NET.role === 'guest' ? 'ホスト' : 'ゲスト') + '：' + CHARS[partner.char].name + (partner.alive ? '' : `（ダウン…復活まで ${Math.ceil(partner.reviveT)}秒）`);
-    $('partnerFill').style.width = clamp(partner.hp / maxHp(partner) * 100, 0, 100) + '%';
+    hudStyle('pwD', $('partnerWrap'), 'display', 'block');
+    hudText('pn', $('partnerName'), (NET.role === 'guest' ? 'ホスト' : 'ゲスト') + '：' + CHARS[partner.char].name + (partner.alive ? '' : `（ダウン…復活まで ${Math.ceil(partner.reviveT)}秒）`));
+    hudWidth('pfW', $('partnerFill'), clamp(partner.hp / maxHp(partner) * 100, 0, 100).toFixed(1) + '%');
     const sm = $('spectateMsg');
     if (!me.alive) {
-      sm.style.display = 'block';
-      sm.innerHTML = `💫 ダウン中…<br>復活まで あと ${Math.ceil(me.reviveT)} 秒`;
-    } else sm.style.display = 'none';
+      hudStyle('smD', sm, 'display', 'block');
+      const html = `💫 ダウン中…<br>復活まで あと ${Math.ceil(me.reviveT)} 秒`;
+      if (hudCache.smH !== html) { hudCache.smH = html; sm.innerHTML = html; }
+    } else hudStyle('smD', sm, 'display', 'none');
   }
 }
 
@@ -3743,7 +3901,7 @@ function update(dt){
   S.time += dt;
   checkDailyMarks();
   if (metaDirty) { S._metaT = (S._metaT || 0) + dt; if (S._metaT > 4) { S._metaT = 0; metaDirty = false; saveMeta(); } }
-  if (!S.cleared && S.time >= 600) { S.cleared = true; gameOver(true); return; }
+  if (!S.cleared && S.time >= clearTime()) { S.cleared = true; gameOver(true); return; }
   // 移動：自機はローカル入力、協力ゲスト機は受信入力（切断中はAIがホストに追従）
   movePlayer(P, readLocalInput(), dt);
   if (coopMode) {
@@ -3770,7 +3928,7 @@ function update(dt){
      クリア直前（残り15秒）は発火せず、エンドレスでは通常どおり発火する） */
   if (S.time >= S.nextEventAt) {
     S.nextEventAt = S.time + rand(90, 150);
-    if (S.endless || S.time < 585) triggerEvent();
+    if (S.endless || S.time < clearTime() - 15) triggerEvent();
   }
   /* 第4弾: 回復の泉（範囲内にとどまると毎秒回復）と一時バフの残り時間 */
   for (let i = S.fountains.length - 1; i >= 0; i--) {
@@ -4358,6 +4516,19 @@ function drawEnemy(e, now){
     ctx.fillStyle = '#9aa6ba'; ctx.beginPath(); ctx.ellipse(-e.r * .3, -e.r * .34, e.r * .3, e.r * .16, -.5, 0, TAU); ctx.fill();
     ctx.fillStyle = '#565e70'; ctx.beginPath(); ctx.moveTo(-4, -e.r * .8); ctx.lineTo(0, -e.r * 1.18); ctx.lineTo(4, -e.r * .8); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(255,217,77,' + (.35 + .4 * gl) + ')'; ctx.beginPath(); ctx.arc(-4.5, e.r * .28, 2, 0, TAU); ctx.arc(4.5, e.r * .28, 2, 0, TAU); ctx.fill();
+  } else if (e.type === 'tenbit') {
+    /* 第17弾: てんしの星屑（翼の生えた星屑。金のグロー＋白い小翼＋星型ボディ） */
+    const fl = Math.sin(now / 120 + e.wob * 9) * .3;
+    ctx.fillStyle = 'rgba(255,217,77,.3)'; ctx.beginPath(); ctx.arc(0, 0, e.r * 1.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    for (const s of [-1, 1]) {
+      ctx.save(); ctx.translate(s * (e.r + 2), -2); ctx.rotate(s * (.4 + fl));
+      ctx.beginPath(); ctx.ellipse(s * 5, 0, 7, 3, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    drawStar(0, 0, e.r + 2, now / 500 + e.wob, '#ffd94d');
+    drawStar(0, 0, (e.r + 2) * .55, now / 500 + e.wob, '#fff3c9');
+    ctx.fillStyle = '#7a4a12'; ctx.beginPath(); ctx.arc(-3, -1, 1.6, 0, TAU); ctx.arc(3, -1, 1.6, 0, TAU); ctx.fill();
   } else if (e.type === 'boss' || e.type === 'miniboss') {
     drawBossArt(e, now);
   }
@@ -4638,6 +4809,26 @@ function drawAwakenPlayerExtras(p, now, bobY){
       ctx.restore();
     }
     ctx.restore();
+  } else if (p.char === 'tamamo') {
+    // 第17弾: 周回するお札＋紫の霊炎＋金の尾先のきらめき
+    ctx.save();
+    for (let i = 0; i < 3; i++) {
+      const a = now / 700 + (i / 3) * TAU;
+      const ox = cx + Math.cos(a) * 30, oy = cy - 6 + Math.sin(a) * 16;
+      ctx.save(); ctx.translate(ox, oy); ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = '#fdfaff'; ctx.fillRect(-4.4, -6.4, 8.8, 12.8);
+      ctx.strokeStyle = '#ffd94d'; ctx.lineWidth = 1.2; ctx.strokeRect(-4.4, -6.4, 8.8, 12.8);
+      ctx.fillStyle = '#e03a3a'; ctx.beginPath(); ctx.arc(0, 0, 2, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    for (const s of [-1, 1]) {
+      const fl = Math.sin(now / 150 + s * 2.3) * 1.4;
+      ctx.fillStyle = 'rgba(176,108,255,.7)';
+      ctx.beginPath(); ctx.ellipse(cx + s * 20, cy + 10, 3.2, 6 + fl, s * .25, 0, TAU); ctx.fill();
+    }
+    drawStar(cx - 16, cy + 14, 3, now / 300, '#ffd94d');
+    drawStar(cx + 17, cy + 12, 2.6, now / 300 + 2, '#c9a6ff');
+    ctx.restore();
   }
 }
 function drawPlayer(p, now){
@@ -4699,6 +4890,16 @@ function drawPlayer(p, now){
       ctx.quadraticCurveTo(s * 14.5, .8, s * 13.4, 5.4);
       ctx.quadraticCurveTo(s * 11, 2.6, s * 10, 4);
       ctx.closePath(); ctx.fill();
+    }
+  }
+  if (ch.fox) { // 第17弾: 九尾の妖狐猫の尾（体の後ろに扇状の5尾、白＋紫の先）
+    const sway = Math.sin(now / 300) * 2;
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i - 2) * .5, len = 21 - Math.abs(i - 2) * 2.4;
+      const tx = Math.cos(a) * len * .9, ty = 8 + Math.sin(a) * len * .55 + sway * (i - 2) * .3;
+      ctx.strokeStyle = ch.body; ctx.lineWidth = 5.6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, 8); ctx.quadraticCurveTo(tx * .5, ty + 4, tx, ty); ctx.stroke();
+      ctx.fillStyle = '#c9a6ff'; ctx.beginPath(); ctx.arc(tx, ty, 3.1, 0, TAU); ctx.fill();
     }
   }
   ctx.fillStyle = ch.body; ctx.beginPath(); ctx.arc(0, 2, ch.fluffy ? 16.5 : 14.5, 0, TAU); ctx.fill();
@@ -4852,7 +5053,13 @@ function draw(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawBackground(cam.x, cam.y);
   ctx.save(); ctx.translate(-cam.x, -cam.y);
+  /* 第17弾: ビューポート外カリング。同期範囲（最大2400）は画面より遥かに広く、ゲストは画面外の
+     敵・弾・ジェムまで全数描画していたのが重さの主因だった。描画だけを間引くので、
+     ホストのシミュレーション・同期の正確さには一切影響しない（ホスト/ソロの描画も軽くなる） */
+  const vw0 = cam.x, vw1 = cam.x + viewW, vh0 = cam.y, vh1 = cam.y + viewH;
+  const inView = (x, y, m) => x > vw0 - m && x < vw1 + m && y > vh0 - m && y < vh1 + m;
   for (const c of clouds) {
+    if (!inView(c.x, c.y, c.r + 30)) continue;
     ctx.globalAlpha = .34 * clamp(c.ttl / c.max, 0, 1);
     ctx.fillStyle = '#9b59d0';
     ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, TAU); ctx.fill();
@@ -4860,9 +5067,10 @@ function draw(){
     ctx.beginPath(); ctx.arc(c.x - 16, c.y + 8, c.r * .55, 0, TAU); ctx.arc(c.x + 18, c.y - 6, c.r * .45, 0, TAU); ctx.fill();
     ctx.globalAlpha = 1;
   }
-  for (const g of gems) drawGem(g, now);
+  for (const g of gems) { if (inView(g.x, g.y, 26)) drawGem(g, now); }
   for (const pk of pickups) drawChest(pk, now);
   for (const f of S.fountains) { // 回復の泉（ランダムイベント）
+    if (!inView(f.x, f.y, f.r + 16)) continue;
     ctx.save(); ctx.translate(f.x, f.y);
     const fade = clamp(f.ttl / 3, 0, 1);
     ctx.globalAlpha = .32 * fade; ctx.fillStyle = '#38b6ff'; ctx.beginPath(); ctx.arc(0, 0, f.r, 0, TAU); ctx.fill();
@@ -4874,14 +5082,16 @@ function draw(){
     ctx.restore();
   }
   for (const s of eshots) {
+    if (!inView(s.x, s.y, 24)) continue;
     ctx.save(); ctx.translate(s.x, s.y);
     ctx.fillStyle = 'rgba(138,255,92,.3)'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, TAU); ctx.fill();
     ctx.fillStyle = '#8aff5c'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill();
     ctx.fillStyle = '#eaffea'; ctx.beginPath(); ctx.arc(-2, -2, 2.6, 0, TAU); ctx.fill();
     ctx.restore();
   }
-  for (const e of enemies) drawEnemy(e, now);
+  for (const e of enemies) { if (inView(e.x, e.y, e.r * 2 + 80)) drawEnemy(e, now); }
   for (const p of projs) {
+    if (!inView(p.x, p.y, (p.r || 14) + 46)) continue;
     if (p.type === 'star') {
       if (p.big) { // ギャラクシーレイ: 太い銀河の光線
         ctx.save(); ctx.globalAlpha = .3; ctx.fillStyle = '#c9a6ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 17, 0, TAU); ctx.fill(); ctx.restore();
@@ -4894,6 +5104,16 @@ function draw(){
       ctx.fillStyle = 'rgba(255,233,168,.4)'; ctx.beginPath(); ctx.ellipse(0, 0, 14, 7, 0, 0, TAU); ctx.fill();
       ctx.fillStyle = '#fffbe9'; ctx.beginPath(); ctx.ellipse(1, 0, 11, 4.6, 0, 0, TAU); ctx.fill();
       ctx.strokeStyle = '#e8b93c'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(11, 0); ctx.stroke();
+      ctx.restore();
+    }
+    else if (p.type === 'ofuda') { // 第17弾: 神楽のお札（白い札＋赤い印。進化形は金の札）
+      const fa = Math.atan2(p.vy || 0, p.vx || 1);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(fa); if (p.big) ctx.scale(1.5, 1.5);
+      ctx.fillStyle = p.big ? 'rgba(255,217,77,.45)' : 'rgba(201,166,255,.4)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 8, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = p.big ? '#fff3c9' : '#fdfaff'; ctx.fillRect(-8, -5, 16, 10);
+      ctx.strokeStyle = p.big ? '#e8b93c' : '#8a5cff'; ctx.lineWidth = 1.2; ctx.strokeRect(-8, -5, 16, 10);
+      ctx.fillStyle = '#e03a3a'; ctx.beginPath(); ctx.arc(3, 0, 2.6, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fdfaff'; ctx.beginPath(); ctx.arc(3, 0, 1.1, 0, TAU); ctx.fill();
       ctx.restore();
     }
     else if (p.type === 'hellorb') { // 第16弾: 地獄の火球（紫の炎に包まれた黒いオーブ）
@@ -5134,6 +5354,9 @@ function draw(){
     }
   }
   for (const f of fx) {
+    /* 第17弾: エフェクトも画面外は描かない（bolt は x/y を持たず pts の終端で判定する） */
+    const fxp = f.x !== undefined ? f : (f.pts && f.pts.length ? f.pts[f.pts.length - 1] : null);
+    if (fxp && !inView(fxp.x, fxp.y, (f.type === 'pillar' || f.type === 'bolt') ? 380 : (f.range || f.r || 120) + 60)) continue;
     const al = clamp(f.ttl / f.max, 0, 1);
     if (f.type === 'bolt') {
       ctx.save(); ctx.globalAlpha = al;
@@ -5219,12 +5442,14 @@ function draw(){
     }
   }
   for (const p of parts) {
+    if (!inView(p.x, p.y, 20)) continue;
     ctx.globalAlpha = clamp(p.ttl / p.max, 0, 1);
     ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, TAU); ctx.fill();
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'center'; ctx.font = '900 13.5px sans-serif';
   for (const t of texts) {
+    if (!inView(t.x, t.y, 70)) continue;
     ctx.globalAlpha = clamp(t.ttl / t.max, 0, 1);
     ctx.font = `900 ${t.size}px sans-serif`;
     ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.lineWidth = 3.4; ctx.strokeText(t.txt, t.x, t.y);
@@ -5640,6 +5865,21 @@ function drawAwakenIcon(c, charId){
       c.beginPath(); c.ellipse(52 + s * 26, 88, 3.4, 5.4, s * .3, 0, TAU); c.fill();
     }
     star2(52, 90, 4.4, .5, '#b06cff');
+  } else if (charId === 'tamamo') {
+    // 第17弾: 九尾の増尾（金の先）＋大きな神楽鈴＋紫の霊炎
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i - 2) * .55, len = 44 - Math.abs(i - 2) * 5;
+      const tx = 52 + Math.cos(a) * len, ty = 66 + Math.sin(a) * len * .6;
+      c.strokeStyle = '#fdfaff'; c.lineWidth = 10; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(52, 66); c.quadraticCurveTo(52 + (tx - 52) * .5, ty + 8, tx, ty); c.stroke();
+      c.fillStyle = '#ffd94d'; c.beginPath(); c.arc(tx, ty, 5.2, 0, TAU); c.fill();
+    }
+    c.fillStyle = '#ffd94d'; c.beginPath(); c.arc(52, 88, 6.4, 0, TAU); c.fill();
+    c.fillStyle = '#c22f4e'; c.beginPath(); c.arc(52, 88, 2.6, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(176,108,255,.85)';
+    c.beginPath(); c.ellipse(18, 30, 3.6, 5.6, .3, 0, TAU); c.fill();
+    c.beginPath(); c.ellipse(86, 30, 3.6, 5.6, -.3, 0, TAU); c.fill();
+    star2(52, 14, 5, .4, '#c9a6ff');
   }
   c.restore();
 }
@@ -5683,6 +5923,15 @@ function drawCharIcon(cnv, charId){
       c.quadraticCurveTo(s * 24, 1, s * 22, 8);
       c.quadraticCurveTo(s * 18, 4, s * 16, 6);
       c.closePath(); c.fill();
+    }
+  }
+  if (ch.fox) { // 第17弾: 九尾の妖狐猫の尾（体の後ろに扇状の5尾、白＋紫の先）
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i - 2) * .52, len = 34 - Math.abs(i - 2) * 4;
+      const tx = Math.cos(a) * len, ty = 12 + Math.sin(a) * len * .62;
+      c.strokeStyle = ch.body; c.lineWidth = 8.6; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(0, 12); c.quadraticCurveTo(tx * .5, ty + 6, tx, ty); c.stroke();
+      c.fillStyle = '#c9a6ff'; c.beginPath(); c.arc(tx, ty, 4.6, 0, TAU); c.fill();
     }
   }
   c.fillStyle = ch.body; c.beginPath(); c.arc(0, 2, ch.fluffy ? 26 : 24, 0, TAU); c.fill();
@@ -5731,6 +5980,26 @@ function renderStages(){
     row.appendChild(b);
   }
   renderDiff();
+  renderTimeModes();
+}
+/* ── 第17弾: 制限時間モードのカード ── */
+function renderTimeModes(){
+  const row = $('timeRow'); if (!row) return;
+  row.innerHTML = '';
+  const cur = TIME_MODES[meta.timeMode] ? meta.timeMode : 600;
+  for (const sec of TIME_MODE_ORDER) {
+    const tm = TIME_MODES[sec];
+    const b = document.createElement('button');
+    b.className = 'stageCard diffCard' + (cur === sec ? ' sel' : '');
+    b.dataset.timemode = sec;
+    b.innerHTML = `<div class="stIcon">⏱</div><div class="stName">${tm.name}</div><div class="stDesc">${sec}秒 生き残ればクリア<br>かけら ×${tm.shard}・ボーナス ⭐${tm.bonus}</div><div class="stBest"></div>`;
+    b.onclick = () => {
+      initAudio();
+      meta.timeMode = sec; saveMeta();
+      renderTitleMeta(); showBest();
+    };
+    row.appendChild(b);
+  }
 }
 /* 難易度カード（選択中ステージ用） */
 function renderDiff(){
@@ -6360,7 +6629,7 @@ function startCoopGame(){
   $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
   $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
   $('netStatus').textContent = P2.ai ? '⚠ 相方が切断中… AIが操作しています（再接続待ち）' : '';
-  sendNet({ t: 'start', hostChar: P.char, stage: S.stage, diff: S.difficulty });
+  sendNet({ t: 'start', hostChar: P.char, stage: S.stage, diff: S.difficulty, mode: S.timeMode }); /* 第17弾: 制限時間モードも同期 */
   sendNet(buildSnapshot());
   renderWeaponsBar(); updateHud();
 }
@@ -6374,7 +6643,7 @@ function startCoopGame(){
    3) 武器/パッシブは変化した時だけ送る（players[].wp、無変化なら null）。 */
 const ENEMY_TYPE_LIST = Object.keys(ENEMY_TYPES);
 const ENEMY_TYPE_IDX = {}; ENEMY_TYPE_LIST.forEach((t, i) => { ENEMY_TYPE_IDX[t] = i; });
-const PROJ_TYPE_LIST = ['star', 'comet', 'arrow', 'fan', 'ice', 'leaf', 'nova', 'mine', 'missile', 'wave', 'fam', 'turret', 'scythe', 'patch', 'vortex', 'thorn', 'mfall', 'bfly', 'tshot', 'feather', 'hellorb']; /* 第16弾: 末尾に追加（既存インデックス不変） */
+const PROJ_TYPE_LIST = ['star', 'comet', 'arrow', 'fan', 'ice', 'leaf', 'nova', 'mine', 'missile', 'wave', 'fam', 'turret', 'scythe', 'patch', 'vortex', 'thorn', 'mfall', 'bfly', 'tshot', 'feather', 'hellorb', 'ofuda']; /* 第16弾・第17弾: 末尾に追加（既存インデックス不変） */
 const PROJ_TYPE_IDX = {}; PROJ_TYPE_LIST.forEach((t, i) => { PROJ_TYPE_IDX[t] = i; });
 let snapWpCache = [null, null];
 function syncRadius(){
@@ -6387,7 +6656,7 @@ function buildSnapshot(){
   const pls = activePlayers();
   const nearAny = (x, y, r2) => { for (const p of pls) { if (dist2(x, y, p.x, p.y) <= r2) return true; } return false; };
   return {
-    t: 'state', stage: S.stage, diff: S.difficulty, fountains: S.fountains.map(f => ({ x: Math.round(f.x), y: Math.round(f.y), r: f.r, ttl: Math.round(f.ttl * 10) / 10 })),
+    t: 'state', stage: S.stage, diff: S.difficulty, mode: S.timeMode, fountains: S.fountains.map(f => ({ x: Math.round(f.x), y: Math.round(f.y), r: f.r, ttl: Math.round(f.ttl * 10) / 10 })),
     time: S.time, kills: S.kills, gemsCollected: Math.floor(S.gemsCollected),
     team: { level: P.level, xp: Math.floor(P.xp), xpNext: P.xpNext },
     phase: S.state, endless: S.endless, cleared: S.cleared,
@@ -6446,8 +6715,20 @@ function hostOnData(msg){
       lvPhase.guestDone = true;
       checkLvDone();
     }
+  } else if (msg.t === 'skip') {
+    /* 第17弾: ゲストのスキップ（何も適用せず完了扱い） */
+    if (lvPhase && !lvPhase.guestDone && S.state === 'levelup') {
+      lvPhase.guestDone = true;
+      checkLvDone();
+    }
+  } else if (msg.t === 'reroll') {
+    /* 第17弾: ゲストの再抽選リクエスト（ホストが引き直して送り返す） */
+    if (lvPhase && !lvPhase.guestDone && S.state === 'levelup') {
+      lvPhase.guestChoices = rollPicks(P2);
+      sendNet({ t: 'choices', picks: lvPhase.guestChoices, reroll: true });
+    }
   } else if (msg.t === 'chestpick') {
-    if (S.state === 'chest' && S.chestPicker === P2) applyChestChoice(P2, msg.which === 'lv' ? 'lv' : 'rare');
+    if (S.state === 'chest' && S.chestPicker === P2) applyChestChoice(P2, ['lv', 'rare', 'gems'].includes(msg.which) ? msg.which : 'rare');
   } else if (msg.t === 'buy') {
     /* 行商人ねこ: ゲストの購入リクエストをホスト権威で検証して適用する */
     const item = MERCHANT_ITEMS[msg.idx | 0];
@@ -6465,6 +6746,7 @@ function guestOnData(msg){
     NET_DPR_CAP = 1.5; resize(); /* 第14弾: 協力中は描画を軽量化 */
     if (STAGES[msg.stage]) S.stage = msg.stage;
     if (DIFFS[msg.diff]) S.difficulty = msg.diff; // 難易度はホストの選択に従う
+    if (TIME_MODES[msg.mode]) S.timeMode = msg.mode; // 第17弾: 制限時間モードもホストに従う
     S.fountains = []; closeMerchant();
     renderEnemyMap.clear(); renderProjMap.clear();
     resetPlayer(P, CHARS[msg.hostChar] ? msg.hostChar : 'nowa', null);
@@ -6473,7 +6755,8 @@ function guestOnData(msg){
     P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
     enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = []; eshots = [];
     S.time = 0; S.kills = 0; S.cleared = false; S.endless = false; S.timeCountedAt = 0;
-    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.shardFrozen = false; S.runShardGain = 0; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0; applySnapshot._lv = undefined; applySnapshot._boss = false;
+    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.startGemPaid = false; S.shardFrozen = false; S.runShardGain = 0; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0; applySnapshot._lv = undefined; applySnapshot._boss = false;
+    lvOps = { skip: LV_OP_MAX, reroll: LV_OP_MAX }; lvSession = null; /* 第17弾: ゲスト側も再抽選/スキップ回数をリセット */
     S.state = 'play';
     $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
     $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
@@ -6483,19 +6766,24 @@ function guestOnData(msg){
     applySnapshot(msg);
   } else if (msg.t === 'choices') {
     S.state = 'levelup';
-    sfx.levelup(); applySnapshot._lvSndT = performance.now(); /* 第14弾: ゲスト側のレベルアップ音（選択画面が開く瞬間に鳴らす） */
+    if (!msg.reroll) { sfx.levelup(); applySnapshot._lvSndT = performance.now(); } /* 第14弾: ゲスト側のレベルアップ音（再抽選の応答では鳴らさない） */
+    const guestWaitFn = () => {
+      closeLvSession();
+      $('lvCards').innerHTML = '';
+      const w = $('lvWait'); w.style.display = 'block'; w.textContent = 'ホストの選択を待っています…';
+    };
     showPickUI(P2, msg.picks, pk => {
       if (pk.kind === 'evo') { meta.stats.evos++; saveMeta(); addDailyProg('evo', 1); const ev2 = EVOLUTIONS[pk.id]; if (ev2) dexWeapon(ev2.to); }
       if (pk.kind === 'weapon') dexWeapon(pk.id);
       sendNet({ t: 'pick', idx: msg.picks.indexOf(pk) });
-      $('lvCards').innerHTML = '';
-      const w = $('lvWait'); w.style.display = 'block'; w.textContent = 'ホストの選択を待っています…';
-    });
+      guestWaitFn();
+    }, () => { sendNet({ t: 'skip' }); guestWaitFn(); }); /* 第17弾: ゲストのスキップ（何も適用されない） */
   } else if (msg.t === 'chest') {
     S.state = 'chest';
     sfx.chest(); /* 第14弾: ゲスト側の宝箱音 */
     $('chestScr').classList.add('show');
   } else if (msg.t === 'resume') {
+    closeLvSession();
     $('levelScr').classList.remove('show');
     $('lvWait').style.display = 'none';
     if (S.state === 'levelup') S.state = 'play';
@@ -6518,6 +6806,7 @@ function applySnapshot(snap){
   NET.snap = snap;
   if (snap.stage && STAGES[snap.stage]) S.stage = snap.stage;
   if (snap.diff && DIFFS[snap.diff]) S.difficulty = snap.diff;
+  if (TIME_MODES[snap.mode]) S.timeMode = snap.mode;
   S.fountains = (snap.fountains || []).map(f => ({ x: f.x, y: f.y, r: f.r, ttl: f.ttl, max: 25 }));
   S.time = snap.time; S.kills = snap.kills; S.gemsCollected = snap.gemsCollected || 0;
   S.endless = !!snap.endless; S.cleared = !!snap.cleared;
@@ -6558,35 +6847,43 @@ function applySnapshot(snap){
     if (sp.wp) { p.weapons = sp.wp.weapons; p.passives = sp.wp.passives || {}; } /* 第14弾: 武器/パッシブは変化時のみ届く */
     if (sp.moving) p.bob += .18;
   });
-  const seen = new Set();
+  /* 第17弾: スタンプ方式で掃引する。従来は Set と [...keys()] と [...values()] を10Hzで
+     毎回割り当てており GC 負荷になっていた。敵・弾・ジェムのオブジェクトと配列を使い回す */
+  const stamp = (applySnapshot._stamp = (applySnapshot._stamp || 0) + 1);
   for (const se of snap.enemies) { /* 第14弾: タプル [id, 種類idx, x, y, hp, maxHp, r, flash×100, flags, wob×100, fuse×10] */
-    seen.add(se[0]);
     const etype = ENEMY_TYPE_LIST[se[1]];
-    dexSee(etype); // ゲスト側の図鑑: 見た敵を遭遇として記録（撃破数は数えない）
     let e = renderEnemyMap.get(se[0]);
-    if (!e) { e = { eid: se[0], dead: false, vx: 0, vy: 0, hitCd: 0, orbitCd: 0, slowT: 0 }; renderEnemyMap.set(se[0], e); e.x = se[2]; e.y = se[3]; e.tx = se[2]; e.ty = se[3]; }
+    if (!e) { e = { eid: se[0], dead: false, vx: 0, vy: 0, hitCd: 0, orbitCd: 0, slowT: 0 }; renderEnemyMap.set(se[0], e); e.x = se[2]; e.y = se[3]; e.tx = se[2]; e.ty = se[3]; dexSee(etype); } // 図鑑の遭遇記録は新規の敵だけ（従来は全敵×10Hzで呼んでいた）
+    e._st = stamp;
     e.tx = se[2]; e.ty = se[3]; e.type = etype; e.hp = se[4]; e.maxHp = se[5]; e.r = se[6];
     e.flash = se[7] / 100; e.slow = !!(se[8] & 1); e.elite = !!(se[8] & 2); e.gold = !!(se[8] & 4); e.wob = se[9] / 100; e.fuse = se[10] < 0 ? -1 : se[10] / 10;
   }
-  for (const id of [...renderEnemyMap.keys()]) if (!seen.has(id)) renderEnemyMap.delete(id);
-  enemies = [...renderEnemyMap.values()];
-  const pseen = new Set();
+  for (const [id, e] of renderEnemyMap) if (e._st !== stamp) renderEnemyMap.delete(id);
+  enemies.length = 0; for (const e of renderEnemyMap.values()) enemies.push(e);
   let sawNewProj = false;
   for (const sp of snap.projs) { /* 第14弾: タプル [id, 種類idx, x, y, vx, vy, spin×100, r, armT×10, big] */
-    pseen.add(sp[0]);
     let pr = renderProjMap.get(sp[0]);
     if (!pr) { pr = {}; renderProjMap.set(sp[0], pr); pr.x = sp[2]; pr.y = sp[3]; sawNewProj = true; }
+    pr._st = stamp;
     pr.tx = sp[2]; pr.ty = sp[3];
     pr.ax = sp[2]; pr.ay = sp[3]; pr.at = performance.now(); /* デッドレコニングのアンカー */
     pr.type = sp[1] >= 0 ? PROJ_TYPE_LIST[sp[1]] : sp[10]; pr.vx = sp[4]; pr.vy = sp[5]; pr.spin = sp[6] / 100; pr.r = sp[7]; pr.armT = sp[8] / 10; pr.big = sp[9];
   }
   if (sawNewProj) sfx.shoot(); /* 第14弾: ゲスト側の発射音（sfx.shoot 内で70msに間引き） */
-  for (const id of [...renderProjMap.keys()]) if (!pseen.has(id)) renderProjMap.delete(id);
-  projs = [...renderProjMap.values()];
-  gems = snap.gems.map((g, i) => ({ x: g[0], y: g[1], val: g[2], ph: i * 1.37 }));
+  for (const [id, pr] of renderProjMap) if (pr._st !== stamp) renderProjMap.delete(id);
+  projs.length = 0; for (const pr of renderProjMap.values()) projs.push(pr);
+  /* ジェムはプール配列のオブジェクトを使い回す（従来は毎回 map で全数新規生成していた） */
+  const gemPool = applySnapshot._gemPool || (applySnapshot._gemPool = []);
+  for (let i = 0; i < snap.gems.length; i++) {
+    const g = snap.gems[i];
+    if (gemPool[i]) { gemPool[i].x = g[0]; gemPool[i].y = g[1]; gemPool[i].val = g[2]; gemPool[i].ph = i * 1.37; }
+    else gemPool[i] = { x: g[0], y: g[1], val: g[2], ph: i * 1.37 };
+  }
+  gemPool.length = snap.gems.length;
+  gems = gemPool;
   pickups = snap.pickups.map(pk => ({ x: pk.x, y: pk.y, kind: 'chest', ph: performance.now() / 300 }));
   if (snap.phase === 'play') {
-    if (S.state === 'levelup') { $('levelScr').classList.remove('show'); $('lvWait').style.display = 'none'; }
+    if (S.state === 'levelup') { closeLvSession(); $('levelScr').classList.remove('show'); $('lvWait').style.display = 'none'; }
     if (S.state === 'chest') $('chestScr').classList.remove('show');
     if (S.state !== 'over' && S.state !== 'clear') S.state = 'play';
   } else if (snap.phase === 'levelup') S.state = 'levelup';
@@ -6706,7 +7003,13 @@ window.__surv = {
   get finaleSpawned(){ return S.finaleSpawned; }, get nextFinaleAt(){ return S.nextFinaleAt; },
   /* 第12弾: 相方マーカー・レーダーミニマップ */
   partnerPlayer, computePartnerGuide, computeRadarDots, radarOn, setRadar: v => setRadarEnabled(v),
-  RADAR_RANGE
+  RADAR_RANGE,
+  /* 第17弾: アイテム枠8種・再抽選/スキップ・宝箱・制限時間モード・新ショップ・新ステージ/キャラ */
+  LV_OP_MAX, get lvOps(){ return lvOps; }, get lvSession(){ return lvSession; }, renderLvOps,
+  levelUpSequence, openChest, applyChestChoice,
+  TIME_MODES, TIME_MODE_ORDER, timeModeDef, clearTime, renderTimeModes,
+  setTimeMode: sec => { if (TIME_MODES[sec]) { meta.timeMode = sec; S.timeMode = sec; saveMeta(); renderTitleMeta(); } },
+  get hudCache(){ return hudCache; }
 };
 
 
