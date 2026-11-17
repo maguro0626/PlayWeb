@@ -612,21 +612,22 @@ function stepPhysics(dt){
       b.x += b.vx * sdt;
       b.y += b.vy * sdt;
       b.angle += b.va * sdt;
-      b.va *= (1 - 0.4*sdt);              // 角速度の減衰
+      b.va *= (1 - 3.0*sdt);              // 角速度の減衰（強め: 回り続けない）
+      if (Math.abs(b.va) < 0.05) b.va = 0; // 微小な回転は止める
       // 壁
       const left = WALL + b.r, right = W - WALL - b.r, fl = H - FLOOR_H - b.r;
-      if (b.x < left){ b.x = left; if (b.vx<0){ b.vx = -b.vx*0.25; b.va += b.vy*0.002; } }
-      if (b.x > right){ b.x = right; if (b.vx>0){ b.vx = -b.vx*0.25; b.va -= b.vy*0.002; } }
+      if (b.x < left){ b.x = left; if (b.vx<0) b.vx = -b.vx*0.25; }
+      if (b.x > right){ b.x = right; if (b.vx>0) b.vx = -b.vx*0.25; }
       if (b.y > fl){
         b.y = fl;
         if (b.vy > 0){
-          b.vy = -b.vy*0.22;
+          b.vy = -b.vy*0.15;
           if (Math.abs(b.vy) < 42) b.vy = 0;
         }
         // 床摩擦と転がり
-        b.vx *= (1 - 3.2*sdt);
+        b.vx *= (1 - 3.6*sdt);
         const rollVa = b.vx / b.r;
-        b.va += (rollVa - b.va) * Math.min(1, 10*sdt);
+        b.va += (rollVa - b.va) * Math.min(1, 6*sdt);
         if (Math.abs(b.vx) < 3) b.vx = 0;
       }
       if (b.y < b.r + 2){ b.y = b.r + 2; if (b.vy<0) b.vy = 0; }
@@ -645,26 +646,33 @@ function stepPhysics(dt){
           const nx = dx/d, ny = dy/d;
           const overlap = minD - d;
           const ma = a.r*a.r, mb = b.r*b.r, mt = ma+mb;
-          // 位置補正（質量=面積比）
-          a.x -= nx * overlap * (mb/mt); a.y -= ny * overlap * (mb/mt);
-          b.x += nx * overlap * (ma/mt); b.y += ny * overlap * (ma/mt);
-          // 速度インパルス
+          // 位置補正（質量=面積比、8割まで: 残りは速度で押し出す）
+          const corr = overlap * 0.8;
+          a.x -= nx * corr * (mb/mt); a.y -= ny * corr * (mb/mt);
+          b.x += nx * corr * (ma/mt); b.y += ny * corr * (ma/mt);
+          // 速度インパルス: 重なりが深いほど「押し出し速度」を与える（Baumgarteバイアス）
           const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
           const vn = rvx*nx + rvy*ny;
-          if (vn < 0){
-            const e = 0.18;
-            const jimp = -(1+e)*vn;
+          const bias = Math.min(320, Math.max(0, overlap - 0.5) * 0.22 / sdt);
+          let jimp = 0;
+          if (vn < bias){
+            const e = 0.08; // 反発は低く（跳ねない）
+            jimp = (bias - vn) + (vn < 0 ? -vn * e : 0);
             a.vx -= nx * jimp * (mb/mt); a.vy -= ny * jimp * (mb/mt);
             b.vx += nx * jimp * (ma/mt); b.vy += ny * jimp * (ma/mt);
-            // 接線摩擦 → 回転
-            const tx = -ny, ty = nx;
-            const vt = rvx*tx + rvy*ty;
-            const fimp = -vt * 0.12;
-            a.vx -= tx * fimp * (mb/mt); a.vy -= ty * fimp * (mb/mt);
-            b.vx += tx * fimp * (ma/mt); b.vy += ty * fimp * (ma/mt);
-            a.va -= vt / a.r * 0.012;
-            b.va += vt / b.r * 0.012;
           }
+          // 接線摩擦（クーロン摩擦: 法線インパルスの μ 倍まで。回転による表面速度も含む）
+          const tx = -ny, ty = nx;
+          const vt = rvx*tx + rvy*ty;
+          const surfT = vt - b.va * b.r - a.va * a.r;
+          const fcap = 0.42 * Math.max(jimp, 6);
+          const fimp = Math.max(-fcap, Math.min(fcap, -surfT * 0.5));
+          a.vx -= tx * fimp * (mb/mt); a.vy -= ty * fimp * (mb/mt);
+          b.vx += tx * fimp * (ma/mt); b.vy += ty * fimp * (ma/mt);
+          a.va -= vt / a.r * 0.006;
+          b.va += vt / b.r * 0.006;
+          // 接触しているフルーツ同士は回転を止め合う（積み上がりで回り続けない）
+          a.va *= 0.96; b.va *= 0.96;
         }
       }
     }
@@ -719,6 +727,18 @@ function doMerge(a, b){
   nf.scaleV = 0;
   nf.born = performance.now() - 200;             // すぐ次合体できるように
   fruits.push(nf);
+  // 合体の押し出し: 大きくなったフルーツが周囲を放射状に押しのける（本家風の「ポンッ」と広がる感触）
+  for (const o of fruits){
+    if (o.dead || o === nf) continue;
+    const dx = o.x - mx, dy = o.y - my;
+    const dist = Math.hypot(dx, dy) || 1;
+    const range = nf.r + o.r + 30;
+    if (dist >= range) continue;
+    const fall = 1 - dist / range;
+    const str = (120 + nf.r * 1.5) * (0.35 + 0.65 * fall) * Math.min(1.15, Math.max(0.4, nf.r / o.r));
+    o.vx += dx / dist * str;
+    o.vy += dy / dist * str - 34 * fall;
+  }
 
   const pts = mergeScore(nt) + (combo-1)*15;
   addScore(pts, mx, my - nf.r*0.4, nt>=7 ? "#ffd34d" : "#ffffff", nt>=7 ? 25 : 19);
