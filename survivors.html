@@ -327,8 +327,6 @@
   .gachaBtn{background:linear-gradient(180deg,#ffb3d1,#f78fb8);color:#4d1730;box-shadow:0 6px 18px rgba(247,143,184,.32),inset 0 -3px 0 rgba(176,80,110,.20)}
   .buyBtn{box-shadow:0 3px 8px rgba(0,0,0,.30)}
   .card{border-radius:20px;box-shadow:0 6px 14px rgba(0,0,0,.35)}
-  .card.infCard{border-color:#7dffce;background:#122420;box-shadow:0 0 16px rgba(125,255,206,.28)}
-  .card.bagCard{border-color:#ffd94d;background:#241c10;box-shadow:0 0 16px rgba(255,217,77,.30)}
   .charCard,.stageCard{border-radius:18px;box-shadow:0 4px 10px rgba(0,0,0,.28)}
   #charDetail{border-radius:22px;box-shadow:0 8px 20px rgba(0,0,0,.35)}
   .dailyChip{border-radius:16px}
@@ -402,8 +400,6 @@
   .card.evoReadyCard{border-color:#FF7BAC;box-shadow:0 6px 0 #F3C6DA,0 0 20px rgba(255,123,172,.55)}
   .evoBadge{margin-top:8px;background:#F2508B;color:#fff;font-weight:900;font-size:12.5px;border-radius:999px;padding:4px 8px;line-height:1.4}
   .evoBadge.sub{background:#9B59E8}
-  .card.infCard{border-color:#3ED6A5;background:#EFFFF7;box-shadow:0 6px 0 #C9F2E2,0 0 16px rgba(62,214,165,.30)}
-  .card.bagCard{border-color:#FFC93C;background:#FFFBEB;box-shadow:0 6px 0 #F5D67A,0 0 16px rgba(255,201,60,.30)}
   .charCard,.stageCard{background:#fff;border-color:#F1E5F7;color:#3D3355;box-shadow:0 4px 0 #F5EDFA,0 8px 16px rgba(122,74,110,.10)}
   .charCard .chDesc,.stageCard .stDesc{color:#8A7CA8}
   .charCard .chCost,.stageCard .stBest{color:#CE7A02}
@@ -754,7 +750,7 @@
     <h2 class="panelTitle">🎁 宝箱をひらいた！</h2>
     <p class="subTitle">ボスのおたから。好きな報酬を1つ選んでね（宝箱を開けるたびに選べます）</p>
     <div class="cards">
-      <button class="card" id="chestLvBtn"><div class="cIcon">⭐</div><div class="cName">即時レベルアップ</div><div class="cDesc">経験値はそのままで1レベル上がり、レベルアップの強化が選べる</div></button>
+      <button class="card" id="chestLvBtn"><div class="cIcon">⭐</div><div class="cName">即時レベルアップ</div><div class="cDesc">経験値はそのままで1レベル上がる（強化の候補が残っていれば選べる）</div></button>
       <button class="card" id="chestGemBtn"><div class="cIcon">💎</div><div class="cName">ジェム全回収</div><div class="cDesc">フィールドに落ちている経験値ジェムを全部吸い寄せて回収する</div></button>
       <button class="card" id="chestRareBtn"><div class="cIcon">🔮</div><div class="cName">レア強化</div><div class="cDesc">持っている武器1つをランダムで超強化（最大Lvなら大回復）</div></button>
     </div>
@@ -1825,7 +1821,7 @@ function makePlayer(){
     char: 'nowa', alive: true, reviveT: 0, bellUsed: 0, ai: false, gemCnt: 0,
     input: { x: 0, y: 0 }, tx: 0, ty: 0, snapMaxHp: 0,
     mAtk: 1, mSpd: 1, mMag: 1, mXp: 1, mHp: 0, mBell: 0, mCrit: 0, mInh: 1,
-    buffAtkT: 0, buffMagT: 0, inf: {}
+    buffAtkT: 0, buffMagT: 0
   };
 }
 const players = [makePlayer(), makePlayer()];
@@ -1850,7 +1846,7 @@ function resetPlayer(p, charId, mf){
   p.mInh = mf ? inheritDmgMul() : 1; // 星の継承ボーナスは自分のメタを持つ機体（ホスト/ソロ自機・ゲスト自機プロキシ）にのみ適用
   p.buffAtkT = 0; p.buffMagT = 0;
   p.x = 0; p.y = 0; p.face = 1; p.dirX = 1; p.dirY = 0; p.moving = false; p.hurtT = 0;
-  p.weapons = [{ id: (CHARS[p.char] && CHARS[p.char].start) || 'star', lv: 1 }]; p.passives = {}; p.inf = {}; p.cds = {}; p.orbitAng = 0; p.sawAng = 0; p.morbAng = 0;
+  p.weapons = [{ id: (CHARS[p.char] && CHARS[p.char].start) || 'star', lv: 1 }]; p.passives = {}; p.cds = {}; p.orbitAng = 0; p.sawAng = 0; p.morbAng = 0;
   p.alive = true; p.reviveT = 0; p.bellUsed = 0; p.ai = false; p.gemCnt = 0;
   p.input.x = 0; p.input.y = 0; p.snapMaxHp = 0; p._snapInit = false; p.tx = 0; p.ty = 0;
   p.hp = maxHp(p);
@@ -1884,18 +1880,16 @@ function luckyCharId(){
   return ids[hashStr('majoneko-lucky-' + dailyKeyStr()) % ids.length];
 }
 function isLuckyChar(charId){ return !!charId && charId === luckyCharId(); }
-/* 第11弾: 無限強化の所持数（ラン中のみ・p.inf に累積） */
-function infOf(p, id){ return (p && p.inf && p.inf[id]) || 0; }
-function maxHp(p){ p = p || P; if (p.snapMaxHp) return p.snapMaxHp; const base = 100 + (CHARS[p.char] ? CHARS[p.char].hp : 0) + 20 * (p.passives.heart || 0) + p.mHp + 10 * infOf(p, 'hp'); const lb = lbOf(p.char); let hv = lb ? Math.floor(base * (1 + .03 * lb)) : base; if (isAwakened(p.char)) hv = Math.floor(hv * AWAKEN_BONUS.hp); return hv; }
-function moveSpeed(p){ p = p || P; return 168 * (1 + .07 * (p.passives.boots || 0)) * (1 + .02 * infOf(p, 'spd')) * (CHARS[p.char] ? CHARS[p.char].spd : 1) * p.mSpd * (isAwakened(p.char) ? AWAKEN_BONUS.spd : 1); }
-function magnetR(p){ p = p || P; return (72 + 30 * (p.passives.magnet || 0)) * (CHARS[p.char] ? CHARS[p.char].mag : 1) * p.mMag * (p.buffMagT > 0 ? 1.6 : 1) * Math.pow(1.15, infOf(p, 'mag')); }
-function dmgMul(p){ p = p || P; let m = (1 + .10 * (p.passives.power || 0)) * (CHARS[p.char] ? CHARS[p.char].atk : 1) * p.mAtk * (p.mInh || 1) * (1 + .04 * lbOf(p.char)) * Math.pow(1.04, infOf(p, 'atk')); if (p.buffAtkT > 0) m *= 1.2; if (CHARS[p.char] && CHARS[p.char].berserk && p.hp > 0 && p.hp < maxHp(p) * .3) m *= 1.5; if (isAwakened(p.char)) m *= AWAKEN_BONUS.dmg; return m; }
+function maxHp(p){ p = p || P; if (p.snapMaxHp) return p.snapMaxHp; const base = 100 + (CHARS[p.char] ? CHARS[p.char].hp : 0) + 20 * (p.passives.heart || 0) + p.mHp; const lb = lbOf(p.char); let hv = lb ? Math.floor(base * (1 + .03 * lb)) : base; if (isAwakened(p.char)) hv = Math.floor(hv * AWAKEN_BONUS.hp); return hv; }
+function moveSpeed(p){ p = p || P; return 168 * (1 + .07 * (p.passives.boots || 0)) * (CHARS[p.char] ? CHARS[p.char].spd : 1) * p.mSpd * (isAwakened(p.char) ? AWAKEN_BONUS.spd : 1); }
+function magnetR(p){ p = p || P; return (72 + 30 * (p.passives.magnet || 0)) * (CHARS[p.char] ? CHARS[p.char].mag : 1) * p.mMag * (p.buffMagT > 0 ? 1.6 : 1); }
+function dmgMul(p){ p = p || P; let m = (1 + .10 * (p.passives.power || 0)) * (CHARS[p.char] ? CHARS[p.char].atk : 1) * p.mAtk * (p.mInh || 1) * (1 + .04 * lbOf(p.char)); if (p.buffAtkT > 0) m *= 1.2; if (CHARS[p.char] && CHARS[p.char].berserk && p.hp > 0 && p.hp < maxHp(p) * .3) m *= 1.5; if (isAwakened(p.char)) m *= AWAKEN_BONUS.dmg; return m; }
 function projBonus(p){ p = p || P; return (p.passives.multi || 0) + (CHARS[p.char] ? CHARS[p.char].proj : 0); }
 function xpMul(p){ p = p || P; return (1 + .15 * (p.passives.xpp || 0)) * (CHARS[p.char] ? CHARS[p.char].xp : 1) * p.mXp; }
 function critRate(p){ p = p || P; return .05 + .04 * (p.passives.crit || 0) + (CHARS[p.char] ? (CHARS[p.char].crit || 0) : 0) + (p.mCrit || 0) + (isAwakened(p.char) ? AWAKEN_BONUS.crit : 0); }
 function critDmgMul(p){ p = p || P; return 1.6 + .25 * (p.passives.critd || 0) + (CHARS[p.char] ? (CHARS[p.char].critd || 0) : 0) + (isAwakened(p.char) ? AWAKEN_BONUS.critd : 0); }
-function cdMul(p){ p = p || P; return Math.pow(.94, p.passives.haste || 0) * Math.pow(.98, infOf(p, 'cd')) * (CHARS[p.char] ? (CHARS[p.char].cdr || 1) : 1) * (isAwakened(p.char) ? AWAKEN_BONUS.cd : 1); }
-function gemValMul(p){ p = p || P; return (1 + .2 * (p.passives.gemval || 0)) * Math.pow(1.10, infOf(p, 'gemv')) * (CHARS[p.char] ? (CHARS[p.char].gemv || 1) : 1); }
+function cdMul(p){ p = p || P; return Math.pow(.94, p.passives.haste || 0) * (CHARS[p.char] ? (CHARS[p.char].cdr || 1) : 1) * (isAwakened(p.char) ? AWAKEN_BONUS.cd : 1); }
+function gemValMul(p){ p = p || P; return (1 + .2 * (p.passives.gemval || 0)) * (CHARS[p.char] ? (CHARS[p.char].gemv || 1) : 1); }
 function xpForLevel(l){ return Math.max(2, Math.floor((5 + (l - 1) * 4 + Math.pow(l - 1, 1.8) * 1.3) * .6)); }
 
 function resetGame(){
@@ -3274,22 +3268,9 @@ function gainXp(v){
 }
 
 /* ── レベルアップ / 宝箱 ── */
-/* ── 第11弾: 終盤の枯渇対策 ──
-   武器・パッシブの通常プールが尽きた（尽きかけた）ら、代わりに「無限強化」と
-   「星屑の大袋」が候補に出る。無限強化はラン中ずっと乗算で累積するが、
-   終盤の敵HPスケーリング（10分で約14.5倍＋エンドレス加速）には追いつかない伸びに抑える:
-   枯渇後に20レベル分を攻撃/CDに振っても実質DPSは約1.8倍どまり */
-const INF_UPGRADES = {
-  atk:  { icon: '⚔️', name: '星屑のちから',   desc: '与ダメージ +4%（乗算で累積）' },
-  cd:   { icon: '⏱️', name: '星屑のとき',     desc: '全武器のクールダウン -2%（乗算で累積）' },
-  spd:  { icon: '👟', name: '星屑のかぜ',     desc: '移動速度 +2%（累積）' },
-  hp:   { icon: '💗', name: '星屑のいのち',   desc: '最大HP +10 ＆ HP全回復' },
-  gemv: { icon: '💎', name: '星屑のうん',     desc: 'ジェムの価値 +10%（乗算で累積）' },
-  mag:  { icon: '🧲', name: '星屑のじしゃく', desc: '磁石の範囲 +15%（乗算で累積）' }
-};
-const INF_IDS = Object.keys(INF_UPGRADES);
-/* 星屑の大袋: 進行度（経過時間とレベル）に応じて増えるジェム量。精算でかけらに換算される */
-function starBagAmount(){ return 40 + Math.floor(S.time / 10) + P.level * 2; }
+/* ── 仕様変更（第19弾相当）: 第11弾の終盤対策「無限強化」「星屑の大袋」は廃止。
+   プールが尽きたら水増しせず、選択肢が無いレベルアップでは選択画面自体を出さない
+   （レベルと経験値の進行だけが進み、ゲームは中断しない）。 ── */
 function buildPool(p){
   const pool = [];
   for (const id in WEAPONS) {
@@ -3324,14 +3305,7 @@ function rollPicks(p){
   const evoIdx = pool.findIndex(x => x.kind === 'evo');
   if (evoIdx >= 0) picks.push(pool.splice(evoIdx, 1)[0]);
   while (picks.length < 3 && pool.length) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  if (picks.length < 3) {
-    /* 第11弾: 通常プールが尽きた分は「無限強化」と「星屑の大袋（最大1枠）」で埋める。
-       どちらも何度でも選べるので、終盤でもレベルアップが無意味にならない */
-    const cand = INF_IDS.map(id => ({ kind: 'inf', id }));
-    cand.push({ kind: 'bag', id: 'bag' });
-    while (picks.length < 3 && cand.length) picks.push(cand.splice(Math.floor(Math.random() * cand.length), 1)[0]);
-    while (picks.length < 3) picks.push({ kind: 'inf', id: INF_IDS[picks.length % INF_IDS.length] });
-  }
+  /* 水増しはしない: プールが尽きていれば 0〜2 個の実在する選択肢だけを返す */
   return picks;
 }
 /* ── 第17弾: レベルアップ選択の「再抽選」「スキップ」 ──
@@ -3409,13 +3383,6 @@ function showPickUI(player, picks, cb, skipFn){
         }
       }
       b.innerHTML = `<div class="cIcon">${ps.icon}</div><div class="cName">${ps.name}</div><div class="cLv">Lv ${cur} → ${cur + 1}</div><div class="cDesc">${ps.desc}</div>` + evoBadge;
-    } else if (pk.kind === 'inf') {
-      const iu = INF_UPGRADES[pk.id], cur = infOf(player, pk.id);
-      b.classList.add('infCard');
-      b.innerHTML = `<div class="cIcon">${iu.icon}</div><div class="cName">${iu.name}</div><div class="cLv">♾️ 無限強化 ${cur}回目 → ${cur + 1}回目</div><div class="cDesc">${iu.desc}<br>武器・パッシブが尽きても積み上がる、このラン限りの強化</div>`;
-    } else if (pk.kind === 'bag') {
-      b.classList.add('bagCard');
-      b.innerHTML = `<div class="cIcon">🎁</div><div class="cName">星屑の大袋</div><div class="cLv">ボーナス</div><div class="cDesc">ほしのかけら換算ジェムを たっぷりゲット！<br>（進行度が高いほど多い）</div>`;
     } else if (pk.id === 'heal') {
       b.innerHTML = `<div class="cIcon">🍰</div><div class="cName">まほうのケーキ</div><div class="cLv">回復</div><div class="cDesc">HPを40回復する</div>`;
     } else {
@@ -3470,16 +3437,6 @@ function applyPick(p, pk){
   } else if (pk.kind === 'passive') {
     p.passives[pk.id] = Math.min(PASSIVES[pk.id].max, (p.passives[pk.id] || 0) + 1);
     if (pk.id === 'heart') p.hp = Math.min(maxHp(p), p.hp + 20);
-  } else if (pk.kind === 'inf') {
-    /* 第11弾: 無限強化は即時適用され、このラン中ずっと累積する */
-    if (!p.inf) p.inf = {};
-    p.inf[pk.id] = (p.inf[pk.id] || 0) + 1;
-    if (pk.id === 'hp') p.hp = maxHp(p); // 最大HP+10 ＆ 全回復
-  } else if (pk.kind === 'bag') {
-    /* 第11弾: 星屑の大袋。集めたジェムとして加算され、ラン精算でかけらに換算される */
-    const n = starBagAmount();
-    S.gemsCollected += n;
-    addText(p.x, p.y - 34, `🎁 ジェム +${n}`, '#ffd94d', 17);
   } else if (pk.id === 'heal') {
     p.hp = Math.min(maxHp(p), p.hp + 40);
   } else {
@@ -3493,16 +3450,34 @@ function applyPick(p, pk){
    free の回はチェーン（XPが次の必要量以上でも自動で次のレベルアップに入る）を抑止し、
    宝箱1回＝レベルアップ選択1回分にちょうど収める（残りのXPは次のジェム取得時に通常判定される） */
 let lvFreePick = false;
+/* 仕様変更（第19弾相当）: 選択肢が1つも無いレベルアップでは選択画面を出さない。
+   レベルと経験値の進行だけが進み、ゲームは中断しない。保留中の連続レベルアップで
+   途中にプールが尽きた場合も、残りは画面なしでそのまま消化する（スタックしない）。
+   宝箱の「即時レベルアップ」（free）も同じ経路: プールが空なら レベル+1 だけで終わる。
+   協力時: 選択肢が無い側は最初から完了扱いにする。ゲストの選択肢が空でも choices は送り、
+   ゲスト側はカード無しの待機画面になる（resume で揃って復帰する）。両者とも空なら
+   フェーズ自体を発生させない。 */
 function levelUpSequence(opts){
   const free = !!(opts && opts.free);
   if (!free) { P.xp -= P.xpNext; if (P.xp < 0) P.xp = 0; }
   P.level++; P.xpNext = xpForLevel(P.level);
   lvFreePick = free;
-  S.state = 'levelup'; sfx.levelup();
-  for (const p of alivePlayers()) fx.push({ type: 'pillar', x: p.x, y: p.y, ttl: .8, max: .8 });
   if (coopMode && NET.role === 'host') {
-    lvPhase = { hostDone: false, guestDone: false, guestChoices: rollPicks(P2) };
-    sendNet({ t: 'choices', picks: lvPhase.guestChoices });
+    const hostPicks = rollPicks(P);
+    const guestPicks = rollPicks(P2);
+    if (!hostPicks.length && !guestPicks.length) {
+      /* 両者とも選択肢なし: フェーズを発生させず、保留分も画面なしで消化する。
+         checkLvDone のチェーンから呼ばれた場合は 'levelup' 状態のままなので、
+         終端では必ずプレイへ戻し、ゲストへも resume を送って待機を解除する */
+      if (!lvFreePick && P.xp >= P.xpNext) { levelUpSequence(); return; }
+      lvFreePick = false;
+      if (S.state === 'levelup') { S.state = 'play'; sendNet({ t: 'resume' }); }
+      return;
+    }
+    S.state = 'levelup'; sfx.levelup();
+    for (const p of alivePlayers()) fx.push({ type: 'pillar', x: p.x, y: p.y, ttl: .8, max: .8 });
+    lvPhase = { hostDone: !hostPicks.length, guestDone: !guestPicks.length, guestChoices: guestPicks };
+    sendNet({ t: 'choices', picks: guestPicks });
     const hostDoneFn = () => {
       lvPhase.hostDone = true;
       closeLvSession();
@@ -3510,12 +3485,32 @@ function levelUpSequence(opts){
       document.getElementById('lvWait').style.display = 'block';
       checkLvDone();
     };
-    showPickUI(P, rollPicks(P), pk => { applyPick(P, pk); hostDoneFn(); }, hostDoneFn); /* スキップ時も同じ完了処理（何も適用しない） */
+    if (hostPicks.length) {
+      showPickUI(P, hostPicks, pk => { applyPick(P, pk); hostDoneFn(); }, hostDoneFn); /* スキップ時も同じ完了処理（何も適用しない） */
+    } else {
+      /* ホスト側は選ぶものがない: 待機表示だけ出す（lvOps は出さない） */
+      closeLvSession();
+      document.getElementById('lvCards').innerHTML = '';
+      document.getElementById('lvWait').style.display = 'block';
+      document.getElementById('levelScr').classList.add('show');
+    }
   } else if (coopMode && NET.role === 'guest') {
     // ゲスト側はホストからの choices 受信で UI を出す（ここには来ない想定の保険）
     S.state = 'levelup';
   } else {
-    showPickUI(P, rollPicks(P), pk => { applyPick(P, pk); finishLevelUp(); }, () => finishLevelUp()); /* スキップ: 何も選ばず終了 */
+    const picks = rollPicks(P);
+    if (!picks.length) {
+      /* 選択肢なし: 画面を出さずレベルだけ進める。保留分も画面なしで消化する。
+         finishLevelUp のチェーンから呼ばれた場合は 'levelup' 状態のままなので、
+         終端では必ずプレイへ戻す（gainXp 経由なら元々 'play' で無害） */
+      if (!lvFreePick && P.xp >= P.xpNext) { levelUpSequence(); return; }
+      lvFreePick = false;
+      S.state = 'play';
+      return;
+    }
+    S.state = 'levelup'; sfx.levelup();
+    for (const p of alivePlayers()) fx.push({ type: 'pillar', x: p.x, y: p.y, ttl: .8, max: .8 });
+    showPickUI(P, picks, pk => { applyPick(P, pk); finishLevelUp(); }, () => finishLevelUp()); /* スキップ: 何も選ばず終了 */
   }
 }
 function finishLevelUp(){
@@ -3560,7 +3555,10 @@ function applyChestChoice(p, which){
   document.getElementById('chestScr').classList.remove('show');
   S.chestPicker = null;
   if (which === 'lv') {
-    /* 第17弾: 宝箱のレベルアップは「経験値そのまま」で1回選択できる（XP消費なし） */
+    /* 第17弾: 宝箱のレベルアップは「経験値そのまま」で1回選択できる（XP消費なし）。
+       仕様変更（第19弾相当）: 強化プールが空のときに選んでも事故にならないよう、
+       その場合は levelUpSequence 側で「レベル+1だけ進み、選択画面は出ない」扱いになる
+       （選択肢自体は常時表示のままにする設計） */
     S.state = 'play';
     levelUpSequence({ free: true });
   } else if (which === 'gems') {
@@ -6872,6 +6870,15 @@ function guestOnData(msg){
   } else if (msg.t === 'choices') {
     S.state = 'levelup';
     if (!msg.reroll) { sfx.levelup(); applySnapshot._lvSndT = performance.now(); } /* 第14弾: ゲスト側のレベルアップ音（再抽選の応答では鳴らさない） */
+    if (!msg.picks || !msg.picks.length) {
+      /* 仕様変更（第19弾相当）: 自分の選択肢が無い場合はカードを出さず待機表示のみ。
+         ホスト側では最初から完了扱いになっており、ホストの選択が終われば resume で復帰する */
+      closeLvSession();
+      $('lvCards').innerHTML = '';
+      const w = $('lvWait'); w.style.display = 'block'; w.textContent = 'ホストの選択を待っています…';
+      $('levelScr').classList.add('show');
+      return;
+    }
     const guestWaitFn = () => {
       closeLvSession();
       $('lvCards').innerHTML = '';
@@ -7103,8 +7110,8 @@ window.__surv = {
   /* 第10弾: 覚醒イラスト・ラッキーキャラ・星屑ラッシュ */
   isAwakened, AWAKEN_BONUS, awakenBonusText, luckyCharId, isLuckyChar, drawCharIcon, guestOnEvent,
   get gemRushT(){ return S.gemRushT; }, setGemRushT: s => { S.gemRushT = s; },
-  /* 第11弾: 残高集約・無限強化・星屑の大袋・フィナーレ */
-  updateShardUI, INF_UPGRADES, INF_IDS, infOf, starBagAmount, spawnFinaleElites,
+  /* 第11弾: 残高集約・フィナーレ（無限強化・星屑の大袋は仕様変更で廃止） */
+  updateShardUI, spawnFinaleElites,
   get finaleSpawned(){ return S.finaleSpawned; }, get nextFinaleAt(){ return S.nextFinaleAt; },
   /* 第12弾: 相方マーカー・レーダーミニマップ */
   partnerPlayer, computePartnerGuide, computeRadarDots, radarOn, setRadar: v => setRadarEnabled(v),
