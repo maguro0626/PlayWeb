@@ -33,6 +33,12 @@
   .wIcon{width:44px;height:44px;border-radius:11px;background:rgba(10,12,38,.72);border:1.5px solid rgba(160,150,255,.45);display:flex;align-items:center;justify-content:center;font-size:21px;position:relative;cursor:pointer}
   .wIcon:active{transform:scale(.92)}
   .wIcon span{position:absolute;right:-4px;bottom:-5px;background:#7c6cff;border-radius:999px;font-size:10px;font-weight:900;padding:0 5px;border:1px solid #d9ccff}
+  /* ── パッシブ（アイテム）バー（第14弾）: 武器行の上に小さな丸アイコンで並べる ── */
+  #passivesBar{position:absolute;left:10px;bottom:64px;display:flex;gap:5px;pointer-events:auto}
+  .pIcon{width:36px;height:36px;border-radius:50%;background:rgba(8,34,28,.72);border:1.5px solid rgba(62,214,165,.65);display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;cursor:pointer}
+  .pIcon:active{transform:scale(.92)}
+  .pIcon span{position:absolute;right:-4px;bottom:-5px;background:#17A97B;border-radius:999px;font-size:10px;font-weight:900;padding:0 5px;border:1px solid #CFF7E8;color:#fff}
+  .wdIcon.passive{border-color:#3ED6A5}
   /* ── 武器詳細カード（プレイ中タップ） ── */
   .wDetailPanel{max-width:440px;text-align:left}
   .wdHead{display:flex;align-items:center;gap:13px;margin-bottom:6px}
@@ -493,6 +499,8 @@
   .wIcon span{background:#FF7BAC;color:#fff;border-color:#fff}
   #stickBase{border-color:rgba(255,183,220,.75);background:rgba(255,123,172,.13)}
   #stickKnob{background:radial-gradient(circle at 35% 32%,#FFE0EE,#FF7BAC);box-shadow:0 4px 0 #DE5B93,0 8px 16px rgba(0,0,0,.40)}
+  .pIcon{background:rgba(14,40,34,.82);border-color:#3ED6A5}
+  .pIcon span{background:#17A97B;border-color:#D8F7EA}
 </style>
 </head>
 <body>
@@ -511,6 +519,7 @@
     <button class="iconBtn" id="pauseBtn" title="ポーズ">⏸</button>
   </div>
   <div id="weaponsBar"></div>
+  <div id="passivesBar"></div>
   <div id="partnerWrap"><div id="partnerName">相方</div><div id="partnerBarBg"><div id="partnerFill"></div></div></div>
   <div id="netStatus"></div>
   <div id="spectateMsg"></div>
@@ -789,8 +798,9 @@
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 let viewW = 0, viewH = 0, DPR = 1, bgGrad = null, vigGrad = null;
+var NET_DPR_CAP = 2; /* 第14弾: 協力中は描画負荷軽減のため 1.5 に下げる（resize() 初回実行時点で参照できるよう var で宣言） */
 function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, NET_DPR_CAP);
   viewW = window.innerWidth; viewH = window.innerHeight;
   cv.width = Math.floor(viewW * DPR); cv.height = Math.floor(viewH * DPR);
   cv.style.width = viewW + 'px'; cv.style.height = viewH + 'px';
@@ -813,20 +823,36 @@ function fmtDur(sec){ sec = Math.max(0, Math.floor(sec || 0)); const h = Math.fl
 let AC = null, masterGain = null;
 let muted = localStorage.getItem('majoneko_mute') === '1';
 function initAudio(){
-  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  /* 第14弾: 音声の復旧を堅牢化。iOS の割り込み後は state が 'interrupted' になり、
+     従来の 'suspended' チェックでは二度と resume されず音が死んだままだった。
+     'closed' になった場合も作り直す。 */
+  if (AC) {
+    if (AC.state === 'closed') { AC = null; masterGain = null; }
+    else {
+      if (AC.state !== 'running') { try { const p = AC.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+      return;
+    }
+  }
   try {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = AC.createGain(); masterGain.gain.value = muted ? 0 : 0.16; masterGain.connect(AC.destination);
   } catch (e) { AC = null; }
 }
+/* どのタップでも（ジェスチャ起点で）音声を初期化/復旧する。協力ゲストは招待受諾→
+   自動参加の流れでゲーム内のボタンを押さないまま始まるため、これが無いと無音だった */
+window.addEventListener('pointerdown', () => initAudio(), { passive: true });
+window.addEventListener('touchstart', () => initAudio(), { passive: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) initAudio(); });
 function beep(f0, f1, dur, type, vol, delay){
   if (!AC || muted) return;
-  const t = AC.currentTime + (delay || 0);
-  const o = AC.createOscillator(), g = AC.createGain();
-  o.type = type || 'square'; o.frequency.setValueAtTime(f0, t);
-  o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
-  g.gain.setValueAtTime(vol || .5, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
-  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + dur + .02);
+  try {
+    const t = AC.currentTime + (delay || 0);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'square'; o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+    g.gain.setValueAtTime(vol || .5, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + dur + .02);
+  } catch (e) { /* 1回の再生エラーで音全体やフレーム処理を止めない */ }
 }
 let lastShootSnd = 0, pickupCombo = 0, lastPickupSnd = 0;
 const sfx = {
@@ -3263,6 +3289,57 @@ function renderWeaponsBar(){
     d.onclick = () => { initAudio(); openWeaponDetail(w.id); };
     bar.appendChild(d);
   }
+  /* 第14弾: 取得したパッシブ（アイテム）も武器行の上に丸アイコン＋レベルで表示する */
+  const pb = $('passivesBar'); pb.innerHTML = '';
+  for (const id of Object.keys(me.passives)) {
+    const lv = me.passives[id] || 0, def = PASSIVES[id];
+    if (!lv || !def) continue;
+    const d = document.createElement('div'); d.className = 'pIcon';
+    d.innerHTML = def.icon + `<span>${lv}</span>`;
+    d.title = def.name + '（タップで詳細）';
+    d.dataset.passive = id;
+    d.onclick = () => { initAudio(); openPassiveDetail(id); };
+    pb.appendChild(d);
+  }
+}
+/* パッシブの「現在レベルでの累計効果」表記（効果量は実装値に合わせる） */
+function passiveEffectLine(p, id, lv){
+  switch (id) {
+    case 'boots': return `移動速度 +${7 * lv}%`;
+    case 'magnet': return `ジェム引き寄せ範囲 +${30 * lv}（現在の実効範囲 ${Math.round(magnetR(p))}）`;
+    case 'heart': return `最大HP +${20 * lv}`;
+    case 'power': return `全ての攻撃力 +${10 * lv}%`;
+    case 'multi': return `弾の数 +${lv}（星・彗星・ノヴァなど）`;
+    case 'regen': return `HP回復 +${(.6 * lv).toFixed(1)} / 秒`;
+    case 'xpp': return `ジェム取得量 +${15 * lv}%`;
+    case 'guard': return `受けるダメージ -${6 * lv}%`;
+    case 'crit': return `クリティカル率 +${4 * lv}%`;
+    case 'critd': return `クリティカルダメージ +${25 * lv}%`;
+    case 'haste': return `武器の再使用時間 ×${Math.pow(.94, lv).toFixed(2)}（約 ${Math.round((1 - Math.pow(.94, lv)) * 100)}% 短縮）`;
+    case 'gemval': return `ジェムの価値 +${20 * lv}%`;
+    case 'knock': return `ノックバック +${35 * lv}%`;
+    case 'thorns': return `反射ダメージ = 受けるダメージ × ${(0.5 * lv).toFixed(1)} + 4`;
+    case 'luck': return `宝箱ドロップ率 +${5 * lv}% ／ エリートが出やすくなる`;
+    case 'vital': return `ジェム25個拾うごとに HP +${2 * lv} 回復`;
+    default: return PASSIVES[id] ? PASSIVES[id].desc : '';
+  }
+}
+/* パッシブ詳細カード（第14弾）: 武器詳細と同じオーバーレイ・同じポーズ挙動で開く */
+function openPassiveDetail(id){
+  const p = localPlayer();
+  const def = PASSIVES[id], lv = p.passives[id] || 0;
+  if (!def || !lv) return;
+  wDetailId = null;
+  const evoKey = Object.keys(EVOLUTIONS).find(k => EVOLUTIONS[k].req === id);
+  const evoHtml = evoKey ? `<div class="wdEvo">⚡ このパッシブは ${WEAPONS[evoKey].icon} <b>${WEAPONS[evoKey].name}</b> の進化（→ ${WEAPONS[EVOLUTIONS[evoKey].to].name}）に必要だよ</div>` : '';
+  $('wDetailBody').innerHTML =
+    `<div class="wdHead"><div class="wdIcon passive">${def.icon}</div><div><div class="wdName">${def.name}</div><div class="wdTags">パッシブ（アイテム） ・ Lv ${lv} / ${def.max}</div></div></div>` +
+    `<div class="wdDesc">${def.desc}（1レベルごとの効果）</div>` +
+    `<div class="wdStats"><div class="wdStat"><div class="k">現在レベル</div><div class="v">Lv ${lv} / ${def.max}</div></div></div>` +
+    `<div class="wdEvo">✨ 現在の効果（累計）： ${passiveEffectLine(p, id, lv)}</div>` +
+    evoHtml;
+  $('wDetailScr').classList.add('show');
+  if (!coopMode && S.state === 'play') { S.state = 'wdetail'; wDetailPaused = true; }
 }
 /* ── 武器詳細カード（第6弾）: プレイ中に下部HUDの武器アイコンをタップすると開く。
    数値は現在のLv・パッシブ・キャラ補正・一時バフ込みの実効値で計算する。
@@ -3364,6 +3441,7 @@ function quitToTitle(){
   closeMerchant();
   closeWeaponDetail();
   coopMode = false;
+  NET_DPR_CAP = 2; resize(); /* 第14弾: 協力終了時は描画解像度を元に戻す */
   S.state = 'title';
   $('pauseScr').classList.remove('show'); $('endScr').classList.remove('show');
   $('levelScr').classList.remove('show'); $('chestScr').classList.remove('show'); $('lobbyScr').classList.remove('show');
@@ -5130,6 +5208,8 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > .05) dt = .05;
+  /* 第14弾: 音声ウォッチドッグ（約1秒ごと）。割り込みで止まった AudioContext を自動復旧する */
+  if (now - (frame._aw || 0) > 1000) { frame._aw = now; if (AC && AC.state !== 'running' && !muted) initAudio(); }
   if (NET.role === 'guest' && NET.inGame) guestFrame(dt);
   else if (S.state === 'play') update(dt);
   else { for (const f of fx) f.ttl -= dt; fx = fx.filter(f => f.ttl > 0); }
@@ -5960,7 +6040,7 @@ function guestJoin(code){
   NET.peer.on('open', () => {
     const c = NET.peer.connect(PEER_PREFIX + code, { reliable: true });
     setupConn(c);
-    c.on('open', () => { NET.active = true; sendNet({ t: 'hello', char: meta.char }); startHeartbeat(); });
+    c.on('open', () => { NET.active = true; sendNet({ t: 'hello', char: meta.char, vw: window.innerWidth, vh: window.innerHeight }); startHeartbeat(); });
     armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
   });
   NET.peer.on('error', err => {
@@ -5982,7 +6062,7 @@ function scheduleGuestReconnect(){
       NET.peer.on('open', () => {
         const c = NET.peer.connect(PEER_PREFIX + NET.code, { reliable: true });
         setupConn(c);
-        c.on('open', () => { NET.reconnecting = false; sendNet({ t: 'hello', char: meta.char, rejoin: true }); startHeartbeat(); $('netStatus').textContent = ''; });
+        c.on('open', () => { NET.reconnecting = false; sendNet({ t: 'hello', char: meta.char, rejoin: true, vw: window.innerWidth, vh: window.innerHeight }); startHeartbeat(); $('netStatus').textContent = ''; });
       });
       NET.peer.on('error', err => {
         if (err && err.type === 'peer-unavailable') { NET.reconnecting = false; guestHostGone(); }
@@ -6000,6 +6080,8 @@ function guestHostGone(){
 function startCoopGame(){
   initAudio();
   coopMode = true; NET.inGame = true; NET.started = true;
+  NET_DPR_CAP = 1.5; resize(); /* 第14弾: 協力中は描画を軽量化 */
+  snapWpCache = [null, null]; /* 武器/パッシブの差分送信キャッシュをリセット（全量送る） */
   resetGame();
   S.state = 'play';
   $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
@@ -6009,22 +6091,56 @@ function startCoopGame(){
   sendNet(buildSnapshot());
   renderWeaponsBar(); updateHud();
 }
+/* ── 第14弾: 協力スナップショットの軽量化 ──
+   従来は敵・弾・ジェムを「名前付きオブジェクトの配列」で全数送っており、敵300体規模で
+   1通あたり約47KB（10Hzで約470KB/s）になっていた。対策:
+   1) タプル配列化＋数値の量子化（敵 [id, 種類idx, x, y, hp, maxHp, r, 被弾flash×100, フラグ(slow/elite/gold), wob×100, fuse×10]、
+      弾 [id, 種類idx, x, y, vx, vy, spin×100, r, armT×10, big]、ジェム [x, y, val]）
+   2) 同期範囲の限定: どちらかのプレイヤーから syncRadius() 内にあるものだけ送る
+      （エリート/金エリート/ボスは遠くても常に送る）。ホストのシミュレーションは全数従来どおり。
+   3) 武器/パッシブは変化した時だけ送る（players[].wp、無変化なら null）。 */
+const ENEMY_TYPE_LIST = Object.keys(ENEMY_TYPES);
+const ENEMY_TYPE_IDX = {}; ENEMY_TYPE_LIST.forEach((t, i) => { ENEMY_TYPE_IDX[t] = i; });
+const PROJ_TYPE_LIST = ['star', 'comet', 'arrow', 'fan', 'ice', 'leaf', 'nova', 'mine', 'missile', 'wave', 'fam', 'turret', 'scythe', 'patch', 'vortex', 'thorn', 'mfall', 'bfly', 'tshot'];
+const PROJ_TYPE_IDX = {}; PROJ_TYPE_LIST.forEach((t, i) => { PROJ_TYPE_IDX[t] = i; });
+let snapWpCache = [null, null];
+function syncRadius(){
+  let hd = Math.hypot(viewW || 800, viewH || 600);
+  if (NET.guestView) hd = Math.max(hd, Math.hypot(NET.guestView.w, NET.guestView.h));
+  return clamp(hd / 2 + 420, 1300, 2400);
+}
 function buildSnapshot(){
+  const R = syncRadius(), R2 = R * R, RP = R + 250, RP2 = RP * RP;
+  const pls = activePlayers();
+  const nearAny = (x, y, r2) => { for (const p of pls) { if (dist2(x, y, p.x, p.y) <= r2) return true; } return false; };
   return {
     t: 'state', stage: S.stage, diff: S.difficulty, fountains: S.fountains.map(f => ({ x: Math.round(f.x), y: Math.round(f.y), r: f.r, ttl: Math.round(f.ttl * 10) / 10 })),
     time: S.time, kills: S.kills, gemsCollected: Math.floor(S.gemsCollected),
     team: { level: P.level, xp: Math.floor(P.xp), xpNext: P.xpNext },
     phase: S.state, endless: S.endless, cleared: S.cleared,
     boss: (S.bossRef && !S.bossRef.dead) ? { hp: S.bossRef.hp, maxHp: S.bossRef.maxHp } : null,
-    players: activePlayers().map(p => ({
-      x: Math.round(p.x), y: Math.round(p.y), hp: Math.ceil(p.hp), mhp: maxHp(p),
-      face: p.face, dirX: p.dirX, dirY: p.dirY, moving: p.moving, char: p.char,
-      alive: p.alive, reviveT: Math.max(0, Math.ceil(p.reviveT)), hurtT: p.hurtT, orbitAng: p.orbitAng,
-      weapons: p.weapons.map(w => ({ id: w.id, lv: w.lv })), passives: p.passives
-    })),
-    enemies: enemies.filter(e => !e.dead).map(e => ({ id: e.eid, type: e.type, x: Math.round(e.x), y: Math.round(e.y), hp: Math.ceil(e.hp), maxHp: Math.ceil(e.maxHp), r: e.r, flash: e.flash, slow: e.slowT > 0, wob: e.wob, fuse: e.fuse, elite: !!e.elite, gold: !!e.gold })),
-    projs: projs.map(p => ({ id: p.pid, type: p.type, x: Math.round(p.x), y: Math.round(p.y), vx: Math.round(p.vx), vy: Math.round(p.vy), spin: p.spin || 0, r: p.r || 0, armT: p.armT || 0, big: p.big || 0 })),
-    gems: gems.map(g => ({ x: Math.round(g.x), y: Math.round(g.y), val: g.val })),
+    players: pls.map((p, i) => {
+      const wk = JSON.stringify(p.weapons) + '|' + JSON.stringify(p.passives);
+      let wp = null;
+      if (snapWpCache[i] !== wk) { snapWpCache[i] = wk; wp = { weapons: p.weapons.map(w => ({ id: w.id, lv: w.lv })), passives: p.passives }; }
+      return {
+        x: Math.round(p.x), y: Math.round(p.y), hp: Math.ceil(p.hp), mhp: maxHp(p),
+        face: p.face, dirX: p.dirX, dirY: p.dirY, moving: p.moving, char: p.char,
+        alive: p.alive, reviveT: Math.max(0, Math.ceil(p.reviveT)), hurtT: p.hurtT, orbitAng: p.orbitAng,
+        wp
+      };
+    }),
+    enemies: enemies.filter(e => !e.dead && (e.elite || e.gold || e === S.bossRef || nearAny(e.x, e.y, R2))).map(e => [
+      e.eid, ENEMY_TYPE_IDX[e.type], Math.round(e.x), Math.round(e.y), Math.ceil(e.hp), Math.ceil(e.maxHp), Math.round(e.r),
+      Math.round(e.flash * 100), (e.slowT > 0 ? 1 : 0) | (e.elite ? 2 : 0) | (e.gold ? 4 : 0), Math.round(e.wob * 100), e.fuse < 0 ? -1 : Math.round(e.fuse * 10)
+    ]),
+    projs: projs.filter(p => nearAny(p.x, p.y, RP2)).map(p => {
+      const ti = PROJ_TYPE_IDX[p.type];
+      const a = [p.pid, ti === undefined ? -1 : ti, Math.round(p.x), Math.round(p.y), Math.round(p.vx), Math.round(p.vy), Math.round((p.spin || 0) * 100), Math.round(p.r || 0), Math.round((p.armT || 0) * 10), p.big || 0];
+      if (ti === undefined) a.push(p.type); /* 未知の種類は文字列で送る（将来の武器追加への保険） */
+      return a;
+    }),
+    gems: gems.filter(g => nearAny(g.x, g.y, R2)).map(g => [Math.round(g.x), Math.round(g.y), g.val]),
     pickups: pickups.map(pk => ({ x: Math.round(pk.x), y: Math.round(pk.y) }))
   };
 }
@@ -6037,6 +6153,8 @@ function hostOnData(msg){
   if (msg.t === 'hello') {
     NET.guestChar = CHARS[msg.char] ? msg.char : 'nowa';
     NET.guestReady = true; NET.active = true;
+    if (msg.vw && msg.vh) NET.guestView = { w: msg.vw, h: msg.vh }; /* 第14弾: 同期範囲の計算に使う */
+    snapWpCache = [null, null]; /* 再接続したゲストには武器/パッシブを全量送り直す */
     startHeartbeat();
     if (NET.inGame) {
       P2.ai = false;
@@ -6071,6 +6189,7 @@ function guestOnData(msg){
   if (msg.t === 'start') {
     NET.active = true; NET.inGame = true; NET.started = true;
     coopMode = true;
+    NET_DPR_CAP = 1.5; resize(); /* 第14弾: 協力中は描画を軽量化 */
     if (STAGES[msg.stage]) S.stage = msg.stage;
     if (DIFFS[msg.diff]) S.difficulty = msg.diff; // 難易度はホストの選択に従う
     S.fountains = []; closeMerchant();
@@ -6081,7 +6200,7 @@ function guestOnData(msg){
     P.level = 1; P.xp = 0; P.xpNext = xpForLevel(1);
     enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = []; eshots = [];
     S.time = 0; S.kills = 0; S.cleared = false; S.endless = false; S.timeCountedAt = 0;
-    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0;
+    S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0; applySnapshot._lv = undefined; applySnapshot._boss = false;
     S.state = 'play';
     $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
     $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
@@ -6091,6 +6210,7 @@ function guestOnData(msg){
     applySnapshot(msg);
   } else if (msg.t === 'choices') {
     S.state = 'levelup';
+    sfx.levelup(); applySnapshot._lvSndT = performance.now(); /* 第14弾: ゲスト側のレベルアップ音（選択画面が開く瞬間に鳴らす） */
     showPickUI(P2, msg.picks, pk => {
       if (pk.kind === 'evo') { meta.stats.evos++; saveMeta(); addDailyProg('evo', 1); const ev2 = EVOLUTIONS[pk.id]; if (ev2) dexWeapon(ev2.to); }
       if (pk.kind === 'weapon') dexWeapon(pk.id);
@@ -6100,6 +6220,7 @@ function guestOnData(msg){
     });
   } else if (msg.t === 'chest') {
     S.state = 'chest';
+    sfx.chest(); /* 第14弾: ゲスト側の宝箱音 */
     $('chestScr').classList.add('show');
   } else if (msg.t === 'resume') {
     $('levelScr').classList.remove('show');
@@ -6132,12 +6253,28 @@ function applySnapshot(snap){
   if (applySnapshot._lk === undefined) { applySnapshot._lk = S.kills; applySnapshot._lg = S.gemsCollected; }
   const dk = S.kills - applySnapshot._lk, dg = Math.floor(S.gemsCollected) - Math.floor(applySnapshot._lg);
   if (dk > 0) { meta.stats.kills += dk; addDailyProg('kills', dk); metaDirty = true; }
-  if (dg > 0) { meta.stats.gems += dg; addDailyProg('gems', dg); metaDirty = true; }
+  if (dg > 0) { meta.stats.gems += dg; addDailyProg('gems', dg); metaDirty = true; sfx.pickup(); /* 第14弾: ゲスト側のジェム取得音 */ }
   applySnapshot._lk = S.kills; applySnapshot._lg = S.gemsCollected;
   checkDailyMarks();
   S.guestBoss = snap.boss || null;
   $('bossWrap').style.display = snap.boss ? 'block' : 'none';
   if (snap.boss) $('bossName').textContent = '👑 ' + stageDef().bossName;
+  /* 第14弾: ゲスト側の効果音。ゲストは描画専用パスで、sfx の発火箇所（ホスト側シミュレーション）を
+     一切通らないため無音だった。スナップショットの差分から拾える音はここで鳴らす */
+  const meP = players[1], ptP = players[0], smP = snap.players[1], spP = snap.players[0];
+  if (smP && meP && meP._snapInit) {
+    if (meP.alive && smP.alive && smP.hp < meP.hp - .5 && performance.now() - (applySnapshot._hurtSnd || 0) > 160) { applySnapshot._hurtSnd = performance.now(); sfx.hurt(); }
+    if (meP.alive && !smP.alive) sfx.boom();                                  /* 自分がダウン */
+    else if (!meP.alive && smP.alive) sfx.levelup();                          /* 自分が復活 */
+    if (ptP && spP) {
+      if (ptP.alive && !spP.alive) beep(220, 110, .25, 'sawtooth', .3);       /* 相方がダウン */
+      else if (!ptP.alive && spP.alive) beep(660, 990, .12, 'sine', .25);     /* 相方が復活 */
+    }
+  }
+  if (applySnapshot._lv !== undefined && snap.team.level > applySnapshot._lv && performance.now() - (applySnapshot._lvSndT || 0) > 3000) sfx.levelup();
+  applySnapshot._lv = snap.team.level;
+  if (snap.boss && !applySnapshot._boss) sfx.boss();
+  applySnapshot._boss = !!snap.boss;
   snap.players.forEach((sp, i) => {
     const p = players[i]; if (!p) return;
     p.tx = sp.x; p.ty = sp.y;
@@ -6145,30 +6282,35 @@ function applySnapshot(snap){
     p.hp = sp.hp; p.snapMaxHp = sp.mhp; p.char = sp.char; p.face = sp.face;
     p.dirX = sp.dirX; p.dirY = sp.dirY; p.moving = sp.moving; p.hurtT = sp.hurtT;
     p.alive = sp.alive; p.reviveT = sp.reviveT; p.orbitAng = sp.orbitAng;
-    p.weapons = sp.weapons; p.passives = sp.passives || {};
+    if (sp.wp) { p.weapons = sp.wp.weapons; p.passives = sp.wp.passives || {}; } /* 第14弾: 武器/パッシブは変化時のみ届く */
     if (sp.moving) p.bob += .18;
   });
   const seen = new Set();
-  for (const se of snap.enemies) {
-    seen.add(se.id);
-    dexSee(se.type); // ゲスト側の図鑑: 見た敵を遭遇として記録（撃破数は数えない）
-    let e = renderEnemyMap.get(se.id);
-    if (!e) { e = { eid: se.id, dead: false, vx: 0, vy: 0, hitCd: 0, orbitCd: 0, slowT: 0 }; renderEnemyMap.set(se.id, e); e.x = se.x; e.y = se.y; e.tx = se.x; e.ty = se.y; }
-    e.tx = se.x; e.ty = se.y; e.type = se.type; e.hp = se.hp; e.maxHp = se.maxHp; e.r = se.r;
-    e.flash = se.flash; e.slow = se.slow; e.wob = se.wob; e.fuse = se.fuse; e.elite = !!se.elite; e.gold = !!se.gold;
+  for (const se of snap.enemies) { /* 第14弾: タプル [id, 種類idx, x, y, hp, maxHp, r, flash×100, flags, wob×100, fuse×10] */
+    seen.add(se[0]);
+    const etype = ENEMY_TYPE_LIST[se[1]];
+    dexSee(etype); // ゲスト側の図鑑: 見た敵を遭遇として記録（撃破数は数えない）
+    let e = renderEnemyMap.get(se[0]);
+    if (!e) { e = { eid: se[0], dead: false, vx: 0, vy: 0, hitCd: 0, orbitCd: 0, slowT: 0 }; renderEnemyMap.set(se[0], e); e.x = se[2]; e.y = se[3]; e.tx = se[2]; e.ty = se[3]; }
+    e.tx = se[2]; e.ty = se[3]; e.type = etype; e.hp = se[4]; e.maxHp = se[5]; e.r = se[6];
+    e.flash = se[7] / 100; e.slow = !!(se[8] & 1); e.elite = !!(se[8] & 2); e.gold = !!(se[8] & 4); e.wob = se[9] / 100; e.fuse = se[10] < 0 ? -1 : se[10] / 10;
   }
   for (const id of [...renderEnemyMap.keys()]) if (!seen.has(id)) renderEnemyMap.delete(id);
   enemies = [...renderEnemyMap.values()];
   const pseen = new Set();
-  for (const sp of snap.projs) {
-    pseen.add(sp.id);
-    let pr = renderProjMap.get(sp.id);
-    if (!pr) { pr = {}; renderProjMap.set(sp.id, pr); pr.x = sp.x; pr.y = sp.y; pr.tx = sp.x; pr.ty = sp.y; }
-    pr.tx = sp.x; pr.ty = sp.y; pr.type = sp.type; pr.vx = sp.vx; pr.vy = sp.vy; pr.spin = sp.spin || 0; pr.r = sp.r || 0; pr.armT = sp.armT || 0; pr.big = sp.big || 0;
+  let sawNewProj = false;
+  for (const sp of snap.projs) { /* 第14弾: タプル [id, 種類idx, x, y, vx, vy, spin×100, r, armT×10, big] */
+    pseen.add(sp[0]);
+    let pr = renderProjMap.get(sp[0]);
+    if (!pr) { pr = {}; renderProjMap.set(sp[0], pr); pr.x = sp[2]; pr.y = sp[3]; sawNewProj = true; }
+    pr.tx = sp[2]; pr.ty = sp[3];
+    pr.ax = sp[2]; pr.ay = sp[3]; pr.at = performance.now(); /* デッドレコニングのアンカー */
+    pr.type = sp[1] >= 0 ? PROJ_TYPE_LIST[sp[1]] : sp[10]; pr.vx = sp[4]; pr.vy = sp[5]; pr.spin = sp[6] / 100; pr.r = sp[7]; pr.armT = sp[8] / 10; pr.big = sp[9];
   }
+  if (sawNewProj) sfx.shoot(); /* 第14弾: ゲスト側の発射音（sfx.shoot 内で70msに間引き） */
   for (const id of [...renderProjMap.keys()]) if (!pseen.has(id)) renderProjMap.delete(id);
   projs = [...renderProjMap.values()];
-  gems = snap.gems.map((g, i) => ({ x: g.x, y: g.y, val: g.val, ph: i * 1.37 }));
+  gems = snap.gems.map((g, i) => ({ x: g[0], y: g[1], val: g[2], ph: i * 1.37 }));
   pickups = snap.pickups.map(pk => ({ x: pk.x, y: pk.y, kind: 'chest', ph: performance.now() / 300 }));
   if (snap.phase === 'play') {
     if (S.state === 'levelup') { $('levelScr').classList.remove('show'); $('lvWait').style.display = 'none'; }
@@ -6176,7 +6318,7 @@ function applySnapshot(snap){
     if (S.state !== 'over' && S.state !== 'clear') S.state = 'play';
   } else if (snap.phase === 'levelup') S.state = 'levelup';
   else if (snap.phase === 'chest') S.state = 'chest';
-  const wkey = JSON.stringify(P2.weapons);
+  const wkey = JSON.stringify(P2.weapons) + '|' + JSON.stringify(P2.passives);
   if (applySnapshot._wk !== wkey) { applySnapshot._wk = wkey; renderWeaponsBar(); }
   updateHud();
 }
@@ -6187,7 +6329,16 @@ function guestFrame(dt){
     p.blink -= dt; if (p.blink < -2.5) p.blink = .12;
   }
   for (const e of enemies) { if (e.tx !== undefined) { e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k; } }
-  for (const pr of projs) { if (pr.tx !== undefined) { pr.x += (pr.tx - pr.x) * k; pr.y += (pr.ty - pr.y) * k; } }
+  /* 第14弾: 弾はデッドレコニング（アンカー＋速度で外挿し、スナップショットで補正）。
+     単純な追随補間だと弾が遅れて見えていた */
+  const pnow = performance.now();
+  for (const pr of projs) {
+    if (pr.at !== undefined) {
+      const age = Math.min((pnow - pr.at) / 1000, .35);
+      const gx = pr.ax + pr.vx * age, gy = pr.ay + pr.vy * age, kk = Math.min(1, dt * 22);
+      pr.x += (gx - pr.x) * kk; pr.y += (gy - pr.y) * kk;
+    }
+  }
   const iv = readLocalInput();
   const now = performance.now();
   const key = iv.x.toFixed(2) + ',' + iv.y.toFixed(2);
@@ -6249,6 +6400,7 @@ window.__surv = {
   buyUpgrade, renderShop, renderTitleMeta, renderStages,
   selectChar: id => { if (CHARS[id]) { if (!meta.unlocked.includes(id)) meta.unlocked.push(id); meta.char = id; saveMeta(); renderTitleMeta(); } },
   hostCreateRoom, guestJoin, startCoopGame, buildSnapshot, handleNetData, applySnapshot,
+  renderWeaponsBar, openPassiveDetail, syncRadius, /* 第14弾 */
   quitToTitle,
   EVOLUTIONS, ACHIEVEMENTS, MISSIONS, TITLES, ENEMY_TYPES, ENEMY_DEX,
   buildPool, rollPicks, applyPick, achDone, claimAch, claimDaily, ensureDaily,
