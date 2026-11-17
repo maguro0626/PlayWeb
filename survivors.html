@@ -744,7 +744,7 @@
       <button class="subBtn" id="lvRerollBtn">🔀 再抽選</button>
       <button class="subBtn" id="lvSkipBtn">⏭ スキップ</button>
     </div>
-    <p class="subTitle" id="lvOpsNote">再抽選・スキップは 1プレイに各2回まで（スキップは報酬なし）</p>
+    <p class="subTitle" id="lvOpsNote">再抽選・スキップはショップの「パワーアップ」で解放・強化できます（スキップは報酬なし）</p>
   </div>
 </div>
 
@@ -837,29 +837,89 @@ function fmtDur(sec){ sec = Math.max(0, Math.floor(sec || 0)); const h = Math.fl
 /* ── サウンド (WebAudio) ── */
 let AC = null, masterGain = null;
 let muted = localStorage.getItem('majoneko_mute') === '1';
-function initAudio(){
-  /* 第14弾: 音声の復旧を堅牢化。iOS の割り込み後は state が 'interrupted' になり、
-     従来の 'suspended' チェックでは二度と resume されず音が死んだままだった。
-     'closed' になった場合も作り直す。 */
-  if (AC) {
-    if (AC.state === 'closed') { AC = null; masterGain = null; }
-    else {
-      if (AC.state !== 'running') { try { const p = AC.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-      return;
-    }
-  }
+/* ── 第18弾: 音声復旧を ensureAudio() に集約 ──
+   第14弾の対策（'interrupted' の resume／'closed' の作り直し／1秒ウォッチドッグ／タップ時 initAudio）を
+   入れても実機で「消えたまま戻らない」報告が続いたため、残っていた経路を潰す：
+   (1)【running表示でも無音】iOS では割り込みの後、state が 'running' に戻っても実際は無音のままの
+       ことがある。従来は statechange を監視しておらず、ウォッチドッグ（state!=='running' の時だけ
+       作動）が満足して二度と回復しなかった。→ 'interrupted'（と running からの 'suspended'）を
+       検知して「疑わしい」印を付け、次のジェスチャ/画面復帰で作り直す。
+   (2)【AC=null の固定化】生成に失敗して AC が null のままだと、ウォッチドッグ（AC 前提）も
+       beep（早期 return）も何もせず、復旧トリガーが消える。→ ウォッチドッグと beep の両方から
+       ensureAudio を駆動する。
+   (3)【グラフの世代不整合】生成の途中失敗で AC と masterGain が別世代を指す余地があった。
+       → グラフ（ctx＋マスターゲイン）は一括で作り、両方そろった時だけ差し替える。
+   (4)【復帰イベント不足】pageshow（bfcache 復帰）／focus／touchend／click でも復旧する。
+       リスナーは全て capture＋常時登録（once や条件分岐で消えない）。 */
+let audioSuspect = false;    // 割り込みを経験した印。作り直すまで「running でも無音かも」として扱う
+let audioWasRunning = false; // 現行コンテキストが一度でも running になったか（生成直後の suspended と区別する）
+let lastBeepEnsure = 0;      // beep 経由の復旧試行のスロットル
+function buildAudio(){
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return false;
+  let ctx = null, g = null;
   try {
-    AC = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = AC.createGain(); masterGain.gain.value = muted ? 0 : 0.16; masterGain.connect(AC.destination);
-  } catch (e) { AC = null; }
+    ctx = new Ctor();
+    g = ctx.createGain(); g.gain.value = muted ? 0 : 0.16; g.connect(ctx.destination);
+  } catch (e) {
+    if (ctx) { try { ctx.close(); } catch (e2) {} }
+    return false; // 失敗時は AC/masterGain を触らない（世代の不整合を作らない）
+  }
+  AC = ctx; masterGain = g; audioWasRunning = ctx.state === 'running';
+  ctx.onstatechange = () => {
+    if (ctx !== AC) return; // 旧コンテキストのイベントは無視
+    if (ctx.state === 'running') audioWasRunning = true;
+    else if (ctx.state === 'interrupted') audioSuspect = true;
+    else if (ctx.state === 'suspended' && audioWasRunning) audioSuspect = true;
+    else if (ctx.state === 'closed') audioSuspect = true;
+  };
+  return true;
 }
+function destroyAudio(){
+  const old = AC; AC = null; masterGain = null; audioWasRunning = false;
+  if (old) { try { old.onstatechange = null; } catch (e) {} try { const p = old.close(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+}
+function resumeAudio(){
+  if (AC && AC.state !== 'running') { try { const p = AC.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+}
+/* 音声の初期化／復旧の唯一の入口（冪等）。hard=true（ジェスチャ・画面復帰のタイミング）では、
+   割り込み経験のあるコンテキストを作り直してから resume する（ジェスチャ中なら新コンテキストは
+   そのまま鳴らせる状態で始まる）。hard=false（ウォッチドッグ・beep 経由）は resume と
+   無い場合の生成だけを行い、作り直しはジェスチャ側に任せる */
+function ensureAudio(hard){
+  if (AC && AC.state === 'closed') destroyAudio();
+  if (!AC) { if (!buildAudio()) return; audioSuspect = false; }
+  else if (hard && audioSuspect) { destroyAudio(); if (!buildAudio()) return; audioSuspect = false; }
+  resumeAudio();
+}
+function initAudio(){ ensureAudio(true); }
 /* どのタップでも（ジェスチャ起点で）音声を初期化/復旧する。協力ゲストは招待受諾→
-   自動参加の流れでゲーム内のボタンを押さないまま始まるため、これが無いと無音だった */
-window.addEventListener('pointerdown', () => initAudio(), { passive: true });
-window.addEventListener('touchstart', () => initAudio(), { passive: true });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) initAudio(); });
+   自動参加の流れでゲーム内のボタンを押さないまま始まるため、これが無いと無音だった。
+   capture で先に受け、対象要素側の preventDefault の影響を受けないようにする */
+window.addEventListener('pointerdown', () => ensureAudio(true), { capture: true, passive: true });
+window.addEventListener('touchstart', () => ensureAudio(true), { capture: true, passive: true });
+window.addEventListener('touchend', () => ensureAudio(true), { capture: true, passive: true });
+window.addEventListener('click', () => ensureAudio(true), { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  /* 復帰した時点で止まっている（'interrupted'/'suspended'）場合は、非表示中に割り込みが
+     起きたものとして作り直し対象にする。statechange が届いていなくても拾うための保険。
+     非表示のたびに無条件で疑うと、通常のタブ切替でも作り直しが頻発するため、
+     「復帰時に状態が落ちている時だけ」に限定する（running のままなら何もしない） */
+  if (AC && AC.state !== 'running') audioSuspect = true;
+  ensureAudio(true);
+});
+window.addEventListener('pageshow', e => { if (e.persisted) audioSuspect = true; ensureAudio(true); }); // bfcache 復帰
+window.addEventListener('focus', () => ensureAudio(true));
 function beep(f0, f1, dur, type, vol, delay){
-  if (!AC || muted) return;
+  if (muted) return;
+  /* 第18弾: 発音側からも復旧を駆動する。AC が無い/閉じた/止まっている時はまず ensureAudio を
+     試す（300ms スロットル）。これが無いと「AC=null のまま誰も復旧しない」状態が固定化する */
+  if (!AC || AC.state !== 'running') {
+    const nowE = performance.now();
+    if (nowE - lastBeepEnsure > 300) { lastBeepEnsure = nowE; ensureAudio(false); }
+    if (!AC) return;
+  }
   try {
     const t = AC.currentTime + (delay || 0);
     const o = AC.createOscillator(), g = AC.createGain();
@@ -1291,7 +1351,14 @@ const UPGRADES = {
   xpring:   { name: '経験の指輪', icon: '💍', max: 5, costs: [800, 1500, 2600, 4200, 6500], desc: '経験値 +6% / 段階（けいけんアップと乗算。全5段階で総額⭐15,600）' },
   mag2:     { name: '星屑マグネット', icon: '🧲', max: 5, costs: [700, 1300, 2300, 3700, 5800], desc: '磁石範囲 +12% / 段階（マグネットアップと乗算。全5段階で総額⭐13,800）' },
   startgem: { name: '星屑ポケット', icon: '👝', max: 4, costs: [1200, 2400, 4200, 6800], desc: 'ラン精算時にジェム +25 / 段階をボーナス加算（全4段階で総額⭐14,600）' },
-  guard2:   { name: '星屑の鎧', icon: '🛡️', max: 5, costs: [1200, 2200, 3600, 5800, 9000], desc: '受けるダメージ -3% / 段階（長時間モードのお供に。全5段階で総額⭐21,800）' }
+  guard2:   { name: '星屑の鎧', icon: '🛡️', max: 5, costs: [1200, 2200, 3600, 5800, 9000], desc: '受けるダメージ -3% / 段階（長時間モードのお供に。全5段階で総額⭐21,800）' },
+  /* ── 第18弾: レベルアップ選択の「再抽選」「スキップ」はショップ強化で解放する仕様に変更。
+     未購入（Lv0）では使えず、段階ごとに 1プレイあたりの使用回数が +1（最大2回）。
+     他の全ラインと同様、星の継承（転生）でリセットされる。
+     価格: 第17弾ラインの価格帯（1段階⭐700〜9,000）に合わせ、機能解放系として
+     Lv1=⭐1,500／Lv2=⭐4,000（各ライン総額⭐5,500、2ライン合計⭐11,000）に設定 ── */
+  reroll:   { name: '再抽選', icon: '🔀', max: 2, costs: [1500, 4000], desc: 'レベルアップ選択の「🔀 再抽選」が使える回数 +1 / 段階（1プレイあたり。未購入では使えません）' },
+  skipop:   { name: 'スキップ', icon: '⏭', max: 2, costs: [1500, 4000], desc: 'レベルアップ選択の「⏭ スキップ」が使える回数 +1 / 段階（1プレイあたり。未購入では使えません）' }
 };
 /* ── 実績（get() は現在の進捗値を返す。達成で claim すると報酬のかけら） ── */
 const ACHIEVEMENTS = {
@@ -1575,12 +1642,17 @@ function rebirthEligible(){
   const allNormal = STAGE_ORDER.every(s => meta.stageClears.includes(s));
   return hellAny || allNormal;
 }
-function canRebirth(){ return rebirthEligible() && (meta.inherit | 0) < INHERIT_MAX; }
+/* 第18弾: 転生は「条件を新たに達成するたびに1回だけ」。クリア記録（保持される）ではなく
+   転生権フラグ（meta.rebirthReady）で判定する。権は saveBest のクリア記録時に、
+   前回転生以降の実績（rbHell / rbStages）が条件を満たすと付与され、転生で消費される */
+function canRebirth(){ return !!meta.rebirthReady && (meta.inherit | 0) < INHERIT_MAX; }
 function doRebirth(){
   if (!canRebirth()) return false;
   meta.upgrades = {};       // メタショップの強化段階（星の加護を含む）を全リセット
   meta.shards = 0;          // 所持かけらも0に
   meta.inherit = (meta.inherit | 0) + 1;
+  meta.rebirthReady = false; // 転生権を消費
+  meta.rbHell = false; meta.rbStages = []; // 次回の転生には条件の再達成が必要
   saveMeta();
   updateShardUI(); // 第11弾: 転生リセットの直後に残高表示を同期
   return true;
@@ -1596,6 +1668,12 @@ function loadMeta(){
   if (!m || typeof m !== 'object') m = {};
   const st = (m.stats && typeof m.stats === 'object') ? m.stats : {};
   const dy = (m.daily && typeof m.daily === 'object') ? m.daily : {};
+  /* 第18弾: 転生権（rebirthReady）の移行判定。旧セーブにはフィールドが無いため、
+     現在のクリア記録で条件を満たしていれば「1回分は転生できる」状態で開始する */
+  const migDc = (m.diffClears && typeof m.diffClears === 'object') ? m.diffClears : {};
+  const migSc = Array.isArray(m.stageClears) ? m.stageClears.filter(s => STAGES[s]) : [];
+  const migReady = STAGE_ORDER.some(s => Array.isArray(migDc[s]) && migDc[s].includes('hell'))
+    || STAGE_ORDER.every(s => migSc.includes(s));
   return {
     shards: Math.max(0, m.shards | 0),
     upgrades: (m.upgrades && typeof m.upgrades === 'object') ? m.upgrades : {},
@@ -1617,6 +1695,11 @@ function loadMeta(){
     timeMode: TIME_MODES[m.timeMode] ? m.timeMode : 600,
     /* 第4弾拡張: 転生「星の継承」の継承Lv */
     inherit: Math.max(0, Math.min(INHERIT_MAX, m.inherit | 0)),
+    /* 第18弾: 転生権と「前回転生以降のクリア進捗」。転生は条件を新たに達成するたび1回だけ。
+       rebirthReady=転生権の有無 / rbHell=転生以降にヘル以上をクリアしたか / rbStages=転生以降にクリアしたステージ */
+    rebirthReady: typeof m.rebirthReady === 'boolean' ? m.rebirthReady : migReady,
+    rbHell: !!m.rbHell,
+    rbStages: Array.isArray(m.rbStages) ? m.rbStages.filter(s => STAGES[s]) : [],
     /* 第1弾拡張の新フィールド（旧セーブは初期値で補完） */
     stats: {
       kills: st.kills | 0, gems: st.gems | 0, evos: st.evos | 0, bossKills: st.bossKills | 0,
@@ -1822,7 +1905,7 @@ function resetGame(){
   S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.startGemPaid = false; S.lastShardGain = 0; S.statsCounted = false; S.timeCountedAt = 0;
   S.shardFrozen = false; S.runShardGain = 0;
   S.eidSeq = 0; S.pidSeq = 0; S.snapT = 0; S.chestPicker = null; lvPhase = null;
-  lvOps = { skip: LV_OP_MAX, reroll: LV_OP_MAX }; lvSession = null; /* 第17弾: 再抽選/スキップ回数はラン毎リセット */
+  lvOps = freshLvOps(); lvSession = null; /* 第17弾: 再抽選/スキップ回数はラン毎リセット（第18弾: 回数は自機のショップ段階で決まる） */
   S.nextMiniAt = 95; S.miniIdx = 0; S.nextSurgeAt = 100;
   /* 第4弾: 難易度はホスト/ソロが選択に従い、ランダムイベントも初期化 */
   if (NET.role !== 'guest') { S.difficulty = curDiff(); S.timeMode = TIME_MODES[meta.timeMode] ? meta.timeMode : 600; }
@@ -3251,24 +3334,39 @@ function rollPicks(p){
   }
   return picks;
 }
-/* ── 第17弾: レベルアップ選択の「再抽選」「スキップ」（各・1プレイ最大2回） ──
+/* ── 第17弾: レベルアップ選択の「再抽選」「スキップ」 ──
    回数はラン毎にリセットされるローカル管理（協力時は各プレイヤーが自分の分を持つ）。
    スキップは「そのまま無し」＝報酬なしで選択を終えるだけ（レベル自体は既に上がっている）。
    経験値・かけら精算（shardFrozen）には一切触れないので、既存の経済と矛盾しない。
    ゲストの再抽選はホスト権威: ゲストは {t:'reroll'} を送り、ホストが引き直して返す。
-   ゲストのスキップは {t:'skip'} でホストに完了だけを伝える（何も適用しない）。 */
-const LV_OP_MAX = 2;
-let lvOps = { skip: LV_OP_MAX, reroll: LV_OP_MAX };
+   ゲストのスキップは {t:'skip'} でホストに完了だけを伝える（何も適用しない）。
+   ── 第18弾: 使える回数はショップ強化「再抽選」「スキップ」の段階で決まる ──
+   未購入（Lv0）では使えず、Lv1で1回/プレイ・Lv2で2回/プレイ（上限2回は従来どおり）。
+   協力時も各プレイヤーが自分のショップ段階に応じた回数を持つ（lvOps は常に自機の meta から作る）。 */
+const LV_OP_MAX = 2; // 1プレイあたりの上限（ショップ強化の最大段階と一致）
+const LV_OP_UPGRADE = { reroll: 'reroll', skip: 'skipop' }; // lvOps のキー → UPGRADES のキー
+function lvOpLimit(kind){ return Math.max(0, Math.min(LV_OP_MAX, meta.upgrades[LV_OP_UPGRADE[kind]] || 0)); }
+function freshLvOps(){ return { skip: lvOpLimit('skip'), reroll: lvOpLimit('reroll') }; }
+let lvOps = freshLvOps();
 let lvSession = null; // { player, cb, skipFn } 選択UIを開いている間だけ有効
 function renderLvOps(){
   const row = $('lvOps'), note = $('lvOpsNote'); if (!row) return;
   if (!lvSession) { row.style.display = 'none'; if (note) note.style.display = 'none'; return; }
   row.style.display = 'flex'; if (note) note.style.display = 'block';
   const rb = $('lvRerollBtn'), sb = $('lvSkipBtn');
-  rb.textContent = `🔀 再抽選（あと${lvOps.reroll}回）`;
-  sb.textContent = `⏭ スキップ（あと${lvOps.skip}回）`;
-  rb.disabled = lvOps.reroll <= 0;
-  sb.disabled = lvOps.skip <= 0;
+  const rMax = lvOpLimit('reroll'), sMax = lvOpLimit('skip');
+  if (rMax <= 0) { rb.textContent = '🔒 再抽選（未解放）'; rb.disabled = true; }
+  else { rb.textContent = `🔀 再抽選（あと${lvOps.reroll}回）`; rb.disabled = lvOps.reroll <= 0; }
+  if (sMax <= 0) { sb.textContent = '🔒 スキップ（未解放）'; sb.disabled = true; }
+  else { sb.textContent = `⏭ スキップ（あと${lvOps.skip}回）`; sb.disabled = lvOps.skip <= 0; }
+  if (note) {
+    const locked = [];
+    if (rMax <= 0) locked.push('再抽選');
+    if (sMax <= 0) locked.push('スキップ');
+    note.textContent = locked.length
+      ? `🔒 ${locked.join('・')}はショップの「パワーアップ」で解放・強化できます（スキップは報酬なし）`
+      : '再抽選・スキップは ショップ強化の段階ぶんだけ 1プレイに使えます（スキップは報酬なし）';
+  }
 }
 function closeLvSession(){ lvSession = null; renderLvOps(); }
 /* カードUIを表示し、選択されたら cb(pk) を呼ぶ。player は表示用（Lv表示）のビルド参照。
@@ -3708,6 +3806,11 @@ function saveBest(clearedRun){
       if (!dc.includes(d)) { dc.push(d); dirty = true; }
       if (d === S.difficulty) break;
     }
+    /* 第18弾: 転生権の進捗。前回転生以降のクリア実績で条件（ヘルクリア or 全ステージノーマルクリア）を
+       新たに満たした時点で、転生権を1回分だけ付与する（累積のクリア記録では再付与しない） */
+    if (DIFF_ORDER.indexOf(S.difficulty) >= DIFF_ORDER.indexOf('hell') && !meta.rbHell) { meta.rbHell = true; dirty = true; }
+    if (!meta.rbStages.includes(S.stage)) { meta.rbStages.push(S.stage); dirty = true; }
+    if (!meta.rebirthReady && (meta.rbHell || STAGE_ORDER.every(s => meta.rbStages.includes(s)))) { meta.rebirthReady = true; dirty = true; }
     if (dirty) saveMeta();
   }
   return isNew;
@@ -5630,8 +5733,10 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > .05) dt = .05;
-  /* 第14弾: 音声ウォッチドッグ（約1秒ごと）。割り込みで止まった AudioContext を自動復旧する */
-  if (now - (frame._aw || 0) > 1000) { frame._aw = now; if (AC && AC.state !== 'running' && !muted) initAudio(); }
+  /* 音声ウォッチドッグ（約1秒ごと）。止まった AudioContext の resume と、無い/閉じた場合の
+     再生成を試す（疑わしいコンテキストの作り直しはジェスチャ側の ensureAudio(true) が担当）。
+     第18弾: 従来は AC が null だとウォッチドッグが何もせず、復旧トリガーが消える経路があった */
+  if (now - (frame._aw || 0) > 1000) { frame._aw = now; if (!muted && (!AC || AC.state !== 'running')) ensureAudio(false); }
   if (NET.role === 'guest' && NET.inGame) guestFrame(dt);
   else if (S.state === 'play') update(dt);
   else { for (const f of fx) f.ttl -= dt; fx = fx.filter(f => f.ttl > 0); }
@@ -6311,16 +6416,16 @@ function renderRebirth(){
   const upStages = Object.keys(UPGRADES).reduce((a, id) => a + (meta.upgrades[id] || 0), 0);
   $('rebirthNow').textContent = `🌟 継承Lv ${lv}（与ダメージ +${3 * lv}% ／ かけら獲得 +${5 * lv}%）`;
   let cond;
-  if (lv >= INHERIT_MAX) cond = '継承Lvは上限（20）に達しています。';
-  else if (rebirthEligible()) cond = '✅ 転生の条件を満たしています。';
-  else cond = '🔒 条件： いずれかのステージを「ヘル」でクリア、または全7ステージを「ノーマル」でクリア。';
+  if (lv >= INHERIT_MAX) cond = '継承Lvは上限（20）に達しています。これ以上は転生できません。';
+  else if (meta.rebirthReady) cond = '✅ 転生できます（転生権あり）。転生は条件を達成するたびに1回だけ。転生すると権利は消費され、次の転生には条件の再達成が必要です。';
+  else cond = `🔒 次の転生には条件の再達成が必要です： いずれかのステージを「ヘル」でクリア、または全${STAGE_ORDER.length}ステージを「ノーマル」でクリアすると、転生権が1回分もらえます（前回の転生以降のクリアが対象）。`;
   $('rebirthDetail').innerHTML =
     `${cond}<br>` +
     `<span class="lose">【失うもの】パワーアップの強化段階 すべて（現在 ${upStages} 段階・星の加護ふくむ）／ 所持ほしのかけら ⭐${meta.shards} → 0</span><br>` +
     `<span class="keep">【残るもの】キャラ解放・限界突破・ガチャ天井カウンタ・実績とミッション・図鑑・統計・ステージと難易度のクリア記録・称号</span><br>` +
     `<span class="gain">【得るもの】継承Lv +1 → 恒久で 与ダメージ +3%・ほしのかけら獲得 +5%（累積・上限Lv${INHERIT_MAX}）</span>`;
   $('rebirthGoBtn').disabled = !canRebirth();
-  $('rebirthGoBtn').textContent = lv >= INHERIT_MAX ? '🌟 継承Lv MAX' : '🌟 転生する';
+  $('rebirthGoBtn').textContent = lv >= INHERIT_MAX ? '🌟 継承Lv MAX' : (meta.rebirthReady ? '🌟 転生する' : '🔒 転生権がありません');
   $('rebirthStep1').style.display = 'block';
   $('rebirthStep2').style.display = 'none';
 }
@@ -6756,7 +6861,7 @@ function guestOnData(msg){
     enemies = []; projs = []; gems = []; parts = []; texts = []; clouds = []; fx = []; pickups = []; eshots = [];
     S.time = 0; S.kills = 0; S.cleared = false; S.endless = false; S.timeCountedAt = 0;
     S.gemsCollected = 0; S.shardsPaid = 0; S.clearBonusPaid = false; S.startGemPaid = false; S.shardFrozen = false; S.runShardGain = 0; S.guestBoss = null; S.statsCounted = false; applySnapshot._lk = 0; applySnapshot._lg = 0; applySnapshot._lv = undefined; applySnapshot._boss = false;
-    lvOps = { skip: LV_OP_MAX, reroll: LV_OP_MAX }; lvSession = null; /* 第17弾: ゲスト側も再抽選/スキップ回数をリセット */
+    lvOps = freshLvOps(); lvSession = null; /* 第17弾: ゲスト側も再抽選/スキップ回数をリセット（第18弾: ゲスト自身のショップ段階で決まる） */
     S.state = 'play';
     $('lobbyScr').classList.remove('show'); $('titleScr').classList.remove('show'); $('endScr').classList.remove('show');
     $('hud').style.display = 'block'; $('bossWrap').style.display = 'none';
@@ -7005,7 +7110,7 @@ window.__surv = {
   partnerPlayer, computePartnerGuide, computeRadarDots, radarOn, setRadar: v => setRadarEnabled(v),
   RADAR_RANGE,
   /* 第17弾: アイテム枠8種・再抽選/スキップ・宝箱・制限時間モード・新ショップ・新ステージ/キャラ */
-  LV_OP_MAX, get lvOps(){ return lvOps; }, get lvSession(){ return lvSession; }, renderLvOps,
+  LV_OP_MAX, lvOpLimit, freshLvOps, get lvOps(){ return lvOps; }, set lvOps(v){ lvOps = v; }, get lvSession(){ return lvSession; }, renderLvOps,
   levelUpSequence, openChest, applyChestChoice,
   TIME_MODES, TIME_MODE_ORDER, timeModeDef, clearTime, renderTimeModes,
   setTimeMode: sec => { if (TIME_MODES[sec]) { meta.timeMode = sec; S.timeMode = sec; saveMeta(); renderTitleMeta(); } },
