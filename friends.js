@@ -23,6 +23,8 @@
    ボタン・コード表示を自動で隠し、「フレンドを招待」「フレンド戦績」バーを差し込む。
    ホスト開始は window.PW_AUTO_HOST()（未定義なら PW_JOIN_CFG から自動生成）、
    参加は招待クリック→ ?join=<room>&from=<フレンドコード> の内部遷移のみ。
+   「招待済み」表示は重複送信防止のための一時状態で、相手の参加（matchjoin）・
+   試合終了（recordMatch）・切断で解除され、最大90秒で失効する。再戦はいつでも可能。
    【戦績】
    localStorage 'playweb_records' {フレンドコード: {ゲームID: {w,l,d,plays,clears,last}}}
    対戦相手のコードは招待フローから引き継ぎ（ホスト=招待した相手、ゲスト=招待者）、
@@ -196,6 +198,7 @@
     lastMatchRecord = { key: key, ts: now };
     var ok = false;
     peers.forEach(function (code) { if (recordResult(MY_GAME, code, outcome, opts)) ok = true; });
+    if (ok) clearInvited(); /* 試合終了: 「招待済み」表示を全解除して再戦できるようにする */
     if (ok && state.view === 'list') renderList();
     return ok;
   }
@@ -379,6 +382,7 @@
         setMatch({ game: mg, role: 'host', room: (typeof msg.room === 'string' ? msg.room : null), peers: [], joinSent: false });
       }
       addMatchPeer(code);
+      clearInvited(code); /* 相手が参加したので「招待済み」表示は解除（試合後すぐ再招待できる） */
       var all = [profile.code].concat(match.peers);
       match.peers.slice().forEach(function (p) {
         sendRaw(p, { t: 'matchroster', game: mg, room: match.room || '', peers: all });
@@ -388,7 +392,7 @@
       if (!match || match.game !== msg.game || !Array.isArray(msg.peers)) return;
       msg.peers.forEach(function (c) { addMatchPeer(c); });
     }
-    else if (msg.t === 'bye') { setPresence(code, { online: false, game: null }); }
+    else if (msg.t === 'bye') { clearInvited(code); setPresence(code, { online: false, game: null }); }
   }
   function pushChat(code, m) {
     var arr = chats[code] || (chats[code] = []);
@@ -454,6 +458,8 @@
     openRecords: function (gameId) { openRecords(gameId); },
     recordResult: recordResult,
     recordMatch: recordMatch,
+    invitedActive: invitedActive,
+    clearInvited: clearInvited,
     matchPeers: matchPeers,
     matchInfo: function () { return match ? { game: match.game, role: match.role, room: match.room, peers: matchPeers() } : null; },
     getRecords: function (code) { return records[code] || {}; },
@@ -462,7 +468,20 @@
 
   /* ---------------- 招待ピッカー（ゲーム内フレンド選択UI） ---------------- */
   var pickerOpen = false;
-  var pickerInvited = {}; /* code -> true: このページで招待済み */
+  var pickerInvited = {}; /* code -> 招待した時刻(ms)。「招待済み」表示は相手が参加するか
+                             試合が終われば解除され、最大でも INVITED_TTL で失効する（再戦はいつでも可能） */
+  var INVITED_TTL = 90000;
+  function invitedActive(code) {
+    var ts = pickerInvited[code];
+    return !!ts && (Date.now() - ts) < INVITED_TTL;
+  }
+  function markInvited(code) { pickerInvited[code] = Date.now(); }
+  function clearInvited(code) {
+    if (code) delete pickerInvited[code];
+    else pickerInvited = {};
+    /* 開いたままのピッカーも即時更新する（閉じ忘れても「招待済み」で固まらない） */
+    if (pickerOpen && els.pickerList) renderPickerList();
+  }
   function buildPickerDom() {
     if (els.pickerOverlay) return;
     var ov = document.createElement('div');
@@ -504,7 +523,7 @@
     }
     els.pickerList.innerHTML = friends.map(function (f) {
       var on = isOnline(f.code);
-      var invited = !!pickerInvited[f.code];
+      var invited = invitedActive(f.code);
       return '<div class="pwf-friend"><span class="pwf-dot' + (on ? ' on' : '') + '"></span>' +
         '<div class="pwf-fmeta"><div class="pwf-fname">' + esc(displayName(f.code)) + '</div>' +
         '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.code)) + '</div></div>' +
@@ -539,7 +558,7 @@
   function finishInvite(code, room, btn) {
     if (match && match.role === 'host' && match.game === MY_GAME) { match.room = room; saveMatch(); }
     if (sendInvite(code, MY_GAME, room)) {
-      pickerInvited[code] = true;
+      markInvited(code);
       toast(displayName(code) + 'さんに招待を送りました', 'info');
     } else {
       toast('招待を送れませんでした（相手との接続が切れています）', 'info');
@@ -1204,7 +1223,7 @@
         startHostMatch(code);
         if (match && match.role === 'host' && match.game === MY_GAME) { match.room = room; saveMatch(); }
         if (sendInvite(code, MY_GAME, room)) {
-          pickerInvited[code] = true;
+          markInvited(code);
           toast(displayName(code) + 'さんに招待を送りました', 'info');
           state.view = 'list'; state.pickFor = null; renderAll();
         } else {

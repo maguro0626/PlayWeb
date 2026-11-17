@@ -1088,8 +1088,9 @@ function handleOnlineData(msg){
   if (msg.t === 'ping'){ return; }
   if (msg.t === 'hello'){
     if (!isHost) return;
-    if (onlineActive && moveLog.length > 0){
-      /* 再接続: 対局をリセットせず現在の盤面を送って再開 */
+    if (onlineActive && !gameOver && moveLog.length > 0){
+      /* 再接続: 対局をリセットせず現在の盤面を送って再開。
+         ただし終局後（gameOver）の hello は再戦のための新規参加として扱い、下の新規対局へ落とす */
       reconnecting = false;
       sendState();
       startHeartbeat();
