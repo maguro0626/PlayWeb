@@ -453,6 +453,23 @@
   .gachaCard.rarUR .gRar{color:#E84393;text-shadow:none}
   .gachaCard.awaken{border-color:#FFB52E !important;background:#FFF0B8 !important;box-shadow:0 0 30px rgba(255,181,46,.80)}
   .gachaCard.awaken .gRes{color:#B96A00}
+  /* ── 第19弾: ガチャでURが出た時だけの神々しい特別演出（全面の金の光・光の柱・後光・金粉）。
+     ポップ可愛い基調（クリーム＋ゴールド）に寄せ、タップでスキップ可能 ── */
+  #urFxScr{z-index:35;background:radial-gradient(circle at 50% 40%,rgba(255,246,205,.96),rgba(255,214,110,.78) 46%,rgba(146,96,20,.55) 100%);overflow:hidden;cursor:pointer}
+  .urFxRays{position:absolute;left:50%;top:42%;width:160vmax;height:160vmax;transform:translate(-50%,-50%);border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.34) 0deg 5deg,rgba(255,255,255,0) 5deg 11deg);animation:urSpin 26s linear infinite;pointer-events:none}
+  @keyframes urSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+  .urFxBeam{position:absolute;left:50%;top:-6%;width:190px;height:78%;transform:translateX(-50%);background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,240,190,.35) 62%,rgba(255,240,190,0));filter:blur(3px);pointer-events:none}
+  .urFxInner{position:relative;text-align:center;animation:urReveal 1.15s cubic-bezier(.2,.9,.25,1) both}
+  @keyframes urReveal{0%{opacity:0;transform:scale(.55) translateY(26px)}55%{opacity:1}100%{opacity:1;transform:scale(1) translateY(0)}}
+  .urFxHalo{width:196px;height:196px;margin:0 auto;border-radius:50%;border:5px solid #FFD94D;box-shadow:0 0 44px rgba(255,201,60,.95),0 0 90px rgba(255,170,40,.55),inset 0 0 30px rgba(255,236,170,.8);background:radial-gradient(circle,#FFFDF4 0%,#FFF0B8 58%,#FFE08A 100%);display:flex;align-items:center;justify-content:center;animation:urPulse 1.6s ease-in-out infinite alternate}
+  @keyframes urPulse{from{box-shadow:0 0 30px rgba(255,201,60,.75),0 0 60px rgba(255,170,40,.4),inset 0 0 22px rgba(255,236,170,.7)}to{box-shadow:0 0 58px rgba(255,201,60,1),0 0 120px rgba(255,170,40,.7),inset 0 0 38px rgba(255,236,170,.95)}}
+  .urFxHalo canvas{width:168px;height:168px}
+  .urFxRarity{margin-top:16px;font-size:44px;font-weight:900;letter-spacing:.14em;color:#B96A00;text-shadow:0 2px 0 #FFF6D8,0 0 26px rgba(255,201,60,.95),0 0 60px rgba(255,170,40,.6)}
+  .urFxName{margin-top:4px;font-size:21px;font-weight:900;color:#7A4B00;text-shadow:0 1px 0 #FFF6D8}
+  .urFxSub{margin-top:12px;font-size:12.5px;font-weight:700;color:rgba(122,75,0,.75)}
+  .urFxParts{position:absolute;inset:0;pointer-events:none}
+  .urP{position:absolute;bottom:6%;border-radius:50%;background:radial-gradient(circle,#FFF6D8 0%,#FFD94D 55%,rgba(255,170,40,0) 78%);opacity:0;animation:urRise 2.8s ease-out forwards}
+  @keyframes urRise{0%{opacity:0;transform:translateY(0) scale(.6)}12%{opacity:1}100%{opacity:0;transform:translateY(-62vh) scale(1.15)}}
   /* ── 転生・ロビー・その他パネル内 ── */
   .rebirthBox{background:#FFFBEB;border-color:#FFC93C;color:#6B5510}
   .rebirthBox .lose{color:#E14E6E}
@@ -699,6 +716,28 @@
   </div>
 </div>
 
+<!-- 第19弾: 継承Lvリセットのお知らせ（移行で補填があったプレイヤーに一度だけ表示） -->
+<div class="overlay" id="prestigeResetScr">
+  <div class="panel">
+    <h2 class="panelTitle">📢 お知らせ</h2>
+    <div class="howto" id="prestigeResetText"></div>
+    <button class="subBtn" id="prestigeResetCloseBtn">わかった</button>
+  </div>
+</div>
+
+<!-- 第19弾: ガチャUR専用の神々しい特別演出（URが出た回だけ・タップでスキップ） -->
+<div class="overlay" id="urFxScr">
+  <div class="urFxRays"></div>
+  <div class="urFxBeam"></div>
+  <div class="urFxParts" id="urFxParts"></div>
+  <div class="urFxInner">
+    <div class="urFxHalo"><canvas id="urFxCanvas" width="180" height="180"></canvas></div>
+    <div class="urFxRarity">✦ UR ✦</div>
+    <div class="urFxName" id="urFxName"></div>
+    <div class="urFxSub">タップでスキップ</div>
+  </div>
+</div>
+
 <!-- 行商人ねこ（ラン中の小さな買い物UI） -->
 <div id="merchantScr">
   <div class="mTitle">🐱 行商人ねこ <span class="mTime" id="merchantTimeText"></span></div>
@@ -934,6 +973,8 @@ const sfx = {
   boom(){ beep(160, 40, .25, 'triangle', .5); },
   levelup(){ [523, 659, 784, 1047].forEach((f, i) => beep(f, f, .16, 'triangle', .4, i * .07)); },
   chest(){ [392, 523, 659, 784, 1047, 1319].forEach((f, i) => beep(f, f, .18, 'triangle', .38, i * .08)); },
+  /* 第19弾: UR排出時のファンファーレ（上昇アルペジオ＋高音のきらめき。beep がミュート時は無音） */
+  urFanfare(){ [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => beep(f, f, .34, 'triangle', .34, i * .09)); [2637, 3136].forEach((f, i) => beep(f, f, .5, 'sine', .16, .55 + i * .14)); },
   boss(){ [110, 110, 165, 98].forEach((f, i) => beep(f, f * .9, .3, 'sawtooth', .42, i * .22)); },
   win(){ [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => beep(f, f, .22, 'triangle', .4, i * .11)); }
 };
@@ -1592,13 +1633,30 @@ function stageUnlocked(id){
 
 /* ── 難易度階梯（第4弾＋第5弾でアビス追加）: ノーマル／ハード／ヘル／アビス。前難易度クリアで次が解放 ── */
 const DIFF_ORDER = ['normal', 'hard', 'hell', 'abyss'];
+/* ── 第19弾: 難易度の大強化（ノーマルは完全に従来どおり）。
+   ハード以上は「難易度倍率（ステージ1基準）× ステージ進行係数（ステージindexの冪）」で決まる。
+   後ろのステージほど同じ難易度でも別格に強くなり、継承・ショップ・限界突破の重要性が上がる設計。
+   hp/dmg/shard はステージ1（草原）での値、sHp/sDmg/sShard はステージが1つ進むごとの倍率。
+   ノーマルは全ステージで係数1（＝従来値と完全一致）を保証する ── */
 const DIFFS = {
-  normal: { name: 'ノーマル', icon: '🌱', hp: 1,   dmg: 1,   shard: 1 },
-  hard:   { name: 'ハード',   icon: '🔥', hp: 1.8, dmg: 1.8, shard: 1.8 },
-  hell:   { name: 'ヘル',     icon: '💀', hp: 3.2, dmg: 3.2, shard: 3.0 },
-  abyss:  { name: 'アビス',   icon: '🕳️', hp: 5.5, dmg: 5.5, shard: 5.0 }
+  normal: { name: 'ノーマル', icon: '🌱', hp: 1,   dmg: 1,   shard: 1,   sHp: 1,    sDmg: 1,    sShard: 1 },
+  hard:   { name: 'ハード',   icon: '🔥', hp: 12,  dmg: 2.6, shard: 2.4, sHp: 1.30, sDmg: 1.16, sShard: 1.08 },
+  hell:   { name: 'ヘル',     icon: '💀', hp: 32,  dmg: 5.5, shard: 4.2, sHp: 1.38, sDmg: 1.20, sShard: 1.10 },
+  abyss:  { name: 'アビス',   icon: '🕳️', hp: 85,  dmg: 11,  shard: 7.0, sHp: 1.46, sDmg: 1.24, sShard: 1.12 }
 };
-function diffDef(){ return DIFFS[S.difficulty] || DIFFS.normal; }
+/* 指定ステージ×難易度の実効倍率 {name, icon, hp, dmg, shard} を返す */
+function diffAt(stageId, d){
+  const dd = DIFFS[d] || DIFFS.normal;
+  const idx = Math.max(0, STAGE_ORDER.indexOf(stageId));
+  if (idx === 0 || !dd.sHp || dd.sHp === 1) return { name: dd.name, icon: dd.icon, hp: dd.hp, dmg: dd.dmg, shard: dd.shard };
+  return {
+    name: dd.name, icon: dd.icon,
+    hp: dd.hp * Math.pow(dd.sHp, idx),
+    dmg: dd.dmg * Math.pow(dd.sDmg, idx),
+    shard: dd.shard * Math.pow(dd.sShard, idx)
+  };
+}
+function diffDef(){ return diffAt(S.stage, S.difficulty); }
 /* ── 第17弾: 制限時間モード（10分／20分／30分）。クリア条件はその時間まで生存。
    敵の強さ・湧きは分ベースのカーブをそのまま延長し、「クリア後の加速（従来の600秒超）」は
    選択モードのクリア時刻を起点に読み替える。かけら倍率とクリアボーナスは時間比（×1/×2/×3）。
@@ -1664,6 +1722,24 @@ function loadMeta(){
   if (!m || typeof m !== 'object') m = {};
   const st = (m.stats && typeof m.stats === 'object') ? m.stats : {};
   const dy = (m.daily && typeof m.daily === 'object') ? m.daily : {};
+  /* ── 第19弾: 継承Lvの全員リセット移行（一度だけ・移行フラグ prestigeResetV1 で管理）。
+     難易度の大強化に合わせ、継承Lv2以上のプレイヤーは Lv1 にリセットし、
+     失ったレベル数（旧Lv−1）× ⭐10,000 を補填する。Lv0〜1は無変化（引き上げもしない）。
+     移行直後は転生権1回分ありの扱いとし、再達成進捗はリセット（doRebirth の消費時と同じ状態）。
+     適用と同時にフラグ付きで書き戻すため、再読み込みで二重補填が起きることはない。
+     補填があった場合は prestigeResetNotice に金額を残し、タイトルで一度だけお知らせを出す ── */
+  if (!m.prestigeResetV1) {
+    m.prestigeResetV1 = true;
+    const oldInherit = Math.max(0, Math.min(INHERIT_MAX, m.inherit | 0));
+    if (oldInherit >= 2) {
+      const comp = (oldInherit - 1) * 10000;
+      m.inherit = 1;
+      m.shards = Math.max(0, m.shards | 0) + comp;
+      m.rebirthReady = true; m.rbHell = false; m.rbStages = [];
+      m.prestigeResetNotice = comp;
+    }
+    try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) {}
+  }
   /* 第18弾: 転生権（rebirthReady）の移行判定。旧セーブにはフィールドが無いため、
      現在のクリア記録で条件を満たしていれば「1回分は転生できる」状態で開始する */
   const migDc = (m.diffClears && typeof m.diffClears === 'object') ? m.diffClears : {};
@@ -1691,6 +1767,9 @@ function loadMeta(){
     timeMode: TIME_MODES[m.timeMode] ? m.timeMode : 600,
     /* 第4弾拡張: 転生「星の継承」の継承Lv */
     inherit: Math.max(0, Math.min(INHERIT_MAX, m.inherit | 0)),
+    /* 第19弾: 継承リセット移行の適用済みフラグと、お知らせ用の補填額（表示後に0へ戻す） */
+    prestigeResetV1: true,
+    prestigeResetNotice: Math.max(0, m.prestigeResetNotice | 0),
     /* 第18弾: 転生権と「前回転生以降のクリア進捗」。転生は条件を新たに達成するたび1回だけ。
        rebirthReady=転生権の有無 / rbHell=転生以降にヘル以上をクリアしたか / rbStages=転生以降にクリアしたステージ */
     rebirthReady: typeof m.rebirthReady === 'boolean' ? m.rebirthReady : migReady,
@@ -6110,15 +6189,17 @@ function renderDiff(){
   row.innerHTML = '';
   const stageId = STAGES[meta.stageSel] ? meta.stageSel : 'grass';
   const cur = curDiff();
+  const fm = v => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10);
   for (const d of DIFF_ORDER) {
     const dd = DIFFS[d];
+    const eff = diffAt(stageId, d); /* 第19弾: 表示も選択中ステージでの実効倍率に追随 */
     const unlocked = diffUnlocked(stageId, d);
     const cleared = diffCleared(stageId, d);
     const b = document.createElement('button');
     b.className = 'stageCard diffCard' + (cur === d ? ' sel' : '') + (unlocked ? '' : ' locked');
     b.dataset.diff = d;
     const lockMsg = DIFF_ORDER.indexOf(d) <= 0 ? 'ステージ自体が<br>まだ解放されていない' : `このステージの<br>${DIFFS[DIFF_ORDER[DIFF_ORDER.indexOf(d) - 1]].name}クリアで解放`;
-    b.innerHTML = `<div class="stIcon">${unlocked ? dd.icon : '🔒'}</div><div class="stName">${dd.name}</div><div class="stDesc">${unlocked ? `敵HP・攻撃 ×${dd.hp}<br>かけら ×${dd.shard}` : lockMsg}</div><div class="stBest">${cleared ? '👑 クリア済' : ''}</div>`;
+    b.innerHTML = `<div class="stIcon">${unlocked ? dd.icon : '🔒'}</div><div class="stName">${dd.name}</div><div class="stDesc">${unlocked ? `敵HP ×${fm(eff.hp)}・攻撃 ×${fm(eff.dmg)}<br>かけら ×${fm(eff.shard)}` : lockMsg}</div><div class="stBest">${cleared ? '👑 クリア済' : ''}</div>`;
     b.onclick = () => {
       initAudio();
       if (!diffUnlocked(stageId, d)) return;
@@ -6333,6 +6414,23 @@ $('homeTabBtn').onclick = () => { initAudio(); showTab('home'); };
 $('charTabBtn').onclick = () => { initAudio(); showTab('chars'); };
 $('howtoBtn').onclick = () => { initAudio(); $('howtoScr').classList.add('show'); };
 $('howtoCloseBtn').onclick = () => { $('howtoScr').classList.remove('show'); };
+/* ── 第19弾: 継承Lvリセットのお知らせ（補填があった場合に一度だけ表示し、閉じたら二度と出ない） ── */
+function showPrestigeResetNotice(){
+  const amt = meta.prestigeResetNotice | 0;
+  if (amt <= 0) return;
+  const lv = Math.round(amt / 10000);
+  $('prestigeResetText').innerHTML =
+    `⚔️ <b>難易度バランスの大型調整</b>を行いました。<br>` +
+    `これに伴い、全プレイヤーの<b>継承レベルを Lv1 にリセット</b>しました。<br>` +
+    `失った継承レベル（<b>${lv}レベル分</b>）の補填として、<b>⭐${amt.toLocaleString()}</b> を付与しました（ほしのかけら残高に加算済みです）。<br>` +
+    `ハード以上の難易度はこれまでより大幅に手ごわくなっています。継承・ショップ強化・限界突破を積み上げて、少しずつ挑戦してください！`;
+  $('prestigeResetScr').classList.add('show');
+}
+$('prestigeResetCloseBtn').onclick = () => {
+  $('prestigeResetScr').classList.remove('show');
+  meta.prestigeResetNotice = 0; saveMeta(); updateShardUI();
+};
+showPrestigeResetNotice();
 /* キャラ絞り込み・並び替えボタン */
 for (const b of document.querySelectorAll('#charFilters .fBtn[data-f]')) {
   b.onclick = () => { initAudio(); charFilter = b.dataset.f; renderChars(); };
@@ -6406,8 +6504,41 @@ function renderGacha(){
 }
 $('gachaBtn').onclick = () => { initAudio(); gachaLastResults = []; showTab('gacha'); };
 $('gachaCloseBtn').onclick = () => { showTab('home'); renderTitleMeta(); };
-$('gacha1Btn').onclick = () => { initAudio(); const res = gachaDraw(1); if (res) { gachaLastResults = res; sfx.chest(); renderGacha(); } };
-$('gacha10Btn').onclick = () => { initAudio(); const res = gachaDraw(10); if (res) { gachaLastResults = res; sfx.chest(); renderGacha(); } };
+$('gacha1Btn').onclick = () => { initAudio(); const res = gachaDraw(1); if (res) { gachaLastResults = res; sfx.chest(); renderGacha(); showUrGachaFx(res); } };
+$('gacha10Btn').onclick = () => { initAudio(); const res = gachaDraw(10); if (res) { gachaLastResults = res; sfx.chest(); renderGacha(); showUrGachaFx(res); } };
+/* ── 第19弾: ガチャでURが出た時だけの神々しい特別演出。
+   単発・10連を問わず、その回でURが1体でも出たら1回だけ発火する（天井確定経由でも
+   「URが出た」事実で発火）。結果カードは先に通常どおり描画され、演出はその上に被さる。
+   タップでスキップでき、自動でも約3秒で閉じて結果表示に合流する ── */
+let urFxActive = false, urFxTimer = null, urFxCount = 0;
+function showUrGachaFx(results){
+  const urs = (results || []).filter(r => r.rarity === 'UR');
+  if (!urs.length) return;
+  urFxActive = true; urFxCount++;
+  drawCharIcon($('urFxCanvas'), urs[0].id);
+  $('urFxName').textContent = urs.map(r => CHARS[r.id].name).join(' ＆ ');
+  const parts = $('urFxParts'); parts.innerHTML = '';
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement('span');
+    s.className = 'urP';
+    const sz = 5 + Math.random() * 9;
+    s.style.width = sz + 'px'; s.style.height = sz + 'px';
+    s.style.left = (4 + Math.random() * 92) + '%';
+    s.style.animationDelay = (Math.random() * 1.1) + 's';
+    parts.appendChild(s);
+  }
+  $('urFxScr').classList.add('show');
+  sfx.urFanfare();
+  clearTimeout(urFxTimer);
+  urFxTimer = setTimeout(hideUrGachaFx, 3000);
+}
+function hideUrGachaFx(){
+  if (!urFxActive) return;
+  urFxActive = false;
+  clearTimeout(urFxTimer);
+  $('urFxScr').classList.remove('show');
+}
+$('urFxScr').onclick = () => { initAudio(); hideUrGachaFx(); };
 /* ── 星の継承（転生）パネル ── */
 function renderRebirth(){
   const lv = meta.inherit | 0;
@@ -7069,6 +7200,8 @@ window.__surv = {
   xpForLevel, maxHp: () => maxHp(), dmgMul: () => dmgMul(), moveSpeed: () => moveSpeed(), magnetR: () => magnetR(), xpMul: () => xpMul(),
   hpScale, dmgScale, critRate: () => critRate(), critDmgMul: () => critDmgMul(), cdMul: () => cdMul(), gemValMul: () => gemValMul(),
   MAX_WLV, MAX_PASSIVES, lbOf, LB_MAX, GACHA_POOLS, gachaDraw, renderGacha, rollGachaRarity,
+  /* 第19弾: URガチャ演出 */
+  showUrGachaFx, hideUrGachaFx, get urFxActive(){ return urFxActive; }, get urFxCount(){ return urFxCount; },
   /* 第5弾: レアリティ・UR天井・新価格・UR専用武器 */
   charRarity, isURChar, RARITY_COLORS, GACHA_COST1, GACHA_COST10, GACHA_REFUND, GACHA_PITY_UR,
   stageDef, stageUnlocked, stageBestRec,
@@ -7101,7 +7234,7 @@ window.__surv = {
   openWeaponDetail, closeWeaponDetail, weaponDetailRows, get wDetailId(){ return wDetailId; },
   dmgMulFor: p => dmgMul(p), gemValMulFor: p => gemValMul(p), maxHpFor: p => maxHp(p),
   /* 第4弾: 難易度・転生・ランダムイベント */
-  DIFFS, DIFF_ORDER, diffDef, diffUnlocked, diffCleared, curDiff, renderDiff,
+  DIFFS, DIFF_ORDER, diffDef, diffAt, diffUnlocked, diffCleared, curDiff, renderDiff,
   setDifficulty: d => { if (DIFFS[d]) { meta.diff = d; S.difficulty = d; saveMeta(); renderTitleMeta(); } },
   INHERIT_MAX, inheritDmgMul, inheritShardMul, rebirthEligible, canRebirth, doRebirth, renderRebirth,
   EVENT_KINDS, triggerEvent, guestOnEvent, MERCHANT_ITEMS, buyMerchant, openMerchant, closeMerchant,
