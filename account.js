@@ -323,6 +323,9 @@
   }
   var seededFromStash = false;
   var seedMap = null;   /* 種付けで採用した key -> 値（ハイドレーションとの整合判定用） */
+  var seededDirty = null; /* 種付けで引き継いだ未送信分（key -> 文字列 | null=削除）。
+                             dirtyVals の初期値として後段で取り込む（この IIFE の
+                             時点では dirtyVals はまだ初期化されていないため別変数に受ける） */
   (function seedFromStash() {
     try {
       var raw = String(window.name || '');
@@ -340,6 +343,22 @@
       Object.keys(pack.data).forEach(function (k) {
         if (typeof pack.data[k] === 'string') { memStore[k] = pack.data[k]; seedMap[k] = pack.data[k]; }
       });
+      /* 未送信（クラウド到達が未確認）の書き込みを引き継ぐ。前ページで
+         送信待ち・送信中だった値は、クラウドの古い値より新しいので、
+         ハイドレーションで潰されないよう dirtyVals へ復元する（初期化は
+         後段）。メモリ上の値も未送信の値で確定させる（削除はメモリからも消す） */
+      if (pack.dirty && typeof pack.dirty === 'object') {
+        seededDirty = {};
+        Object.keys(pack.dirty).forEach(function (k) {
+          if (!syncableKey(k)) return;
+          var v = pack.dirty[k];
+          if (typeof v === 'string') {
+            memStore[k] = v; seedMap[k] = v; seededDirty[k] = v;
+          } else if (v === null) {
+            delete memStore[k]; delete seedMap[k]; seededDirty[k] = null;
+          }
+        });
+      }
       seededFromStash = true;
     } catch (e) {}
   })();
@@ -566,20 +585,45 @@
      単純化し、以後の書き込みはメモリ→クラウドの一方通行にする。 */
   var hydratedUid = null;    /* ハイドレーションが完了した uid（これ以外ではアップロードしない） */
   var hydrating = false;
-  var dirtyVals = {};        /* key -> string（未送信の値）| null（未送信の削除） */
+  /* key -> string（未送信の値）| null（未送信の削除）。
+     「クラウド到達が確認できていない」書き込みの唯一の台帳。種付けで
+     前ページから引き継いだ分（seededDirty）を初期値として取り込む。
+     送信中のキーも ack が返るまではここに残す（uploadDirty 参照） */
+  var dirtyVals = seededDirty || {};
+  seededDirty = null;
+  var uploadInFlight = {};   /* key -> 送信中の値（string | null）。二重送信防止用 */
   var pendingUploads = 0;    /* 送信中のセーブ数（復帰時リフレッシュの削除判定ガード） */
+  var ackWaiters = [];       /* flushUploads の完了待ち（全送信が settle したら解決） */
+  var saveError = false;     /* 直近のアップロード失敗をステータスに出しているか */
+  var SAVE_ERROR_MSG = 'セーブの保存に失敗しました（通信環境を確認してください）';
   var uploadTimer = null;
   var friendsUploadTimer = null;
   var stashTimer = null;
+  /* アカウント切替・ログアウト・初期化のときに未送信台帳を破棄する。
+     完了待ちの Promise は「未確認（ok:false）」として解決しておく */
+  function clearUploadQueue() {
+    dirtyVals = {};
+    saveError = false;
+    if (ackWaiters.length) {
+      var ws = ackWaiters; ackWaiters = [];
+      ws.forEach(function (r) { r({ ok: false, remaining: 0 }); });
+    }
+  }
 
   /* window.name への引き継ぎを現在のメモリ内容で更新する（ログイン中のみ）。
-     ゲストでは何も保持しない（リロードで消えるのが仕様）。 */
+     ゲストでは何も保持しない（リロードで消えるのが仕様）。
+     値（data）に加えて、クラウド到達が未確認の書き込み（dirty: 送信待ち＋
+     送信中の両方。送信中キーも ack までは dirtyVals に残るので、これで
+     両方カバーできる）も一緒に渡す。遷移先は dirty を dirtyVals へ復元し、
+     ハイドレーションで古いクラウド値に潰されずに再送できる。 */
   function stashWrite() {
     try {
       if (!me) { stashClear(); return; }
       var data = {};
       Object.keys(memStore).forEach(function (k) { data[k] = memStore[k]; });
-      var s = STASH_PREFIX + JSON.stringify({ uid: me.uid, ts: nowMs(), data: data });
+      var dirty = {};
+      Object.keys(dirtyVals).forEach(function (k) { dirty[k] = dirtyVals[k]; });
+      var s = STASH_PREFIX + JSON.stringify({ uid: me.uid, ts: nowMs(), data: data, dirty: dirty });
       if (s.length > STASH_MAX) { stashClear(); return; }
       window.name = s;
     } catch (e) {}
@@ -600,9 +644,8 @@
     return keys.map(function (k) { return k + '=' + memStore[k]; }).join('\n');
   }
   /* 書き込みをアップロード待ちにする。実際の送信はハイドレーション完了後だけ
-     （完了前の書き込みは「クラウドに無いキー」に限って完了後に上げる。
-     クラウドにあるキーへの完了前の書き込みは、ハイドレーションで
-     クラウドの値に置き換わる＝破棄される） */
+     （完了前の書き込みも dirtyVals に残り、ハイドレーションでは守られ、
+     完了後の flushUploads で送られる） */
   function markDirty(key) {
     if (!syncableKey(key)) return;
     dirtyVals[key] = Object.prototype.hasOwnProperty.call(memStore, key) ? memStore[key] : null;
@@ -612,9 +655,43 @@
     if (uploadTimer) return;
     uploadTimer = setTimeout(function () { uploadTimer = null; uploadDirty(); }, UPLOAD_DEBOUNCE_MS);
   }
+  /* 未送信分が全て settle（送信中がゼロ）するまで待つ Promise。
+     解決値 { ok, remaining }: ok は未送信が残っていないこと。失敗した
+     キーは dirtyVals に残るので、その場合は ok:false で解決する
+     （データ自体は dirtyVals とシード引き継ぎで保持され、次ページで再送される） */
+  function uploadsSettled() {
+    if (pendingUploads === 0) {
+      var n = Object.keys(dirtyVals).length;
+      return Promise.resolve({ ok: n === 0, remaining: n });
+    }
+    return new Promise(function (res) { ackWaiters.push(res); });
+  }
+  function checkAckWaiters() {
+    if (pendingUploads !== 0 || !ackWaiters.length) return;
+    var n = Object.keys(dirtyVals).length;
+    var res = { ok: n === 0, remaining: n };
+    var ws = ackWaiters; ackWaiters = [];
+    ws.forEach(function (r) { r(res); });
+  }
+  /* 送信失敗を見える化する。連続失敗でステータスが荒れないよう、
+     表示は「失敗状態への遷移時」だけ行い、持ち直したら通常表示へ戻す */
+  function noteUploadFailure() {
+    var first = !saveError;
+    saveError = true;
+    if (first) setStatus(SAVE_ERROR_MSG);
+  }
+  function noteUploadSuccess() {
+    if (!saveError) return;
+    if (pendingUploads !== 0 || Object.keys(dirtyVals).length !== 0) return;
+    saveError = false;
+    if (statusText === SAVE_ERROR_MSG) setStatus('クラウドセーブ有効');
+  }
+  /* デバウンス待ちを即時送信し、現在の未送信分が全て ack されるまでを
+     Promise で返す（呼び出し側は無視してもよい） */
   function flushUploads() {
     if (uploadTimer) { clearTimeout(uploadTimer); uploadTimer = null; }
     uploadDirty();
+    return uploadsSettled();
   }
   function scheduleFriendsUpload() {
     if (friendsUploadTimer) return;
@@ -631,32 +708,52 @@
     return true;
   }
 
-  /* ---------------- アップロード（メモリ→Firestore の一方通行） ---------------- */
+  /* ---------------- アップロード（メモリ→Firestore の一方通行） ----------------
+     キーは ack（成功確認）が返るまで dirtyVals に残し続ける。送信中は
+     uploadInFlight で二重送信を防ぐ。失敗したキーは dirtyVals に残った
+     ままになり、次の書き込み・flush・15秒間隔・次ページ（シード引き継ぎ）
+     で再送される。送信中に同じキーへ新しい値が書かれた場合は、ack 時に
+     値が食い違うので dirty に残し、改めて送る。 */
   function uploadDirty() {
     if (!me || !fb || hydratedUid !== me.uid) return;
     var keys = Object.keys(dirtyVals);
     if (!keys.length) return;
     var uid = me.uid;
     keys.forEach(function (k) {
+      if (Object.prototype.hasOwnProperty.call(uploadInFlight, k)) return; /* 送信中は二重送信しない */
       var v = dirtyVals[k];
-      delete dirtyVals[k];
+      uploadInFlight[k] = v;
       pendingUploads++;
       var job = (v === null)
         ? saveDoc(uid, k).delete()
         : saveDoc(uid, k).set({ v: v, updatedAt: nowMs(), deleted: false });
-      job.then(function () { pendingUploads--; }, function () {
+      job.then(function () {
         pendingUploads--;
-        /* 失敗したら次回リトライ用に戻す（その間に新しい値が来ていればそちらを優先） */
-        if (!Object.prototype.hasOwnProperty.call(dirtyVals, k)) dirtyVals[k] = v;
+        delete uploadInFlight[k];
+        /* ack: 送った値と現在の未送信値が一致する時だけ台帳から外す。
+           アカウントが切り替わっていたら他人の台帳には触らない */
+        if (me && me.uid === uid && dirtyVals[k] === v) delete dirtyVals[k];
+        if (me && me.uid === uid) {
+          noteUploadSuccess();
+          if (Object.prototype.hasOwnProperty.call(dirtyVals, k)) scheduleUpload(); /* 送信中の新値を送る */
+        }
+        checkAckWaiters();
+      }, function () {
+        pendingUploads--;
+        delete uploadInFlight[k];
+        /* 失敗: キーは dirtyVals に残ったまま（値は消さない）。見える化する */
+        if (me && me.uid === uid) noteUploadFailure();
+        checkAckWaiters();
       });
     });
   }
 
   /* ---------------- ハイドレーション（Firestore→メモリ） ----------------
      ログイン時にそのアカウントのセーブ全キーとフレンド一覧をメモリへ読み込む。
-     この時点ではクラウドが正:
+     基本はこの時点ではクラウドが正だが、未送信（dirtyVals）のキーは例外:
        - クラウドにあるキー → メモリをクラウドの値にする
-         （読み込み待ちの間にゲームが書いた初期値などは破棄される）
+       - 未送信のキー（このページで書かれた分＋種付けで引き継いだ分） →
+         ローカルの値がクラウドより新しいので守り、完了後にアップロードする
        - クラウドに無いキーで、読み込み待ちの間に書かれたもの → 残して後で上げる
        - クラウドに無く、未送信でもないメモリ上のキー（他端末で削除された等）
          → メモリからも消す（送信中のものがある間は安全のため消さない）
@@ -701,7 +798,10 @@
       var diverged = false;
       Object.keys(cloud).forEach(function (k) {
         if (!syncableKey(k)) return;
-        delete dirtyVals[k];                     /* クラウドにあるキーはクラウドが正 */
+        /* 未送信（クラウド到達が未確認）のキー: ローカルの値のほうが
+           クラウドより新しい。クラウドで上書きせず、ハイドレーション
+           完了後の flushUploads で送る（種付けで引き継いだ分も含む） */
+        if (Object.prototype.hasOwnProperty.call(dirtyVals, k)) return;
         if (memStore[k] !== cloud[k]) { memStore[k] = cloud[k]; changed = true; }
         if (seedMap && seedMap[k] !== cloud[k]) diverged = true;
       });
@@ -758,7 +858,7 @@
       return userDoc(uid).set({ stats: {}, mainChar: '' }, { merge: true });
     }).then(function () {
       memStore = {};
-      dirtyVals = {};
+      clearUploadQueue();
       lastExtrasJson = '';
       myProfile.stats = {};
       myProfile.mainChar = '';
@@ -842,16 +942,36 @@
       if (RESTORE_EXCLUDE[k] || !syncableKey(k)) { excluded++; return; }
       try { localStorage.setItem(k, v); applied++; } catch (e) {}
     });
-    flushUploads();                    /* その場でクラウドへ上げる */
+    /* その場でクラウドへ上げる。完了表示は「全ての書き込みが ack された
+       後」に確定させる（投げっぱなしで成功表示にしない）。失敗が残った
+       場合はその旨を表示するが、データ自体は dirtyVals とシード引き継ぎ
+       で保持され、次に開いたページで再送される */
+    var settled = flushUploads();
     if (friendsApplied) uploadFriends();
     stashWrite();                      /* ページ間引き継ぎ（シード）も最新化 */
     var msg = 'バックアップから復元しました（セーブ' + applied + '件' +
       (friendsApplied ? '・フレンド' : '') + '）';
-    setStatus(msg);
-    return {
+    setStatus('復元したセーブをクラウドへ保存しています…');
+    var result = {
       ok: true, applied: applied, friends: friendsApplied,
       skipped: skipped, excluded: excluded, exportedAt: info.exportedAt, msg: msg
     };
+    result.settled = settled.then(function (r) {
+      if (r.ok) {
+        setStatus(msg);
+        return {
+          ok: true, applied: applied, friends: friendsApplied, confirmed: true,
+          skipped: skipped, excluded: excluded, exportedAt: info.exportedAt, msg: msg
+        };
+      }
+      setStatus(SAVE_ERROR_MSG);
+      return {
+        ok: true, applied: applied, friends: friendsApplied, confirmed: false,
+        skipped: skipped, excluded: excluded, exportedAt: info.exportedAt,
+        msg: msg + '\n（一部のセーブはまだ保存できていません。通信環境を確認してください。次にゲームを開いたときに再送されます）'
+      };
+    });
+    return result;
   }
 
   /* ---------------- localStorage のメモリ化（保存シム・v66〜常時有効） ----------------
@@ -1361,7 +1481,7 @@
            メモリはここで破棄し、旧方式の「初回移行アップロード」はしない。
            そのまま onAuthUser を駆動してハイドレーション（空）を開始する */
         memStore = {};
-        dirtyVals = {};
+        clearUploadQueue();
         hydratedUid = null;
         stashClear();
         authTransition = null;
@@ -1396,7 +1516,7 @@
            ゲスト分でクラウドを上書きしない）。そのまま onAuthUser を駆動し、
            このアカウントのクラウドからハイドレーションする */
         memStore = {};
-        dirtyVals = {};
+        clearUploadQueue();
         hydratedUid = null;
         stashClear();
         authTransition = null;
@@ -1419,7 +1539,7 @@
        次回ログイン時にそのアカウント分だけ読み直される */
     hydratedUid = null;
     memStore = {};
-    dirtyVals = {};
+    clearUploadQueue();
     stashClear();
     setGate('guest');
     updatePill(); updateModal(); updateSearchRow();
@@ -1433,7 +1553,7 @@
       myCreatedAtMs = null;
       hydratedUid = null;
       memStore = {};
-      dirtyVals = {};
+      clearUploadQueue();
       stashClear();
       setGate(sdkState === 'unavailable' ? 'sdk-down' : 'guest');
       updatePill(); updateModal(); updateSearchRow();
@@ -1461,7 +1581,7 @@
       myCreatedAtMs = null;
       hydratedUid = null;
       memStore = {};
-      dirtyVals = {};
+      clearUploadQueue();
       stashClear();
     }
     var uid = user.uid;
@@ -1717,12 +1837,17 @@
           var when = info.exportedAt ? '\n書き出し日時: ' + info.exportedAt : '';
           if (!window.confirm('バックアップから復元しますか？' + when + '\n' + info.total + '件のデータで、現在のセーブを上書きします。')) return;
           var r = restoreFromBackup(info);
-          if (r.ok) {
-            var extra = (r.skipped + r.excluded) > 0 ? '\n（対象外 ' + (r.skipped + r.excluded) + '件は取り込みませんでした）' : '';
-            window.alert(r.msg + extra + '\n各ゲームを開き直すと反映されます。');
-          } else {
-            window.alert(r.msg);
-          }
+          var showRestoreResult = function (rr) {
+            if (rr.ok) {
+              var extra = (rr.skipped + rr.excluded) > 0 ? '\n（対象外 ' + (rr.skipped + rr.excluded) + '件は取り込みませんでした）' : '';
+              window.alert(rr.msg + extra + '\n各ゲームを開き直すと反映されます。');
+            } else {
+              window.alert(rr.msg);
+            }
+          };
+          /* 完了表示はクラウドへの保存が確認できてから出す */
+          if (r && r.settled && typeof r.settled.then === 'function') r.settled.then(showRestoreResult);
+          else showRestoreResult(r);
         };
         reader.onerror = function () { setStatus('ファイルの読み込みに失敗しました'); };
         reader.readAsText(f);
@@ -2230,6 +2355,8 @@
          v66 では常時メモリ化のため、ログイン中は false / それ以外は true */
       guestActive: function () { return gateState !== 'member'; },
       memStore: function () { var c = {}; Object.keys(memStore).forEach(function (k) { c[k] = memStore[k]; }); return c; },
+      statusText: function () { return statusText; },
+      inFlightKeys: function () { var c = {}; Object.keys(uploadInFlight).forEach(function (k) { c[k] = true; }); return c; },
       hydratedUid: function () { return hydratedUid; },
       seededFromStash: function () { return seededFromStash; },
       purgeKeyList: function () { return PURGE_KEYS.slice(); },

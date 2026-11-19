@@ -2498,18 +2498,25 @@ $('#btnFlee').onclick = () => {
 let curBanner = 'pickup';
 const RAR_ORDER = { R:0, SR:1, SSR:2, UR:3 };
 
-/* ── お詫びキャンペーン（2026-11-20 限定：確率UP＋詫び石） ──
+/* ── お詫びキャンペーン（2026-11-20 限定：確率UP＋天井緩和＋詫び石） ──
    セーブデータ不具合への補填。期間は APOLOGY_END まで。
-   対象は APOLOGY_ACCOUNT_CUTOFF より前に作成されたアカウントのみ。 */
+   対象は APOLOGY_ACCOUNT_CUTOFF より前に作成されたアカウントのみ。
+   詫び石は当初 6,000 だったが増額して総額 60,000 に（受け取り済み額との差額制）。 */
 const APOLOGY_END = Date.parse('2026-11-20T23:59:59+09:00');
 const APOLOGY_ACCOUNT_CUTOFF = Date.parse('2026-11-20T00:00:00+09:00');
-const APOLOGY_GEMS = 6000;
+const APOLOGY_GEMS = 60000;      /* 受け取り総額（v70 の 6,000 から10倍に増額） */
+const APOLOGY_GEMS_OLD = 6000;   /* v70 での配布額（旧フラグのみの人の受け取り済み額） */
 const GACHA_RATES_NORMAL = { UR:0.05, SSR:2, SR:17.5, R:80.45 };
 const GACHA_RATES_APOLOGY = { UR:0.5, SSR:4, SR:17.5, R:78 };
 function apologyActiveAt(now){ return typeof now === 'number' && now < APOLOGY_END; }
 /* 確率は「現在時刻から決まる純粋関数」で選ぶ（テスト可能） */
 function gachaRatesAt(now){ return apologyActiveAt(now) ? GACHA_RATES_APOLOGY : GACHA_RATES_NORMAL; }
 function currentGachaRates(){ return gachaRatesAt(Date.now()); }
+const PITY_NORMAL = { SSR:90, UR:1000 };
+const PITY_APOLOGY = { SSR:30, UR:100 };
+/* 天井も確率と同じく「現在時刻から決まる純粋関数」で選ぶ（期間中だけ緩和） */
+function pityAt(now){ return apologyActiveAt(now) ? PITY_APOLOGY : PITY_NORMAL; }
+function currentPity(){ return pityAt(Date.now()); }
 function rateShort(v){ return String(Math.round(v * 100) / 100); }
 function ratePct(v){ return v.toFixed(2) + '%'; }
 function myAccountCreatedAt(){
@@ -2525,21 +2532,35 @@ function apologyEligible(){
   const c = myAccountCreatedAt();
   return c !== null && c < APOLOGY_ACCOUNT_CUTOFF;
 }
-/* 'ended'（期間外）| 'claimed'（受取済）| 'ineligible'（対象外）| 'available'（受取可） */
+/* 受け取り済み額：新フィールド（数値）があればその値、無くて旧フラグだけなら旧額、どちらも無ければ 0 */
+function apologyReceived(){
+  if (!S) return 0;
+  if (typeof S.apologyGift20261120 === 'number' && isFinite(S.apologyGift20261120)) return S.apologyGift20261120;
+  if (S.apology20261120 === true) return APOLOGY_GEMS_OLD;
+  return 0;
+}
+function apologyRemaining(){
+  return Math.max(0, APOLOGY_GEMS - apologyReceived());
+}
+/* 'ended'（期間外）| 'claimed'（全額受取済）| 'ineligible'（対象外）| 'available'（受取可） */
 function apologyStateAt(now){
   const t = (typeof now === 'number') ? now : Date.now();
   if (!apologyActiveAt(t)) return 'ended';
-  if (S && S.apology20261120) return 'claimed';
+  if (apologyRemaining() <= 0) return 'claimed';
   if (!apologyEligible()) return 'ineligible';
   return 'available';
 }
+/* 受け取れたら加算した額（>0）、受け取れなければ 0 を返す */
 function claimApology(now){
-  if (!S) return false;
-  if (apologyStateAt(now) !== 'available') return false;
-  S.gems += APOLOGY_GEMS;
+  if (!S) return 0;
+  if (apologyStateAt(now) !== 'available') return 0;
+  const amount = apologyRemaining();
+  if (amount <= 0) return 0;
+  S.gems += amount;
+  S.apologyGift20261120 = APOLOGY_GEMS;
   S.apology20261120 = true;
   save();
-  return true;
+  return amount;
 }
 function renderApology(){
   const box = $('#apologyCard');
@@ -2548,13 +2569,18 @@ function renderApology(){
   if (st === 'ended') { box.innerHTML = ''; box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
   if (st === 'available') {
+    const rest = apologyRemaining();
+    const got = apologyReceived();
     box.innerHTML = '<div class="bannerCard" id="apologyClaimBtn" style="cursor:pointer">' +
-      '<div class="bt">🎁 お詫び：💎' + fmt(APOLOGY_GEMS) + ' 受け取り</div>' +
-      '<div class="bs">セーブデータの不具合のお詫びです。本日（11/20）限定・対象アカウントのみ、1回だけ受け取れます。</div>' +
+      '<div class="bt">🎁 お詫び：💎' + fmt(rest) + ' 受け取り</div>' +
+      '<div class="bs">' + (got > 0
+        ? '補填の増額分です。お詫びジェム合計💎' + fmt(APOLOGY_GEMS) + 'のうち、残り💎' + fmt(rest) + 'を受け取れます（11/20限定）。'
+        : 'セーブデータの不具合のお詫びです。本日（11/20）限定・対象アカウントのみ、1回だけ受け取れます。') + '</div>' +
       '<span class="bgo">受け取る ›</span></div>';
     const btn = $('#apologyClaimBtn');
     if (btn) btn.onclick = () => {
-      if (claimApology()) { sfx.win(); toast('💎 お詫びのジェム ' + fmt(APOLOGY_GEMS) + ' を受け取った！'); }
+      const amount = claimApology();
+      if (amount > 0) { sfx.win(); toast('💎 お詫びのジェム ' + fmt(amount) + ' を受け取った！'); }
       renderHome(); renderResBar();
     };
   } else if (st === 'claimed') {
@@ -2592,8 +2618,11 @@ function pullOne(banner, opts){
   if (opts.forceChar) { ch = CHAR_MAP[opts.forceChar]; }
   else {
     let rar;
-    if (S.gacha.urPity >= 999) rar = 'UR';
-    else { rar = rollRarity(opts.rates || (opts.noBoost ? GACHA_RATES_NORMAL : currentGachaRates())); if (rar !== 'UR' && rar !== 'SSR' && S.gacha.ssrPity >= 89) rar = 'SSR'; }
+    /* 天井：期間中は緩和（SSR30連/UR100連）。カウンタが実効閾値以上なら次抽選で即確定。
+       チュートリアル（noBoost）は従来どおり通常天井のまま（緩和の対象外） */
+    const pity = opts.noBoost ? PITY_NORMAL : currentPity();
+    if (S.gacha.urPity >= pity.UR - 1) rar = 'UR';
+    else { rar = rollRarity(opts.rates || (opts.noBoost ? GACHA_RATES_NORMAL : currentGachaRates())); if (rar !== 'UR' && rar !== 'SSR' && S.gacha.ssrPity >= pity.SSR - 1) rar = 'SSR'; }
     if (opts.minRarity && RAR_ORDER[rar] < RAR_ORDER[opts.minRarity]) rar = opts.minRarity;
     if (opts.forceRarity) rar = opts.forceRarity;
     ch = pickFromRarity(rar, banner);
@@ -2646,11 +2675,12 @@ function renderGacha(){
     $('#gbArt').innerHTML = (typeof ART_HOME !== 'undefined' && ART_HOME.astraia) ? '<img src="' + ART_HOME.astraia + '" alt="">' : '';
   } else {
     $('#gbTitle').textContent = '通常召喚';
-    $('#gbDesc').innerHTML = '全キャラが均等に出る基本の召喚。<br>天井（SSR90連/UR1000連）はバナー共通でカウントされるよ。';
+    $('#gbDesc').innerHTML = '全キャラが均等に出る基本の召喚。<br>天井（SSR' + currentPity().SSR + '連/UR' + currentPity().UR + '連）はバナー共通でカウントされるよ。';
     $('#gbArt').innerHTML = (typeof KEYVISUAL !== 'undefined' && KEYVISUAL) ? '<img src="' + KEYVISUAL + '" alt="">' : '';
   }
-  $('#pitySsr').textContent = 90 - S.gacha.ssrPity;
-  $('#pityUr').textContent = 1000 - S.gacha.urPity;
+  const pityNow = currentPity();
+  $('#pitySsr').textContent = Math.max(1, pityNow.SSR - S.gacha.ssrPity);
+  $('#pityUr').textContent = Math.max(1, pityNow.UR - S.gacha.urPity);
   $('#pullTotal').textContent = S.gacha.total;
   const tut = S.tutorial.step === 'gacha' && !S.tutorial.done;
   $('#btnPull10').innerHTML = tut ? '🎁 チュートリアル10連<br><span style="font-size:12px">無料！ SSR確定</span>' : '10回召喚<br><span style="font-size:12px">💎 3,000 / SR以上1枚確定</span>';
@@ -2659,10 +2689,10 @@ function renderGacha(){
   const rates = currentGachaRates();
   const ab = $('#apologyGachaBanner');
   if (ab) ab.innerHTML = apologyActiveAt(Date.now())
-    ? '<div class="card" style="margin-bottom:10px;border:1.5px solid rgba(255,215,110,.8);background:linear-gradient(120deg,#5e226e,#8a2a4e);font-weight:800;line-height:1.6">🎁 期間限定：UR・SSR確率UP中！<br><span style="font-size:12px">UR ' + rateShort(rates.UR) + '% / SSR ' + rateShort(rates.SSR) + '%（11/20 23:59まで・両バナー共通）</span></div>'
+    ? '<div class="card" style="margin-bottom:10px;border:1.5px solid rgba(255,215,110,.8);background:linear-gradient(120deg,#5e226e,#8a2a4e);font-weight:800;line-height:1.6">🎁 期間限定：UR・SSR確率UP中！<br><span style="font-size:12px">UR ' + rateShort(rates.UR) + '% / SSR ' + rateShort(rates.SSR) + '%（11/20 23:59まで・両バナー共通）<br>天井も緩和中（SSR' + PITY_APOLOGY.SSR + '連・UR' + PITY_APOLOGY.UR + '連）</span></div>'
     : '';
   const rn = $('#gachaRatesNote');
-  if (rn) rn.innerHTML = 'UR ' + rateShort(rates.UR) + '% / SSR ' + rateShort(rates.SSR) + '% / SR ' + rateShort(rates.SR) + '% / R ' + rateShort(rates.R) + '%。90連以内にSSR以上、1000連以内にURが必ず出る天井つき。<br>かぶったキャラは限界突破（最大5凸）。URは5凸で「覚醒」してさらに強くなるよ。';
+  if (rn) rn.innerHTML = 'UR ' + rateShort(rates.UR) + '% / SSR ' + rateShort(rates.SSR) + '% / SR ' + rateShort(rates.SR) + '% / R ' + rateShort(rates.R) + '%。' + pityNow.SSR + '連以内にSSR以上、' + pityNow.UR + '連以内にURが必ず出る天井つき。<br>かぶったキャラは限界突破（最大5凸）。URは5凸で「覚醒」してさらに強くなるよ。';
 }
 $('#bannerTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { curBanner = b.dataset.banner; renderGacha(); } });
 $('#btnPull1').onclick = () => {
@@ -2678,9 +2708,9 @@ $('#btnRates').onclick = () => {
   const rates = currentGachaRates();
   const boosted = apologyActiveAt(Date.now());
   openModal('<h3>提供割合</h3>' +
-    [['UR', ratePct(rates.UR) + '（天井：1000連）'], ['SSR', ratePct(rates.SSR) + '（天井：90連）'], ['SR', ratePct(rates.SR)], ['R', ratePct(rates.R)]]
+    [['UR', ratePct(rates.UR) + '（天井：' + currentPity().UR + '連）'], ['SSR', ratePct(rates.SSR) + '（天井：' + currentPity().SSR + '連）'], ['SR', ratePct(rates.SR)], ['R', ratePct(rates.R)]]
       .map(r => '<div class="kvRow"><span><span class="rarTag rar-' + r[0] + '">' + r[0] + '</span></span><span>' + r[1] + '</span></div>').join('') +
-    (boosted ? '<p class="note" style="margin-top:8px;color:#ffd76e;font-weight:800">🎁 期間限定でUR・SSRの確率がUP中です（11/20 23:59まで）。</p>' : '') +
+    (boosted ? '<p class="note" style="margin-top:8px;color:#ffd76e;font-weight:800">🎁 期間限定でUR・SSRの確率がUP中です（11/20 23:59まで）。天井もSSR' + PITY_APOLOGY.SSR + '連・UR' + PITY_APOLOGY.UR + '連に緩和中です。</p>' : '') +
     '<p class="note" style="margin-top:8px">10回召喚では SR以上が1枚確定。ピックアップ召喚では、UR/SSRが出た際に50%の確率でピックアップ対象キャラになります。天井カウントはバナー共通です。</p>' +
     '<button class="btn ghost big" id="mClose" style="margin-top:10px">閉じる</button>');
   $('#mClose').onclick = closeModal;
@@ -3140,7 +3170,7 @@ window.__ls = {
   setRng(fn){ RNG = fn || Math.random; }, setFast(v){ FAST = !!v; },
   go, save, loadSave, charStats, partyPower, stageFoes, isAwakened,
   pullOne, doPulls, tutorialPull, claimLoginBonus, missionProg, rollRarity,
-  apology: { activeAt: apologyActiveAt, ratesAt: gachaRatesAt, stateAt: apologyStateAt, claim: claimApology, eligible: apologyEligible, createdAt: myAccountCreatedAt, END: APOLOGY_END, CUTOFF: APOLOGY_ACCOUNT_CUTOFF, GEMS: APOLOGY_GEMS },
+  apology: { activeAt: apologyActiveAt, ratesAt: gachaRatesAt, pityAt: pityAt, stateAt: apologyStateAt, claim: claimApology, eligible: apologyEligible, createdAt: myAccountCreatedAt, received: apologyReceived, remaining: apologyRemaining, END: APOLOGY_END, CUTOFF: APOLOGY_ACCOUNT_CUTOFF, GEMS: APOLOGY_GEMS, GEMS_OLD: APOLOGY_GEMS_OLD, PITY_NORMAL: PITY_NORMAL, PITY_APOLOGY: PITY_APOLOGY },
   newBattle, startStoryBattle, endPlayerTurn,
   placeActive, playBench, attachEnergy, attack, doRetreat, resolvePromote,
   activeOf, handOf, benchOf, deckOf, promoteAuto, pokeCardHTML,

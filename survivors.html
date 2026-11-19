@@ -625,14 +625,14 @@ html,body{overscroll-behavior:none;}
     <h2 class="tabHead">🎰 キャラガチャ</h2>
     <p class="subTitle">キャラは<b>ガチャでしか手に入らない</b>。被ると限界突破でさらに強化。</p>
     <div class="shardBox" id="gachaShardBox"></div>
-    <div id="gachaUpBanner" style="display:none">🔥 期間限定：UR・SSR確率UP中！（2026/11/20 本日限り）</div>
+    <div id="gachaUpBanner" style="display:none">🔥 期間限定：UR・SSR確率UP中！ 天井も緩和中（SSR 30連・UR 100連）（2026/11/20 本日限り）</div>
     <div class="gachaRates">
       <span class="rUR" id="rateUR">UR 0.05%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ／るあ／たいち／すい／セラフィア／ルシフェル／タマモ）※UR専用武器が使える<br>
       <span class="rSSR" id="rateSSR">SSR 2%</span>： ガチャ限定の強キャラ<br>
       <span class="rSR" id="rateSR">SR 17.5%</span>： 頼れる実力派ねこ<br>
       <span class="rR" id="rateR">R 80.45%</span>： 個性豊かなねこたち<br>
       ・10連は <b>SR以上1体確定</b><br>
-      ・天井： SSRは90連外すと次の1回で <b>SSR確定</b>（天井まで最大91連）／ URは1000連外すと次の1回で <b>UR確定</b>（最大1001連）<br>
+      <span id="gachaPityRule">・天井： SSRは90連外すと次の1回で <b>SSR確定</b>（天井まで最大91連）／ URは1000連外すと次の1回で <b>UR確定</b>（最大1001連）</span><br>
       ・所持済みが被ると <b>限界突破</b>（最大5凸： 1凸ごとに与ダメージ+4%・最大HP+3%）<br>
       ・URが5凸に到達すると <b>🌟フル覚醒</b>： イラストが豪華な覚醒バージョンに変化＋能力が大幅アップ（与ダメージ×1.5・全武器CD-15%・クリ率+10%・クリダメ+50%・最大HP×1.25・速度+8%）！<br>
       ・5凸済みが被ると かけら返還（R ⭐200／SR ⭐600／SSR ⭐2,000／UR ⭐5,000）
@@ -1575,7 +1575,9 @@ function claimAllRewards(){
    gachaPity = 「SSRが出ていない連続連数」。90に達した次の1回が確定枠なので、
    「あと N 連」= その N 連目で必ず確定が出る、という意味で N = 91 - pity とする ── */
 function gachaPityLeft(){
-  return { ssr: GACHA_PITY_MAX + 1 - meta.gachaPity, ur: GACHA_PITY_UR + 1 - meta.gachaPityUR };
+  /* お詫び補填期間中は緩和後の実効天井で残り連数を出す（最低1＝次の1回で確定） */
+  const p = gachaPityAt();
+  return { ssr: Math.max(1, p.ssr + 1 - meta.gachaPity), ur: Math.max(1, p.ur + 1 - meta.gachaPityUR) };
 }
 function selectTitle(id){
   if (!TITLES[id] || achCount() < TITLES[id].need) return false;
@@ -1804,6 +1806,9 @@ function loadMeta(){
     gachaPityUR: Math.max(0, m.gachaPityUR | 0),
     /* お詫び補填（2026-11-20）: 詫び石を受け取り済みかどうか */
     apology20261120: !!m.apology20261120,
+    /* お詫び補填の増額: 詫び石の累計受け取り済み額（数値）。旧セーブは未設定=0で補完
+       （受け取り済み額の最終判定は apologyClaimedAmount() 側で旧フラグも見る） */
+    apologyGift20261120: Math.max(0, m.apologyGift20261120 | 0),
     /* 第2弾拡張: 図鑑（敵は撃破数、武器は所持フラグ）。未知のキーは描画側で無視する */
     dex: {
       enemies: (m.dex && typeof m.dex.enemies === 'object' && m.dex.enemies) ? m.dex.enemies : {},
@@ -6469,17 +6474,24 @@ for (const id in CHARS) {
 }
 /* ── お詫び補填キャンペーン（2026-11-20 の1日だけ） ──
    セーブデータ消失事故への補填。期間中はガチャ確率UP（UR 0.5% / SSR 4% /
-   SR 17.5% / R 78%、天井は不変）＋対象アカウントへ詫び石 ⭐50,000 を1回配布。
+   SR 17.5% / R 78%）＋天井の引き下げ（SSR 30連 / UR 100連）＋対象アカウントへ
+   詫び石 ⭐500,000 を配布。詫び石は v70 の旧額 ⭐50,000 で受け取り済みの人にも
+   差額（⭐450,000）だけ追加で受け取れるよう、累計受け取り済み額
+   （meta.apologyGift20261120）で管理する。
    対象は 2026-11-20 00:00 (JST) より前に作成されたアカウントのみ
    （PWAccount.myCreatedAt() で判定）。リンクサーガ側と同一仕様 */
 const APOLOGY_END = Date.parse('2026-11-20T23:59:59+09:00');
 const APOLOGY_ACCOUNT_CUTOFF = Date.parse('2026-11-20T00:00:00+09:00');
-const APOLOGY_SHARDS = 50000;
+const APOLOGY_SHARDS = 500000;      /* 詫び石の受け取り総額（増額後） */
+const APOLOGY_SHARDS_V70 = 50000;   /* v70 公開時の旧額（旧フラグのみの人の受け取り済み額） */
 const GACHA_RATES = { UR: .0005, SSR: .02, SR: .175, R: .8045 };   /* 通常: UR 0.05% / SSR 2% / SR 17.5% / R 80.45% */
 const GACHA_RATES_UP = { UR: .005, SSR: .04, SR: .175, R: .78 };   /* 補填期間中: UR 0.5% / SSR 4% / SR 17.5% / R 78% */
+const GACHA_PITY_SSR_UP = 30, GACHA_PITY_UR_UP = 100;              /* 補填期間中の天井: SSR 30連 / UR 100連 */
 function apologyActive(now){ return (typeof now === 'number' ? now : Date.now()) < APOLOGY_END; }
 /* 現在時刻から実効確率を選ぶ純粋関数（期間中だけ UP 確率） */
 function gachaRatesAt(now){ return apologyActive(now) ? GACHA_RATES_UP : GACHA_RATES; }
+/* 現在時刻から実効天井を選ぶ純粋関数（期間中だけ引き下げ。ミス回数自体は保持される） */
+function gachaPityAt(now){ return apologyActive(now) ? { ssr: GACHA_PITY_SSR_UP, ur: GACHA_PITY_UR_UP } : { ssr: GACHA_PITY_MAX, ur: GACHA_PITY_UR }; }
 function apologyEligible(){
   try {
     if (!window.PWAccount || typeof PWAccount.myCreatedAt !== 'function') return false;
@@ -6487,11 +6499,25 @@ function apologyEligible(){
     return typeof ca === 'number' && isFinite(ca) && ca < APOLOGY_ACCOUNT_CUTOFF;
   } catch (e) { return false; }
 }
+/* 詫び石の累計受け取り済み額: 数値フィールドに正の値があればその値、無ければ
+   旧フラグが立っている場合に v70 の旧額を受け取り済みとみなす。どちらも無ければ 0
+   （サニタイザは未設定を 0 で補完するため、0 は「数値フィールド無し」と同じ扱い。
+   新方式で受け取った人は必ず正の値が入るので取り違えは起きない） */
+function apologyClaimedAmount(){
+  const g = meta.apologyGift20261120;
+  if (typeof g === 'number' && isFinite(g) && g > 0) return Math.min(APOLOGY_SHARDS, Math.floor(g));
+  if (meta.apology20261120) return APOLOGY_SHARDS_V70;
+  return 0;
+}
+/* あと受け取れる額（総額 − 受け取り済み額） */
+function apologyRemaining(){ return Math.max(0, APOLOGY_SHARDS - apologyClaimedAmount()); }
 function claimApologyGift(){
   if (!apologyActive()) return false;
-  if (meta.apology20261120) return false;
+  const amount = apologyRemaining();
+  if (amount <= 0) return false;
   if (!apologyEligible()) return false;
-  meta.shards += APOLOGY_SHARDS;
+  meta.shards += amount;
+  meta.apologyGift20261120 = APOLOGY_SHARDS;
   meta.apology20261120 = true;
   saveMeta();
   updateShardUI();
@@ -6503,18 +6529,26 @@ function renderApologyBox(){
   if (!box) return;
   if (!apologyActive()) { box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = '';
-  if (meta.apology20261120) {
-    box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫びのほしのかけら ⭐50,000 受け取り済み</button>' +
+  const claimed = apologyClaimedAmount();
+  const remaining = apologyRemaining();
+  if (remaining <= 0) {
+    box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫びのほしのかけら ⭐' + APOLOGY_SHARDS.toLocaleString() + ' 受け取り済み</button>' +
       '<div class="apologyNote">このたびはご迷惑をおかけしました。ほしのかけらは残高に加算済みです。</div>';
     return;
   }
   if (apologyEligible()) {
-    box.innerHTML = '<button class="bigBtn" id="apologyBtn">🎁 お詫び：ほしのかけら ⭐50,000 受け取り</button>' +
-      '<div class="apologyNote">セーブデータの不具合へのお詫びです。本日限り・1回だけ受け取れます。</div>';
-    $('apologyBtn').onclick = () => { initAudio(); if (claimApologyGift()) showToast('🎁 お詫びのほしのかけら ⭐50,000 を受け取りました'); };
+    const label = claimed > 0
+      ? '🎁 お詫び（追加分）：ほしのかけら ⭐' + remaining.toLocaleString() + ' 受け取り'
+      : '🎁 お詫び：ほしのかけら ⭐' + remaining.toLocaleString() + ' 受け取り';
+    const note = claimed > 0
+      ? 'お詫びを増額しました。前回受け取った分との差額を受け取れます。本日限りです。'
+      : 'セーブデータの不具合へのお詫びです。本日限り・1回だけ受け取れます。';
+    box.innerHTML = '<button class="bigBtn" id="apologyBtn">' + label + '</button>' +
+      '<div class="apologyNote">' + note + '</div>';
+    $('apologyBtn').onclick = () => { initAudio(); const amt = apologyRemaining(); if (claimApologyGift()) showToast('🎁 お詫びのほしのかけら ⭐' + amt.toLocaleString() + ' を受け取りました'); };
     return;
   }
-  box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫び：ほしのかけら ⭐50,000</button>' +
+  box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫び：ほしのかけら ⭐' + APOLOGY_SHARDS.toLocaleString() + '</button>' +
     '<div class="apologyNote">対象は 2026年11月20日より前に作成されたアカウントです（ログイン中のアカウントの作成日時で判定します）。</div>';
 }
 /* ログイン状態が確定したら対象判定を描き直す（ゲスト→ログインの遷移に追随） */
@@ -6522,8 +6556,9 @@ if (window.PWAccount && typeof PWAccount.onGateChange === 'function') {
   try { PWAccount.onGateChange(() => { try { renderApologyBox(); } catch (e) {} }); } catch (e) {}
 }
 function rollGachaRarity(){
-  if (meta.gachaPityUR >= GACHA_PITY_UR) { meta.gachaPityUR = 0; meta.gachaPity = 0; return 'UR'; } // UR天井: 1000連外したら次の1回はUR確定
-  if (meta.gachaPity >= GACHA_PITY_MAX) { meta.gachaPity = 0; meta.gachaPityUR++; return 'SSR'; } // SSR天井: 90連外したら次の1回はSSR確定
+  const pityMax = gachaPityAt(); // 実効天井（お詫び補填期間中は SSR 30連 / UR 100連に引き下げ）
+  if (meta.gachaPityUR >= pityMax.ur) { meta.gachaPityUR = 0; meta.gachaPity = 0; return 'UR'; } // UR天井: 天井連数外したら次の1回はUR確定
+  if (meta.gachaPity >= pityMax.ssr) { meta.gachaPity = 0; meta.gachaPityUR++; return 'SSR'; } // SSR天井: 天井連数外したら次の1回はSSR確定
   const r = Math.random();
   const RATES = gachaRatesAt();
   const rar = r < RATES.UR ? 'UR' : r < RATES.UR + RATES.SSR ? 'SSR' : r < RATES.UR + RATES.SSR + RATES.SR ? 'SR' : 'R';
@@ -6566,6 +6601,12 @@ function renderGacha(){
   setRate('rateSR', 'SR', ratesNow.SR); setRate('rateR', 'R', ratesNow.R);
   const upBanner = $('gachaUpBanner');
   if (upBanner) upBanner.style.display = apologyActive() ? '' : 'none';
+  /* 天井の説明文も実効天井（補填期間中は緩和値）と一致させる */
+  const pityRule = $('gachaPityRule');
+  if (pityRule) {
+    const pm = gachaPityAt();
+    pityRule.innerHTML = `・天井： SSRは${pm.ssr}連外すと次の1回で <b>SSR確定</b>（天井まで最大${pm.ssr + 1}連）／ URは${pm.ur}連外すと次の1回で <b>UR確定</b>（最大${pm.ur + 1}連）` + (apologyActive() ? '（期間限定で緩和中）' : '');
+  }
   const pl = gachaPityLeft();
   $('gachaPity').textContent = `🎯 SSR天井まで あと ${pl.ssr} 連 ／ UR天井まで あと ${pl.ur} 連（あと○連＝その連数以内に必ず確定が出る）`;
   $('gacha1Btn').disabled = meta.shards < GACHA_COST1;
@@ -7283,7 +7324,8 @@ window.__surv = {
   MAX_WLV, MAX_PASSIVES, lbOf, LB_MAX, GACHA_POOLS, gachaDraw, renderGacha, rollGachaRarity,
   /* お詫び補填（2026-11-20）: 確率UP・詫び石 */
   GACHA_RATES, GACHA_RATES_UP, gachaRatesAt, APOLOGY_END, APOLOGY_ACCOUNT_CUTOFF, APOLOGY_SHARDS,
-  apologyActive, apologyEligible, claimApologyGift, renderApologyBox,
+  APOLOGY_SHARDS_V70, GACHA_PITY_MAX, GACHA_PITY_SSR_UP, GACHA_PITY_UR_UP, gachaPityAt,
+  apologyActive, apologyEligible, apologyClaimedAmount, apologyRemaining, claimApologyGift, renderApologyBox,
   /* 第19弾: URガチャ演出 */
   showUrGachaFx, hideUrGachaFx, get urFxActive(){ return urFxActive; }, get urFxCount(){ return urFxCount; },
   /* 第5弾: レアリティ・UR天井・新価格・UR専用武器 */
