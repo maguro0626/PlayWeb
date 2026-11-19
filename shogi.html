@@ -526,6 +526,7 @@ html,body{overscroll-behavior:none;}
         <span class="ctl-label">棋譜</span>
         <span id="kifu-latest">—</span>
         <button class="btn btn-mini" onclick="openKifu()">全手</button>
+        <button class="btn btn-mini" onclick="openRules()">ルール</button>
       </div>
       <div class="ctl-row" id="diff-row">
         <span class="ctl-label">難易度</span>
@@ -534,6 +535,9 @@ html,body{overscroll-behavior:none;}
           <button onclick="changeDiff('medium')" id="df-medium" class="active">普通</button>
           <button onclick="changeDiff('hard')"   id="df-hard">強い</button>
         </div>
+      </div>
+      <div class="ctl-row" id="declare-row" style="display:none;">
+        <button class="btn btn-dark" style="flex:1;padding:12px;" onclick="askDeclare()">🏯 入玉宣言する</button>
       </div>
       <div class="ctl-row" style="gap:8px;">
         <button class="btn btn-ghost" id="btn-undo" onclick="undoMove()">↩ 待った</button>
@@ -582,6 +586,9 @@ let selected=null,validMoves=[],lastMove=null;
 let gameActive=true,isAnimating=false,difficulty='medium';
 let moveCountPlayer=0,moveCountNpc=0;
 let kifuList=[],lastDest=null,lastMover=null,snapshots=[];
+let posHist=[]; // 局面履歴 {k:局面キー, c:その局面で手番側に王手がかかっているか}。posHist[i]=i手目終了後の局面（手番は i が偶数なら先手）。千日手判定とオンライン同期に使う
+let bothCampPlies=0; // 両玉とも敵陣に入ったまま進んだ手数（持将棋の点数判定用）
+let gameResult=null; // 終局結果 {winner, reason}。オンラインで相手側へ結果を伝えるために状態へ含める
 // ─── マルチプレイ用 ─── mode: 'cpu' | 'local'（対面2人） | 'online'
 // 盤面表現は常に 'player'=先手（下段） / 'npc'=後手（上段）
 // オンラインではホストが 'player'、ゲストが 'npc' を担当する
@@ -677,7 +684,8 @@ function takeSnapshot(){
     moveCountPlayer,moveCountNpc,
     lastMove:lastMove?{...lastMove}:null,
     kifu:kifuList.slice(),
-    lastDest:lastDest?[...lastDest]:null
+    lastDest:lastDest?[...lastDest]:null,
+    bothCampPlies
   };
 }
 function restoreSnapshot(s){
@@ -687,12 +695,17 @@ function restoreSnapshot(s){
   lastMove=s.lastMove?{...s.lastMove}:null;
   kifuList=s.kifu.slice();
   lastDest=s.lastDest?[...s.lastDest]:null;
+  bothCampPlies=s.bothCampPlies||0;
 }
 
 // ═══════════════════════════════════════════════════════════
 // 千日手（同一局面4回）判定
-// snapshots[i] は i 手目終了後の局面（手番は i が偶数なら先手）として判定する。
-// オンラインは送受信する状態に履歴が含まれないため対象外。
+// posHist[i] は i 手目終了後の局面（手番は i が偶数なら先手）。
+// 各エントリは局面キー k と「手番側に王手がかかっているか」c を持ち、
+// c の列で連続王手（反則負け）を判定する。
+// posHist はオンラインの対戦状態（serializeState の hist）にも含めて同期する
+// ため、オンラインでも両端末が同じ判定を下せる。履歴のない旧状態を受けた
+// 場合は、その局面から履歴を積み直す（applyState 参照）。
 // ═══════════════════════════════════════════════════════════
 const POS_CODE={pawn:'FU',lance:'KY',knight:'KE',silver:'GI',gold:'KI',bishop:'KA',rook:'HI',king:'OU'};
 function posKey(brd,cap,trn){
@@ -704,24 +717,114 @@ function posKey(brd,cap,trn){
   const cnt=a=>{const m={};a.forEach(t=>m[t]=(m[t]||0)+1);return Object.keys(m).sort().map(k=>POS_CODE[k]+m[k]).join('');};
   return s+'|'+cnt(cap.player)+'|'+cnt(cap.npc);
 }
+function posEntryFor(brd,cap,stm){
+  return {k:posKey(brd,cap,stm),c:isInCheck(stm,brd)};
+}
 function checkSennichite(){
-  if(mode==='online'||snapshots.length<9)return null;
-  const keys=snapshots.map((s,i)=>posKey(s.board,s.captured,i%2===0?'player':'npc'));
-  const cur=keys[keys.length-1];
-  const occ=[];keys.forEach((k,i)=>{if(k===cur)occ.push(i);});
+  if(posHist.length<9)return null;
+  const cur=posHist[posHist.length-1].k;
+  const occ=[];posHist.forEach((e,i)=>{if(e.k===cur)occ.push(i);});
   if(occ.length<4)return null;
-  /* 周期の間、片側が自分の全ての手で王手をかけ続けていたら連続王手でその側の負け */
-  const first=occ[0],last=keys.length-1;
+  /* 周期の間、片側が自分の全ての手で王手をかけ続けていたら連続王手でその側の負け。
+     posHist[j].c は「j 手目終了後の局面で手番側（＝直前に指した側の相手）に
+     王手がかかっているか」なので、mover の全ての手で c が真なら連続王手 */
+  const first=occ[0],last=posHist.length-1;
   const gave={player:false,npc:false},allCheck={player:true,npc:true};
   for(let j=first+1;j<=last;j++){
     const mover=j%2===1?'player':'npc';
-    const opp=mover==='player'?'npc':'player';
     gave[mover]=true;
-    if(!isInCheck(opp,snapshots[j].board))allCheck[mover]=false;
+    if(!posHist[j].c)allCheck[mover]=false;
   }
   if(gave.player&&allCheck.player)return{loser:'player'};
   if(gave.npc&&allCheck.npc)return{loser:'npc'};
   return{loser:null};
+}
+
+// ═══════════════════════════════════════════════════════════
+// 入玉宣言法・持将棋（ローカル対戦のみ：CPU戦／対面2人）
+// 採用ルール（一般的な「入玉宣言法」）:
+//   宣言できるのは自分の手番で、次の全てを満たす側。
+//   1) 自玉が敵陣（先手=上3段 rows0-2 / 後手=下3段 rows6-8）に入っている
+//   2) 宣言時に王手がかかっていない
+//   3) 敵陣内にある自駒（玉を除く）が10枚以上
+//   4) 敵陣内の自駒＋持ち駒の点数が基準以上
+//      （大駒＝飛・角は5点、小駒＝それ以外は1点。成った駒も元の駒種で数え、
+//        玉は数えない。基準は先手28点・後手27点）
+//   条件を満たして宣言したら、その側の勝ち（入玉宣言勝ち）。
+//   人間は条件成立時に出る「入玉宣言」ボタンから宣言し、CPU は手番の
+//   始めに条件を満たしていれば自動で宣言する。
+// 持将棋の受け皿:
+//   両玉とも敵陣に入ったまま、どちらも宣言条件を満たさない状態が
+//   60手続いたら、24点法（大駒5点・小駒1点、敵陣内の駒＋持ち駒）で判定する。
+//   両者24点以上＝引き分け／片方だけ24点以上＝その側の勝ち／
+//   両者24点未満＝後手の勝ち（一般則）。
+// ═══════════════════════════════════════════════════════════
+const JISHOGI_BIG=['rook','bishop'];
+function kingInCamp(side,brd){
+  const kp=kingPos(side,brd);if(!kp)return false;
+  return side==='player'?kp[0]<=2:kp[0]>=6;
+}
+function jishogiScore(side,brd,cap){
+  /* 敵陣内の自駒（玉除く）の点数と枚数＋持ち駒の点数 */
+  let points=0,count=0;
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const p=brd[r][c];
+    if(p&&p.owner===side&&p.type!=='king'&&(side==='player'?r<=2:r>=6)){
+      points+=JISHOGI_BIG.includes(p.type)?5:1;count++;
+    }
+  }
+  cap[side].forEach(t=>{points+=JISHOGI_BIG.includes(t)?5:1;});
+  return {points,count};
+}
+function canDeclare(side,brd,cap){
+  if(!kingInCamp(side,brd))return false;
+  if(isInCheck(side,brd))return false;
+  const s=jishogiScore(side,brd,cap);
+  if(s.count<10)return false;
+  return s.points>=(side==='player'?28:27);
+}
+function checkJishogiStall(){
+  if(mode==='online')return null;
+  if(!(kingInCamp('player',board)&&kingInCamp('npc',board))
+    ||canDeclare('player',board,captured)||canDeclare('npc',board,captured)){
+    bothCampPlies=0;return null;
+  }
+  bothCampPlies++;
+  if(bothCampPlies<60)return null;
+  const p=jishogiScore('player',board,captured).points;
+  const n=jishogiScore('npc',board,captured).points;
+  let winner;
+  if(p>=24&&n>=24)winner=null;       // 両者24点以上は持将棋（引き分け）
+  else if(p>=24)winner='player';
+  else if(n>=24)winner='npc';
+  else winner='npc';                  // 両者24点未満は後手の勝ち
+  return {winner};
+}
+function askDeclare(){
+  if(!gameActive||isAnimating||mode==='online')return;
+  const side=turn;
+  if(!canControl(side)||!canDeclare(side,board,captured))return;
+  const s=jishogiScore(side,board,captured);
+  const who=mode==='local'?(side==='player'?'先手':'後手'):'あなた';
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';
+  ov.innerHTML=`<div class="modal-card">
+    <h2>入玉宣言しますか？</h2>
+    <p class="sub">宣言法の条件を満たしています（敵陣内の駒 ${s.count}枚 ／ 合計 ${s.points}点）。宣言すると ${who} の勝ちになります</p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="flex:1;padding:13px;" onclick="this.closest('.modal-overlay').remove()">やめる</button>
+      <button class="btn btn-dark" style="flex:1;padding:13px;font-weight:900;" onclick="doDeclare()">宣言する</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function doDeclare(){
+  document.querySelectorAll('.modal-overlay').forEach(e=>e.remove());
+  const side=turn;
+  if(!gameActive||mode==='online'||!canControl(side)||!canDeclare(side,board,captured))return;
+  gameActive=false;
+  render();updateUI();
+  endGame(side,'declaration');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -752,6 +855,7 @@ function resetGame(){
   gameActive=true;isAnimating=false;moveCountPlayer=0;moveCountNpc=0;
   matchRecorded=false;
   kifuList=[];lastDest=null;lastMover=null;
+  bothCampPlies=0;gameResult=null;
   document.querySelectorAll('.confetti').forEach(e=>e.remove());
   document.querySelectorAll('.modal-overlay').forEach(e=>e.remove());
   ['lance','knight','silver','gold','king','gold','silver','knight','lance'].forEach((t,c)=>board[0][c]={type:t,owner:'npc',promoted:false});
@@ -763,6 +867,7 @@ function resetGame(){
   board[7][1]={type:'bishop',owner:'player',promoted:false};
   for(let c=0;c<9;c++)board[6][c]={type:'pawn',owner:'player',promoted:false};
   snapshots=[takeSnapshot()];
+  posHist=[posEntryFor(board,captured,'player')];
   render();updateUI();
   setStatus(resetStatusText());
 }
@@ -1324,7 +1429,11 @@ function serializeState(){
     kifu:kifuList.slice(),
     lastMove:lastMove?{...lastMove}:null,
     lastDest:lastDest?[...lastDest]:null,
-    lastMover,gameActive
+    lastMover,gameActive,
+    /* 千日手判定用の局面履歴と、終局結果。どちらも無い旧バージョンの
+       状態を受けても壊れないよう、applyState 側で欠落を許容する */
+    hist:posHist.map(e=>({k:e.k,c:!!e.c})),
+    result:gameResult?{winner:gameResult.winner,reason:gameResult.reason}:null
   };
 }
 function sendState(){
@@ -1344,18 +1453,32 @@ function applyState(st){
   selected=null;validMoves=[];isAnimating=false;
   gameActive=st.gameActive!==false;
   snapshots=[takeSnapshot()];
+  /* 局面履歴: 同期されていれば引き継ぎ、無い旧状態なら現在の局面から積み直す */
+  posHist=(Array.isArray(st.hist)&&st.hist.length)
+    ? st.hist.map(e=>({k:e.k,c:!!e.c}))
+    : [posEntryFor(board,captured,turn)];
+  gameResult=st.result?{winner:(st.result.winner===undefined?null:st.result.winner),reason:st.result.reason}:null;
   document.querySelectorAll('.modal-overlay').forEach(e=>e.remove());
   playKnock(false);
   updateLabels();
   render();updateUI();
   if(!gameActive){
-    if(lastMover)endGame(lastMover,'checkmate');
+    /* 終局結果が同期されていればそれを使い、無ければ従来通り最終手の勝者で表示する */
+    if(gameResult)endGame(gameResult.winner,gameResult.reason);
+    else if(lastMover)endGame(lastMover,'checkmate');
     return;
   }
   // 受信後の通常処理で詰み・王手を再計算する
   if(allLegalMoves(turn,board,captured).length===0){
     gameActive=false;render();updateUI();
     endGame(otherSide(turn),'checkmate');
+    return;
+  }
+  /* 千日手: 指した側が終局させていなくても、同期された履歴から受信側でも判定できる */
+  const senA=checkSennichite();
+  if(senA){
+    gameActive=false;render();updateUI();
+    endGame(senA.loser?otherSide(senA.loser):null,'sennichite');
     return;
   }
   if(isInCheck(turn,board)){
@@ -1566,6 +1689,7 @@ async function executeMove(fr,fc,tr,tc,promo){
   kifuList.push(kifuText(mp.owner,mp.type,promotedBefore,didPromote,tr,tc,false));
   lastDest=[tr,tc]; lastMover=mp.owner;
   snapshots.push(takeSnapshot());
+  posHist.push(posEntryFor(board,captured,mp.owner==='player'?'npc':'player'));
   if(didPromote&&mp.owner==='player')playPromote();
   const opp=mp.owner==='player'?'npc':'player';
   if(isCheckmate(opp,board,captured)){gameActive=false;isAnimating=false;render();updateUI();await sleep(250);showBanner('詰み',64);playCheck();await sleep(750);endGame(mp.owner,'checkmate');return;}
@@ -1573,6 +1697,8 @@ async function executeMove(fr,fc,tr,tc,promo){
   else{render();updateUI();}
   const senM=checkSennichite();
   if(senM){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senM.loser?otherSide(senM.loser):null,'sennichite');return;}
+  const jiM=checkJishogiStall();
+  if(jiM){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(jiM.winner,'jishogi');return;}
   isAnimating=false;
 }
 async function executeDrop(type,owner,tr,tc){
@@ -1583,12 +1709,15 @@ async function executeDrop(type,owner,tr,tc){
   kifuList.push(kifuText(owner,type,false,false,tr,tc,true));
   lastDest=[tr,tc]; lastMover=owner;
   snapshots.push(takeSnapshot());
+  posHist.push(posEntryFor(board,captured,owner==='player'?'npc':'player'));
   const opp=owner==='player'?'npc':'player';
   if(isCheckmate(opp,board,captured)){gameActive=false;isAnimating=false;render();updateUI();await sleep(250);showBanner('詰み',64);playCheck();await sleep(750);endGame(owner,'checkmate');return;}
   if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player')setStatus('王手がかかっています',true);}
   else{render();updateUI();}
   const senD=checkSennichite();
   if(senD){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senD.loser?otherSide(senD.loser):null,'sennichite');return;}
+  const jiD=checkJishogiStall();
+  if(jiD){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(jiD.winner,'jishogi');return;}
   isAnimating=false;
 }
 function highlightKing(o){
@@ -1630,6 +1759,14 @@ async function doNPCTurn(){
   updateUI();
   await sleep(40); /* 「考え中」表示を画面に描画してから重い探索に入る */
   if(!gameActive||mode!=='cpu'||turn!=='npc'){isAnimating=false;if(ti)ti.style.display='none';return;}
+  /* 入玉宣言法: CPU も条件を満たせば手番の始めに宣言して終局する */
+  if(canDeclare('npc',board,captured)){
+    if(ti)ti.style.display='none';
+    gameActive=false;isAnimating=false;render();updateUI();
+    showToast('CPUが入玉宣言しました');
+    endGame('npc','declaration');
+    return;
+  }
   const move=getBestMove();
   if(ti)ti.style.display='none';
   if(!move){gameActive=false;isAnimating=false;render();updateUI();endGame('player','checkmate');return;}
@@ -1654,6 +1791,7 @@ function undoMove(){
   if(target<0)target=0;
   if(target===ply)return;
   snapshots.length=target+1;
+  if(posHist.length>target+1)posHist.length=target+1;
   restoreSnapshot(snapshots[target]);
   lastMover=target===0?null:(target%2===1?'player':'npc');
   turn=mode==='local'?(target%2===0?'player':'npc'):'player';
@@ -1770,6 +1908,26 @@ async function resolvePromo(promo,fr,fc,tr,tc){
 // ═══════════════════════════════════════════════════════════
 // KIFU MODAL
 // ═══════════════════════════════════════════════════════════
+function openRules(){
+  playClick();
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';
+  ov.innerHTML=`<div class="modal-card">
+    <h2>特殊ルール</h2>
+    <div style="text-align:left;font-size:12.5px;line-height:1.75;font-weight:600;color:#44403c;margin-bottom:16px;">
+      <p style="margin:0 0 8px;"><b>千日手</b>：同じ局面が4回現れると千日手で引き分けです（オンライン対戦でも判定します）。ただし一方だけが王手をかけ続けた場合は、その側の反則負けになります。</p>
+      <p style="margin:0 0 8px;"><b>入玉宣言法</b>：自分の手番に、次の条件をすべて満たすと「入玉宣言」ボタンが出て、宣言した側の勝ちになります。CPUも条件を満たすと宣言します。<br>
+      ・自分の玉が敵陣（相手側の3段）に入っている<br>
+      ・王手がかかっていない<br>
+      ・敵陣内にある自分の駒（玉を除く）が10枚以上<br>
+      ・敵陣内の駒＋持ち駒の点数が 先手28点／後手27点 以上（飛・角＝5点、それ以外＝1点、玉は数えません）</p>
+      <p style="margin:0;"><b>持将棋</b>：両方の玉が敵陣に入ったまま、どちらも宣言できない状態が60手続くと、24点法（飛・角＝5点、それ以外＝1点）で判定します。両者24点以上は引き分け、片方だけ24点以上の場合はその側の勝ち、両者24点未満の場合は後手の勝ちです。</p>
+    </div>
+    <button class="btn btn-dark" style="width:100%;" onclick="this.closest('.modal-overlay').remove()">閉じる</button>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
 function openKifu(){
   playClick();
   const ov=document.createElement('div');
@@ -1793,6 +1951,7 @@ function openKifu(){
 // END GAME
 // ═══════════════════════════════════════════════════════════
 function endGame(winner,reason='checkmate'){
+  gameResult={winner:(winner===undefined?null:winner),reason};
   let win,title,sub,statusTxt;
   if(reason==='sennichite'){
     /* 千日手: winner=null は引き分け。winner がある場合は相手の連続王手による反則勝ち */
@@ -1801,6 +1960,22 @@ function endGame(winner,reason='checkmate'){
       title=winner?(winner==='player'?'先手の勝ち！':'後手の勝ち！'):'引き分け';
       sub=winner?'千日手（連続王手は反則負け）':'千日手が成立しました';
       statusTxt=winner?(winner==='player'?'先手の勝ち':'後手の勝ち'):'千日手で引き分け';
+    }else if(mode==='online'){
+      win=winner===mySide;
+      title=winner?(win?'あなたの勝ち！':'相手の勝ち…'):'引き分け';
+      sub=winner?(win?'千日手（相手の連続王手は反則負け）':'千日手（あなたの連続王手は反則負け）'):'千日手が成立しました';
+      statusTxt=winner?(win?'あなたの勝ち':'相手の勝ち'):'千日手で引き分け';
+      /* フレンド戦績へ記録（引き分け含む）・マッチの終局を記録する（両側が書いても冪等） */
+      if(!matchRecorded && window.PWFriends && PWFriends.recordMatch){
+        matchRecorded=true;
+        PWFriends.recordMatch(winner?(win?'win':'lose'):'draw');
+      }
+      if(sgMatch && window.PWMatch && sgMatch.data){
+        PWMatch.finish(sgMatch.code, winner ? (winner==='player' ? (sgMatch.data.hostUid||null) : (sgMatch.data.guestUid||null)) : null).catch(()=>{});
+        roomCode='';window.PW_ROOM_CODE='';
+        const codeEl=document.getElementById('online-code');
+        if(codeEl)codeEl.textContent='';
+      }
     }else{
       win=winner==='player';
       title=winner==='player'?'あなたの勝ち！':winner==='npc'?'CPUの勝ち…':'引き分け';
@@ -1809,9 +1984,47 @@ function endGame(winner,reason='checkmate'){
     }
     setStatus(statusTxt);
     if(winner){if(win){spawnConfetti();playWin();}else playLose();}
+    const senButtons=mode==='online'
+      ?`<button class="btn btn-ghost" style="flex:1;padding:13px;" onclick="leaveOnline(true);document.querySelectorAll('.modal-overlay').forEach(e=>e.remove())">やめる</button>
+        <button class="btn btn-dark" style="flex:1.4;padding:13px;" onclick="onRematchButton()">↻ もう一度</button>`
+      :`<button class="btn btn-ghost" style="flex:1;padding:13px;" onclick="undoMove()">↩ 待った</button>
+        <button class="btn btn-dark" style="flex:1.4;padding:13px;" onclick="resetGame()">↻ もう一度</button>`;
     const ovS=document.createElement('div');ovS.className='modal-overlay';ovS.id='end-modal';
     ovS.innerHTML=`<div class="modal-card">
       <div style="font-size:44px;margin-bottom:6px;">${winner?(win?'🏆':'😤'):'🤝'}</div>
+      <h2>${title}</h2>
+      <p class="sub">${sub} ／ ${kifuList.length}手</p>
+      <div style="display:flex;gap:10px;">
+        ${senButtons}
+      </div>
+    </div>`;
+    document.body.appendChild(ovS);
+    return;
+  }
+  if(reason==='declaration'||reason==='jishogi'){
+    /* 入玉宣言勝ち（winner は宣言した側）／持将棋の点数判定（winner=null は引き分け）。
+       どちらもローカル対戦（CPU戦・対面2人）でのみ発生する */
+    const sP=jishogiScore('player',board,captured),sN=jishogiScore('npc',board,captured);
+    if(mode==='local'){
+      win=true;
+      title=winner?(winner==='player'?'先手の勝ち！':'後手の勝ち！'):'引き分け';
+      sub=reason==='declaration'
+        ?`入玉宣言が成立しました（${(winner==='player'?sP:sN).points}点）`
+        :`持将棋の点数判定（先手 ${sP.points}点 ／ 後手 ${sN.points}点）`;
+      statusTxt=winner?(winner==='player'?'先手の勝ち':'後手の勝ち'):'持将棋で引き分け';
+    }else{
+      win=winner==='player';
+      title=winner==='player'?'あなたの勝ち！':winner==='npc'?'CPUの勝ち…':'引き分け';
+      sub=reason==='declaration'
+        ?(winner==='player'?`入玉宣言が成立しました（${sP.points}点）`:`CPUが入玉宣言しました（${sN.points}点）`)
+        :`持将棋の点数判定（あなた ${sP.points}点 ／ CPU ${sN.points}点）`;
+      statusTxt=winner==='player'?'あなたの勝ち':winner==='npc'?'CPUの勝ち':'持将棋で引き分け';
+    }
+    setStatus(statusTxt);
+    if(winner){if(win){spawnConfetti();playWin();}else playLose();}
+    const ovJ=document.createElement('div');ovJ.className='modal-overlay';ovJ.id='end-modal';
+    ovJ.innerHTML=`<div class="modal-card">
+      <div style="font-size:44px;margin-bottom:6px;">${reason==='declaration'?'🏯':(winner?(win?'🏆':'😤'):'🤝')}</div>
       <h2>${title}</h2>
       <p class="sub">${sub} ／ ${kifuList.length}手</p>
       <div style="display:flex;gap:10px;">
@@ -1819,7 +2032,7 @@ function endGame(winner,reason='checkmate'){
         <button class="btn btn-dark" style="flex:1.4;padding:13px;" onclick="resetGame()">↻ もう一度</button>
       </div>
     </div>`;
-    document.body.appendChild(ovS);
+    document.body.appendChild(ovJ);
     return;
   }
   if(mode==='local'){
@@ -2017,6 +2230,12 @@ function updateUI(){
   document.getElementById('btn-undo').disabled=!canUndo();
   const rb=document.getElementById('btn-reset');
   if(rb)rb.disabled=(mode==='online');
+  /* 入玉宣言ボタン: ローカル対戦で、手番の側が宣言条件を満たした時だけ出す */
+  const drow=document.getElementById('declare-row');
+  if(drow){
+    const show=gameActive&&mode!=='online'&&canControl(turn)&&canDeclare(turn,board,captured);
+    drow.style.display=show?'flex':'none';
+  }
   updateEvalBar();
 }
 
