@@ -77,6 +77,19 @@
   .news li:last-child{border-bottom:none}
   .news .date{color:#67e8f9;font-weight:800;font-size:12px;margin-right:10px;font-variant-numeric:tabular-nums}
   .news .new{color:#fff;background:linear-gradient(90deg,#f59e0b,#ef4444);font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:2px}
+  .upd{background:var(--card);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(6px);overflow:hidden}
+  .upd-item{border-bottom:1px dashed rgba(255,255,255,.08)}
+  .upd-item:last-child{border-bottom:none}
+  .upd-head{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;color:#eef0ff;font-family:inherit;font-size:14.5px;font-weight:800;padding:14px 18px;cursor:pointer;text-align:left}
+  .upd-head .v{color:#67e8f9;font-weight:900;font-size:12.5px;white-space:nowrap}
+  .upd-head .d{color:#9aa1c0;font-weight:700;font-size:11.5px;white-space:nowrap}
+  .upd-head .t{flex:1;min-width:0}
+  .upd-head .arrow{color:#9aa1c0;transition:transform .25s;font-size:12px}
+  .upd-item.open .upd-head .arrow{transform:rotate(180deg)}
+  .upd-body{display:none;padding:0 18px 14px 18px;margin:0}
+  .upd-item.open .upd-body{display:block}
+  .upd-body li{list-style:none;font-size:13px;line-height:1.75;color:#d6d9ec;padding:2px 0}
+  .upd-body li::before{content:'・';color:#67e8f9}
   footer{text-align:center;color:#5d6284;font-size:12px;margin-top:44px;line-height:2}
   #updateBtn{position:relative;margin-top:18px;background:linear-gradient(90deg,#0ea5e9,#2563eb);color:#fff;border:none;border-radius:999px;padding:11px 26px;font-size:14.5px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(37,99,235,.35);transition:transform .15s,opacity .15s}
   #updateBtn:hover{transform:translateY(-1px)}
@@ -134,7 +147,8 @@
     </div>
   </div>
 
-  <div class="secTitle">📢 アップデート</div>
+  <div class="secTitle">📢 アップデート情報</div>
+  <div class="upd" id="updList"></div>
   <ul class="news">
     <li><span class="date">2026.11</span>全ページ共通ヘッダー＆アカウント機能が登場！<span class="new">NEW</span><br>画面上部の「アカウント」タブから、ログインやフレンド機能がまとめて使えるようになりました。フレンドの追加は相手のユーザー名を検索するだけ。相手のオンライン状態や遊んでいるゲームが分かり、チャットやゲームへの招待ができます。</li>
     <li><span class="date">2026.11</span>セーブデータはアカウントのクラウド保存になりました。<br>ログインすると全ゲームのセーブが自動でサーバに同期され、別の端末でも続きが遊べます（旧来のファイル書き出しは不要になりました）。</li>
@@ -151,11 +165,52 @@
     <li><span class="date">―</span>全ゲームのキャッシュ化に対応（初回のみダウンロード、次回からはオフラインでも遊べます）。</li>
   </ul>
 
+  <div class="bkCard" style="margin-top:26px">
+    <p>📮 <b>ご意見・ご要望・バグ報告</b>はこちらから送れます。ログインしていなくても送信できます（ログインできない不具合の報告にもどうぞ）。</p>
+    <div class="bkBtns">
+      <button class="bkBtn" data-pw-feedback-btn>📮 お問い合わせフォームを開く</button>
+    </div>
+  </div>
+
   <footer>PlayWeb ― ブラウザで遊べる無料ゲーム集<br>© maguro0626</footer>
 </div>
 
 <script>
 "use strict";
+/* 更新履歴（アコーディオン）。新しい版を先頭に足すだけでよい。最新版だけ開いた状態で表示 */
+const PW_UPDATES = [
+  { v:'v52', date:'2026.11.19', title:'プロフィール＆リアルタイム強化＋お問い合わせフォーム', items:[
+    'フレンドのオンライン状態・チャット・招待が、その場で届くリアルタイム表示に（タブを閉じるとすぐオフライン表示になります）',
+    'プロフィール機能が登場：アイコン（絵柄＋背景色）と一言コメントを設定でき、フレンドをタップするとゲーム別戦績や「何分前までオンライン」が見られます',
+    'お問い合わせ・要望・バグ報告フォームを追加（このページ下部とアカウントタブから送れます。ゲストでも送信可）'
+  ]},
+  { v:'v51', date:'2026.11.19', title:'フレンド刷新＆共通ヘッダー', items:[
+    'フレンドコードを廃止。フレンド追加はユーザー名の検索だけになりました',
+    '全ページに共通ヘッダーを追加し、「アカウント」タブから開くドロワーにログイン・フレンド・チャット・戦績を集約',
+    'ポータルのセーブデータ書き出し欄は、クラウド保存になったため撤去しました'
+  ]},
+  { v:'v50', date:'2026.11.19', title:'ゲスト制限と登録の修正', items:[
+    'ログインしていないゲストは1人用モードのみに（マルチプレイ・フレンド・セーブ保存はログインが必要）',
+    '新規登録でエラーになる不具合を修正',
+    'ホーム画面アイコン（apple-touch-icon）に対応'
+  ]},
+  { v:'v49', date:'2026.11.19', title:'アカウント＆クラウド対応', items:[
+    'ユーザー名＋パスワードのアカウント機能を追加',
+    'セーブデータがクラウドに自動同期され、別の端末でも続きが遊べるように',
+    'フレンド・チャット・招待がクラウド化され、オフラインの相手にも届くように'
+  ]}
+];
+(function renderUpdates(){
+  const box = document.getElementById('updList');
+  if (!box) return;
+  const escU = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  box.innerHTML = PW_UPDATES.map((u, i) =>
+    '<div class="upd-item' + (i === 0 ? ' open' : '') + '">' +
+    '<button class="upd-head" type="button"><span class="v">' + escU(u.v) + '</span><span class="d">' + escU(u.date) + '</span><span class="t">' + escU(u.title) + '</span><span class="arrow">▼</span></button>' +
+    '<ul class="upd-body">' + u.items.map(t => '<li>' + escU(t) + '</li>').join('') + '</ul></div>'
+  ).join('');
+  box.querySelectorAll('.upd-head').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+})();
 const GAMES = [
   { id:'tetris',     title:'テトリス',       emoji:'🧱', grad:'linear-gradient(135deg,#06b6d4,#2563eb)', path:'tetris.html',     cat:'puzzle', tags:['パズル','定番'], renewed:true,  desc:'7種1巡・ホールド・ゴースト表示対応の本格仕様。オンラインのおじゃまライン対戦にも対応。' },
   { id:'suica',      title:'スイカゲーム',   emoji:'🍉', grad:'linear-gradient(135deg,#4ade80,#16a34a 55%,#ef4444)', path:'suica.html', cat:'puzzle', tags:['パズル','物理演算'], renewed:true, desc:'物理演算でフルーツが転がる・跳ねる。合体させて大きなスイカを作ろう。オンライン3分スコアレース対応。' },

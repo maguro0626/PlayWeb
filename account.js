@@ -45,6 +45,17 @@
      ログイン/登録/ログアウトとフレンド機能（friends.js が #pwFriendsMount
      にマウント）を集約表示する。旧・左下ピルとログインモーダル、
      friends.js の右下 FAB は廃止。PWAccount.openModal() はドロワーを開く。
+   - v52〜 リアルタイム化の仕上げ＋プロフィール＋フィードバック:
+     在席/チャット/招待は Firestore の onSnapshot 購読で即時反映する
+     （ハートビートは30秒のまま。購読が即時化の本命で、間隔短縮は
+     書き込み量と電池の無駄が大きい）。タブを隠す/閉じると即オフライン化。
+     プロフィール: users/{uid} に iconId / iconColor / comment /
+     stats（ゲーム別戦績の集計）/ mainChar（リンクサーガの使用キャラ）を
+     持たせ、ドロワーとフレンド一覧・プロフィール画面で表示する。
+     フィードバック: feedback コレクションへ誰でも送信可（ゲストの
+     不具合報告経路を塞がない）。管理者（ADMIN_UIDS）だけがドロワー内の
+     意見ボックスで読める。本番ルールへの feedback 追加はユーザーの
+     再貼り付け待ち（firestore.rules に追記済み）。
 
    公開 API: window.PWAccount（下部参照）
    ============================================================ */
@@ -76,6 +87,14 @@
   };
   var PRESENCE_STALE_MS = 90000;   /* lastSeen がこれより古ければオフライン扱い */
   var HEARTBEAT_MS = 30000;
+  /* 管理者 uid のリスト（意見ボックスの表示・読み取りに使う）。
+     ★管理者アカウントを作ったら、ここにその uid を入れること。
+       uid の確認方法: (1) Firebase コンソール → Authentication → Users の
+       「User UID」欄。(2) 管理者アカウントでログインした状態で、ブラウザの
+       コンソールで PWAccount.user().uid を実行する。
+     ★firestore.rules 側の adminUids() のプレースホルダにも同じ uid を
+       入れないと、本番では意見ボックスの読み取りがルールで拒否される。 */
+  var ADMIN_UIDS = [];
   var UPLOAD_DEBOUNCE_MS = 2500;
   var INVITE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -245,6 +264,122 @@
     }
   }
 
+  /* ---------------- プロフィール（v52〜） ----------------
+     users/{uid} の公開フィールドとして iconId / iconColor / comment /
+     stats / mainChar を持つ。アイコンはプリセット（SVG描画）から選び、
+     保存するのは iconId と iconColor（色ID）だけ。画像アップロードはしない。 */
+  var PROFILE_COLORS = [
+    { id: 'violet', c: '#a78bfa' }, { id: 'sky', c: '#38bdf8' },
+    { id: 'pink', c: '#f472b6' }, { id: 'mint', c: '#34d399' },
+    { id: 'amber', c: '#f59e0b' }, { id: 'red', c: '#ef4444' },
+    { id: 'indigo', c: '#818cf8' }, { id: 'gray', c: '#94a3b8' }
+  ];
+  var PROFILE_COLOR_MAP = {};
+  PROFILE_COLORS.forEach(function (x) { PROFILE_COLOR_MAP[x.id] = x.c; });
+  var PROFILE_ICONS = [
+    { id: 'cat', label: 'ねこ', svg: '<path d="M5.4 3.6l2.8 1.7C9.4 4.8 10.7 4.5 12 4.5s2.6.3 3.8.8l2.8-1.7-.5 3.9c.4 1 .6 2 .6 3.1a7.7 7.7 0 1 1-15.4 0c0-1.1.2-2.1.6-3.1l-.5-3.9z"/><circle cx="9" cy="12.8" r="1.25" fill="rgba(0,0,0,.45)"/><circle cx="15" cy="12.8" r="1.25" fill="rgba(0,0,0,.45)"/>' },
+    { id: 'paw', label: 'にくきゅう', svg: '<ellipse cx="12" cy="15.8" rx="4.6" ry="3.9"/><circle cx="5.4" cy="10.8" r="1.9"/><circle cx="9.2" cy="7.9" r="2.05"/><circle cx="14.8" cy="7.9" r="2.05"/><circle cx="18.6" cy="10.8" r="1.9"/>' },
+    { id: 'star', label: 'ほし', svg: '<path d="M12 2.2l2.9 6.2 6.8.8-5 4.6 1.3 6.7L12 17.1l-6 3.4 1.3-6.7-5-4.6 6.8-.8z"/>' },
+    { id: 'moon', label: 'つき', svg: '<path d="M20.8 13.2A8.8 8.8 0 1 1 10.8 3.2a7.2 7.2 0 0 0 10 10z"/>' },
+    { id: 'sun', label: 'たいよう', svg: '<circle cx="12" cy="12" r="4.6"/><g stroke="currentColor" stroke-width="2.1" stroke-linecap="round" fill="none"><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></g>' },
+    { id: 'heart', label: 'ハート', svg: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>' },
+    { id: 'flower', label: 'はな', svg: '<circle cx="12" cy="6.8" r="3.1"/><circle cx="17" cy="10.4" r="3.1"/><circle cx="15" cy="16.4" r="3.1"/><circle cx="9" cy="16.4" r="3.1"/><circle cx="7" cy="10.4" r="3.1"/><circle cx="12" cy="11.8" r="2.1" fill="rgba(0,0,0,.35)"/>' },
+    { id: 'crown', label: 'おうかん', svg: '<path d="M3 7.5l4.6 3.6L12 5l4.4 6.1L21 7.5 19.6 17H4.4L3 7.5z"/><path d="M4.5 19h15v2h-15z"/>' },
+    { id: 'ghost', label: 'おばけ', svg: '<path d="M12 2.8a7.2 7.2 0 0 1 7.2 7.2v9.4l-2.4-1.8-2.4 1.8-2.4-1.8-2.4 1.8-2.4-1.8L4.8 19.4V10A7.2 7.2 0 0 1 12 2.8z"/><circle cx="9.2" cy="10.5" r="1.3" fill="rgba(0,0,0,.45)"/><circle cx="14.8" cy="10.5" r="1.3" fill="rgba(0,0,0,.45)"/>' },
+    { id: 'rocket', label: 'ロケット', svg: '<path d="M12 1.8c2.9 2.3 4.6 6.2 4.6 10.2l3.1 3.6-4.2.5c-.8 1.8-2 3.2-3.5 4.2-1.5-1-2.7-2.4-3.5-4.2l-4.2-.5L7.4 12C7.4 8 9.1 4.1 12 1.8z"/><circle cx="12" cy="9.5" r="2.1" fill="rgba(0,0,0,.4)"/>' },
+    { id: 'note', label: 'おんぷ', svg: '<path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>' },
+    { id: 'gamepad', label: 'ゲーム', svg: '<path d="M7.5 7h9A5.5 5.5 0 0 1 22 12.5c0 3-2.5 5.5-5.5 5.5-1.3 0-2.5-.45-3.4-1.2l-1.2-1.2a.6.6 0 0 0-.8 0l-1.2 1.2c-.9.75-2.1 1.2-3.4 1.2A5.5 5.5 0 0 1 1.5 12.5 5.5 5.5 0 0 1 7.5 7z"/><path d="M7 10v4M5 12h4" stroke="rgba(0,0,0,.45)" stroke-width="1.7" stroke-linecap="round" fill="none"/><circle cx="16.4" cy="11" r="1.15" fill="rgba(0,0,0,.45)"/><circle cx="18.6" cy="13.4" r="1.15" fill="rgba(0,0,0,.45)"/>' },
+    { id: 'gem', label: 'ほうせき', svg: '<path d="M6.2 3h11.6L21 8.4 12 21 3 8.4 6.2 3z"/><path d="M3.6 8.4h16.8M9.2 3L7 8.4 12 19l5-11.6L14.8 3" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.1"/>' },
+    { id: 'cloud', label: 'くも', svg: '<path d="M6.8 18.5h9.7a4.6 4.6 0 0 0 .9-9.1 6.2 6.2 0 0 0-11.9 1.4 4 4 0 0 0 1.3 7.7z"/>' },
+    { id: 'leaf', label: 'はっぱ', svg: '<path d="M4.6 19.4C4.6 10.8 10.8 4.6 19.4 4.6c0 8.6-6.2 14.8-14.8 14.8z"/><path d="M4.6 19.4c1.8-5 5.4-9.3 10-11.9" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>' },
+    { id: 'bell', label: 'ベル', svg: '<path d="M12 2.6a6 6 0 0 1 6 6c0 3.8 1 5.4 2 6.9H4c1-1.5 2-3.1 2-6.9a6 6 0 0 1 6-6z"/><path d="M9.6 18.2h4.8a2.45 2.45 0 0 1-4.8 0z"/>' },
+    { id: 'planet', label: 'わくせい', svg: '<circle cx="12" cy="12" r="5.6"/><ellipse cx="12" cy="12" rx="10.2" ry="3.1" fill="none" stroke="currentColor" stroke-width="1.7" transform="rotate(-16 12 12)"/>' },
+    { id: 'bolt', label: 'かみなり', svg: '<path d="M13.2 2L5 13.2h5.4L9.2 22l8.2-11.2h-5.4L13.2 2z"/>' },
+    { id: 'snow', label: 'ゆき', svg: '<g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9"/></g><circle cx="12" cy="12" r="1.6"/>' },
+    { id: 'mushroom', label: 'きのこ', svg: '<path d="M12 3.5C7.2 3.5 3.2 7.3 3.2 12h17.6c0-4.7-4-8.5-8.8-8.5z"/><circle cx="8.6" cy="8.2" r="1.5" fill="rgba(255,255,255,.75)"/><circle cx="14.8" cy="7.2" r="1.15" fill="rgba(255,255,255,.75)"/><path d="M9.3 12h5.4l.7 5.6a3.4 3.4 0 0 1-6.8 0L9.3 12z"/>' },
+    { id: 'fish', label: 'さかな', svg: '<path d="M2.2 12c2.3-3.9 5.7-6.3 9.8-6.3 2.9 0 5.4 1.2 7.3 3.2L22 5.4v13.2l-2.7-3.3C17.4 17.3 14.9 18.5 12 18.5 7.9 18.5 4.5 16 2.2 12z"/><circle cx="8" cy="10.8" r="1.3" fill="rgba(0,0,0,.45)"/>' }
+  ];
+  var PROFILE_ICON_MAP = {};
+  PROFILE_ICONS.forEach(function (x) { PROFILE_ICON_MAP[x.id] = x; });
+  /* アイコンの HTML（p = {iconId, iconColor, name}）。未設定なら頭文字。
+     friends.js からも PWAccount.profileIcon として使う（CSS は account.js 側） */
+  function profileIconHTML(p, size) {
+    p = p || {};
+    var s = size || 36;
+    var col = PROFILE_COLOR_MAP[p.iconColor] || PROFILE_COLOR_MAP.violet;
+    var ic = PROFILE_ICON_MAP[p.iconId];
+    var inner;
+    if (ic) {
+      inner = '<svg viewBox="0 0 24 24" width="' + Math.round(s * 0.72) + '" height="' + Math.round(s * 0.72) + '" fill="currentColor" aria-hidden="true">' + ic.svg + '</svg>';
+    } else {
+      var initial = String(p.name || '?').trim().slice(0, 1) || '?';
+      inner = '<span style="font-weight:900;font-size:' + Math.round(s * 0.44) + 'px;line-height:1">' + esc(initial) + '</span>';
+    }
+    return '<span class="pwa-ava" style="width:' + s + 'px;height:' + s + 'px;background:' + col + '">' + inner + '</span>';
+  }
+  /* lastSeen の相対表示（d = {online, lastSeen}） */
+  function relLastSeenText(d) {
+    if (!d) return 'オフライン';
+    var fresh = d.lastSeen && (nowMs() - d.lastSeen < PRESENCE_STALE_MS);
+    if (d.online && fresh) return 'オンライン中';
+    if (!d.lastSeen) return 'オフライン';
+    var diff = nowMs() - d.lastSeen;
+    if (diff < 90000) return 'たった今までオンライン';
+    if (diff < 3600000) return Math.max(1, Math.floor(diff / 60000)) + '分前までオンライン';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '時間前までオンライン';
+    if (diff < 2 * 86400000) return '昨日までオンライン';
+    return Math.floor(diff / 86400000) + '日前までオンライン';
+  }
+  /* 自分のゲーム別戦績を playweb_records から集計する（対戦相手の内訳は出さない）。
+     戻り値: { gameId: {w, l, d, p(プレイ数), c(クリア数)} }（プレイのあるゲームのみ） */
+  function computeMyStats() {
+    var out = {};
+    try {
+      var rec = JSON.parse(localStorage.getItem('playweb_records') || '{}');
+      if (!rec || typeof rec !== 'object') return out;
+      Object.keys(rec).forEach(function (uid) {
+        var byGame = rec[uid];
+        if (!byGame || typeof byGame !== 'object') return;
+        Object.keys(byGame).forEach(function (g) {
+          if (g === '_name') return;
+          var r = byGame[g];
+          if (!r || !r.plays) return;
+          var o = out[g] || (out[g] = { w: 0, l: 0, d: 0, p: 0, c: 0 });
+          o.w += r.w || 0; o.l += r.l || 0; o.d += r.d || 0;
+          o.p += r.plays || 0; o.c += r.clears || 0;
+        });
+      });
+    } catch (e) {}
+    return out;
+  }
+  /* リンクサーガ（linksaga）の使用キャラ名をセーブから読む。
+     セーブ形式: { fav: キャラid, party: [id...], owned: {id: {lv, lb}} }
+     優先順: お気に入り(fav) → 編成の先頭 → 最もレベルの高い所持キャラ。
+     名前が引けない id（未登録の SR/R 等）は表示しない（空文字を返す）。
+     ※ id→名前の対応は linksaga のロスター（UR/SSR は実測で確認済み。
+       SR/R の id は linksaga.html 復旧後に追記すること） */
+  var LS_CHAR_NAMES = {
+    astraia: 'アストライア', velzelia: 'ヴェルゼリア', seiren: 'セイレーン',
+    blaze: 'ブレイズ', gracia: 'グラキエス', terra: 'テラ', solaris: 'ソラリス', nox: 'ノクス'
+  };
+  function readMainChar() {
+    try {
+      var s = JSON.parse(localStorage.getItem('linksaga_save_v1') || 'null');
+      if (!s || typeof s !== 'object') return '';
+      var id = '';
+      if (typeof s.fav === 'string' && s.fav) id = s.fav;
+      else if (Array.isArray(s.party) && typeof s.party[0] === 'string' && s.party[0]) id = s.party[0];
+      else if (s.owned && typeof s.owned === 'object') {
+        var best = -1;
+        Object.keys(s.owned).forEach(function (k) {
+          var lv = (s.owned[k] && s.owned[k].lv) || 0;
+          if (lv > best) { best = lv; id = k; }
+        });
+      }
+      return LS_CHAR_NAMES[id] || '';
+    } catch (e) { return ''; }
+  }
+
   /* ---------------- 状態 ---------------- */
   var fb = null;              /* {auth, db} */
   var sdkState = 'loading';   /* loading | ready | unavailable */
@@ -255,6 +390,10 @@
   var pendingUsername = null; /* 新規登録直後のプロフィール作成用 */
   var statusText = '';        /* モーダルに表示する同期状態など */
   var modalMode = 'login';    /* login | signup */
+  /* 自分のプロフィール拡張フィールド（users/{uid} と同期する分） */
+  var myProfile = { iconId: '', iconColor: '', comment: '', stats: null, mainChar: '' };
+  var lastExtrasJson = '';    /* stats/mainChar の publish 済み内容（無駄な書き込み防止） */
+  var extrasTimer = null;
 
   function cloudActive() { return !!(me && servicesOn && fb); }
 
@@ -377,6 +516,8 @@
   var friendsUploadTimer = null;
 
   function onLocalWrite(key, value) {
+    /* 戦績・リンクサーガのセーブが変わったらプロフィール集計の再 publish を予約 */
+    if (key === 'playweb_records' || key === 'linksaga_save_v1') schedulePublishExtras();
     if (!syncableKey(key) && key !== 'playweb_friends') return;
     if (key === 'playweb_friends') { scheduleFriendsUpload(); return; }
     var t = nowMs();
@@ -680,7 +821,10 @@
         var data = d.data() || {};
         presenceData[uid] = {
           name: data.username || '', game: data.currentGame || null,
-          lastSeen: data.lastSeen || 0, online: !!data.online
+          lastSeen: data.lastSeen || 0, online: !!data.online,
+          iconId: data.iconId || '', iconColor: data.iconColor || '',
+          comment: data.comment || '', stats: data.stats || null,
+          mainChar: data.mainChar || ''
         };
         pushPresence(uid);
       }, function () {});
@@ -692,7 +836,11 @@
     var d = presenceData[uid];
     if (!d) return;
     var online = d.online && (nowMs() - (d.lastSeen || 0) < PRESENCE_STALE_MS);
-    api._cloud.setPresence(uid, { online: online, name: d.name || '', game: d.game });
+    api._cloud.setPresence(uid, {
+      online: online, name: d.name || '', game: d.game,
+      lastSeen: d.lastSeen || 0, iconId: d.iconId || '', iconColor: d.iconColor || '',
+      comment: d.comment || '', stats: d.stats || null, mainChar: d.mainChar || ''
+    });
   }
   function refreshAllPresence() {
     Object.keys(presenceData).forEach(pushPresence);
@@ -887,12 +1035,68 @@
     } catch (e) {}
   }
 
+  /* ---------------- プロフィールの保存と publish（v52〜） ---------------- */
+  function isAdmin() {
+    return !!(me && ADMIN_UIDS.indexOf(me.uid) >= 0);
+  }
+  /* プロフィール文書の拡張フィールドを myProfile へ取り込む */
+  function absorbProfileData(data) {
+    if (!data) return;
+    if (typeof data.iconId === 'string') myProfile.iconId = data.iconId;
+    if (typeof data.iconColor === 'string') myProfile.iconColor = data.iconColor;
+    if (typeof data.comment === 'string') myProfile.comment = data.comment;
+    if (data.stats && typeof data.stats === 'object') myProfile.stats = data.stats;
+    if (typeof data.mainChar === 'string') myProfile.mainChar = data.mainChar;
+  }
+  /* アイコン/コメントの保存（本人のプロフィール文書へ merge 書き込み） */
+  function setMyProfile(patch) {
+    if (!me || !fb) return Promise.resolve({ ok: false, msg: 'ログインが必要です' });
+    var next = {
+      iconId: (patch && typeof patch.iconId === 'string') ? patch.iconId : myProfile.iconId,
+      iconColor: (patch && typeof patch.iconColor === 'string') ? patch.iconColor : myProfile.iconColor,
+      comment: (patch && typeof patch.comment === 'string') ? patch.comment : myProfile.comment
+    };
+    if (next.iconId && !PROFILE_ICON_MAP[next.iconId]) next.iconId = '';
+    if (next.iconColor && !PROFILE_COLOR_MAP[next.iconColor]) next.iconColor = '';
+    /* 一言コメント: 30文字まで。制御文字は除き、前後の空白を詰める */
+    next.comment = String(next.comment || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
+    return userDoc(me.uid).set(next, { merge: true }).then(function () {
+      myProfile.iconId = next.iconId;
+      myProfile.iconColor = next.iconColor;
+      myProfile.comment = next.comment;
+      updateModal();
+      return { ok: true, msg: 'プロフィールを保存しました' };
+    }).catch(function () {
+      return { ok: false, msg: '保存できませんでした（通信環境を確認してください）' };
+    });
+  }
+  /* 戦績集計（stats）と使用キャラ（mainChar）を公開プロフィールへ publish する。
+     内容が変わった時だけ書く（ログイン時＋記録/セーブ変更時に呼ばれる） */
+  function publishProfileExtras() {
+    if (!cloudActive()) return;
+    var stats = computeMyStats();
+    var mainChar = readMainChar();
+    myProfile.stats = stats;
+    myProfile.mainChar = mainChar;
+    var json = JSON.stringify({ s: stats, m: mainChar });
+    if (json === lastExtrasJson) return;
+    lastExtrasJson = json;
+    userDoc(me.uid).set({ stats: stats, mainChar: mainChar }, { merge: true })
+      .catch(function () { lastExtrasJson = ''; /* 次回リトライ */ });
+  }
+  function schedulePublishExtras() {
+    if (extrasTimer) clearTimeout(extrasTimer);
+    extrasTimer = setTimeout(function () { extrasTimer = null; publishProfileExtras(); }, 2000);
+  }
+
   /* ---------------- サービス開始・停止 ---------------- */
   function startServices() {
     if (!me || servicesOn) return;
     servicesOn = true;
     updatePill(); updateModal(); updateSearchRow();
-    syncSaves();
+    /* セーブ同期（クラウドの戦績が降りてくる場合がある）の後に集計を publish */
+    syncSaves().then(function () { publishProfileExtras(); });
+    startAdminInbox();
     /* フレンド一覧: クラウドとマージしてから購読 */
     friendsDoc(me.uid).get().then(function (d) {
       var cloudList = (d.exists && d.data() && Array.isArray(d.data().list)) ? d.data().list : [];
@@ -947,10 +1151,23 @@
     presenceUnsubs = {}; presenceData = {};
     var api = pwf();
     if (api && api._cloud) api._cloud.clearPresence();
+    fbInboxItems = [];
+    fbInboxDetailId = null;
+    fbInboxStarted = false;
+    profDraft = null;
+    var pv = $('pwaProfileView');
+    if (pv) { pv.style.display = 'none'; pv.innerHTML = ''; }
     updatePill(); updateModal(); updateSearchRow();
   }
   var lastPullAt = 0;
   document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      /* タブが隠れたら即オフライン化（フレンド側にすぐ伝わる） */
+      if (cloudActive()) setOffline();
+      return;
+    }
+    /* 戻ってきたら即ハートビートでオンライン復帰＋必要ならセーブ同期 */
+    if (cloudActive()) heartbeat();
     if (document.visibilityState === 'visible' && cloudActive() && nowMs() - lastPullAt > 30000) {
       lastPullAt = nowMs();
       syncSaves();
@@ -1084,6 +1301,7 @@
     clearReloadGuard();
     var uid = user.uid;
     userDoc(uid).get().then(function (d) {
+      absorbProfileData(d.exists ? d.data() : null);
       var username;
       if (d.exists && d.data() && d.data().username) {
         username = d.data().username;
@@ -1122,7 +1340,7 @@
     minesweeper: 'マインスイーパ', reversi: 'オセロ', shogi: '将棋', majan: '麻雀',
     daihugou: '大富豪', hanahuda: '花札', uno: 'UNO', blockzushi: 'ブロック崩し',
     jump: 'ジャンプラン', caring: '育成ゲーム', gamedev: 'ゲーム工房物語',
-    rpg: 'モンスターライズ', otome: '乙女ゲーム'
+    rpg: 'モンスターライズ', otome: '乙女ゲーム', linksaga: 'スターリンクサーガ'
   };
   function pageTitle() {
     if (typeof window.PW_PAGE_TITLE === 'string' && window.PW_PAGE_TITLE) return window.PW_PAGE_TITLE;
@@ -1164,7 +1382,38 @@
     '.pwa-note{font-size:11.5px;color:#9aa1c0;margin-top:8px;line-height:1.6}',
     '.pwa-note.err{color:#fca5a5}',
     '.pwa-note.ok{color:#86efac}',
-    '.pwa-user{font-size:19px;font-weight:900;color:#fde68a;margin:4px 0 2px}'
+    '.pwa-user{font-size:19px;font-weight:900;color:#fde68a;margin:4px 0 2px}',
+    /* v52: プロフィール（アバター/戦績/アイコン選択） */
+    '.pwa-ava{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;flex:0 0 auto;vertical-align:middle;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}',
+    '.pwa-prof{display:flex;gap:12px;align-items:center;margin:8px 0 4px}',
+    '.pwa-prof-meta{min-width:0;flex:1}',
+    '.pwa-prof-comment{font-size:13px;color:#d6d9ec;line-height:1.55;word-break:break-word;margin-top:6px}',
+    '.pwa-stats{margin-top:2px}',
+    '.pwa-stat-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:#c6cbe8;padding:2.5px 0}',
+    '.pwa-stat-row b{color:#eef0ff;font-weight:800;white-space:nowrap}',
+    '.pwa-stat-row span{text-align:right}',
+    '.pwa-icon-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:4px 0 2px}',
+    '.pwa-icon-cell{background:rgba(255,255,255,.05);border:2px solid transparent;border-radius:12px;padding:5px 0;display:flex;align-items:center;justify-content:center;cursor:pointer}',
+    '.pwa-icon-cell.on{border-color:#22d3ee;background:rgba(34,211,238,.12)}',
+    '.pwa-color-row{display:flex;gap:8px;margin:4px 0 6px;flex-wrap:wrap}',
+    '.pwa-color-cell{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}',
+    '.pwa-color-cell.on{border-color:#fff;box-shadow:0 0 0 2px rgba(34,211,238,.7)}',
+    /* v52: フィードバック（フォーム/意見ボックス） */
+    '#pwFbWrap{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-start;justify-content:center;background:rgba(3,4,12,.62);backdrop-filter:blur(3px);font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;padding:5vh 14px 14px;box-sizing:border-box}',
+    '#pwFbWrap.open{display:flex}',
+    '#pwFbWrap *{box-sizing:border-box}',
+    '.pw-fb-card{background:#12162c;border:1px solid rgba(255,255,255,.14);border-radius:18px;color:#eef0ff;width:min(480px,100%);max-height:88vh;overflow-y:auto;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.55)}',
+    '.pw-fb-card h3{font-size:16.5px;font-weight:900;margin-bottom:4px}',
+    '.pw-fb-card label{display:block;font-size:12px;font-weight:800;color:#9aa1c0;margin:12px 0 5px}',
+    '.pw-fb-card textarea.pwa-input{resize:vertical;min-height:110px}',
+    '.pw-fb-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}',
+    '.pw-fb-item .t{font-weight:800;font-size:13.5px;color:#eef0ff;word-break:break-word}',
+    '.pw-fb-item .m{font-size:11.5px;color:#9aa1c0;margin-top:2px;line-height:1.5}',
+    '.pw-fb-badge{display:inline-block;font-size:10px;font-weight:900;border-radius:999px;padding:1px 7px;margin-right:6px;vertical-align:1px}',
+    '.pw-fb-badge.new{background:#ef4444;color:#fff}',
+    '.pw-fb-badge.read{background:rgba(255,255,255,.14);color:#9aa1c0}',
+    '.pw-fb-badge.type{background:rgba(34,211,238,.18);color:#67e8f9}',
+    '.pw-fb-body{white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.7;color:#e6e9f7;background:rgba(255,255,255,.04);border-radius:12px;padding:12px;margin-top:8px}'
   ].join('\n');
   var headerEl = null, drawerWrapEl = null, drawerOpen = false;
   function buildUI() {
@@ -1194,11 +1443,16 @@
       '<div class="pw-drawer-head"><span>👤 アカウント</span>' +
       '<button class="pw-x" id="pwDrawerClose" aria-label="閉じる">✕</button></div>' +
       '<div id="pwaBody"></div>' +
+      '<div id="pwaProfileView" style="display:none"></div>' +
       '<div id="pwFriendsSec" data-pw-member-only style="display:none">' +
       '<div class="pw-drawer-sec">👥 フレンド</div>' +
       '<div id="pwFriendsMount"></div>' +
       '</div>' +
       '<div class="pwa-note" data-pw-guest-note style="display:none;margin-top:16px">いまはゲストとして遊んでいます。ゲストでは1人用モードのみで、セーブデータは保存されません。ログインすると、マルチプレイ・フレンド・セーブ（クラウド同期）が使えるようになります。</div>' +
+      '<div id="pwFbAdminSec" style="display:none">' +
+      '<div class="pw-drawer-sec">📮 意見ボックス（管理者用）</div>' +
+      '<div id="pwFbInbox"><div class="pwa-note">読み込み中…</div></div>' +
+      '</div>' +
       '</aside>';
     document.body.appendChild(drawerWrapEl);
     drawerWrapEl.querySelector('#pwDrawerScrim').addEventListener('click', closeModal);
@@ -1220,6 +1474,7 @@
     }
     var main = headerEl.querySelector('#pwTabMain');
     if (main) main.classList.toggle('on', !drawerOpen);
+    refreshAdminUI();
   }
   function notifyFriendsView() {
     var api = window.PWFriends;
@@ -1242,14 +1497,27 @@
       return;
     }
     if (me) {
+      var myStats = myProfile.stats || computeMyStats();
+      var myChar = myProfile.mainChar || readMainChar();
       body.innerHTML =
-        '<div class="pwa-note">ログイン中</div>' +
-        '<div class="pwa-user">' + esc(me.username) + '</div>' +
+        '<div class="pwa-prof">' + profileIconHTML(myProfile, 46) +
+        '<div class="pwa-prof-meta"><div class="pwa-note" style="margin:0">ログイン中</div>' +
+        '<div class="pwa-user" style="margin:0">' + esc(me.username) + '</div>' +
+        (myProfile.comment ? '<div class="pwa-prof-comment" style="margin-top:2px">' + esc(myProfile.comment) + '</div>' : '') +
+        '</div></div>' +
+        (myChar ? '<div class="pwa-note">🎴 使用キャラ（スターリンクサーガ）: <b style="color:#fde68a">' + esc(myChar) + '</b></div>' : '') +
+        '<button class="pwa-btn sub" id="pwaProfEditBtn" style="margin-top:8px">✏️ プロフィールを編集</button>' +
+        '<div id="pwaProfEditor"></div>' +
+        '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(myStats) +
         '<div class="pwa-note" id="pwaStatus">' + esc(statusText || 'クラウドセーブ有効') + '</div>' +
         '<div class="pwa-note">セーブデータ・フレンド・戦績はクラウドに同期されます。別の端末で同じアカウントにログインすると続きが遊べます。</div>' +
-        '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:12px">ログアウト</button>' +
+        '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:12px">📮 お問い合わせ・要望・バグ報告</button>' +
+        '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:8px">ログアウト</button>' +
         '<div class="pwa-note">ログアウトするとゲストに戻ります。セーブデータは消えませんが、ログインするまで表示・保存されません。</div>';
       $('pwaLogout').onclick = function () { doLogout(); };
+      $('pwaFeedbackBtn').onclick = function () { openFeedback(); };
+      $('pwaProfEditBtn').onclick = function () { toggleProfEditor(); };
+      refreshAdminUI();
       return;
     }
     body.innerHTML =
@@ -1260,6 +1528,7 @@
       '<input class="pwa-input" id="pwaPass" type="password" maxlength="64" placeholder="パスワード（6文字以上）" autocomplete="' + (modalMode === 'signup' ? 'new-password' : 'current-password') + '">' +
       '<button class="pwa-btn" id="pwaSubmit">' + (modalMode === 'signup' ? 'アカウントを作成' : 'ログイン') + '</button>' +
       '<div class="pwa-note" id="pwaMsg"></div>' +
+      '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:4px">📮 お問い合わせ・要望・バグ報告（ゲストでも送れます）</button>' +
       '<div class="pwa-note">いまはゲストとして遊んでいます。ゲストでは1人用モードのみで、セーブデータは保存されません。ログインすると、マルチプレイ・フレンド・セーブ（クラウド同期）が使えるようになり、別の端末でも続きが遊べます。</div>';
     $('pwaTabLogin').onclick = function () { modalMode = 'login'; updateModal(); };
     $('pwaTabSignup').onclick = function () { modalMode = 'signup'; updateModal(); };
@@ -1275,6 +1544,7 @@
       });
     };
     $('pwaSubmit').onclick = submit;
+    $('pwaFeedbackBtn').onclick = function () { openFeedback(); };
     $('pwaPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
   }
   /* アカウントドロワーの開閉（旧モーダルの openModal/closeModal を置き換え。
@@ -1329,6 +1599,308 @@
       if (!searchBound && ++tries <= 20) setTimeout(tick, 500);
     })();
   })();
+
+  /* ---------------- プロフィール表示（v52〜） ---------------- */
+  function statsHTML(stats) {
+    if (!stats || !Object.keys(stats).length) {
+      return '<div class="pwa-note">まだ戦績がありません。フレンドと対戦・協力すると、ここにゲーム別の成績が表示されます。</div>';
+    }
+    var rows = Object.keys(stats).map(function (g) {
+      var s = stats[g] || {};
+      var parts = [];
+      if (s.w || s.l || s.d) parts.push((s.w || 0) + '勝' + (s.l || 0) + '敗' + (s.d ? s.d + '分' : ''));
+      if (s.p) parts.push('プレイ' + s.p + '回');
+      if (s.c) parts.push('クリア' + s.c + '回');
+      return '<div class="pwa-stat-row"><b>' + esc(GAME_TITLES[g] || g) + '</b><span>' + esc(parts.join('・')) + '</span></div>';
+    }).join('');
+    return '<div class="pwa-stats">' + rows + '</div>';
+  }
+  /* プロフィール編集（アイコン/背景色/一言コメント） */
+  var profDraft = null;
+  function toggleProfEditor() {
+    var box = $('pwaProfEditor');
+    if (!box) return;
+    if (profDraft) { profDraft = null; box.innerHTML = ''; return; }
+    profDraft = { iconId: myProfile.iconId, iconColor: myProfile.iconColor };
+    renderProfEditor();
+  }
+  function renderProfEditor() {
+    var box = $('pwaProfEditor');
+    if (!box || !profDraft) return;
+    var colId = profDraft.iconColor || 'violet';
+    var cell = function (iconId) {
+      var p = { iconId: iconId, iconColor: colId, name: me ? me.username : '' };
+      return '<button class="pwa-icon-cell' + (profDraft.iconId === iconId ? ' on' : '') + '" data-icon="' + iconId + '">' + profileIconHTML(p, 30) + '</button>';
+    };
+    var cells = PROFILE_ICONS.map(function (ic) { return cell(ic.id); }).join('');
+    var colors = PROFILE_COLORS.map(function (c) {
+      return '<button class="pwa-color-cell' + (profDraft.iconColor === c.id ? ' on' : '') + '" data-color="' + c.id + '" style="background:' + c.c + '" aria-label="背景色 ' + c.id + '"></button>';
+    }).join('');
+    box.innerHTML =
+      '<div class="pw-drawer-sec">アイコン（左端は頭文字）</div><div class="pwa-icon-grid">' + cell('') + cells + '</div>' +
+      '<div class="pw-drawer-sec">背景色</div><div class="pwa-color-row">' + colors + '</div>' +
+      '<div class="pw-drawer-sec">一言コメント（30文字まで）</div>' +
+      '<input class="pwa-input" id="pwaProfComment" maxlength="30" placeholder="例：オセロ強くなりたい" value="' + esc(myProfile.comment) + '">' +
+      '<button class="pwa-btn" id="pwaProfSave">保存する</button>' +
+      '<div class="pwa-note" id="pwaProfMsg"></div>';
+    box.querySelectorAll('[data-icon]').forEach(function (b) {
+      b.onclick = function () { profDraft.iconId = b.getAttribute('data-icon'); renderProfEditor(); };
+    });
+    box.querySelectorAll('[data-color]').forEach(function (b) {
+      b.onclick = function () { profDraft.iconColor = b.getAttribute('data-color'); renderProfEditor(); };
+    });
+    $('pwaProfSave').onclick = function () {
+      var btn = $('pwaProfSave');
+      btn.disabled = true;
+      setMyProfile({
+        iconId: profDraft.iconId, iconColor: profDraft.iconColor,
+        comment: $('pwaProfComment').value
+      }).then(function (r) {
+        if (r.ok) { profDraft = null; /* setMyProfile 内で updateModal 済み */ }
+        else {
+          var m = $('pwaProfMsg');
+          if (m) { m.textContent = r.msg; m.classList.add('err'); }
+          btn.disabled = false;
+        }
+      });
+    };
+  }
+  /* フレンド（または自分）のプロフィール画面をドロワー内に出す */
+  function openProfile(uid) {
+    buildUI();
+    var view = $('pwaProfileView');
+    if (!view) return;
+    openModal();
+    view.style.display = '';
+    if (me && uid === me.uid) {
+      renderProfileView(view, {
+        name: me.username, iconId: myProfile.iconId, iconColor: myProfile.iconColor,
+        comment: myProfile.comment, online: true, lastSeen: nowMs(), game: MY_GAME,
+        stats: myProfile.stats || computeMyStats(), mainChar: myProfile.mainChar || readMainChar()
+      });
+      return;
+    }
+    var d = presenceData[uid];
+    if (d) {
+      renderProfileView(view, {
+        name: d.name || (friendEntryByUid(uid) || {}).username || 'フレンド',
+        iconId: d.iconId, iconColor: d.iconColor, comment: d.comment,
+        online: d.online, lastSeen: d.lastSeen, game: d.game,
+        stats: d.stats, mainChar: d.mainChar
+      });
+      return;
+    }
+    view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">読み込み中…</div>';
+    bindProfBack(view);
+    if (!fb) { view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">プロフィールを読み込めませんでした</div>'; bindProfBack(view); return; }
+    userDoc(uid).get().then(function (doc) {
+      if (!doc.exists) {
+        view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">プロフィールが見つかりませんでした</div>';
+        bindProfBack(view);
+        return;
+      }
+      var data = doc.data() || {};
+      renderProfileView(view, {
+        name: data.username || 'フレンド', iconId: data.iconId || '', iconColor: data.iconColor || '',
+        comment: data.comment || '', online: !!data.online, lastSeen: data.lastSeen || 0,
+        game: data.currentGame || null, stats: data.stats || null, mainChar: data.mainChar || ''
+      });
+    }).catch(function () {
+      view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">プロフィールを読み込めませんでした</div>';
+      bindProfBack(view);
+    });
+  }
+  function bindProfBack(view) {
+    var b = view.querySelector('#pwaProfBack');
+    if (b) b.onclick = function () { view.style.display = 'none'; view.innerHTML = ''; };
+  }
+  function renderProfileView(view, p) {
+    var playing = p.online && p.game && GAME_TITLES[p.game] && (p.lastSeen && nowMs() - p.lastSeen < PRESENCE_STALE_MS);
+    view.innerHTML =
+      '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button>' +
+      '<div class="pwa-prof">' + profileIconHTML(p, 56) +
+      '<div class="pwa-prof-meta"><div class="pwa-user" style="margin:0">' + esc(p.name || 'プレイヤー') + '</div>' +
+      '<div class="pwa-note" style="margin:2px 0 0">' + esc(relLastSeenText(p)) + (playing ? '・' + esc(GAME_TITLES[p.game]) + 'でプレイ中' : '') + '</div></div></div>' +
+      (p.comment ? '<div class="pwa-prof-comment">💬 ' + esc(p.comment) + '</div>' : '') +
+      (p.mainChar ? '<div class="pwa-note">🎴 使用キャラ（スターリンクサーガ）: <b style="color:#fde68a">' + esc(p.mainChar) + '</b></div>' : '') +
+      '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(p.stats);
+    bindProfBack(view);
+  }
+
+  /* ---------------- フィードバック（v52〜・作業4） ----------------
+     フォームはポータルとドロワーから開けるモーダル。送信は Firestore の
+     feedback コレクションへ add するだけ。ゲストでも送れる（ログインできない
+     不具合の報告経路を塞がないため、フレンド系ゲートとは独立）。
+     ※本番ルールに feedback の許可が入るまでは、本番環境では送信が
+       ルールで拒否される（firestore.rules への追記はユーザーの再貼り付け待ち）。 */
+  var FB_TYPE_LABELS = { contact: 'お問い合わせ', request: '要望', bug: 'バグ報告' };
+  var fbWrapEl = null;
+  function buildFeedback() {
+    if (fbWrapEl) return;
+    fbWrapEl = document.createElement('div');
+    fbWrapEl.id = 'pwFbWrap';
+    var gameOpts = '<option value="">（ゲーム共通・その他）</option>' + Object.keys(GAME_TITLES).filter(function (g) { return g !== 'portal'; }).map(function (g) {
+      return '<option value="' + g + '">' + esc(GAME_TITLES[g]) + '</option>';
+    }).join('');
+    fbWrapEl.innerHTML =
+      '<div class="pw-fb-card">' +
+      '<h3>📮 お問い合わせ・要望・バグ報告</h3>' +
+      '<div class="pwa-note" style="margin:0">運営へのメッセージを送れます。バグ報告は「どのゲームで・何をしたら・どうなったか」を書いてもらえると助かります。</div>' +
+      '<label>種別</label><select class="pwa-input" id="pwFbType"><option value="contact">お問い合わせ</option><option value="request">要望</option><option value="bug">バグ報告</option></select>' +
+      '<label>対象ゲーム（任意）</label><select class="pwa-input" id="pwFbGame">' + gameOpts + '</select>' +
+      '<label>タイトル（必須・100文字まで）</label><input class="pwa-input" id="pwFbTitle" maxlength="100" placeholder="例：オセロで対戦が切断されました">' +
+      '<label>本文（必須・2000文字まで）</label><textarea class="pwa-input" id="pwFbBody" maxlength="2000" placeholder="詳しい内容を書いてください"></textarea>' +
+      '<div id="pwFbNameRow"><label>お名前（任意）</label><input class="pwa-input" id="pwFbName" maxlength="30" placeholder="名乗らなくても送れます"></div>' +
+      '<button class="pwa-btn" id="pwFbSubmit">送信する</button>' +
+      '<button class="pwa-btn sub" id="pwFbCancel" style="margin-top:8px">キャンセル</button>' +
+      '<div class="pwa-note" id="pwFbMsg"></div></div>';
+    document.body.appendChild(fbWrapEl);
+    fbWrapEl.addEventListener('click', function (e) { if (e.target === fbWrapEl) closeFeedback(); });
+    $('pwFbCancel').onclick = closeFeedback;
+    $('pwFbSubmit').onclick = submitFeedbackFromUI;
+  }
+  function openFeedback() {
+    buildUI();
+    buildFeedback();
+    if (!fbWrapEl) return;
+    var row = $('pwFbNameRow');
+    if (row) row.style.display = me ? 'none' : '';
+    fbWrapEl.classList.add('open');
+  }
+  function closeFeedback() { if (fbWrapEl) fbWrapEl.classList.remove('open'); }
+  function submitFeedback(data) {
+    if (!fb) return Promise.resolve({ ok: false, msg: '送信できませんでした（通信環境を確認してください）' });
+    return fb.db.collection('feedback').add({
+      type: FB_TYPE_LABELS[data.type] ? data.type : 'contact',
+      title: String(data.title || '').slice(0, 100),
+      body: String(data.body || '').slice(0, 2000),
+      game: data.game || '',
+      fromUid: me ? me.uid : '',
+      fromName: String(data.fromName || '').slice(0, 30),
+      createdAt: nowMs(),
+      status: 'new'
+    }).then(function () { return { ok: true }; })
+      .catch(function (e) { return { ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') }; });
+  }
+  function submitFeedbackFromUI() {
+    var title = $('pwFbTitle').value.trim();
+    var body = $('pwFbBody').value.trim();
+    var msg = $('pwFbMsg');
+    msg.className = 'pwa-note';
+    if (!title) { msg.textContent = 'タイトルを入力してください'; msg.classList.add('err'); return; }
+    if (!body) { msg.textContent = '本文を入力してください'; msg.classList.add('err'); return; }
+    var btn = $('pwFbSubmit');
+    btn.disabled = true;
+    msg.textContent = '送信中…';
+    submitFeedback({
+      type: $('pwFbType').value, game: $('pwFbGame').value, title: title, body: body,
+      fromName: me ? me.username : $('pwFbName').value.trim()
+    }).then(function (r) {
+      btn.disabled = false;
+      if (r.ok) {
+        msg.textContent = '送信しました。ありがとうございます！';
+        msg.classList.add('ok');
+        $('pwFbTitle').value = '';
+        $('pwFbBody').value = '';
+        var api = pwf();
+        if (api && api._cloud && api._cloud.toast) api._cloud.toast('📮 送信しました', 'info');
+        setTimeout(closeFeedback, 900);
+      } else {
+        msg.textContent = r.msg;
+        msg.classList.add('err');
+      }
+    });
+  }
+
+  /* ---------------- 意見ボックス（管理者用インボックス・v52〜） ----------------
+     ADMIN_UIDS に自分の uid が入っている時だけドロワーに表示される。
+     feedback を購読し、新着順に一覧表示。開いたら既読化できる。 */
+  var fbInboxItems = [];
+  var fbInboxDetailId = null;
+  var fbInboxStarted = false;
+  function refreshAdminUI() {
+    var sec = $('pwFbAdminSec');
+    if (sec) sec.style.display = isAdmin() ? '' : 'none';
+  }
+  function fmtDateTime(ts) {
+    var d = new Date(ts || 0);
+    return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+  function startAdminInbox() {
+    refreshAdminUI();
+    if (!isAdmin() || !fb || fbInboxStarted) return;
+    fbInboxStarted = true;
+    var apply = function (snap) {
+      var items = [];
+      snap.forEach(function (d) {
+        var x = d.data() || {};
+        x._id = d.id;
+        items.push(x);
+      });
+      items.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+      fbInboxItems = items.slice(0, 50);
+      renderAdminInbox();
+    };
+    try {
+      var unsub = fb.db.collection('feedback').onSnapshot(apply, function () {
+        fb.db.collection('feedback').get().then(apply).catch(function () { renderAdminInboxError(); });
+      });
+      unsubs.push(unsub);
+    } catch (e) {
+      fb.db.collection('feedback').get().then(apply).catch(function () { renderAdminInboxError(); });
+    }
+  }
+  function renderAdminInboxError() {
+    var box = $('pwFbInbox');
+    if (box) box.innerHTML = '<div class="pwa-note err">意見ボックスを読み込めませんでした（ルール未反映の可能性があります）</div>';
+  }
+  function renderAdminInbox() {
+    var box = $('pwFbInbox');
+    if (!box || !isAdmin()) return;
+    if (fbInboxDetailId) {
+      var cur = null;
+      fbInboxItems.forEach(function (x) { if (x._id === fbInboxDetailId) cur = x; });
+      if (cur) { renderAdminInboxDetail(box, cur); return; }
+      fbInboxDetailId = null;
+    }
+    if (!fbInboxItems.length) {
+      box.innerHTML = '<div class="pwa-note">まだ届いていません。</div>';
+      return;
+    }
+    box.innerHTML = fbInboxItems.map(function (x) {
+      return '<div class="pw-fb-item" data-fb-id="' + esc(x._id) + '">' +
+        '<span class="pw-fb-badge type">' + esc(FB_TYPE_LABELS[x.type] || 'お問い合わせ') + '</span>' +
+        '<span class="pw-fb-badge ' + (x.status === 'read' ? 'read' : 'new') + '">' + (x.status === 'read' ? '既読' : '新着') + '</span>' +
+        '<span class="t">' + esc(x.title || '（無題）') + '</span>' +
+        '<div class="m">' + esc(x.fromName || '名無し') + ' ・ ' + esc(fmtDateTime(x.createdAt)) +
+        (x.game ? ' ・ ' + esc(GAME_TITLES[x.game] || x.game) : '') + '</div></div>';
+    }).join('');
+    box.querySelectorAll('[data-fb-id]').forEach(function (el) {
+      el.onclick = function () { fbInboxDetailId = el.getAttribute('data-fb-id'); renderAdminInbox(); };
+    });
+  }
+  function renderAdminInboxDetail(box, x) {
+    box.innerHTML =
+      '<button class="pwa-btn sub" id="pwFbBack" style="margin-bottom:10px">← 一覧へもどる</button>' +
+      '<div><span class="pw-fb-badge type">' + esc(FB_TYPE_LABELS[x.type] || 'お問い合わせ') + '</span>' +
+      '<span class="pw-fb-badge ' + (x.status === 'read' ? 'read' : 'new') + '">' + (x.status === 'read' ? '既読' : '新着') + '</span></div>' +
+      '<div style="font-weight:900;font-size:15.5px;margin-top:6px;word-break:break-word">' + esc(x.title || '（無題）') + '</div>' +
+      '<div class="pwa-note" style="margin-top:4px">' + esc(x.fromName || '名無し') +
+      (x.game ? ' ・ ' + esc(GAME_TITLES[x.game] || x.game) : '') + ' ・ ' + esc(fmtDateTime(x.createdAt)) + '</div>' +
+      '<div class="pw-fb-body">' + esc(x.body || '') + '</div>' +
+      (x.status !== 'read' ? '<button class="pwa-btn" id="pwFbRead" style="margin-top:12px">既読にする</button>' : '');
+    $('pwFbBack').onclick = function () { fbInboxDetailId = null; renderAdminInbox(); };
+    var rb = $('pwFbRead');
+    if (rb) rb.onclick = function () {
+      rb.disabled = true;
+      fb.db.doc('feedback/' + x._id).set({ status: 'read' }, { merge: true }).then(function () {
+        x.status = 'read';
+        fbInboxDetailId = null;
+        renderAdminInbox();
+      }).catch(function () { rb.disabled = false; });
+    };
+  }
 
   /* ---------------- SDK ロード ---------------- */
   function loadScript(src) {
@@ -1412,6 +1984,23 @@
     canCloudChat: canCloudChat,
     consumeInvite: consumeInvite,
     dismissInvite: dismissInvite,
+    /* v52〜 プロフィール */
+    profileIcon: profileIconHTML,
+    iconPresets: function () { return PROFILE_ICONS.slice(); },
+    colorPresets: function () { return PROFILE_COLORS.slice(); },
+    myProfile: function () {
+      return {
+        iconId: myProfile.iconId, iconColor: myProfile.iconColor,
+        comment: myProfile.comment, stats: myProfile.stats, mainChar: myProfile.mainChar
+      };
+    },
+    setMyProfile: setMyProfile,
+    openProfile: openProfile,
+    relLastSeen: function (d) { return relLastSeenText(d); },
+    /* v52〜 フィードバック/意見ボックス */
+    isAdmin: isAdmin,
+    openFeedback: openFeedback,
+    submitFeedback: submitFeedback,
     /* テスト用フック */
     _test: {
       syncableKey: syncableKey,
@@ -1424,7 +2013,17 @@
       guestActive: function () { return guestActive; },
       memStore: function () { var c = {}; Object.keys(memStore).forEach(function (k) { c[k] = memStore[k]; }); return c; },
       flushGuestStoreDiskFirst: flushGuestStoreDiskFirst,
-      readHint: readHint
+      readHint: readHint,
+      computeStats: computeMyStats,
+      readMainChar: readMainChar,
+      publishExtras: publishProfileExtras,
+      setAdminUids: function (arr) {
+        ADMIN_UIDS = (arr || []).slice();
+        refreshAdminUI();
+        if (cloudActive()) startAdminInbox();
+      },
+      adminUids: function () { return ADMIN_UIDS.slice(); },
+      inboxItems: function () { return fbInboxItems.slice(); }
     }
   };
 
@@ -1435,6 +2034,10 @@
     try {
       document.querySelectorAll('[data-pw-login-btn]').forEach(function (b) {
         b.addEventListener('click', function () { openModal(); });
+      });
+      /* ポータル等のフィードバックボタンを結線（ゲストでも開ける） */
+      document.querySelectorAll('[data-pw-feedback-btn]').forEach(function (b) {
+        b.addEventListener('click', function () { openFeedback(); });
       });
     } catch (e) {}
     applyMemberOnlyVisibility();

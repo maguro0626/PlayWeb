@@ -281,10 +281,21 @@
     var p = state.presence[code];
     return !!(p && p.online);
   }
+  /* lastSeen の相対表示（v52〜。account.js の relLastSeenText と同じ文言。
+     account.js が無い環境でも friends.js 単体で表示できるよう小さく複製） */
+  function relSeenText(ts) {
+    if (!ts) return '';
+    var diff = Date.now() - ts;
+    if (diff < 90000) return 'たった今までオンライン';
+    if (diff < 3600000) return Math.max(1, Math.floor(diff / 60000)) + '分前までオンライン';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '時間前までオンライン';
+    if (diff < 2 * 86400000) return '昨日までオンライン';
+    return Math.floor(diff / 86400000) + '日前までオンライン';
+  }
   function presenceText(code) {
     var cp = cloudPresence[code];
     if (cp) {
-      if (!cp.online) return 'オフライン';
+      if (!cp.online) return relSeenText(cp.lastSeen) || 'オフライン';
       if (cp.game && GAMES[cp.game]) {
         return cp.game === 'portal' ? 'オンライン・ポータル' : 'オンライン・' + GAMES[cp.game].title + 'でプレイ中';
       }
@@ -296,6 +307,20 @@
       return p.game === 'portal' ? 'オンライン・ポータル' : 'オンライン・' + GAMES[p.game].title + 'でプレイ中';
     }
     return 'オンライン';
+  }
+  /* フレンドのアバター（v52〜）。account.js の profileIcon を使い、
+     無ければ頭文字の丸アイコンにフォールバックする */
+  function avatarHTML(uid, size) {
+    var s = size || 38;
+    var cp = cloudPresence[uid] || {};
+    if (window.PWAccount && window.PWAccount.profileIcon) {
+      try {
+        return window.PWAccount.profileIcon(
+          { iconId: cp.iconId || '', iconColor: cp.iconColor || '', name: displayName(uid) }, s);
+      } catch (e) {}
+    }
+    return '<span class="pwf-ava-fallback" style="width:' + s + 'px;height:' + s + 'px">' +
+      esc((displayName(uid) || '?').slice(0, 1)) + '</span>';
   }
   function displayName(uid) {
     var cp = cloudPresence[uid];
@@ -543,7 +568,12 @@
     _cloud: {
       setPresence: function (code, info) {
         if (!code || !info) return;
-        cloudPresence[code] = { online: !!info.online, name: info.name || '', game: info.game || null };
+        /* v52〜 プロフィール拡張（アイコン/コメント/最終オンライン/戦績/使用キャラ）も保持する */
+        cloudPresence[code] = {
+          online: !!info.online, name: info.name || '', game: info.game || null,
+          lastSeen: info.lastSeen || 0, iconId: info.iconId || '', iconColor: info.iconColor || '',
+          comment: info.comment || '', stats: info.stats || null, mainChar: info.mainChar || ''
+        };
         renderAll();
       },
       clearPresence: function () { cloudPresence = {}; renderAll(); },
@@ -918,6 +948,12 @@
     '.pwf-dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%;background:#5b6076}',
     '.pwf-dot.on{background:#4ade80;box-shadow:0 0 8px rgba(74,222,128,.8)}',
     '.pwf-fmeta{flex:1;min-width:0}',
+    /* v52〜 アバター＋一言コメント */
+    '.pwf-avawrap{position:relative;flex:0 0 auto;display:inline-flex}',
+    '.pwf-avawrap .pwf-dot{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border:2px solid #12162c;box-sizing:content-box}',
+    '.pwf-ava-fallback{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#3b4a7a;color:#fff;font-weight:900;font-size:16px}',
+    '.pwf-fcomment{font-size:11.5px;color:#a5b4fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}',
+    '.pwf-fmeta[data-act="prof"]{cursor:pointer}',
     '.pwf-fname{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.pwf-fstat{font-size:11.5px;color:#9aa1c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.pwf-fstat.on{color:#86efac}',
@@ -1234,8 +1270,11 @@
       var on = isOnline(f.uid);
       var un = unread[f.uid] || 0;
       var recSum = recordSummary(f.uid);
-      return '<div class="pwf-friend"><span class="pwf-dot' + (on ? ' on' : '') + '"></span>' +
-        '<div class="pwf-fmeta"><div class="pwf-fname">' + esc(displayName(f.uid)) + '</div>' +
+      var cp = cloudPresence[f.uid] || {};
+      return '<div class="pwf-friend"><span class="pwf-avawrap">' + avatarHTML(f.uid, 38) +
+        '<span class="pwf-dot' + (on ? ' on' : '') + '"></span></span>' +
+        '<div class="pwf-fmeta" data-act="prof" data-uid="' + f.uid + '" title="タップでプロフィール"><div class="pwf-fname">' + esc(displayName(f.uid)) + '</div>' +
+        (cp.comment ? '<div class="pwf-fcomment">' + esc(cp.comment) + '</div>' : '') +
         '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.uid)) + '</div>' +
         (recSum ? '<div class="pwf-frec">' + esc(recSum) + '</div>' : '') + '</div>' +
         '<button class="pwf-iconbtn" data-act="chat" data-uid="' + f.uid + '">💬' + (un ? '<span class="pwf-ubadge">' + un + '</span>' : '') + '</button>' +
@@ -1252,6 +1291,8 @@
         } else if (act === 'pick') {
           state.view = 'pick'; state.pickFor = code;
           renderAll();
+        } else if (act === 'prof') {
+          if (window.PWAccount && window.PWAccount.openProfile) window.PWAccount.openProfile(code);
         } else if (act === 'del') {
           if (!window.confirm(displayName(code) + 'さんをフレンドから削除しますか？')) return;
           friends = friends.filter(function (x) { return x.uid !== code; });
