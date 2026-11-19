@@ -14,28 +14,32 @@
      usernames/{usernameLower} -> {uid}（重複防止・検索用）
      ※ v51〜 フレンドコード方式は廃止。フレンドの同一性は uid で統一し、
        追加はユーザー名検索のみ。codes コレクションは使わない（ルールは不変）。
-   - セーブ保存（v72〜 ローカル主保存＋アカウント別名前空間＋クラウド同期）:
-     ゲームデータの主保存は実 localStorage。ただし素のキーではアカウント間で
-     混ざるため、ログイン中アカウントの uid で名前空間を分ける:
-       ゲームの素キー K  <->  ディスクキー "pwsave:<uid>:K"
-     どの名前空間を読むかは、ページ読み込み直後に Firebase Auth のセッション
-     記録（firebase:authUser:*）から同期的に決める。v73〜 SDK の記録が
-     localStorage に無い環境（永続化が IndexedDB 側の実ブラウザ等）でも
-     バインドできるよう、自前の uid ヒント（pwacct_uid_v1）をフォールバックに
-     使う。認証が後から別の uid に確定したら、その時点で名前空間を切り替える
-     （切替前に読んだ値は混ざらない）。
+   - セーブ保存（v74〜 端末ストア＋所有者引き継ぎ＋クラウド同期）:
+     ゲームデータの主保存は実 localStorage の素キー（〜v65 と同じ方式）。
+     保存シムは素通し＋書き込みフック（同期メタの版上げ・dirty 追跡・
+     戦績 publish 予約）だけを行い、読み書きの振り替えは一切しない。
+     そのため、認証状態がどうであっても（ゲストでも、認証確定前でも）
+     書いた値はその場で端末に残り、次のページでそのまま読める。
+     アカウント分離は保存層ではなく「所有者引き継ぎ」で担保する:
+     同期メタ "pwacct_meta_v2" = {owner, keys, del, friendsTs} の owner が
+     「現在の端末ストアが属するアカウント uid」を表す。ログイン/登録の
+     確定時、owner が未設定か自分なら通常の LWW マージを行い、owner が
+     他人なら端末ストアの同期対象キーとフレンド一覧を全消去してから
+     自分のクラウドセーブを全件ダウンロードして反映する（引き継ぎ）。
+     他人のクラウドには一切触らない。新規登録（クラウドが空）なら
+     端末は空から始まる。ログアウトでは端末ストアも owner も消さない。
      クラウド（users/{uid}/saves/{encodeURIComponent(key)}）はバックアップと
-     端末間同期用で、ログイン確定時にキーごとの updatedAt を比較して新しい方を
-     採用する（比較メタはアカウント別に "pwmeta:<uid>" へ保存する）。
-     書き込みは名前空間＋メタへ即時反映し、クラウドへはデバウンスで上げる。
+     端末間同期用で、マージはキーごとの updatedAt 比較（新しい方の勝ち）。
      クラウド取得に失敗してもローカルだけで完全に動作する。
-     ※ v66〜v71 の「メモリ＋クラウド専管（ブラウザに残さない）」方式は、
-       実機で保存が定着しない不具合が続いたため v72 で廃止した
-       （window.name シードと未送信台帳も廃止。ディスク自体が台帳になる）。
-     ※ 旧方式（v49〜v65）の「新規登録時の初回移行アップロード」はアカウント
-       混入の原因だったため復活させない。新規登録したアカウントは必ず空の
-       名前空間から始まる。起動時には旧来の素キー（〜v65 の共有データ）を実
-       localStorage から削除する（パージ。pwsave:/pwmeta: は絶対に消さない）。
+     ※ v66〜v71 の「メモリ＋クラウド専管」、v72〜v73 の「アカウント別
+       名前空間（pwsave:<uid>:〜）」はどちらも実機で保存が定着しない
+       不具合が続いたため廃止した。名前空間方式は「書き込みは残るが、
+       ページ初期化時点で uid を同期的に知る手段が無く（Firebase SDK の
+       セッション記録は IndexedDB 側にある）、ゲームがゲスト前提で初期
+       読みした値を後から上書き破壊する」ことが実ブラウザ診断で確定した。
+       v74 ではログイン確定時に、そのアカウントの名前空間残骸
+       （pwsave:<uid>:* / pwmeta:<uid>）を時刻比較で素キーへ救済
+       インポートしてから削除する（1回きり・冪等）。
    - フレンド基盤（ログイン時）: フレンド一覧は users/{uid}/data/friends と同期し、
      ユーザー名検索で追加できる。プレゼンスは公開プロフィールの
      online/lastSeen/currentGame をハートビート更新して使う。
@@ -43,28 +47,26 @@
      messages コレクション（当事者のみ）に保存する。実際の対戦接続は
      従来どおり PeerJS ルームへ合流する。
    - ゲスト制限（v50〜）: 未ログイン（ゲスト）は1人用モードのみ。
-     マルチプレイ・フレンド機能は使えず、セーブデータは保存されない。
-     実装は2層: (1) 保存シム — ログイン状態によらず常時有効で、ゲーム系キー
-     への localStorage 読み書きを、ログイン中はそのアカウントの名前空間
-     （実ディスク）へ、ゲスト時はメモリ内ストアへ振り替える。
-     ゲストのデータはメモリ内だけにあり、リロードで消える。v73〜 例外として、
-     同一ページ内でゲスト→ログイン確定へ切り替わる際、そのページのメモリ分
-     だけを当アカウントの名前空間へ取り込む（ディスク上の既存データを
-     引き継ぐ処理は引き続き存在しない）。
-     (2) ゲート — friends.js へ gateState（pending/member/guest/sdk-down）を
-     通知し、フレンドUI・招待・オンライン入口を制御する。SDK が読み込めない
+     マルチプレイ・フレンド機能は使えない。実装はゲートのみ:
+     friends.js へ gateState（pending/member/guest/sdk-down）を通知し、
+     フレンドUI・招待・オンライン入口を制御する。SDK が読み込めない
      環境ではログインできないため、マルチ/フレンドはゲスト扱いでブロックする。
+     なお v74〜 ゲストのセーブも端末ストア（素キー）に保存される
+     （保存層は認証状態で振る舞いを変えない）。ただし共有端末で
+     ログアウトした後に次の人がゲストとして遊ぶと、前任者の端末データが
+     見える点は設計上の割り切りとする（アカウント分離はログイン時の
+     所有者引き継ぎで担保する）。
    - セーブデータ初期化（v66〜）: ドロワーに「セーブデータを初期化」ボタンを
-     置き、自分の users/{uid}/saves/ 全削除＋この端末の名前空間・メタ削除＋
-     公開戦績のリセットができる（アカウント混入時に白紙へ戻す用途）。
+     置き、自分の users/{uid}/saves/ 全削除＋この端末ストアの同期対象キー・
+     フレンド全消去＋同期メタ初期化（owner 解除）＋公開戦績のリセットが
+     できる（白紙へ戻す用途。他人のデータには一切触らない）。
    - バックアップから復元: ドロワーに「バックアップから復元」ボタンを置き、
      ポータルで書き出したバックアップ JSON（{exportedAt, data:{key:値}} 形式。
      旧退避形式 {savedAt, data} と素の key→値マップも可）を本人のアカウントへ
-     取り込める。実行はログイン中（名前空間が自分の uid に切り替わっている間）
-     のみ。取り込みは通常の保存経路（シム経由の書き込み→名前空間→クラウド）
-     で行うため、取り込んだ時点で端末には即永続化される。フレンドは
-     フレンド経路、対象外キー（firebase:/pwacct_/旧仕様の死んだキー等）は
-     取り込まない。
+     取り込める。実行はログイン中のみ。取り込みは通常の保存経路（シム経由の
+     書き込み→素キー→クラウド同期）で行うため、取り込んだ時点で端末には
+     即永続化される。フレンドはフレンド経路、対象外キー
+     （firebase:/pwacct_/旧仕様の死んだキー等）は取り込まない。
    - 共通ヘッダー＋ドロワー（v51〜）: 全ページ最上部に共通ヘッダー
      （🏠ホーム＋ゲーム名＋[メイン｜アカウント]タブ）を注入する。
      「アカウント」タブで右から半透明ドロワーがスライドインし、
@@ -111,53 +113,15 @@
   var FRIENDS_KEYS = {
     playweb_friends: true, playweb_chats: true, playweb_unread: true
   };
-  /* 起動時パージ: 実 localStorage から削除する PlayWeb の既知キー全覧
-     （各ゲームのセーブ/設定/ベスト記録、ポータル、フレンド層、旧 account.js
-     内部キー）。コード全体の localStorage 使用箇所から洗い出した一覧で、
-     接頭辞ファミリは PURGE_PREFIXES 側に置く。Firebase Auth のキー
-     （firebase:〜）と、同一オリジン上の他アプリのキーは対象外 */
-  var PURGE_KEYS = [
-    'blockblast_best', 'blockblast_state', 'blockblast_unlocked',
-    'blockzushi_best', 'crepe_gallery',
-    'daihugou_settings_v1', 'daihugou_sound_v1', 'daihugou_stats_v1',
-    'frostline_best_v1', 'frostline_mute', 'frostline_save_v1',
-    'gamedev_story_v1', 'gamedev_story_vs',
-    'jumpDashProSaveV1', 'linksaga_save_v1',
-    'majan2_settings',
-    'majoneko_mute', 'majoneko_radar',
-    'majoneko_survivors_best', 'majoneko_survivors_best_coop', 'majoneko_survivors_meta',
-    'mini_calc_v1', 'mini_dice_v1', 'mini_janken_v1', 'mini_mash_v1', 'mini_memory_v1',
-    'mini_mole_v1', 'mini_numguess_v1', 'mini_reaction_v1', 'mini_simon_v1', 'mini_timing_v1',
-    'monster_caring_log_v1', 'monster_caring_name', 'monster_caring_slots_v1',
-    'monster_caring_sound', 'monster_caring_v2',
-    'mrise_settings', 'mrise_unified_v1', 'mrise_unified_v1_slot2', 'mrise_unified_v1_slot3',
-    'mrise_v5', 'mrise_v5_slot2', 'mrise_v5_slot3',
-    'playweb_chats', 'playweb_friends', 'playweb_pre_import_backup',
-    'playweb_profile', 'playweb_records', 'playweb_unread',
-    'pw_favs', 'pw_recent',
-    'reversi_record_v1', 'reversi_settings_v1',
-    'serenata_global_album', 'serenata_global_endings', 'serenata_settings',
-    'suica_dx_highscore', 'tetris_best',
-    'uno_settings_v2', 'uno_stats_v2',
-    'pwacct_friends_reset_v50', 'pwacct_hint', 'pwacct_meta'
-  ];
-  var PURGE_PREFIXES = ['ms_best_', 'pwmatch_', 'serenata_save_slot_'];
-  var PURGE_KEY_SET = {};
-  PURGE_KEYS.forEach(function (k) { PURGE_KEY_SET[k] = true; });
-  /* v72〜 ローカル主保存の名前空間（実ディスク上の接頭辞）。
-     ゲームの素キー K は "pwsave:<uid>:K" に、同期メタは "pwmeta:<uid>" に置く。
-     起動時パージでは絶対に消さない（現行のセーブそのもの） */
-  var SAVE_NS_PREFIX = 'pwsave:';
-  var META_PREFIX = 'pwmeta:';
-  /* v73〜 自前の uid ヒント（原始ディスクの素キー）。
-     Firebase Auth のセッション記録は SDK の永続化形式（localStorage か
-     IndexedDB か）に依存するため、実ブラウザでは authUidFromDisk() の
-     同期スキャンで uid が取れないことがある。その場合でもページ初期化の
-     時点で名前空間をバインドできるよう、認証確定時に uid だけを自前の
-     キーへ控えておく。あくまで「バインドの手がかり」であり、最終確定は
-     SDK の onAuthStateChanged が行う（違う uid なら切り替わる）。
-     起動時パージの対象には絶対に入れない（下のパージでも明示ガードする） */
-  var UID_HINT_KEY = 'pwacct_uid_v1';
+  /* v74〜 同期メタは単一キー "pwacct_meta_v2" に集約する:
+       { owner, keys:{K:updatedAt}, del:{K:updatedAt}, friendsTs }
+     owner は「現在の端末ストアが属するアカウント uid」（未設定なら null）。
+     v72/v73 の名前空間キー（"pwsave:<uid>:K" / "pwmeta:<uid>"）は廃止したが、
+     端末に残っている分をログイン確定時に救済インポートするため、
+     接頭辞だけは定数として残す（新規に書くことは二度とない） */
+  var META_V2_KEY = 'pwacct_meta_v2';
+  var SAVE_NS_PREFIX = 'pwsave:';   /* 旧方式の接頭辞（救済インポート専用） */
+  var META_PREFIX = 'pwmeta:';      /* 旧方式の接頭辞（救済インポート専用） */
   var PRESENCE_STALE_MS = 90000;   /* lastSeen がこれより古ければオフライン扱い */
   var HEARTBEAT_MS = 30000;
   /* 管理者 uid のリスト（意見ボックスの表示・読み取りに使う）。
@@ -267,7 +231,7 @@
   })();
 
   /* ---------------- 生ストレージ（シムを通さない直接アクセス） ----------------
-     ゲスト用シムは Storage.prototype を差し替えるため、account.js 自身が
+     保存シムは Storage.prototype を差し替えるため、account.js 自身が
      ディスク上の実データへ触るときは、差し替え前の原生メソッドを使う。 */
   var rawLS = { get: null, set: null, remove: null, clear: null };
   try {
@@ -287,12 +251,12 @@
   function diskRemove(k) {
     try { if (rawLS.remove) rawLS.remove.call(window.localStorage, k); } catch (e) {}
   }
-  /* シムの対象外キー（常にディスク直通）:
+  /* シムの対象外キー（フックも掛けず素通しする）:
      - firebase: で始まるキー（Firebase Auth のセッション永続化。
        認証の仕組みそのものなので保存層の対象外）
-     それ以外のキー（ゲームの素キー）は、ログイン中はアカウントの名前空間
-     （実ディスク "pwsave:<uid>:〜"）へ、ゲスト時はメモリ内ストアへ振り替える。
-     なお account.js 自身は名前空間キーとメタキーを rawLS 経由で直接触るため、
+     それ以外のキー（ゲームの素キー）は v74〜 常に実ディスクの素キーへ
+     素通しし、シムは書き込みフックだけを行う（振り替えはしない）。
+     account.js 自身は同期メタ等を rawLS 経由で直接触るため、
      それらがシムを通ることはない */
   function shimExempt(k) {
     return k.indexOf('firebase:') === 0;
@@ -307,105 +271,44 @@
     } catch (e) {}
     return out;
   }
-  /* ---------------- 起動時パージ（v66〜・v72 で対象を維持） ----------------
-     旧方式（〜v65）が実 localStorage に残した素キーの PlayWeb データを削除する。
-     起動のたびに冪等に実行する（マーカーキーは置かない＝それ自体が
-     ブラウザに残るデータになるため）。パージ前にクラウドへ退避はしない
-     （退避アップロード自体がアカウント混入の経路になるため）。
-     v72 の名前空間キー（pwsave:）と同期メタ（pwmeta:）は現行のセーブ
-     そのものなので、接頭辞が一致しても絶対に消さない。 */
-  (function purgePlayWebKeys() {
-    try {
-      diskKeys().forEach(function (k) {
-        if (k.indexOf(SAVE_NS_PREFIX) === 0 || k.indexOf(META_PREFIX) === 0) return;
-        if (k === UID_HINT_KEY) return;   /* v73 の uid ヒントは現行のバインド情報そのもの */
-        var hit = !!PURGE_KEY_SET[k];
-        if (!hit) {
-          for (var i = 0; i < PURGE_PREFIXES.length; i++) {
-            if (k.indexOf(PURGE_PREFIXES[i]) === 0) { hit = true; break; }
-          }
-        }
-        if (hit) diskRemove(k);
-      });
-    } catch (e) {}
-  })();
-
-  /* ---------------- 保存層（v72〜: ローカル主保存＋アカウント別名前空間） ----
-     ゲームデータの主保存は実 localStorage。素のキーではアカウント間で
-     混ざるため、ログイン中アカウントの uid で名前空間を分ける:
-       ゲームの素キー K  <->  ディスクキー "pwsave:<uid>:K"
-     シム（後段の patchStorage）は、現在の名前空間（storeUid）へ読み書きを
-     振り替える。storeUid はページ読み込み直後に Firebase Auth のセッション
-     記録（firebase:authUser:*）から同期的に決めるため、通常の再訪では
-     ゲームの初期化時点で既に正しい名前空間が有効になっている。
-     認証が後から別の uid に確定したら activateNamespace で切り替える。
-     読み取りは常に現在の名前空間へライブに行うため、切替前に読んだ値が
-     別アカウントへ混ざることは構造的にない。
-     ゲスト（storeUid が null）の間はメモリ内ストア（guestMem）だけを使い、
-     ディスクには一切書かない（リロードで消えるのが仕様）。 */
-  var storeUid = null;   /* 現在シムが提供している名前空間の uid（null=ゲスト） */
-  var guestMem = {};     /* ゲスト用メモリストア（key -> string、ページ限り） */
-  function authUidFromDisk() {
-    try {
-      var keys = diskKeys();
-      for (var i = 0; i < keys.length; i++) {
-        if (keys[i].indexOf('firebase:authUser:') === 0) {
-          var rec = JSON.parse(diskGet(keys[i]) || 'null');
-          if (rec && typeof rec.uid === 'string' && rec.uid) return rec.uid;
-        }
-      }
-    } catch (e) {}
-    return null;
-  }
-  /* v73〜 自前の uid ヒント（SDK の永続化形式に依存しないバインド担保）。
-     読み書きは原始ディスク直通（シムを通さない） */
-  function readUidHint() {
-    var v = diskGet(UID_HINT_KEY);
-    return (typeof v === 'string' && v) ? v : null;
-  }
-  function writeUidHint(uid) {
-    if (typeof uid === 'string' && uid) diskSet(UID_HINT_KEY, uid);
-  }
-  function clearUidHint() {
-    diskRemove(UID_HINT_KEY);
-  }
-  /* 起動時バインドの手がかり: SDK のセッション記録を優先し、
-     取れなければ自前のヒントを使う。どちらも最終確定ではない */
-  function initialUidGuess() {
-    return authUidFromDisk() || readUidHint();
-  }
-  function nsKey(uid, k) { return SAVE_NS_PREFIX + uid + ':' + k; }
-  /* 現在の名前空間（またはゲストメモリ）から素キーを読む */
-  function storeRead(k) {
-    if (storeUid) return diskGet(nsKey(storeUid, k));
-    return Object.prototype.hasOwnProperty.call(guestMem, k) ? guestMem[k] : null;
-  }
-  function storeWrite(k, v) {
-    if (storeUid) diskSet(nsKey(storeUid, k), v);
-    else guestMem[k] = String(v);
-  }
-  function storeRemoveKey(k) {
-    if (storeUid) diskRemove(nsKey(storeUid, k));
-    else delete guestMem[k];
-  }
-  /* 現在の名前空間にある素キーの一覧 */
+  /* ---------------- 保存層（v74〜: 端末ストア＝素キー＋所有者引き継ぎ） ----
+     ゲームデータの主保存は実 localStorage の素キーそのもの。保存シムは
+     読み書きを一切振り替えず、書き込みフック（同期メタ・dirty 追跡）だけを
+     行うため、認証状態に関係なく書いた値はその場で端末に残る。
+     アカウント分離は保存層ではなく、ログイン確定時の所有者引き継ぎ
+     （activateStoreForUser）が担保する。 */
+  /* 端末ストアにあるゲーム系の素キー一覧。
+     対象外: Firebase Auth のキー（firebase:〜）、account.js の内部キー
+     （pwacct_〜。同期メタ pwacct_meta_v2 を含む）、旧名前空間の残骸
+     （pwsave:〜 / pwmeta:〜。救済インポート専用で、ゲームのキーではない） */
   function storeKeys() {
-    if (!storeUid) return Object.keys(guestMem);
-    var pre = SAVE_NS_PREFIX + storeUid + ':';
-    var out = [];
-    diskKeys().forEach(function (k) {
-      if (k.indexOf(pre) === 0) out.push(k.slice(pre.length));
+    return diskKeys().filter(function (k) {
+      if (k.indexOf('firebase:') === 0) return false;
+      if (k.indexOf('pwacct_') === 0) return false;
+      if (k.indexOf(SAVE_NS_PREFIX) === 0 || k.indexOf(META_PREFIX) === 0) return false;
+      return true;
     });
-    return out;
   }
-  /* 現在の名前空間の内容を {素キー: 値} で返す（テスト・集計用） */
+  /* 端末ストアの内容を {素キー: 値} で返す（書き出し・テスト用） */
   function storeSnapshot() {
     var out = {};
     storeKeys().forEach(function (k) {
-      var v = storeRead(k);
+      var v = diskGet(k);
       if (v !== null) out[k] = v;
     });
     return out;
+  }
+  /* 端末ストアの同期対象キーとフレンド一覧を全消去する（引き継ぎ・初期化用）。
+     keep に入れたキーは消さない。Firebase Auth のキーと同期メタキー自体には
+     触らない（メタの中身の初期化は呼び出し側が行う） */
+  function wipeDeviceStore(keep) {
+    keep = keep || {};
+    diskKeys().forEach(function (k) {
+      if (keep[k]) return;
+      if (k.indexOf('firebase:') === 0) return;
+      if (k === META_V2_KEY) return;
+      if (syncableKey(k) || FRIENDS_KEYS[k]) diskRemove(k);
+    });
   }
 
   /* ゲート状態: friends.js のフレンド/マルチ制御に使う
@@ -434,19 +337,6 @@
         el.style.display = guestish ? '' : 'none';
       });
     } catch (e) {}
-  }
-
-  /* 遷移時の自動リロードは1回だけ（ループ防止）。安定状態で解除する */
-  function reloadOnce(tag) {
-    try {
-      if (sessionStorage.getItem('pwacct_rl') === tag) return false;
-      sessionStorage.setItem('pwacct_rl', tag);
-    } catch (e) {}
-    location.reload();
-    return true;
-  }
-  function clearReloadGuard() {
-    try { sessionStorage.removeItem('pwacct_rl'); } catch (e) {}
   }
 
   /* ユーザー名バリデーション: {ok:true} | {ok:false, error} */
@@ -624,22 +514,19 @@
 
   function cloudActive() { return !!(me && servicesOn && fb); }
 
-  /* ---------------- 保存層の状態（v72: ローカル主保存＋クラウド同期） ----------------
-     v66〜v71 の「メモリ＋クラウド専管」は廃止。主保存は名前空間つき実
-     localStorage で、書き込みはその場で永続化される。クラウドはバック
-     アップ＋端末間同期用で、競合解決はキーごとの updatedAt 比較
-     （新しい方の勝ち）。比較メタはアカウント別に実ディスクへ保存する
-     （pwmeta:<uid>）ため、ページをまたいでも台帳が失われることはない。 */
+  /* ---------------- 保存層の状態（v74: 端末ストア＋クラウド同期） ----------------
+     主保存は実 localStorage の素キーで、書き込みは認証状態に関係なく
+     その場で永続化される。クラウドはバックアップ＋端末間同期用で、
+     競合解決はキーごとの updatedAt 比較（新しい方の勝ち）。比較メタは
+     単一キー pwacct_meta_v2 に保存するため、ページをまたいでも台帳が
+     失われることはない。 */
   var mergedUid = null;      /* クラウドとのマージ（初期同期）が完了した uid。
                                 アップロードはこの uid に対してだけ行う */
   var merging = false;
-  var syncGen = 0;           /* 同期の世代。名前空間の切り替えとセーブ初期化で
+  var syncGen = 0;           /* 同期の世代。所有者の引き継ぎとセーブ初期化で
                                 進み、進行中のマージの適用を無効化する */
-  var initiallyUnbound = false; /* ページ初期化時点で名前空間が未バインド
-                                （storeUid が null）だったか。遅延バインド時の
-                                1回だけリロード（v73）の発動条件になる */
-  var lateBindReloadAttempted = false; /* 同一ページ内での遅延バインド・
-                                リロードの再入防止フラグ */
+  var storeOwner = null;     /* activateStoreForUser が最後に処理した uid。
+                                syncMeta.owner と一致させる（再入防止用） */
   var resettingUid = null;   /* セーブ初期化の実行中 uid（その間アップロードを止める） */
   var dirtyKeys = {};        /* key -> true。このセッションでまだクラウドへ
                                 上がっていないローカル変更（再送スケジュール用。
@@ -648,26 +535,28 @@
   var pendingUploads = 0;    /* 送信中のセーブ数 */
   var ackWaiters = [];       /* flushUploads の完了待ち（全送信が settle したら解決） */
   var saveError = false;     /* 直近のアップロード失敗をステータスに出しているか */
-  /* v72 ではローカル保存自体は即時成功している前提の文言にする */
+  /* ローカル保存自体は即時成功している前提の文言にする */
   var SAVE_ERROR_MSG = 'クラウドへの同期に失敗しました（この端末には保存されています）';
   var uploadTimer = null;
   var friendsUploadTimer = null;
 
-  /* ---------------- 同期メタ（アカウント別・実ディスク） ----------------
-     pwmeta:<uid> に JSON で保存する:
-       { keys: {K: updatedAt}, del: {K: updatedAt}, friendsTs: number }
+  /* ---------------- 同期メタ（v74〜 単一キー・実ディスク） ----------------
+     pwacct_meta_v2 に JSON で保存する:
+       { owner, keys: {K: updatedAt}, del: {K: updatedAt}, friendsTs: number }
+     owner は「現在の端末ストアが属するアカウント uid」（未設定なら null）。
      keys/del は「この端末が知っている各キーの最新版の時刻」で、ログイン時の
      マージ比較に使う。フレンド一覧の版は friendsTs で別管理する
      （playweb_friends はセーブ同期の対象外キーのため）。 */
-  var syncMeta = null;       /* storeUid に対応するメタのメモリ上コピー */
-  function blankMeta() { return { keys: {}, del: {}, friendsTs: 0 }; }
-  function loadMeta(uid) {
+  var syncMeta = null;       /* 同期メタのメモリ上コピー（読み込み時に確定） */
+  function blankMeta() { return { owner: null, keys: {}, del: {}, friendsTs: 0 }; }
+  function loadMeta() {
     var m = blankMeta();
     try {
-      var raw = diskGet(META_PREFIX + uid);
+      var raw = diskGet(META_V2_KEY);
       if (raw) {
         var p = JSON.parse(raw);
         if (p && typeof p === 'object') {
+          if (typeof p.owner === 'string' && p.owner) m.owner = p.owner;
           if (p.keys && typeof p.keys === 'object') m.keys = p.keys;
           if (p.del && typeof p.del === 'object') m.del = p.del;
           if (typeof p.friendsTs === 'number') m.friendsTs = p.friendsTs;
@@ -677,9 +566,11 @@
     return m;
   }
   function persistMeta() {
-    if (!storeUid || !syncMeta) return;
-    try { diskSet(META_PREFIX + storeUid, JSON.stringify(syncMeta)); } catch (e) {}
+    if (!syncMeta) return;
+    try { diskSet(META_V2_KEY, JSON.stringify(syncMeta)); } catch (e) {}
   }
+  syncMeta = loadMeta();
+  storeOwner = syncMeta.owner;
   /* ローカルへ値を書いた記録（そのキーの版を上げる） */
   function metaTouch(key, ts) {
     if (!syncMeta) return;
@@ -695,60 +586,92 @@
     persistMeta();
   }
 
-  /* ---------------- 遅延バインド時の1回だけリロード（v73〜） ----------------
-     ページ初期化時点で未バインドだったページは、ゲーム側がゲスト前提で
-     初期表示を作ってしまっている。後から uid にバインドされても画面上の
-     値（ベスト記録等）は自動では直らないため、1回だけリロードして
-     バインド済みの状態で初期化し直す。
-     ループしない根拠（自己消滅性）:
-       - バインド確定時に uid ヒント（pwacct_uid_v1）が書かれており、
-         リロード後のページは初期化時点でヒントから即バインドされる
-         → initiallyUnbound が false になり、発動条件自体が消える。
-       - 念のため sessionStorage ガード（reloadOnce）と同一ページ内の
-         再入防止フラグ（lateBindReloadAttempted）でも二重発動を止める。
-       - 発動は「null → uid の遷移」の時だけ。uid → 別 uid や
-         uid → null では発動しない。
-     ポータル（index.html）では行わない（ポータルの表示はログイン状態に
-     合わせて動的に直るため、リロードしなくても表示が追いつく）。 */
-  function maybeLateBindReload() {
-    if (!initiallyUnbound) return;
-    if (lateBindReloadAttempted) return;
-    if (MY_GAME === 'portal') return;
-    /* 登録・ログインの処理中（authTransition）は発動しない。その最中に
-       リロードするとプロフィール作成などの後処理を中断してしまうため、
-       ハンドラ側が完了後に駆動する onAuthUser（非遷移パス）で発動させる。
-       ここではフラグを消費せず、発動機会を残す */
-    if (typeof authTransition !== 'undefined' && authTransition) return;
-    lateBindReloadAttempted = true;
-    initiallyUnbound = false;   /* このページでは二度と発動しない */
-    reloadOnce('latebind_v73');
+  /* ---------------- v72/v73 名前空間の救済インポート ----------------
+     ログイン確定時、そのアカウントの名前空間残骸（pwsave:<uid>:*）が
+     端末に残っていれば、旧メタ（pwmeta:<uid>）の時刻と現メタを比べて
+     新しい分だけを素キーへ取り込む。取り込み後に名前空間キーと旧メタを
+     削除する（1回きりでよいが、再実行しても害がない冪等な形にする）。
+     戻り値: 実際に素キーへ書き込んだキーの一覧（引き継ぎ時の保持判定用） */
+  function importLegacyNamespace(uid) {
+    var imported = [];
+    try {
+      if (!syncMeta) syncMeta = loadMeta();
+      var pre = SAVE_NS_PREFIX + uid + ':';
+      var legacyMeta = null;
+      var rawMeta = diskGet(META_PREFIX + uid);
+      if (rawMeta) { try { legacyMeta = JSON.parse(rawMeta); } catch (e) {} }
+      var lk = (legacyMeta && legacyMeta.keys && typeof legacyMeta.keys === 'object') ? legacyMeta.keys : {};
+      diskKeys().forEach(function (dk) {
+        if (dk.indexOf(pre) !== 0) return;
+        var k = dk.slice(pre.length);
+        var v = diskGet(dk);
+        if (v === null) return;
+        if (k === 'playweb_friends') {
+          var fts = (legacyMeta && typeof legacyMeta.friendsTs === 'number') ? legacyMeta.friendsTs : 0;
+          if (fts > (syncMeta.friendsTs || 0)) {
+            diskSet('playweb_friends', v);
+            syncMeta.friendsTs = fts;
+            friendsLocalDirty = true;
+            imported.push(k);
+          }
+          return;
+        }
+        if (!syncableKey(k)) return;
+        /* 旧メタに時刻が無い値は「この端末の現在の正」として扱う */
+        var ts = (typeof lk[k] === 'number' && lk[k] > 0) ? lk[k] : nowMs();
+        var curTs = (typeof syncMeta.keys[k] === 'number') ? syncMeta.keys[k] : -1;
+        var curDel = (typeof syncMeta.del[k] === 'number') ? syncMeta.del[k] : -1;
+        if (ts > Math.max(curTs, curDel)) {
+          diskSet(k, v);
+          syncMeta.keys[k] = ts;
+          delete syncMeta.del[k];
+          imported.push(k);
+        }
+      });
+      /* 削除記録の取り込み（旧メタの del が現メタより新しいキー） */
+      if (legacyMeta && legacyMeta.del && typeof legacyMeta.del === 'object') {
+        Object.keys(legacyMeta.del).forEach(function (k) {
+          if (!syncableKey(k)) return;
+          var ts = legacyMeta.del[k];
+          if (typeof ts !== 'number' || ts <= 0) return;
+          var curTs = (typeof syncMeta.keys[k] === 'number') ? syncMeta.keys[k] : -1;
+          var curDel = (typeof syncMeta.del[k] === 'number') ? syncMeta.del[k] : -1;
+          if (ts > Math.max(curTs, curDel)) {
+            diskRemove(k);
+            delete syncMeta.keys[k];
+            syncMeta.del[k] = ts;
+          }
+        });
+      }
+      if (imported.length) persistMeta();
+      /* 後始末: 名前空間キーと旧メタを削除する（冪等） */
+      diskKeys().forEach(function (dk) { if (dk.indexOf(pre) === 0) diskRemove(dk); });
+      diskRemove(META_PREFIX + uid);
+    } catch (e) {}
+    return imported;
   }
 
-  /* ---------------- 名前空間の切り替え ----------------
-     認証の確定に合わせてシムの向き先を切り替える。同期状態（マージ済み
-     uid・未送信集合・フレンドの未送信フラグ）も名前空間ごとにリセットする。
-     完了待ちの Promise は「未確認（ok:false）」として解決しておく。
-     v73〜 ゲスト（null）から uid へ切り替わる際は、破棄前にゲストメモリの
-     内容（このページで書かれた分だけ）を新名前空間へ書き込む。ページ初期化
-     時点で未バインドだった場合、ゲームの初期読みはゲストメモリを見ており、
-     その間の書き込み（例: 初回プレイのベスト記録）を切り替えで捨てると
-     保存が丸ごと消えるため。対象は当該ページのメモリ分のみで、ディスク上に
-     既存の他アカウントデータを引き継ぐ処理ではない（それは引き続き無い）。
-     uid → 別 uid の切り替えでは移行しない。 */
-  function activateNamespace(uid) {
-    var next = (typeof uid === 'string' && uid) ? uid : null;
-    var prev = storeUid;
-    var guestSnapshot = null;
-    if (prev === null && next !== null) {
-      guestSnapshot = {};
-      Object.keys(guestMem).forEach(function (k) { guestSnapshot[k] = guestMem[k]; });
-    }
-    if (next === storeUid && (next === null || syncMeta)) { guestMem = {}; return; }
-    storeUid = next;
-    guestMem = {};
-    syncMeta = next ? loadMeta(next) : null;
-    mergedUid = null;
+  /* ---------------- 所有者の引き継ぎ（ログイン/登録確定時） ----------------
+     端末ストアの所有者を、確定したアカウントへ合わせる:
+       - owner が未設定 or 自分 → そのまま（この後の通常マージに任せる）
+       - owner が他人 → 引き継ぎ: 端末ストアの同期対象キーとフレンド一覧を
+         全消去し、メタを owner=自分 で初期化する。その後のマージで自分の
+         クラウドセーブが全件ダウンロードされて端末へ反映される
+         （新規登録＝クラウドが空なら、端末は空から始まる）。
+         他人のクラウドには一切触らない。
+     先に v72/v73 名前空間の救済インポートを行い、自分の名前空間から
+     取り込んだ分は引き継ぎの全消去でも保持する（自分の直近の書き込みを
+     守るため。それらはメタの版を持ってマージに臨み、新しければ上がる）。 */
+  function activateStoreForUser(uid) {
+    if (typeof uid !== 'string' || !uid) return;
+    if (!syncMeta) syncMeta = loadMeta();
+    /* 救済インポートは早期リターンより先に行う（owner が既に自分でも、
+       名前空間残骸が残っていれば取り込む。残骸は取り込み時に消えるため、
+       2回目以降は imported が空になり実質無動作） */
+    var imported = importLegacyNamespace(uid);
+    if (storeOwner === uid && syncMeta.owner === uid && !imported.length) return;
     syncGen++;
+    mergedUid = null;
     dirtyKeys = {};
     saveError = false;
     friendsLocalDirty = false;
@@ -757,33 +680,26 @@
       var ws = ackWaiters; ackWaiters = [];
       ws.forEach(function (r) { r({ ok: false, remaining: 0 }); });
     }
-    if (guestSnapshot) {
-      var gkeys = Object.keys(guestSnapshot);
-      gkeys.forEach(function (k) {
-        var v = guestSnapshot[k];
-        diskSet(nsKey(next, k), v);
-        if (k === 'playweb_friends') {
-          friendsLocalDirty = true;
-          if (syncMeta) { syncMeta.friendsTs = nowMs(); persistMeta(); }
-          scheduleFriendsUpload();
-        } else if (syncableKey(k)) {
-          metaTouch(k, nowMs());
-          markDirty(k);
-        }
+    if (syncMeta.owner && syncMeta.owner !== uid) {
+      /* 引き継ぎ */
+      var keep = {};
+      var keptTs = {};
+      imported.forEach(function (k) {
+        keep[k] = true;
+        if (k !== 'playweb_friends' && typeof syncMeta.keys[k] === 'number') keptTs[k] = syncMeta.keys[k];
       });
-      if (gkeys.length) {
-        /* 移行した分はこのページの正規の保存として扱う（リロード後も残る） */
-      }
+      var keptFriendsTs = keep['playweb_friends'] ? syncMeta.friendsTs : 0;
+      wipeDeviceStore(keep);
+      syncMeta = { owner: uid, keys: keptTs, del: {}, friendsTs: keptFriendsTs };
+      persistMeta();
+      friendsLocalDirty = !!keep['playweb_friends'];
+      imported.forEach(function (k) { if (k !== 'playweb_friends') dirtyKeys[k] = true; });
+    } else {
+      if (syncMeta.owner !== uid) { syncMeta.owner = uid; persistMeta(); }
+      imported.forEach(function (k) { if (k !== 'playweb_friends') dirtyKeys[k] = true; });
     }
-    if (prev === null && next !== null) maybeLateBindReload();
+    storeOwner = uid;
   }
-  /* 起動直後: Auth のセッション記録（取れなければ自前の uid ヒント）から
-     名前空間を先に確定させる。これにより、認証コールバックが届く前から
-     ゲームが正しい名前空間を読める（通常の再訪ではこの時点で確定する）。
-     どちらも取れなかった場合は未バインドとして記録し、後からバインド
-     された時の1回だけリロード（maybeLateBindReload）の条件にする */
-  activateNamespace(initialUidGuess());
-  initiallyUnbound = (storeUid === null);
 
   /* 書き込みをクラウド送信待ちにする（実送信はマージ完了後だけ。
      マージ前の書き込みはディスク＋メタに残っており、マージ時に新しい方と
@@ -851,21 +767,21 @@
   }
 
   /* ---------------- アップロード（ローカル→Firestore） ----------------
-     送信内容は送信時点のディスク（名前空間）とメタから決める（常に最新）。
+     送信内容は送信時点のディスク（素キー）とメタから決める（常に最新）。
      送信した updatedAt はメタの時刻と一致させる（マージ比較の一貫性のため）。
      ack が返るまでキーは dirtyKeys に残し続ける。送信中に同じキーが
      書き換わっていたら（メタの時刻が進んでいたら）dirty に残して改めて送る。
      失敗したキーは dirtyKeys に残り、次の書き込み・flush・15秒間隔で
      再送されるほか、次回ログイン時のマージでも必ず拾われる。 */
   function uploadDirty() {
-    if (!me || !fb || mergedUid !== me.uid || storeUid !== me.uid || !syncMeta) return;
+    if (!me || !fb || mergedUid !== me.uid || !syncMeta || syncMeta.owner !== me.uid) return;
     if (resettingUid && resettingUid === me.uid) return;   /* 初期化の最中は上げない（削除を蘇らせない） */
     var keys = Object.keys(dirtyKeys);
     if (!keys.length) return;
     var uid = me.uid;
     keys.forEach(function (k) {
       if (Object.prototype.hasOwnProperty.call(uploadInFlight, k)) return; /* 送信中は二重送信しない */
-      var val = diskGet(nsKey(uid, k));
+      var val = diskGet(k);
       var ts = (typeof syncMeta.keys[k] === 'number') ? syncMeta.keys[k] : null;
       var delTs = (typeof syncMeta.del[k] === 'number') ? syncMeta.del[k] : null;
       var job, sentTs;
@@ -886,8 +802,8 @@
         pendingUploads--;
         delete uploadInFlight[k];
         /* ack: 送った版と現在の版が一致する時だけ送信待ちから外す。
-           アカウントが切り替わっていたら他人の状態には触らない */
-        if (me && me.uid === uid && storeUid === uid && syncMeta) {
+           所有者が切り替わっていたら他人の状態には触らない */
+        if (me && me.uid === uid && syncMeta && syncMeta.owner === uid) {
           var curTs = (val !== null) ? syncMeta.keys[k] : syncMeta.del[k];
           if (curTs === sentTs) delete dirtyKeys[k];
           else if (Object.prototype.hasOwnProperty.call(dirtyKeys, k)) scheduleUpload(); /* 送信中の新版を送る */
@@ -905,20 +821,22 @@
   }
 
   /* ---------------- クラウドとのマージ（ログイン確定時） ----------------
-     ローカル（名前空間＋メタ）とクラウド（users/{uid}/saves）を、キーごとに
-     updatedAt を比較して新しい方へ揃える:
+     ローカル（端末ストアの素キー＋メタ）とクラウド（users/{uid}/saves）を、
+     キーごとに updatedAt を比較して新しい方へ揃える:
        - ローカルの値／削除 の方が新しい → そのまま残し、クラウドへ上げる
-       - クラウドの値／削除 の方が新しい → 名前空間とメタへ書き込む
+       - クラウドの値／削除 の方が新しい → 端末ストアとメタへ書き込む
        - ローカルにしか無いキー → 上げる（空の端末にはクラウドが落ちてくる）
      適用は「取得が終わった時点」のローカル状態に対して行うため、取得待ちの
      間に書かれた値（最新の updatedAt を持つ）も正しく勝ち残る。
      クラウド取得に失敗した場合はマージ自体を行わず、ローカルの値には
-     一切触らない（ローカルだけで完全に動作する）。 */
+     一切触らない（ローカルだけで完全に動作する）。
+     所有者が自分でない端末ストアとはマージしない（引き継ぎ前の状態で
+     他人のデータと自分のクラウドを混ぜないため）。 */
   function mergeCloudSaves(opts) {
     opts = opts || {};
     if (!me || !fb || merging) return Promise.resolve(false);
     if (mergedUid === me.uid && !opts.force) return Promise.resolve(true);
-    if (storeUid !== me.uid) return Promise.resolve(false);
+    if (!syncMeta || syncMeta.owner !== me.uid) return Promise.resolve(false);
     merging = true;
     var uid = me.uid;
     var gen = syncGen;
@@ -946,8 +864,8 @@
     }).catch(function () { return null; });      /* 取得失敗時はフレンドに触らない */
     return Promise.all([savesP, friendsP]).then(function (res) {
       merging = false;
-      if (!me || me.uid !== uid || storeUid !== uid) return false;   /* 途中でログアウト/切替した */
-      if (gen !== syncGen) return false;   /* 途中で初期化/切替があった。古い取得結果で上書きしない */
+      if (!me || me.uid !== uid || !syncMeta || syncMeta.owner !== uid) return false;   /* 途中でログアウト/引き継ぎした */
+      if (gen !== syncGen) return false;   /* 途中で初期化/引き継ぎがあった。古い取得結果で上書きしない */
       applyCloudMerge(uid, res[0]);
       if (res[1]) applyFriendsMerge(res[1]);
       mergedUid = uid;
@@ -955,9 +873,6 @@
       publishProfileExtras();
       flushUploads();
       uploadFriends();   /* ローカルの方が新しいフレンド一覧があれば上げる（ハッシュ一致なら無動作） */
-      /* v68 の名残: ハイドレーション後の自動リロードは廃止済み。残っていた
-         ガードがあれば解除だけしておく（リロード自体は二度と行わない） */
-      clearReloadGuard();
       return true;
     }).catch(function () {
       merging = false;
@@ -969,7 +884,7 @@
   /* マージの実適用（ローカル状態は適用時点のものを読む）。
      ローカル勝ちのキーは dirtyKeys に入れてこの後の flushUploads で上げる */
   function applyCloudMerge(uid, cloud) {
-    if (!syncMeta) syncMeta = loadMeta(uid);
+    if (!syncMeta) syncMeta = loadMeta();
     var meta = syncMeta;
     var localKeys = {};
     storeKeys().forEach(function (k) { if (syncableKey(k)) localKeys[k] = true; });
@@ -983,12 +898,13 @@
       var localTs = (typeof meta.keys[k] === 'number') ? meta.keys[k] : null;
       var delTs = (typeof meta.del[k] === 'number') ? meta.del[k] : null;
       if (hasLocal && localTs === null && delTs === null) {
-        /* メタに記録が無いローカル値（メタ喪失時など）: クラウドに在れば
-           クラウドを正とし、無ければこの端末の値を初版として上げる */
+        /* メタに記録が無いローカル値（ゲスト期の書き込み・メタ喪失時など）:
+           クラウドに在ればクラウドを正とし、無ければこの端末の値を
+           初版として上げる */
         if (c && !c.del) {
-          diskSet(nsKey(uid, k), c.v); meta.keys[k] = c.ts; delete meta.del[k];
+          diskSet(k, c.v); meta.keys[k] = c.ts; delete meta.del[k];
         } else if (c && c.del) {
-          diskRemove(nsKey(uid, k)); delete meta.keys[k]; meta.del[k] = c.ts;
+          diskRemove(k); delete meta.keys[k]; meta.del[k] = c.ts;
         } else {
           meta.keys[k] = nowMs(); dirtyKeys[k] = true;
         }
@@ -1001,12 +917,12 @@
       if (delTs !== null && delTs > winTs) { winTs = delTs; win = 'del'; }
       if (c && c.ts > winTs) { winTs = c.ts; win = c.del ? 'cdel' : 'cloud'; }
       if (win === 'cloud') {
-        diskSet(nsKey(uid, k), c.v); meta.keys[k] = c.ts; delete meta.del[k];
+        diskSet(k, c.v); meta.keys[k] = c.ts; delete meta.del[k];
       } else if (win === 'cdel') {
-        if (hasLocal) diskRemove(nsKey(uid, k));
+        if (hasLocal) diskRemove(k);
         delete meta.keys[k]; meta.del[k] = c.ts;
       } else if (win === 'local') {
-        if (!c || c.del || c.ts < localTs || c.v !== diskGet(nsKey(uid, k))) dirtyKeys[k] = true;
+        if (!c || c.del || c.ts < localTs || c.v !== diskGet(k)) dirtyKeys[k] = true;
       } else if (win === 'del') {
         if (c && !c.del) dirtyKeys[k] = true;   /* クラウド側の文書を消す */
       }
@@ -1029,10 +945,10 @@
     refreshPresenceWatch();
   }
 
-  /* ---------------- セーブデータ初期化（v66〜・v72 でローカル側も対象に） ----
-     自分のクラウドセーブ全削除＋この端末の名前空間・同期メタ全削除＋
-     公開戦績のリセット。アカウント混入時に白紙へ戻すための機能で、
-     他人のデータには一切触らない。 */
+  /* ---------------- セーブデータ初期化（v66〜・v74 で端末ストアも対象に） ----
+     自分のクラウドセーブ全削除＋この端末ストアの同期対象キー・フレンド
+     全消去＋同期メタ初期化（owner 解除）＋公開戦績のリセット。
+     白紙へ戻すための機能で、他人のクラウドには一切触らない。 */
   function resetMyData() {
     if (!me || !fb) return Promise.resolve({ ok: false, msg: 'ログインが必要です' });
     var uid = me.uid;
@@ -1051,15 +967,17 @@
     }).then(function () {
       return userDoc(uid).set({ stats: {}, mainChar: '' }, { merge: true });
     }).then(function () {
-      /* この端末側も消す: 対象アカウントの名前空間キーとメタを丸ごと削除 */
-      var pre = SAVE_NS_PREFIX + uid + ':';
-      diskKeys().forEach(function (k) { if (k.indexOf(pre) === 0) diskRemove(k); });
-      diskRemove(META_PREFIX + uid);
-      if (storeUid === uid) {
-        syncMeta = blankMeta();
-        dirtyKeys = {};
-        mergedUid = uid;   /* ローカル・クラウドとも空で一致しているので同期済み扱い */
-      }
+      /* この端末側も消す: 端末ストアの同期対象キーとフレンドを全消去し、
+         同期メタを初期化して owner を解除する（次にログインする人が
+         誰であれ、まっさらな端末として扱われる） */
+      wipeDeviceStore(null);
+      syncMeta = blankMeta();
+      persistMeta();
+      storeOwner = null;
+      dirtyKeys = {};
+      friendsLocalDirty = false;
+      lastFriendsHash = friendsListHash([]);
+      mergedUid = uid;   /* ローカル・クラウドとも空で一致しているので同期済み扱い */
       resettingUid = null;
       lastExtrasJson = '';
       myProfile.stats = {};
@@ -1077,8 +995,8 @@
        - ポータル形式 {app, version, exportedAt, data:{key: 文字列値}}
        - 旧退避形式   {savedAt, data:{key: 文字列値}}
        - 素の key→値マップ {key: 文字列値}
-     取り込みは通常の保存経路（シム経由の書き込み→名前空間→クラウド同期）に
-     乗せる。直接 Firestore は叩かない。名前空間への書き込みは即時に端末へ
+     取り込みは通常の保存経路（シム経由の書き込み→素キー→クラウド同期）に
+     乗せる。直接 Firestore は叩かない。素キーへの書き込みは即時に端末へ
      永続化され、取り込んだ値には最新の updatedAt が付くため、その後の
      マージでもクラウドの古い値に負けない。フレンド一覧
      （playweb_friends）だけはフレンド経路で送る。対象外キーと文字列でない
@@ -1120,12 +1038,11 @@
     return { ok: true, data: data, exportedAt: exportedAt, total: total };
   }
   function restoreFromBackup(input) {
-    /* 実行条件: ログイン中で、名前空間が自分の uid に切り替わっている間のみ。
-       それ以外は何も書き込まず、案内だけを返す（誤って空の状態や別人の
-       状態へ書き込む事故を防ぐ）。クラウドとのマージ完了は条件にしない:
-       主保存は端末側であり、取り込みは即永続化されるため、マージ前でも
-       安全に取り込める（取り込んだ値は最新の版としてマージに勝つ） */
-    if (!me || !fb || storeUid !== me.uid) {
+    /* 実行条件: ログイン中のみ。それ以外は何も書き込まず、案内だけを返す
+       （誤ってゲストの状態へ書き込む事故を防ぐ）。クラウドとのマージ完了は
+       条件にしない: 主保存は端末側であり、取り込みは即永続化されるため、
+       マージ前でも安全に取り込める（取り込んだ値は最新の版としてマージに勝つ） */
+    if (!me || !fb) {
       setStatus('データの読み込み完了後に実行してください');
       return { ok: false, msg: 'データの読み込み完了後に実行してください' };
     }
@@ -1181,15 +1098,15 @@
   }
 
   /* ---------------- バックアップを書き出し（v73〜復活） ----------------
-     現在の名前空間（＝ログイン中アカウントの端末内セーブ）を、復元側
+     現在の端末ストア（＝ログイン中アカウントの端末内セーブ）を、復元側
      （parseBackup / restoreFromBackup）がそのまま読める形式で JSON
      ファイルとしてダウンロードさせる:
        { app:'playweb-backup', version:1, exportedAt, data:{key:値} }
-     ログイン中（名前空間が自分の uid）の時だけ有効。戻り値は書き出した
-     ペイロードそのもの（テストや呼び出し側の検証用）。ダウンロードの
-     仕組み（Blob / URL）が無い環境ではペイロードを返すだけにする */
+     ログイン中の時だけ有効。戻り値は書き出したペイロードそのもの
+     （テストや呼び出し側の検証用）。ダウンロードの仕組み（Blob / URL）が
+     無い環境ではペイロードを返すだけにする */
   function exportBackup() {
-    if (!me || storeUid !== me.uid) {
+    if (!me) {
       setStatus('ログイン後に書き出せます');
       return { ok: false, msg: 'ログイン後に書き出せます' };
     }
@@ -1215,26 +1132,28 @@
     return payload;
   }
 
-  /* ---------------- localStorage の名前空間化（保存シム・v72〜常時有効） ----
-     Storage.prototype を差し替え、localStorage への読み書きを（firebase: で
-     始まる認証キーを除き）現在の保存先へ振り替える:
-       - ログイン中: そのアカウントの名前空間（実ディスク "pwsave:<uid>:〜"）
-       - ゲスト時:   メモリ内ストア（guestMem。ディスクには書かない）
-     書き込みはフックで検知し、同期メタの版上げとクラウド送信予約を行う。
-     実ディスクへの書き込み自体は同期的に完了するため、ページ遷移や
-     再読み込みで書き込みが失われることはない。sessionStorage には干渉しない。 */
+  /* ---------------- localStorage の保存シム（v74〜 素通し＋書き込みフック） ----
+     Storage.prototype を差し替えるが、読み書き自体は（firebase: で始まる
+     認証キーを含め）全て実ディスクの素キーへ素通しする。シムの仕事は
+     書き込みフックだけ: 同期メタの版上げ、クラウド送信予約、戦績 publish
+     予約などの副作用を、値がディスクへ書かれた後に行う。
+     振り替えをしないため、認証状態やタイミングに左右されず、書いた値は
+     その場で端末に残り、次のページでそのまま読める。
+     clear() だけは例外で、端末ストアのゲーム系キーだけを対象にする
+     （Firebase Auth のキーや同期メタまで消すと認証・同期が壊れるため）。
+     sessionStorage には干渉しない。 */
   function onLocalWrite(key, value) {
     /* 戦績・リンクサーガのセーブが変わったらプロフィール集計の再 publish を予約 */
     if (key === 'playweb_records' || key === 'linksaga_save_v1') schedulePublishExtras();
     if (key === 'playweb_friends') {
       if (!applyingFriends) {
         friendsLocalDirty = true;
-        if (syncMeta) { syncMeta.friendsTs = nowMs(); persistMeta(); }
+        if (me && syncMeta) { syncMeta.friendsTs = nowMs(); persistMeta(); }
       }
       scheduleFriendsUpload();
       return;
     }
-    if (!storeUid) return;   /* ゲストの書き込みは同期対象にしない */
+    if (!me) return;   /* ゲストの書き込みは端末に残るが、同期メタには触らない */
     metaTouch(key, nowMs());
     markDirty(key);
   }
@@ -1242,12 +1161,12 @@
     if (key === 'playweb_friends') {
       if (!applyingFriends) {
         friendsLocalDirty = true;
-        if (syncMeta) { syncMeta.friendsTs = nowMs(); persistMeta(); }
+        if (me && syncMeta) { syncMeta.friendsTs = nowMs(); persistMeta(); }
       }
       scheduleFriendsUpload();
       return;
     }
-    if (!storeUid) return;
+    if (!me) return;
     metaDelete(key, nowMs());
     markDirty(key);
   }
@@ -1258,35 +1177,32 @@
       var origGet = proto.getItem, origSet = proto.setItem,
           origRemove = proto.removeItem, origClear = proto.clear;
       proto.getItem = function (k) {
-        if (this === window.localStorage && !shimExempt(String(k))) {
-          return storeRead(String(k));
-        }
-        return origGet.apply(this, arguments);
+        return origGet.apply(this, arguments);   /* 素通し */
       };
       proto.setItem = function (k, v) {
+        var r = origSet.apply(this, arguments);   /* まず実ディスクへ書く */
         if (this === window.localStorage && !shimExempt(String(k))) {
-          storeWrite(String(k), String(v));
           try { onLocalWrite(String(k), String(v)); } catch (e) {}
-          return undefined;
         }
-        return origSet.apply(this, arguments);
+        return r;
       };
       proto.removeItem = function (k) {
+        var existed = false;
         if (this === window.localStorage && !shimExempt(String(k))) {
-          if (storeRead(String(k)) !== null) {
-            storeRemoveKey(String(k));
-            try { onLocalRemove(String(k)); } catch (e) {}
-          }
-          return undefined;
+          try { existed = origGet.call(this, String(k)) !== null; } catch (e) {}
         }
-        return origRemove.apply(this, arguments);
+        var r = origRemove.apply(this, arguments);
+        if (existed) {
+          try { onLocalRemove(String(k)); } catch (e) {}
+        }
+        return r;
       };
       proto.clear = function () {
         if (this === window.localStorage) {
-          /* 現在の保存先だけを空にする（他アカウントの名前空間や
-             Firebase Auth のキーには触らない） */
+          /* 端末ストアのゲーム系キーだけを空にする（Firebase Auth のキーと
+             同期メタには触らない） */
           var keys = storeKeys();
-          keys.forEach(function (k) { storeRemoveKey(k); });
+          keys.forEach(function (k) { diskRemove(k); });
           keys.forEach(function (k) { try { onLocalRemove(k); } catch (e) {} });
           return undefined;
         }
@@ -1322,7 +1238,7 @@
   /* フレンド一覧は users/{uid}/data/friends と同期する。競合解決はセーブと
      同じ「新しい方の勝ち」で、版はメタの friendsTs と文書の updatedAt を
      比較する（マージ: applyFriendsMerge／購読: startServices 内）。
-     ローカル側の変更（追加/削除）は friends.js 経由で名前空間へ入り、
+     ローカル側の変更（追加/削除）は friends.js 経由で端末ストアへ入り、
      uploadFriends がそのままクラウドへ書き戻す（lastFriendsHash で
      クラウド適用時のエコーを抑止する）。 */
   var applyingFriends = false;
@@ -1705,8 +1621,8 @@
 
   /* ---------------- 認証アクション ---------------- */
   /* 登録・ログインの最中は onAuthUser 側の自動処理を抑え、ハンドラ側で
-     onAuthUser を明示的に駆動する（再読み込みはしない）。名前空間の切り替え
-     自体は onAuthUser の冒頭で一元的に行う（activateNamespace） */
+     onAuthUser を明示的に駆動する（再読み込みはしない）。所有者の引き継ぎ
+     自体は onAuthUser の冒頭で一元的に行う（activateStoreForUser） */
   var authTransition = null;   /* null | 'signup' | 'login' */
   function doSignup(username, password) {
     var v = validateUsername(username);
@@ -1724,11 +1640,11 @@
       var uid = cred.user.uid;
       return ensureProfileDocs(uid, name, true).then(function () {
         pendingUsername = null;
-        /* 新アカウントは必ず空の名前空間から始める。ディスク上に既存の
-           他アカウントデータを引き継ぐ旧方式の「初回移行アップロード」は
-           しない（v73 で activateNamespace が取り込むのは、このページの
-           ゲストメモリに書かれた分だけ）。そのまま onAuthUser を駆動して
-           マージ（空）を開始する */
+        /* 端末ストアの扱いは onAuthUser 冒頭の所有者引き継ぎが決める:
+           端末の owner が他人なら全消去して空から始まり、未設定なら
+           そのまま自分のものになる。他アカウントのクラウドへ触れる
+           旧方式の「初回移行アップロード」はしない。そのまま onAuthUser を
+           駆動してマージ（自分のクラウドとの LWW）を開始する */
         authTransition = null;
         onAuthUser(cred.user);
         return { ok: true, msg: 'アカウントを作成しました' };
@@ -1757,10 +1673,10 @@
     authTransition = 'login';
     return fb.auth.signInWithEmailAndPassword(usernameToEmail(v.name), password)
       .then(function (cred) {
-        /* 名前空間の切り替えで、このページのゲストメモリ分だけが当アカウント
-           へ取り込まれる（activateNamespace の v73 移行）。ディスク上の
-           他アカウントのデータが混ざることは構造的にない。そのまま
-           onAuthUser を駆動し、このアカウントのローカル＋クラウドとマージする */
+        /* 端末ストアの扱いは onAuthUser 冒頭の所有者引き継ぎが決める
+           （owner が他人なら入れ替わり、自分/未設定ならそのまま）。
+           そのまま onAuthUser を駆動し、このアカウントのローカル＋
+           クラウドとマージする */
         authTransition = null;
         if (cred && cred.user) onAuthUser(cred.user);
         return { ok: true, msg: 'ログインしました' };
@@ -1776,24 +1692,21 @@
     stopServices();
     me = null;
     myCreatedAtMs = null;
-    clearUidHint();   /* v73: 明示ログアウトで自前の uid ヒントも消す（次ページはゲストで始まる） */
-    /* 名前空間をゲストへ切り替える。以後の保存はゲスト用メモリ（このページ
-       限り）だけになり、アカウントのデータは端末（名前空間）とクラウドに
-       残るので、次回ログイン時にそのアカウント分だけ読み直される */
-    activateNamespace(null);
+    mergedUid = null;
+    /* ログアウトでは端末ストアも owner も消さない。データは端末とクラウドに
+       残り、次回同じアカウントのログインが無摩擦になる（別のアカウントが
+       ログインした時点で所有者引き継ぎにより入れ替わる） */
     setGate('guest');
     updatePill(); updateModal(); updateSearchRow();
     return fb.auth.signOut().catch(function () {});
   }
   function onAuthUser(user) {
     if (!user) {
-      /* ログアウト/セッション切れ: 名前空間をゲストへ切り替えてゲスト化する。
-         アカウントのデータは名前空間とクラウドに残っているので、
-         再読み込みで隠すような処理は不要 */
+      /* ログアウト/セッション切れ: ゲスト化する。端末ストアと owner は
+         そのまま残す（次回ログイン時に引き継ぎ判定が働く） */
       if (me) { stopServices(); me = null; }
       myCreatedAtMs = null;
-      clearUidHint();   /* v73: セッションが無い確定なので uid ヒントも消す */
-      activateNamespace(null);
+      mergedUid = null;
       setGate(sdkState === 'unavailable' ? 'sdk-down' : 'guest');
       updatePill(); updateModal(); updateSearchRow();
       return;
@@ -1801,13 +1714,11 @@
     /* 陳腐化した認証イベントのガード: 名前確保に失敗して認証ユーザーを
        巻き戻した直後など、既にサインアウト済みのユーザーに対する遅延イベントが
        届くことがある。現在のセッションが無いならそのイベントは無視する
-       （ゲスト扱いのままにして、誤った再読み込みを防ぐ） */
+       （ゲスト扱いのままにする） */
     if (fb && fb.auth && !fb.auth.currentUser) return;
-    /* v73: ユーザー確定を自前の uid ヒントとして控える（次回ページの
-       初期化時点バインドを SDK の永続化形式に依存させないため） */
-    writeUidHint(user.uid);
-    /* 名前空間は認証の確定に合わせてここで一元的に切り替える */
-    if (user.uid !== storeUid) activateNamespace(user.uid);
+    /* 端末ストアの所有者は認証の確定に合わせてここで一元的に合わせる
+       （救済インポート＋必要なら引き継ぎ） */
+    activateStoreForUser(user.uid);
     if (authTransition) {
       /* 登録・ログインのハンドラが再駆動を担当する。ここではサービスを
          開始しない（マージ前の状態で同期が走るのを防ぐ） */
@@ -1820,7 +1731,7 @@
     if (me && me.uid === user.uid && servicesOn) { setGate('member'); return; }
     if (me && me.uid !== user.uid) {
       /* アカウント切替: 前のアカウントのサービスを止める
-         （名前空間は上で切り替え済み） */
+         （端末ストアの所有者は上で合わせ済み） */
       stopServices();
       me = null;
       myCreatedAtMs = null;
@@ -1843,10 +1754,6 @@
       /* 公開プロフィール（ユーザー名・在席）を最新化してからサービス開始 */
       ensureProfileDocs(uid, username).catch(function () {}).then(function () {
         startServices();
-        /* 遅延バインドのリロードは、登録・ログインの後処理が終わった
-           この時点で発動させる（activateNamespace 内で遷移が起きなかった
-           ケース＝authTransition 中に先行して切り替わっていた場合の受け皿） */
-        maybeLateBindReload();
       });
     }).catch(function () {
       /* プロフィール取得に失敗しても最低限ログイン状態にはする */
@@ -1856,7 +1763,6 @@
       me = { uid: uid, username: name, usernameLower: name.toLowerCase() };
       setGate('member');
       startServices();
-      maybeLateBindReload();
     });
   }
 
@@ -1981,7 +1887,7 @@
       '<div class="pw-drawer-sec">👥 フレンド</div>' +
       '<div id="pwFriendsMount"></div>' +
       '</div>' +
-      '<div class="pwa-note" data-pw-guest-note style="display:none;margin-top:16px">いまはゲストとして遊んでいます。ゲストでは1人用モードのみで、セーブデータは保存されません。ログインすると、マルチプレイ・フレンド・セーブ（クラウド同期）が使えるようになります。</div>' +
+      '<div class="pwa-note" data-pw-guest-note style="display:none;margin-top:16px">いまはゲストとして遊んでいます。ゲストでは1人用モードのみです。セーブはこの端末に保存されますが、ログインするとクラウドにも控えが送られ、別の端末でも続きが遊べるようになります。</div>' +
       '<div id="pwFbAdminSec" style="display:none">' +
       '<div class="pw-drawer-sec">📮 意見ボックス（管理者用）</div>' +
       '<div id="pwFbInbox"><div class="pwa-note">読み込み中…</div></div>' +
@@ -2026,7 +1932,7 @@
       return;
     }
     if (sdkState === 'unavailable' || !fb) {
-      body.innerHTML = '<div class="pwa-note err">ログイン機能を読み込めませんでした（通信環境を確認してください）。この環境ではゲスト扱いとなり、1人用モードのみ遊べます（マルチプレイ・フレンド・セーブ保存は使えません）。セーブはこの端末とクラウドに保存されているので、通信が回復してログインすれば続きが遊べます。</div>';
+      body.innerHTML = '<div class="pwa-note err">ログイン機能を読み込めませんでした（通信環境を確認してください）。この環境ではゲスト扱いとなり、1人用モードのみ遊べます（マルチプレイ・フレンドは使えません）。セーブはこの端末に保存されるので、通信が回復してログインすればクラウドにも同期されます。</div>';
       return;
     }
     if (me) {
@@ -2043,7 +1949,7 @@
         '<div id="pwaProfEditor"></div>' +
         '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(myStats) +
         '<div class="pwa-note" id="pwaStatus">' + esc(statusText || 'クラウドセーブ有効') + '</div>' +
-        '<div class="pwa-note">セーブデータ・フレンド・戦績は、この端末のアカウント専用領域とクラウドの両方に保存されます。別の端末で同じアカウントにログインすると続きが遊べます。</div>' +
+        '<div class="pwa-note">セーブはこの端末に保存され、ログイン中はクラウドにも控えが送られます。別のアカウントでログインすると、そのアカウントのセーブに入れ替わります。</div>' +
         '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:12px">📮 お問い合わせ・要望・バグ報告</button>' +
         '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:8px">ログアウト</button>' +
         '<div class="pwa-note">ログアウトするとゲストに戻ります。データはこの端末とクラウドに残るので、再ログインすれば続きが遊べます。</div>' +
@@ -2074,8 +1980,8 @@
         if (r && r.ok === false) window.alert(r.msg || '書き出せませんでした');
       };
       $('pwaRestoreBtn').onclick = function () {
-        /* 名前空間が自分の uid に切り替わる前はファイル選択自体を開かない（何も書き込まない） */
-        if (!me || storeUid !== me.uid) { setStatus('データの読み込み完了後に実行してください'); return; }
+        /* ログイン前はファイル選択自体を開かない（何も書き込まない） */
+        if (!me) { setStatus('データの読み込み完了後に実行してください'); return; }
         var fi = $('pwaRestoreFile');
         if (fi) { try { fi.value = ''; } catch (e) {} fi.click(); }
       };
@@ -2118,7 +2024,7 @@
       '<button class="pwa-btn" id="pwaSubmit">' + (modalMode === 'signup' ? 'アカウントを作成' : 'ログイン') + '</button>' +
       '<div class="pwa-note" id="pwaMsg"></div>' +
       '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:4px">📮 お問い合わせ・要望・バグ報告（ゲストでも送れます）</button>' +
-      '<div class="pwa-note">いまはゲストとして遊んでいます。ゲストでは1人用モードのみで、セーブデータは保存されません。ログインすると、マルチプレイ・フレンド・セーブ（クラウド同期）が使えるようになり、別の端末でも続きが遊べます。</div>';
+      '<div class="pwa-note">いまはゲストとして遊んでいます。ゲストでは1人用モードのみです。セーブはこの端末に保存されますが、ログインするとクラウドにも控えが送られ、別の端末でも続きが遊べるようになります。</div>';
     $('pwaTabLogin').onclick = function () { modalMode = 'login'; updateModal(); };
     $('pwaTabSignup').onclick = function () { modalMode = 'signup'; updateModal(); };
     var submit = function () {
@@ -2566,10 +2472,10 @@
     closeDrawer: closeModal,
     drawerOpen: function () { return drawerOpen; },
     syncNow: function () { flushUploads(); return mergeCloudSaves({ force: true }); },
-    /* v66〜 自分のセーブ全削除（端末の名前空間・メタ＋クラウド）＋公開戦績リセット */
+    /* v66〜 自分のセーブ全削除（端末ストア＋同期メタ＋クラウド）＋公開戦績リセット */
     resetMyData: resetMyData,
     /* バックアップ JSON（文字列またはパース済みオブジェクト）を取り込む。
-       ログイン中（名前空間が自分の uid）のみ実行される */
+       ログイン中のみ実行される */
     restoreBackup: restoreFromBackup,
     /* v73〜 現在のセーブをバックアップ JSON として書き出す。
        ログイン中のみ有効。戻り値はペイロード {app, version, exportedAt, data} */
@@ -2608,23 +2514,22 @@
       dirtyKeys: function () { var c = {}; Object.keys(dirtyKeys).forEach(function (k) { c[k] = true; }); return c; },
       /* ゲスト相当の分離状態か（ログイン中は false / それ以外は true） */
       guestActive: function () { return gateState !== 'member'; },
-      /* 現在の保存先の内容 {素キー: 値}（ログイン中は名前空間、ゲストはメモリ） */
+      /* 端末ストアの内容 {素キー: 値}（認証状態によらず実ディスクの素キー） */
       memStore: function () { return storeSnapshot(); },
       statusText: function () { return statusText; },
       inFlightKeys: function () { var c = {}; Object.keys(uploadInFlight).forEach(function (k) { c[k] = true; }); return c; },
       /* クラウドとのマージが完了した uid（旧称 hydratedUid と同じ役割） */
       hydratedUid: function () { return mergedUid; },
       mergedUid: function () { return mergedUid; },
-      storeUid: function () { return storeUid; },
-      /* v73: 自前の uid ヒントと遅延バインドの状態（テスト用） */
-      uidHint: function () { return readUidHint(); },
-      uidHintKey: function () { return UID_HINT_KEY; },
-      initiallyUnbound: function () { return initiallyUnbound; },
-      lateBindReloadAttempted: function () { return lateBindReloadAttempted; },
+      /* v74: 端末ストアの所有者 uid（旧 storeUid フックの互換名も残す。
+         実態は「最後に引き継ぎ処理を行った uid」＝ syncMeta.owner） */
+      storeUid: function () { return storeOwner; },
+      storeOwner: function () { return storeOwner; },
       syncMeta: function () { return syncMeta ? JSON.parse(JSON.stringify(syncMeta)) : null; },
       /* v72 でシード（window.name 引き継ぎ）は廃止。互換のため false を返す */
       seededFromStash: function () { return false; },
-      purgeKeyList: function () { return PURGE_KEYS.slice(); },
+      /* v74 で起動時パージは廃止。互換のため空配列を返す */
+      purgeKeyList: function () { return []; },
       computeStats: computeMyStats,
       createdAtToMs: createdAtToMs,
       readMainChar: readMainChar,
