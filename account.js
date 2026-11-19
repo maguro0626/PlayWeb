@@ -315,6 +315,7 @@
     return null;
   }
   var seededFromStash = false;
+  var seedMap = null;   /* 種付けで採用した key -> 値（ハイドレーションとの整合判定用） */
   (function seedFromStash() {
     try {
       var raw = String(window.name || '');
@@ -328,8 +329,9 @@
       var auid = authUidFromDisk();
       if (!auid) return; /* 認証の手がかりが無い間は採用しない（ハイドレーションで確定させる） */
       if (pack.uid !== auid) { window.name = ''; return; } /* 別アカウントの引き継ぎは破棄 */
+      seedMap = {};
       Object.keys(pack.data).forEach(function (k) {
-        if (typeof pack.data[k] === 'string') memStore[k] = pack.data[k];
+        if (typeof pack.data[k] === 'string') { memStore[k] = pack.data[k]; seedMap[k] = pack.data[k]; }
       });
       seededFromStash = true;
     } catch (e) {}
@@ -581,6 +583,14 @@
     if (stashTimer) return;
     stashTimer = setTimeout(function () { stashTimer = null; stashWrite(); }, 600);
   }
+  /* ハイドレーションが管理するキー範囲（同期対象＋フレンド一覧）の現在の
+     メモリ内容を決定的に文字列化する（整合リロードの署名に使う） */
+  function managedSignature() {
+    var keys = Object.keys(memStore).filter(function (k) {
+      return syncableKey(k) || k === 'playweb_friends';
+    }).sort();
+    return keys.map(function (k) { return k + '=' + memStore[k]; }).join('\n');
+  }
   /* 書き込みをアップロード待ちにする。実際の送信はハイドレーション完了後だけ
      （完了前の書き込みは「クラウドに無いキー」に限って完了後に上げる。
      クラウドにあるキーへの完了前の書き込みは、ハイドレーションで
@@ -642,9 +652,15 @@
        - クラウドに無いキーで、読み込み待ちの間に書かれたもの → 残して後で上げる
        - クラウドに無く、未送信でもないメモリ上のキー（他端末で削除された等）
          → メモリからも消す（送信中のものがある間は安全のため消さない）
-     初回（window.name から種付けできなかった）ページで内容が変わった場合は、
-     ゲームが古い前提で初期化してしまっている可能性があるため、1回だけ
-     再読み込みして種付け済みの状態で起動し直す。
+     ゲームは初期化時にメモリを読んで描画するため、ページ開始時点の内容
+     （種付けされた内容、または空）とハイドレーションで確定した内容が
+     食い違うと、初期表示だけが古いまま残る（判定など読み直す箇所は正しく
+     なる）。そのため、確定内容が開始時点と異なる場合は1回だけ再読み込み
+     して、正しいデータで初期化し直す。種付け内容と完全一致する通常遷移
+     では再読み込みしない。再読み込みのガードは「ページ×確定内容の署名」
+     単位で、同じ組み合わせの再要求だけを抑止する（セッション中ずっと
+     塞ぐと、後から開いたページが二度と整合できなくなるため）。整合が
+     取れたらガードは解除し、将来の本物の不整合に備える。
      opts.soft: フォーカス復帰時の再読み込み用（再読み込みはしない）。 */
   function hydrateSaves(opts) {
     opts = opts || {};
@@ -671,22 +687,29 @@
       if (!me || me.uid !== uid) return false;   /* 途中でログアウト/切替した */
       var cloud = res[0], friendsList = res[1];
       var changed = false;
+      /* 種付け内容との食い違い（シード済みページ用）。ゲームはシードで
+         初期化しているため、ハイドレーションがシードと違う値に確定させた
+         キーが1つでもあれば初期表示が古いままになる */
+      var diverged = false;
       Object.keys(cloud).forEach(function (k) {
         if (!syncableKey(k)) return;
         delete dirtyVals[k];                     /* クラウドにあるキーはクラウドが正 */
         if (memStore[k] !== cloud[k]) { memStore[k] = cloud[k]; changed = true; }
+        if (seedMap && seedMap[k] !== cloud[k]) diverged = true;
       });
       if (pendingUploads === 0) {
         Object.keys(memStore).forEach(function (k) {
           if (!syncableKey(k)) return;
           if (Object.prototype.hasOwnProperty.call(cloud, k)) return;
           if (Object.prototype.hasOwnProperty.call(dirtyVals, k)) return;
+          if (seedMap && Object.prototype.hasOwnProperty.call(seedMap, k)) diverged = true;
           delete memStore[k]; changed = true;
         });
       }
       if (friendsList && !friendsLocalDirty) {
         var fj = JSON.stringify(friendsList);
         if (memStore['playweb_friends'] !== fj) { memStore['playweb_friends'] = fj; changed = true; }
+        if (seedMap && seedMap['playweb_friends'] !== fj) diverged = true;
         applyFriendsToLocal(friendsList);
         refreshPresenceWatch();
       }
@@ -696,7 +719,14 @@
       publishProfileExtras();
       flushUploads();
       if (friendsLocalDirty) uploadFriends(); /* ハイドレーション待ちの間のローカル変更を上げる */
-      if (!opts.soft && !seededFromStash && changed) reloadOnce('hyd:' + uid);
+      if (!opts.soft) {
+        var needReload = seedMap ? diverged : changed;
+        if (needReload) {
+          reloadOnce('hyd:' + uid + ':' + location.pathname + ':' + hashStr(managedSignature()));
+        } else {
+          clearReloadGuard();   /* 整合が取れたらガードを解除（次の不整合に備える） */
+        }
+      }
       return true;
     }).catch(function () {
       hydrating = false;
@@ -1168,10 +1198,15 @@
     }
   });
   window.addEventListener('beforeunload', function () {
+    /* 離脱直前にも引き継ぎ（window.name）を最新化する。デバウンス待ちの
+       書き込みが残っていると、遷移先・再読み込み先が古いシードで初期化
+       されてしまうため */
+    stashWrite();
     flushUploads();
     if (cloudActive()) setOffline();
   });
   window.addEventListener('pagehide', function () {
+    stashWrite();
     flushUploads();
     if (cloudActive()) setOffline();
   });
