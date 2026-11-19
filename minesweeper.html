@@ -81,17 +81,25 @@
   body{height:100dvh;overflow:hidden}
   header{padding:10px 10px 2px}
   .hbtn{padding:5px 12px}
-  .panel{flex:1;min-height:0;overflow-y:auto;padding:8px 12px;margin:6px 8px}
+  .panel{flex:1;min-height:0;overflow-y:auto;padding:8px 12px;margin:6px 8px;display:flex;flex-direction:column}
+  .panel>*{flex:none}
   .controls{margin-bottom:4px}
   .seg button{padding:5px 11px;font-size:12px}
   .hud{margin-bottom:4px}
   #face{width:44px;height:44px;font-size:24px}
   .lcd{font-size:19px;padding:3px 10px;min-width:72px}
-  #boardWrap{padding-bottom:0}
+  #boardWrap{padding-bottom:0;position:relative;overflow:hidden;width:100%;flex:1 1 auto;min-height:120px;touch-action:none}
+  #board{width:max-content;justify-content:start;will-change:transform}
+  .cell{touch-action:none}
   .msg{margin-top:8px;min-height:20px;font-size:15px}
   .best{margin-top:2px}
   .modeRow{margin-top:6px}
   .help{font-size:11px;line-height:1.5;padding:0 14px 8px}
+</style>
+<style>
+/* バウンス抑止（麻雀方式：画面固定） */
+html,body{overscroll-behavior:none;}
+#boardWrap,.modalCard,.panel{overscroll-behavior:none;}
 </style>
 </head>
 <body>
@@ -99,7 +107,6 @@
   <div class="logo">💣 MINESWEEPER</div>
   <div style="display:flex;gap:8px">
     <button class="hbtn" id="soundBtn">🔊 サウンド</button>
-    <a class="hbtn" href="index.html">← もどる</a>
   </div>
 </header>
 
@@ -194,33 +201,33 @@ function init(){
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     const c={x,y,mine:false,n:0,open:false,flag:false,el:document.createElement('button')};
     c.el.className='cell';
-    let pressTimer=null;
     c.el.addEventListener('click', e=>{ if(suppressClick){suppressClick=false;return;} onCell(c); });
-    c.el.addEventListener('contextmenu', e=>{ e.preventDefault(); toggleFlag(c); });
-    c.el.addEventListener('pointerdown', ()=>{ pressTimer=setTimeout(()=>{ toggleFlag(c); suppressClick=true; },380); });
-    c.el.addEventListener('pointerup', ()=>clearTimeout(pressTimer));
-    c.el.addEventListener('pointerleave', ()=>clearTimeout(pressTimer));
+    c.el.addEventListener('contextmenu', e=>{ e.preventDefault(); if(Date.now()-lastLongFlagAt<700) return; toggleFlag(c); });
     c.el.addEventListener('dblclick', ()=>chord(c));
     bd.appendChild(c.el); cells.push(c);
   }
+  panX=0; panY=0;
   applyBoardSize();
   showBest();
 }
-/* 盤面がパネル内に必ず収まるようセルサイズを算出する。
+/* セルサイズを算出する。
    使える幅 = ビューポート幅 − パネルの横方向の余白（マージン+ボーダー+パディング）。
-   CSS の @media (max-width:480px) でパネル余白が変わるため、控除量も切り替える。 */
+   CSS の @media (max-width:480px) でパネル余白が変わるため、控除量も切り替える。
+   幅に収まる難易度はフィット表示、収まらない難易度は指で押せる最低サイズを
+   死守し、はみ出し分は盤面パン（ドラッグ）で見る。 */
 function calcCellSize(){
   const vw = document.documentElement.clientWidth || window.innerWidth;
   const chrome = vw <= 480 ? 42 : 54; // ≤480px: margin16+border2+padding24 / それ以外: margin20+border2+padding32
   const avail = vw - chrome;
-  const natural = W > 20 ? 24 : 32;
+  const MIN_CELL = 26; // これ未満は指で押せない
   /* ギャップ 3/2/1px のうちセルが最大になる組み合わせを選ぶ（同点ならギャップ大を優先） */
   let best = { size: 6, gap: 1 };
   for(const gap of [3, 2, 1]){
-    const size = Math.min(natural, Math.floor((avail - (W - 1) * gap) / W));
+    const size = Math.min(32, Math.floor((avail - (W - 1) * gap) / W));
     if(size > best.size) best = { size, gap };
   }
-  return best;
+  if(best.size >= MIN_CELL) return best;
+  return { size: MIN_CELL, gap: 2 };
 }
 function applyBoardSize(){
   if(!W || !cells) return;
@@ -233,10 +240,69 @@ function applyBoardSize(){
   for(const c of cells){
     c.el.style.width = size + 'px'; c.el.style.height = size + 'px'; c.el.style.fontSize = fs + 'px'; c.el.style.borderRadius = br;
   }
+  boardWpx = W * size + (W - 1) * gap;
+  boardHpx = H * size + (H - 1) * gap;
+  clampPan();
 }
 let resizeTimer = null;
 window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(applyBoardSize, 150); });
 let suppressClick=false;
+/* ===== 盤面入力の統合（タップ=開く / 長押し=フラグ / ドラッグ=盤面パン） =====
+   画面に収まらない難易度はセル26pxを保ち、盤面をドラッグでずらして見る。
+   ピンチズームは使わない（全ページ無効化の方針のため）。 */
+let panX=0, panY=0, boardWpx=0, boardHpx=0;
+let press=null, lastLongFlagAt=0;
+const PAN_THRESHOLD=10; // これを超えて動いたら「タップ」ではなく「パン」とみなす
+function clampPan(){
+  const wrap=$('boardWrap'), bd=$('board');
+  if(!wrap || !bd || !boardWpx) return;
+  const vw=wrap.clientWidth, vh=wrap.clientHeight;
+  if(!vw || !vh) return;
+  panX = boardWpx<=vw ? (vw-boardWpx)/2 : Math.max(vw-boardWpx, Math.min(0, panX));
+  panY = boardHpx<=vh ? (vh-boardHpx)/2 : Math.max(vh-boardHpx, Math.min(0, panY));
+  bd.style.transform='translate('+panX+'px,'+panY+'px)';
+}
+function cellFromEvent(e){
+  const t=e.target;
+  const el = t && t.closest ? t.closest('.cell') : null;
+  if(!el) return null;
+  const i=Array.prototype.indexOf.call($('board').children, el);
+  return i>=0 ? cells[i] : null;
+}
+$('board').addEventListener('pointerdown', e=>{
+  if(e.button!==undefined && e.button>0) return; // 右ボタンは contextmenu（フラグ）に任せる
+  const c=cellFromEvent(e); if(!c) return;
+  press={ cell:c, id:e.pointerId, x:e.clientX, y:e.clientY, px:panX, py:panY, mode:'pending' };
+  press.timer=setTimeout(()=>{
+    if(press && press.mode==='pending'){ press.mode='flag'; lastLongFlagAt=Date.now(); toggleFlag(press.cell); suppressClick=true; }
+  },380);
+});
+window.addEventListener('pointermove', e=>{
+  if(!press || e.pointerId!==press.id) return;
+  const dx=e.clientX-press.x, dy=e.clientY-press.y;
+  if(press.mode==='pending' && Math.hypot(dx,dy)>PAN_THRESHOLD){
+    press.mode='pan'; clearTimeout(press.timer); suppressClick=true; // 動いたら長押しフラグはキャンセル
+  }
+  if(press.mode==='pan'){ panX=press.px+dx; panY=press.py+dy; clampPan(); if(e.cancelable) e.preventDefault(); }
+});
+window.addEventListener('pointerup', e=>{
+  if(!press || e.pointerId!==press.id) return;
+  clearTimeout(press.timer);
+  const p=press; press=null;
+  suppressClick=true; // 直後に発生する click は盤面側で1回だけ無効化する
+  if(p.mode==='pending') onCell(p.cell); // ほぼ動かさず離した = タップ
+});
+window.addEventListener('pointercancel', e=>{
+  if(press && e.pointerId===press.id){ clearTimeout(press.timer); press=null; suppressClick=true; }
+});
+/* タップ/パン/長押しの直後に発生する click を、盤面のキャプチャ段階で1回だけ止める。
+   セル外に着地した click でも suppress が残らない。ポインタを経ない click
+   （キーボード操作や .click()）は suppress が立っていないのでそのまま通る。 */
+$('board').addEventListener('click', e=>{
+  if(suppressClick){ suppressClick=false; e.stopPropagation(); e.preventDefault(); }
+}, true);
+if(window.ResizeObserver){ try{ new ResizeObserver(()=>clampPan()).observe($('boardWrap')); }catch(e){} }
+window.addEventListener('load', ()=>applyBoardSize());
 const idx=(x,y)=>y*W+x;
 const inB=(x,y)=>x>=0&&x<W&&y>=0&&y<H;
 function neighbors(c){ const r=[]; for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ if(!dx&&!dy)continue; const nx=c.x+dx,ny=c.y+dy; if(inB(nx,ny)) r.push(cells[idx(nx,ny)]); } return r; }

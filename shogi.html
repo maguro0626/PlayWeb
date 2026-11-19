@@ -425,15 +425,16 @@
     .thinking-dot:nth-child(3){animation-delay:0.36s}
     @keyframes think-bounce{0%,80%,100%{transform:translateY(0);opacity:0.4}40%{transform:translateY(-4px);opacity:1}}
   </style>
+<style>
+/* バウンス抑止（麻雀方式：画面固定） */
+html,body{overscroll-behavior:none;}
+.kifu-list{overscroll-behavior:none;}
+</style>
 </head>
 <body>
 
 <!-- Header -->
 <header class="glass-header">
-  <button class="head-btn" onclick="window.location.href='index.html'" aria-label="ホームへもどる">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-    <span>ホーム</span>
-  </button>
   <div id="status-text">対局準備</div>
   <button class="head-btn" id="sound-btn" onclick="toggleSound()" aria-label="サウンド切替" style="font-size:17px;padding:6px 10px;">🔊</button>
 </header>
@@ -689,6 +690,41 @@ function restoreSnapshot(s){
 }
 
 // ═══════════════════════════════════════════════════════════
+// 千日手（同一局面4回）判定
+// snapshots[i] は i 手目終了後の局面（手番は i が偶数なら先手）として判定する。
+// オンラインは送受信する状態に履歴が含まれないため対象外。
+// ═══════════════════════════════════════════════════════════
+const POS_CODE={pawn:'FU',lance:'KY',knight:'KE',silver:'GI',gold:'KI',bishop:'KA',rook:'HI',king:'OU'};
+function posKey(brd,cap,trn){
+  let s=trn==='player'?'P':'N';
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const p=brd[r][c];
+    s+=p?((p.owner==='player'?'a':'b')+POS_CODE[p.type]+(p.promoted?'+':'')):'.';
+  }
+  const cnt=a=>{const m={};a.forEach(t=>m[t]=(m[t]||0)+1);return Object.keys(m).sort().map(k=>POS_CODE[k]+m[k]).join('');};
+  return s+'|'+cnt(cap.player)+'|'+cnt(cap.npc);
+}
+function checkSennichite(){
+  if(mode==='online'||snapshots.length<9)return null;
+  const keys=snapshots.map((s,i)=>posKey(s.board,s.captured,i%2===0?'player':'npc'));
+  const cur=keys[keys.length-1];
+  const occ=[];keys.forEach((k,i)=>{if(k===cur)occ.push(i);});
+  if(occ.length<4)return null;
+  /* 周期の間、片側が自分の全ての手で王手をかけ続けていたら連続王手でその側の負け */
+  const first=occ[0],last=keys.length-1;
+  const gave={player:false,npc:false},allCheck={player:true,npc:true};
+  for(let j=first+1;j<=last;j++){
+    const mover=j%2===1?'player':'npc';
+    const opp=mover==='player'?'npc':'player';
+    gave[mover]=true;
+    if(!isInCheck(opp,snapshots[j].board))allCheck[mover]=false;
+  }
+  if(gave.player&&allCheck.player)return{loser:'player'};
+  if(gave.npc&&allCheck.npc)return{loser:'npc'};
+  return{loser:null};
+}
+
+// ═══════════════════════════════════════════════════════════
 // KIFU NOTATION
 // ═══════════════════════════════════════════════════════════
 function pieceName(type,owner,promoted){
@@ -789,28 +825,42 @@ function mustPromote(type,r,o){
   if(type==='knight')return o==='player'?r<=1:r>=7;
   return false;
 }
-function isValidDrop(type,o,r,c,brd){
+function isValidDrop(type,o,r,c,brd,cap,depth){
+  cap=cap||captured;depth=depth||0;
   if(brd[r][c])return false;
   if((type==='pawn'||type==='lance')&&(o==='player'?r===0:r===8))return false;
   if(type==='knight'&&(o==='player'?r<=1:r>=7))return false;
   if(type==='pawn'){
     for(let rr=0;rr<9;rr++){const p=brd[rr][c];if(p&&p.owner===o&&p.type==='pawn'&&!p.promoted)return false;}
-    const nb=brd.map(row=>row.map(ce=>ce?{...ce}:null));nb[r][c]={type:'pawn',owner:o,promoted:false};
-    if(isCheckmate(o==='player'?'npc':'player',nb,captured))return false;
+    /* 打ち歩詰め判定。旧実装は「相手の詰み判定→相手の歩打ち判定→自分の詰み判定…」と
+       持ち駒を減らさず相互再帰し、両者が歩を持つ中盤以降で指数爆発してフリーズした。
+       根治策: (1) 歩を打っても王手でなければ詰みになり得ないので判定自体を省略する
+              (2) 持ち駒を正しく減らして次段へ渡す (3) 再帰に深さ上限を設ける */
+    if(depth<4){
+      const nb=brd.map(row=>row.map(ce=>ce?{...ce}:null));nb[r][c]={type:'pawn',owner:o,promoted:false};
+      const opp=o==='player'?'npc':'player';
+      if(isInCheck(opp,nb)){
+        const nc={player:[...cap.player],npc:[...cap.npc]};
+        const idx=nc[o].indexOf('pawn');if(idx!==-1)nc[o].splice(idx,1);
+        if(!hasAnyLegalMove(opp,nb,nc,depth+1))return false;
+      }
+    }
   }
   return true;
 }
-function validDropSquares(type,o,brd){
+function validDropSquares(type,o,brd,cap,depth){
+  cap=cap||captured;depth=depth||0;
   const sq=[];
   for(let r=0;r<9;r++)for(let c=0;c<9;c++){
-    if(isValidDrop(type,o,r,c,brd)){
+    if(isValidDrop(type,o,r,c,brd,cap,depth)){
       const nb=brd.map(row=>row.map(ce=>ce?{...ce}:null));nb[r][c]={type,owner:o,promoted:false};
       if(!isInCheck(o,nb))sq.push([r,c]);
     }
   }
   return sq;
 }
-function allLegalMoves(o,brd,cap){
+function allLegalMoves(o,brd,cap,depth){
+  cap=cap||captured;depth=depth||0;
   const ms=[];
   for(let r=0;r<9;r++)for(let c=0;c<9;c++){
     const p=brd[r][c];if(!p||p.owner!==o)continue;
@@ -821,10 +871,26 @@ function allLegalMoves(o,brd,cap){
       else ms.push({type:'move',from:[r,c],to:[tr,tc],promote:false});
     });
   }
-  [...new Set(cap[o])].forEach(pt=>validDropSquares(pt,o,brd).forEach(([tr,tc])=>ms.push({type:'drop',piece:pt,owner:o,to:[tr,tc]})));
+  [...new Set(cap[o])].forEach(pt=>validDropSquares(pt,o,brd,cap,depth).forEach(([tr,tc])=>ms.push({type:'drop',piece:pt,owner:o,to:[tr,tc]})));
   return ms;
 }
-function isCheckmate(o,brd,cap){return allLegalMoves(o,brd,cap).length===0;}
+/* 合法手が1つでもあるか（見つけ次第終了）。詰み判定はこちらを使い、全列挙しない */
+function hasAnyLegalMove(o,brd,cap,depth){
+  cap=cap||captured;depth=depth||0;
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const p=brd[r][c];if(!p||p.owner!==o)continue;
+    if(legalMovesFor(r,c,brd).length)return true;
+  }
+  for(const pt of new Set(cap[o])){
+    for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+      if(!isValidDrop(pt,o,r,c,brd,cap,depth))continue;
+      const nb=brd.map(row=>row.map(ce=>ce?{...ce}:null));nb[r][c]={type:pt,owner:o,promoted:false};
+      if(!isInCheck(o,nb))return true;
+    }
+  }
+  return false;
+}
+function isCheckmate(o,brd,cap){return !hasAnyLegalMove(o,brd,cap||captured,0);}
 function doMove(fr,fc,tr,tc,promo){
   const p={...board[fr][fc]},tgt=board[tr][tc];
   if(tgt)captured[p.owner].push(tgt.type);
@@ -865,13 +931,14 @@ function aiPseudo(o,brd,cap){
   for(let r=0;r<9;r++)for(let c=0;c<9;c++){
     const p=brd[r][c];if(!p||p.owner!==o)continue;
     pseudoMoves(p,r,c,brd).forEach(([tr,tc])=>{
+      const tgt=brd[tr][tc];if(tgt&&tgt.type==='king')return; /* 探索内で玉は取らない（取ると局面が壊れる） */
       const canP=CAN_PROMOTE.includes(p.type)&&!p.promoted&&(inPromoZone(r,o)||inPromoZone(tr,o));
       const must=mustPromote(p.type,tr,o);
       if(canP){ms.push({type:'move',from:[r,c],to:[tr,tc],promote:true});if(!must)ms.push({type:'move',from:[r,c],to:[tr,tc],promote:false});}
       else ms.push({type:'move',from:[r,c],to:[tr,tc],promote:false});
     });
   }
-  [...new Set(cap[o])].forEach(pt=>{for(let r=0;r<9;r++)for(let c=0;c<9;c++){if(!brd[r][c]&&isValidDrop(pt,o,r,c,brd))ms.push({type:'drop',piece:pt,owner:o,to:[r,c]});}});
+  [...new Set(cap[o])].forEach(pt=>{for(let r=0;r<9;r++)for(let c=0;c<9;c++){if(!brd[r][c]&&isValidDrop(pt,o,r,c,brd,cap,0))ms.push({type:'drop',piece:pt,owner:o,to:[r,c]});}});
   return ms;
 }
 function minimax(brd,cap,depth,alpha,beta,maxing,lim){
@@ -891,12 +958,28 @@ function minimax(brd,cap,depth,alpha,beta,maxing,lim){
     return{score:min,move:best};
   }
 }
+function sameMove(a,b){
+  if(!a||!b||a.type!==b.type)return false;
+  if(a.type==='drop')return a.piece===b.piece&&a.to[0]===b.to[0]&&a.to[1]===b.to[1];
+  return a.from[0]===b.from[0]&&a.from[1]===b.from[1]&&a.to[0]===b.to[0]&&a.to[1]===b.to[1]&&!!a.promote===!!b.promote;
+}
 function getBestMove(){
-  if(difficulty==='easy'){const ms=allLegalMoves('npc',board,captured);return ms.length?ms[Math.floor(Math.random()*ms.length)]:null;}
+  /* 実際に指す手は必ず合法手（王手回避済み）の中から選ぶ。
+     探索（aiPseudo）は擬似合法手ベースなので、その返した手が合法とは限らなかった */
+  const legal=allLegalMoves('npc',board,captured);
+  if(!legal.length)return null;
+  if(difficulty==='easy')return legal[Math.floor(Math.random()*legal.length)];
   const depth=difficulty==='hard'?3:2;
   const{move}=minimax(board,captured,depth,-Infinity,Infinity,true,{n:0});
-  if(move)return move;
-  const ms=allLegalMoves('npc',board,captured);return ms.length?ms[Math.floor(Math.random()*ms.length)]:null;
+  if(move&&legal.some(m=>sameMove(m,move)))return move;
+  /* 探索が合法手を返さなかった場合は、合法手の中から1手読み評価で最良の手を選ぶ */
+  let best=null,bestScore=-Infinity;
+  for(const mv of legal){
+    const{nb,nc}=applyAI(board,captured,mv);
+    const s=evalBoard(nb,nc)+(mv.promote?30:0);
+    if(s>bestScore){bestScore=s;best=mv;}
+  }
+  return best;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1488,6 +1571,8 @@ async function executeMove(fr,fc,tr,tc,promo){
   if(isCheckmate(opp,board,captured)){gameActive=false;isAnimating=false;render();updateUI();await sleep(250);showBanner('詰み',64);playCheck();await sleep(750);endGame(mp.owner,'checkmate');return;}
   if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player')setStatus('王手がかかっています',true);}
   else{render();updateUI();}
+  const senM=checkSennichite();
+  if(senM){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senM.loser?otherSide(senM.loser):null,'sennichite');return;}
   isAnimating=false;
 }
 async function executeDrop(type,owner,tr,tc){
@@ -1502,6 +1587,8 @@ async function executeDrop(type,owner,tr,tc){
   if(isCheckmate(opp,board,captured)){gameActive=false;isAnimating=false;render();updateUI();await sleep(250);showBanner('詰み',64);playCheck();await sleep(750);endGame(owner,'checkmate');return;}
   if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player')setStatus('王手がかかっています',true);}
   else{render();updateUI();}
+  const senD=checkSennichite();
+  if(senD){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senD.loser?otherSide(senD.loser):null,'sennichite');return;}
   isAnimating=false;
 }
 function highlightKing(o){
@@ -1535,11 +1622,14 @@ function scheduleNPC(){
   setTimeout(doNPCTurn,d);
 }
 async function doNPCTurn(){
-  if(!gameActive)return;
+  /* 待った・最初から・モード切替で手番が戻った後に、予約済みタイマーが発火しても指さない */
+  if(!gameActive||mode!=='cpu'||turn!=='npc')return;
   isAnimating=true;
   const ti=document.getElementById('thinking-indicator');if(ti)ti.style.display='inline';
   setStatus('CPUが考え中…');
   updateUI();
+  await sleep(40); /* 「考え中」表示を画面に描画してから重い探索に入る */
+  if(!gameActive||mode!=='cpu'||turn!=='npc'){isAnimating=false;if(ti)ti.style.display='none';return;}
   const move=getBestMove();
   if(ti)ti.style.display='none';
   if(!move){gameActive=false;isAnimating=false;render();updateUI();endGame('player','checkmate');return;}
@@ -1704,6 +1794,34 @@ function openKifu(){
 // ═══════════════════════════════════════════════════════════
 function endGame(winner,reason='checkmate'){
   let win,title,sub,statusTxt;
+  if(reason==='sennichite'){
+    /* 千日手: winner=null は引き分け。winner がある場合は相手の連続王手による反則勝ち */
+    if(mode==='local'){
+      win=true;
+      title=winner?(winner==='player'?'先手の勝ち！':'後手の勝ち！'):'引き分け';
+      sub=winner?'千日手（連続王手は反則負け）':'千日手が成立しました';
+      statusTxt=winner?(winner==='player'?'先手の勝ち':'後手の勝ち'):'千日手で引き分け';
+    }else{
+      win=winner==='player';
+      title=winner==='player'?'あなたの勝ち！':winner==='npc'?'CPUの勝ち…':'引き分け';
+      sub=winner==='player'?'千日手（CPUの連続王手は反則負け）':winner==='npc'?'千日手（あなたの連続王手は反則負け）':'千日手が成立しました';
+      statusTxt=winner==='player'?'あなたの勝ち':winner==='npc'?'CPUの勝ち':'千日手で引き分け';
+    }
+    setStatus(statusTxt);
+    if(winner){if(win){spawnConfetti();playWin();}else playLose();}
+    const ovS=document.createElement('div');ovS.className='modal-overlay';ovS.id='end-modal';
+    ovS.innerHTML=`<div class="modal-card">
+      <div style="font-size:44px;margin-bottom:6px;">${winner?(win?'🏆':'😤'):'🤝'}</div>
+      <h2>${title}</h2>
+      <p class="sub">${sub} ／ ${kifuList.length}手</p>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" style="flex:1;padding:13px;" onclick="undoMove()">↩ 待った</button>
+        <button class="btn btn-dark" style="flex:1.4;padding:13px;" onclick="resetGame()">↻ もう一度</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ovS);
+    return;
+  }
   if(mode==='local'){
     win=true; // 対面2人は勝者を祝う
     title=winner==='player'?'先手の勝ち！':'後手の勝ち！';

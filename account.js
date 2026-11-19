@@ -1382,7 +1382,7 @@
     /* スクリムとドロワーは共通ヘッダーの下から始める（開いている間も
        ヘッダーのタブでメインへ戻れるようにするため） */
     '#pwDrawerScrim{position:absolute;left:0;right:0;bottom:0;top:var(--pw-header-h,46px);background:rgba(3,4,12,.48);opacity:0;transition:opacity .3s ease;pointer-events:none}',
-    '#pwDrawer{position:absolute;top:var(--pw-header-h,46px);right:0;bottom:0;width:min(400px,88vw);background:rgba(13,16,32,.9);backdrop-filter:blur(12px);border-left:1px solid rgba(255,255,255,.13);box-shadow:-18px 0 44px rgba(0,0,0,.5);color:#eef0ff;padding:16px 16px 30px;overflow-y:auto;transform:translateX(106%);transition:transform .32s cubic-bezier(.32,.72,.24,1);-webkit-overflow-scrolling:touch;pointer-events:none}',
+    '#pwDrawer{position:absolute;top:var(--pw-header-h,46px);right:0;bottom:0;width:min(400px,88vw);background:rgba(13,16,32,.9);backdrop-filter:blur(12px);border-left:1px solid rgba(255,255,255,.13);box-shadow:-18px 0 44px rgba(0,0,0,.5);color:#eef0ff;padding:16px 16px 30px;overflow-y:auto;overscroll-behavior:none;transform:translateX(106%);transition:transform .32s cubic-bezier(.32,.72,.24,1);-webkit-overflow-scrolling:touch;pointer-events:none}',
     /* ラッパー自体は常にクリックを素通しし、スクリムとドロワーだけが受ける
        （ヘッダーのタブを開いたまま操作できるように） */
     '#pwDrawerWrap.open #pwDrawerScrim{opacity:1;pointer-events:auto}',
