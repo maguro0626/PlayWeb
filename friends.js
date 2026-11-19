@@ -63,7 +63,7 @@
     gamedev:    { title: 'ゲーム工房物語',         file: 'gamedev.html' },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
     otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true },
-    frostline:  { title: 'Frostline: Emberfront', file: 'frostline.html' }
+    frostline:  { title: 'Frostline: Emberfront', file: 'frostline-field.html' }
   };
   var GAME_ORDER = ['tetris','suica','crepe','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','frostline'];
   var PEER_OPTS = { config: { iceServers: [
