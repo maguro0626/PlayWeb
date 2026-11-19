@@ -152,7 +152,8 @@
 
   <button class="secTitle updSecHead" id="updSecHead" type="button" aria-expanded="false">📢 アップデート情報 <span class="arrow">▼</span></button>
   <div class="upd" id="updList" style="display:none"></div>
-  <ul class="news">
+  <button class="secTitle updSecHead" id="newsSecHead" type="button" aria-expanded="false">📰 過去のお知らせ <span class="arrow">▼</span></button>
+  <ul class="news" id="newsList" style="display:none">
     <li><span class="date">2026.11</span>全ページ共通ヘッダー＆アカウント機能が登場！<span class="new">NEW</span><br>画面上部の「アカウント」タブから、ログインやフレンド機能がまとめて使えるようになりました。フレンドの追加は相手のユーザー名を検索するだけ。相手のオンライン状態や遊んでいるゲームが分かり、チャットやゲームへの招待ができます。</li>
     <li><span class="date">2026.11</span>セーブデータはアカウントのクラウド保存になりました。<br>ログインすると全ゲームのセーブが自動でサーバに同期され、別の端末でも続きが遊べます（旧来のファイル書き出しは不要になりました）。</li>
     <li><span class="date">2026.11</span>まじょねこサバイバーズに第9弾：新ステージ「桜の宵宮」＆ガチャにサクラ・ヨゾラ参戦！<br>虚空をクリアすると解放される最難ステージ（敵×3.8・かけら×3.6）と、SRサクラ・SSRヨゾラの2体を追加。ショップ最下部のボタンがタブバーに被る不具合も修正しました。</li>
@@ -184,6 +185,9 @@
    v55〜 仕様: セクション全体がデフォルトで折りたたまれ（見出しタップで開く）、
    中の各エントリも全て閉じた状態がデフォルト（タイトル行タップで個別に開く二段構え） */
 const PW_UPDATES = [
+  { v:'v57', date:'2026.11.19', title:'ポータルの「過去のお知らせ」も折りたたみ式に', items:[
+    'ポータル下部の過去のお知らせ一覧を、アップデート情報と同じくデフォルトで折りたたむようにしました（見出しタップで開きます）'
+  ]},
   { v:'v56', date:'2026.11.19', title:'『スターリンクサーガ』のバトルをシンプル化', items:[
     'バトルがポケカ式になりました：エネルギーを使って「わざ」を選ぶだけ。ダメージは表示どおりの固定値で、相性がいいと1.5倍（こうかばつぐん）',
     'チェイン・バースト・パッシブ・状態異常・手札は廃止。チュートリアルも「わざ・エネルギー・相性」の3点だけに短くしました'
@@ -236,6 +240,18 @@ const PW_UPDATES = [
   /* セクション全体の開閉（見出しがトグル。初期状態は折りたたみ） */
   const head = document.getElementById('updSecHead');
   if (head) head.addEventListener('click', () => {
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : '';
+    head.classList.toggle('open', !open);
+    head.setAttribute('aria-expanded', open ? 'false' : 'true');
+  });
+})();
+/* 過去のお知らせ（.news）もセクション全体をデフォルトで折りたたむ */
+(function foldNews(){
+  const head = document.getElementById('newsSecHead');
+  const box = document.getElementById('newsList');
+  if (!head || !box) return;
+  head.addEventListener('click', () => {
     const open = box.style.display !== 'none';
     box.style.display = open ? 'none' : '';
     head.classList.toggle('open', !open);
