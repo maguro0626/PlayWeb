@@ -1230,6 +1230,21 @@ function hostRoom(){
   let failed = false;
   PWMatch.whenReady().then(ok => {
     if (!ok){ failed = true; onlineLoadError(); return null; }
+    /* 前の対局やCPU戦の盤面が残っていると、その盤面が新しいマッチの初期状態に
+       なってしまうため、作成前に必ず初期盤面へ戻す（将棋の resetGame と同型） */
+    board = initialBoard();
+    turn = BLACK;
+    history = [];
+    moveLog = [];
+    lastMove = null;
+    gameOver = false;
+    thinking = false;
+    passing = false;
+    recorded = false;
+    flipDelayMap = new Map();
+    rendered = Array.from({length: 8}, () => Array(8).fill(EMPTY));
+    if (els.modal) els.modal.classList.add('hidden');
+    render();
     return PWMatch.create('reversi', {state: currentState(), turn: fsUid()});
   }).then(res => {
     if (failed || !res) return;

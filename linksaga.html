@@ -231,7 +231,7 @@
   .newTag { position:absolute; top:3px; left:4px; background:#ff5252; color:#fff; font-size:9.5px; font-weight:900; border-radius:99px; padding:1px 6px; z-index:2; }
   .dupTag { position:absolute; bottom:38px; left:4px; background:rgba(0,0,0,.65); color:#ffd76e; font-size:9.5px; font-weight:900; border-radius:99px; padding:1px 6px; z-index:2; }
 
-  /* バトル */
+  /* バトル（ポケポケ式カードバトル） */
   #scr-battle { padding-bottom:8px; }
   #btField { position:relative; border-radius:17px; overflow:hidden; border:1px solid rgba(150,160,255,.4); margin-top:6px;
               background:linear-gradient(180deg,#1b1c4e 0%,#2c1a56 55%,#170f38 100%); padding:10px 9px 12px; }
@@ -240,41 +240,80 @@
   #btField.el-wood { background:linear-gradient(180deg,#1d4e22,#1a5630 55%,#0f3018); }
   #btField.el-light { background:linear-gradient(180deg,#5e4a12,#56481a 55%,#33290d); }
   #btField.el-dark { background:linear-gradient(180deg,#3c1250,#2c1a56 55%,#180a2e); }
-  .unitRow { display:flex; gap:6px; justify-content:center; }
-  .unit { flex:1; max-width:86px; min-width:0; text-align:center; position:relative; }
-  .unit .face { width:100%; aspect-ratio:1/1.06; border-radius:12px; overflow:hidden; border:2px solid rgba(216,178,92,.75); background:#10102e; position:relative;
-                box-shadow:0 3px 9px rgba(0,0,0,.5), inset 0 0 0 2px rgba(8,6,24,.65); }
-  .unit .face::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(155deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 36%); }
-  .unit .face svg, .unit .face img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
-  .unit.foe .face { border-color:rgba(255,110,110,.8); box-shadow:0 3px 9px rgba(0,0,0,.5), 0 0 9px rgba(255,60,60,.35), inset 0 0 0 2px rgba(30,4,10,.65); }
-  .unit.dead { filter:grayscale(1); opacity:.38; }
-  .unit.targetable .face { border-color:#ffd76e; box-shadow:0 0 12px rgba(255,215,110,.8); animation:blinkB 0.9s infinite; cursor:pointer; }
-  @keyframes blinkB { 50% { box-shadow:0 0 3px rgba(255,215,110,.4); } }
-  .unit .un { font-size:10.5px; font-weight:900; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .hpBar { height:8px; border-radius:99px; background:rgba(0,0,0,.6); overflow:hidden; margin-top:2px; border:1px solid rgba(216,178,92,.45); }
+  #btLog { background:rgba(8,9,26,.72); border:1px solid rgba(140,150,255,.3); border-radius:11px; padding:5px 10px; font-size:11px; line-height:1.5;
+           height:52px; overflow-y:auto; color:#dfe3ff; }
+  .zoneRow { display:flex; align-items:center; gap:6px; margin-top:7px; }
+  .zoneLbl { font-size:10.5px; font-weight:900; color:#aeb6ff; white-space:nowrap; text-shadow:0 1px 3px #000; }
+  .zoneCounts { margin-left:auto; font-size:10px; color:#8a93d8; font-weight:800; white-space:nowrap; }
+  .benchRow { display:flex; gap:6px; flex:1; min-height:46px; align-items:stretch; }
+  .benchEmpty { font-size:10.5px; color:#79809f; font-weight:800; align-self:center; }
+  .hpBar { display:block; height:7px; border-radius:99px; background:rgba(0,0,0,.6); overflow:hidden; margin-top:2px; border:1px solid rgba(216,178,92,.45); }
   .hpBar i { display:block; height:100%; background:linear-gradient(180deg,#b9ffd9 0%,#69f0ae 45%,#25a565 100%); transition:width .35s; box-shadow:inset 0 1px 0 rgba(255,255,255,.55); }
-  .unit.foe .hpBar i { background:linear-gradient(180deg,#ffc4b0 0%,#ff9e80 45%,#d63a2e 100%); }
-  .hpTxt { font-size:9.5px; color:#cfd4ff; font-weight:800; }
-  .intent { position:absolute; top:-7px; right:-3px; z-index:3; background:#10102e; border:1px solid rgba(255,255,255,.5); border-radius:99px;
-            font-size:10px; padding:1px 6px; font-weight:900; }
-  .intent.danger { background:#7a1020; border-color:#ff8a80; }
-  .wazaCol { display:flex; flex-direction:column; gap:3px; margin-top:3px; }
-  .wazaBtn { border:1.5px solid rgba(255,255,255,.35); background:linear-gradient(180deg,#2c2e6e,#1a1b47); color:#fff; border-radius:8px;
-             padding:3px 2px 2px; font-size:9.5px; font-weight:900; line-height:1.25; cursor:pointer; font-family:inherit; }
-  .wazaBtn .wzN { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .wazaBtn .wzD { display:block; color:#ffd76e; font-size:9.5px; }
-  .wazaBtn.sel { border-color:#ffd76e; box-shadow:0 0 10px rgba(255,215,110,.85); transform:translateY(-2px); }
-  .wazaBtn:disabled { opacity:.35; cursor:default; }
-  .unit.actedU .face { opacity:.5; }
-  .unit.actedU .un { opacity:.6; }
-  .predDmg { font-size:10px; color:#ffd76e; font-weight:900; min-height:13px; }
-  #btMid { display:flex; align-items:center; gap:8px; margin:9px 1px 7px; }
+  /* ベンチ用ミニカード（横型チップ） */
+  .bchip { display:flex; align-items:center; gap:6px; flex:1; max-width:158px; min-width:0; background:linear-gradient(180deg,#262763,#141433);
+           border:1.5px solid #546e7a; border-radius:11px; padding:3px 7px 3px 3px; cursor:pointer; position:relative; text-align:left;
+           color:#eef0ff; font-family:inherit; box-shadow:0 3px 7px rgba(0,0,0,.4); }
+  .bchip .bcArt { width:38px; height:38px; flex:none; border-radius:8px; overflow:hidden; background:#10102e; position:relative; }
+  .bchip .bcArt svg, .bchip .bcArt img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+  .bchip .bcInf { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .bchip .bcName { font-size:10px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bchip .bcSub { font-size:9px; color:#ffd76e; font-weight:900; margin-top:1px; white-space:nowrap; }
+  .bchip.r-SR { border-color:#c05cd8; }
+  .bchip.r-SSR { border-color:#ffb300; }
+  .bchip.r-UR { border-color:#ffd76e; box-shadow:0 0 9px rgba(255,150,80,.65), 0 3px 7px rgba(0,0,0,.4); }
+  .bchip.r-foe { border-color:rgba(255,110,110,.75); }
+  .bchip.r-foe .hpBar i { background:linear-gradient(180deg,#ffc4b0 0%,#ff9e80 45%,#d63a2e 100%); }
+  .bchip.dead { filter:grayscale(1); opacity:.38; }
+  .bchip.pick { border-color:#ffd76e; box-shadow:0 0 11px rgba(255,215,110,.9); animation:blinkB 0.9s infinite; }
+  @keyframes blinkB { 50% { box-shadow:0 0 3px rgba(255,215,110,.4); } }
+  /* ポケポケ式カード（共通コンポーネント） */
+  .pkc { position:relative; border-radius:14px; padding:6px 7px 7px; background:linear-gradient(165deg,#2e2f6e,#171738 72%);
+         border:2px solid #546e7a; color:#eef0ff; box-shadow:0 5px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25);
+         text-align:left; font-family:inherit; }
+  .pkc::after { content:''; position:absolute; inset:0; border-radius:12px; pointer-events:none;
+                background:linear-gradient(155deg, rgba(255,255,255,.20) 0%, rgba(255,255,255,0) 34%); }
+  .pkc.r-SR { border-color:#c05cd8; box-shadow:0 0 10px rgba(171,71,188,.5), 0 5px 14px rgba(0,0,0,.5); }
+  .pkc.r-SSR { border-color:#ffb300; box-shadow:0 0 12px rgba(255,179,0,.55), 0 5px 14px rgba(0,0,0,.5); }
+  .pkc.r-UR { border-color:#ffd76e; box-shadow:0 0 16px rgba(255,150,80,.8), 0 5px 14px rgba(0,0,0,.5); animation:urFrame 2.6s ease-in-out infinite; }
+  .pkc.r-foe { border-color:rgba(255,110,110,.85); box-shadow:0 0 10px rgba(255,60,60,.35), 0 5px 14px rgba(0,0,0,.5); }
+  .pkc.dead { filter:grayscale(1); opacity:.4; }
+  .pkc-lg { width:164px; }
+  .pkc-md { width:104px; flex:none; }
+  .pkc-head { display:flex; align-items:baseline; gap:5px; position:relative; z-index:1; }
+  .pkc-name { font-size:12.5px; font-weight:900; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 3px #000; }
+  .pkc-hp { font-size:14.5px; font-weight:900; color:#ffe9a8; white-space:nowrap; text-shadow:0 1px 3px #000; }
+  .pkc-hp small { font-size:8.5px; color:#aeb6ff; margin-right:2px; letter-spacing:.08em; }
+  .pkc-art { position:relative; border-radius:9px; overflow:hidden; background:#10102e; aspect-ratio:1/0.78; margin-top:4px; border:1px solid rgba(255,255,255,.28); }
+  .pkc-art svg, .pkc-art img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+  .pkc-art .pkc-el { position:absolute; left:4px; bottom:4px; z-index:2; }
+  .pkc-md .pkc-art { aspect-ratio:1/0.66; }
+  .pkc-md .pkc-wname { display:none; } /* ミニカードではわざ名を省略し、コストとダメージだけを見せる */
+  .pkc-hpbar { height:6px; border-radius:99px; background:rgba(0,0,0,.6); overflow:hidden; margin-top:4px; border:1px solid rgba(216,178,92,.4); }
+  .pkc-hpbar i { display:block; height:100%; background:linear-gradient(180deg,#b9ffd9,#25a565); transition:width .35s; }
+  .pkc.r-foe .pkc-hpbar i { background:linear-gradient(180deg,#ffc4b0,#d63a2e); }
+  .pkc-sub { display:flex; justify-content:space-between; align-items:center; font-size:9.5px; font-weight:900; color:#c3c9ff; margin-top:3px; }
+  .pkc-weak { color:#ffb0a0; }
+  .pkc-en { color:#ffd76e; }
+  .pip { color:#ffd76e; font-size:10px; text-shadow:0 0 5px rgba(255,180,0,.8); }
+  .pkc-waza { display:flex; align-items:center; gap:5px; width:100%; margin-top:4px; padding:4px 6px; border-radius:8px; position:relative; z-index:1;
+              border:1px solid rgba(160,170,255,.4); background:linear-gradient(180deg,#2c2e6e,#1a1b47); color:#fff;
+              font-family:inherit; font-weight:900; cursor:pointer; text-align:left; }
+  .pkc-waza:disabled { cursor:default; pointer-events:none; }
+  .pkc-waza.canUse { border-color:#ffd76e; box-shadow:0 0 9px rgba(255,215,110,.6); }
+  .pkc-waza .pkc-cost { flex:none; min-width:28px; white-space:nowrap; }
+  .pkc-sub span { white-space:nowrap; }
+  .pkc-waza .pkc-wname { flex:1; min-width:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pkc-waza .pkc-dmg { font-size:13.5px; color:#ffe9a8; white-space:nowrap; }
+  .activeWrap { display:flex; justify-content:center; margin-top:5px; position:relative; }
+  .noActive { width:164px; border:2px dashed rgba(150,160,255,.5); border-radius:14px; padding:20px 8px; text-align:center;
+              font-size:11.5px; font-weight:900; color:#aeb6ff; line-height:1.6; }
+  #handRow { display:flex; gap:6px; overflow-x:auto; padding:6px 2px 2px; min-height:118px; align-items:flex-start; }
+  #handRow .pkc { cursor:pointer; }
+  #btMid { display:flex; align-items:center; gap:8px; margin:8px 1px 2px; }
   #energyBox { flex:1; background:rgba(8,9,26,.72); border:1px solid rgba(255,215,110,.5); border-radius:11px; padding:5px 10px; font-size:12.5px; font-weight:900; display:flex; align-items:center; gap:6px; }
   #energyBox b { color:#ffd76e; font-size:23px; line-height:1; }
-  #energyBox .turnLbl { margin-left:auto; color:#aeb6ff; font-size:11.5px; }
-  #btLog { background:rgba(8,9,26,.72); border:1px solid rgba(140,150,255,.3); border-radius:11px; padding:7px 10px; font-size:11.5px; line-height:1.55;
-           height:62px; overflow-y:auto; color:#dfe3ff; }
-  #btBtns { display:flex; gap:8px; margin-top:9px; }
+  #energyBox .turnLbl { margin-left:auto; color:#aeb6ff; font-size:11px; text-align:right; }
+  #btBtns { display:flex; gap:8px; margin-top:8px; }
   .dmgFloat { position:absolute; z-index:9; font-weight:900; font-size:17px; color:#fff; text-shadow:0 2px 5px #000, 0 0 12px rgba(255,150,50,.8);
               pointer-events:none; animation:floatUp 0.95s ease-out forwards; }
   .dmgFloat.heal { color:#8affc1; text-shadow:0 2px 5px #000, 0 0 12px rgba(60,255,150,.8); }
@@ -283,16 +322,66 @@
   @keyframes floatUp { from { transform:translateY(4px) scale(.7); opacity:0; } 18% { opacity:1; transform:translateY(0) scale(1.12); } 30% { transform:scale(1); } to { transform:translateY(-34px); opacity:0; } }
   @keyframes floatUpCrit { from { transform:translateY(4px) scale(.6) rotate(-4deg); opacity:0; } 18% { opacity:1; transform:translateY(0) scale(1.35) rotate(2deg); } 32% { transform:scale(1.1); } to { transform:translateY(-38px); opacity:0; } }
   .shake { animation:shk 0.32s; } @keyframes shk { 25% { transform:translateX(-4px); } 55% { transform:translateX(4px); } 80% { transform:translateX(-2px); } }
-  /* 低い画面（667px級）ではバトルを圧縮してターン終了ボタンまで収める */
+  /* スマホ級の高さでは、バトル中はリソースバーとタブバーを畳んで戦闘に集中させる */
+  @media (max-height:900px) {
+    body[data-scr="battle"] #resBar { display:none; }
+    body[data-scr="battle"] #tabBar { display:none; }
+  }
+  /* 中くらいの画面（844px級）ではバトルを少し圧縮して、手札とターン終了ボタンまで1画面に収める */
+  @media (max-height:900px) and (min-height:741px) {
+    #btField { padding:8px 8px 9px; }
+    #btLog { height:32px; font-size:10.5px; }
+    .zoneRow { margin-top:4px; }
+    .benchRow { min-height:40px; }
+    .bchip .bcArt { width:33px; height:33px; }
+    .pkc { padding:5px 6px 6px; }
+    .pkc-lg { width:146px; }
+    .pkc-lg .pkc-art { aspect-ratio:1/0.5; }
+    .pkc-md { width:92px; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.55; }
+    .pkc-waza { padding:3px 5px; margin-top:3px; }
+    #btMid { margin:4px 1px 1px; }
+    #energyBox { padding:4px 9px; }
+    #energyBox b { font-size:19px; }
+    #handRow { min-height:0; padding-top:4px; }
+    #btBtns { margin-top:5px; }
+    .activeWrap { margin-top:3px; }
+  }
+  /* 低い画面（667px級）ではバトルを強く圧縮して手札とターン終了ボタンまで収める */
   @media (max-height:740px) {
-    #btField { padding:7px 8px 8px; }
-    #btLog { height:44px; }
-    #btMid { margin:6px 1px 5px; }
-    .wazaBtn { padding:2px 1px 1px; font-size:9px; }
-    #energyBox b { font-size:20px; }
-    #btBtns { margin-top:6px; }
-    #allyRow { margin-top:6px !important; }
-    .unit .face { aspect-ratio:1/0.94; }
+    body[data-scr="battle"] #resBar { display:none; }
+    body[data-scr="battle"] #tabBar { display:none; }
+    #btField { padding:6px 7px 7px; }
+    #btLog { height:22px; font-size:10px; }
+    #btMid { margin:3px 1px 1px; }
+    #btnAuto { padding:5px 9px !important; font-size:11px !important; }
+    #energyBox { padding:3px 8px; font-size:11.5px; }
+    #energyBox b { font-size:17px; }
+    #btBtns { margin-top:4px; }
+    #btBtns .btn { padding-top:8px; padding-bottom:8px; }
+    .zoneRow { margin-top:3px; }
+    .zoneLbl { font-size:9.5px; }
+    .benchRow { min-height:28px; }
+    .bchip { padding:2px 5px 2px 2px; }
+    .bchip .bcArt { width:24px; height:24px; }
+    .pkc { padding:4px 5px 5px; border-radius:11px; }
+    .pkc-lg { width:118px; }
+    .pkc-lg .pkc-art { aspect-ratio:1/0.4; margin-top:3px; }
+    .pkc-md { width:78px; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.42; margin-top:3px; }
+    .pkc-name { font-size:10.5px; }
+    .pkc-hp { font-size:12px; }
+    .pkc-sub { font-size:8.5px; margin-top:2px; }
+    .pkc-md .pkc-sub { font-size:7.5px; }
+    .pkc-hpbar { margin-top:3px; }
+    .pkc-waza { padding:2px 4px; margin-top:2px; }
+    .pkc-waza .pkc-wname { font-size:9.5px; }
+    .pkc-waza .pkc-dmg { font-size:10.5px; }
+    .pkc-waza .pkc-cost { min-width:22px; }
+    .pip { font-size:8.5px; }
+    #handRow { min-height:0; padding-top:3px; }
+    .activeWrap { margin-top:2px; }
+    .noActive { width:118px; padding:10px 6px; font-size:10.5px; }
     #favStage { min-height:400px; }
   }
 
@@ -406,9 +495,9 @@
     </div>
     <div class="secTitle">リンクスの心得</div>
     <div class="card note">
-      バトルは「わざを選んで、攻撃する敵をタップ」するだけの簡単ルール！<br>
-      有利な属性で攻撃すると「こうかばつぐん！」でダメージ1.5倍。<br>
-      敵の頭の⚔️数字は、次に受けるダメージの予告だよ。<br>
+      バトルはポケポケ式カードバトル！手札から1体をバトル場に出して戦おう。<br>
+      毎ターン⚡が1個発生。キャラに付けると残り続け、コスト以上でわざが使えるよ。<br>
+      弱点の属性で攻撃すると「こうかばつぐん！」でダメージ1.5倍。<br>
       URは排出率0.05%の代わりに、SSRの約3倍の力を持つ特別な存在だよ。
     </div>
   </section>
@@ -493,15 +582,20 @@
   <!-- ═══ バトル ═══ -->
   <section id="scr-battle" class="hidden">
     <div id="btField">
-      <div class="unitRow" id="foeRow"></div>
+      <div id="btLog"></div>
+      <div class="zoneRow"><span class="zoneLbl">相手ベンチ</span><div class="benchRow" id="foeBench"></div><span class="zoneCounts" id="foeCounts"></span></div>
+      <div class="activeWrap" id="foeActive"></div>
       <div id="btMid">
-        <div id="energyBox">⚡エネルギー <b>1</b><span>/ 10</span></div>
+        <div id="energyBox">発生⚡ <b>0</b></div>
         <button class="btn ghost" id="btnAuto" style="padding:8px 12px;font-size:12px">オート</button>
       </div>
-      <div id="btLog"></div>
-      <div class="unitRow" id="allyRow" style="margin-top:10px"></div>
+      <div class="activeWrap" id="allyActive"></div>
+      <div class="zoneRow"><span class="zoneLbl">ベンチ</span><div class="benchRow" id="allyBench"></div><span class="zoneCounts" id="allyCounts"></span></div>
+      <div class="zoneRow"><span class="zoneLbl">手札</span><span class="zoneCounts" id="handCounts" style="margin-left:2px"></span></div>
+      <div id="handRow"></div>
       <div id="btBtns">
-        <button class="btn ghost" id="btnFlee" style="flex:0 0 96px">撤退</button>
+        <button class="btn ghost" id="btnFlee" style="flex:0 0 70px">撤退</button>
+        <button class="btn ghost" id="btnRetreat" style="flex:0 0 82px">にげる</button>
         <button class="btn big" id="btnEndTurn" style="flex:1">ターン終了 ›</button>
       </div>
     </div>
@@ -579,9 +673,10 @@ const SK = (n,k,p,o) => Object.assign({n,k,p:p||0}, o||{});
 /* パッシブ（データ互換のため残置。現行バトルでは使わない） */
 const PA = (n,t,v,o) => Object.assign({n,t,v}, o||{});
 
-/* ── わざ（ポケカ式シンプルバトル） ──
+/* ── わざ（ポケポケ式カードバトル） ──
    各キャラは わざ1（コスト⚡1・小ダメージ）と わざ2（コスト⚡3・大ダメージ）を持つ。
-   ダメージは「攻撃力 × わざ倍率」の固定値で、ボタンにそのまま数字を表示する。
+   ダメージは「攻撃力 × わざ倍率」の固定値で、カードにそのまま数字を表示する。
+   エネルギーは毎ターン1個発生し、キャラに付けると残り続ける（攻撃では消費しない）。
    倍率は既存スキルデータから導出：ダメージ系スキルはその p を使い、
    回復/シールド/バフ系スキルはスロット既定の倍率に置き換える。 */
 const DMG_KINDS = ['dmg','dmgAll','dmgBurn','dmgDebuff','drain'];
@@ -1042,6 +1137,7 @@ const sfx = {
 let curScr = 'home';
 function go(scr){
   curScr = scr;
+  if (document.body) document.body.dataset.scr = scr; /* 低い画面でバトル中だけリソースバーを畳む等のCSS用 */
   ['home','story','party','dex','gacha','arena','raid','shop','battle'].forEach(id => {
     $('#scr-' + id).classList.toggle('hidden', id !== scr);
   });
@@ -1212,20 +1308,15 @@ function openCharDetail(id){
   const st = o ? charStats(id) : { hp:c.hp, atk:c.atk, def:c.def };
   const cost = o ? levelCost(o.lv) : null;
   const maxed = o && o.lv >= MAXLV[c.rar];
-  let html = '<div style="display:flex;gap:12px">' +
-    '<div style="width:118px;flex:none;border-radius:13px;overflow:hidden;border:2px solid rgba(255,255,255,.3)">' + charArtHTML(c, 118) + '</div>' +
-    '<div style="flex:1;min-width:0"><span class="rarTag rar-' + c.rar + '">' + c.rar + '</span> <span class="elTag el-' + c.el + '">' + EL[c.el].i + EL[c.el].n + '属性</span> <span class="roleTag">' + ROLE_N[c.role] + '</span>' +
-    '<h3 style="margin-top:6px">' + esc(c.name) + (isAwakened(id) ? ' 👑覚醒' : '') + '</h3>' +
-    '<div class="note">' + esc(c.flavor) + '</div>' +
-    (o ? '<div class="note" style="margin-top:4px">Lv ' + o.lv + ' / ' + MAXLV[c.rar] + ' ・ 限界突破 ★' + o.lb + '/5</div>' : '<div class="note" style="margin-top:4px">未所持（召喚で出会える）</div>') +
-    '</div></div>';
+  let html = '<div style="display:flex;justify-content:center">' + pokeCardHTML(charToCardUnit(id), { size:'lg', waza:'show', noId:true }) + '</div>';
+  html += '<div style="text-align:center;margin-top:8px"><span class="rarTag rar-' + c.rar + '">' + c.rar + '</span> <span class="roleTag">' + ROLE_N[c.role] + '</span>' +
+    (o ? '<div class="note" style="margin-top:4px">Lv ' + o.lv + ' / ' + MAXLV[c.rar] + ' ・ 限界突破 ★' + o.lb + '/5' + (isAwakened(id) ? ' ・ 👑覚醒' : '') + '</div>' : '<div class="note" style="margin-top:4px">未所持（召喚で出会える）</div>') +
+    '<div class="note" style="margin-top:4px">' + esc(c.flavor) + '</div></div>';
   html += '<div class="statGrid">' +
     '<div class="statBox"><div class="sv">' + fmt(st.hp) + '</div><div class="sk">最大HP</div></div>' +
     '<div class="statBox"><div class="sv">' + fmt(st.atk) + '</div><div class="sk">攻撃</div></div>' +
     '<div class="statBox"><div class="sv">' + fmt(st.def) + '</div><div class="sk">防御</div></div></div>';
-  wazaOf(c, st.atk).forEach((w, wi) => {
-    html += '<div class="skillBox"><div class="sn"><span class="stag">わざ' + (wi + 1) + '</span>' + esc(w.n) + '</div><div class="sd">' + esc(wazaDesc(w)) + '（有利属性なら1.5倍）</div></div>';
-  });
+  html += '<div class="note" style="text-align:center">わざのダメージは今の攻撃力での固定値。弱点の属性で攻撃すると1.5倍（こうかばつぐん！）</div>';
   if (o && !maxed) html += '<button class="btn big" id="mLevelUp" style="margin-top:12px">レベルアップ（🔷' + cost.mats + ' ＋ 🪙' + fmt(cost.coins) + '）</button>';
   if (o && maxed) html += '<div class="note" style="margin-top:10px;text-align:center">最大レベル到達！</div>';
   if (o) html += '<button class="btn ghost big" id="mSetFav" style="margin-top:8px">' + (S.fav === id ? 'ホーム表示中 ★' : 'ホームに表示する') + '</button>';
@@ -1255,15 +1346,21 @@ function mkCharUnit(id, side, lv, lb){
   const awk = c.rar === 'UR' && (lb || 0) >= 5;
   const aM = awk ? 1.15 : 1;
   const atk = Math.round(c.atk * lvM * lbM * aM);
+  const maxHp = Math.round(c.hp * lvM * lbM * aM);
   return { uid: uidSeq++, side, charId:id, name:c.name, el:c.el, role:c.role, rar:c.rar,
-    maxHp: Math.round(c.hp * lvM * lbM * aM), hp: Math.round(c.hp * lvM * lbM * aM),
-    atk, alive:true, acted:false, awakened:awk, waza: wazaOf(c, atk) };
+    maxHp, hp: maxHp, atk, alive:true, awakened:awk, waza: wazaOf(c, atk),
+    zone:'deck', energy:0 };
 }
 function mkFoeUnit(f){
-  /* 敵の攻撃は1種類だけ。atk の数字がそのまま「次のダメージ」として見える */
+  /* 敵も1枚のカード：わざは「こうげき」1つ（コスト⚡2、ダメージは atk の固定値） */
   return { uid: uidSeq++, side:'foe', foeId:f.foeId, name:f.name, el:f.el, face:f.face, col:f.col, boss:!!f.boss,
-    maxHp:f.maxHp, hp:f.maxHp, atk:f.atk, alive:true, acted:false };
+    maxHp:f.maxHp, hp:f.maxHp, atk:f.atk, alive:true,
+    waza:[{ n:'こうげき', cost:2, dmg:f.atk, all:false }], zone:'deck', energy:0 };
 }
+/* ストーリー敵の章別調整係数。ポケポケ式では「敵もバトル場の1体だけが攻撃する」ため、
+   v56（敵全員が毎ターン攻撃）より被ダメージが大きく減る。章が進むほど敵のHPと攻撃を
+   引き上げて歯ごたえを戻す（難易度倍率 DIFFS の考え方は維持）。 */
+const STORY_FOE_SCALE = { 1: { hp: 1.0, atk: 1.0 }, 2: { hp: 1.25, atk: 1.4 }, 3: { hp: 1.6, atk: 2.0 } };
 function newBattle(cfg){
   uidSeq = 1;
   const allies = cfg.allyIds.map(id => { const o = S.owned[id]; return mkCharUnit(id, 'ally', o ? o.lv : 1, o ? o.lb : 0); });
@@ -1271,23 +1368,49 @@ function newBattle(cfg){
   if (cfg.foeParty) {
     foes = cfg.foeParty.map(t => mkCharUnit(t.id, 'foe', t.lv, t.lb));
   } else {
-    foes = cfg.foes.map(mkFoeUnit);
+    let foeData = cfg.foes;
+    if (cfg.kind === 'story') {
+      const sc = STORY_FOE_SCALE[cfg.meta && cfg.meta.ch] || { hp: 1, atk: 1 };
+      if (sc.hp !== 1 || sc.atk !== 1) foeData = foeData.map(f => Object.assign({}, f, {
+        maxHp: Math.max(1, Math.round(f.maxHp * sc.hp)), atk: Math.max(1, Math.round(f.atk * sc.atk)) }));
+    }
+    foes = foeData.map(mkFoeUnit);
   }
-  B = { kind:cfg.kind, allies, foes, turn:1, phase:'player', over:false,
+  B = { kind:cfg.kind, allies, foes, turn:0, phase:'setup', over:false,
     foeParty: !!cfg.foeParty,
-    energy: 1, foeEnergy: 1, energyMax: 10,
-    log: [], selWaza:null, auto:false, tutorial:!!cfg.tutorial, tutFlags:{},
-    meta: cfg.meta || {}, raidDamage:0, result:null };
+    zone: 0, foeZone: 0,           /* 発生して未付着のエネルギー（ターン終了で消える） */
+    attacked:false, foeAttacked:false, retreated:false, mode:null,
+    log: [], auto:false, tutorial:!!cfg.tutorial, tutFlags:{},
+    meta: cfg.meta || {}, raidDamage:0, result:null, _promoteResolve:null };
+  /* 山札（編成そのもの）をシャッフルし、両軍とも手札を3枚引く */
+  shuffle(allies); shuffle(foes);
+  drawCards('ally', 3); drawCards('foe', 3);
+  /* 敵は自動で最もHPの高い1体をバトル場に出す */
+  const fu = handOf('foe').slice().sort((a, b) => b.maxHp - a.maxHp)[0];
+  if (fu) fu.zone = 'active';
   logPush('⚔️ バトル開始！ ' + (cfg.meta.title || ''));
+  logPush('手札からバトル場に出すキャラを選んでね');
   return B;
 }
 function logPush(t){ B.log.push(t); if (B.log.length > 40) B.log.shift(); }
 function sideUnits(side){ return side === 'ally' ? B.allies : B.foes; }
 function foesOf(side){ return side === 'ally' ? B.foes : B.allies; }
-function energyOf(side){ return side === 'ally' ? B.energy : B.foeEnergy; }
-function spendEnergy(side, n){ if (side === 'ally') B.energy -= n; else B.foeEnergy -= n; }
+/* ── ゾーン管理（deck / hand / active / bench / out） ── */
+function inZone(side, z){ return sideUnits(side).filter(u => u.alive && u.zone === z); }
+function activeOf(side){ return sideUnits(side).find(u => u.alive && u.zone === 'active') || null; }
+function handOf(side){ return inZone(side, 'hand'); }
+function benchOf(side){ return inZone(side, 'bench'); }
+function deckOf(side){ return inZone(side, 'deck'); }
+function drawCards(side, n){
+  const drawn = [];
+  for (let i = 0; i < n; i++) { const d = deckOf(side)[0]; if (!d) break; d.zone = 'hand'; drawn.push(d); }
+  return drawn;
+}
+function zoneEnergy(side){ return side === 'ally' ? B.zone : B.foeZone; }
+function setZoneEnergy(side, n){ if (side === 'ally') B.zone = n; else B.foeZone = n; }
+function fieldOf(side){ return sideUnits(side).filter(u => u.alive && (u.zone === 'active' || u.zone === 'bench')); }
 
-/* ダメージ適用：base の数字に相性1.5倍だけを掛ける。乱数なし＝表示どおりの固定値 */
+/* ダメージ適用：base の数字に弱点1.5倍だけを掛ける。乱数なし＝カード表示どおりの固定値 */
 function hitUnit(src, dst, base){
   if (!dst.alive) return 0;
   const tm = typeMult(src.el, dst.el);
@@ -1297,81 +1420,174 @@ function hitUnit(src, dst, base){
   floatText(dst, '-' + fmt(dmg), tm > 1 ? 'crit' : '');
   if (tm > 1) floatText(dst, 'こうかばつぐん！', 'good');
   shakeUnit(dst);
-  if (dst.hp <= 0 && dst.alive) { dst.alive = false; logPush((dst.side === 'foe' ? '敵' : '味方') + 'の' + dst.name + 'を倒した！'); }
+  if (dst.hp <= 0 && dst.alive) {
+    /* きぜつ：カードと付いていたエネルギーは捨て札になる */
+    dst.alive = false; dst.zone = 'out'; dst.energy = 0;
+    logPush((dst.side === 'foe' ? '敵' : '味方') + 'の' + dst.name + 'がきぜつ！');
+    if (dst.side === 'foe') promoteAuto('foe');
+  }
   return dmg;
 }
-/* わざを使う：エネルギー消費・1ターン1回・対象は敵1体（全体わざは全員） */
-function useWaza(side, unitUid, wazaIdx, targetUid){
+/* 繰り出し候補（ベンチ→手札→山札から1枚引く） */
+function promotionCandidates(side){
+  let c = sideUnits(side).filter(u => u.alive && (u.zone === 'bench' || u.zone === 'hand'));
+  if (!c.length && deckOf(side).length) { drawCards(side, 1); c = handOf(side).slice(); }
+  return c;
+}
+/* 自動で繰り出す（敵・オート時）。バトル場が空のときだけ動く */
+function promoteAuto(side){
+  if (activeOf(side)) return true;
+  const c = promotionCandidates(side);
+  if (!c.length) return false;
+  const u = c.slice().sort((a, b) => b.hp - a.hp)[0];
+  u.zone = 'active';
+  logPush((side === 'foe' ? '相手' : '味方') + 'は' + u.name + 'を繰り出した！');
+  return true;
+}
+/* 味方の繰り出し（プレイヤーが選ぶ。選ぶまで Promise で待つ） */
+function ensureAllyActive(){
+  if (!B || B.over) return Promise.resolve(false);
+  if (activeOf('ally')) return Promise.resolve(true);
+  if (!promotionCandidates('ally').length) return Promise.resolve(false);
+  if (B.auto || B._ab) { renderBattle(); return Promise.resolve(promoteAuto('ally')); }
+  B.phase = 'promote';
+  renderBattle();
+  toast('バトル場に出すキャラを選んでね');
+  return new Promise(res => { B._promoteResolve = res; });
+}
+function resolvePromote(u){
+  if (!B || !u || !u.alive || (u.zone !== 'bench' && u.zone !== 'hand')) return;
+  u.zone = 'active';
+  logPush('味方は' + u.name + 'を繰り出した！');
+  const res = B._promoteResolve; B._promoteResolve = null;
+  if (B.tutorial) tutBattleEvent('promote', {});
+  renderBattle();
+  if (res) res(true);
+}
+/* ── 行動 ── */
+/* セットアップ：手札からバトル場に1体出す */
+function placeActive(u){
+  if (!B || B.over || B.phase !== 'setup' || !u || u.side !== 'ally' || u.zone !== 'hand') return false;
+  u.zone = 'active';
+  logPush(u.name + 'をバトル場に出した！');
+  sfx.tap();
+  if (B.tutorial) tutBattleEvent('place', {});
+  beginPlayerTurn(true);
+  return true;
+}
+/* 手札からベンチに出す（自分のターンに自由。ベンチは最大3体） */
+function playBench(side, u){
+  if (!B || B.over || !u || u.side !== side || u.zone !== 'hand') return false;
+  if (benchOf(side).length >= 3) { if (side === 'ally') toast('ベンチは3体までだよ'); return false; }
+  u.zone = 'bench';
+  logPush((side === 'ally' ? '味方' : '相手') + 'は' + u.name + 'をベンチに出した');
+  return true;
+}
+/* 発生エネルギーを場のキャラ1体に付ける（付けたエネルギーは残り続ける） */
+function attachEnergy(side, u){
+  if (!B || B.over || !u || u.side !== side || (u.zone !== 'active' && u.zone !== 'bench')) return false;
+  if (zoneEnergy(side) <= 0) return false;
+  setZoneEnergy(side, zoneEnergy(side) - 1);
+  u.energy++;
+  sfx.tap();
+  renderBattle();
+  return true;
+}
+/* にげる：バトル場のエネルギー1個を捨ててベンチと交代（ターン1回まで） */
+function doRetreat(benchUnit){
+  if (!B || B.over || B.phase !== 'player' || B.retreated) return false;
+  const act = activeOf('ally');
+  if (!act || !benchUnit || benchUnit.side !== 'ally' || benchUnit.zone !== 'bench') return false;
+  if (act.energy < 1) { toast('にげるにはバトル場のエネルギー1個が要るよ'); return false; }
+  act.energy--; act.zone = 'bench'; benchUnit.zone = 'active';
+  B.retreated = true; B.mode = null;
+  logPush(act.name + 'がにげて、' + benchUnit.name + 'と交代！');
+  sfx.tap();
+  renderBattle();
+  return true;
+}
+/* 攻撃：バトル場のキャラだけが、付いたエネルギーがコスト以上で わざ を使える（ターン1回）。
+   攻撃ではエネルギーは消費しない。単体わざは相手のバトル場へ、全体わざは相手の場すべてへ。 */
+function attack(side, wazaIdx){
   if (!B || B.over) return false;
   if (B.phase !== (side === 'ally' ? 'player' : 'foe')) return false;
-  const unit = sideUnits(side).find(u => u.uid === unitUid);
-  if (!unit || !unit.alive || unit.acted || !unit.waza) return false;
+  if (side === 'ally' && B.attacked) return false;
+  if (side === 'foe' && B.foeAttacked) return false;
+  const unit = activeOf(side);
+  if (!unit || !unit.waza) return false;
   const w = unit.waza[wazaIdx]; if (!w) return false;
-  if (energyOf(side) < w.cost) return false;
+  if (unit.energy < w.cost) return false;
+  const foeSide = side === 'ally' ? 'foe' : 'ally';
+  const foeActive = activeOf(foeSide);
+  if (!foeActive) return false;
   let targets;
-  if (w.all) {
-    targets = foesOf(side).filter(u => u.alive);
-    if (!targets.length) return false;
-  } else {
-    const t = foesOf(side).find(u => u.uid === targetUid);
-    if (!t || !t.alive) return false;
-    targets = [t];
-  }
-  spendEnergy(side, w.cost);
-  unit.acted = true;
-  if (B.selWaza && B.selWaza.uid === unitUid) B.selWaza = null;
+  if (w.all) { targets = fieldOf(foeSide); if (!targets.length) return false; }
+  else targets = [foeActive];
+  if (side === 'ally') B.attacked = true; else B.foeAttacked = true;
   let adv = false, tot = 0;
   targets.forEach(t => { if (typeMult(unit.el, t.el) > 1) adv = true; tot += hitUnit(unit, t, w.dmg); });
   logPush((side === 'ally' ? '味方' : '相手') + ' ' + unit.name + '「' + w.n + '」→ ' +
-    (w.all ? '敵全体に計' + fmt(tot) : targets[0].name + 'に' + fmt(tot)) + (adv ? '（こうかばつぐん！）' : ''));
+    (w.all ? '相手の場全体に計' + fmt(tot) : foeActive.name + 'に' + fmt(tot)) + (adv ? '（こうかばつぐん！）' : ''));
   sfx.hit();
-  if (side === 'ally' && B.tutorial) tutBattleEvent('waza', { adv });
+  if (side === 'ally' && B.tutorial) { tutBattleEvent('attack', {}); if (adv) tutBattleEvent('adv', {}); }
   renderBattle();
   checkEnd();
   return true;
 }
 
 
+/* 敵ターン：引く→エネルギーが発生→ベンチに出す→バトル場優先で付ける→攻撃 */
 async function foePhase(){
-  if (B.over) return;
-  B.phase = 'foe';
-  B.selWaza = null;
+  if (!B || B.over) return;
+  B.phase = 'foe'; B.foeAttacked = false; B.mode = null;
   renderBattle();
   await wait(450);
-  if (B.foeParty) { /* アリーナ：相手も同じ「わざ＋エネルギー」ルールで動く */
-    if (B.turn > 1) B.foeEnergy = Math.min(B.energyMax, B.foeEnergy + 1);
-    B.foes.forEach(u => u.acted = false);
-    await aiPlaySide('foe');
-    if (checkEnd()) return;
-  } else { /* ストーリー/レイド：各敵がランダムな味方1人を、表示どおりの数字で攻撃 */
-    for (const u of B.foes) {
-      if (!u.alive || B.over) continue;
-      foeAttack(u);
-      renderBattle();
-      await wait(420);
-      if (checkEnd()) return;
-    }
+  if (B.over) return;
+  drawCards('foe', 1);
+  B.foeZone += 1;
+  while (handOf('foe').length && benchOf('foe').length < 3) { if (!playBench('foe', handOf('foe')[0])) break; }
+  /* エネルギーはバトル場優先。余りはベンチの先頭に付ける */
+  let guard = 0;
+  while (B.foeZone > 0 && guard++ < 12) {
+    const a = activeOf('foe');
+    const maxC = u => (u && u.waza) ? Math.max.apply(null, u.waza.map(w => w.cost)) : 0;
+    let tgt = null;
+    if (a && a.energy < maxC(a)) tgt = a;
+    else { tgt = benchOf('foe').find(u => u.energy < maxC(u)) || a; }
+    if (!tgt) break;
+    B.foeZone--; tgt.energy++;
+  }
+  renderBattle();
+  await wait(300);
+  if (checkEnd()) return;
+  const act = activeOf('foe');
+  if (act) {
+    const wis = act.waza.map((w, i) => i).filter(i => act.energy >= act.waza[i].cost)
+      .sort((x, y) => act.waza[y].cost - act.waza[x].cost);
+    if (wis.length) { await wait(280); attack('foe', wis[0]); }
   }
   if (checkEnd()) return;
+  /* 味方のバトル場がきぜつしていたら、繰り出しを待ってから次のターンへ */
+  if (!activeOf('ally')) {
+    const ok = await ensureAllyActive();
+    if (!ok) { checkEnd(); return; }
+    if (checkEnd()) return;
+  }
+  beginPlayerTurn(false);
+}
+function beginPlayerTurn(first){
+  if (!B || B.over) return;
   B.turn++;
-  if (B.turn > (B.kind === 'raid' ? 10 : 30)) { judgeByHp(); return; }
-  beginPlayerTurn();
-}
-function foeAttack(u){
-  const allies = B.allies.filter(a => a.alive);
-  if (!allies.length) return;
-  const t = pick(allies);
-  const dmg = Math.max(1, Math.round(u.atk));
-  t.hp = Math.max(0, t.hp - dmg);
-  floatText(t, '-' + fmt(dmg), ''); shakeUnit(t);
-  logPush('敵 ' + u.name + 'の攻撃 → ' + t.name + 'に' + fmt(dmg));
-  sfx.hit();
-  if (t.hp <= 0 && t.alive) { t.alive = false; logPush('味方の' + t.name + 'が倒れた…'); }
-}
-function beginPlayerTurn(){
+  const limit = B.kind === 'raid' ? 10 : 30;
+  if (!first && B.turn > limit) { judgeByHp(); return; }
   B.phase = 'player';
-  B.energy = Math.min(B.energyMax, B.energy + 1); /* ターン開始時に +1（上限10） */
-  B.allies.forEach(u => u.acted = false);
+  B.attacked = false; B.retreated = false; B.mode = null;
+  if (!first) {
+    drawCards('ally', 1);
+    B.zone += 1; /* ターン開始時にエネルギーが1個発生（先行の1ターン目だけ、ドローも発生もしない） */
+    logPush('⚡エネルギーが1個発生！付けたい自分のキャラをタップ');
+    if (B.tutorial) tutBattleEvent('energyGen', {});
+  }
   renderBattle();
   if (B.auto) autoPlayTurn();
 }
@@ -1383,31 +1599,28 @@ function checkEnd(){
   return false;
 }
 function judgeByHp(){
-  const hpPct = us => us.reduce((s, u) => s + u.hp, 0) / Math.max(1, us.reduce((s, u) => s + u.maxHp, 0));
+  const hpPct = us => us.reduce((s, u) => s + Math.max(0, u.hp), 0) / Math.max(1, us.reduce((s, u) => s + u.maxHp, 0));
   endBattle(hpPct(B.foes) < hpPct(B.allies));
 }
-/* AI（アリーナ相手＆オート）：使えるわざをコストの大きい順に使うだけの単純AI。
-   対象は HP が一番少ない敵。 */
+/* オート用AI：ベンチに出す→バトル場優先でエネルギーを付ける→払える最大のわざで攻撃 */
 async function aiPlaySide(side){
-  let guard = 0;
-  while (guard++ < 12 && B && !B.over) {
-    const units = sideUnits(side).filter(u => u.alive && !u.acted && u.waza);
-    if (!units.length) break;
-    let actedAny = false;
-    for (const u of units) {
-      if (B.over) return;
-      const e = energyOf(side);
-      const wi = e >= 3 ? 1 : e >= 1 ? 0 : -1;
-      if (wi < 0) break;
-      const w = u.waza[wi];
-      const targets = foesOf(side).filter(t => t.alive);
-      if (!targets.length) return;
-      const tgt = w.all ? null : targets.slice().sort((a, b) => a.hp - b.hp)[0];
-      await wait(280);
-      if (useWaza(side, u.uid, wi, tgt ? tgt.uid : null)) actedAny = true;
-      if (B.over) return;
+  if (side !== 'ally' || !B || B.over || B.phase !== 'player') return;
+  while (handOf('ally').length && benchOf('ally').length < 3) { if (!playBench('ally', handOf('ally')[0])) break; }
+  const act = activeOf('ally');
+  if (act) {
+    const maxC = Math.max.apply(null, act.waza.map(w => w.cost));
+    let guard = 0;
+    while (B.zone > 0 && guard++ < 12) {
+      const tgt = act.energy < maxC ? act : (benchOf('ally')[0] || act);
+      B.zone--; tgt.energy++;
     }
-    if (!actedAny) break;
+  }
+  renderBattle();
+  const a2 = activeOf('ally');
+  if (a2 && !B.attacked) {
+    const wis = a2.waza.map((w, i) => i).filter(i => a2.energy >= a2.waza[i].cost)
+      .sort((x, y) => a2.waza[y].cost - a2.waza[x].cost);
+    if (wis.length) { await wait(220); attack('ally', wis[0]); }
   }
 }
 async function autoPlayTurn(){
@@ -1417,12 +1630,13 @@ async function autoPlayTurn(){
 }
 async function endPlayerTurn(){
   if (!B || B.over || B.phase !== 'player') return;
-  B.selWaza = null;
+  if (B.zone > 0) { logPush('余った発生エネルギーは消えた…'); B.zone = 0; }
+  B.mode = null;
   renderBattle();
   await foePhase();
 }
-/* ── バトル描画 ── */
-function unitElId(u){ return 'unit-' + u.side + '-' + sideUnits(u.side).indexOf(u); }
+/* ── カード描画（ポケポケ式・共通コンポーネント） ── */
+function unitElId(u){ return 'unit-' + u.side + '-' + u.uid; }
 function floatText(u, txt, cls){
   const el = document.getElementById(unitElId(u)); if (!el) return;
   const s = document.createElement('span');
@@ -1430,74 +1644,136 @@ function floatText(u, txt, cls){
   s.style.left = (30 + Math.random() * 30) + '%'; s.style.top = '16%';
   el.appendChild(s); setTimeout(() => s.remove(), 1000);
 }
-function shakeUnit(u){ const el = document.getElementById(unitElId(u)); if (!el) return; const f = el.querySelector('.face'); if (f) { f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); } }
+function shakeUnit(u){ const el = document.getElementById(unitElId(u)); if (!el) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+function weakElOf(el){ for (const a in EL) if (typeMult(a, el) > 1) return a; return null; }
+function energyPips(n){ let s = ''; for (let i = 0; i < n; i++) s += '<span class="pip">⚡</span>'; return s; }
+function cardArtOf(u){ return u.charId ? charArtHTML(CHAR_MAP[u.charId]) : foeFaceHTML(u); }
+/* カード本体：上部に名前とHP、大きなアート窓、下部に弱点と「わざ」行（コスト＋名前＋ダメージ）。
+   opts.size: 'lg'（バトル場・拡大）/'md'（手札） / opts.waza: 'show'（表示のみ）/'tap'（押せる）/'none' */
+function pokeCardHTML(u, opts){
+  opts = opts || {};
+  const size = opts.size || 'lg';
+  const rar = u.charId ? u.rar : 'foe';
+  const weak = weakElOf(u.el);
+  const hpPct = Math.max(0, u.hp / u.maxHp * 100);
+  let h = '<div class="pkc pkc-' + size + ' r-' + rar + (u.alive ? '' : ' dead') + '"' +
+    (opts.noId ? '' : ' id="' + unitElId(u) + '"') + ' data-uid="' + u.uid + '" data-side="' + u.side + '">';
+  h += '<div class="pkc-head"><span class="pkc-name">' + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
+    '<span class="pkc-hp"><small>HP</small>' + fmt(Math.max(0, u.hp)) + '</span></div>';
+  h += '<div class="pkc-art">' + cardArtOf(u) + '<span class="pkc-el elTag el-' + u.el + '">' + EL[u.el].i + EL[u.el].n + '</span></div>';
+  h += '<div class="pkc-hpbar"><i style="width:' + hpPct + '%"></i></div>';
+  h += '<div class="pkc-sub"><span class="pkc-weak">弱点 ' + (weak ? EL[weak].i + EL[weak].n : '―') + '</span>' +
+    '<span class="pkc-en">⚡付 ' + u.energy + '</span></div>';
+  if (opts.waza !== 'none') {
+    h += u.waza.map((w, wi) => {
+      const can = opts.waza === 'tap' && opts.canWaza && opts.canWaza[wi];
+      /* 押せる時だけ <button>。表示だけの行は <div> にして、カード本体へのタップを妨げない */
+      const tag = opts.waza === 'tap' ? 'button' : 'div';
+      return '<' + tag + ' class="pkc-waza' + (can ? ' canUse' : '') + '" data-waza="' + wi + '"' + (tag === 'button' && !can ? ' disabled' : '') + '>' +
+        '<span class="pkc-cost">' + energyPips(w.cost) + '</span>' +
+        '<span class="pkc-wname">' + esc(w.n) + '</span>' +
+        '<span class="pkc-dmg">' + fmt(w.dmg) + (w.all ? ' 全体' : '') + '</span></' + tag + '>';
+    }).join('');
+  }
+  h += '</div>';
+  return h;
+}
+/* ベンチ用ミニカード（横型チップ） */
+function benchChipHTML(u){
+  const rar = u.charId ? u.rar : 'foe';
+  return '<button class="bchip r-' + rar + (u.alive ? '' : ' dead') + '" id="' + unitElId(u) + '" data-uid="' + u.uid + '" data-side="' + u.side + '">' +
+    '<span class="bcArt">' + cardArtOf(u) + '</span>' +
+    '<span class="bcInf"><span class="bcName">' + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
+    '<span class="hpBar"><i style="width:' + Math.max(0, u.hp / u.maxHp * 100) + '%"></i></span>' +
+    '<span class="bcSub">' + EL[u.el].i + ' ⚡×' + u.energy + ' HP' + fmt(Math.max(0, u.hp)) + '</span></span></button>';
+}
+/* キャラ詳細モーダル用：所持データからカード表示用ユニットを作る */
+function charToCardUnit(id){
+  const c = CHAR_MAP[id], o = S.owned[id];
+  const st = o ? charStats(id) : { hp:c.hp, atk:c.atk, def:c.def };
+  return { uid:0, side:'ally', charId:id, name:c.name, el:c.el, rar:c.rar, boss:false,
+    maxHp:st.hp, hp:st.hp, atk:st.atk, alive:true, awakened:isAwakened(id), waza:wazaOf(c, st.atk), zone:'hand', energy:0 };
+}
+/* カード拡大表示 */
+function openCardZoom(u){
+  if (!u) return;
+  const zoneN = { active:'バトル場', bench:'ベンチ', hand:'手札', deck:'山札', out:'きぜつ' }[u.zone] || '';
+  let html = '<div style="display:flex;justify-content:center">' + pokeCardHTML(u, { size:'lg', waza:'show', noId:true }) + '</div>';
+  html += '<div class="kvRow" style="margin-top:10px"><span>場所</span><span>' + zoneN + '</span></div>';
+  html += '<div class="kvRow"><span>HP</span><span>' + fmt(Math.max(0, u.hp)) + ' / ' + fmt(u.maxHp) + '</span></div>';
+  html += '<div class="kvRow"><span>付いているエネルギー</span><span>⚡×' + u.energy + '</span></div>';
+  if (u.charId) html += '<div class="note" style="margin-top:8px">' + esc(CHAR_MAP[u.charId].flavor) + '</div>';
+  html += '<button class="btn ghost big" id="mClose" style="margin-top:10px">閉じる</button>';
+  openModal(html);
+  $('#mClose').onclick = closeModal;
+}
 function renderBattle(){
   if (!B) return;
   const field = $('#btField');
   field.className = ''; field.id = 'btField';
   if (B.meta.fieldEl) field.classList.add('el-' + B.meta.fieldEl);
-  const sel = B.selWaza;
-  const selUnit = sel ? B.allies.find(u => u.uid === sel.uid) : null;
-  const selW = selUnit ? selUnit.waza[sel.idx] : null;
-  $('#foeRow').innerHTML = B.foes.map((u, i) => {
-    let pred = '';
-    if (selW && u.alive) {
-      const tm = typeMult(selUnit.el, u.el);
-      pred = '<div class="predDmg">💥 ' + fmt(Math.max(1, Math.round(selW.dmg * tm))) + (tm > 1 ? ' こうかばつぐん！' : '') + '</div>';
-    }
-    const intent = !u.charId && u.alive ? '<span class="intent">⚔️ ' + fmt(u.atk) + '</span>' : '';
-    return '<div class="unit foe' + (u.alive ? '' : ' dead') + (selW && u.alive ? ' targetable' : '') + '" id="unit-foe-' + i + '" data-foe="' + u.uid + '">' +
-      intent +
-      '<div class="face">' + (u.charId ? charArtHTML(CHAR_MAP[u.charId]) : foeFaceHTML(u)) + '</div>' +
-      '<div class="un">' + (u.boss ? '👑' : '') + esc(u.name) + '</div>' +
-      '<div class="hpBar"><i style="width:' + (u.hp / u.maxHp * 100) + '%"></i></div>' +
-      '<div class="hpTxt">' + fmt(u.hp) + ' / ' + fmt(u.maxHp) + '</div>' + pred + '</div>';
-  }).join('');
-  $('#allyRow').innerHTML = B.allies.map((u, i) => {
-    const c = CHAR_MAP[u.charId];
-    const canAct = B.phase === 'player' && !B.over && u.alive && !u.acted;
-    return '<div class="unit' + (u.alive ? '' : ' dead') + (u.acted && u.alive ? ' actedU' : '') + '" id="unit-ally-' + i + '">' +
-      '<div class="face">' + charArtHTML(c) + '</div>' +
-      '<div class="un">' + esc(u.name) + '</div>' +
-      '<div class="hpBar"><i style="width:' + (u.hp / u.maxHp * 100) + '%"></i></div>' +
-      '<div class="hpTxt">' + fmt(u.hp) + ' / ' + fmt(u.maxHp) + '</div>' +
-      '<div class="wazaCol">' + u.waza.map((w, wi) =>
-        '<button class="wazaBtn' + (sel && sel.uid === u.uid && sel.idx === wi ? ' sel' : '') + '" data-waza="' + u.uid + ':' + wi + '"' +
-        (canAct && B.energy >= w.cost ? '' : ' disabled') + '>' +
-        '<span class="wzN">' + EL[u.el].i + esc(w.n) + '</span>' +
-        '<span class="wzD">⚡' + w.cost + ' 💥' + fmt(w.dmg) + (w.all ? ' 全体' : '') + '</span></button>').join('') +
-      '</div></div>';
-  }).join('');
-  $('#energyBox').innerHTML = '⚡エネルギー <b>' + B.energy + '</b><span>/ ' + B.energyMax + '</span>' +
-    '<span class="turnLbl">' + (B.over ? B.turn + 'ターン目' : B.phase === 'player' ? B.turn + 'ターン目：わざを選ぼう' : '敵のターン…') + '</span>';
-  $('#btLog').innerHTML = B.log.slice(-8).map(esc).join('<br>');
+  $('#btLog').innerHTML = B.log.slice(-6).map(esc).join('<br>');
   $('#btLog').scrollTop = 9999;
-  $$('#allyRow .wazaBtn').forEach(b => b.onclick = () => { const p = b.dataset.waza.split(':'); onWazaTap(Number(p[0]), Number(p[1])); });
-  $$('#foeRow .unit.targetable').forEach(el => el.onclick = () => onFoeTap(Number(el.dataset.foe)));
+  /* 敵：ベンチ→バトル場 */
+  $('#foeBench').innerHTML = benchOf('foe').map(benchChipHTML).join('') || '<div class="benchEmpty">ベンチなし</div>';
+  $('#foeCounts').textContent = '手札×' + handOf('foe').length + ' 山札×' + deckOf('foe').length;
+  const fa = activeOf('foe');
+  $('#foeActive').innerHTML = fa ? pokeCardHTML(fa, { size:'lg', waza:'show' }) : '<div class="noActive">バトル場なし</div>';
+  /* 味方：バトル場→ベンチ→手札 */
+  const aa = activeOf('ally');
+  if (aa) {
+    const canW = B.phase === 'player' && !B.over && !B.attacked;
+    $('#allyActive').innerHTML = pokeCardHTML(aa, { size:'lg', waza: B.phase === 'player' ? 'tap' : 'show',
+      canWaza: aa.waza.map(w => canW && aa.energy >= w.cost) });
+  } else {
+    $('#allyActive').innerHTML = '<div class="noActive">' + (B.phase === 'setup' ? '手札からバトル場に出す<br>キャラを選んでね' : 'バトル場が空いている…') + '</div>';
+  }
+  $('#allyBench').innerHTML = benchOf('ally').map(benchChipHTML).join('') || '<div class="benchEmpty">ベンチなし</div>';
+  $('#allyCounts').textContent = '山札×' + deckOf('ally').length + ' 捨て札×' + B.allies.filter(u => !u.alive).length;
+  $('#handCounts').textContent = '×' + handOf('ally').length;
+  $('#handRow').innerHTML = handOf('ally').map(u => pokeCardHTML(u, { size:'md', waza:'show' })).join('') || '<div class="benchEmpty">手札なし</div>';
+  /* エネルギー＆ターン表示 */
+  let lbl;
+  if (B.over) lbl = B.turn + 'ターン目';
+  else if (B.phase === 'setup') lbl = 'バトル場に出すキャラを選んでね';
+  else if (B.phase === 'promote') lbl = '繰り出すキャラを選んでね';
+  else if (B.phase === 'foe') lbl = B.turn + 'ターン目：敵のターン…';
+  else lbl = B.turn + 'ターン目' + (B.mode === 'retreat' ? '：交代するベンチをタップ' : B.zone > 0 ? '：⚡を付けるキャラをタップ' : B.attacked ? '：攻撃済み' : '：わざを選ぼう');
+  $('#energyBox').innerHTML = '発生⚡ <b>' + B.zone + '</b><span class="turnLbl">' + lbl + '</span>';
   $('#btnEndTurn').disabled = B.phase !== 'player' || B.over;
+  $('#btnRetreat').disabled = !(B.phase === 'player' && !B.over && !B.retreated && aa && aa.energy >= 1 && benchOf('ally').length);
+  $('#btnRetreat').style.color = B.mode === 'retreat' ? '#ffd76e' : '';
   $('#btnAuto').textContent = B.auto ? '⏸ オート中' : 'オート';
   $('#btnAuto').style.color = B.auto ? '#ffd76e' : '';
+  bindBattleTaps();
 }
-function onWazaTap(uid, wi){
+function bindBattleTaps(){
+  $$('#btField [data-uid]').forEach(el => {
+    el.onclick = e => {
+      if (e.target.closest('button.pkc-waza')) return; /* 押せるわざ行（ボタン）のタップは攻撃側で処理 */
+      const u = sideUnits(el.dataset.side).find(x => x.uid === Number(el.dataset.uid));
+      if (u) onCardTap(u);
+    };
+  });
+  $$('#allyActive .pkc-waza').forEach(b => b.onclick = e => { e.stopPropagation(); onWazaRowTap(Number(b.dataset.waza)); });
+}
+/* カードタップの振り分け：状況に応じて 配置／繰り出し／ベンチ出し／エネルギー付与／拡大表示 */
+function onCardTap(u){
+  if (!B || B.over || !u) return;
+  if (u.side === 'foe') { openCardZoom(u); return; }
+  if (B.phase === 'setup') { if (u.zone === 'hand') placeActive(u); return; }
+  if (B.phase === 'promote') { if (u.zone === 'bench' || u.zone === 'hand') resolvePromote(u); return; }
+  if (B.phase !== 'player') return;
+  if (u.zone === 'hand') { if (playBench('ally', u)) renderBattle(); else openCardZoom(u); return; }
+  if (u.zone === 'bench' && B.mode === 'retreat') { doRetreat(u); return; }
+  if ((u.zone === 'active' || u.zone === 'bench') && B.zone > 0) { attachEnergy('ally', u); return; }
+  openCardZoom(u);
+}
+function onWazaRowTap(wi){
   if (!B || B.phase !== 'player' || B.over) return;
-  const unit = B.allies.find(u => u.uid === uid);
-  if (!unit || !unit.alive || unit.acted) return;
-  const w = unit.waza[wi]; if (!w || B.energy < w.cost) return;
-  if (w.all) { B.selWaza = null; if (useWaza('ally', uid, wi, null)) afterPlayerAction(); return; }
-  if (B.selWaza && B.selWaza.uid === uid && B.selWaza.idx === wi) { B.selWaza = null; renderBattle(); return; }
-  B.selWaza = { uid, idx: wi };
-  toast('攻撃する敵を選んでね');
-  renderBattle();
-}
-function onFoeTap(foeUid){
-  if (!B || !B.selWaza) return;
-  const sel = B.selWaza;
-  if (useWaza('ally', sel.uid, sel.idx, foeUid)) afterPlayerAction();
-}
-function afterPlayerAction(){
-  if (!B || B.over) return;
-  renderBattle();
-  if (B.auto && B.phase === 'player') autoPlayTurn();
+  const aa = activeOf('ally');
+  if (!aa) return;
+  if (!attack('ally', wi) && aa.energy < aa.waza[wi].cost) toast('エネルギーが足りないよ');
 }
 function endBattle(win){
   if (!B || B.over) return;
@@ -1547,7 +1823,19 @@ function startStoryBattle(ch, st, diff, tutorial){
 }
 /* バトル画面ボタン */
 $('#btnEndTurn').onclick = () => { sfx.tap(); endPlayerTurn(); };
-$('#btnAuto').onclick = () => { if (!B) return; B.auto = !B.auto; renderBattle(); if (B.auto) autoPlayTurn(); };
+$('#btnAuto').onclick = () => { if (!B) return; B.auto = !B.auto;
+  if (B.auto && B.phase === 'setup') { const h = handOf('ally').slice().sort((a, b) => b.maxHp - a.maxHp)[0]; if (h) { placeActive(h); return; } }
+  renderBattle(); if (B.auto) autoPlayTurn(); };
+$('#btnRetreat').onclick = () => {
+  if (!B || B.over || B.phase !== 'player') return;
+  if (B.retreated) { toast('にげるはターンに1回まで'); return; }
+  const act = activeOf('ally');
+  if (!act || act.energy < 1) { toast('にげるにはバトル場のエネルギー1個が要るよ'); return; }
+  if (!benchOf('ally').length) { toast('ベンチが空だよ'); return; }
+  B.mode = B.mode === 'retreat' ? null : 'retreat';
+  if (B.mode === 'retreat') toast('交代するベンチのキャラをタップ！');
+  renderBattle();
+};
 $('#btnFlee').onclick = () => {
   if (!B || B.over) return;
   if (B.kind === 'raid') { endBattle(false); return; }
@@ -1733,11 +2021,12 @@ function openNews(){
   $('#mClose').onclick = closeModal;
 }
 function openHowto(){
-  openModal('<h3>❓ バトルの遊び方</h3>' +
-    '<div class="skillBox"><div class="sn">① わざで攻撃</div><div class="sd">キャラの下の「わざ」ボタンを押して、攻撃する敵をタップするだけ。わざは2つ：わざ1は小ダメージ、わざ2は大ダメージ。ボタンにダメージの数字が出ているよ。</div></div>' +
-    '<div class="skillBox"><div class="sn">② エネルギー</div><div class="sd">わざを使うには⚡エネルギーが要る（わざ1＝1、わざ2＝3）。エネルギーはパーティ全員で共有して、ターンが始まるたびに+1（最大10）。各キャラは1ターンに1回だけ攻撃できるよ。</div></div>' +
-    '<div class="skillBox"><div class="sn">③ 相性で1.5倍</div><div class="sd">有利な属性で攻撃すると「こうかばつぐん！」でダメージ1.5倍。火→木→水→火 の三すくみと、光⇔闇はお互いに強いよ。</div></div>' +
-    '<div class="skillBox"><div class="sn">④ 敵の予告</div><div class="sd">敵の頭の⚔️数字が、次に与えてくるダメージ。そのままの数字が飛んでくるから、HPと見比べて危ないキャラを守ろう。</div></div>' +
+  openModal('<h3>❓ バトルの遊び方（ポケポケ式カードバトル）</h3>' +
+    '<div class="skillBox"><div class="sn">① カードと場</div><div class="sd">編成5人がそのままデッキになる。開始時に手札を3枚引き、まず1体を「バトル場」に出す。ベンチは3体までで、手札からいつでも（自分のターンに）出せるよ。戦えるのはバトル場の1体だけ。</div></div>' +
+    '<div class="skillBox"><div class="sn">② ターンの流れ</div><div class="sd">ターン開始に山札から1枚引く→エネルギー1個が発生する→好きなキャラに付ける→バトル場のキャラで攻撃→「ターン終了」。先行の1ターン目だけはエネルギーが発生しないよ。</div></div>' +
+    '<div class="skillBox"><div class="sn">③ エネルギー</div><div class="sd">毎ターン1個発生。自分の場のキャラをタップすると付いて、付けたエネルギーはずっと残る（攻撃しても減らない）。わざは「付いているエネルギー」がコスト以上で使える。付けずにターン終了すると発生分は消えちゃう。</div></div>' +
+    '<div class="skillBox"><div class="sn">④ わざと弱点</div><div class="sd">わざはカードに書かれた固定ダメージ（乱数なし）。攻撃できるのはバトル場のキャラだけで、ターンに1回。相手の「弱点」の属性で攻撃するとダメージ1.5倍の「こうかばつぐん！」。カードに弱点が書いてあるよ。</div></div>' +
+    '<div class="skillBox"><div class="sn">⑤ にげると きぜつ</div><div class="sd">「にげる」でバトル場のエネルギー1個を捨ててベンチと交代（ターン1回）。HPが0になると「きぜつ」でカードとエネルギーは捨て札に。バトル場がきぜつしたら、ベンチか手札から次の1体を繰り出すよ。相手を全てきぜつさせれば勝ち！</div></div>' +
     '<button class="btn ghost big" id="mClose" style="margin-top:12px">閉じる</button>');
   $('#mClose').onclick = closeModal;
 }
@@ -2046,7 +2335,7 @@ function tutStartIfNeeded(){
       setTimeout(() => { if (!S.tutorial.done && S.tutorial.step === 'battle') tutShow('「1-1 出発の丘」を選んでね。チュートリアル中はスタミナ消費なしだよ。', { highlight:'#stageList .stageRow', onNext: tutHide }); }, 80); } });
 }
 function tutBattleStart(){
-  tutShow('バトル開始！ルールは3つだけ。①キャラの下の「わざ」ボタンを押して、攻撃する敵をタップ。②わざには⚡エネルギーが要るよ。③敵の頭の⚔️数字は、次に受けるダメージの予告！', { onNext: tutHide });
+  tutShow('バトル開始！ポケポケ式のカードバトルだよ。まずは手札のカードをタップして、1体を「バトル場」に出してね！', { onNext: tutHide });
 }
 function tutBattleEvent(ev, data){
   if (ev === 'win') {
@@ -2056,10 +2345,11 @@ function tutBattleEvent(ev, data){
   }
   if (!B || !B.tutFlags) return;
   const f = B.tutFlags;
-  if (ev === 'waza') {
-    if (!f.waza) { f.waza = 1; tutShow('その調子！⚡エネルギーはパーティ全員で共有だよ。わざ1は⚡1、わざ2は⚡3。ターンの始めに+1ずつ増えていくよ（最大10）。', { onNext: tutHide }); return; }
-    if (data && data.adv && !f.adv) { f.adv = 1; tutShow('「こうかばつぐん！」が出たね🔥 有利な属性で攻撃するとダメージ1.5倍！火→木→水→火、光と闇はお互いに強いんだ。', { onNext: tutHide }); }
-  }
+  if (ev === 'place' && !f.place) { f.place = 1; tutShow('いいね！戦えるのはバトル場の1体だけ。先行の1ターン目は⚡エネルギーが発生しないから、そのまま「ターン終了」を押してみて。', { onNext: tutHide }); return; }
+  if (ev === 'energyGen' && !f.energyGen) { f.energyGen = 1; tutShow('⚡エネルギーが1個発生したよ！自分の場のキャラをタップすると付けられて、付けた⚡はそのキャラに残り続けるんだ。バトル場に付けてみてね。', { onNext: tutHide }); return; }
+  if (ev === 'attack' && !f.attack) { f.attack = 1; tutShow('攻撃できたね！わざはカードの数字そのままの固定ダメージ。⚡が3個たまれば大きな「わざ2」も使えるよ。', { onNext: tutHide }); return; }
+  if (ev === 'adv' && !f.adv) { f.adv = 1; tutShow('「こうかばつぐん！」が出たね🔥 相手の弱点の属性で攻撃するとダメージ1.5倍！カードに弱点が書いてあるよ。', { onNext: tutHide }); return; }
+  if (ev === 'promote' && !f.promote) { f.promote = 1; tutShow('バトル場がきぜつしたら、ベンチや手札から次の1体を繰り出すよ。最後の1体まであきらめないで！', { onNext: tutHide }); }
 }
 function tutAdvance(from){
   if (!S || S.tutorial.done) return;
@@ -2118,8 +2408,14 @@ window.__ls = {
   setRng(fn){ RNG = fn || Math.random; }, setFast(v){ FAST = !!v; },
   go, save, loadSave, charStats, partyPower, stageFoes, isAwakened,
   pullOne, doPulls, tutorialPull, claimLoginBonus, missionProg,
-  newBattle, startStoryBattle, useWaza, endPlayerTurn,
-  autoBattle: async () => { let n = 0; while (B && !B.over && n++ < 300) { if (B.phase === 'player') { await aiPlaySide('ally'); if (B && !B.over && B.phase === 'player') await endPlayerTurn(); } else await wait(30); } return B ? B.result : null; },
+  newBattle, startStoryBattle, endPlayerTurn,
+  placeActive, playBench, attachEnergy, attack, doRetreat, resolvePromote,
+  activeOf, handOf, benchOf, deckOf, promoteAuto, pokeCardHTML,
+  autoBattle: async () => { if (B) B._ab = true; let n = 0; while (B && !B.over && n++ < 300) {
+    if (B.phase === 'setup') { const h = handOf('ally').slice().sort((a, b) => b.maxHp - a.maxHp)[0]; if (h) placeActive(h); }
+    else if (B.phase === 'promote') { resolvePromote(promotionCandidates('ally').slice().sort((a, b) => b.hp - a.hp)[0]); }
+    else if (B.phase === 'player') { await aiPlaySide('ally'); if (B && !B.over && B.phase === 'player') await endPlayerTurn(); }
+    else await wait(30); } if (B) B._ab = false; return B ? B.result : null; },
   typeMult, wazaOf, wazaFor: id => { const st = charStats(id); return st ? wazaOf(CHAR_MAP[id], st.atk) : null; },
   arena: { registerDefense, writeArenaProfile, fetchArenaByUsername, fetchArenaByUid, fetchFriendOpponents, startArenaBattle, isMember },
   raid: { boss: raidBoss, bossFor: raidBossFor, state: raidState, circle: circleContributions, claim: claimRaidReward, start: startRaidBattle, writeProfile: writeRaidProfile },
