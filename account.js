@@ -720,12 +720,11 @@
       flushUploads();
       if (friendsLocalDirty) uploadFriends(); /* ハイドレーション待ちの間のローカル変更を上げる */
       if (!opts.soft) {
-        var needReload = seedMap ? diverged : changed;
-        if (needReload) {
-          reloadOnce('hyd:' + uid + ':' + location.pathname + ':' + hashStr(managedSignature()));
-        } else {
-          clearReloadGuard();   /* 整合が取れたらガードを解除（次の不整合に備える） */
-        }
+        /* v68: ハイドレーション後の自動リロードは廃止した（実機で読み込みの
+           たびに内容署名が変わり、リロードが無限に繰り返される不具合が
+           あったため）。初期表示の整合は、シード（window.name）を書込み時と
+           ページ離脱時に最新化することで担保する。残っていたガードも解除する */
+        clearReloadGuard();
       }
       return true;
     }).catch(function () {
