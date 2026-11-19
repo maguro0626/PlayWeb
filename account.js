@@ -10,9 +10,10 @@
    - ログイン管理: ユーザー名＋パスワード（Auth はメール/パスワード方式のため、
      ユーザー名を "<username>@playweb.local" に変換して使う）
    - プロフィール: Firestore users/{uid}（公開: username, usernameLower,
-     friendCode, online, lastSeen, currentGame, createdAt）
+     online, lastSeen, currentGame, createdAt）
      usernames/{usernameLower} -> {uid}（重複防止・検索用）
-     codes/{フレンドコード} -> {uid}（コード追加したフレンドの uid 解決用）
+     ※ v51〜 フレンドコード方式は廃止。フレンドの同一性は uid で統一し、
+       追加はユーザー名検索のみ。codes コレクションは使わない（ルールは不変）。
    - クラウドセーブ同期: localStorage のゲームデータ（バックアップ対象と同範囲。
      ただし Firebase Auth のキー・account.js 内部キー・退避キー・
      フレンド層のキー playweb_profile/friends/chats/unread は除外）を
@@ -37,7 +38,13 @@
      セーブはディスクを触らない（シムはディスクを消さない）。
    - v50 移行: フレンド系ローカルデータ（playweb_friends/chats/unread/records）は
      初回起動時に一度だけリセットする（ユーザー許可済み）。ゲームのセーブには
-     一切触らない。プロフィール（名前・自分のフレンドコード）は残す。
+     一切触らない。プロフィール（名前）は残す。
+   - 共通ヘッダー＋ドロワー（v51〜）: 全ページ最上部に共通ヘッダー
+     （🏠ホーム＋ゲーム名＋[メイン｜アカウント]タブ）を注入する。
+     「アカウント」タブで右から半透明ドロワーがスライドインし、
+     ログイン/登録/ログアウトとフレンド機能（friends.js が #pwFriendsMount
+     にマウント）を集約表示する。旧・左下ピルとログインモーダル、
+     friends.js の右下 FAB は廃止。PWAccount.openModal() はドロワーを開く。
 
    公開 API: window.PWAccount（下部参照）
    ============================================================ */
@@ -250,18 +257,11 @@
   var modalMode = 'login';    /* login | signup */
 
   function cloudActive() { return !!(me && servicesOn && fb); }
-  function myFriendCode() {
-    try {
-      var p = JSON.parse(localStorage.getItem('playweb_profile') || 'null');
-      if (p && typeof p.code === 'string') return p.code;
-    } catch (e) {}
-    return '';
-  }
 
   /* ---------------- 同期メタ（localStorage） ----------------
      pwacct_meta: {
        keys: { <lskey>: {h: ハッシュ, t: 最終変更/同期時刻ms, del: 削除済みか} },
-       chatSeen: { <フレンドコード>: 取り込み済みチャットの最大ts },
+       chatSeen: { <相手uid>: 取り込み済みチャットの最大ts },
        friendsHash: クラウドと一致しているフレンド一覧のハッシュ
      } */
   var meta = loadMeta();
@@ -585,39 +585,38 @@
     });
   }
 
-  /* ---------------- フレンド基盤（Firestore） ---------------- */
+  /* ---------------- フレンド基盤（Firestore） ----------------
+     v51〜 フレンドの同一性は uid。エントリ形式は {uid, username, addedAt}。
+     旧形式（code キー）のエントリは同一視できず読み捨てる（v50 のリセットで
+     実質残っていない前提）。 */
   function pwf() { return window.PWFriends || null; }
   function localFriends() {
     try {
       var f = JSON.parse(localStorage.getItem('playweb_friends') || '[]');
-      return Array.isArray(f) ? f.filter(function (x) { return x && typeof x.code === 'string'; }) : [];
+      return Array.isArray(f) ? f.filter(function (x) { return x && typeof x.uid === 'string'; }) : [];
     } catch (e) { return []; }
   }
   function friendsListHash(list) {
     var norm = list.map(function (f) {
-      return [f.code, f.name || '', f.uid || '', f.username || ''].join('|');
+      return [f.uid, f.username || ''].join('|');
     }).sort().join(';');
     return hashStr(norm);
   }
   function mergeFriends(local, cloud) {
-    var byCode = {};
-    (cloud || []).forEach(function (f) { if (f && f.code) byCode[f.code] = f; });
+    var byUid = {};
+    (cloud || []).forEach(function (f) { if (f && f.uid) byUid[f.uid] = f; });
     (local || []).forEach(function (f) {
-      if (!f || !f.code) return;
-      var c = byCode[f.code];
-      if (!c) { byCode[f.code] = f; return; }
-      byCode[f.code] = {
-        code: f.code,
-        name: c.name || f.name || '',
-        uid: c.uid || f.uid || '',
+      if (!f || !f.uid) return;
+      var c = byUid[f.uid];
+      if (!c) { byUid[f.uid] = f; return; }
+      byUid[f.uid] = {
+        uid: f.uid,
         username: c.username || f.username || '',
         addedAt: Math.min(c.addedAt || Infinity, f.addedAt || Infinity)
       };
-      if (byCode[f.code].addedAt === Infinity) byCode[f.code].addedAt = Date.now();
-      if (!byCode[f.code].uid) delete byCode[f.code].uid;
-      if (!byCode[f.code].username) delete byCode[f.code].username;
+      if (byUid[f.uid].addedAt === Infinity) byUid[f.uid].addedAt = Date.now();
     });
-    return Object.keys(byCode).map(function (k) { return byCode[k]; });
+    return Object.keys(byUid).map(function (k) { return byUid[k]; });
   }
   var applyingFriends = false;
   var lastFriendsHash = '';
@@ -640,90 +639,60 @@
     if (h === lastFriendsHash) return;
     lastFriendsHash = h;
     meta.friendsHash = h; saveMeta();
-    enrichFriendsWithUid(list).then(function (enriched) {
-      var eh = friendsListHash(enriched);
-      if (eh !== h) {
-        /* uid が付いた分をローカルにも反映してから上げる */
-        applyFriendsToLocal(enriched);
-        h = eh; lastFriendsHash = eh;
-      }
-      return friendsDoc(me.uid).set({ list: enriched, updatedAt: nowMs() });
-    }).catch(function () { lastFriendsHash = ''; /* 次回リトライ */ });
+    friendsDoc(me.uid).set({ list: list, updatedAt: nowMs() })
+      .catch(function () { lastFriendsHash = ''; /* 次回リトライ */ });
   }
-  /* コードしか分からないフレンドに codes/{code} から uid を引いて付ける */
-  var uidByCodeCache = {};
-  function lookupUidByCode(code) {
-    if (uidByCodeCache[code]) return Promise.resolve(uidByCodeCache[code]);
-    return fb.db.doc('codes/' + code).get().then(function (d) {
-      var uid = (d.exists && d.data() && d.data().uid) || null;
-      if (uid) uidByCodeCache[code] = uid;
-      return uid;
-    }).catch(function () { return null; });
-  }
-  function enrichFriendsWithUid(list) {
-    var jobs = list.map(function (f) {
-      if (f.uid || !f.code) return Promise.resolve(f);
-      return lookupUidByCode(f.code).then(function (uid) {
-        if (uid) { var nf = {}; for (var k in f) nf[k] = f[k]; nf.uid = uid; return nf; }
-        return f;
-      });
-    });
-    return Promise.all(jobs);
-  }
-  function friendEntryByCode(code) {
+  function friendEntryByUid(uid) {
     var list = localFriends();
-    for (var i = 0; i < list.length; i++) if (list[i].code === code) return list[i];
+    for (var i = 0; i < list.length; i++) if (list[i].uid === uid) return list[i];
     return null;
   }
-  function resolveUidForCode(code) {
-    var f = friendEntryByCode(code);
-    if (f && f.uid) return Promise.resolve(f.uid);
-    return lookupUidByCode(code);
-  }
-  function canCloudChat(code) {
+  function canCloudChat(uid) {
     if (!cloudActive()) return false;
-    var f = friendEntryByCode(code);
-    return !!((f && f.uid) || uidByCodeCache[code]);
+    return !!friendEntryByUid(uid);
+  }
+  /* クラウド経路で送れる相手か（相手の公開プロフィールが実在する場合のみ
+     クラウドへ書く。実在しない宛先への書き込みは成功扱いにせず、
+     呼び出し側のフォールバック（PeerJS 直接送信）に任せる） */
+  function userDocExists(uid) {
+    if (!uid) return Promise.resolve(false);
+    return userDoc(uid).get().then(function (d) { return !!d.exists; })
+      .catch(function () { return false; });
   }
 
   /* プレゼンス購読（フレンドの公開プロフィールを見る） */
-  var presenceUnsubs = {};   /* code -> unsub */
-  var presenceData = {};     /* code -> {name, game, lastSeen, online} */
+  var presenceUnsubs = {};   /* uid -> unsub */
+  var presenceData = {};     /* uid -> {name, game, lastSeen, online} */
   function refreshPresenceWatch() {
     if (!cloudActive()) return;
     var list = localFriends();
     var wanted = {};
-    list.forEach(function (f) { if (f.code) wanted[f.code] = true; });
+    list.forEach(function (f) { if (f.uid) wanted[f.uid] = true; });
     /* 不要になった購読を解除 */
-    Object.keys(presenceUnsubs).forEach(function (code) {
-      if (!wanted[code]) { try { presenceUnsubs[code](); } catch (e) {} delete presenceUnsubs[code]; delete presenceData[code]; }
+    Object.keys(presenceUnsubs).forEach(function (uid) {
+      if (!wanted[uid]) { try { presenceUnsubs[uid](); } catch (e) {} delete presenceUnsubs[uid]; delete presenceData[uid]; }
     });
     list.forEach(function (f) {
-      if (presenceUnsubs[f.code]) return;
-      var code = f.code;
-      var start = function (uid) {
-        if (!uid || presenceUnsubs[code]) return;
-        presenceUnsubs[code] = fb.db.doc('users/' + uid).onSnapshot(function (d) {
-          if (!d.exists) return;
-          var data = d.data() || {};
-          presenceData[code] = {
-            name: data.username || '', game: data.currentGame || null,
-            lastSeen: data.lastSeen || 0, online: !!data.online
-          };
-          pushPresence(code);
-        }, function () {});
-      };
-      if (f.uid) start(f.uid);
-      else lookupUidByCode(code).then(start);
+      if (!f.uid || presenceUnsubs[f.uid]) return;
+      var uid = f.uid;
+      presenceUnsubs[uid] = fb.db.doc('users/' + uid).onSnapshot(function (d) {
+        if (!d.exists) return;
+        var data = d.data() || {};
+        presenceData[uid] = {
+          name: data.username || '', game: data.currentGame || null,
+          lastSeen: data.lastSeen || 0, online: !!data.online
+        };
+        pushPresence(uid);
+      }, function () {});
     });
   }
-  function pushPresence(code) {
+  function pushPresence(uid) {
     var api = pwf();
     if (!api || !api._cloud) return;
-    var d = presenceData[code];
+    var d = presenceData[uid];
     if (!d) return;
     var online = d.online && (nowMs() - (d.lastSeen || 0) < PRESENCE_STALE_MS);
-    api._cloud.setPresence(code, { online: online, name: d.name || '', game: d.game });
+    api._cloud.setPresence(uid, { online: online, name: d.name || '', game: d.game });
   }
   function refreshAllPresence() {
     Object.keys(presenceData).forEach(pushPresence);
@@ -746,7 +715,7 @@
         var api = pwf();
         if (api && api._cloud) {
           api._cloud.receiveInvite({
-            from: inv.fromCode, name: inv.fromName || '', game: inv.game,
+            from: inv.fromUid, name: inv.fromName || '', game: inv.game,
             room: inv.room, cloudId: d.id
           });
         }
@@ -756,12 +725,12 @@
     unsubs.push(unsub);
   }
   function sendInviteCloud(opts) {
-    if (!cloudActive()) return Promise.resolve(false);
-    return resolveUidForCode(opts.toCode).then(function (uid) {
-      if (!uid) return false;
+    if (!cloudActive() || !opts || !opts.toUid) return Promise.resolve(false);
+    return userDocExists(opts.toUid).then(function (exists) {
+      if (!exists) return false;
       return fb.db.collection('invites').add({
-        toUid: uid, toCode: opts.toCode,
-        fromUid: me.uid, fromCode: myFriendCode(), fromName: me.username,
+        toUid: opts.toUid,
+        fromUid: me.uid, fromName: me.username,
         game: opts.game, room: opts.room, ts: nowMs(), status: 'pending'
       }).then(function () { return true; });
     }).catch(function () { return false; });
@@ -787,43 +756,42 @@
         msgs.push(m);
       });
       msgs.sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-      var bulk = {};   /* code -> [{f,x,ts}] 既読分の一括取り込み */
+      var bulk = {};   /* uid -> [{f,x,ts}] 既読分の一括取り込み */
       var live = [];   /* 新着（未読扱い） */
       msgs.forEach(function (m) {
         if (processedMsgIds[m._id]) return;
         processedMsgIds[m._id] = true;
         if ((m.ts || 0) <= (meta.chatResetAt || 0)) return; /* v50リセットで履歴を消した端末では、それ以前の履歴を取り込まない */
         var mine = m.from === me.uid;
-        var code = mine ? m.toCode : m.fromCode;
-        if (!code) return;
-        var seen = meta.chatSeen[code] || 0;
+        var peerUid = mine ? m.to : m.from;
+        if (!peerUid) return;
+        var seen = meta.chatSeen[peerUid] || 0;
         if ((m.ts || 0) <= seen) {
-          (bulk[code] || (bulk[code] = [])).push({ f: mine ? 'me' : 'th', x: m.text || '', ts: m.ts || 0 });
+          (bulk[peerUid] || (bulk[peerUid] = [])).push({ f: mine ? 'me' : 'th', x: m.text || '', ts: m.ts || 0 });
         } else {
-          live.push({ code: code, mine: mine, x: m.text || '', ts: m.ts || 0 });
-          if ((m.ts || 0) > (meta.chatSeen[code] || 0)) meta.chatSeen[code] = m.ts || 0;
+          live.push({ uid: peerUid, mine: mine, x: m.text || '', ts: m.ts || 0 });
+          if ((m.ts || 0) > (meta.chatSeen[peerUid] || 0)) meta.chatSeen[peerUid] = m.ts || 0;
         }
       });
       var api = pwf();
       if (api && api._cloud) {
-        Object.keys(bulk).forEach(function (code) { api._cloud.mergeChats(code, bulk[code]); });
+        Object.keys(bulk).forEach(function (uid) { api._cloud.mergeChats(uid, bulk[uid]); });
         live.forEach(function (m) {
-          if (m.mine) api._cloud.mergeChats(m.code, [{ f: 'me', x: m.x, ts: m.ts }]);
-          else api._cloud.receiveChat(m.code, { x: m.x, ts: m.ts });
+          if (m.mine) api._cloud.mergeChats(m.uid, [{ f: 'me', x: m.x, ts: m.ts }]);
+          else api._cloud.receiveChat(m.uid, { x: m.x, ts: m.ts });
         });
       }
       if (live.length) saveMetaNow();
     }, function () {});
     unsubs.push(unsub);
   }
-  function sendChatCloud(code, text) {
-    if (!cloudActive()) return Promise.resolve(false);
-    return resolveUidForCode(code).then(function (uid) {
-      if (!uid) return false;
+  function sendChatCloud(uid, text) {
+    if (!cloudActive() || !uid) return Promise.resolve(false);
+    return userDocExists(uid).then(function (exists) {
+      if (!exists) return false;
       var pair = [me.uid, uid].sort();
       return fb.db.collection('messages').add({
         participants: pair, from: me.uid, to: uid,
-        fromCode: myFriendCode(), toCode: code,
         text: String(text).slice(0, 500), ts: nowMs()
       }).then(function () { return true; });
     }).catch(function () { return false; });
@@ -842,7 +810,7 @@
       return fb.db.doc('users/' + uid).get().then(function (p) {
         if (!p.exists) return null;
         var data = p.data() || {};
-        return { uid: uid, username: data.username || v.name, friendCode: data.friendCode || '' };
+        return { uid: uid, username: data.username || v.name };
       });
     }).catch(function () { return null; });
   }
@@ -853,18 +821,16 @@
     if (v.name.toLowerCase() === me.usernameLower) return Promise.resolve({ ok: false, msg: 'それはあなた自身のユーザー名です' });
     return searchUser(v.name).then(function (found) {
       if (!found) return { ok: false, msg: 'そのユーザー名の人は見つかりませんでした' };
-      if (!found.friendCode) return { ok: false, msg: '相手のフレンド情報がまだ準備できていません（相手のログイン後に有効になります）' };
       var list = localFriends();
       for (var i = 0; i < list.length; i++) {
-        if (list[i].code === found.friendCode || list[i].uid === found.uid) {
+        if (list[i].uid === found.uid) {
           return { ok: false, msg: 'すでにフレンドに登録されています' };
         }
       }
-      var entry = { code: found.friendCode, name: found.username, uid: found.uid, username: found.username, addedAt: nowMs() };
+      var entry = { uid: found.uid, username: found.username, addedAt: nowMs() };
       var api = pwf();
       if (api && api._cloud && api._cloud.addFriend) api._cloud.addFriend(entry);
       else { list.push(entry); try { localStorage.setItem('playweb_friends', JSON.stringify(list)); } catch (e) {} }
-      uidByCodeCache[found.friendCode] = found.uid;
       refreshPresenceWatch();
       return { ok: true, msg: found.username + 'さんをフレンドに追加しました' };
     });
@@ -898,22 +864,19 @@
   }
   function ensureProfileDocs(uid, username) {
     var lower = username.toLowerCase();
-    var code = myFriendCode();
-    var jobs = [
+    return Promise.all([
       userDoc(uid).set({
-        username: username, usernameLower: lower, friendCode: code,
+        username: username, usernameLower: lower,
         online: true, lastSeen: nowMs(), currentGame: MY_GAME
       }, { merge: true }),
       claimUsername(uid, lower)
-    ];
-    if (code) jobs.push(fb.db.doc('codes/' + code).set({ uid: uid }));
-    return Promise.all(jobs);
+    ]);
   }
   function heartbeat() {
     if (!cloudActive()) return;
     userDoc(me.uid).set({
       online: true, lastSeen: nowMs(), currentGame: MY_GAME,
-      username: me.username, usernameLower: me.usernameLower, friendCode: myFriendCode()
+      username: me.username, usernameLower: me.usernameLower
     }, { merge: true }).catch(function () {});
     refreshAllPresence();
   }
@@ -1132,7 +1095,7 @@
       pendingUsername = null;
       me = { uid: uid, username: username, usernameLower: username.toLowerCase() };
       setGate('member');
-      /* 公開プロフィール（フレンドコード・在席）を最新化してからサービス開始 */
+      /* 公開プロフィール（ユーザー名・在席）を最新化してからサービス開始 */
       ensureProfileDocs(uid, username).catch(function () {}).then(function () {
         startServices();
       });
@@ -1146,23 +1109,50 @@
     });
   }
 
-  /* ---------------- UI（ピルボタン＋モーダル） ---------------- */
+  /* ---------------- UI（共通ヘッダー＋アカウントドロワー） ----------------
+     v51〜 全ページ共通。ヘッダーは通常フロー先頭の sticky バー（46px）で、
+     ゲーム側のレイアウトには「ヘッダー分の高さ」だけが増える。100dvh 系の
+     ゲームは flex 縦並び等の既存構造で吸収する（個別調整は各ゲーム側）。
+     ドロワーは右からスライドインする半透明パネルで、開いても裏のゲームは
+     壊れない（入力だけスクリムで遮断する）。 */
+  var HEADER_H = 46;
+  var GAME_TITLES = {
+    portal: 'PlayWeb', tetris: 'テトリス', suica: 'スイカゲーム', crepe: 'クレープ工房',
+    survivors: 'まじょねこサバイバーズ', frostline: 'フロストライン', blockblast: 'ブロックブラスト',
+    minesweeper: 'マインスイーパ', reversi: 'オセロ', shogi: '将棋', majan: '麻雀',
+    daihugou: '大富豪', hanahuda: '花札', uno: 'UNO', blockzushi: 'ブロック崩し',
+    jump: 'ジャンプラン', caring: '育成ゲーム', gamedev: 'ゲーム工房物語',
+    rpg: 'モンスターライズ', otome: '乙女ゲーム'
+  };
+  function pageTitle() {
+    if (typeof window.PW_PAGE_TITLE === 'string' && window.PW_PAGE_TITLE) return window.PW_PAGE_TITLE;
+    return GAME_TITLES[MY_GAME] || MY_GAME;
+  }
   var CSS = [
-    /* 左下のゲーム操作（アクションバー・スティック等）を覆わないよう円形アイコンのみにし、
-       無操作が続くと左端へ少し退いて操作領域を空ける（FAB と同じ考え方） */
-    '.pwa-pill{position:fixed;left:12px;bottom:12px;z-index:99990;width:42px;height:42px;border-radius:50%;background:rgba(13,16,32,.78);border:1px solid rgba(255,255,255,.25);color:#eef0ff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .35s ease,opacity .35s ease}',
-    '.pwa-pill.dim{transform:translateX(-30px);opacity:.55}',
-    '.pwa-pill:active{transform:translateY(1px)}',
-    '.pwa-pill.dim:active{transform:translateX(-30px) translateY(1px)}',
-    '.pwa-pill .pwa-dot{position:absolute;right:0;bottom:0;width:11px;height:11px;border-radius:50%;background:#8a90ad;border:2px solid #0d1020;pointer-events:none}',
-    '.pwa-pill.on .pwa-dot{background:#3ED6A5}',
-    '.pwa-pill.alt{left:auto;right:12px;bottom:78px}',
-    '.pwa-pill.alt.dim{transform:translateX(30px)}',
-    '.pwa-overlay{position:fixed;inset:0;z-index:100004;background:rgba(3,4,12,.62);display:none;align-items:center;justify-content:center;padding:14px;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif}',
-    '.pwa-overlay.show{display:flex}',
-    '.pwa-modal{background:#0d1020;width:min(380px,94vw);max-height:86vh;overflow-y:auto;border-radius:16px;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);color:#eef0ff}',
-    '.pwa-head{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:900;margin-bottom:6px}',
-    '.pwa-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#eef0ff;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer}',
+    ':root{--pw-header-h:' + HEADER_H + 'px}',
+    '#pwHeader{position:sticky;top:0;z-index:99995;height:' + HEADER_H + 'px;flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:0 10px;background:rgba(10,12,26,.93);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.13);color:#eef0ff;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;box-sizing:border-box;width:100%;max-width:none;flex-wrap:nowrap;margin:0}',
+    '#pwHeader *{box-sizing:border-box}',
+    '.pw-home{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;text-decoration:none;font-size:17px;line-height:1}',
+    '.pw-home:active{transform:translateY(1px)}',
+    '.pw-gtitle{font-size:14.5px;font-weight:900;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+    '.pw-tabs{margin-left:auto;flex:0 0 auto;display:flex;gap:6px}',
+    '.pw-tab{position:relative;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:#c6cbe8;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}',
+    '.pw-tab.on{background:linear-gradient(90deg,#0891b2,#7c3aed);color:#fff;border-color:transparent}',
+    '.pw-tab .pw-dot{position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;background:#8a90ad;border:1.5px solid #0d1020;pointer-events:none}',
+    '.pw-tab.on .pw-dot{background:#3ED6A5}',
+    '#pwTabBadge{position:absolute;top:-6px;right:-6px;min-width:19px;height:19px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:900;padding:0 5px;display:none;align-items:center;justify-content:center;border:2px solid #0b1026;pointer-events:none}',
+    '#pwDrawerWrap{position:fixed;inset:0;z-index:100006;pointer-events:none;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif}',
+    /* スクリムとドロワーは共通ヘッダーの下から始める（開いている間も
+       ヘッダーのタブでメインへ戻れるようにするため） */
+    '#pwDrawerScrim{position:absolute;left:0;right:0;bottom:0;top:var(--pw-header-h,46px);background:rgba(3,4,12,.48);opacity:0;transition:opacity .3s ease;pointer-events:none}',
+    '#pwDrawer{position:absolute;top:var(--pw-header-h,46px);right:0;bottom:0;width:min(400px,88vw);background:rgba(13,16,32,.9);backdrop-filter:blur(12px);border-left:1px solid rgba(255,255,255,.13);box-shadow:-18px 0 44px rgba(0,0,0,.5);color:#eef0ff;padding:16px 16px 30px;overflow-y:auto;transform:translateX(106%);transition:transform .32s cubic-bezier(.32,.72,.24,1);-webkit-overflow-scrolling:touch;pointer-events:none}',
+    /* ラッパー自体は常にクリックを素通しし、スクリムとドロワーだけが受ける
+       （ヘッダーのタブを開いたまま操作できるように） */
+    '#pwDrawerWrap.open #pwDrawerScrim{opacity:1;pointer-events:auto}',
+    '#pwDrawerWrap.open #pwDrawer{transform:translateX(0);pointer-events:auto}',
+    '.pw-drawer-head{display:flex;align-items:center;justify-content:space-between;font-size:16.5px;font-weight:900;margin-bottom:10px}',
+    '.pw-drawer-sec{font-size:12px;font-weight:900;letter-spacing:.14em;color:#9aa1c0;margin:20px 0 8px}',
+    '.pw-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#eef0ff;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;flex:0 0 auto}',
     '.pwa-tabs{display:flex;gap:8px;margin:10px 0 12px}',
     '.pwa-tab{flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#9aa1c0;border-radius:10px;padding:9px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}',
     '.pwa-tab.on{background:linear-gradient(90deg,#0891b2,#7c3aed);color:#fff;border-color:transparent}',
@@ -1174,54 +1164,66 @@
     '.pwa-note{font-size:11.5px;color:#9aa1c0;margin-top:8px;line-height:1.6}',
     '.pwa-note.err{color:#fca5a5}',
     '.pwa-note.ok{color:#86efac}',
-    '.pwa-user{font-size:19px;font-weight:900;color:#fde68a;margin:4px 0 2px}',
-    '@media (max-width:480px){ .pwa-pill{bottom:12px;left:12px} }'
+    '.pwa-user{font-size:19px;font-weight:900;color:#fde68a;margin:4px 0 2px}'
   ].join('\n');
-  var pillEl = null, overlayEl = null;
+  var headerEl = null, drawerWrapEl = null, drawerOpen = false;
   function buildUI() {
-    if (pillEl) return;
+    if (headerEl) return;
     var style = document.createElement('style');
     style.textContent = CSS;
     document.head.appendChild(style);
-    pillEl = document.createElement('button');
-    pillEl.className = 'pwa-pill';
-    pillEl.id = 'pwaPill';
-    pillEl.textContent = '👤 ログイン';
-    pillEl.onclick = openModal;
-    document.body.appendChild(pillEl);
-    /* 置いたままにすると左端へ少し退く（ゲーム操作の邪魔をしない）。
-       復帰はピル自身に触れた時だけ（FAB と同じ方式） */
-    var pillDimTimer = null;
-    var pillWake = function () {
-      if (!pillEl) return;
-      pillEl.classList.remove('dim');
-      if (pillDimTimer) clearTimeout(pillDimTimer);
-      pillDimTimer = setTimeout(function () { if (pillEl) pillEl.classList.add('dim'); }, 3500);
-    };
-    pillEl.addEventListener('pointerdown', pillWake);
-    pillWake();
-    /* ゲーム工房は左下にアクションバーがあるため、ピルを右下（FAB の上）へ逃がす */
-    if (MY_GAME === 'gamedev') pillEl.classList.add('alt');
+    headerEl = document.createElement('header');
+    headerEl.id = 'pwHeader';
+    headerEl.innerHTML =
+      '<a class="pw-home" href="index.html" aria-label="ホーム（ポータル）へ戻る">🏠</a>' +
+      '<span class="pw-gtitle">' + esc(pageTitle()) + '</span>' +
+      '<nav class="pw-tabs">' +
+      '<button class="pw-tab on" id="pwTabMain">メイン</button>' +
+      '<button class="pw-tab" id="pwTabAccount">アカウント<span class="pw-dot"></span><span id="pwTabBadge"></span></button>' +
+      '</nav>';
+    if (document.body.firstChild) document.body.insertBefore(headerEl, document.body.firstChild);
+    else document.body.appendChild(headerEl);
+    headerEl.querySelector('#pwTabMain').onclick = function () { closeModal(); };
+    headerEl.querySelector('#pwTabAccount').onclick = function () { openModal(); };
 
-    overlayEl = document.createElement('div');
-    overlayEl.className = 'pwa-overlay';
-    overlayEl.innerHTML =
-      '<div class="pwa-modal">' +
-      '<div class="pwa-head"><span>👤 PlayWebアカウント</span>' +
-      '<button class="pwa-x" id="pwaClose" aria-label="閉じる">✕</button></div>' +
+    drawerWrapEl = document.createElement('div');
+    drawerWrapEl.id = 'pwDrawerWrap';
+    drawerWrapEl.innerHTML =
+      '<div id="pwDrawerScrim"></div>' +
+      '<aside id="pwDrawer" aria-label="アカウント">' +
+      '<div class="pw-drawer-head"><span>👤 アカウント</span>' +
+      '<button class="pw-x" id="pwDrawerClose" aria-label="閉じる">✕</button></div>' +
       '<div id="pwaBody"></div>' +
-      '</div>';
-    document.body.appendChild(overlayEl);
-    overlayEl.addEventListener('click', function (e) { if (e.target === overlayEl) closeModal(); });
-    overlayEl.querySelector('#pwaClose').onclick = closeModal;
+      '<div id="pwFriendsSec" data-pw-member-only style="display:none">' +
+      '<div class="pw-drawer-sec">👥 フレンド</div>' +
+      '<div id="pwFriendsMount"></div>' +
+      '</div>' +
+      '<div class="pwa-note" data-pw-guest-note style="display:none;margin-top:16px">いまはゲストとして遊んでいます。ゲストでは1人用モードのみで、セーブデータは保存されません。ログインすると、マルチプレイ・フレンド・セーブ（クラウド同期）が使えるようになります。</div>' +
+      '</aside>';
+    document.body.appendChild(drawerWrapEl);
+    drawerWrapEl.querySelector('#pwDrawerScrim').addEventListener('click', closeModal);
+    drawerWrapEl.querySelector('#pwDrawerClose').onclick = closeModal;
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drawerOpen) closeModal(); });
     updatePill(); updateModal();
+    applyMemberOnlyVisibility();
   }
+  /* ヘッダーのアカウントタブ表示（ログイン状態ドット）を最新化する。
+     旧ピルの updatePill と同じ呼び出し箇所から使う */
   function updatePill() {
-    if (!pillEl) return;
-    pillEl.innerHTML = '👤<span class="pwa-dot"></span>';
-    pillEl.classList.toggle('on', !!me);
-    pillEl.title = me ? (me.username + '（ログイン中）') : 'ログイン / 新規登録';
-    pillEl.setAttribute('aria-label', pillEl.title);
+    if (!headerEl) return;
+    var tab = headerEl.querySelector('#pwTabAccount');
+    if (tab) {
+      tab.classList.toggle('on', drawerOpen);
+      var dot = tab.querySelector('.pw-dot');
+      if (dot) dot.style.background = me ? '#3ED6A5' : '';
+      tab.title = me ? (me.username + '（ログイン中）') : 'ログイン / 新規登録';
+    }
+    var main = headerEl.querySelector('#pwTabMain');
+    if (main) main.classList.toggle('on', !drawerOpen);
+  }
+  function notifyFriendsView() {
+    var api = window.PWFriends;
+    if (api && api._viewState) { try { api._viewState(drawerOpen); } catch (e) {} }
   }
   function setStatus(t) {
     statusText = t;
@@ -1275,13 +1277,22 @@
     $('pwaSubmit').onclick = submit;
     $('pwaPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
   }
+  /* アカウントドロワーの開閉（旧モーダルの openModal/closeModal を置き換え。
+     friends.js の loginNotice など既存の呼び出しはそのままドロワーを開く） */
   function openModal() {
     buildUI();
-    overlayEl.classList.add('show');
-    updateModal();
+    if (!drawerWrapEl) return;
+    drawerOpen = true;
+    drawerWrapEl.classList.add('open');
+    updatePill(); updateModal();
+    notifyFriendsView();
   }
   function closeModal() {
-    if (overlayEl) overlayEl.classList.remove('show');
+    if (!drawerWrapEl) { drawerOpen = false; return; }
+    drawerOpen = false;
+    drawerWrapEl.classList.remove('open');
+    updatePill();
+    notifyFriendsView();
   }
   /* フレンドパネル内の「ユーザー名で追加」行の表示切替とイベント結線（friends.js 側に器がある） */
   var searchBound = false;
@@ -1387,8 +1398,12 @@
     login: doLogin,
     signup: doSignup,
     logout: doLogout,
+    /* v51〜 openModal/closeModal はアカウントドロワーの開閉（旧モーダル互換） */
     openModal: openModal,
     closeModal: closeModal,
+    openDrawer: openModal,
+    closeDrawer: closeModal,
+    drawerOpen: function () { return drawerOpen; },
     syncNow: function () { return syncSaves(); },
     searchUser: searchUser,
     addFriendByUsername: addFriendByUsername,
