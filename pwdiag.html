@@ -31,6 +31,10 @@
 <h2>生の localStorage 全キー（別フレーム経由・無加工）</h2>
 <pre id="raw">(未取得)</pre>
 
+<h2>意見ボックス直接読み（管理者でログインしてから）</h2>
+<button id="btnFb">意見ボックスを直接読む</button>
+<pre id="fbout">(未実行)</pre>
+
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -94,6 +98,49 @@
     s.push('ディスク上の pwsave: キー数: ' + pwsaveCount);
     $('summary').innerHTML = s.join('<br>');
   }
+  $('btnFb').onclick = function () {
+    var out = $('fbout');
+    out.textContent = '読み込み中…';
+    var tries = 0;
+    (function waitSdk() {
+      if (!(window.firebase && window.firebase.auth && window.firebase.firestore)) {
+        if (++tries > 40) { out.textContent = 'Firebase SDK が読み込まれていません'; return; }
+        setTimeout(waitSdk, 500); return;
+      }
+      var user = null;
+      try { user = window.firebase.auth().currentUser; } catch (e) {}
+      var lines = [];
+      lines.push('currentUser: ' + (user ? user.uid : '(未ログイン)'));
+      lines.push('admin uid 一致: ' + (user && user.uid === '9FompVx7Gpfp2f2anoz35vPyD6F3' ? 'はい' : 'いいえ'));
+      var got = false;
+      var timer = setTimeout(function () {
+        if (!got) { got = true; out.textContent = lines.join('\n') + '\n結果: 15秒以内に応答なし（get が返ってこない）'; }
+      }, 15000);
+      window.firebase.firestore().collection('feedback').get().then(function (snap) {
+        if (got) return; got = true; clearTimeout(timer);
+        lines.push('件数: ' + snap.size);
+        var items = [];
+        snap.forEach(function (d) {
+          var x = d.data() || {};
+          var ts = x.createdAt;
+          if (ts && typeof ts.toMillis === 'function') ts = ts.toMillis();
+          items.push({ id: d.id, type: x.type, title: x.title, body: x.body, game: x.game, fromName: x.fromName, createdAt: ts, status: x.status });
+        });
+        items.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+        items.forEach(function (x) {
+          lines.push('---');
+          lines.push('日時: ' + (x.createdAt ? new Date(x.createdAt).toLocaleString('ja-JP') : '?') + ' / 種別: ' + x.type + ' / 状態: ' + x.status + ' / ゲーム: ' + (x.game || '-') + ' / 送信者: ' + (x.fromName || '-'));
+          lines.push('タイトル: ' + x.title);
+          lines.push('本文: ' + x.body);
+        });
+        out.textContent = lines.join('\n');
+      }).catch(function (err) {
+        if (got) return; got = true; clearTimeout(timer);
+        lines.push('エラー: code=' + (err && err.code) + ' / message=' + (err && err.message));
+        out.textContent = lines.join('\n');
+      });
+    })();
+  };
   $('btnRefresh').onclick = render;
   $('btnWrite').onclick = function () {
     try { localStorage.setItem('pwdiag_probe', 'T' + Date.now()); } catch (e) {}
