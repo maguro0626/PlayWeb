@@ -120,6 +120,25 @@
   }
   var MY_GAME = inferGame();
 
+  /* ---------------- ピンチ拡縮の抑止（v55〜・全ページ共通） ----------------
+     各ページの viewport メタ（maximum-scale=1.0, user-scalable=no）に加え、
+     iOS Safari が user-scalable=no を無視するケースへの実行時補強。
+     止めるのは「拡縮」だけに限定する:
+       - gesturestart / gesturechange / gestureend（iOS 独自イベント）を抑止
+       - 2本指以上の touchmove だけを抑止（ピンチ操作そのもの）
+     1本指のタッチ・スワイプ・ドラッグ（仮想ジョイスティック等）や
+     ポインタイベントには一切干渉しない。 */
+  (function installPinchGuard() {
+    try {
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+      });
+      document.addEventListener('touchmove', function (e) {
+        if (e.touches && e.touches.length > 1 && e.cancelable) e.preventDefault();
+      }, { passive: false });
+    } catch (e) {}
+  })();
+
   /* ---------------- 生ストレージ（シムを通さない直接アクセス） ----------------
      ゲスト用シムは Storage.prototype を差し替えるため、account.js 自身が
      ディスク上の実データへ触るときは、差し替え前の原生メソッドを使う。 */
@@ -786,15 +805,6 @@
     friendsDoc(me.uid).set({ list: list, updatedAt: nowMs() })
       .catch(function () { lastFriendsHash = ''; /* 次回リトライ */ });
   }
-  function friendEntryByUid(uid) {
-    var list = localFriends();
-    for (var i = 0; i < list.length; i++) if (list[i].uid === uid) return list[i];
-    return null;
-  }
-  function canCloudChat(uid) {
-    if (!cloudActive()) return false;
-    return !!friendEntryByUid(uid);
-  }
   /* クラウド経路で送れる相手か（相手の公開プロフィールが実在する場合のみ
      クラウドへ書く。実在しない宛先への書き込みは成功扱いにせず、
      呼び出し側のフォールバック（PeerJS 直接送信）に任せる） */
@@ -895,58 +905,11 @@
     fb.db.doc('invites/' + id).set({ status: 'dismissed' }, { merge: true }).catch(function () {});
   }
 
-  /* ---------------- チャット（Firestore） ---------------- */
-  var processedMsgIds = {};
-  function startChatListener() {
-    var q = fb.db.collection('messages').where('participants', 'array-contains', me.uid);
-    var unsub = q.onSnapshot(function (snap) {
-      var msgs = [];
-      snap.forEach(function (d) {
-        var m = d.data() || {};
-        m._id = d.id;
-        msgs.push(m);
-      });
-      msgs.sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-      var bulk = {};   /* uid -> [{f,x,ts}] 既読分の一括取り込み */
-      var live = [];   /* 新着（未読扱い） */
-      msgs.forEach(function (m) {
-        if (processedMsgIds[m._id]) return;
-        processedMsgIds[m._id] = true;
-        if ((m.ts || 0) <= (meta.chatResetAt || 0)) return; /* v50リセットで履歴を消した端末では、それ以前の履歴を取り込まない */
-        var mine = m.from === me.uid;
-        var peerUid = mine ? m.to : m.from;
-        if (!peerUid) return;
-        var seen = meta.chatSeen[peerUid] || 0;
-        if ((m.ts || 0) <= seen) {
-          (bulk[peerUid] || (bulk[peerUid] = [])).push({ f: mine ? 'me' : 'th', x: m.text || '', ts: m.ts || 0 });
-        } else {
-          live.push({ uid: peerUid, mine: mine, x: m.text || '', ts: m.ts || 0 });
-          if ((m.ts || 0) > (meta.chatSeen[peerUid] || 0)) meta.chatSeen[peerUid] = m.ts || 0;
-        }
-      });
-      var api = pwf();
-      if (api && api._cloud) {
-        Object.keys(bulk).forEach(function (uid) { api._cloud.mergeChats(uid, bulk[uid]); });
-        live.forEach(function (m) {
-          if (m.mine) api._cloud.mergeChats(m.uid, [{ f: 'me', x: m.x, ts: m.ts }]);
-          else api._cloud.receiveChat(m.uid, { x: m.x, ts: m.ts });
-        });
-      }
-      if (live.length) saveMetaNow();
-    }, function () {});
-    unsubs.push(unsub);
-  }
-  function sendChatCloud(uid, text) {
-    if (!cloudActive() || !uid) return Promise.resolve(false);
-    return userDocExists(uid).then(function (exists) {
-      if (!exists) return false;
-      var pair = [me.uid, uid].sort();
-      return fb.db.collection('messages').add({
-        participants: pair, from: me.uid, to: uid,
-        text: String(text).slice(0, 500), ts: nowMs()
-      }).then(function () { return true; });
-    }).catch(function () { return false; });
-  }
+  /* ---------------- チャット（v55 で機能削除） ----------------
+     1対1チャットはユーザーの判断で廃止した。Firestore の messages
+     コレクションはもう購読も送信もしない（ルール側は変更していない）。
+     pwacct_meta に残る chatSeen / chatResetAt は旧データで、無害なので
+     そのまま残す（読み書きするコードは無い）。 */
 
   /* ---------------- ユーザー名検索・フレンド追加 ---------------- */
   function searchUser(username) {
@@ -1137,7 +1100,6 @@
     }, function () {});
     unsubs.push(fu);
     startInviteListener();
-    startChatListener();
     heartbeat();
     timers.push(setInterval(heartbeat, HEARTBEAT_MS));
     timers.push(setInterval(function () { uploadDirty(); }, 15000));
@@ -1574,7 +1536,7 @@
     if (sec) sec.style.display = cloudActive() ? '' : 'none';
     var note = $('pwfFootNote');
     if (note && cloudActive()) {
-      note.textContent = 'ログイン中はフレンドの在席・招待・メッセージがクラウド経由で届きます（相手がオフラインでも送れます）。対戦は従来どおり直接つながります。';
+      note.textContent = 'ログイン中はフレンドの在席・招待がクラウド経由で届きます（相手がオフラインでも届きます）。';
     }
     if (searchBound) return;
     var btn = $('pwfSearchBtn');
@@ -1983,8 +1945,6 @@
     searchUser: searchUser,
     addFriendByUsername: addFriendByUsername,
     sendInviteCloud: sendInviteCloud,
-    sendChatCloud: sendChatCloud,
-    canCloudChat: canCloudChat,
     consumeInvite: consumeInvite,
     dismissInvite: dismissInvite,
     /* v52〜 プロフィール */

@@ -7,11 +7,11 @@
        （表示名のみ。旧 code フィールドは読み捨てる）
    - フレンド: localStorage 'playweb_friends' [{uid, username, addedAt}]
        追加はユーザー名検索のみ（account.js の addFriendByUsername）。
-   - チャット履歴: localStorage 'playweb_chats' {uid: [{f,x,ts}]}（最大200件/人）
-   - 未読: localStorage 'playweb_unread' {uid: n}
-   - PeerID は 'playweb-u-<uid>'。Peer チャネルは在席の補助・チャット/招待の
+   - PeerID は 'playweb-u-<uid>'。Peer チャネルは在席の補助・招待の
      フォールバック・matchjoin/matchroster（戦績の相手引き継ぎ）に使う。
-   メッセージ種別: hello / ping / pong / chat / invite / bye / matchjoin / matchroster
+   メッセージ種別: hello / ping / pong / invite / bye / matchjoin / matchroster
+   ※ 1対1チャット機能は v55 で削除した（プロフィールの一言コメントのみ残す）。
+     旧データ 'playweb_chats' / 'playweb_unread' はもう読み書きしない。
    各ページは読み込み前に次を設定する:
      window.PW_GAME = 'survivors' など（ポータルは 'portal'）
      window.PW_JOIN_CFG = {openers, input, joinBtn|joinCall, hostBtn}（任意）
@@ -41,11 +41,12 @@
    戦績はこの端末ローカルにのみ保存される（自分がそのフレンドと遊んだ記録だけ）。
 
    【アカウント連携（account.js）】
-   ログイン時は account.js が Firestore 経由で在席・招待・チャット・フレンド一覧を
+   ログイン時は account.js が Firestore 経由で在席・招待・フレンド一覧を
    供給する。在席表示はクラウド在席（PWFriends._cloud.setPresence）を優先し、
-   招待・チャットの送信は相手のアカウントが実在する場合クラウド経路を使う
+   招待の送信は相手のアカウントが実在する場合クラウド経路を使う
    （オフラインでも届く）。引けない場合は PeerJS 送信にフォールバックする。
-   対戦そのものの接続（ルーム参加・matchjoin 等）はログイン時も PeerJS のまま。
+   ターン制ゲームの対戦は v55 から Firestore マッチ（match.js）が担い、
+   リアルタイム系の対戦接続（matchjoin 等）は PeerJS のまま。
    ============================================================ */
 (function () {
   'use strict';
@@ -54,8 +55,7 @@
 
   /* ---------------- 定数 ---------------- */
   var PEER_PREFIX = 'playweb-u-';
-  var LS_PROFILE = 'playweb_profile', LS_FRIENDS = 'playweb_friends',
-      LS_CHATS = 'playweb_chats', LS_UNREAD = 'playweb_unread';
+  var LS_PROFILE = 'playweb_profile', LS_FRIENDS = 'playweb_friends';
   var GAMES = {
     portal:     { title: 'ポータル',               file: 'index.html' },
     tetris:     { title: 'テトリス',               file: 'tetris.html' },
@@ -138,10 +138,6 @@
   function cleanUid(s) {
     return String(s == null ? '' : s).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
   }
-  var chats = lsGet(LS_CHATS, {});
-  if (!chats || typeof chats !== 'object') chats = {};
-  var unread = lsGet(LS_UNREAD, {});
-  if (!unread || typeof unread !== 'object') unread = {};
 
   /* ---------------- 戦績（playweb_records） ---------------- */
   var LS_RECORDS = 'playweb_records';
@@ -261,8 +257,6 @@
 
   function saveProfile() { lsSet(LS_PROFILE, profile); }
   function saveFriends() { lsSet(LS_FRIENDS, friends); }
-  function saveChats() { lsSet(LS_CHATS, chats); }
-  function saveUnread() { lsSet(LS_UNREAD, unread); }
   function myName() { return (profile.name || '').trim() || 'プレイヤー'; }
   function friendOf(uid) {
     for (var i = 0; i < friends.length; i++) if (friends[i].uid === uid) return friends[i];
@@ -275,8 +269,8 @@
     conns: {},        /* code -> {conn, open, lastSeen} */
     presence: {},     /* code -> {online, name, game} */
     invites: [],      /* {from, name, game, room, ts} */
-    view: 'list',     /* list | chat | pick */
-    chatWith: null, pickFor: null,
+    view: 'list',     /* list | pick */
+    pickFor: null,
     panelOpen: false
   };
   /* ---------------- アカウント（クラウド）連携 ----------------
@@ -445,17 +439,6 @@
     }
     else if (msg.t === 'ping') { sendRaw(code, { t: 'pong' }); }
     else if (msg.t === 'pong') { /* lastSeen は受信時に更新済み */ }
-    else if (msg.t === 'chat') {
-      var text = (typeof msg.text === 'string') ? msg.text.slice(0, 500) : '';
-      if (!text) return;
-      pushChat(code, { f: 'th', x: text, ts: msg.ts || Date.now() });
-      if (state.view === 'chat' && state.chatWith === code && (state.panelOpen || isInline())) {
-        renderChatMsgs();
-      } else {
-        unread[code] = (unread[code] || 0) + 1; saveUnread();
-      }
-      updateBadge(); renderList();
-    }
     else if (msg.t === 'invite') {
       var g = GAMES[msg.game] ? msg.game : null;
       var room = (typeof msg.room === 'string') ? msg.room.toUpperCase() : '';
@@ -484,12 +467,6 @@
       msg.peers.forEach(function (c) { addMatchPeer(c); });
     }
     else if (msg.t === 'bye') { clearInvited(code); setPresence(code, { online: false, game: null }); }
-  }
-  function pushChat(code, m) {
-    var arr = chats[code] || (chats[code] = []);
-    arr.push(m);
-    if (arr.length > 200) chats[code] = arr.slice(-200);
-    saveChats();
   }
   /* ハートビート＆再接続スイープ */
   setInterval(function () {
@@ -588,42 +565,6 @@
         renderAll();
       },
       clearPresence: function () { cloudPresence = {}; renderAll(); },
-      /* クラウドから届いたチャット（未読扱い） */
-      receiveChat: function (code, msg) {
-        if (!friendOf(code) || !msg || typeof msg.x !== 'string' || !msg.x) return;
-        var arr = chats[code] || [];
-        for (var i = arr.length - 1; i >= 0 && i >= arr.length - 60; i--) {
-          if (arr[i].ts === msg.ts && arr[i].x === msg.x && arr[i].f === 'th') return; /* 重複 */
-        }
-        pushChat(code, { f: 'th', x: msg.x.slice(0, 500), ts: msg.ts || Date.now() });
-        if (state.view === 'chat' && state.chatWith === code && (state.panelOpen || isInline())) {
-          renderChatMsgs();
-        } else {
-          unread[code] = (unread[code] || 0) + 1; saveUnread();
-        }
-        updateBadge(); renderList();
-      },
-      /* クラウドの履歴を未読にせず一括取り込み（重複は ts+本文+方向 で除去） */
-      mergeChats: function (code, list) {
-        if (!Array.isArray(list) || !list.length) return;
-        var arr = chats[code] || (chats[code] = []);
-        var seen = {};
-        arr.forEach(function (m) { seen[m.f + '|' + m.ts + '|' + m.x] = true; });
-        var added = false;
-        list.forEach(function (m) {
-          if (!m || typeof m.x !== 'string') return;
-          var key = m.f + '|' + m.ts + '|' + m.x;
-          if (seen[key]) return;
-          seen[key] = true;
-          arr.push({ f: m.f === 'me' ? 'me' : 'th', x: m.x.slice(0, 500), ts: m.ts || 0 });
-          added = true;
-        });
-        if (!added) return;
-        arr.sort(function (a, b) { return a.ts - b.ts; });
-        if (arr.length > 200) chats[code] = arr.slice(-200);
-        saveChats();
-        if (state.view === 'chat' && state.chatWith === code) renderChatMsgs();
-      },
       /* クラウドから届いた招待（PeerJS 招待と同じ見た目・導線に合流させる） */
       receiveInvite: function (inv) {
         if (!inv || !GAMES[inv.game] || !ROOM_RE.test(inv.room || '')) return;
@@ -661,6 +602,7 @@
     _viewState: function (open) {
       state.panelOpen = !!open;
       if (open) renderAll();
+      else flushPendingInviteToast();
     }
   };
 
@@ -973,14 +915,8 @@
     '.pwf-fstat{font-size:11.5px;color:#9aa1c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.pwf-fstat.on{color:#86efac}',
     '.pwf-iconbtn{position:relative;flex:0 0 auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13);color:#fff;border-radius:9px;padding:7px 9px;font-size:13px;cursor:pointer;font-family:inherit}',
-    '.pwf-ubadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:999px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:900;padding:0 4px;display:flex;align-items:center;justify-content:center}',
     '.pwf-invite{background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(239,68,68,.14));border:1px solid rgba(245,158,11,.45);border-radius:13px;padding:11px 12px;margin-bottom:9px}',
     '.pwf-invite b{color:#fde68a}',
-    '.pwf-msgs{display:flex;flex-direction:column;gap:7px;max-height:46vh;overflow-y:auto;padding:4px 2px;margin:10px 0}',
-    '.pwf-msg{max-width:82%;padding:8px 11px;border-radius:13px;font-size:13.5px;word-break:break-word;white-space:pre-wrap}',
-    '.pwf-msg .pwf-ts{display:block;font-size:10px;opacity:.65;margin-top:3px}',
-    '.pwf-msg.me{align-self:flex-end;background:linear-gradient(135deg,#0e7490,#6d28d9);color:#fff;border-bottom-right-radius:4px}',
-    '.pwf-msg.th{align-self:flex-start;background:rgba(255,255,255,.09);border-bottom-left-radius:4px}',
     '.pwf-games{display:grid;grid-template-columns:1fr 1fr;gap:8px}',
     '.pwf-game{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#eef0ff;border-radius:11px;padding:11px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}',
     '.pwf-toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:100006;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(94vw,430px)}',
@@ -1009,10 +945,6 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
-  }
-  function fmtTs(ts) {
-    var d = new Date(ts);
-    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
   }
   function toast(msg, kind, action) {
     var box = els.toasts;
@@ -1049,11 +981,28 @@
     } catch (e) {}
     location.href = GAMES[inv.game].file + '?join=' + inv.room + '&from=' + inv.from;
   }
+  /* ドロワーが開いている間に届いた招待トーストは保留し、閉じた時に出す。
+     .pwf-toasts は画面下部中央に固定されるため、開いているドロワー下部の
+     招待欄（「参加する」ボタン）と重なってタップを妨げ得るのが理由。
+     ドロワー表示中は、招待欄とアカウントタブのバッジで招待に気づける。 */
+  var pendingInviteToast = null;
   function showInviteToast(inv) {
+    if (state.panelOpen) { pendingInviteToast = inv; return; }
+    showInviteToastNow(inv);
+  }
+  function showInviteToastNow(inv) {
     toast('🎮 ' + inv.name + 'さんから「' + GAMES[inv.game].title + '」への招待が届きました', '', {
       label: '参加する',
       fn: function () { gotoJoin(inv); }
     });
+  }
+  function flushPendingInviteToast() {
+    var inv = pendingInviteToast;
+    pendingInviteToast = null;
+    if (!inv) return;
+    if (state.invites.indexOf(inv) < 0) return;     /* 参加・破棄済みなら出さない */
+    if (Date.now() - (inv.ts || 0) > 25000) return; /* 古い招待は出さない */
+    showInviteToastNow(inv);
   }
 
   /* スタイルとトースト置き場だけはゲート状態によらず用意する
@@ -1094,20 +1043,13 @@
         '<div id="pwfList"></div>' +
         '<div class="pwf-note" id="pwfEmpty"></div>' +
       '</div>' +
-      '<div id="pwfChatView" style="display:none">' +
-        '<div class="pwf-row"><button class="pwf-btn" id="pwfChatBack">← もどる</button><b id="pwfChatHead"></b></div>' +
-        '<div class="pwf-msgs" id="pwfChatMsgs"></div>' +
-        '<div class="pwf-row"><input class="pwf-input" id="pwfChatInput" maxlength="500" placeholder="メッセージ">' +
-        '<button class="pwf-btn pri" id="pwfChatSend">送信</button></div>' +
-        '<div class="pwf-note" id="pwfChatNote"></div>' +
-      '</div>' +
       '<div id="pwfPickView" style="display:none">' +
         '<div class="pwf-row"><button class="pwf-btn" id="pwfPickBack">← もどる</button><b id="pwfPickTitle"></b></div>' +
         '<div id="pwfPickRoom" style="margin-top:10px"></div>' +
         '<div class="pwf-sec">ゲームを選んで招待（選ぶと部屋を作りに移動します）</div>' +
         '<div class="pwf-games" id="pwfPickGrid"></div>' +
       '</div>' +
-      '<div class="pwf-note" id="pwfFootNote" style="margin-top:16px">フレンドの追加は、相手のアカウントのユーザー名を検索するだけです。オンライン状態は相手がPlayWebを開いている時だけ分かります。招待・メッセージはログイン中ならオフラインの相手にも届きます。</div>';
+      '<div class="pwf-note" id="pwfFootNote" style="margin-top:16px">フレンドの追加は、相手のアカウントのユーザー名を検索するだけです。オンライン状態は相手がPlayWebを開いている時だけ分かります。招待はログイン中ならオフラインの相手にも届きます。</div>';
 
     if (mount) {
       inlineMode = true;
@@ -1153,6 +1095,7 @@
       return;
     }
     if (els.overlay) els.overlay.classList.remove('show');
+    flushPendingInviteToast();
   }
 
   function bindPanelEvents() {
@@ -1167,44 +1110,7 @@
       $('pwfNameNote').textContent = '名前を保存しました';
       renderList();
     };
-    $('pwfChatBack').onclick = function () { state.view = 'list'; state.chatWith = null; renderAll(); };
     $('pwfPickBack').onclick = function () { state.view = 'list'; state.pickFor = null; renderAll(); };
-    $('pwfChatSend').onclick = sendChatFromUI;
-    $('pwfChatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendChatFromUI(); });
-  }
-  function sendChatFromUI() {
-    var code = state.chatWith;
-    if (!code) return;
-    var input = $('pwfChatInput');
-    var text = input.value.trim();
-    if (!text) return;
-    var sendViaPeer = function () {
-      if (!isOnline(code)) { $('pwfChatNote').textContent = '相手がオフラインのため送信できません'; return; }
-      if (sendRaw(code, { t: 'chat', text: text, ts: Date.now() })) {
-        pushChat(code, { f: 'me', x: text, ts: Date.now() });
-        input.value = '';
-        $('pwfChatNote').textContent = '';
-        renderChatMsgs();
-      } else {
-        $('pwfChatNote').textContent = '送信できませんでした（接続が切れています）';
-      }
-    };
-    /* ログイン時はクラウド経由で送る（相手がオフラインでも、次に開いた時に届く）。
-       クラウドで送れなかった場合はオンライン中の相手へ PeerJS で直接送る */
-    if (cloudActive() && window.PWAccount.canCloudChat && window.PWAccount.canCloudChat(code)) {
-      window.PWAccount.sendChatCloud(code, text).then(function (ok) {
-        if (ok) {
-          pushChat(code, { f: 'me', x: text, ts: Date.now() });
-          input.value = '';
-          $('pwfChatNote').textContent = '';
-          renderChatMsgs();
-        } else {
-          sendViaPeer();
-        }
-      }).catch(function () { sendViaPeer(); });
-      return;
-    }
-    sendViaPeer();
   }
 
   /* ---------- 描画 ---------- */
@@ -1213,7 +1119,6 @@
     renderProfile();
     renderInvites();
     renderList();
-    if (state.view === 'chat') renderChat();
     if (state.view === 'pick') renderPicker();
     if (pickerOpen) renderPickerList();
     if (recordsOpen) renderRecords();
@@ -1230,16 +1135,11 @@
       else note.textContent = 'オンラインです。フレンドにはあなたの状態が見えます。';
     }
   }
-  function totalUnread() {
-    var n = 0;
-    Object.keys(unread).forEach(function (k) { n += unread[k] || 0; });
-    return n;
-  }
-  /* 未読＋招待のバッジは、共通ヘッダーのアカウントタブ（#pwTabBadge）に出す */
+  /* 招待のバッジは、共通ヘッダーのアカウントタブ（#pwTabBadge）に出す（v55〜 招待のみを数える） */
   function updateBadge() {
     var b = document.getElementById('pwTabBadge');
     if (!b) return;
-    var n = totalUnread() + state.invites.length;
+    var n = state.invites.length;
     b.style.display = n > 0 ? 'flex' : 'none';
     b.textContent = n > 99 ? '99+' : String(n);
   }
@@ -1273,9 +1173,8 @@
   function renderList() {
     var listEl = $('pwfList');
     if (!listEl) return;
-    var lv = $('pwfListView'), cv = $('pwfChatView'), pv = $('pwfPickView');
+    var lv = $('pwfListView'), pv = $('pwfPickView');
     if (lv) lv.style.display = state.view === 'list' ? '' : 'none';
-    if (cv) cv.style.display = state.view === 'chat' ? '' : 'none';
     if (pv) pv.style.display = state.view === 'pick' ? '' : 'none';
     var cnt = $('pwfCount');
     if (cnt) cnt.textContent = '（' + friends.length + '人）';
@@ -1283,7 +1182,6 @@
     if (empty) empty.textContent = friends.length ? '' : 'まだフレンドがいません。上の「フレンドを追加」で相手のユーザー名を検索して追加しましょう。相手がPlayWebを開くと、ここにオンライン状態が表示されます。';
     listEl.innerHTML = friends.map(function (f) {
       var on = isOnline(f.uid);
-      var un = unread[f.uid] || 0;
       var recSum = recordSummary(f.uid);
       var cp = cloudPresence[f.uid] || {};
       return '<div class="pwf-friend"><span class="pwf-avawrap">' + avatarHTML(f.uid, 38) +
@@ -1292,18 +1190,13 @@
         (cp.comment ? '<div class="pwf-fcomment">' + esc(cp.comment) + '</div>' : '') +
         '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.uid)) + '</div>' +
         (recSum ? '<div class="pwf-frec">' + esc(recSum) + '</div>' : '') + '</div>' +
-        '<button class="pwf-iconbtn" data-act="chat" data-uid="' + f.uid + '">💬' + (un ? '<span class="pwf-ubadge">' + un + '</span>' : '') + '</button>' +
         '<button class="pwf-iconbtn" data-act="pick" data-uid="' + f.uid + '"' + ((on || cloudActive()) ? '' : ' disabled style="opacity:.4"') + '>🎮</button>' +
         '<button class="pwf-iconbtn" data-act="del" data-uid="' + f.uid + '">✕</button></div>';
     }).join('');
     listEl.querySelectorAll('[data-act]').forEach(function (btn) {
       btn.onclick = function () {
         var code = btn.getAttribute('data-uid'), act = btn.getAttribute('data-act');
-        if (act === 'chat') {
-          state.view = 'chat'; state.chatWith = code;
-          unread[code] = 0; saveUnread();
-          renderAll();
-        } else if (act === 'pick') {
+        if (act === 'pick') {
           state.view = 'pick'; state.pickFor = code;
           renderAll();
         } else if (act === 'prof') {
@@ -1311,40 +1204,14 @@
         } else if (act === 'del') {
           if (!window.confirm(displayName(code) + 'さんをフレンドから削除しますか？')) return;
           friends = friends.filter(function (x) { return x.uid !== code; });
-          delete chats[code]; delete unread[code];
           var e = state.conns[code];
           if (e && e.conn) { try { e.conn.close(); } catch (err) {} }
           delete state.conns[code]; delete state.presence[code];
-          saveFriends(); saveChats(); saveUnread();
+          saveFriends();
           renderAll();
         }
       };
     });
-  }
-  function renderChat() {
-    var code = state.chatWith;
-    if (!code) return;
-    $('pwfChatHead').textContent = displayName(code);
-    var note = $('pwfChatNote');
-    var canCloud = cloudActive() && window.PWAccount.canCloudChat && window.PWAccount.canCloudChat(code);
-    if (note) {
-      if (isOnline(code)) note.textContent = presenceText(code);
-      else if (canCloud) note.textContent = 'オフラインですが、アカウント宛に送信できます（相手が次にPlayWebを開いた時に届きます）。';
-      else note.textContent = 'オフラインです。メッセージは送信できません。';
-    }
-    var send = $('pwfChatSend');
-    if (send) send.disabled = !(isOnline(code) || canCloud);
-    renderChatMsgs();
-  }
-  function renderChatMsgs() {
-    var box = $('pwfChatMsgs');
-    if (!box || state.view !== 'chat') return;
-    var arr = chats[state.chatWith] || [];
-    box.innerHTML = arr.map(function (m) {
-      return '<div class="pwf-msg ' + (m.f === 'me' ? 'me' : 'th') + '">' + esc(m.x) +
-        '<span class="pwf-ts">' + fmtTs(m.ts) + '</span></div>';
-    }).join('') || '<div class="pwf-note">まだメッセージがありません</div>';
-    box.scrollTop = box.scrollHeight;
   }
   function renderPicker() {
     var code = state.pickFor;

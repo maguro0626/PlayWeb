@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PlayWeb | 無料ブラウザゲーム集</title>
 <meta name="description" content="テトリス・スイカゲーム・麻雀・将棋・RPGなど、全14作品が遊べる無料ブラウザゲームポータル">
 <link rel="manifest" href="manifest.json">
@@ -77,6 +77,9 @@
   .news li:last-child{border-bottom:none}
   .news .date{color:#67e8f9;font-weight:800;font-size:12px;margin-right:10px;font-variant-numeric:tabular-nums}
   .news .new{color:#fff;background:linear-gradient(90deg,#f59e0b,#ef4444);font-size:10px;font-weight:900;padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:2px}
+  .updSecHead{background:none;border:none;color:inherit;font:inherit;width:100%;cursor:pointer;padding:0;text-align:left}
+  .updSecHead .arrow{color:#9aa1c0;font-size:13px;transition:transform .25s}
+  .updSecHead.open .arrow{transform:rotate(180deg)}
   .upd{background:var(--card);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(6px);overflow:hidden}
   .upd-item{border-bottom:1px dashed rgba(255,255,255,.08)}
   .upd-item:last-child{border-bottom:none}
@@ -147,8 +150,8 @@
     </div>
   </div>
 
-  <div class="secTitle">📢 アップデート情報</div>
-  <div class="upd" id="updList"></div>
+  <button class="secTitle updSecHead" id="updSecHead" type="button" aria-expanded="false">📢 アップデート情報 <span class="arrow">▼</span></button>
+  <div class="upd" id="updList" style="display:none"></div>
   <ul class="news">
     <li><span class="date">2026.11</span>全ページ共通ヘッダー＆アカウント機能が登場！<span class="new">NEW</span><br>画面上部の「アカウント」タブから、ログインやフレンド機能がまとめて使えるようになりました。フレンドの追加は相手のユーザー名を検索するだけ。相手のオンライン状態や遊んでいるゲームが分かり、チャットやゲームへの招待ができます。</li>
     <li><span class="date">2026.11</span>セーブデータはアカウントのクラウド保存になりました。<br>ログインすると全ゲームのセーブが自動でサーバに同期され、別の端末でも続きが遊べます（旧来のファイル書き出しは不要になりました）。</li>
@@ -177,8 +180,15 @@
 
 <script>
 "use strict";
-/* 更新履歴（アコーディオン）。新しい版を先頭に足すだけでよい。最新版だけ開いた状態で表示 */
+/* 更新履歴（アコーディオン）。新しい版を先頭に足すだけでよい。
+   v55〜 仕様: セクション全体がデフォルトで折りたたまれ（見出しタップで開く）、
+   中の各エントリも全て閉じた状態がデフォルト（タイトル行タップで個別に開く二段構え） */
 const PW_UPDATES = [
+  { v:'v55', date:'2026.11.19', title:'オセロ・将棋のオンライン対戦がクラウド化＆チャット終了', items:[
+    'オセロと将棋のオンライン対戦が、接続待ちのないクラウド対戦になりました。対局の途中でページを閉じても、開き直せば続きから再開できます',
+    'フレンド同士のチャット機能は終了しました（プロフィールの一言コメントは、引き続きフレンド欄に表示されます）',
+    '全ページでピンチ操作による画面の拡縮を無効化し、アプリらしい操作感になりました'
+  ]},
   { v:'v54', date:'2026.11.19', title:'新作『スターリンクサーガ』登場', items:[
     'ガチャで集めた猫耳キャラを編成し、チェインを繋いで戦う本格カードバトルが仲間入り。URはイラスト付き＆圧倒的性能',
     'オンライン要素は非同期アリーナ対戦と、フレンドと協力して強大な敵に挑むレイド共闘。プロフィールに「使用キャラ」も表示されるようになりました'
@@ -212,23 +222,38 @@ const PW_UPDATES = [
   const box = document.getElementById('updList');
   if (!box) return;
   const escU = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  box.innerHTML = PW_UPDATES.map((u, i) =>
-    '<div class="upd-item' + (i === 0 ? ' open' : '') + '">' +
+  /* 全エントリとも閉じた状態で描画する（デフォルトで開くエントリは無い） */
+  box.innerHTML = PW_UPDATES.map(u =>
+    '<div class="upd-item">' +
     '<button class="upd-head" type="button"><span class="v">' + escU(u.v) + '</span><span class="d">' + escU(u.date) + '</span><span class="t">' + escU(u.title) + '</span><span class="arrow">▼</span></button>' +
     '<ul class="upd-body">' + u.items.map(t => '<li>' + escU(t) + '</li>').join('') + '</ul></div>'
   ).join('');
   box.querySelectorAll('.upd-head').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+  /* セクション全体の開閉（見出しがトグル。初期状態は折りたたみ） */
+  const head = document.getElementById('updSecHead');
+  if (head) head.addEventListener('click', () => {
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : '';
+    head.classList.toggle('open', !open);
+    head.setAttribute('aria-expanded', open ? 'false' : 'true');
+  });
 })();
+/* カードのバッジ（リボン）は GAMES の badge フィールドでデータ駆動する。
+   【付け替えルール（リリース手順）】バッジは「直近のアップデートで変わった
+   ゲーム」にだけ付ける。リリースのたびに、前回分は全て外し、今回変わった
+   ゲームにだけ付け直すこと（基盤だけの変更はバッジ対象外）。
+   語彙: 'new'=NEW（新規追加） / 'renewal'=RENEWAL（作り直し） / 'update'=UPDATE（機能追加・改修） */
+const BADGE_LABELS = { new: 'NEW', renewal: 'RENEWAL', update: 'UPDATE' };
 const GAMES = [
-  { id:'tetris',     title:'テトリス',       emoji:'🧱', grad:'linear-gradient(135deg,#06b6d4,#2563eb)', path:'tetris.html',     cat:'puzzle', tags:['パズル','定番'], renewed:true,  desc:'7種1巡・ホールド・ゴースト表示対応の本格仕様。オンラインのおじゃまライン対戦にも対応。' },
-  { id:'suica',      title:'スイカゲーム',   emoji:'🍉', grad:'linear-gradient(135deg,#4ade80,#16a34a 55%,#ef4444)', path:'suica.html', cat:'puzzle', tags:['パズル','物理演算'], renewed:true, desc:'物理演算でフルーツが転がる・跳ねる。合体させて大きなスイカを作ろう。オンライン3分スコアレース対応。' },
-  { id:'crepe',      title:'クレープ工房',   emoji:'🥞', grad:'linear-gradient(135deg,#fdba74,#f472b6)', path:'crepe.html',     cat:'action', tags:['料理','シミュレーター'], renewed:true,  desc:'生地をのばして焼いて、具材を自由に配置。ソースは指で描ける本格クレープ作り。オンライン注文対決対応。' },
+  { id:'tetris',     title:'テトリス',       emoji:'🧱', grad:'linear-gradient(135deg,#06b6d4,#2563eb)', path:'tetris.html',     cat:'puzzle', tags:['パズル','定番'], desc:'7種1巡・ホールド・ゴースト表示対応の本格仕様。オンラインのおじゃまライン対戦にも対応。' },
+  { id:'suica',      title:'スイカゲーム',   emoji:'🍉', grad:'linear-gradient(135deg,#4ade80,#16a34a 55%,#ef4444)', path:'suica.html', cat:'puzzle', tags:['パズル','物理演算'], desc:'物理演算でフルーツが転がる・跳ねる。合体させて大きなスイカを作ろう。オンライン3分スコアレース対応。' },
+  { id:'crepe',      title:'クレープ工房',   emoji:'🥞', grad:'linear-gradient(135deg,#fdba74,#f472b6)', path:'crepe.html',     cat:'action', tags:['料理','シミュレーター'], desc:'生地をのばして焼いて、具材を自由に配置。ソースは指で描ける本格クレープ作り。オンライン注文対決対応。' },
   { id:'survivors',  title:'まじょねこサバイバーズ', emoji:'🐱', grad:'linear-gradient(135deg,#312e81,#7c3aed 55%,#f59e0b)', path:'survivors.html', cat:'action', tags:['アクション','サバイバル'], desc:'【主要コンテンツ】見習い魔女ねこ達のサバイバルアクション。8ステージ×4難易度×制限時間3モード（10/20/30分）・44キャラ（入手はガチャのみ、URは0.05%。家族モデルのUR「るあ」「たいち」「すい」も参戦）・武器35種＋全武器の進化、武器はLv10まで成長。URを5凸するとイラストが豪華に変わり能力も大幅アップする「覚醒」搭載。ソシャゲ風の新UIに刷新。転生、ランダムイベントも搭載。2人協力対応。' },
   { id:'frostline',  title:'フロストライン', emoji:'❄️', grad:'linear-gradient(135deg,#7dd3fc,#0369a1 55%,#f0abfc)', path:'frostline.html', cat:'action', tags:['サバイバル','経営'], desc:'雪原で木を切り、炉に火をともし続けろ。仲間を救い拠点を育て、7つの夜を生き延びるサバイバル経営。相棒猫モチとオーロラの夜、温泉探しも。2人協力対応。' },
-  { id:'blockblast', title:'ブロックブラスト', emoji:'🧩', grad:'linear-gradient(135deg,#f59e0b,#db2777 55%,#2563eb)', path:'blockblast.html', cat:'puzzle', tags:['パズル','ブロック'], renewed:true, desc:'8×8にブロックを置いてライン消し。コンボと同時消しで大量得点、エフェクト満載の爽快パズル。オンライン対戦対応。' },
-  { id:'minesweeper',title:'マインスイーパ', emoji:'💣', grad:'linear-gradient(135deg,#f43f5e,#881337)', path:'minesweeper.html', cat:'puzzle', tags:['パズル','ロジック'], renewed:true, desc:'初クリック安全＆一括オープンのコード対応。3つの難易度とベストタイム記録。同じ盤面で競うオンラインレース対応。' },
-  { id:'reversi',    title:'オセロ',         emoji:'⚫', grad:'linear-gradient(135deg,#e4e4e7,#71717a)', path:'reversi.html',  cat:'board', tags:['ボード','対CPU'], renewed:true, desc:'本気で強いAI搭載（3段階）。フリップアニメーションと形勢表示で白熱の対局。オンライン対戦・対面2人対応。' },
-  { id:'shogi',      title:'将棋',           emoji:'☗', grad:'linear-gradient(135deg,#fde68a,#d97706)', path:'shogi.html',     cat:'board', tags:['ボード','対CPU'], desc:'持ち駒・成り・王手判定まで備えた本格将棋。CPUとの真剣勝負。オンライン対戦・対面2人対応。' },
+  { id:'blockblast', title:'ブロックブラスト', emoji:'🧩', grad:'linear-gradient(135deg,#f59e0b,#db2777 55%,#2563eb)', path:'blockblast.html', cat:'puzzle', tags:['パズル','ブロック'], desc:'8×8にブロックを置いてライン消し。コンボと同時消しで大量得点、エフェクト満載の爽快パズル。オンライン対戦対応。' },
+  { id:'minesweeper',title:'マインスイーパ', emoji:'💣', grad:'linear-gradient(135deg,#f43f5e,#881337)', path:'minesweeper.html', cat:'puzzle', tags:['パズル','ロジック'], desc:'初クリック安全＆一括オープンのコード対応。3つの難易度とベストタイム記録。同じ盤面で競うオンラインレース対応。' },
+  { id:'reversi',    title:'オセロ',         emoji:'⚫', grad:'linear-gradient(135deg,#e4e4e7,#71717a)', path:'reversi.html',  cat:'board', tags:['ボード','対CPU'], badge:'update', desc:'本気で強いAI搭載（3段階）。フリップアニメーションと形勢表示で白熱の対局。オンライン対戦・対面2人対応。' },
+  { id:'shogi',      title:'将棋',           emoji:'☗', grad:'linear-gradient(135deg,#fde68a,#d97706)', path:'shogi.html',     cat:'board', tags:['ボード','対CPU'], badge:'update', desc:'持ち駒・成り・王手判定まで備えた本格将棋。CPUとの真剣勝負。オンライン対戦・対面2人対応。' },
   { id:'majan',      title:'麻雀',           emoji:'🀄', grad:'linear-gradient(135deg,#065f46,#022c22)', path:'majan.html',     cat:'board', tags:['ボード','テーブル'], desc:'役・点数計算まで実装した本格麻雀。じっくり打ち込める一作。最大4人オンライン対戦（空き席はCPU）対応。' },
   { id:'daihugou',   title:'大富豪',         emoji:'👑', grad:'linear-gradient(135deg,#facc15,#b45309)', path:'daihugou.html',  cat:'card', tags:['カード','対CPU'], desc:'革命・8切り・ジョーカーあり。CPU相手に大富豪を目指せ。最大4人オンライン対戦（空き席はCPU）対応。' },
   { id:'hanahuda',   title:'花札',           emoji:'🎴', grad:'linear-gradient(135deg,#881337,#450a0a)', path:'hanahuda.html',  cat:'card', tags:['カード','和風'], desc:'こいこいルールで遊べる花札。役をそろえて高得点を狙おう。オンライン対戦対応。' },
@@ -260,7 +285,7 @@ const $ = id=>document.getElementById(id);
 function cardHtml(g, i){
   return `<a class="card" href="${g.path}" data-id="${g.id}" style="animation-delay:${Math.min(i*40,400)}ms">
     <div class="thumb" style="background:${g.grad}">
-      ${g.renewed?'<span class="rbadge">RENEWAL</span>':''}
+      ${g.badge&&BADGE_LABELS[g.badge]?'<span class="rbadge">'+BADGE_LABELS[g.badge]+'</span>':''}
       <button class="fav ${favs.has(g.id)?'on':''}" data-fav="${g.id}" title="お気に入り">★</button>
       <span class="emoji">${g.emoji}</span>
     </div>

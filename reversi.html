@@ -2,11 +2,11 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>リバーシ | PlayWeb</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="match.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='44' fill='%2314532d'/%3E%3Ccircle cx='38' cy='38' r='15' fill='%23111'/%3E%3Ccircle cx='62' cy='62' r='15' fill='%23f5f5f5'/%3E%3C/svg%3E">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -614,12 +614,12 @@ let toastTimer = null;
 /* 対戦モード: 'cpu' | 'local'（対面2人） | 'online' */
 let mode = 'cpu';
 let myColor = BLACK;        /* オンライン時の自分の色（ホスト=黒 / ゲスト=白） */
-let peer = null, conn = null, isHost = false, roomCode = '', onlineActive = false, onlineClosing = false;
+let isHost = false, roomCode = '', onlineActive = false;
 
 /* 現在の手番をこの端末のプレイヤーが打てるかどうか */
 function isLocalTurn(){
   if (mode === 'local') return true;
-  if (mode === 'online') return onlineActive && !reconnecting && turn === myColor;
+  if (mode === 'online') return onlineActive && turn === myColor;
   return turn === human;
 }
 
@@ -891,6 +891,17 @@ function endGame(){
       else if (mine < theirs) PWFriends.recordMatch('lose');
       else PWFriends.recordMatch('draw');
     }
+    /* マッチドキュメントへ終局を記録する（両側が同じ値を書くので冪等） */
+    if (window.PWMatch && fsMatch && fsMatch.data){
+      const d = fsMatch.data;
+      const winnerUid = mine > theirs ? (myColor === BLACK ? d.hostUid : d.guestUid)
+        : mine < theirs ? (myColor === BLACK ? d.guestUid : d.hostUid) : 'draw';
+      PWMatch.finish(fsMatch.code, winnerUid || null).catch(() => {});
+      /* 終わった対局のコードを再招待で使い回さないよう、表示コードを消す
+         （次の招待では新しいマッチが作られる） */
+      window.PW_ROOM_CODE = '';
+      if (els.roomCodeText) els.roomCodeText.textContent = '';
+    }
   } else {
     const hd = human === BLACK ? b : w;
     const cd = human === BLACK ? w : b;
@@ -976,79 +987,71 @@ function updateSoundBtn(){
 }
 
 /* ============================================================
-   オンライン対戦（PeerJS / WebRTC P2P）
-   ホスト=黒（先手） / ゲスト=白（後手）。状態同期は
-   着手 {t:'move', i, b, w} を基本とし、石数が一致しない場合は
-   ホストの盤面 {t:'state'} を正として上書きする。
+   オンライン対戦（Firestore マッチ / v55〜・match.js 基盤）
+   ホスト=黒（先手） / ゲスト=白（後手）。盤面の正はマッチ
+   ドキュメント matches/{roomCode} の state に置く。
+   着手 {t:'move'} は state 書き込み（PWMatch.publish）として送られ、
+   相手側は onSnapshot で受け取って従来と同じ着手手順
+   （handleOnlineData）で盤面に反映する。石数が一致しない場合は
+   ホストの盤面 {t:'state'} を正として上書きする（従来の同期方式）。
+   接続という概念がないため、招待の受け手が遅れて来ても、
+   ページを開き直しても、進行中マッチへ復帰できる。
    ============================================================ */
-const PEER_PREFIX = 'playweb-rv-';
-const PEER_OPTS = { config: { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-] } };
-let connTimer = null;
-let reconnecting = false, heartbeatTimer = null, guestRetryTimer = null;
-function startHeartbeat(){
-  stopHeartbeat();
-  heartbeatTimer = setInterval(() => { sendOnline({t: 'ping'}); }, 8000);
-}
-function stopHeartbeat(){ if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
-function scheduleGuestReconnect(){
-  clearTimeout(guestRetryTimer);
-  let tries = 0;
-  const attempt = () => {
-    if (mode !== 'online' || !reconnecting) return;
-    tries++;
-    if (tries > 20){
-      reconnecting = false;
-      setOnlineStatus('<span class="err">再接続できませんでした。モードを選び直してください。</span>');
-      return;
-    }
-    guestRetryTimer = setTimeout(attempt, 5000);
-    try{
-      if (peer){ try{ peer.destroy(); }catch (e){} }
-      peer = new Peer(undefined, PEER_OPTS);
-      peer.on('open', () => {
-        const c = peer.connect(PEER_PREFIX + roomCode, {reliable: true});
-        setupConn(c);
-        c.on('open', () => { sendOnline({t: 'hello'}); });
-      });
-      peer.on('error', () => {});
-    }catch (e){}
-  };
-  guestRetryTimer = setTimeout(attempt, 1500);
-}
-function armConnTimer(msg){
-  clearTimeout(connTimer);
-  connTimer = setTimeout(() => {
-    if (!onlineActive) setOnlineStatus('<span class="err">' + msg + '</span>');
-  }, 25000);
-}
-function disarmConnTimer(){ clearTimeout(connTimer); }
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* I,O,0,1 を除外 */
-function genRoomCode(){
-  let code = '';
-  for (let i = 0; i < 6; i++) code += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
-  return code;
-}
-function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
+let fsMatch = null;      /* {code, unsub, data} 現在のマッチ購読 */
+let fsSeq = 0;           /* 適用済みの state 版数 */
+let fsRound = 1;         /* 適用済みの局数 */
+let fsMsgAt = 0;         /* 処理済みの msg の時刻 */
+let fsGuestSeen = false; /* ホスト: ゲスト参加を検知済みか */
+
 function setOnlineStatus(html){ if (els.onlineStatus) els.onlineStatus.innerHTML = html; }
 function onlineLoadError(){
   setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
   showToast('オンライン機能を読み込めませんでした。通信環境を確認してください');
 }
-function sendOnline(obj){
-  if (conn && conn.open){ try{ conn.send(obj); }catch (e){} }
+function fsUid(){ const u = window.PWMatch && PWMatch.me(); return u ? u.uid : ''; }
+function turnUidFor(color){
+  if (!fsMatch || !fsMatch.data) return '';
+  return color === BLACK ? (fsMatch.data.hostUid || '') : (fsMatch.data.guestUid || '');
 }
 function currentState(){
   const flat = [];
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) flat.push(board[r][c]);
-  return {board: flat, turn};
+  return {board: flat, turn,
+    log: moveLog.map(m => [m.player, m.r, m.c]),
+    lastMove: lastMove ? [lastMove.r, lastMove.c] : null};
 }
-function sendState(){ sendOnline({t: 'state', state: currentState()}); }
+/* state 系の書き込み（自分の手番情報を添えて publish する） */
+function publishState(extra){
+  if (!fsMatch || !window.PWMatch) return;
+  const patch = {state: currentState(), turn: turnUidFor(turn), lastAction: {t: 'state'}};
+  if (extra) for (const k in extra) patch[k] = extra[k];
+  PWMatch.publish(fsMatch.code, patch).catch(() => {});
+}
+function sendState(){ publishState(); }
+function sendOnline(obj){
+  if (!obj || typeof obj !== 'object') return;
+  if (!fsMatch || !window.PWMatch) return;
+  if (obj.t === 'move'){
+    /* doMove 内から呼ばれる。この時点の盤面は着手後・手番はまだ着手者。
+       ドキュメントには着手後の盤面と、相手の手番で書き込む */
+    const st = currentState();
+    st.turn = opp(turn);
+    PWMatch.publish(fsMatch.code, {
+      state: st, turn: turnUidFor(opp(turn)),
+      lastMove: st.lastMove, lastAction: {t: 'move', i: obj.i}
+    }).catch(() => {});
+  }
+  else if (obj.t === 'state'){ publishState(); }
+  else if (obj.t === 'ping' || obj.t === 'hello'){ /* Firestore では接続維持は不要 */ }
+  else { PWMatch.sendMsg(fsMatch.code, obj).catch(() => {}); }
+}
+function countFromFlat(flat){
+  let b = 0, w = 0;
+  if (Array.isArray(flat)) for (let i = 0; i < flat.length; i++){
+    if (flat[i] === BLACK) b++; else if (flat[i] === WHITE) w++;
+  }
+  return {b, w};
+}
 
 /* ホストから受け取った盤面で上書きする（ゲスト側の同期・開始・再戦） */
 function applyState(st){
@@ -1070,6 +1073,18 @@ function applyState(st){
   onlineActive = true;
   render();
   if (!legalMoves(board, turn).length && !legalMoves(board, opp(turn)).length) endGame();
+}
+
+/* ドキュメントの state を適用する（applyState に加えて棋譜と最終手を復元） */
+function applyDocState(st){
+  applyState(st);
+  if (st && Array.isArray(st.log)){
+    moveLog = st.log.map(a => ({player: a[0] | 0, r: a[1] | 0, c: a[2] | 0, flips: 0}));
+  }
+  if (st && Array.isArray(st.lastMove)){
+    lastMove = {r: st.lastMove[0] | 0, c: st.lastMove[1] | 0};
+  }
+  render();
 }
 
 /* ホスト側: パスが未解決なら確定させてから状態を送る（同期ずれ防止） */
@@ -1097,9 +1112,7 @@ function handleOnlineData(msg){
     if (onlineActive && !gameOver && moveLog.length > 0){
       /* 再接続: 対局をリセットせず現在の盤面を送って再開。
          ただし終局後（gameOver）の hello は再戦のための新規参加として扱い、下の新規対局へ落とす */
-      reconnecting = false;
       sendState();
-      startHeartbeat();
       setOnlineStatus('再接続しました！対局を続けます。あなたは<strong>黒（先手）</strong>です。');
       showToast('再接続しました！');
       render();
@@ -1108,16 +1121,12 @@ function handleOnlineData(msg){
     onlineActive = true;
     newGame();
     sendState();
-    startHeartbeat();
     setOnlineStatus('相手が参加しました！対局開始。あなたは<strong>黒（先手）</strong>です。');
     showToast('相手が参加しました。対局開始！');
   }
   else if (msg.t === 'state'){
     if (isHost) return;
-    reconnecting = false;
-    clearTimeout(guestRetryTimer);
-    applyState(msg.state);
-    startHeartbeat();
+    applyDocState(msg.state);
     setOnlineStatus('対局中。あなたは<strong>白（後手）</strong>です。');
   }
   else if (msg.t === 'move'){
@@ -1141,121 +1150,186 @@ function handleOnlineData(msg){
     if (isHost){ settlePasses(); sendState(); startTurn(); }
   }
   else if (msg.t === 'rematch'){
-    if (isHost){
-      newGame();
-      sendState();
-      showToast('相手がもう一局を希望 — 新しい対局を開始しました');
-    }
+    if (isHost) hostRematch('相手がもう一局を希望 — 新しい対局を開始しました');
   }
 }
 
-function onOnlineDisconnected(){
-  if (mode !== 'online' || onlineClosing) return;
-  if (onlineActive){
-    /* 対局中の切断: 盤面を保持して自動再接続する */
-    reconnecting = true;
-    conn = null;
-    stopHeartbeat();
-    setOnlineStatus('<span class="err">接続が切れました。再接続を試みています…（盤面は保持されます）</span>');
-    showToast('接続が切れました。再接続を試みています…');
-    render();
-    if (!isHost) scheduleGuestReconnect();
-    return;
-  }
-  if (conn){
-    setOnlineStatus('<span class="err">相手との接続が切れました。</span>モードを選び直すか、もう一度部屋を作ってください。');
-    showToast('相手との接続が切れました');
-  }
-  conn = null;
-  render();
+/* ホストの再戦開始（round を進めて新しい局の state を配る） */
+function hostRematch(toastMsg){
+  newGame();
+  fsRound++;
+  publishState({round: fsRound, status: 'playing', winner: null});
+  if (toastMsg) showToast(toastMsg);
 }
-function setupConn(c){
-  conn = c;
-  c.on('data', handleOnlineData);
-  c.on('close', () => { if (conn === c) onOnlineDisconnected(); });
-  c.on('error', () => { if (conn === c) onOnlineDisconnected(); });
-  c.on('open', () => disarmConnTimer());
-  c.on('iceStateChanged', st => {
-    if (conn !== c) return;
-    if ((st === 'failed' || st === 'disconnected') && !onlineActive){
-      disarmConnTimer();
-      setOnlineStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
+
+/* マッチドキュメントの購読。スナップショットを従来のメッセージ手順
+   （handleOnlineData）へ翻訳して、盤面同期の意味論をそのまま使う */
+function attachMatch(code){
+  detachMatch();
+  fsMatch = {code, unsub: null, data: null};
+  fsMatch.unsub = PWMatch.attach(code, data => {
+    if (!fsMatch || fsMatch.code !== code || !data) return;
+    fsMatch.data = data;
+    /* ホスト: ゲスト参加の検知 */
+    if (isHost && data.guestUid && !fsGuestSeen){
+      fsGuestSeen = true;
+      onlineActive = true;
+      setOnlineStatus('相手が参加しました！対局開始。あなたは<strong>黒（先手）</strong>です。');
+      showToast('相手が参加しました。対局開始！');
+      render();
+    }
+    /* 再戦（round 変更）: 新しい局の state を適用する */
+    if (typeof data.round === 'number' && data.round !== fsRound){
+      fsRound = data.round;
+      fsSeq = typeof data.seq === 'number' ? data.seq : fsSeq;
+      fsMsgAt = typeof data.msgAt === 'number' ? data.msgAt : fsMsgAt;
+      if (data.state) applyDocState(data.state);
+      onlineActive = true;
+      if (!isHost) showToast('新しい対局が始まりました');
+      render();
+      return;
+    }
+    /* state 更新（相手の書き込みだけを反映する） */
+    if (typeof data.seq === 'number' && data.seq > fsSeq){
+      const writer = data.lastWriter || '';
+      fsSeq = data.seq;
+      if (writer && writer !== fsUid() && data.state){
+        if (data.lastAction && data.lastAction.t === 'move'){
+          const cnt = countFromFlat(data.state.board);
+          handleOnlineData({t: 'move', i: data.lastAction.i | 0, b: cnt.b, w: cnt.w});
+        } else {
+          handleOnlineData({t: 'state', state: data.state});
+        }
+      }
+    }
+    /* メッセージ中継（相手から） */
+    if (data.msg && data.msgFrom && data.msgFrom !== fsUid()){
+      if ((data.msgAt || 0) > fsMsgAt){
+        fsMsgAt = data.msgAt || 0;
+        handleOnlineData(data.msg);
+      }
     }
   });
 }
+function detachMatch(){
+  if (fsMatch && fsMatch.unsub){ try{ fsMatch.unsub(); }catch (e){} }
+  fsMatch = null;
+}
 function teardownOnline(){
-  onlineClosing = true;
   onlineActive = false;
-  reconnecting = false;
-  stopHeartbeat();
-  clearTimeout(guestRetryTimer);
-  try{ if (conn) conn.close(); }catch (e){}
-  try{ if (peer) peer.destroy(); }catch (e){}
-  conn = null; peer = null;
+  detachMatch();
+  window.PW_ROOM_CODE = '';
   if (els.onlineCodeWrap) els.onlineCodeWrap.classList.add('hidden-util');
 }
 function hostRoom(){
-  if (!peerAvailable()){ onlineLoadError(); return; }
+  if (!window.PWMatch){ onlineLoadError(); return; }
   teardownOnline();
-  onlineClosing = false;
   isHost = true;
   myColor = BLACK;
-  roomCode = genRoomCode();
   setOnlineStatus('部屋を作成中…');
-  try{ peer = new Peer(PEER_PREFIX + roomCode, PEER_OPTS); }
-  catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
-  peer.on('open', () => {
+  let failed = false;
+  PWMatch.whenReady().then(ok => {
+    if (!ok){ failed = true; onlineLoadError(); return null; }
+    return PWMatch.create('reversi', {state: currentState(), turn: fsUid()});
+  }).then(res => {
+    if (failed || !res) return;
+    if (mode !== 'online'){ PWMatch.close(res.code); return; }
+    roomCode = res.code;
+    window.PW_ROOM_CODE = roomCode;
+    fsSeq = 0; fsRound = 1; fsMsgAt = 0; fsGuestSeen = false;
+    attachMatch(roomCode);
     els.roomCodeText.textContent = roomCode;
     els.onlineCodeWrap.classList.remove('hidden-util');
-    setOnlineStatus('相手の参加を待っています… コードを相手に伝えてください。あなたは<strong>黒（先手）</strong>です。');
+    setOnlineStatus('相手の参加を待っています… あなたは<strong>黒（先手）</strong>です。フレンドを招待すると、相手が参加した時点で対局が始まります。');
+  }).catch(() => {
+    if (mode === 'online') setOnlineStatus('<span class="err">部屋の作成に失敗しました。通信環境を確認してください。</span>');
   });
-  peer.on('connection', c => {
-    setupConn(c);
-    if (reconnecting) setOnlineStatus('相手が再接続しています…');
-    else setOnlineStatus('相手が接続しました。対局の準備中…');
-    armConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
-  });
-  peer.on('error', err => {
-    if (err && err.type === 'unavailable-id'){
-      setOnlineStatus('<span class="err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
-    } else {
-      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
-    }
-  });
-  peer.on('disconnected', () => { try{ peer.reconnect(); }catch (e){} });
 }
 function joinRoom(){
-  if (!peerAvailable()){ onlineLoadError(); return; }
   const code = (els.joinCode.value || '').trim().toUpperCase();
   if (code.length !== 6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  if (!window.PWMatch){ onlineLoadError(); return; }
   teardownOnline();
-  onlineClosing = false;
   isHost = false;
   myColor = WHITE;
   roomCode = code;
   setOnlineStatus('接続中…');
-  try{ peer = new Peer(undefined, PEER_OPTS); }
-  catch (e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
-  peer.on('open', () => {
-    armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
-    const c = peer.connect(PEER_PREFIX + code, {reliable: true});
-    setupConn(c);
-    c.on('open', () => {
-      sendOnline({t: 'hello'});
-      setOnlineStatus('接続しました！ホストからの対局開始を待っています… あなたは<strong>白（後手）</strong>です。');
-    });
-  });
-  peer.on('error', err => {
-    if (err && err.type === 'peer-unavailable'){
-      setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
-    } else {
-      setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');
+  let failed = false;
+  PWMatch.whenReady().then(ok => {
+    if (!ok){ failed = true; onlineLoadError(); return null; }
+    return PWMatch.join(code);
+  }).then(data => {
+    if (failed) return;
+    if (!data){
+      if (mode === 'online') setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+      return;
     }
+    if (data.status === 'finished'){
+      if (mode === 'online') setOnlineStatus('<span class="err">その対局は既に終了しています。新しい招待を送ってもらってください。</span>');
+      return;
+    }
+    fsRound = data.round || 1;
+    fsSeq = data.seq || 0;
+    fsMsgAt = data.msgAt || 0;
+    fsGuestSeen = true;
+    attachMatch(code);
+    if (data.state) applyDocState(data.state);
+    onlineActive = true;
+    setOnlineStatus('対局中。あなたは<strong>白（後手）</strong>です。');
+  }).catch(() => {
+    if (mode === 'online') setOnlineStatus('<span class="err">接続に失敗しました。もう一度お試しください。</span>');
   });
+}
+/* オンラインモードに入ったとき、進行中マッチがあれば自動で再開する。
+   進行中が無くても、直近10分以内に終わった対局なら結果表示のため一度だけ復元する */
+function tryResumeMatch(){
+  if (!window.PWMatch || fsMatch) return;
+  PWMatch.whenReady().then(ok => {
+    if (!ok || mode !== 'online' || fsMatch) return null;
+    return PWMatch.findActive('reversi').then(found => {
+      if (found) return found;
+      let hint = '';
+      try { hint = localStorage.getItem('pwmatch_last_reversi') || ''; } catch (e) {}
+      if (!hint) return null;
+      return PWMatch.get(hint).then(data => {
+        if (!data || data.status !== 'finished') return null;
+        if (Date.now() - (data.updatedAt || 0) > 10 * 60 * 1000) return null;
+        let seen = '';
+        try { seen = localStorage.getItem('pwmatch_finseen_reversi') || ''; } catch (e) {}
+        if (seen === hint) return null;
+        return {code: hint, data};
+      });
+    });
+  }).then(found => {
+    if (!found || mode !== 'online' || fsMatch) return;
+    const data = found.data;
+    isHost = data.hostUid === fsUid();
+    myColor = isHost ? BLACK : WHITE;
+    roomCode = found.code;
+    window.PW_ROOM_CODE = roomCode;
+    fsRound = data.round || 1;
+    fsSeq = data.seq || 0;
+    fsMsgAt = data.msgAt || 0;
+    fsGuestSeen = !!data.guestUid;
+    attachMatch(roomCode);
+    if (data.state) applyDocState(data.state);
+    onlineActive = data.status === 'playing';
+    els.roomCodeText.textContent = roomCode;
+    els.onlineCodeWrap.classList.remove('hidden-util');
+    if (data.status === 'finished'){
+      try { localStorage.setItem('pwmatch_finseen_reversi', roomCode); } catch (e) {}
+      setOnlineStatus('前回の対局は終了しています。');
+    } else if (onlineActive){
+      setOnlineStatus('再接続しました！対局を続けます。あなたは<strong>' + (isHost ? '黒（先手）' : '白（後手）') + '</strong>です。');
+      showToast('進行中の対局に再接続しました');
+    } else {
+      setOnlineStatus('相手の参加を待っています… あなたは<strong>黒（先手）</strong>です。');
+    }
+    render();
+  }).catch(() => {});
 }
 function leaveOnline(){
   teardownOnline();
-  onlineClosing = false;
   setOnlineStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを選ぶと、部屋を作って招待を送ります。参加は届いた招待からだけできます。');
   render();
 }
@@ -1268,8 +1342,12 @@ function setMode(m){
   els.modeOnline.classList.toggle('on', m === 'online');
   els.onlinePanel.classList.toggle('hidden', m !== 'online');
   els.cpuSettings.style.display = m === 'cpu' ? '' : 'none';
-  if (m === 'online' && !peerAvailable()){
-    setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+  if (m === 'online'){
+    if (!window.PWMatch){
+      setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+    } else {
+      tryResumeMatch();
+    }
   }
   playClick();
   newGame();
@@ -1328,12 +1406,10 @@ function init(){
     playClick();
     if (mode === 'online'){
       els.modal.classList.add('hidden');
-      if (!conn || !conn.open){
-        showToast('接続が切れているため、もう一局できません');
+      if (!fsMatch){
+        showToast('対局に接続していないため、もう一局できません');
       } else if (isHost){
-        newGame();
-        sendState();
-        showToast('新しい対局を開始しました');
+        hostRematch('新しい対局を開始しました');
       } else {
         sendOnline({t: 'rematch'});
         showToast('もう一局を申し込みました。相手の応答を待っています…');

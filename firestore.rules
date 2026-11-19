@@ -104,7 +104,7 @@ service cloud.firestore {
     //   4. account.js の ADMIN_UIDS 定数にも同じ uid を入れる（表示制御用）
     //   5. このファイル全体をコンソールのルール欄に貼り直して「公開」する
     function adminUids() {
-      return ['REPLACE_WITH_ADMIN_UID'];
+      return ['9FompVx7Gpfp2f2anoz35vPyD6F3'];
     }
     function isAdmin() {
       return signedIn() && request.auth.uid in adminUids();
@@ -128,6 +128,38 @@ service cloud.firestore {
       // 既読化など、status フィールドだけの更新を管理者に許可する
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+
+    // ================================================================
+    // matches/{matchId} : ターン制ゲームの対戦ドキュメント（v55〜・match.js）
+    //   - matchId は6文字のルームコード。作成=ホストのみ、読取=当事者2人
+    //     （参加待ちの対局だけは、コードを知るログイン済みユーザーが参加の
+    //     ために読める）。更新は当事者、または参加待ち対局への参加
+    //     （guestUid が空→自分 になる更新）のみ。削除は不可。
+    //   - ⚠️ この節を本番へ反映するには、ユーザーがコンソールへこの
+    //     ファイル全体を貼り直して「公開」する必要がある。
+    // ================================================================
+    match /matches/{matchId} {
+      allow get: if signedIn()
+        && (request.auth.uid in resource.data.players
+            || resource.data.status == 'waiting');
+      allow list: if signedIn() && request.auth.uid in resource.data.players;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(
+            ['game', 'hostUid', 'guestUid', 'players', 'state', 'status', 'seq', 'createdAt', 'updatedAt'])
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.guestUid == ''
+        && request.resource.data.players == [request.auth.uid]
+        && request.resource.data.status == 'waiting';
+      allow update: if signedIn()
+        && request.resource.data.game == resource.data.game
+        && request.resource.data.hostUid == resource.data.hostUid
+        && request.resource.data.players.hasAll(resource.data.players)
+        && (request.auth.uid in resource.data.players
+            || (resource.data.status == 'waiting'
+                && resource.data.guestUid == ''
+                && request.resource.data.guestUid == request.auth.uid));
       allow delete: if false;
     }
 

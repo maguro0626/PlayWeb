@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="match.js"></script>
   <style>
     :root{
       --ink:#2b1c07;
@@ -586,7 +586,7 @@ let kifuList=[],lastDest=null,lastMover=null,snapshots=[];
 // オンラインではホストが 'player'、ゲストが 'npc' を担当する
 let mode='cpu';
 let mySide='player';
-let peer=null,conn=null,roomCode='',onlinePhase='idle'; // idle|creating|joining|playing
+let roomCode='',onlinePhase='idle'; // idle|creating|joining|playing
 let matchRecorded=false; // フレンド戦績の二重記録ガード（1試合1回）
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -900,14 +900,14 @@ function getBestMove(){
 }
 
 // ═══════════════════════════════════════════════════════════
-// MULTIPLAYER (対面2人 / オンライン PeerJS)
+// MULTIPLAYER (対面2人 / オンライン Firestore マッチ)
 // ═══════════════════════════════════════════════════════════
 function otherSide(o){return o==='player'?'npc':'player';}
 // その手を「今この端末の人間が」操作できるか
 function canControl(side){
   if(mode==='cpu')return side==='player';
   if(mode==='local')return true;
-  return onlinePhase==='playing'&&!netDown&&side===mySide;
+  return onlinePhase==='playing'&&side===mySide;
 }
 function updateTurnStatus(){
   if(!gameActive)return;
@@ -942,7 +942,7 @@ function setMode(m){
   updateModeUI();
   playClick();
   if(m==='local')showToast('対面2人モード');
-  if(m==='online')setStatus('オンライン：部屋を作るか、コードで参加してください');
+  if(m==='online'){setStatus('オンライン：部屋を作るか、コードで参加してください');tryResumeShogi();}
 }
 function updateModeUI(){
   ['cpu','local','online'].forEach(m=>{
@@ -974,63 +974,24 @@ function updateLabels(){
   }
 }
 
-// ─── オンライン（PeerJS / WebRTC P2P・スナップショット同期） ───
-function peerAvailable(){return typeof Peer!=='undefined';}
-function genRoomCode(){
-  const cs='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // I,O,0,1 は除外
-  let s='';for(let i=0;i<6;i++)s+=cs[Math.floor(Math.random()*cs.length)];
-  return s;
-}
+// ─── オンライン（Firestore マッチ / v55〜・match.js 基盤・スナップショット同期） ───
+// 盤面の正はマッチドキュメント matches/{roomCode} の state に置く。
+// 着手のたびに sendState() が状態スナップショットを publish し、相手側は
+// onSnapshot で受け取って applyState する。接続という概念がないため、
+// 招待の受け手が遅れて来ても、ページを開き直しても、進行中マッチへ復帰できる。
+let sgMatch=null;      // {code, unsub, data} 現在のマッチ購読
+let sgSeq=0;           // 適用済みの state 版数
+let sgRound=1;         // 適用済みの局数
+let sgMsgAt=0;         // 処理済みの msg の時刻
+let sgGuestSeen=false; // ホスト: ゲスト参加を検知済みか
 function setOnlineInfo(txt){
   const el=document.getElementById('online-info');
   if(el)el.textContent=txt;
 }
-const PEER_OPTS = { config: { iceServers: [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-] } };
-let connTimer = null;
-function armConnTimer(){
-  clearTimeout(connTimer);
-  connTimer = setTimeout(() => {
-    if (onlinePhase !== 'playing'){
-      onlinePhase = 'idle';
-      setOnlineInfo('接続を確立できませんでした。コードの確認や、ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください');
-      updateOnlinePanel();
-    }
-  }, 25000);
-}
-function disarmConnTimer(){ clearTimeout(connTimer); }
-let netDown = false, heartbeatTimer = null, guestRetryTimer = null;
-function startHeartbeat(){
-  stopHeartbeat();
-  heartbeatTimer = setInterval(() => { if (conn && conn.open){ try{ conn.send({t:'ping'}); }catch(e){} } }, 8000);
-}
-function stopHeartbeat(){ if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
-function scheduleGuestReconnect(){
-  clearTimeout(guestRetryTimer);
-  let tries = 0;
-  const attempt = () => {
-    if (mode !== 'online' || !netDown) return;
-    tries++;
-    if (tries > 20){
-      netDown = false; onlinePhase = 'idle';
-      setOnlineInfo('再接続できませんでした。モードを選び直してください');
-      updateOnlinePanel();
-      return;
-    }
-    guestRetryTimer = setTimeout(attempt, 5000);
-    try{
-      if (peer){ try{ peer.destroy(); }catch(e){} }
-      peer = new Peer(undefined, PEER_OPTS);
-      peer.on('open', () => { conn = peer.connect('playweb-sg-' + roomCode, {reliable:true}); wireConnection(false); });
-      peer.on('error', () => {});
-    }catch(e){}
-  };
-  guestRetryTimer = setTimeout(attempt, 1500);
+function sgUid(){const u=window.PWMatch&&PWMatch.me();return u?u.uid:'';}
+function sgTurnUid(){
+  if(!sgMatch||!sgMatch.data)return '';
+  return turn==='player'?(sgMatch.data.hostUid||''):(sgMatch.data.guestUid||'');
 }
 function updateOnlinePanel(){
   const main=document.getElementById('online-main');
@@ -1054,30 +1015,34 @@ function updateOnlinePanel(){
   }
 }
 function startHost(){
-  if(!peerAvailable()){
+  if(!window.PWMatch){
     setOnlineInfo('オンライン機能を読み込めませんでした。通信環境を確認してください');
     showToast('オンライン機能を読み込めませんでした');
     return;
   }
   leaveOnline(false);
-  roomCode=genRoomCode();
   mySide='player';onlinePhase='creating';
-  try{
-    peer=new Peer('playweb-sg-'+roomCode, PEER_OPTS);
-  }catch(e){
-    onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();return;
-  }
-  peer.on('open',()=>{window.PW_ROOM_CODE=roomCode;updateOnlinePanel();updateLabels();});
-  peer.on('connection',c=>{conn=c;wireConnection(true);});
-  peer.on('error',err=>{
-    if(err&&err.type==='unavailable-id'){startHost();return;} // コード衝突時は引き直し
-    if(onlinePhase!=='playing')setOnlineInfo('接続エラーが発生しました');
-  });
-  peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});
   updateOnlinePanel();updateLabels();
+  setOnlineInfo('部屋を作成中…');
+  let failed=false;
+  PWMatch.whenReady().then(ok=>{
+    if(!ok){failed=true;onlinePhase='idle';setOnlineInfo('オンライン機能を読み込めませんでした。通信環境を確認してください');updateOnlinePanel();return null;}
+    resetGame();
+    return PWMatch.create('shogi',{state:serializeState(),turn:sgUid()});
+  }).then(res=>{
+    if(failed||!res)return;
+    if(mode!=='online'){PWMatch.close(res.code);return;}
+    roomCode=res.code;window.PW_ROOM_CODE=roomCode;
+    sgSeq=0;sgRound=1;sgMsgAt=0;sgGuestSeen=false;
+    attachShogiMatch(roomCode);
+    onlinePhase='creating';
+    updateOnlinePanel();updateLabels();
+  }).catch(()=>{
+    if(mode==='online'){onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();}
+  });
 }
 function joinRoom(){
-  if(!peerAvailable()){
+  if(!window.PWMatch){
     setOnlineInfo('オンライン機能を読み込めませんでした。通信環境を確認してください');
     showToast('オンライン機能を読み込めませんでした');
     return;
@@ -1086,64 +1051,128 @@ function joinRoom(){
   if(code.length!==6){setOnlineInfo('6文字のルームコードを入力してください');return;}
   leaveOnline(false);
   roomCode=code;mySide='npc';onlinePhase='joining';
-  try{
-    peer=new Peer(undefined, PEER_OPTS);
-  }catch(e){
-    onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();return;
-  }
-  peer.on('open',()=>{
-    armConnTimer();
-    conn=peer.connect('playweb-sg-'+code,{reliable:true});
-    wireConnection(false);
-  });
-  peer.on('error',err=>{
-    if(err&&err.type==='peer-unavailable'){
+  updateOnlinePanel();updateLabels();
+  let failed=false;
+  PWMatch.whenReady().then(ok=>{
+    if(!ok){failed=true;onlinePhase='idle';setOnlineInfo('オンライン機能を読み込めませんでした。通信環境を確認してください');updateOnlinePanel();return null;}
+    return PWMatch.join(code);
+  }).then(data=>{
+    if(failed)return;
+    if(!data){
       onlinePhase='idle';
       setOnlineInfo('相手が見つかりませんでした。コードを確認してください');
       updateOnlinePanel();
-    }else if(onlinePhase!=='playing'){
-      setOnlineInfo('接続エラーが発生しました');
+      return;
     }
+    if(data.status==='finished'){
+      onlinePhase='idle';
+      setOnlineInfo('その対局は既に終了しています。新しい招待を送ってもらってください');
+      updateOnlinePanel();
+      return;
+    }
+    sgRound=data.round||1;sgSeq=data.seq||0;sgMsgAt=data.msgAt||0;sgGuestSeen=true;
+    attachShogiMatch(code);
+    onlinePhase='playing';
+    if(data.state)applyState(data.state);
+    updateOnlinePanel();updateLabels();
+    showToast('対戦開始！あなたは後手です');
+  }).catch(()=>{
+    if(mode==='online'){onlinePhase='idle';setOnlineInfo('接続に失敗しました');updateOnlinePanel();}
   });
-  updateOnlinePanel();updateLabels();
 }
-function wireConnection(isHost){
-  if(!conn)return;
-  if(isHost) armConnTimer();
-  conn.on('iceStateChanged', st => {
-    if ((st === 'failed' || st === 'disconnected') && onlinePhase !== 'playing'){
-      disarmConnTimer();
-      onlinePhase = 'idle';
-      setOnlineInfo('接続を確立できませんでした。ネットワーク環境を変えてもう一度お試しください');
+/* マッチドキュメントの購読。スナップショットを従来の受信手順
+   （onNetData / applyState）へ翻訳して、同期の意味論をそのまま使う */
+function attachShogiMatch(code){
+  detachShogiMatch();
+  sgMatch={code,unsub:null,data:null};
+  sgMatch.unsub=PWMatch.attach(code,data=>{
+    if(!sgMatch||sgMatch.code!==code||!data)return;
+    sgMatch.data=data;
+    /* ホスト: ゲスト参加の検知 → 対局を初期化して state を配る */
+    if(mySide==='player'&&data.guestUid&&!sgGuestSeen){
+      sgGuestSeen=true;
+      onlinePhase='playing';
+      resetGame();
+      updateModeUI();
+      sendState();
+      showToast('対戦開始！あなたは先手です');
       updateOnlinePanel();
     }
-  });
-  conn.on('open',()=>{
-    disarmConnTimer();
-    if(isHost){
-      const resume = onlinePhase==='playing';
+    /* 再戦（round 変更）: 新しい局の state を適用する */
+    if(typeof data.round==='number'&&data.round!==sgRound){
+      sgRound=data.round;
+      sgSeq=typeof data.seq==='number'?data.seq:sgSeq;
+      sgMsgAt=typeof data.msgAt==='number'?data.msgAt:sgMsgAt;
       onlinePhase='playing';
-      if(resume){
-        netDown=false;
-        sendState();
-        setOnlineInfo('対戦中（あなたは先手）');
-        showToast('再接続しました！対局を続けます');
-      }else{
-        resetGame();
-        updateModeUI();
-        sendState();
-        showToast('対戦開始！あなたは先手です');
+      if(data.state)applyState(data.state);
+      updateOnlinePanel();
+      return;
+    }
+    /* 状態更新（相手の書き込みだけを反映する） */
+    if(typeof data.seq==='number'&&data.seq>sgSeq){
+      const writer=data.lastWriter||'';
+      sgSeq=data.seq;
+      if(writer&&writer!==sgUid()&&data.state){
+        if(onlinePhase!=='playing'){onlinePhase='playing';updateOnlinePanel();}
+        applyState(data.state);
       }
-      startHeartbeat();
-    }else{
-      try{conn.send({t:'hello'});}catch(e){}
-      setOnlineInfo('ホストの応答を待っています…');
+    }
+    /* メッセージ中継（相手から） */
+    if(data.msg&&data.msgFrom&&data.msgFrom!==sgUid()){
+      if((data.msgAt||0)>sgMsgAt){
+        sgMsgAt=data.msgAt||0;
+        onNetData(data.msg);
+      }
     }
   });
-  conn.on('data',onNetData);
-  const myConn = conn;
-  conn.on('close',()=>{ if(conn===myConn) onNetDisconnect(); });
-  conn.on('error',()=>{ if(conn===myConn) onNetDisconnect(); });
+}
+function detachShogiMatch(){
+  if(sgMatch&&sgMatch.unsub){try{sgMatch.unsub();}catch(e){}}
+  sgMatch=null;
+}
+/* オンラインモードに入ったとき、進行中マッチがあれば自動で再開する */
+function tryResumeShogi(){
+  if(!window.PWMatch||sgMatch)return;
+  PWMatch.whenReady().then(ok=>{
+    if(!ok||mode!=='online'||sgMatch)return null;
+    return PWMatch.findActive('shogi').then(found=>{
+      if(found)return found;
+      /* 進行中が無くても、直近10分以内に終わった対局なら結果表示のため一度だけ復元する */
+      let hint='';
+      try{hint=localStorage.getItem('pwmatch_last_shogi')||'';}catch(e){}
+      if(!hint)return null;
+      return PWMatch.get(hint).then(data=>{
+        if(!data||data.status!=='finished')return null;
+        if(Date.now()-(data.updatedAt||0)>10*60*1000)return null;
+        let seen='';
+        try{seen=localStorage.getItem('pwmatch_finseen_shogi')||'';}catch(e){}
+        if(seen===hint)return null;
+        return {code:hint,data};
+      });
+    });
+  }).then(found=>{
+    if(!found||mode!=='online'||sgMatch)return;
+    const data=found.data;
+    const isHost=data.hostUid===sgUid();
+    mySide=isHost?'player':'npc';
+    roomCode=found.code;window.PW_ROOM_CODE=roomCode;
+    sgRound=data.round||1;sgSeq=data.seq||0;sgMsgAt=data.msgAt||0;
+    sgGuestSeen=!!data.guestUid;
+    attachShogiMatch(roomCode);
+    let finishedNote=false;
+    if(data.status==='finished'){
+      onlinePhase='idle';
+      if(data.state)applyState(data.state);
+      try{localStorage.setItem('pwmatch_finseen_shogi',roomCode);}catch(e){}
+      finishedNote=true;
+    }else{
+      onlinePhase=data.status==='playing'?'playing':(isHost?'creating':'playing');
+      if(data.state)applyState(data.state);
+      showToast('進行中の対局に再接続しました');
+    }
+    updateOnlinePanel();updateLabels();
+    if(finishedNote)setOnlineInfo('前回の対局は終了しています');
+  }).catch(()=>{});
 }
 function onNetData(msg){
   if(!msg||!msg.t)return;
@@ -1154,8 +1183,6 @@ function onNetData(msg){
   }
   if(msg.t==='state'){
     if(onlinePhase!=='playing'){onlinePhase='playing';}
-    if(netDown){ netDown=false; showToast('再接続しました！対局を続けます'); }
-    startHeartbeat();
     updateOnlinePanel();
     applyState(msg.state);
     return;
@@ -1169,35 +1196,24 @@ function onNetData(msg){
     return;
   }
   if(msg.t==='rematch'){
-    // 再戦の初期化はホストが行い、stateを送り直す
+    // 再戦の初期化はホストが行い、round を進めて state を送り直す
     if(mySide==='player'){
       resetGame();
       updateModeUI();
-      sendState();
+      hostPublishRematch();
     }
     return;
   }
 }
-function onNetDisconnect(){
-  if(mode!=='online')return;
-  if(onlinePhase==='playing'){
-    /* 対局中の切断: 盤面を保持して自動再接続する */
-    netDown=true;conn=null;
-    stopHeartbeat();
-    setStatus('接続が切れました。再接続を試みています…');
-    setOnlineInfo('再接続を試みています…（盤面は保持されます）');
-    showToast('接続が切れました。再接続を試みています…');
-    if(mySide==='npc')scheduleGuestReconnect();
-    return;
-  }
-  onlinePhase='idle';conn=null;
-  updateOnlinePanel();
+/* ホストの再戦開始（round を進めて新しい局の state を配る） */
+function hostPublishRematch(){
+  if(!sgMatch||!window.PWMatch){sendState();return;}
+  sgRound++;
+  PWMatch.publish(sgMatch.code,{state:serializeState(),turn:sgTurnUid(),lastAction:{t:'state'},round:sgRound,status:'playing',winner:null}).catch(()=>{});
 }
 function leaveOnline(manual){
-  netDown=false;stopHeartbeat();clearTimeout(guestRetryTimer);
-  try{if(conn)conn.close();}catch(e){}
-  try{if(peer)peer.destroy();}catch(e){}
-  conn=null;peer=null;onlinePhase='idle';roomCode='';
+  detachShogiMatch();
+  onlinePhase='idle';roomCode='';window.PW_ROOM_CODE='';
   if(mode==='online'){
     updateOnlinePanel();
     if(manual){resetGame();setStatus('オンライン接続待ち…');}
@@ -1229,9 +1245,8 @@ function serializeState(){
   };
 }
 function sendState(){
-  if(conn&&conn.open){
-    try{conn.send({t:'state',state:serializeState()});}catch(e){}
-  }
+  if(!sgMatch||!window.PWMatch)return;
+  PWMatch.publish(sgMatch.code,{state:serializeState(),turn:sgTurnUid(),lastAction:{t:'state'}}).catch(()=>{});
 }
 function applyState(st){
   if(!st||!st.board)return;
@@ -1271,9 +1286,9 @@ function onRematchButton(){
   if(mySide==='player'){
     resetGame();
     updateModeUI();
-    sendState();
+    hostPublishRematch();
   }else{
-    if(conn&&conn.open){try{conn.send({t:'rematch'});}catch(e){}}
+    if(sgMatch&&window.PWMatch){PWMatch.sendMsg(sgMatch.code,{t:'rematch'}).catch(()=>{});}
     document.querySelectorAll('.modal-overlay').forEach(e=>e.remove());
     showToast('再戦を申し込みました');
     setStatus('相手の応答を待っています…');
@@ -1583,7 +1598,7 @@ function doResign(){
   gameActive=false;
   render();updateUI();
   if(mode==='online'){
-    if(conn&&conn.open){try{conn.send({t:'resign'});}catch(e){}}
+    if(sgMatch&&window.PWMatch){PWMatch.sendMsg(sgMatch.code,{t:'resign'}).catch(()=>{});}
     endGame(otherSide(mySide),'resign');
     return;
   }
@@ -1703,6 +1718,14 @@ function endGame(winner,reason='checkmate'){
     if(!matchRecorded && window.PWFriends && PWFriends.recordMatch){
       matchRecorded=true;
       PWFriends.recordMatch(win?'win':'lose');
+    }
+    /* マッチドキュメントへ終局を記録する（両側が同じ勝者を書くので冪等） */
+    if(sgMatch && window.PWMatch && sgMatch.data){
+      PWMatch.finish(sgMatch.code, winner==='player' ? (sgMatch.data.hostUid||null) : (sgMatch.data.guestUid||null)).catch(()=>{});
+      /* 終わった対局のコードを再招待で使い回さないよう消す（次の招待では新しいマッチが作られる） */
+      roomCode='';window.PW_ROOM_CODE='';
+      const codeEl=document.getElementById('online-code');
+      if(codeEl)codeEl.textContent='';
     }
   }else{
     win=winner==='player';
