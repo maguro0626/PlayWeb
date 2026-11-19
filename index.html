@@ -7,6 +7,8 @@
 <meta name="description" content="テトリス・スイカゲーム・麻雀・将棋・RPGなど、全14作品が遊べる無料ブラウザゲームポータル">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root{
@@ -137,11 +139,18 @@
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" style="display:none">見つかりませんでした…別のキーワードで試してみてください。</div>
 
-  <div class="secTitle">👥 フレンド <span class="cnt">オンライン状態・チャット・ゲームへの招待</span></div>
-  <div id="pwFriendsPortal"></div>
+  <div class="bkCard" data-pw-guest-note style="display:none;margin-top:26px">
+    <p>👋 いまは<b>ゲスト</b>として遊んでいます。ゲストでは<b>1人用モードのみ</b>で、セーブデータは保存されません。<b>ログイン</b>すると、マルチプレイ（オンライン対戦・協力）・フレンド機能・セーブデータの保存とクラウド同期が使えるようになります。</p>
+    <div class="bkBtns">
+      <button class="bkBtn primary" data-pw-login-btn>👤 ログイン / 新規登録</button>
+    </div>
+  </div>
 
-  <div class="secTitle">💾 セーブデータのバックアップ <span class="cnt">全ゲーム共通</span></div>
-  <div class="bkCard">
+  <div class="secTitle" data-pw-member-only style="display:none">👥 フレンド <span class="cnt">オンライン状態・チャット・ゲームへの招待</span></div>
+  <div id="pwFriendsPortal" data-pw-member-only style="display:none"></div>
+
+  <div class="secTitle" data-pw-member-only style="display:none">💾 セーブデータのバックアップ <span class="cnt">全ゲーム共通</span></div>
+  <div class="bkCard" data-pw-member-only style="display:none">
     <p>セーブデータはこのブラウザの中に保存されています。ブラウザのデータを消すとセーブも消えてしまいます。時々バックアップを書き出しておくと安心です。対象は全ゲーム共通で、フレンド情報も含まれます。</p>
     <div class="bkBtns">
       <button class="bkBtn primary" id="bkExportBtn">📤 書き出す（ダウンロード）</button>
@@ -337,7 +346,6 @@ if (sessionStorage.getItem('pw_updated')){
 </script>
 <script>window.PW_GAME='portal';</script>
 <script src="friends.js"></script>
-<script src="account.js"></script>
 <script>
 /* ─── セーブデータのバックアップ（書き出し／読み込み／読み込み前に戻す） ─── */
 (function(){

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v49';
+const CACHE_NAME = 'game-platform-cache-v50';
 
 // ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
 // キャッシュしたいファイルを1つずつ正確に書く必要があります。
@@ -8,7 +8,8 @@ const urlsToCache = [
   'friends.js',
   'account.js',
   'manifest.json',
-  
+  'icon-192.png',
+
   // 各ゲームのHTML
   'reversi.html',
   'shogi.html',

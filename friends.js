@@ -463,6 +463,7 @@
     return null;
   }
   function sendInvite(code, game, room) {
+    if (gateBlocked()) return false;
     if (!GAMES[game] || !ROOM_RE.test(room || '')) return false;
     /* ログイン時は Firestore 招待を優先（相手がオフラインでも次に開いた時に届く）。
        相手のアカウントが引けない場合だけ従来の PeerJS 送信にフォールバックする。 */
@@ -484,6 +485,10 @@
   window.PWFriends = {
     version: 2,
     game: MY_GAME,
+    /* account.js からのゲート通知（pending/member/guest/sdk-down） */
+    _applyGate: function (state) { applyGate(state); },
+    gateState: function () { return gateState; },
+    loginNotice: loginNotice,
     profile: function () { return { name: profile.name, code: profile.code }; },
     isOnline: isOnline,
     sendInvite: sendInvite,
@@ -615,6 +620,7 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) closeInvitePicker(); });
   }
   function openInvitePicker() {
+    if (gateBlocked()) { loginNotice(); return; }
     if (MY_GAME === 'portal') { openPanel(); return; }
     buildPickerDom();
     pickerOpen = true;
@@ -687,6 +693,7 @@
   }
   /* PW_AUTO_HOST が無いゲームでは PW_JOIN_CFG から自動でホスト開始する */
   function autoHostViaCfg() {
+    if (gateBlocked()) { loginNotice(); return Promise.resolve(false); }
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.hostBtn) return Promise.resolve(false);
     return runOpeners(cfg).then(function () { return pollEl(cfg.hostBtn, 9000); }).then(function (btn) {
@@ -695,6 +702,7 @@
     });
   }
   function callAutoHost() {
+    if (gateBlocked()) { loginNotice(); return; }
     if (typeof window.PW_AUTO_HOST === 'function') { try { window.PW_AUTO_HOST(); return; } catch (e) {} }
     autoHostViaCfg();
   }
@@ -728,6 +736,7 @@
     els.recordsSel.onchange = function () { recordsGame = els.recordsSel.value; renderRecords(); };
   }
   function openRecords(gameId) {
+    if (gateBlocked()) { loginNotice(); return; }
     buildRecordsDom();
     recordsGame = (gameId && GAMES[gameId]) ? gameId : MY_GAME;
     recordsOpen = true;
@@ -799,15 +808,38 @@
         if (p && /code/i.test(p.id || '')) hideEl(p);
       }
     });
-    if (!document.querySelector('.pwf-gamebar')) {
+    /* ゲート: ゲスト時はオンライン入口自体も隠す。ログイン状態に戻ったら戻す */
+    var blocked = gateBlocked();
+    if (cfg.openers) {
+      cfg.openers.forEach(function (op) {
+        if (!op.click) return;
+        try {
+          document.querySelectorAll(op.click).forEach(function (el) {
+            if (blocked) el.classList.add('pwf-hidden');
+            else el.classList.remove('pwf-hidden');
+          });
+        } catch (e) {}
+      });
+    }
+    var mode = blocked ? 'blocked' : 'member';
+    var oldBar = document.querySelector('.pwf-gamebar');
+    if (oldBar && oldBar.getAttribute('data-pw-mode') !== mode) { oldBar.remove(); oldBar = null; }
+    if (!oldBar) {
       var bar = document.createElement('div');
       bar.className = 'pwf-gamebar pwf-root';
-      var coop = !!(GAMES[MY_GAME] && GAMES[MY_GAME].coop);
-      bar.innerHTML = '<button class="pwf-gb-invite">' + (coop ? '👥 フレンドを招待して協力プレイ' : '👥 フレンドを招待して対戦') + '</button>' +
-        '<button class="pwf-gb-records">📊 フレンド戦績</button>' +
-        '<div class="pwf-gb-note">オンラインはフレンド招待制です（コード入力はありません）</div>';
-      bar.querySelector('.pwf-gb-invite').onclick = function () { openInvitePicker(); };
-      bar.querySelector('.pwf-gb-records').onclick = function () { openRecords(MY_GAME); };
+      bar.setAttribute('data-pw-mode', mode);
+      if (blocked) {
+        bar.innerHTML = '<div class="pwf-gb-note" style="flex:1 1 200px">🔒 オンライン対戦・フレンド機能にはログインが必要です（ゲストは1人用のみ・セーブされません）</div>' +
+          '<button class="pwf-gb-records pwf-gb-login">ログイン</button>';
+        bar.querySelector('.pwf-gb-login').onclick = function () { loginNotice(); };
+      } else {
+        var coop = !!(GAMES[MY_GAME] && GAMES[MY_GAME].coop);
+        bar.innerHTML = '<button class="pwf-gb-invite">' + (coop ? '👥 フレンドを招待して協力プレイ' : '👥 フレンドを招待して対戦') + '</button>' +
+          '<button class="pwf-gb-records">📊 フレンド戦績</button>' +
+          '<div class="pwf-gb-note">オンラインはフレンド招待制です（コード入力はありません）</div>';
+        bar.querySelector('.pwf-gb-invite').onclick = function () { openInvitePicker(); };
+        bar.querySelector('.pwf-gb-records').onclick = function () { openRecords(MY_GAME); };
+      }
       var target = anchor;
       var parent = anchor.parentElement;
       if (parent && parent.tagName === 'DIV' && parent.children.length <= 3 && parent.parentElement) target = parent;
@@ -942,15 +974,21 @@
     });
   }
 
-  function buildUI() {
+  /* スタイルとトースト置き場だけはゲート状態によらず用意する
+     （ゲスト時の「ログインが必要です」案内にもトーストを使うため） */
+  var shellBuilt = false;
+  function buildShell() {
+    if (shellBuilt) return;
+    shellBuilt = true;
     var style = document.createElement('style');
     style.textContent = CSS;
     document.head.appendChild(style);
-
     els.toasts = document.createElement('div');
     els.toasts.className = 'pwf-toasts';
     document.body.appendChild(els.toasts);
-
+  }
+  function buildUI() {
+    buildShell();
     var panelHtml =
       '<div class="pwf-head"><span>👥 フレンド</span>' +
       (inlineMode ? '' : '<button class="pwf-x" id="pwfClose" aria-label="閉じる">✕</button>') + '</div>' +
@@ -1029,6 +1067,7 @@
   }
   function $(id) { return document.getElementById(id); }
   function openPanel() {
+    if (gateBlocked()) { loginNotice(); return; }
     state.panelOpen = true;
     fabWake();
     if (els.overlay) els.overlay.classList.add('show');
@@ -1441,6 +1480,7 @@
     return chain;
   }
   function runJoinHook(code) {
+    if (gateBlocked()) { loginNotice(); return; }
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.input) return;
     window.PW_JOIN_STARTED = true;
@@ -1463,6 +1503,7 @@
     });
   }
   function runHostInviteHook(friendCode) {
+    if (gateBlocked()) return;
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.hostBtn) return;
     window.PW_HOSTINVITE_STARTED = true;
@@ -1521,6 +1562,105 @@
     }
   }
 
+  /* ---------------- ゲート（ログイン必須化 / account.js 連携） ----------------
+     ゲスト（未ログイン）・SDK が読み込めない環境では、フレンド機能と
+     マルチプレイの入口を一切出さない。account.js が gateState
+     （pending/member/guest/sdk-down）を通知してくるので、それに従う。
+     account.js が無いページでは従来動作（member 扱い）。 */
+  var gateState = 'pending';
+  var fullInitDone = false;
+  function gateBlocked() { return gateState !== 'member'; }
+  function loginNotice() {
+    if (gateState === 'sdk-down') {
+      toast('ログイン機能を読み込めない環境では、オンライン対戦・フレンド機能は使えません', 'info');
+      return;
+    }
+    if (gateState === 'pending') {
+      toast('ログイン状態を確認しています…', 'info');
+      return;
+    }
+    toast('オンライン対戦・フレンド機能にはログインが必要です', 'info');
+    if (window.PWAccount && window.PWAccount.openModal) window.PWAccount.openModal();
+  }
+  function teardownFriendsUI() {
+    try { closePanel(); } catch (e) {}
+    closeInvitePicker();
+    closeRecords();
+    if (els.fab) els.fab.style.display = 'none';
+    document.querySelectorAll('.pwf-gamebar').forEach(function (b) { b.remove(); });
+    try { if (state.peer) state.peer.destroy(); } catch (e) {}
+    state.peer = null; state.peerOpen = false; state.conns = {}; state.presence = {};
+  }
+  var hooksNoticeShown = false;
+  function initHooksBlockedNotice() {
+    if (hooksNoticeShown) return;
+    try {
+      var params = new URLSearchParams(location.search);
+      if (params.get('join') || params.get('hostinvite')) {
+        hooksNoticeShown = true;
+        loginNotice();
+      }
+    } catch (e) {}
+  }
+  function applyGate(state) {
+    gateState = state || 'guest';
+    if (gateState === 'member') {
+      if (!fullInitDone) {
+        fullInitDone = true;
+        buildUI();
+        startPeerWhenReady();
+        initHooks();
+        setInterval(trySendMatchJoin, 4000);
+      } else {
+        if (els.fab) els.fab.style.display = '';
+        if (!state.peer) startPeerWhenReady();
+      }
+      initGameUI();
+    } else {
+      if (fullInitDone) teardownFriendsUI();
+      initGameUI();
+      initHooksBlockedNotice();
+    }
+  }
+  /* PW_AUTO_HOST / PW_AUTO_JOIN はゲートを見るラッパとして用意する
+     （ゲーム側が独自に定義している場合はそちらを尊重する） */
+  function defineAutoHooks() {
+    if (MY_GAME === 'portal' || !window.PW_JOIN_CFG) return;
+    if (typeof window.PW_AUTO_HOST !== 'function') {
+      window.PW_AUTO_HOST = function () {
+        if (gateBlocked()) { loginNotice(); return; }
+        autoHostViaCfg();
+      };
+    }
+    if (typeof window.PW_AUTO_JOIN !== 'function') {
+      window.PW_AUTO_JOIN = function (room) {
+        if (gateBlocked()) { loginNotice(); return; }
+        runJoinHook(room);
+      };
+    }
+  }
+  /* ゲスト時のオンライン入口クリック遮断（capture フェーズ）:
+     ゲーム独自の入口が画面に残っていても、押した時点で止めて案内を出す */
+  document.addEventListener('click', function (e) {
+    if (!gateBlocked() || MY_GAME === 'portal') return;
+    var cfg = window.PW_JOIN_CFG;
+    if (!cfg) return;
+    var sels = [];
+    (cfg.openers || []).forEach(function (op) { if (op.click) sels.push(op.click); });
+    if (cfg.hostBtn) sels.push(cfg.hostBtn);
+    if (cfg.joinBtn) sels.push(cfg.joinBtn);
+    for (var i = 0; i < sels.length; i++) {
+      var hit = null;
+      try { hit = (e.target && e.target.closest) ? e.target.closest(sels[i]) : null; } catch (err) {}
+      if (hit) {
+        e.preventDefault();
+        e.stopPropagation();
+        loginNotice();
+        return;
+      }
+    }
+  }, true);
+
   /* ---------------- 初期化 ---------------- */
   var peerLoadTried = false;
   function startPeerWhenReady() {
@@ -1535,21 +1675,20 @@
     document.head.appendChild(s);
   }
   function init() {
-    buildUI();
-    /* ゲーム側が未定義なら、PW_JOIN_CFG から自動ホスト/自動参加フックを用意する */
-    if (MY_GAME !== 'portal' && window.PW_JOIN_CFG) {
-      if (typeof window.PW_AUTO_HOST !== 'function') {
-        window.PW_AUTO_HOST = function () { autoHostViaCfg(); };
-      }
-      if (typeof window.PW_AUTO_JOIN !== 'function') {
-        window.PW_AUTO_JOIN = function (room) { runJoinHook(room); };
-      }
+    buildShell();
+    defineAutoHooks();
+    if (window.PWAccount && typeof window.PWAccount.gateState === 'function') {
+      /* アカウント基盤がある場合はゲート判定に従う（判定が出るまでフレンドUIは出さない） */
+      var gs = window.PWAccount.gateState();
+      if (gs && gs !== 'pending') applyGate(gs);
+      window.PWAccount.onGateChange(function (s) { applyGate(s); });
+      if (window.PWAccount._friendsReady) window.PWAccount._friendsReady();
+      /* 判定が来ない場合の保険（account.js は SDK 失敗時も必ず通知するが念のため） */
+      setTimeout(function () { if (gateState === 'pending') applyGate('sdk-down'); }, 25000);
+    } else {
+      /* account.js が無いページでは従来動作 */
+      applyGate('member');
     }
-    startPeerWhenReady();
-    initHooks();
-    initGameUI();
-    /* ゲストの matchjoin は接続が開くまで粘って送る */
-    setInterval(trySendMatchJoin, 4000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

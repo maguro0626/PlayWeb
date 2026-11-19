@@ -2,8 +2,9 @@
    PlayWeb アカウント基盤（account.js）
    ------------------------------------------------------------
    Firebase（Auth + Firestore）を使った共通モジュール。
-   friends.js と同様に全ページへ <script src="account.js"> で組み込む
-   （friends.js の直後に置くこと）。
+   全ページの <head> 内（ゲーム本体のスクリプトより前）に
+   <script src="account.js"> で組み込む。ゲスト制限の保存シムを
+   ゲームの初期化より先に有効化するため、末尾ではなく head に置く。
 
    提供するもの:
    - ログイン管理: ユーザー名＋パスワード（Auth はメール/パスワード方式のため、
@@ -24,8 +25,19 @@
      招待は invites コレクション（オフラインでも届く）、チャットは
      messages コレクション（当事者のみ）に保存する。実際の対戦接続は
      従来どおり PeerJS ルームへ合流する。
-   - 未ログイン時・SDK が読み込めない環境では一切何も変えず、
-     従来の friends.js（コード制・PeerJS）の動作がそのまま動く。
+   - ゲスト制限（v50〜）: 未ログイン（ゲスト）は1人用モードのみ。
+     マルチプレイ・フレンド機能は使えず、セーブデータは保存されない。
+     実装は2層: (1) 保存シム — ログイン見込みが無いページ読み込みでは、
+     ゲーム系キーへの localStorage 読み書きをメモリ内ストアへ振り替える。
+     ディスク上の既存データは絶対に削除・上書きしない（見せないだけ）。
+     ログイン痕跡（pwacct_hint）は前回セッションのものを参照する。
+     (2) ゲート — friends.js へ gateState（pending/member/guest/sdk-down）を
+     通知し、フレンドUI・招待・オンライン入口を制御する。SDK が読み込めない
+     環境ではログインできないため、マルチ/フレンドはゲスト扱いでブロックし、
+     セーブはディスクを触らない（シムはディスクを消さない）。
+   - v50 移行: フレンド系ローカルデータ（playweb_friends/chats/unread/records）は
+     初回起動時に一度だけリセットする（ユーザー許可済み）。ゲームのセーブには
+     一切触らない。プロフィール（名前・自分のフレンドコード）は残す。
 
    公開 API: window.PWAccount（下部参照）
    ============================================================ */
@@ -82,6 +94,112 @@
   }
   var MY_GAME = inferGame();
 
+  /* ---------------- 生ストレージ（シムを通さない直接アクセス） ----------------
+     ゲスト用シムは Storage.prototype を差し替えるため、account.js 自身が
+     ディスク上の実データへ触るときは、差し替え前の原生メソッドを使う。 */
+  var rawLS = { get: null, set: null, remove: null, clear: null };
+  try {
+    var __proto = window.Storage && Storage.prototype;
+    if (__proto) {
+      rawLS.get = __proto.getItem; rawLS.set = __proto.setItem;
+      rawLS.remove = __proto.removeItem; rawLS.clear = __proto.clear;
+    }
+  } catch (e) {}
+  function diskGet(k) {
+    try { return rawLS.get ? rawLS.get.call(window.localStorage, k) : null; }
+    catch (e) { return null; }
+  }
+  function diskSet(k, v) {
+    try { if (rawLS.set) rawLS.set.call(window.localStorage, k, String(v)); } catch (e) {}
+  }
+  function diskRemove(k) {
+    try { if (rawLS.remove) rawLS.remove.call(window.localStorage, k); } catch (e) {}
+  }
+  /* シムの対象外キー（常にディスク直通）:
+     - firebase: で始まるキー（Firebase Auth の永続化を壊さない）
+     - pwacct_ で始まるキー（account.js の内部管理キー）
+     - playweb_pre_import_backup（退避データ） */
+  var LS_STASH_EARLY = 'playweb_pre_import_backup';
+  function shimExempt(k) {
+    return k === LS_STASH_EARLY || k.indexOf('firebase:') === 0 || k.indexOf('pwacct_') === 0;
+  }
+
+  /* ---------------- ログイン痕跡（ヒント）とゲスト状態 ----------------
+     pwacct_hint: {loggedIn: bool, ts} — 前回セッションで認証が確定した時点の状態。
+     ページ読み込み時点では Firebase の認証状態はまだ分からないため、
+     「前回ログインしていた」場合だけシムを無効にして読み込みを始める。
+     認証が確定したら onAuthUser 側で整合させる（必要なら再読み込み）。 */
+  var LS_HINT = 'pwacct_hint';
+  function readHint() {
+    try {
+      var h = JSON.parse(diskGet(LS_HINT) || 'null');
+      return (h && typeof h === 'object') ? h : null;
+    } catch (e) { return null; }
+  }
+  function writeHint(loggedIn) {
+    diskSet(LS_HINT, JSON.stringify({ loggedIn: !!loggedIn, ts: nowMs() }));
+  }
+  var hintAtLoad = readHint();
+  /* ゲストシムが有効か。有効な間、ゲーム系キーへの読み書きは memStore 行きで、
+     ディスク上の既存データは見えなくなる（削除・上書きは一切しない）。 */
+  var guestActive = !(hintAtLoad && hintAtLoad.loggedIn === true);
+  var memStore = {};   /* key -> string（ゲストセッション内だけの保存先） */
+
+  /* ゲート状態: friends.js のフレンド/マルチ制御に使う
+     pending（認証確認中）| member（ログイン中）| guest（未ログイン）| sdk-down（SDK不可） */
+  var gateState = 'pending';
+  var gateCbs = [];
+  function setGate(state) {
+    gateState = state;
+    pushGateToFriends();
+    gateCbs.slice().forEach(function (cb) { try { cb(state); } catch (e) {} });
+    applyMemberOnlyVisibility();
+  }
+  function pushGateToFriends() {
+    var api = window.PWFriends;
+    if (api && api._applyGate) { try { api._applyGate(gateState); } catch (e) {} }
+  }
+  /* ポータル等の「ログイン中だけ見せる要素」「ゲスト向け案内」の表示切替 */
+  function applyMemberOnlyVisibility() {
+    try {
+      var member = gateState === 'member';
+      var guestish = gateState === 'guest' || gateState === 'sdk-down';
+      document.querySelectorAll('[data-pw-member-only]').forEach(function (el) {
+        el.style.display = member ? '' : 'none';
+      });
+      document.querySelectorAll('[data-pw-guest-note]').forEach(function (el) {
+        el.style.display = guestish ? '' : 'none';
+      });
+    } catch (e) {}
+  }
+
+  /* 遷移時の自動リロードは1回だけ（ループ防止）。安定状態で解除する */
+  function reloadOnce(tag) {
+    try {
+      if (sessionStorage.getItem('pwacct_rl') === tag) return false;
+      sessionStorage.setItem('pwacct_rl', tag);
+    } catch (e) {}
+    location.reload();
+    return true;
+  }
+  function clearReloadGuard() {
+    try { sessionStorage.removeItem('pwacct_rl'); } catch (e) {}
+  }
+
+  /* ゲスト中の進捗をディスクへ移す（新規登録時専用）。
+     安全条件: ディスクに既にあるキーはディスク側が正。シム側の値は
+     「ディスクに無いキー」に限って書き足す（ゲームが起動時に書いた
+     初期値などで本物のセーブを潰さないため）。 */
+  function flushGuestStoreDiskFirst() {
+    if (!guestActive) return;
+    Object.keys(memStore).forEach(function (k) {
+      if (shimExempt(k)) return;
+      if (diskGet(k) === null) diskSet(k, memStore[k]);
+    });
+    memStore = {};
+    guestActive = false;
+  }
+
   /* ユーザー名バリデーション: {ok:true} | {ok:false, error} */
   function validateUsername(name) {
     if (typeof name !== 'string') return { ok: false, error: 'ユーザー名を入力してください' };
@@ -106,7 +224,7 @@
       case 'auth/wrong-password':
         return 'ユーザー名またはパスワードが違います';
       case 'auth/email-already-in-use':
-        return 'このユーザー名は既に使われています';
+        return 'このユーザー名は既に登録されています。心当たりがあればログインしてみてください';
       case 'auth/weak-password':
         return 'パスワードが弱すぎます（6文字以上にしてください）';
       case 'auth/too-many-requests':
@@ -170,6 +288,43 @@
     try { localStorage.setItem(LS_META, JSON.stringify(meta)); } catch (e) {}
   }
 
+  /* ---------------- v50 移行: フレンド系ローカルデータの1回リセット ----------------
+     ユーザー許可済み。対象は playweb_friends / playweb_chats / playweb_unread /
+     playweb_records のみ。ゲームのセーブ・プロフィール（名前/自分のコード）には
+     一切触らない。ディスク直接操作なのでゲストシムの有無に影響されない。
+     - 戦績（playweb_records）はクラウドセーブ同期対象でもあるため、削除を
+       メタにも刻んでおく（次回同期でクラウド側へも削除が伝わり、復活しない）。
+     - ログイン中ユーザーのフレンド一覧は Firestore 側が正なので、初回の
+       サービス開始時に「クラウドをローカルへマージ」ではなく、リセット後の
+       ローカル状態でクラウドを上書きする（meta.friendsResetPending）。
+       ただしクラウド側が移行より後に更新されていたら（別端末で登録し直した等）
+       そちらを正として上書きしない。
+     - チャットは移行時刻以前のクラウドメッセージを取り込まない
+       （meta.friendsResetAt を境界にする）。 */
+  var LS_FRIENDS_RESET = 'pwacct_friends_reset_v50';
+  (function friendsResetMigration() {
+    try {
+      if (diskGet(LS_FRIENDS_RESET)) return;
+      /* チャットの取り込み境界は「実際に履歴があって消した場合」にだけ意味がある。
+         履歴が無かった端末では境界を置かず、クラウドの履歴を通常どおり取り込む */
+      var hadChats = false;
+      try {
+        var c = diskGet('playweb_chats');
+        if (c && c.length > 2) hadChats = true;
+      } catch (e) {}
+      ['playweb_friends', 'playweb_chats', 'playweb_unread', 'playweb_records'].forEach(function (k) {
+        diskRemove(k);
+      });
+      var t = nowMs();
+      meta.keys['playweb_records'] = { h: '', t: t, del: true };
+      meta.friendsResetPending = true;
+      meta.friendsResetAt = t;
+      meta.chatResetAt = hadChats ? t : 0;
+      saveMetaNow();
+      diskSet(LS_FRIENDS_RESET, '1');
+    } catch (e) {}
+  })();
+
   /* ---------------- セーブ同期の対象判定 ---------------- */
   function syncableKey(k) {
     if (!k || typeof k !== 'string') return false;
@@ -181,6 +336,13 @@
   }
   function collectLocal() {
     var data = {};
+    if (guestActive) {
+      /* ゲスト中はメモリ内ストアが「ローカル」の実体（ディスクは見ない） */
+      Object.keys(memStore).forEach(function (k) {
+        if (syncableKey(k)) data[k] = memStore[k];
+      });
+      return data;
+    }
     try {
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
@@ -236,16 +398,41 @@
     try {
       var proto = window.Storage && Storage.prototype;
       if (!proto || proto.__pwAcctPatched) return;
-      var origSet = proto.setItem, origRemove = proto.removeItem;
+      var origGet = proto.getItem, origSet = proto.setItem,
+          origRemove = proto.removeItem, origClear = proto.clear;
+      proto.getItem = function (k) {
+        if (this === window.localStorage && guestActive && !shimExempt(String(k))) {
+          var key = String(k);
+          return Object.prototype.hasOwnProperty.call(memStore, key) ? memStore[key] : null;
+        }
+        return origGet.apply(this, arguments);
+      };
       proto.setItem = function (k, v) {
+        if (this === window.localStorage && guestActive && !shimExempt(String(k))) {
+          /* ゲストの保存はメモリ内だけ。ディスクには一切触らない */
+          memStore[String(k)] = String(v);
+          return undefined;
+        }
         var r = origSet.apply(this, arguments);
         try { if (this === window.localStorage) onLocalWrite(String(k), String(v)); } catch (e) {}
         return r;
       };
       proto.removeItem = function (k) {
+        if (this === window.localStorage && guestActive && !shimExempt(String(k))) {
+          delete memStore[String(k)];
+          return undefined;
+        }
         var r = origRemove.apply(this, arguments);
         try { if (this === window.localStorage) onLocalRemove(String(k)); } catch (e) {}
         return r;
+      };
+      proto.clear = function () {
+        if (this === window.localStorage && guestActive) {
+          /* ゲストの clear はメモリ内だけ（ディスクを消す事故を防ぐ） */
+          memStore = {};
+          return undefined;
+        }
+        return origClear.apply(this, arguments);
       };
       proto.__pwAcctPatched = true;
     } catch (e) {}
@@ -605,6 +792,7 @@
       msgs.forEach(function (m) {
         if (processedMsgIds[m._id]) return;
         processedMsgIds[m._id] = true;
+        if ((m.ts || 0) <= (meta.chatResetAt || 0)) return; /* v50リセットで履歴を消した端末では、それ以前の履歴を取り込まない */
         var mine = m.from === me.uid;
         var code = mine ? m.toCode : m.fromCode;
         if (!code) return;
@@ -683,6 +871,31 @@
   }
 
   /* ---------------- プロフィール作成・プレゼンス ---------------- */
+  function nameTakenError() {
+    var err = new Error('username taken');
+    err.code = 'pw/name-taken';
+    return err;
+  }
+  /* ユーザー名の確保: 既に自分の uid で確保済みなら何もしない（再ログインや
+     onAuthUser との競合でも失敗しない）。他人の uid なら pw/name-taken を投げる。 */
+  function claimUsername(uid, lower) {
+    var ref = fb.db.doc('usernames/' + lower);
+    return ref.get().then(function (d) {
+      if (d.exists) {
+        if (d.data() && d.data().uid === uid) return;
+        throw nameTakenError();
+      }
+      return ref.set({ uid: uid }).catch(function (e) {
+        if (!e || e.code !== 'permission-denied') throw e;
+        /* set が権限エラー: 競合で他者が先に作ったか、ルール未反映か再確認する */
+        return ref.get().then(function (d2) {
+          if (d2.exists && d2.data() && d2.data().uid === uid) return;
+          if (d2.exists) throw nameTakenError();
+          throw e;
+        });
+      });
+    });
+  }
   function ensureProfileDocs(uid, username) {
     var lower = username.toLowerCase();
     var code = myFriendCode();
@@ -691,7 +904,7 @@
         username: username, usernameLower: lower, friendCode: code,
         online: true, lastSeen: nowMs(), currentGame: MY_GAME
       }, { merge: true }),
-      fb.db.doc('usernames/' + lower).set({ uid: uid })
+      claimUsername(uid, lower)
     ];
     if (code) jobs.push(fb.db.doc('codes/' + code).set({ uid: uid }));
     return Promise.all(jobs);
@@ -720,6 +933,21 @@
     /* フレンド一覧: クラウドとマージしてから購読 */
     friendsDoc(me.uid).get().then(function (d) {
       var cloudList = (d.exists && d.data() && Array.isArray(d.data().list)) ? d.data().list : [];
+      if (meta.friendsResetPending) {
+        /* v50 リセット直後: クラウドが移行より後に更新されていなければ、
+           リセット後のローカル状態でクラウドを上書きする（マージで復活させない）。
+           クラウドの方が新しければ（別端末で登録し直した等）通常マージに戻す。 */
+        var cloudAt = (d.exists && d.data() && d.data().updatedAt) || 0;
+        meta.friendsResetPending = false;
+        saveMetaNow();
+        if (cloudAt <= (meta.friendsResetAt || 0)) {
+          var localNow = localFriends();
+          applyFriendsToLocal(localNow);
+          friendsDoc(me.uid).set({ list: localNow, updatedAt: nowMs() }).catch(function () {});
+          refreshPresenceWatch();
+          return;
+        }
+      }
       var merged = mergeFriends(localFriends(), cloudList);
       applyFriendsToLocal(merged);
       if (friendsListHash(merged) !== friendsListHash(cloudList)) {
@@ -773,29 +1001,48 @@
   window.addEventListener('pagehide', function () { if (cloudActive()) setOffline(); });
 
   /* ---------------- 認証アクション ---------------- */
+  /* 登録・ログインの最中は onAuthUser 側の自動遷移（再読み込み等）を抑え、
+     こちらのハンドラが遷移（登録=移行つき再読み込み／ログイン=破棄つき再読み込み）を担当する */
+  var authTransition = null;   /* null | 'signup' | 'login' */
   function doSignup(username, password) {
     var v = validateUsername(username);
     if (!v.ok) return Promise.resolve({ ok: false, msg: v.error });
     var pv = validatePassword(password);
     if (!pv.ok) return Promise.resolve({ ok: false, msg: pv.error });
     if (!fb) return Promise.resolve({ ok: false, msg: 'ログイン機能を読み込めませんでした' });
-    var name = v.name, lower = name.toLowerCase();
-    return fb.db.doc('usernames/' + lower).get().then(function (d) {
-      if (d.exists) return { ok: false, msg: 'このユーザー名は既に使われています' };
-      pendingUsername = name;
-      return fb.auth.createUserWithEmailAndPassword(usernameToEmail(name), password).then(function (cred) {
-        var uid = cred.user.uid;
-        return ensureProfileDocs(uid, name).then(function () {
-          return { ok: true, msg: 'アカウントを作成しました' };
-        }).catch(function () {
-          /* ユーザー名の確保に競合で負けた等: 作った認証ユーザーを消して巻き戻す */
-          try { cred.user.delete().catch(function () {}); } catch (e) {}
-          pendingUsername = null;
+    var name = v.name;
+    /* 注意: ルール上 usernames の get はログイン済みでないと許可されないため、
+       登録前の空き確認はできない。まず認証ユーザーを作り、ログイン状態で
+       名前を確保する（claimUsername）。他人が確保済みなら巻き戻す。 */
+    pendingUsername = name;
+    authTransition = 'signup';
+    return fb.auth.createUserWithEmailAndPassword(usernameToEmail(name), password).then(function (cred) {
+      var uid = cred.user.uid;
+      return ensureProfileDocs(uid, name).then(function () {
+        pendingUsername = null;
+        /* authTransition は再読み込みまで保持する（解除すると、破棄される旧ページで
+           onAuthUser がサービスを開始してしまい、移行処理や同期が中途半端になる） */
+        /* ゲスト中に遊んだ分をディスク優先マージで移し、ヒントを立ててから
+           再読み込みする（再読み込み後はシム無効で始まり、初回移行アップロードに繋がる） */
+        flushGuestStoreDiskFirst();
+        writeHint(true);
+        setTimeout(function () { location.reload(); }, 500);
+        return { ok: true, msg: 'アカウントを作成しました' };
+      }).catch(function (e) {
+        pendingUsername = null;
+        authTransition = null;
+        if (e && e.code === 'pw/name-taken') {
+          /* ユーザー名が他人に使われていた: 作った認証ユーザーを消して巻き戻す */
+          try { cred.user.delete().catch(function () {}); } catch (err) {}
           return { ok: false, msg: 'このユーザー名は既に使われています' };
-        });
+        }
+        /* それ以外の失敗（ルール未反映など）: 認証ユーザーは作れているので
+           巻き戻さない。次回ログイン時に ensureProfileDocs が再試行する */
+        return { ok: false, msg: authErrorMessage(e) };
       });
     }).catch(function (e) {
       pendingUsername = null;
+      authTransition = null;
       return { ok: false, msg: authErrorMessage(e) };
     });
   }
@@ -803,25 +1050,75 @@
     var v = validateUsername(username);
     if (!v.ok) return Promise.resolve({ ok: false, msg: v.error });
     if (!fb) return Promise.resolve({ ok: false, msg: 'ログイン機能を読み込めませんでした' });
+    authTransition = 'login';
     return fb.auth.signInWithEmailAndPassword(usernameToEmail(v.name), password)
-      .then(function () { return { ok: true, msg: 'ログインしました' }; })
-      .catch(function (e) { return { ok: false, msg: authErrorMessage(e) }; });
+      .then(function () {
+        /* authTransition は再読み込みまで保持する（doSignup と同じ理由） */
+        /* ゲスト中に遊んだ分は破棄する（クラウド/ディスクのセーブで再開し、
+           ゲスト分でクラウドを上書きしない）。ヒントを立てて再読み込み。 */
+        memStore = {};
+        guestActive = false;
+        writeHint(true);
+        setTimeout(function () { location.reload(); }, 500);
+        return { ok: true, msg: 'ログインしました' };
+      })
+      .catch(function (e) {
+        authTransition = null;
+        return { ok: false, msg: authErrorMessage(e) };
+      });
   }
   function doLogout() {
     if (!fb) return Promise.resolve();
     setOffline();
     stopServices();
     me = null;
+    /* サインアウト完了を待たずにゲスト化する（onAuthUser(null) の自動遷移と競合させない）。
+       以後の保存はメモリ内のみになり、ディスクのセーブは次回ログインまで見えなくなる */
+    guestActive = true;
+    memStore = {};
     return fb.auth.signOut().catch(function () {}).then(function () {
+      writeHint(false);
+      setGate('guest');
       updatePill(); updateModal(); updateSearchRow();
     });
   }
   function onAuthUser(user) {
     if (!user) {
+      writeHint(false);
       if (me) { stopServices(); me = null; }
+      if (!authTransition && !guestActive) {
+        /* ログイン見込み（ヒントあり）で読み込んだのにセッションが無い/消えた:
+           ゲスト状態へ倒す。再読み込みでシムを効かせる（1回だけ。無理ならその場で有効化） */
+        if (!reloadOnce('l2g')) { guestActive = true; memStore = {}; }
+        else return; /* 再読み込み中 */
+      }
+      if (guestActive) clearReloadGuard();
+      setGate(sdkState === 'unavailable' ? 'sdk-down' : 'guest');
       updatePill(); updateModal(); updateSearchRow();
       return;
     }
+    /* 陳腐化した認証イベントのガード: 名前確保に失敗して認証ユーザーを
+       巻き戻した直後など、既にサインアウト済みのユーザーに対する遅延イベントが
+       届くことがある。現在のセッションが無いならそのイベントは無視する
+       （ゲスト扱いのままにして、誤った再読み込みを防ぐ） */
+    if (fb && fb.auth && !fb.auth.currentUser) return;
+    writeHint(true);
+    if (authTransition) {
+      /* 登録・ログインのハンドラが遷移（再読み込み）を担当する。ここではサービスを
+         開始しない（破棄される旧ページで同期や移行処理が中途半端に走るのを防ぐ）。
+         doLogin/doSignup が先に guestActive を解除していても、こちらを優先する */
+      var tname = pendingUsername || (user.email || '').split('@')[0] || 'player';
+      me = { uid: user.uid, username: tname, usernameLower: tname.toLowerCase() };
+      setGate('member');
+      updatePill(); updateModal(); updateSearchRow();
+      return;
+    }
+    if (guestActive) {
+      /* 別タブでのログイン等でセッションが現れた: ゲスト分は破棄して読み込み直す */
+      if (!reloadOnce('g2l')) { guestActive = false; memStore = {}; }
+      else return; /* 再読み込み中 */
+    }
+    clearReloadGuard();
     var uid = user.uid;
     userDoc(uid).get().then(function (d) {
       var username;
@@ -834,6 +1131,7 @@
       }
       pendingUsername = null;
       me = { uid: uid, username: username, usernameLower: username.toLowerCase() };
+      setGate('member');
       /* 公開プロフィール（フレンドコード・在席）を最新化してからサービス開始 */
       ensureProfileDocs(uid, username).catch(function () {}).then(function () {
         startServices();
@@ -843,14 +1141,23 @@
       var name = pendingUsername || (user.email || '').split('@')[0] || 'player';
       pendingUsername = null;
       me = { uid: uid, username: name, usernameLower: name.toLowerCase() };
+      setGate('member');
       startServices();
     });
   }
 
   /* ---------------- UI（ピルボタン＋モーダル） ---------------- */
   var CSS = [
-    '.pwa-pill{position:fixed;left:12px;bottom:12px;z-index:99990;background:rgba(13,16,32,.78);border:1px solid rgba(255,255,255,.25);color:#eef0ff;border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.35);max-width:44vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    /* 左下のゲーム操作（アクションバー・スティック等）を覆わないよう円形アイコンのみにし、
+       無操作が続くと左端へ少し退いて操作領域を空ける（FAB と同じ考え方） */
+    '.pwa-pill{position:fixed;left:12px;bottom:12px;z-index:99990;width:42px;height:42px;border-radius:50%;background:rgba(13,16,32,.78);border:1px solid rgba(255,255,255,.25);color:#eef0ff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .35s ease,opacity .35s ease}',
+    '.pwa-pill.dim{transform:translateX(-30px);opacity:.55}',
     '.pwa-pill:active{transform:translateY(1px)}',
+    '.pwa-pill.dim:active{transform:translateX(-30px) translateY(1px)}',
+    '.pwa-pill .pwa-dot{position:absolute;right:0;bottom:0;width:11px;height:11px;border-radius:50%;background:#8a90ad;border:2px solid #0d1020;pointer-events:none}',
+    '.pwa-pill.on .pwa-dot{background:#3ED6A5}',
+    '.pwa-pill.alt{left:auto;right:12px;bottom:78px}',
+    '.pwa-pill.alt.dim{transform:translateX(30px)}',
     '.pwa-overlay{position:fixed;inset:0;z-index:100004;background:rgba(3,4,12,.62);display:none;align-items:center;justify-content:center;padding:14px;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif}',
     '.pwa-overlay.show{display:flex}',
     '.pwa-modal{background:#0d1020;width:min(380px,94vw);max-height:86vh;overflow-y:auto;border-radius:16px;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);color:#eef0ff}',
@@ -882,6 +1189,19 @@
     pillEl.textContent = '👤 ログイン';
     pillEl.onclick = openModal;
     document.body.appendChild(pillEl);
+    /* 置いたままにすると左端へ少し退く（ゲーム操作の邪魔をしない）。
+       復帰はピル自身に触れた時だけ（FAB と同じ方式） */
+    var pillDimTimer = null;
+    var pillWake = function () {
+      if (!pillEl) return;
+      pillEl.classList.remove('dim');
+      if (pillDimTimer) clearTimeout(pillDimTimer);
+      pillDimTimer = setTimeout(function () { if (pillEl) pillEl.classList.add('dim'); }, 3500);
+    };
+    pillEl.addEventListener('pointerdown', pillWake);
+    pillWake();
+    /* ゲーム工房は左下にアクションバーがあるため、ピルを右下（FAB の上）へ逃がす */
+    if (MY_GAME === 'gamedev') pillEl.classList.add('alt');
 
     overlayEl = document.createElement('div');
     overlayEl.className = 'pwa-overlay';
@@ -898,7 +1218,10 @@
   }
   function updatePill() {
     if (!pillEl) return;
-    pillEl.textContent = me ? ('👤 ' + me.username) : '👤 ログイン';
+    pillEl.innerHTML = '👤<span class="pwa-dot"></span>';
+    pillEl.classList.toggle('on', !!me);
+    pillEl.title = me ? (me.username + '（ログイン中）') : 'ログイン / 新規登録';
+    pillEl.setAttribute('aria-label', pillEl.title);
   }
   function setStatus(t) {
     statusText = t;
@@ -913,7 +1236,7 @@
       return;
     }
     if (sdkState === 'unavailable' || !fb) {
-      body.innerHTML = '<div class="pwa-note err">ログイン機能を読み込めませんでした（通信環境を確認してください）。アカウントなしでも、今まで通りゲームとフレンド機能は使えます。</div>';
+      body.innerHTML = '<div class="pwa-note err">ログイン機能を読み込めませんでした（通信環境を確認してください）。この環境ではゲスト扱いとなり、1人用モードのみ遊べます（マルチプレイ・フレンド・セーブ保存は使えません）。既存のセーブデータが消えることはありません。</div>';
       return;
     }
     if (me) {
@@ -923,7 +1246,7 @@
         '<div class="pwa-note" id="pwaStatus">' + esc(statusText || 'クラウドセーブ有効') + '</div>' +
         '<div class="pwa-note">セーブデータ・フレンド・戦績はクラウドに同期されます。別の端末で同じアカウントにログインすると続きが遊べます。</div>' +
         '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:12px">ログアウト</button>' +
-        '<div class="pwa-note">ログアウトしても、この端末のセーブデータは残ります。</div>';
+        '<div class="pwa-note">ログアウトするとゲストに戻ります。セーブデータは消えませんが、ログインするまで表示・保存されません。</div>';
       $('pwaLogout').onclick = function () { doLogout(); };
       return;
     }
@@ -935,7 +1258,7 @@
       '<input class="pwa-input" id="pwaPass" type="password" maxlength="64" placeholder="パスワード（6文字以上）" autocomplete="' + (modalMode === 'signup' ? 'new-password' : 'current-password') + '">' +
       '<button class="pwa-btn" id="pwaSubmit">' + (modalMode === 'signup' ? 'アカウントを作成' : 'ログイン') + '</button>' +
       '<div class="pwa-note" id="pwaMsg"></div>' +
-      '<div class="pwa-note">ログインすると、セーブデータ・フレンド・戦績がクラウドに保存され、別の端末でも続きが遊べます。フレンド追加はユーザー名検索でもできるようになります。</div>';
+      '<div class="pwa-note">いまはゲストとして遊んでいます。ゲストでは1人用モードのみで、セーブデータは保存されません。ログインすると、マルチプレイ・フレンド・セーブ（クラウド同期）が使えるようになり、別の端末でも続きが遊べます。</div>';
     $('pwaTabLogin').onclick = function () { modalMode = 'login'; updateModal(); };
     $('pwaTabSignup').onclick = function () { modalMode = 'signup'; updateModal(); };
     var submit = function () {
@@ -1036,6 +1359,7 @@
     } catch (e) {
       fb = null;
       sdkState = 'unavailable';
+      setGate('sdk-down');
     }
     updatePill(); updateModal(); updateSearchRow();
   }
@@ -1049,6 +1373,17 @@
     user: function () { return me ? { uid: me.uid, username: me.username } : null; },
     cloudActive: cloudActive,
     sdkState: function () { return sdkState; },
+    /* ゲスト制限: gateState は pending | member | guest | sdk-down */
+    gateState: function () { return gateState; },
+    isGuest: function () { return gateState !== 'member'; },
+    onGateChange: function (cb) {
+      if (typeof cb === 'function') {
+        gateCbs.push(cb);
+        if (gateState !== 'pending') { try { cb(gateState); } catch (e) {} }
+      }
+    },
+    /* friends.js が後から読み込まれた時に現在のゲートを引き直すための通知先登録 */
+    _friendsReady: function () { pushGateToFriends(); },
     login: doLogin,
     signup: doSignup,
     logout: doLogout,
@@ -1070,18 +1405,30 @@
       mergeFriends: mergeFriends,
       friendsListHash: friendsListHash,
       meta: function () { return meta; },
-      dirtyKeys: function () { return dirtyKeys; }
+      dirtyKeys: function () { return dirtyKeys; },
+      guestActive: function () { return guestActive; },
+      memStore: function () { var c = {}; Object.keys(memStore).forEach(function (k) { c[k] = memStore[k]; }); return c; },
+      flushGuestStoreDiskFirst: flushGuestStoreDiskFirst,
+      readHint: readHint
     }
   };
 
   /* ---------------- 初期化 ---------------- */
   function init() {
     buildUI();
+    /* ポータル等のゲスト案内にあるログインボタンを結線し、表示状態を初期化する */
+    try {
+      document.querySelectorAll('[data-pw-login-btn]').forEach(function (b) {
+        b.addEventListener('click', function () { openModal(); });
+      });
+    } catch (e) {}
+    applyMemberOnlyVisibility();
     initFirebase().then(function (ok) {
       if (ok) startAuth();
-      else { sdkState = 'unavailable'; updatePill(); updateModal(); }
+      else { sdkState = 'unavailable'; setGate('sdk-down'); updatePill(); updateModal(); }
     }).catch(function () {
       sdkState = 'unavailable';
+      setGate('sdk-down');
       updatePill(); updateModal();
     });
   }
