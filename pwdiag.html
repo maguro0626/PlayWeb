@@ -127,16 +127,27 @@
           items.push({ id: d.id, type: x.type, title: x.title, body: x.body, game: x.game, fromName: x.fromName, createdAt: ts, status: x.status });
         });
         items.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-        var byType = {}, byGame = {};
+        var byType = {}, byGame = {}, groups = {};
         items.forEach(function (x) {
           byType[x.type] = (byType[x.type] || 0) + 1;
           var g = x.game || '-';
           byGame[g] = (byGame[g] || 0) + 1;
+          var key = g + '|' + x.type + '|' + x.title;
+          if (!groups[key]) groups[key] = { game: g, type: x.type, title: x.title, count: 0, latest: 0, body: x.body };
+          groups[key].count++;
+          if ((x.createdAt || 0) > groups[key].latest) { groups[key].latest = x.createdAt || 0; groups[key].body = x.body; }
         });
         lines.push('種別内訳: ' + JSON.stringify(byType));
         lines.push('ゲーム内訳: ' + JSON.stringify(byGame));
-        items.forEach(function (x) {
-          lines.push('- ' + (x.createdAt ? new Date(x.createdAt).toLocaleString('ja-JP') : '?') + ' [' + x.type + '][' + (x.game || '-') + '][' + (x.fromName || '-') + '][' + x.status + '] ' + x.title);
+        var gs = Object.keys(groups).map(function (k) { return groups[k]; });
+        gs.sort(function (a, b) { return b.count - a.count || b.latest - a.latest; });
+        lines.push('== テーマ別（件数の多い順・最大40） ==');
+        gs.slice(0, 40).forEach(function (g) {
+          lines.push('【' + g.count + '件】[' + g.game + '][' + g.type + '] ' + g.title + ' ｜最新本文: ' + String(g.body || '').slice(0, 160));
+        });
+        lines.push('== 最新10件 ==');
+        items.slice(0, 10).forEach(function (x) {
+          lines.push('- ' + (x.createdAt ? new Date(x.createdAt).toLocaleString('ja-JP') : '?') + ' [' + x.type + '][' + (x.game || '-') + '][' + (x.fromName || '-') + '] ' + x.title);
         });
         out.textContent = lines.join('\n');
       }).catch(function (err) {
