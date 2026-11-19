@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v52';
+const CACHE_NAME = 'game-platform-cache-v46';
 
 // ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
 // キャッシュしたいファイルを1つずつ正確に書く必要があります。
@@ -6,8 +6,6 @@ const urlsToCache = [
   // プラットフォームのコア
   'index.html',
   'friends.js',
-  'pw-ui.css',
-  'pw-ui.js',
   'manifest.json',
   
   // 各ゲームのHTML
@@ -30,8 +28,6 @@ const urlsToCache = [
   'rpg2.html',
   'otome.html',
   'survivors.html',
-  'frostline.html',
-  'frostline-field.html',
 
   // 乙女ゲームの画像
   './otome_images/st_yuzuki_01.png',
@@ -88,18 +84,7 @@ self.addEventListener('message', event => {
 // 通信の処理（キャッシュ優先、なければネットワークへ）
 self.addEventListener('fetch', event => {
   if (!event.request.url.startsWith('http')) return;
-  // HTMLは常に最新版を優先。古いPWAキャッシュで新作画面が戻らないようにする。
-  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
-    event.respondWith(
-      fetch(event.request).then(networkResponse => {
-        return caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, networkResponse.clone());
-          return networkResponse;
-        });
-      }).catch(() => caches.match(event.request))
-    );
-    return;
-  }
+
   event.respondWith(
     caches.match(event.request).then(response => {
       // キャッシュにあれば即座にそれを返す

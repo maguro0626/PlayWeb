@@ -257,6 +257,8 @@
 
     /* ─── Controls ─── */
     .controls{ padding:0 14px 12px; flex-shrink:0; }
+    /* UI被り対策: 最下段ボタン行の右端(最初から)がフレンドFAB(右下固定)に隠れないよう右余白を確保 */
+    @media(max-width:560px){ .controls-card .ctl-row:last-child{ padding-right:70px; } }
     .controls-card{
       background:rgba(255,255,255,0.82); backdrop-filter:blur(12px);
       padding:12px 14px; border-radius:26px;
@@ -421,8 +423,6 @@
     .thinking-dot:nth-child(3){animation-delay:0.36s}
     @keyframes think-bounce{0%,80%,100%{transform:translateY(0);opacity:0.4}40%{transform:translateY(-4px);opacity:1}}
   </style>
-  <link rel="stylesheet" href="pw-ui.css">
-  <script src="pw-ui.js" defer></script>
 </head>
 <body>
 
@@ -766,7 +766,7 @@ function pseudoMoves(pc,r,c,brd){
   }
   return ms;
 }
-function kingPos(o,brd){for(let r=0;r<9;r++)for(let c=0;c<9;c++){const p=brd[r][c];if(p&&p.owner===o&&p.type==='king')return[r,c];}return null;}
+function kingPos(o,brd){for(let r=0;r<9;r++)for(let c=0;c<9;c++){const p=brd[r]&&brd[r][c];if(p&&p.owner===o&&p.type==='king')return[r,c];}return null;}
 function isInCheck(o,brd){
   const kp=kingPos(o,brd);if(!kp)return false;
   const opp=o==='player'?'npc':'player';
@@ -1779,6 +1779,7 @@ function buildCoords(sz){
   }
 }
 function render(){
+  if(!board||board.length<9)return; /* 初期化前(resize等)では描画しない */
   const boardEl=document.getElementById('shogi-board');if(!boardEl)return;
   const wrapper=document.getElementById('board-wrapper');
   const avail=Math.min(wrapper.clientWidth,wrapper.clientHeight)-52;
