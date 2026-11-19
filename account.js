@@ -46,6 +46,13 @@
    - セーブデータ初期化（v66〜）: ドロワーに「セーブデータを初期化」ボタンを
      置き、自分の users/{uid}/saves/ 全削除＋公開戦績のリセットができる
      （アカウント混入時に白紙へ戻す用途）。
+   - バックアップから復元: ドロワーに「バックアップから復元」ボタンを置き、
+     ポータルで書き出したバックアップ JSON（{exportedAt, data:{key:値}} 形式。
+     旧退避形式 {savedAt, data} と素の key→値マップも可）を本人のアカウントへ
+     取り込める。実行はログイン中かつハイドレーション完了後のみ。取り込みは
+     通常の保存経路（シム経由の書き込み→メモリ→クラウド）で行い、フレンドは
+     フレンド経路、対象外キー（firebase:/pwacct_/旧仕様の死んだキー等）は
+     取り込まない。
    - 共通ヘッダー＋ドロワー（v51〜）: 全ページ最上部に共通ヘッダー
      （🏠ホーム＋ゲーム名＋[メイン｜アカウント]タブ）を注入する。
      「アカウント」タブで右から半透明ドロワーがスライドインし、
@@ -759,6 +766,91 @@
     }).catch(function (e) {
       return { ok: false, msg: '初期化に失敗しました' + (e && e.code ? '（' + e.code + '）' : '') };
     });
+  }
+
+  /* ---------------- バックアップから復元 ----------------
+     ポータルで書き出したバックアップ JSON を、ログイン中アカウントの
+     クラウドセーブへ取り込む。対応形式:
+       - ポータル形式 {app, version, exportedAt, data:{key: 文字列値}}
+       - 旧退避形式   {savedAt, data:{key: 文字列値}}
+       - 素の key→値マップ {key: 文字列値}
+     取り込みは通常の保存経路（シム経由の書き込み→メモリ→クラウドの一方
+     通行アップロード）に乗せる。直接 Firestore は叩かない。フレンド一覧
+     （playweb_friends）だけはフレンド経路で送る。対象外キーと文字列でない
+     値は取り込まず、件数だけ数えて結果に含める。 */
+  var RESTORE_EXCLUDE = {
+    playweb_chats: true,          /* チャットは v55 で廃止済み */
+    playweb_unread: true,         /* 同上（未読管理も廃止済み） */
+    playweb_fabpos: true          /* 旧 FAB の位置（v51 で FAB 廃止済み） */
+  };
+  function parseBackup(input) {
+    var parsed = input;
+    if (typeof input === 'string') {
+      try { parsed = JSON.parse(input); }
+      catch (e) { return { ok: false, msg: 'バックアップファイルを読み取れませんでした（JSON形式ではありません）' }; }
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, msg: 'バックアップの形式が正しくありません' };
+    }
+    var data = null, exportedAt = '';
+    if ('data' in parsed && (!parsed.data || typeof parsed.data !== 'object' || Array.isArray(parsed.data))) {
+      /* data を名乗りながら中身が壊れているものは、素マップとして
+         誤って取り込まず形式エラーにする */
+      return { ok: false, msg: 'バックアップの形式が正しくありません' };
+    }
+    if (parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) {
+      data = parsed.data;
+      exportedAt = String(parsed.exportedAt || parsed.savedAt || '');
+    } else {
+      /* 素の key→値マップ。コンテナのメタキーはデータとして取り込まない */
+      data = {};
+      exportedAt = String(parsed.exportedAt || parsed.savedAt || '');
+      Object.keys(parsed).forEach(function (k) {
+        if (k === 'app' || k === 'version' || k === 'exportedAt' || k === 'savedAt') return;
+        data[k] = parsed[k];
+      });
+    }
+    var total = Object.keys(data).length;
+    if (!total) return { ok: false, msg: 'バックアップにデータが含まれていません' };
+    return { ok: true, data: data, exportedAt: exportedAt, total: total };
+  }
+  function restoreFromBackup(input) {
+    /* 実行条件: ログイン中かつ現在 uid のハイドレーション完了後のみ。
+       それ以外は何も書き込まず、案内だけを返す（誤って空の状態や別人の
+       状態へ書き込む事故を防ぐ） */
+    if (!me || !fb || hydratedUid !== me.uid) {
+      setStatus('データの読み込み完了後に実行してください');
+      return { ok: false, msg: 'データの読み込み完了後に実行してください' };
+    }
+    if (input && typeof input === 'object' && input.ok === false) {
+      setStatus(input.msg || 'バックアップの形式が正しくありません');
+      return { ok: false, msg: input.msg || 'バックアップの形式が正しくありません' };
+    }
+    var info = parseBackup(input);
+    if (!info.ok) { setStatus(info.msg); return { ok: false, msg: info.msg }; }
+    var applied = 0, skipped = 0, excluded = 0, friendsApplied = false;
+    Object.keys(info.data).forEach(function (k) {
+      var v = info.data[k];
+      if (typeof v !== 'string') { skipped++; return; }   /* 文字列でない値は対象外 */
+      if (k === 'playweb_friends') {
+        /* フレンドは専用経路: シム経由でメモリへ入れると送信フラグが立ち、
+           uploadFriends がクラウドのフレンド文書へ書き戻す */
+        try { localStorage.setItem('playweb_friends', v); friendsApplied = true; } catch (e) {}
+        return;
+      }
+      if (RESTORE_EXCLUDE[k] || !syncableKey(k)) { excluded++; return; }
+      try { localStorage.setItem(k, v); applied++; } catch (e) {}
+    });
+    flushUploads();                    /* その場でクラウドへ上げる */
+    if (friendsApplied) uploadFriends();
+    stashWrite();                      /* ページ間引き継ぎ（シード）も最新化 */
+    var msg = 'バックアップから復元しました（セーブ' + applied + '件' +
+      (friendsApplied ? '・フレンド' : '') + '）';
+    setStatus(msg);
+    return {
+      ok: true, applied: applied, friends: friendsApplied,
+      skipped: skipped, excluded: excluded, exportedAt: info.exportedAt, msg: msg
+    };
   }
 
   /* ---------------- localStorage のメモリ化（保存シム・v66〜常時有効） ----------------
@@ -1551,6 +1643,9 @@
         '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:12px">📮 お問い合わせ・要望・バグ報告</button>' +
         '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:8px">ログアウト</button>' +
         '<div class="pwa-note">ログアウトするとゲストに戻ります。データはクラウドに残るので、再ログインすれば続きが遊べます。</div>' +
+        '<button class="pwa-btn sub" id="pwaRestoreBtn" style="margin-top:14px">📥 バックアップから復元</button>' +
+        '<input type="file" id="pwaRestoreFile" accept=".json" style="display:none">' +
+        '<div class="pwa-note">ポータルで書き出したバックアップ（JSONファイル）を選ぶと、その時点のセーブで現在のクラウドセーブを上書きします。</div>' +
         '<button class="pwa-btn sub" id="pwaResetData" style="margin-top:14px;color:#fca5a5;border-color:rgba(239,68,68,.45)">🗑 セーブデータを初期化</button>' +
         '<div class="pwa-note">全ゲームのセーブと戦績をクラウドから完全に削除します（元に戻せません）。</div>';
       $('pwaLogout').onclick = function () { doLogout(); };
@@ -1567,6 +1662,32 @@
             btn.disabled = false;
           }
         });
+      };
+      $('pwaRestoreBtn').onclick = function () {
+        /* ハイドレーション完了前はファイル選択自体を開かない（何も書き込まない） */
+        if (!me || hydratedUid !== me.uid) { setStatus('データの読み込み完了後に実行してください'); return; }
+        var fi = $('pwaRestoreFile');
+        if (fi) { try { fi.value = ''; } catch (e) {} fi.click(); }
+      };
+      $('pwaRestoreFile').onchange = function () {
+        var f = this.files && this.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          var info = parseBackup(String(reader.result || ''));
+          if (!info.ok) { setStatus(info.msg); window.alert(info.msg); return; }
+          var when = info.exportedAt ? '\n書き出し日時: ' + info.exportedAt : '';
+          if (!window.confirm('バックアップから復元しますか？' + when + '\n' + info.total + '件のデータで、現在のセーブを上書きします。')) return;
+          var r = restoreFromBackup(info);
+          if (r.ok) {
+            var extra = (r.skipped + r.excluded) > 0 ? '\n（対象外 ' + (r.skipped + r.excluded) + '件は取り込みませんでした）' : '';
+            window.alert(r.msg + extra + '\n各ゲームを開き直すと反映されます。');
+          } else {
+            window.alert(r.msg);
+          }
+        };
+        reader.onerror = function () { setStatus('ファイルの読み込みに失敗しました'); };
+        reader.readAsText(f);
       };
       $('pwaFeedbackBtn').onclick = function () { openFeedback(); };
       $('pwaProfEditBtn').onclick = function () { toggleProfEditor(); };
@@ -2032,6 +2153,9 @@
     syncNow: function () { flushUploads(); return hydrateSaves({ force: true, soft: true }); },
     /* v66〜 自分のクラウドセーブ全削除＋公開戦績リセット */
     resetMyData: resetMyData,
+    /* バックアップ JSON（文字列またはパース済みオブジェクト）を取り込む。
+       ログイン中かつハイドレーション完了後のみ実行される */
+    restoreBackup: restoreFromBackup,
     searchUser: searchUser,
     addFriendByUsername: addFriendByUsername,
     sendInviteCloud: sendInviteCloud,
