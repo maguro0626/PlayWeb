@@ -77,6 +77,7 @@
     gamedev:    { title: 'ゲーム工房物語',         file: 'gamedev.html' },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
     otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true },
+    linksaga:   { title: 'スターリンクサーガ',     file: 'linksaga.html', coop: false, noInvite: true },
     reaction:   { title: 'はんしゃテスト',         file: 'reaction.html' },
     mash:       { title: 'れんだバトル',           file: 'mash.html' },
     numguess:   { title: 'かずあて',               file: 'numguess.html' },
@@ -88,7 +89,7 @@
     timing:     { title: 'タイミングストップ',     file: 'timing.html' },
     dice:       { title: 'ダイスレース',           file: 'dice.html' }
   };
-  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','reaction','mash','numguess','janken','calc','memory','mole','simon','timing','dice'];
+  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','linksaga','reaction','mash','numguess','janken','calc','memory','mole','simon','timing','dice'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -699,6 +700,8 @@
   function openInvitePicker() {
     if (gateBlocked()) { loginNotice(); return; }
     if (MY_GAME === 'portal') { openPanel(); return; }
+    /* 招待制でないゲームではピッカーを開かずフレンドパネルを開く */
+    if (GAMES[MY_GAME] && GAMES[MY_GAME].noInvite) { openPanel(); return; }
     buildPickerDom();
     pickerOpen = true;
     els.pickerOverlay.classList.add('show');
@@ -861,6 +864,8 @@
   function hideEl(el) { if (el) el.classList.add('pwf-hidden'); }
   function transformGameUI() {
     if (MY_GAME === 'portal') return true;
+    /* 招待制でないゲーム（リンクサーガ等の非同期オンライン）は招待バーを出さない */
+    if (GAMES[MY_GAME] && GAMES[MY_GAME].noInvite) return true;
     var cfg = window.PW_JOIN_CFG;
     if (!cfg) return true;
     var anchor = null;
@@ -1366,7 +1371,7 @@
     }
     var grid = $('pwfPickGrid');
     if (grid) {
-      grid.innerHTML = GAME_ORDER.map(function (g) {
+      grid.innerHTML = GAME_ORDER.filter(function (g) { return !(GAMES[g] && GAMES[g].noInvite); }).map(function (g) {
         return '<button class="pwf-game" data-game="' + g + '">' + esc(GAMES[g].title) + '</button>';
       }).join('');
       grid.querySelectorAll('[data-game]').forEach(function (btn) {

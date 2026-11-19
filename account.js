@@ -94,7 +94,7 @@
        コンソールで PWAccount.user().uid を実行する。
      ★firestore.rules 側の adminUids() のプレースホルダにも同じ uid を
        入れないと、本番では意見ボックスの読み取りがルールで拒否される。 */
-  var ADMIN_UIDS = [];
+  var ADMIN_UIDS = ['9FompVx7Gpfp2f2anoz35vPyD6F3'];
   var UPLOAD_DEBOUNCE_MS = 2500;
   var INVITE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -355,12 +355,15 @@
   /* リンクサーガ（linksaga）の使用キャラ名をセーブから読む。
      セーブ形式: { fav: キャラid, party: [id...], owned: {id: {lv, lb}} }
      優先順: お気に入り(fav) → 編成の先頭 → 最もレベルの高い所持キャラ。
-     名前が引けない id（未登録の SR/R 等）は表示しない（空文字を返す）。
-     ※ id→名前の対応は linksaga のロスター（UR/SSR は実測で確認済み。
-       SR/R の id は linksaga.html 復旧後に追記すること） */
+     名前が引けない id（未登録のもの）は表示しない（空文字を返す）。
+     ※ id→名前の対応は linksaga のロスター全26体分（v54 で SR/R を含め完成） */
   var LS_CHAR_NAMES = {
     astraia: 'アストライア', velzelia: 'ヴェルゼリア', seiren: 'セイレーン',
-    blaze: 'ブレイズ', gracia: 'グラキエス', terra: 'テラ', solaris: 'ソラリス', nox: 'ノクス'
+    blaze: 'ブレイズ', gracia: 'グラキエス', terra: 'テラ', solaris: 'ソラリス', nox: 'ノクス',
+    hibana: 'ヒバナ', momiji: 'モミジ', umineko: 'ウミネコ', kohaku: 'コハク',
+    wakaba: 'ワカバ', tsurugi: 'ツルギ', lux: 'ルクス', yomi: 'ヨミ',
+    mike: 'ミケ', chatra: 'チャトラ', saba: 'サバ', yuki: 'ユキ', hachi: 'ハチ',
+    mint: 'ミント', shiro: 'シロ', tama: 'タマ', kuro: 'クロ', yoru: 'ヨル'
   };
   function readMainChar() {
     try {
