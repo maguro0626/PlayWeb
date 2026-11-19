@@ -127,11 +127,16 @@
           items.push({ id: d.id, type: x.type, title: x.title, body: x.body, game: x.game, fromName: x.fromName, createdAt: ts, status: x.status });
         });
         items.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+        var byType = {}, byGame = {};
         items.forEach(function (x) {
-          lines.push('---');
-          lines.push('日時: ' + (x.createdAt ? new Date(x.createdAt).toLocaleString('ja-JP') : '?') + ' / 種別: ' + x.type + ' / 状態: ' + x.status + ' / ゲーム: ' + (x.game || '-') + ' / 送信者: ' + (x.fromName || '-'));
-          lines.push('タイトル: ' + x.title);
-          lines.push('本文: ' + x.body);
+          byType[x.type] = (byType[x.type] || 0) + 1;
+          var g = x.game || '-';
+          byGame[g] = (byGame[g] || 0) + 1;
+        });
+        lines.push('種別内訳: ' + JSON.stringify(byType));
+        lines.push('ゲーム内訳: ' + JSON.stringify(byGame));
+        items.forEach(function (x) {
+          lines.push('- ' + (x.createdAt ? new Date(x.createdAt).toLocaleString('ja-JP') : '?') + ' [' + x.type + '][' + (x.game || '-') + '][' + (x.fromName || '-') + '][' + x.status + '] ' + x.title);
         });
         out.textContent = lines.join('\n');
       }).catch(function (err) {

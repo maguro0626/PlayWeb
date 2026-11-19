@@ -2337,11 +2337,20 @@
       fbInboxItems = items.slice(0, 50);
       renderAdminInbox();
     };
+    var gotFirst = false;
+    var applyFirst = function (snap) { gotFirst = true; apply(snap); };
     try {
-      var unsub = fb.db.collection('feedback').onSnapshot(apply, function () {
+      var unsub = fb.db.collection('feedback').onSnapshot(applyFirst, function () {
         fb.db.collection('feedback').get().then(apply).catch(function () { renderAdminInboxError(); });
       });
       unsubs.push(unsub);
+      /* 環境によっては購読（onSnapshot）の初回配送が来ないまま固まることが
+         あるため、6秒来なければ単発取得で補う（v75） */
+      setTimeout(function () {
+        if (!gotFirst) {
+          fb.db.collection('feedback').get().then(apply).catch(function () { renderAdminInboxError(); });
+        }
+      }, 6000);
     } catch (e) {
       fb.db.collection('feedback').get().then(apply).catch(function () { renderAdminInboxError(); });
     }
