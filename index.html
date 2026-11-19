@@ -179,6 +179,10 @@
 "use strict";
 /* 更新履歴（アコーディオン）。新しい版を先頭に足すだけでよい。最新版だけ開いた状態で表示 */
 const PW_UPDATES = [
+  { v:'v53', date:'2026.11.19', title:'ミニゲーム10本を追加', items:[
+    '気軽に遊べるミニゲームを10本追加：はんしゃテスト／れんだバトル／かずあて／じゃんけんバトル／けいさんダッシュ／しんけいすいじゃく／もぐらパニック／いろメモリ／タイミングストップ／ダイスレース',
+    '10本すべてフレンドとのオンライン対戦に対応。短時間でサクッと勝負できます'
+  ]},
   { v:'v52', date:'2026.11.19', title:'プロフィール＆リアルタイム強化＋お問い合わせフォーム', items:[
     'フレンドのオンライン状態・チャット・招待が、その場で届くリアルタイム表示に（タブを閉じるとすぐオフライン表示になります）',
     'プロフィール機能が登場：アイコン（絵柄＋背景色）と一言コメントを設定でき、フレンドをタップするとゲーム別戦績や「何分前までオンライン」が見られます',
@@ -231,6 +235,16 @@ const GAMES = [
   { id:'gamedev',    title:'ゲーム工房物語', emoji:'🎮', grad:'linear-gradient(135deg,#0ea5e9,#6366f1 55%,#a855f7)', path:'gamedev.html', cat:'story', tags:['経営','シミュレーション'], desc:'ゲーム会社を経営するシミュレーション。ヒット作を生んで殿堂入りを目指せ。オンラインでライバル会社対決対応。' },
   { id:'rpg',        title:'モンスターライズ', emoji:'⚔️', grad:'linear-gradient(135deg,#dc2626,#7f1d1d)', path:'rpg.html',       cat:'story', tags:['RPG','冒険'], desc:'1と2を統合した決定版。全マップを歩いてつながるワールド、ライバルと悪の組織が絡むストーリー、本格捕獲・進化・技習得、ジムと四傑とチャンピオン、図鑑と実績まで詰め込んだモンスター収集RPG。オンライン対戦バトル対応。' },
   { id:'otome',      title:'乙女ゲーム',     emoji:'💖', grad:'linear-gradient(135deg,#f472b6,#db2777)', path:'otome.html',     cat:'story', tags:['恋愛','ノベル'], desc:'学園を舞台にした恋愛ビジュアルノベル。彼との物語が始まる。オンラインで「いっしょに読む」対応。' },
+  { id:'reaction',   title:'はんしゃテスト', emoji:'⚡', grad:'linear-gradient(135deg,#84cc16,#166534)', path:'reaction.html', cat:'action', tags:['反射神経','タイミング'], desc:'緑になった瞬間にタップ！ 5回の平均反応速度で競う反射神経テスト。赤の間に押すとフライング。オンライン5ラウンド対戦対応。' },
+  { id:'mash',       title:'れんだバトル',   emoji:'🔥', grad:'linear-gradient(135deg,#f97316,#dc2626)', path:'mash.html',     cat:'action', tags:['連打','反射神経'], desc:'3秒カウントダウンのあと10秒間ひたすら連打！ 何回押せるか挑戦しよう。オンラインは同時スタートの連打勝負。' },
+  { id:'numguess',   title:'かずあて',       emoji:'🔢', grad:'linear-gradient(135deg,#38bdf8,#4f46e5)', path:'numguess.html', cat:'puzzle', tags:['推理','数字'], desc:'1〜100の秘密の数字を、ヒントを頼りに少ない手数で当てる推理ゲーム。オンライン対戦対応。' },
+  { id:'janken',     title:'じゃんけんバトル', emoji:'✊', grad:'linear-gradient(135deg,#fde047,#f97316)', path:'janken.html',  cat:'board', tags:['対戦','運'], desc:'3本先取のじゃんけん勝負！ あいこはやり直し。CPU戦とオンライン対戦対応。' },
+  { id:'calc',       title:'けいさんダッシュ', emoji:'🧮', grad:'linear-gradient(135deg,#60a5fa,#1e40af)', path:'calc.html',    cat:'puzzle', tags:['計算','スピード'], desc:'10問の計算レース！ 間違えると+3秒ペナルティ。速く正確に答えて完走タイムを競おう。オンライン対戦対応。' },
+  { id:'memory',     title:'しんけいすいじゃく', emoji:'🃏', grad:'linear-gradient(135deg,#8b5cf6,#4c1d95)', path:'memory.html', cat:'puzzle', tags:['記憶','カード'], desc:'カードをめくってペアをそろえる神経衰弱。手数とタイムで競う1人用と、ペア取り合いのオンライン対戦対応。' },
+  { id:'mole',       title:'もぐらパニック', emoji:'🐹', grad:'linear-gradient(135deg,#4ade80,#b45309)', path:'mole.html',     cat:'action', tags:['反射神経','スコア'], desc:'30秒間モグラを叩きまくれ！ 金モグラは+30点、爆弾は−20点。オンラインは同じ出現パターンでスコア競争。' },
+  { id:'simon',      title:'いろメモリ',     emoji:'🎵', grad:'linear-gradient(135deg,#f472b6,#7c3aed)', path:'simon.html',    cat:'puzzle', tags:['記憶','音ゲー'], desc:'光る色の順番を覚えて同じ順にタップ！ どこまで伸ばせるか挑戦しよう。オンラインは交互に1色ずつ伸ばす脱落制対戦。' },
+  { id:'timing',     title:'タイミングストップ', emoji:'🎯', grad:'linear-gradient(135deg,#67e8f9,#0369a1)', path:'timing.html', cat:'action', tags:['タイミング','集中'], desc:'動くマーカーをターゲットの中心ぴったりで止めろ！ 3ラウンド合計300点満点。ラウンドごとに速く・狭くなる。オンライン対戦対応。' },
+  { id:'dice',       title:'ダイスレース',   emoji:'🎲', grad:'linear-gradient(135deg,#ef4444,#f59e0b)', path:'dice.html',     cat:'board', tags:['すごろく','運'], desc:'サイコロを振って20マス目のゴールを目指すレースゲーム。CPU戦とオンライン対戦対応。' },
 ];
 const CATS = [ ['all','すべて'], ['fav','★ お気に入り'], ['puzzle','パズル'], ['board','ボード'], ['card','カード'], ['action','アクション'], ['story','育成・物語'] ];
 let curCat = 'all', query = '';

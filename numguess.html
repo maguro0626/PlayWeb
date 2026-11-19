@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>かずあて | PlayWeb</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#0a0a16;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);--txt:#eef0ff;--sub:#9aa0c3;--acc:#22d3ee}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh}
+.wrap{max-width:480px;margin:0 auto;padding:14px 14px 32px;display:flex;flex-direction:column;gap:12px}
+.ttl{font-size:24px;font-weight:900;text-align:center;padding:8px 0 2px}
+.sub{text-align:center;color:var(--sub);font-size:13px;line-height:1.6}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.hidden{display:none!important}
+#modeSeg{display:flex;background:rgba(0,0,0,.35);border-radius:999px;padding:3px;gap:2px}
+#modeSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:9px 6px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+#modeSeg button.on{background:var(--acc);color:#06202a}
+.btn{background:var(--acc);color:#06202a;border:none;border-radius:12px;padding:11px 16px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;width:100%}
+.btn:active{transform:scale(.97)}
+.btn.subBtn{background:rgba(255,255,255,.1);color:var(--txt);border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+.netBtns{display:flex;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.row input{flex:1;min-width:0}
+input[type=number],input[type=text]{background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:12px;color:var(--txt);font-size:18px;padding:11px;text-align:center;font-family:inherit;text-transform:uppercase}
+#onlineStatus{font-size:13px;color:var(--sub);text-align:center;min-height:20px;line-height:1.6;margin-top:10px}
+#onlineStatus .err{color:#f87171;font-weight:700}
+#onlineCodeWrap{text-align:center;margin-top:10px;font-size:14px}
+#roomCodeText{font-size:26px;font-weight:900;letter-spacing:.25em;color:var(--acc);display:block;margin-top:4px}
+.best{text-align:center;color:var(--sub);font-size:13px}
+.range{text-align:center;font-size:28px;font-weight:900;color:var(--acc);letter-spacing:.05em}
+.hint{text-align:center;font-size:18px;font-weight:800;min-height:28px}
+.hist{font-size:13px;line-height:1.9;color:var(--sub);max-height:180px;overflow-y:auto}
+.hist b{color:var(--txt)}
+.msg{text-align:center;font-size:16px;font-weight:800;min-height:24px;line-height:1.5}
+.turn{ text-align:center;font-weight:900;padding:8px;border-radius:10px;background:rgba(34,211,238,.15)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="ttl">🔢 かずあて</div>
+<p class="sub">1〜100の秘密の数字を当てよう！<br>ヒントを頼りに少ない手数で当てるゲームです。</p>
+<div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
+<div id="soloPane"><div class="card"><p class="sub" style="margin-bottom:10px">CPUの数字を予想して当ててください。</p><button class="btn" id="soloStartBtn">ゲームスタート</button></div></div>
+<div id="onlinePane" class="hidden"><div class="card">
+<div class="netBtns"><button class="btn" id="hostBtn">部屋を作る</button></div>
+<div class="row" style="margin-top:10px"><input type="text" id="joinCode" maxlength="6" placeholder="コード6文字"><button class="btn" id="joinBtn" style="width:auto;flex:none">参加する</button></div>
+<div id="onlineCodeWrap" class="hidden">ルームコード<span id="roomCodeText">------</span></div>
+<div id="onlineStatus"></div>
+<button class="btn subBtn hidden" id="leaveBtn" style="margin-top:10px">退出する</button>
+</div></div>
+<div id="gameArea">
+<div id="soloGame">
+<div class="card" style="display:flex;flex-direction:column;gap:10px">
+<div class="range" id="rangeText">1 〜 100</div>
+<div class="hint" id="soloHint">スタートを押してね</div>
+<div class="row"><input type="number" id="soloInput" min="1" max="100" placeholder="1〜100"><button class="btn" id="soloGuessBtn" style="width:auto;flex:none" disabled>予想する</button></div>
+<div class="msg" id="soloMsg"></div>
+<div class="hist" id="soloHist"></div>
+</div>
+</div>
+<div id="onlineGame" class="hidden">
+<div class="card" style="display:flex;flex-direction:column;gap:10px">
+<div id="onlineSetup">
+<p class="sub">自分の秘密の数字（1〜100）を決めてください。相手には送られません。</p>
+<div class="row" style="margin-top:8px"><input type="number" id="mySecretInput" min="1" max="100" placeholder="秘密の数字"><button class="btn" id="readyBtn" style="width:auto;flex:none">準備完了</button></div>
+<div class="msg" id="readyMsg" style="margin-top:8px"></div>
+</div>
+<div class="turn hidden" id="turnText"></div>
+<div class="row"><input type="number" id="onlineInput" min="1" max="100" placeholder="相手の数字を予想"><button class="btn" id="onlineGuessBtn" style="width:auto;flex:none" disabled>予想する</button></div>
+<div class="hint" id="onlineHint"></div>
+<div><div style="font-weight:800;font-size:13px">自分の予想履歴</div><div class="hist" id="myHist"></div></div>
+<div><div style="font-weight:800;font-size:13px">相手の予想履歴（自分の数字への予想）</div><div class="hist" id="oppHist"></div></div>
+<div class="msg" id="onlineMsg"></div>
+<button class="btn hidden" id="rematchBtn">もう一度</button>
+</div>
+</div>
+</div>
+<div class="best" id="bestLine">ベスト: ー</div>
+</div>
+<script>
+let AC=null;function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.12,t);g.gain.exponentialRampToValueAtTime(.001,t+(d||.15));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||.15));}catch(e){}}
+const $=id=>document.getElementById(id);
+let mode='solo';
+let save={best:null};try{const s=localStorage.getItem('mini_numguess_v1');if(s)save=JSON.parse(s);}catch(e){}
+function persist(){try{localStorage.setItem('mini_numguess_v1',JSON.stringify(save));}catch(e){} renderBest();}
+function renderBest(){$('bestLine').textContent='ベスト: '+(save.best?save.best+'手で的中':'ー');}
+renderBest();
+document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);$('soloGame').classList.toggle('hidden',on);$('onlineGame').classList.toggle('hidden',!on);tone(660,.08,'sine',.08);});});
+// Solo
+let sSecret=0,sTries=0,sLo=1,sHi=100,sActive=false,sHist=[];
+function soloStart(){sSecret=1+Math.floor(Math.random()*100);sTries=0;sLo=1;sHi=100;sActive=true;sHist=[];$('soloGuessBtn').disabled=false;$('soloHint').textContent='数字を予想してね！';$('soloMsg').textContent='';$('rangeText').textContent='1 〜 100';$('soloHist').innerHTML='';$('soloInput').value='';tone(523,.12,'sine',.1);tone(784,.12,'sine',.1,.1);}
+function soloGuess(){if(!sActive)return;const n=parseInt($('soloInput').value,10);if(isNaN(n)||n<1||n>100){$('soloHint').textContent='1〜100で入力してね';return;}sTries++;if(n===sSecret){sActive=false;$('soloGuessBtn').disabled=true;$('soloHint').textContent='🎉 正解！ '+n;$('soloMsg').textContent=sTries+'手で当てました！';sHist.unshift('<b>'+n+'</b> → 正解！');tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.25,'sine',.12,.24);if(!save.best||sTries<save.best){save.best=sTries;persist();}}else if(n<sSecret){sLo=Math.max(sLo,n+1);$('soloHint').textContent='もっと大きい ⬆';sHist.unshift('<b>'+n+'</b> → もっと大きい');tone(330,.12,'square',.07);}else{sHi=Math.min(sHi,n-1);$('soloHint').textContent='もっと小さい ⬇';sHist.unshift('<b>'+n+'</b> → もっと小さい');tone(220,.12,'square',.07);}$('rangeText').textContent=sLo+' 〜 '+sHi;$('soloHist').innerHTML=sHist.join('<br>');$('soloInput').value='';}
+$('soloStartBtn').addEventListener('click',soloStart);
+$('soloGuessBtn').addEventListener('click',soloGuess);
+$('soloInput').addEventListener('keydown',e=>{if(e.key==='Enter')soloGuess();});
+// Online state
+let mySecret=0,myReady=false,oppReady=false,started=false,myTurn=false,finished=false,recorded=false,myHistArr=[],oppHistArr=[];
+function renderOnlineTurn(){const t=$('turnText');if(!started||finished){t.classList.add('hidden');return;}t.classList.remove('hidden');t.textContent=myTurn?'🟢 あなたのターンです':'⏳ 相手のターンです';$('onlineGuessBtn').disabled=!myTurn;}
+function checkStart(){if(myReady&&oppReady&&!started){started=true;$('readyMsg').textContent='対戦開始！';myTurn=isHost;renderOnlineTurn();tone(784,.15,'sine',.1);}}
+function finishOnline(win){if(finished)return;finished=true;started=false;renderOnlineTurn();$('onlineMsg').textContent=win?'🎉 あなたの勝ち！':'😢 相手が先に当てました…';$('rematchBtn').classList.remove('hidden');if(!recorded){recorded=true;if(window.PWFriends&&PWFriends.recordMatch)PWFriends.recordMatch(win?'win':'lose');}if(win){tone(523,.15,'sine',.12);tone(784,.25,'sine',.12,.15);}else tone(220,.3,'sine',.1);}
+function resetOnlineGame(){mySecret=0;myReady=false;oppReady=false;started=false;myTurn=false;finished=false;recorded=false;myHistArr=[];oppHistArr=[];$('myHist').innerHTML='';$('oppHist').innerHTML='';$('onlineMsg').textContent='';$('onlineHint').textContent='';$('readyMsg').textContent='';$('mySecretInput').value='';$('onlineInput').value='';$('readyBtn').disabled=false;$('rematchBtn').classList.add('hidden');renderOnlineTurn();}
+$('readyBtn').addEventListener('click',()=>{const n=parseInt($('mySecretInput').value,10);if(isNaN(n)||n<1||n>100){$('readyMsg').textContent='1〜100で入力してください';return;}mySecret=n;myReady=true;$('readyBtn').disabled=true;$('readyMsg').textContent='準備完了！相手を待っています…';sendNet({t:'ready'});tone(660,.1,'sine',.1);checkStart();});
+$('onlineGuessBtn').addEventListener('click',()=>{if(!started||!myTurn||finished)return;const n=parseInt($('onlineInput').value,10);if(isNaN(n)||n<1||n>100){$('onlineHint').textContent='1〜100で入力してね';return;}$('onlineGuessBtn').disabled=true;sendNet({t:'guess',n:n});$('onlineHint').textContent=n+' と予想しました…';$('onlineInput').value='';});
+$('rematchBtn').addEventListener('click',()=>{if(isHost){resetOnlineGame();sendNet({t:'rematchStart'});$('readyMsg').textContent='再戦！秘密の数字を決めてください';}else{sendNet({t:'rematch'});$('onlineMsg').textContent='再戦を申し込みました…';}});
+function onNetData(m){if(!m||!m.t)return;if(m.t==='ping')return;
+if(m.t==='hello'){setOnlineStatus('接続しました！秘密の数字を決めて準備完了を押してください。');return;}
+if(m.t==='ready'){oppReady=true;$('readyMsg').textContent=myReady?'両者準備完了！':'相手が準備完了しました';checkStart();return;}
+if(m.t==='guess'){const n=m.n;let r;if(n===mySecret)r='hit';else if(n<mySecret)r='up';else r='down';const label=r==='hit'?'正解！':(r==='up'?'もっと大きい':'もっと小さい');oppHistArr.unshift('<b>'+n+'</b> → '+label);$('oppHist').innerHTML=oppHistArr.join('<br>');sendNet({t:'ans',n:n,r:r});if(r==='hit'){finishOnline(false);}else{myTurn=true;renderOnlineTurn();$('onlineHint').textContent='相手が '+n+' と予想 → '+label;}return;}
+if(m.t==='ans'){const label=m.r==='hit'?'🎉 正解！':(m.r==='up'?'もっと大きい ⬆':'もっと小さい ⬇');myHistArr.unshift('<b>'+m.n+'</b> → '+label);$('myHist').innerHTML=myHistArr.join('<br>');$('onlineHint').textContent=label;if(m.r==='hit'){finishOnline(true);}else{myTurn=false;renderOnlineTurn();}return;}
+if(m.t==='rematch'){if(isHost){resetOnlineGame();sendNet({t:'rematchStart'});$('readyMsg').textContent='再戦！秘密の数字を決めてください';}return;}
+if(m.t==='rematchStart'){resetOnlineGame();$('readyMsg').textContent='再戦！秘密の数字を決めてください';return;}
+}
+function onNetDisconnected(){setOnlineStatus('<span class="err">相手との接続が切れました。</span>');started=false;renderOnlineTurn();}
+</script>
+<script>
+const PEER_PREFIX = 'playweb-ng-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+] } };
+let peer=null, conn=null, isHost=false, roomCode='', heartbeatTimer=null, connTimer=null;
+function genRoomCode(){ const C='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++) s+=C.charAt(Math.floor(Math.random()*C.length)); return s; }
+function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function sendNet(o){ if (conn && conn.open){ try{ conn.send(o); }catch(e){} } }
+function setOnlineStatus(html){ const el=document.getElementById('onlineStatus'); if(el) el.innerHTML=html; }
+function startHeartbeat(){ stopHeartbeat(); heartbeatTimer=setInterval(()=>sendNet({t:'ping'}),8000); }
+function stopHeartbeat(){ if(heartbeatTimer){ clearInterval(heartbeatTimer); heartbeatTimer=null; } }
+function armConnTimer(msg){ clearTimeout(connTimer); connTimer=setTimeout(()=>{ if(!conn||!conn.open) setOnlineStatus('<span class="err">'+msg+'</span>'); },25000); }
+function disarmConnTimer(){ clearTimeout(connTimer); }
+function gateOk(){ if (window.PWFriends && PWFriends.gateState){ const g=PWFriends.gateState(); if (g==='guest'||g==='sdk-down'){ setOnlineStatus('<span class="err">オンライン対戦にはログインが必要です。</span>'); return false; } } return true; }
+function setupConn(c){ conn=c; c.on('data', onNetData); c.on('open', ()=>{ disarmConnTimer(); startHeartbeat(); }); c.on('close', ()=>{ if(conn===c) onNetDisconnected(); }); c.on('error', ()=>{ if(conn===c) onNetDisconnected(); }); }
+function teardownOnline(){ stopHeartbeat(); clearTimeout(connTimer); try{if(conn)conn.close();}catch(e){} try{if(peer)peer.destroy();}catch(e){} conn=null; peer=null; }
+function hostRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; teardownOnline(); isHost=true; roomCode=genRoomCode(); window.PW_ROOM_CODE=roomCode; resetOnlineGame(); setOnlineStatus('部屋を作成中…');
+  try{ peer=new Peer(PEER_PREFIX+roomCode, PEER_OPTS); }catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', ()=>{ document.getElementById('roomCodeText').textContent=roomCode; document.getElementById('onlineCodeWrap').classList.remove('hidden'); document.getElementById('leaveBtn').classList.remove('hidden'); setOnlineStatus('フレンドの参加を待っています…'); });
+  peer.on('connection', c=>{ setupConn(c); armConnTimer('相手との接続を確立できませんでした。'); });
+  peer.on('error', err=>{ if(err&&err.type==='unavailable-id') setOnlineStatus('<span class="err">コードが重複しました。もう一度押してください。</span>'); });
+  peer.on('disconnected', ()=>{ try{peer.reconnect();}catch(e){} });
+}
+function joinRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; const code=(document.getElementById('joinCode').value||'').trim().toUpperCase(); if(code.length!==6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; } teardownOnline(); isHost=false; roomCode=code; resetOnlineGame(); setOnlineStatus('接続中…');
+  try{ peer=new Peer(undefined, PEER_OPTS); }catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', ()=>{ armConnTimer('接続を確立できませんでした。'); const c=peer.connect(PEER_PREFIX+code,{reliable:true}); setupConn(c); c.on('open', ()=>{ document.getElementById('leaveBtn').classList.remove('hidden'); sendNet({t:'hello'}); setOnlineStatus('接続しました！対戦開始を待っています…'); }); });
+  peer.on('error', err=>{ if(err&&err.type==='peer-unavailable') setOnlineStatus('<span class="err">部屋が見つかりませんでした。</span>'); });
+}
+function leaveOnline(){ teardownOnline(); window.PW_ROOM_CODE=''; document.getElementById('onlineCodeWrap').classList.add('hidden'); document.getElementById('leaveBtn').classList.add('hidden'); setOnlineStatus(''); resetOnlineGame(); }
+document.getElementById('hostBtn').addEventListener('click',hostRoom);
+document.getElementById('joinBtn').addEventListener('click',joinRoom);
+document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
+</script>
+<script>window.PW_GAME='numguess';window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script src="friends.js"></script>
+</body>
+</html>

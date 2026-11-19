@@ -76,9 +76,19 @@
     caring:     { title: '育成ゲーム',             file: 'caring.html', coop: true },
     gamedev:    { title: 'ゲーム工房物語',         file: 'gamedev.html' },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
-    otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true }
+    otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true },
+    reaction:   { title: 'はんしゃテスト',         file: 'reaction.html' },
+    mash:       { title: 'れんだバトル',           file: 'mash.html' },
+    numguess:   { title: 'かずあて',               file: 'numguess.html' },
+    janken:     { title: 'じゃんけんバトル',       file: 'janken.html' },
+    calc:       { title: 'けいさんダッシュ',       file: 'calc.html' },
+    memory:     { title: 'しんけいすいじゃく',     file: 'memory.html' },
+    mole:       { title: 'もぐらパニック',         file: 'mole.html' },
+    simon:      { title: 'いろメモリ',             file: 'simon.html' },
+    timing:     { title: 'タイミングストップ',     file: 'timing.html' },
+    dice:       { title: 'ダイスレース',           file: 'dice.html' }
   };
-  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome'];
+  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','reaction','mash','numguess','janken','calc','memory','mole','simon','timing','dice'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },

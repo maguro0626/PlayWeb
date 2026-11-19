@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>じゃんけんバトル | PlayWeb</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#0a0a16;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);--txt:#eef0ff;--sub:#9aa0c3;--acc:#f472b6}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh}
+.wrap{max-width:480px;margin:0 auto;padding:14px 14px 32px;display:flex;flex-direction:column;gap:12px}
+.ttl{font-size:24px;font-weight:900;text-align:center;padding:8px 0 2px}
+.sub{text-align:center;color:var(--sub);font-size:13px;line-height:1.6}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.hidden{display:none!important}
+#modeSeg{display:flex;background:rgba(0,0,0,.35);border-radius:999px;padding:3px;gap:2px}
+#modeSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:9px 6px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+#modeSeg button.on{background:var(--acc);color:#2a0618}
+.btn{background:var(--acc);color:#2a0618;border:none;border-radius:12px;padding:11px 16px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;width:100%}
+.btn:active{transform:scale(.97)}
+.btn.subBtn{background:rgba(255,255,255,.1);color:var(--txt);border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+.netBtns{display:flex;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.row input{flex:1;min-width:0}
+input[type=text]{background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:12px;color:var(--txt);font-size:18px;padding:11px;text-align:center;font-family:inherit;text-transform:uppercase}
+#onlineStatus{font-size:13px;color:var(--sub);text-align:center;min-height:20px;line-height:1.6;margin-top:10px}
+#onlineStatus .err{color:#f87171;font-weight:700}
+#onlineCodeWrap{text-align:center;margin-top:10px;font-size:14px}
+#roomCodeText{font-size:26px;font-weight:900;letter-spacing:.25em;color:var(--acc);display:block;margin-top:4px}
+.best{text-align:center;color:var(--sub);font-size:13px}
+.score{display:flex;justify-content:space-around;text-align:center;font-weight:900;font-size:18px}
+.score span{display:block;font-size:32px;color:var(--acc)}
+.hands{display:flex;gap:10px;justify-content:center}
+.handBtn{flex:1;background:rgba(255,255,255,.08);border:2px solid var(--line);border-radius:16px;padding:16px 4px;font-size:34px;cursor:pointer;font-family:inherit;color:var(--txt)}
+.handBtn small{display:block;font-size:13px;font-weight:800;margin-top:4px}
+.handBtn:active{transform:scale(.95)}
+.handBtn:disabled{opacity:.4}
+.handBtn.sel{border-color:var(--acc);background:rgba(244,114,182,.2)}
+.vs{display:flex;justify-content:space-around;align-items:center;font-size:44px;text-align:center}
+.vs small{display:block;font-size:12px;color:var(--sub);font-weight:700}
+.msg{text-align:center;font-size:17px;font-weight:900;min-height:26px;line-height:1.5}
+.hist{font-size:13px;line-height:1.9;color:var(--sub);max-height:180px;overflow-y:auto}
+.hist b{color:var(--txt)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="ttl">✊ じゃんけんバトル</div>
+<p class="sub">3本先取！あいこはやり直し。<br>グー✊ チョキ✌️ パー✋</p>
+<div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
+<div id="soloPane"><div class="card"><p class="sub" style="margin-bottom:10px">CPUと3本先取で勝負！</p><button class="btn" id="soloStartBtn">ゲームスタート</button></div></div>
+<div id="onlinePane" class="hidden"><div class="card">
+<div class="netBtns"><button class="btn" id="hostBtn">部屋を作る</button></div>
+<div class="row" style="margin-top:10px"><input type="text" id="joinCode" maxlength="6" placeholder="コード6文字"><button class="btn" id="joinBtn" style="width:auto;flex:none">参加する</button></div>
+<div id="onlineCodeWrap" class="hidden">ルームコード<span id="roomCodeText">------</span></div>
+<div id="onlineStatus"></div>
+<button class="btn subBtn hidden" id="leaveBtn" style="margin-top:10px">退出する</button>
+</div></div>
+<div id="gameArea"><div class="card" style="display:flex;flex-direction:column;gap:12px">
+<div class="score"><div>あなた<span id="myScore">0</span></div><div style="font-size:14px;color:var(--sub);align-self:center">― 3本先取 ―</div><div><span id="oppLabel">CPU</span><span id="oppScore">0</span></div></div>
+<div class="vs"><div>❓<small>あなた</small></div><div style="font-size:18px;color:var(--sub)">VS</div><div>❓<small id="oppVsLabel">CPU</small></div></div>
+<div class="vs hidden" id="vsResult"><div id="myHandDisp">✊</div><div style="font-size:18px;color:var(--sub)">VS</div><div id="oppHandDisp">✊</div></div>
+<div class="msg" id="gameMsg">スタートを押してね</div>
+<div class="hands">
+<button class="handBtn" data-h="0" disabled>✊<small>グー</small></button>
+<button class="handBtn" data-h="1" disabled>✌️<small>チョキ</small></button>
+<button class="handBtn" data-h="2" disabled>✋<small>パー</small></button>
+</div>
+<button class="btn hidden" id="rematchBtn">もう一度</button>
+<div class="hist" id="hist"></div>
+</div></div>
+<div class="best" id="bestLine">ベスト: ー</div>
+</div>
+<script>
+let AC=null;function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.12,t);g.gain.exponentialRampToValueAtTime(.001,t+(d||.15));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||.15));}catch(e){}}
+const $=id=>document.getElementById(id);
+const HANDS=['✊','✌️','✋'];const HNAMES=['グー','チョキ','パー'];
+let mode='solo';
+let save={wins:0,bestStreak:0};try{const s=localStorage.getItem('mini_janken_v1');if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}
+function persist(){try{localStorage.setItem('mini_janken_v1',JSON.stringify(save));}catch(e){} renderBest();}
+function renderBest(){$('bestLine').textContent='ベスト: CPU戦勝利数 '+save.wins+' / 最高連勝 '+save.bestStreak;}
+renderBest();
+let myScore=0,oppScore=0,round=0,playing=false,finished=false,recorded=false,histArr=[],streak=0;
+let myHand=null,oppHand=null,waiting=false;
+function judge(a,b){if(a===b)return 0;if((a===0&&b===1)||(a===1&&b===2)||(a===2&&b===0))return 1;return -1;}
+function renderScore(){$('myScore').textContent=myScore;$('oppScore').textContent=oppScore;}
+function setHandsEnabled(en){document.querySelectorAll('.handBtn').forEach(b=>b.disabled=!en);}
+function clearSel(){document.querySelectorAll('.handBtn').forEach(b=>b.classList.remove('sel'));}
+function showRound(){if(myHand===null||oppHand===null)return;const r=judge(myHand,oppHand);$('vsResult').classList.remove('hidden');$('myHandDisp').textContent=HANDS[myHand];$('oppHandDisp').textContent=HANDS[oppHand];let txt;if(r===0){txt='あいこ！もう一度';histArr.unshift('R'+round+': '+HNAMES[myHand]+' vs '+HNAMES[oppHand]+' → あいこ');tone(440,.12,'sine',.09);}else if(r===1){myScore++;txt='勝ち！ 🎉';histArr.unshift('R'+round+': '+HNAMES[myHand]+' vs '+HNAMES[oppHand]+' → <b>勝ち</b>');tone(659,.12,'sine',.11);tone(880,.18,'sine',.11,.1);}else{oppScore++;txt='負け…';histArr.unshift('R'+round+': '+HNAMES[myHand]+' vs '+HNAMES[oppHand]+' → 負け');tone(220,.2,'sine',.1);}$('gameMsg').textContent=txt;$('hist').innerHTML=histArr.join('<br>');renderScore();if(myScore>=3||oppScore>=3){finishGame(myScore>=3);return;}myHand=null;oppHand=null;waiting=false;if(mode==='solo'){setTimeout(()=>{if(playing&&!finished){setHandsEnabled(true);$('gameMsg').textContent='手を選んでね';}},700);}else{setTimeout(()=>{if(playing&&!finished){setHandsEnabled(true);$('gameMsg').textContent='次のラウンド：手を選んでね';}},1800);}}
+function finishGame(win){finished=true;playing=false;setHandsEnabled(false);if(mode==='solo'){if(win){save.wins++;streak++;if(streak>save.bestStreak)save.bestStreak=streak;}else{streak=0;}persist();$('gameMsg').textContent=win?'🏆 あなたの勝ち！（'+myScore+'-'+oppScore+'）':'CPUの勝ち…（'+myScore+'-'+oppScore+'）';}else{$('gameMsg').textContent=win?'🏆 あなたの勝ち！（'+myScore+'-'+oppScore+'）':'相手の勝ち…（'+myScore+'-'+oppScore+'）';$('rematchBtn').classList.remove('hidden');if(!recorded){recorded=true;if(window.PWFriends&&PWFriends.recordMatch)PWFriends.recordMatch(win?'win':'lose');}}if(win){tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.3,'sine',.12,.24);}}
+function startSolo(){myScore=0;oppScore=0;round=0;playing=true;finished=false;recorded=false;histArr=[];myHand=null;oppHand=null;$('hist').innerHTML='';$('vsResult').classList.add('hidden');$('rematchBtn').classList.add('hidden');$('oppLabel').textContent='CPU';$('oppVsLabel').textContent='CPU';renderScore();setHandsEnabled(true);$('gameMsg').textContent='手を選んでね';tone(523,.1,'sine',.1);}
+function resetOnlineGame(){myScore=0;oppScore=0;round=0;playing=false;finished=false;recorded=false;histArr=[];myHand=null;oppHand=null;waiting=false;$('hist').innerHTML='';$('vsResult').classList.add('hidden');$('rematchBtn').classList.add('hidden');$('oppLabel').textContent='相手';$('oppVsLabel').textContent='相手';renderScore();setHandsEnabled(false);if(mode==='online')$('gameMsg').textContent='接続を待っています…';}
+function startOnlineMatch(){resetOnlineGame();playing=true;$('gameMsg').textContent='対戦開始！手を選んでね';setHandsEnabled(true);tone(784,.15,'sine',.1);}
+document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);if(on){resetOnlineGame();}else{myScore=0;oppScore=0;renderScore();$('oppLabel').textContent='CPU';$('oppVsLabel').textContent='CPU';setHandsEnabled(false);$('gameMsg').textContent='スタートを押してね';$('rematchBtn').classList.add('hidden');}tone(660,.08,'sine',.08);});});
+$('soloStartBtn').addEventListener('click',startSolo);
+document.querySelectorAll('.handBtn').forEach(b=>{b.addEventListener('click',()=>{if(!playing||finished||waiting)return;const h=parseInt(b.dataset.h,10);clearSel();b.classList.add('sel');tone(550,.08,'sine',.09);if(mode==='solo'){myHand=h;oppHand=Math.floor(Math.random()*3);round++;showRound();if(!finished&&judge(h,oppHand)!==0){} }else{myHand=h;waiting=true;setHandsEnabled(false);$('gameMsg').textContent='相手の手を待っています…';sendNet({t:'hand',h:h});if(oppHand!==null){round++;showRound();}}});});
+$('rematchBtn').addEventListener('click',()=>{if(mode==='solo'){startSolo();return;}if(isHost){startOnlineMatch();sendNet({t:'start'});}else{sendNet({t:'rematch'});$('gameMsg').textContent='再戦を申し込みました…';}});
+function onNetData(m){if(!m||!m.t)return;if(m.t==='ping')return;
+if(m.t==='hello'){setOnlineStatus('接続しました！対戦開始');startOnlineMatch();sendNet({t:'start'});return;}
+if(m.t==='start'){startOnlineMatch();return;}
+if(m.t==='hand'){oppHand=m.h;if(myHand!==null){round++;showRound();}else{$('gameMsg').textContent='相手が手を選びました。あなたの番です';}return;}
+if(m.t==='rematch'){if(isHost){startOnlineMatch();sendNet({t:'start'});}return;}
+}
+function onNetDisconnected(){setOnlineStatus('<span class="err">相手との接続が切れました。</span>');playing=false;setHandsEnabled(false);}
+</script>
+<script>
+const PEER_PREFIX = 'playweb-jk-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+] } };
+let peer=null, conn=null, isHost=false, roomCode='', heartbeatTimer=null, connTimer=null;
+function genRoomCode(){ const C='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++) s+=C.charAt(Math.floor(Math.random()*C.length)); return s; }
+function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
+function sendNet(o){ if (conn && conn.open){ try{ conn.send(o); }catch(e){} } }
+function setOnlineStatus(html){ const el=document.getElementById('onlineStatus'); if(el) el.innerHTML=html; }
+function startHeartbeat(){ stopHeartbeat(); heartbeatTimer=setInterval(()=>sendNet({t:'ping'}),8000); }
+function stopHeartbeat(){ if(heartbeatTimer){ clearInterval(heartbeatTimer); heartbeatTimer=null; } }
+function armConnTimer(msg){ clearTimeout(connTimer); connTimer=setTimeout(()=>{ if(!conn||!conn.open) setOnlineStatus('<span class="err">'+msg+'</span>'); },25000); }
+function disarmConnTimer(){ clearTimeout(connTimer); }
+function gateOk(){ if (window.PWFriends && PWFriends.gateState){ const g=PWFriends.gateState(); if (g==='guest'||g==='sdk-down'){ setOnlineStatus('<span class="err">オンライン対戦にはログインが必要です。</span>'); return false; } } return true; }
+function setupConn(c){ conn=c; c.on('data', onNetData); c.on('open', ()=>{ disarmConnTimer(); startHeartbeat(); }); c.on('close', ()=>{ if(conn===c) onNetDisconnected(); }); c.on('error', ()=>{ if(conn===c) onNetDisconnected(); }); }
+function teardownOnline(){ stopHeartbeat(); clearTimeout(connTimer); try{if(conn)conn.close();}catch(e){} try{if(peer)peer.destroy();}catch(e){} conn=null; peer=null; }
+function hostRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; teardownOnline(); isHost=true; roomCode=genRoomCode(); window.PW_ROOM_CODE=roomCode; resetOnlineGame(); setOnlineStatus('部屋を作成中…');
+  try{ peer=new Peer(PEER_PREFIX+roomCode, PEER_OPTS); }catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', ()=>{ document.getElementById('roomCodeText').textContent=roomCode; document.getElementById('onlineCodeWrap').classList.remove('hidden'); document.getElementById('leaveBtn').classList.remove('hidden'); setOnlineStatus('フレンドの参加を待っています…'); });
+  peer.on('connection', c=>{ setupConn(c); armConnTimer('相手との接続を確立できませんでした。'); });
+  peer.on('error', err=>{ if(err&&err.type==='unavailable-id') setOnlineStatus('<span class="err">コードが重複しました。もう一度押してください。</span>'); });
+  peer.on('disconnected', ()=>{ try{peer.reconnect();}catch(e){} });
+}
+function joinRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; const code=(document.getElementById('joinCode').value||'').trim().toUpperCase(); if(code.length!==6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; } teardownOnline(); isHost=false; roomCode=code; resetOnlineGame(); setOnlineStatus('接続中…');
+  try{ peer=new Peer(undefined, PEER_OPTS); }catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', ()=>{ armConnTimer('接続を確立できませんでした。'); const c=peer.connect(PEER_PREFIX+code,{reliable:true}); setupConn(c); c.on('open', ()=>{ document.getElementById('leaveBtn').classList.remove('hidden'); sendNet({t:'hello'}); setOnlineStatus('接続しました！対戦開始を待っています…'); }); });
+  peer.on('error', err=>{ if(err&&err.type==='peer-unavailable') setOnlineStatus('<span class="err">部屋が見つかりませんでした。</span>'); });
+}
+function leaveOnline(){ teardownOnline(); window.PW_ROOM_CODE=''; document.getElementById('onlineCodeWrap').classList.add('hidden'); document.getElementById('leaveBtn').classList.add('hidden'); setOnlineStatus(''); resetOnlineGame(); }
+document.getElementById('hostBtn').addEventListener('click',hostRoom);
+document.getElementById('joinBtn').addEventListener('click',joinRoom);
+document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
+</script>
+<script>window.PW_GAME='janken';window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script src="friends.js"></script>
+</body>
+</html>

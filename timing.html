@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>タイミングストップ | PlayWeb</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#0a0a16;--accent:#38bdf8;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);--txt:#f2f4ff;--sub:#9aa0c3}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh}
+.wrap{max-width:480px;margin:0 auto;padding:14px 14px 28px;display:flex;flex-direction:column;gap:12px}
+.ttl{font-size:24px;font-weight:900;text-align:center}.ttl span{color:var(--accent)}
+#modeSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+#modeSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:9px 6px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+#modeSeg button.on{background:var(--accent);color:#111}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.hidden{display:none!important}
+.netBtns{display:flex;gap:8px;margin-bottom:10px}
+.btn{background:var(--accent);color:#111;border:none;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;flex:1}
+.btn.sub{background:rgba(255,255,255,.1);color:var(--txt);border:1px solid var(--line)}
+.btn:active{transform:scale(.97)}
+.joinRow{display:flex;gap:8px}.joinRow input{flex:1;min-width:0;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:11px;font-size:16px;text-transform:uppercase;text-align:center;letter-spacing:.15em;font-family:inherit}
+#onlineStatus{font-size:13px;color:var(--sub);min-height:20px;margin-top:10px;line-height:1.6;text-align:center}#onlineStatus .err{color:#f87171;font-weight:700}
+#onlineCodeWrap{text-align:center;margin-top:10px;font-size:14px}#roomCodeText{font-size:26px;font-weight:900;letter-spacing:.3em;color:var(--accent)}
+.best{text-align:center;color:var(--sub);font-size:13px}
+#barWrap{position:relative;height:64px;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;margin-top:8px}
+#zone{position:absolute;top:0;bottom:0;background:rgba(56,189,248,.35);border-left:2px solid var(--accent);border-right:2px solid var(--accent)}
+#zoneCenter{position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:.9}
+#marker{position:absolute;top:4px;bottom:4px;width:6px;margin-left:-3px;background:#facc15;border-radius:3px;box-shadow:0 0 12px #facc15}
+.hud{display:flex;gap:8px}.hudBox{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}.hudBox b{font-size:24px;display:block}
+.info{text-align:center;font-size:15px;line-height:1.7;min-height:52px}
+.list{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.chip{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:13px;font-weight:700}
+.help{font-size:12px;color:var(--sub);line-height:1.8;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="ttl">🎯 タイミング<span>ストップ</span></div>
+<div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
+<div id="soloPane"><div class="card"><p class="help">動くマーカーをターゲットの中心で止めよう！ 中心ぴったりで100点。3ラウンド合計（/300）で競います。</p><button id="soloStart" class="btn" style="width:100%;margin-top:8px">スタート</button></div></div>
+<div id="onlinePane" class="hidden"><div class="card">
+<div class="netBtns"><button id="hostBtn" class="btn">部屋を作る</button></div>
+<div class="joinRow"><input id="joinCode" maxlength="6" placeholder="コード6文字"><button id="joinBtn" class="btn">参加する</button></div>
+<div id="onlineCodeWrap" class="hidden">ルームコード<br><span id="roomCodeText">------</span></div>
+<div id="onlineStatus"></div>
+<button id="leaveBtn" class="btn sub hidden" style="width:100%;margin-top:8px">退出する</button>
+</div></div>
+<div id="gameArea">
+<div class="hud"><div class="hudBox">ラウンド<b id="roundText">-</b></div><div class="hudBox">合計<b id="totalText">0</b></div><div class="hudBox hidden" id="oppBox">相手合計<b id="oppTotalText">0</b></div></div>
+<div id="barWrap"><div id="zone"></div><div id="zoneCenter"></div><div id="marker" style="left:0%"></div></div>
+<button id="stopBtn" class="btn" style="width:100%;margin-top:12px" disabled>ストップ！</button>
+<div class="info" id="timingInfo" style="margin-top:10px">スタートを押してね</div>
+<div class="list" id="scoreList"></div>
+<div class="best" id="bestText" style="margin-top:8px"></div>
+<button id="rematchBtn" class="btn hidden" style="width:100%;margin-top:10px">もう一度</button>
+</div>
+<p class="help">ラウンドごとに速くなり、ゾーンも狭くなります。バー自体をタップしても止まります。</p>
+</div>
+<script>
+let AC=null;
+function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+(d||0.12));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||0.12)+0.02);}catch(e){}}
+function loadSave(){try{return JSON.parse(localStorage.getItem('mini_timing_v1')||'{}');}catch(e){return{};}}
+function storeSave(o){try{localStorage.setItem('mini_timing_v1',JSON.stringify(o));}catch(e){}}
+function showBest(){const s=loadSave();document.getElementById('bestText').textContent='ベスト: '+(s.best!==undefined?s.best+'点 / 300':'-');}
+let mode='solo';
+document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;document.getElementById('soloPane').classList.toggle('hidden',mode!=='solo');document.getElementById('onlinePane').classList.toggle('hidden',mode!=='online');cancelAnim();resetOnlineGame();if(mode==='solo'){document.getElementById('oppBox').classList.add('hidden');setInfo('スタートを押してね');}}));
+showBest();
+function setInfo(t){document.getElementById('timingInfo').innerHTML=t;}
+const markerEl=document.getElementById('marker'),zoneEl=document.getElementById('zone'),centerEl=document.getElementById('zoneCenter'),stopBtn=document.getElementById('stopBtn');
+let rafId=null,pos=0,dir=1,speed=90,center=50,width=28,running=false,round=0;
+function cancelAnim(){if(rafId)cancelAnimationFrame(rafId);rafId=null;running=false;stopBtn.disabled=true;}
+function placeZone(){zoneEl.style.left=(center-width/2)+'%';zoneEl.style.width=width+'%';centerEl.style.left=center+'%';}
+function startAnim(){cancelAnim();running=true;stopBtn.disabled=false;pos=0;dir=1;let last=performance.now();const step=(now)=>{if(!running)return;const dt=(now-last)/1000;last=now;pos+=dir*speed*dt;if(pos>=100){pos=100-(pos-100);dir=-1;}if(pos<=0){pos=-pos;dir=1;}markerEl.style.left=pos+'%';rafId=requestAnimationFrame(step);};rafId=requestAnimationFrame(step);}
+function calcScore(p){const dist=Math.abs(p-center);const half=width/2;let s;if(dist<=half){s=Math.round(100-(dist/half)*40);}else{s=Math.max(0,Math.round(60-((dist-half)/(50))*60));}if(dist<0.6)s=100;return Math.max(0,Math.min(100,s));}
+placeZone();
+const PEER_PREFIX='playweb-tm-';
+const PEER_OPTS={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]}};
+let peer=null,conn=null,isHost=false,roomCode='',heartbeatTimer=null,connTimer=null;
+function genRoomCode(){const C='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++)s+=C.charAt(Math.floor(Math.random()*C.length));return s;}
+function peerAvailable(){return typeof window.Peer!=='undefined';}
+function sendNet(o){if(conn&&conn.open){try{conn.send(o);}catch(e){}}}
+function setOnlineStatus(html){const el=document.getElementById('onlineStatus');if(el)el.innerHTML=html;}
+function startHeartbeat(){stopHeartbeat();heartbeatTimer=setInterval(()=>sendNet({t:'ping'}),8000);}
+function stopHeartbeat(){if(heartbeatTimer){clearInterval(heartbeatTimer);heartbeatTimer=null;}}
+function armConnTimer(msg){clearTimeout(connTimer);connTimer=setTimeout(()=>{if(!conn||!conn.open)setOnlineStatus('<span class="err">'+msg+'</span>');},25000);}
+function disarmConnTimer(){clearTimeout(connTimer);}
+function gateOk(){if(window.PWFriends&&PWFriends.gateState){const g=PWFriends.gateState();if(g==='guest'||g==='sdk-down'){setOnlineStatus('<span class="err">オンライン対戦にはログインが必要です。</span>');return false;}}return true;}
+function setupConn(c){conn=c;c.on('data',onNetData);c.on('open',()=>{disarmConnTimer();startHeartbeat();});c.on('close',()=>{if(conn===c)onNetDisconnected();});c.on('error',()=>{if(conn===c)onNetDisconnected();});}
+function teardownOnline(){stopHeartbeat();clearTimeout(connTimer);try{if(conn)conn.close();}catch(e){}try{if(peer)peer.destroy();}catch(e){}conn=null;peer=null;}
+function hostRoom(){if(!peerAvailable()){setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>');return;}if(!gateOk())return;teardownOnline();isHost=true;roomCode=genRoomCode();window.PW_ROOM_CODE=roomCode;resetOnlineGame();setOnlineStatus('部屋を作成中…');try{peer=new Peer(PEER_PREFIX+roomCode,PEER_OPTS);}catch(e){setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>');return;}peer.on('open',()=>{document.getElementById('roomCodeText').textContent=roomCode;document.getElementById('onlineCodeWrap').classList.remove('hidden');document.getElementById('leaveBtn').classList.remove('hidden');setOnlineStatus('フレンドの参加を待っています…');});peer.on('connection',c=>{setupConn(c);armConnTimer('相手との接続を確立できませんでした。');});peer.on('error',err=>{if(err&&err.type==='unavailable-id')setOnlineStatus('<span class="err">コードが重複しました。もう一度押してください。</span>');});peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});}
+function joinRoom(){if(!peerAvailable()){setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>');return;}if(!gateOk())return;const code=(document.getElementById('joinCode').value||'').trim().toUpperCase();if(code.length!==6){setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>');return;}teardownOnline();isHost=false;roomCode=code;resetOnlineGame();setOnlineStatus('接続中…');try{peer=new Peer(undefined,PEER_OPTS);}catch(e){setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>');return;}peer.on('open',()=>{armConnTimer('接続を確立できませんでした。');const c=peer.connect(PEER_PREFIX+code,{reliable:true});setupConn(c);c.on('open',()=>{document.getElementById('leaveBtn').classList.remove('hidden');sendNet({t:'hello'});setOnlineStatus('接続しました！対戦開始を待っています…');});});peer.on('error',err=>{if(err&&err.type==='peer-unavailable')setOnlineStatus('<span class="err">部屋が見つかりませんでした。</span>');});}
+function leaveOnline(){teardownOnline();window.PW_ROOM_CODE='';document.getElementById('onlineCodeWrap').classList.add('hidden');document.getElementById('leaveBtn').classList.add('hidden');setOnlineStatus('');resetOnlineGame();}
+document.getElementById('hostBtn').addEventListener('click',hostRoom);
+document.getElementById('joinBtn').addEventListener('click',joinRoom);
+document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
+// ---- solo ----
+let soloScores=[],soloRound=0;
+function soloParams(r){return{center:20+Math.random()*60,width:[28,22,16][r-1]||16,speed:[90,125,165][r-1]||165};}
+function startSoloRound(){const p=soloParams(soloRound);center=p.center;width=p.width;speed=p.speed;placeZone();document.getElementById('roundText').textContent=soloRound+' / 3';setInfo('ラウンド'+soloRound+'：中心で止めろ！');startAnim();}
+function renderSoloList(){document.getElementById('scoreList').innerHTML=soloScores.map((v,i)=>'<span class="chip">R'+(i+1)+': '+v+'点</span>').join('');document.getElementById('totalText').textContent=soloScores.reduce((a,b)=>a+b,0);}
+document.getElementById('soloStart').addEventListener('click',()=>{if(mode!=='solo')return;soloScores=[];soloRound=1;renderSoloList();startSoloRound();});
+function doStop(){if(!running)return;running=false;if(rafId)cancelAnimationFrame(rafId);rafId=null;stopBtn.disabled=true;const sc=calcScore(pos);tone(sc>=90?980:sc>=60?700:320,0.14,'sine',0.13);if(mode==='solo'){soloScores.push(sc);renderSoloList();if(soloRound>=3){const total=soloScores.reduce((a,b)=>a+b,0);setInfo('完了！ 合計 '+total+'点 / 300');const s=loadSave();if(s.best===undefined||total>s.best){s.best=total;storeSave(s);showBest();}}else{setInfo('ラウンド'+soloRound+': '+sc+'点　次へ…');setTimeout(()=>{soloRound++;startSoloRound();},1100);}}else{onlineDoStop(sc);}}
+stopBtn.addEventListener('click',doStop);
+document.getElementById('barWrap').addEventListener('pointerdown',e=>{e.preventDefault();doStop();});
+// ---- online ----
+let myScores=[],oppScores=[],myStop=null,oppStop=null,recorded=false;
+function resetOnlineGame(){cancelAnim();myScores=[];oppScores=[];myStop=null;oppStop=null;recorded=false;document.getElementById('rematchBtn').classList.add('hidden');if(mode==='online'){document.getElementById('oppBox').classList.remove('hidden');document.getElementById('scoreList').innerHTML='';document.getElementById('totalText').textContent='0';document.getElementById('oppTotalText').textContent='0';document.getElementById('roundText').textContent='-';setInfo('接続すると自動で始まります');}}
+function hostStartMatch(){myScores=[];oppScores=[];recorded=false;hostSendRound(1);}
+function hostSendRound(n){const p=soloParams(n);sendNet({t:'round',n:n,center:p.center,width:p.width,speed:p.speed});startOnlineRound(n,p.center,p.width,p.speed);}
+function startOnlineRound(n,c,w,sp){round=n;center=c;width=w;speed=sp;myStop=null;oppStop=null;placeZone();document.getElementById('roundText').textContent=n+' / 3';document.getElementById('rematchBtn').classList.add('hidden');setInfo('ラウンド'+n+'：中心で止めろ！');startAnim();}
+function onlineDoStop(sc){myStop=sc;sendNet({t:'stop',n:round,score:sc});setInfo('あなた '+sc+'点　相手を待っています…');checkOnlineRoundEnd();}
+function renderOnlineTotals(){document.getElementById('totalText').textContent=myScores.reduce((a,b)=>a+b,0);document.getElementById('oppTotalText').textContent=oppScores.reduce((a,b)=>a+b,0);document.getElementById('scoreList').innerHTML=myScores.map((v,i)=>'<span class="chip">R'+(i+1)+': あなた '+v+' / 相手 '+(oppScores[i]!==undefined?oppScores[i]:'-')+'</span>').join('');}
+function checkOnlineRoundEnd(){if(myStop===null||oppStop===null)return;myScores.push(myStop);oppScores.push(oppStop);renderOnlineTotals();setInfo('ラウンド'+round+': あなた '+myStop+'点 / 相手 '+oppStop+'点');const myT=myStop,opT=oppStop;myStop=null;oppStop=null;if(round>=3){setTimeout(finishOnline,700);}else if(isHost){setTimeout(()=>{hostSendRound(round+1);},1400);}}
+function finishOnline(){const a=myScores.reduce((x,y)=>x+y,0),b=oppScores.reduce((x,y)=>x+y,0);let res=a>b?'win':a<b?'lose':'draw';const label=res==='win'?'🏆 あなたの勝ち！':res==='lose'?'相手の勝ち':'引き分け';setInfo(label+'<br>合計 あなた '+a+'点 / 相手 '+b+'点 / 300');document.getElementById('rematchBtn').classList.remove('hidden');const s=loadSave();if(s.best===undefined||a>s.best){s.best=a;storeSave(s);showBest();}if(!recorded){recorded=true;if(window.PWFriends&&PWFriends.recordMatch)PWFriends.recordMatch(res);}}
+function onNetData(m){if(!m||m.t==='ping')return;if(m.t==='hello'){if(isHost)hostStartMatch();return;}if(m.t==='round'){if(!isHost)startOnlineRound(m.n,m.center,m.width,m.speed);return;}if(m.t==='stop'){if(m.n===round){oppStop=m.score;checkOnlineRoundEnd();}return;}if(m.t==='rematch'){if(isHost)hostStartMatch();return;}}
+function onNetDisconnected(){setOnlineStatus('<span class="err">接続が切れました。</span>');cancelAnim();setInfo('接続が切れました');}
+document.getElementById('rematchBtn').addEventListener('click',()=>{if(isHost){hostStartMatch();}else{sendNet({t:'rematch'});setInfo('再戦をリクエストしました…');document.getElementById('rematchBtn').classList.add('hidden');}});
+</script>
+<script>window.PW_GAME='timing';window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script src="friends.js"></script>
+</body>
+</html>
