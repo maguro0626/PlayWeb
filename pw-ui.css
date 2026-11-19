@@ -1,43 +1,62 @@
 :root{
-  --pw-bg:#080b18;--pw-bg-2:#111632;--pw-ink:#f7f8ff;--pw-muted:#9aa4c5;
-  --pw-line:rgba(255,255,255,.13);--pw-panel:rgba(17,22,50,.88);--pw-panel-2:rgba(24,31,68,.96);
-  --pw-cyan:#5ce1ff;--pw-violet:#9b7bff;--pw-pink:#ff72c8;--pw-gold:#ffd76a;
-  --pw-shadow:0 14px 38px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.12)
+  --pw-void:#070a13;--pw-deep:#0b1120;--pw-surface:#111a2b;--pw-surface-2:#17243a;
+  --pw-line:rgba(180,211,232,.2);--pw-line-soft:rgba(180,211,232,.1);
+  --pw-text:#f4f6fb;--pw-muted:#92a1b8;--pw-gold:#d9b36a;--pw-gold-hi:#ffe3a1;
+  --pw-cyan:#86d8eb;--pw-blue:#5ca5df;--pw-violet:#9b91d4;
+  --pw-shadow:0 18px 50px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.09)
 }
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-tap-highlight-color:transparent}
 body{accent-color:var(--pw-cyan)}
 button,input,select,textarea{font:inherit}button{touch-action:manipulation}
 
-/* 全ゲーム共通の土台。ゲーム盤やcanvasの描画色は保持し、UIの面だけを統一する */
-body.pw-game-page{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif!important;color:var(--pw-ink)!important;background-color:var(--pw-bg)!important}
-body.pw-game-page::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(900px 420px at 8% -8%,rgba(92,225,255,.13),transparent 64%),radial-gradient(900px 500px at 100% 0,rgba(155,123,255,.16),transparent 62%),linear-gradient(180deg,rgba(8,11,24,.08),rgba(8,11,24,.28))}
-body.pw-game-page>*:not(.pw-global-bar){position:relative}
+/* 共通の星空背景。ゲーム盤・canvasはそのまま残し、UIの奥行きだけを揃える */
+body.pw-game-page,body.pw-portal{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif!important;color:var(--pw-text)!important}
+body.pw-game-page{background:var(--pw-void)!important}
+body.pw-game-page::before,body.pw-portal::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:
+  radial-gradient(1px 1px at 12% 18%,rgba(255,255,255,.8) 50%,transparent 52%),
+  radial-gradient(1px 1px at 27% 70%,rgba(190,226,255,.65) 50%,transparent 52%),
+  radial-gradient(1.5px 1.5px at 71% 21%,rgba(255,224,164,.7) 50%,transparent 52%),
+  radial-gradient(1px 1px at 88% 67%,rgba(255,255,255,.75) 50%,transparent 52%),
+  radial-gradient(900px 520px at 8% -10%,rgba(52,105,157,.22),transparent 65%),
+  radial-gradient(820px 520px at 102% 6%,rgba(91,74,144,.22),transparent 63%),
+  linear-gradient(145deg,#070a13 0%,#0b1120 52%,#111329 100%)}
+body.pw-game-page>*:not(.pw-global-bar),body.pw-portal>*:not(.pw-global-bar){position:relative}
 
-/* 共通ブランドナビ */
-.pw-global-bar{position:fixed;z-index:9998;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;pointer-events:none;transition:opacity .25s,transform .25s}
-.pw-global-bar.is-dim{opacity:.48}.pw-global-bar:hover,.pw-global-bar:focus-within{opacity:1}
-.pw-brand,.pw-game-chip{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:7px 11px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:linear-gradient(135deg,rgba(10,15,32,.92),rgba(31,25,68,.84));box-shadow:0 8px 24px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.14);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:var(--pw-ink);text-decoration:none;white-space:nowrap}
-.pw-brand{font-size:11px;font-weight:950;letter-spacing:.16em}.pw-brand-mark{width:19px;height:19px;display:grid;place-items:center;border-radius:6px;background:linear-gradient(135deg,var(--pw-cyan),var(--pw-violet) 55%,var(--pw-pink));color:#10142b;font-size:11px;box-shadow:0 0 16px rgba(92,225,255,.38)}
-.pw-game-chip{margin-left:auto;max-width:52vw;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:850;letter-spacing:.08em;color:#dbe4ff}.pw-game-chip::before{content:"LIVE";color:var(--pw-cyan);font-size:8px;letter-spacing:.15em}.pw-home-link{pointer-events:auto}.pw-home-link:active{transform:scale(.96)}
+/* 共通ヘッダー：作品名を変えても同じゲームブランドに見える */
+.pw-global-bar{position:fixed;z-index:9998;top:0;left:0;right:0;height:54px;padding:8px max(14px,env(safe-area-inset-left)) 8px max(14px,env(safe-area-inset-left));display:flex;align-items:center;gap:12px;pointer-events:none;background:linear-gradient(180deg,rgba(6,9,18,.94),rgba(6,9,18,.68),transparent);transition:opacity .3s,transform .3s}
+.pw-global-bar.is-dim{opacity:.55}.pw-global-bar:hover,.pw-global-bar:focus-within{opacity:1}
+.pw-brand,.pw-game-chip{display:inline-flex;align-items:center;gap:9px;min-height:34px;padding:7px 12px;border:1px solid var(--pw-line);background:linear-gradient(110deg,rgba(17,26,43,.94),rgba(18,27,49,.72));box-shadow:0 10px 25px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);color:var(--pw-text);text-decoration:none;white-space:nowrap}
+.pw-brand{border-radius:9px 2px 9px 2px;font-size:10px;font-weight:900;letter-spacing:.18em}.pw-brand::after{content:"STELLAR ARCADE";font-size:7px;font-weight:700;letter-spacing:.12em;color:var(--pw-gold);padding-left:6px;border-left:1px solid var(--pw-line)}
+.pw-brand-mark{width:20px;height:20px;display:grid;place-items:center;border:1px solid var(--pw-gold);border-radius:50%;color:var(--pw-gold-hi);font-size:10px;box-shadow:0 0 12px rgba(217,179,106,.24)}
+.pw-game-chip{margin-left:auto;max-width:55vw;border-radius:2px 9px 2px 9px;font-size:9px;font-weight:800;letter-spacing:.12em;color:#dfeaf3;overflow:hidden;text-overflow:ellipsis}.pw-game-chip::before{content:"◈  NOW PLAYING  /  ";color:var(--pw-gold);font-size:7px;letter-spacing:.1em}.pw-home-link{pointer-events:auto}.pw-home-link:active{transform:translateY(1px)}
 
-/* JSが付ける共通スキンクラス。既存のinline styleより優先して、全ページの操作系を揃える */
-.pw-control{appearance:none!important;-webkit-appearance:none!important;background:linear-gradient(135deg,#176987,#5545a9 58%,#a23d88)!important;border:1px solid rgba(151,235,255,.72)!important;border-radius:13px!important;color:#fff!important;font-weight:850!important;letter-spacing:.02em!important;box-shadow:0 7px 18px rgba(37,60,145,.34),inset 0 1px 0 rgba(255,255,255,.2)!important;text-shadow:0 1px 2px rgba(0,0,0,.3)!important}
-.pw-control:hover{filter:brightness(1.13) saturate(1.08)!important;box-shadow:0 10px 24px rgba(92,225,255,.22),inset 0 1px 0 rgba(255,255,255,.22)!important}.pw-control:active{transform:translateY(1px) scale(.98)!important}.pw-control:disabled{filter:grayscale(.35)!important;opacity:.55!important}
-.pw-field{background:rgba(6,10,28,.78)!important;border:1px solid rgba(151,180,255,.36)!important;border-radius:12px!important;color:#fff!important;box-shadow:inset 0 2px 9px rgba(0,0,0,.2)!important}.pw-field::placeholder{color:#7f8ab1!important}.pw-field:focus{outline:none!important;border-color:var(--pw-cyan)!important;box-shadow:0 0 0 3px rgba(92,225,255,.16),0 0 18px rgba(92,225,255,.18)!important}
-.pw-surface{background:linear-gradient(145deg,rgba(25,31,70,.9),rgba(12,17,42,.92))!important;border:1px solid rgba(158,176,255,.18)!important;border-radius:18px!important;box-shadow:var(--pw-shadow)!important}
-.pw-header{background:linear-gradient(180deg,rgba(12,17,40,.97),rgba(12,17,40,.78))!important;border-color:rgba(151,180,255,.2)!important;box-shadow:0 8px 28px rgba(0,0,0,.24)!important}
-.pw-title{color:#fff!important;text-shadow:0 0 18px rgba(92,225,255,.28)!important}
+/* 共通コントロール：既存のページ固有配色をここで上書きして統一 */
+.pw-control{appearance:none!important;-webkit-appearance:none!important;background:linear-gradient(180deg,rgba(34,54,78,.98),rgba(15,27,47,.98))!important;border:1px solid rgba(174,208,226,.34)!important;border-radius:9px!important;color:#f4f6fb!important;font-weight:800!important;letter-spacing:.025em!important;box-shadow:0 7px 18px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.12)!important;text-shadow:0 1px 2px rgba(0,0,0,.35)!important}
+.pw-control:hover{filter:brightness(1.16)!important;border-color:var(--pw-gold)!important;box-shadow:0 10px 25px rgba(0,0,0,.34),0 0 18px rgba(217,179,106,.12),inset 0 1px 0 rgba(255,255,255,.18)!important}.pw-control:active{transform:translateY(1px) scale(.985)!important}.pw-control:disabled{filter:grayscale(.4)!important;opacity:.52!important}
+.pw-field{background:rgba(6,12,24,.86)!important;border:1px solid rgba(174,208,226,.3)!important;border-radius:8px!important;color:#fff!important;box-shadow:inset 0 2px 10px rgba(0,0,0,.28)!important}.pw-field::placeholder{color:#7889a0!important}.pw-field:focus{outline:none!important;border-color:var(--pw-gold)!important;box-shadow:0 0 0 3px rgba(217,179,106,.13),0 0 18px rgba(217,179,106,.14)!important}
+.pw-surface{background:linear-gradient(145deg,rgba(23,36,58,.94),rgba(11,19,34,.96))!important;border:1px solid var(--pw-line)!important;border-radius:12px!important;box-shadow:var(--pw-shadow)!important}
+.pw-header{background:linear-gradient(180deg,rgba(8,14,27,.98),rgba(13,22,38,.9))!important;border-color:var(--pw-line)!important;box-shadow:0 10px 30px rgba(0,0,0,.35)!important}
+.pw-title{color:#f7f3e9!important;text-shadow:0 0 20px rgba(217,179,106,.2)!important}
+:where(.logo,.ttl,.game-title,.bar-title,.hdr-title){letter-spacing:.06em;text-shadow:0 0 20px rgba(217,179,106,.2)}
 
-/* 既存クラスにも共通の質感を適用 */
-:where(.card,.panel,.box,.hud-card,.hudBox,.scoreBox,.status-strip,.online-card,.bkCard,.news,.glass-bar,.glass-header){box-shadow:var(--pw-shadow)}
-:where(.logo,.ttl,.game-title,.bar-title,.hdr-title){text-shadow:0 0 18px rgba(92,225,255,.24)}
-:where(.bbtn,.btn,.hbtn,.subbtn,.sub-btn,.bigbtn,.primary,.ghost,.title-btn,.seg-btn,.set-chip){transition:transform .16s ease,filter .16s ease,box-shadow .16s ease,border-color .16s ease}
-:where(.bbtn,.btn,.hbtn,.subbtn,.sub-btn,.bigbtn,.primary,.ghost,.title-btn,.seg-btn,.set-chip):hover{filter:brightness(1.08);box-shadow:0 8px 22px rgba(0,0,0,.2)}
+/* ホーム：ゲームポータルを新しいランチャー画面として再構成 */
+body.pw-portal{background:transparent!important}
+body.pw-portal .wrap{max-width:1180px;padding:0 22px 78px}
+body.pw-portal .hero{text-align:left;padding:118px 14px 52px;min-height:390px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;overflow:hidden;border-bottom:1px solid var(--pw-line-soft)}
+body.pw-portal .hero::before{content:"✦";position:absolute;right:7%;top:96px;font-size:190px;line-height:1;color:rgba(217,179,106,.05);text-shadow:0 0 80px rgba(134,216,235,.22);transform:rotate(18deg)}
+body.pw-portal .hero::after{content:"ASTRA // PLAYWEB";position:absolute;right:18px;bottom:24px;color:rgba(217,179,106,.45);font-size:9px;letter-spacing:.28em}
+body.pw-portal .hero .badge{align-self:flex-start;margin-bottom:16px;padding:7px 12px;border-radius:2px;color:var(--pw-gold-hi);background:rgba(217,179,106,.08);border:1px solid rgba(217,179,106,.38);font-size:10px;letter-spacing:.24em}
+body.pw-portal .hero h1{font-size:clamp(50px,10vw,104px);font-weight:950;letter-spacing:.08em;line-height:.92;background:linear-gradient(120deg,#fff 5%,#d7edf5 30%,#d9b36a 68%,#fff0bb 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 10px 24px rgba(0,0,0,.34))}
+body.pw-portal .hero p{max-width:560px;color:#aebdd0;margin-top:20px;font-size:14px;line-height:1.9}
+body.pw-portal .hero .stats{justify-content:flex-start;margin-top:24px;gap:8px}.pw-portal .hero .stat{background:rgba(17,26,43,.72);border:1px solid var(--pw-line);border-radius:2px;padding:8px 12px;font-size:11px;color:var(--pw-muted)}.pw-portal .hero .stat b{color:var(--pw-gold-hi);font-size:14px}
+body.pw-portal #updateBtn{align-self:flex-start;margin-top:22px;background:linear-gradient(180deg,#355673,#192d45)!important;border:1px solid rgba(217,179,106,.55)!important;border-radius:2px!important;color:#fff!important;box-shadow:0 8px 22px rgba(0,0,0,.28)!important;font-size:12px;letter-spacing:.08em}
+body.pw-portal .toolbar{padding:18px 0 10px;background:linear-gradient(180deg,rgba(7,10,19,.95),rgba(7,10,19,.78),transparent);backdrop-filter:blur(9px)}
+body.pw-portal .search{border-radius:2px;background:rgba(17,26,43,.84);border:1px solid var(--pw-line);box-shadow:var(--pw-shadow)}body.pw-portal .search input{font-size:13px}
+body.pw-portal .chip{border-radius:2px;background:rgba(17,26,43,.8);border:1px solid var(--pw-line);color:#aebdd0;padding:8px 14px}.pw-portal .chip.on{background:linear-gradient(180deg,#365978,#1b3048);border-color:var(--pw-gold);color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.26)}
+body.pw-portal .secTitle{font-size:14px;letter-spacing:.16em;color:#e8edf3;margin:32px 2px 14px}.pw-portal .secTitle::after{background:linear-gradient(90deg,rgba(217,179,106,.42),transparent)}
+body.pw-portal .grid{gap:14px}.pw-portal .thumb{border-radius:3px;box-shadow:0 14px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.2)}.pw-portal .card:hover .thumb{transform:translateY(-5px);box-shadow:0 22px 38px rgba(0,0,0,.5),0 0 0 1px rgba(217,179,106,.45)}.pw-portal .meta{padding:10px 3px 0}.pw-portal .meta h3{font-size:14px}.pw-portal .meta p{color:#8f9eb4;font-size:11px}.pw-portal .tag{border-radius:2px;color:#bddce5;background:rgba(134,216,235,.08);border:1px solid rgba(134,216,235,.2)}
+body.pw-portal .news,body.pw-portal .bkCard{border-radius:3px;background:linear-gradient(145deg,rgba(23,36,58,.9),rgba(11,19,34,.9));border:1px solid var(--pw-line);box-shadow:var(--pw-shadow)}body.pw-portal footer{color:#687990;letter-spacing:.08em}
 
-/* ポータルも同じブランドカラーで統一 */
-body.pw-portal .hero .badge{background:linear-gradient(90deg,rgba(92,225,255,.16),rgba(155,123,255,.16));border-color:rgba(92,225,255,.4);color:#c9f8ff}
-body.pw-portal .chip.on,body.pw-portal .bkBtn.primary{background:linear-gradient(100deg,#0ea5c9,#7358e8 58%,#d34ca5);box-shadow:0 8px 24px rgba(92,225,255,.22)}
-body.pw-portal .thumb{border:1px solid rgba(255,255,255,.12)}body.pw-portal .secTitle{letter-spacing:.1em}
-@media(max-width:600px){.pw-global-bar{left:8px;right:8px;top:max(8px,env(safe-area-inset-top))}.pw-brand,.pw-game-chip{min-height:29px;padding:6px 9px;border-radius:10px}.pw-brand{font-size:9px;letter-spacing:.13em}.pw-game-chip{font-size:9px;max-width:58vw}}
+@media(max-width:600px){.pw-global-bar{height:50px;padding:7px 9px}.pw-brand,.pw-game-chip{min-height:30px;padding:6px 8px}.pw-brand{font-size:8px;letter-spacing:.13em}.pw-brand::after{display:none}.pw-game-chip{max-width:57vw;font-size:8px}.pw-game-chip::before{content:"◈  ";font-size:8px}body.pw-portal .wrap{padding:0 14px 60px}body.pw-portal .hero{padding:104px 6px 38px;min-height:370px}body.pw-portal .hero::before{right:-20px;top:104px;font-size:150px}body.pw-portal .hero h1{font-size:clamp(45px,17vw,78px)}body.pw-portal .hero p{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.pw-global-bar,.pw-control{transition:none!important}}

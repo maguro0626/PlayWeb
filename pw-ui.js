@@ -22,7 +22,7 @@
   document.querySelectorAll('.logo,.ttl,.game-title,.bar-title,#hdr-title').forEach(function(el){el.classList.add('pw-title')});
   var bar=document.createElement('div');
   bar.className='pw-global-bar';
-  bar.innerHTML='<a class="pw-brand pw-home-link" href="index.html" aria-label="PlayWebホームへ戻る"><span class="pw-brand-mark">P</span><span>PLAYWEB</span></a><div class="pw-game-chip" title="'+title+'">'+title+'</div>';
+  bar.innerHTML='<a class="pw-brand pw-home-link" href="index.html" aria-label="PlayWebホームへ戻る"><span class="pw-brand-mark">✦</span><span>PLAYWEB</span></a><div class="pw-game-chip" title="'+title+'">'+title+'</div>';
   document.body.appendChild(bar);
   var timer;
   function dim(){clearTimeout(timer);timer=setTimeout(function(){bar.classList.add('is-dim')},4200)}
