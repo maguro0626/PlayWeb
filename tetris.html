@@ -20,8 +20,8 @@
     display:flex; flex-direction:column; align-items:center; min-height:100%; overflow-x:hidden;
     user-select:none; -webkit-user-select:none; touch-action:manipulation;
   }
-  header{width:100%;max-width:860px;display:flex;align-items:center;justify-content:space-between;padding:14px 18px 4px}
-  .logo{font-weight:900;letter-spacing:.35em;font-size:20px;background:linear-gradient(90deg,#22d3ee,#a78bfa,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}
+  header{width:100%;max-width:860px;display:flex;align-items:center;justify-content:space-between;padding:14px 18px 4px;flex-wrap:nowrap}
+  .logo{font-weight:900;letter-spacing:.35em;font-size:20px;white-space:nowrap;background:linear-gradient(90deg,#22d3ee,#a78bfa,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}
   .hbtns{display:flex;gap:8px}
   .hbtn{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;backdrop-filter:blur(6px)}
   .hbtn:active{transform:scale(.96)}
@@ -45,11 +45,14 @@
   #msg.pop{animation:pop .9s ease-out forwards}
   @keyframes pop{0%{opacity:0;transform:scale(.6)}18%{opacity:1;transform:scale(1.15)}35%{transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:scale(1.05) translateY(-10px)}}
   .touch{display:none;gap:8px;justify-content:center;padding:0 12px 22px;flex-wrap:wrap}
+  .trow{display:flex;gap:8px}
+  .trow.fabspace{padding-right:76px}
   .tbtn{width:56px;height:56px;border-radius:16px;background:var(--panel);border:1px solid var(--line);color:var(--txt);font-size:21px;backdrop-filter:blur(6px)}
+  .tbtn.hold span{font-size:12px;letter-spacing:.15em}
   .tbtn:active{background:rgba(255,255,255,.16)}
   .help{max-width:860px;color:var(--sub);font-size:12px;line-height:1.9;padding:0 20px 26px;text-align:center}
   .vsbtn{background:linear-gradient(90deg,#db2777,#7c3aed);box-shadow:0 10px 30px rgba(219,39,119,.35)}
-  .netcol{display:flex;flex-direction:column;gap:9px;width:100%;max-width:264px}
+  .netcol{display:flex;flex-direction:column;gap:9px;width:100%;max-width:min(264px,100%)}
   .netcol input{flex:1;min-width:0;font-family:inherit;font-size:16px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--txt)}
   .roomcode{font-size:30px;font-weight:900;letter-spacing:.3em;text-align:center}
   #onlineStatus{color:var(--sub);font-size:12.5px;line-height:1.7;text-align:center;min-height:20px}
@@ -59,28 +62,38 @@
   #pendInfo{text-align:center;font-size:11px;color:#fda4af;min-height:15px;font-weight:700}
   kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-bottom-width:2px;border-radius:5px;padding:0 5px;font-family:inherit;font-size:11px}
   @media (max-width:680px){
-    .side{width:92px}.stat .v{font-size:17px}
-    .touch{display:flex}.help{display:none}
-    main{gap:10px;padding:8px 6px 12px}
-  }
-  @media (max-width:560px){
-    main{gap:8px;padding:8px 6px 12px}
-    .side{width:70px;gap:8px}
+    /* モバイル: 画面いっぱいを使うアプリ型レイアウト（盤面を最大化し、空白を作らない） */
+    body{height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none}
+    header{padding:8px 10px 2px;gap:8px}
+    .logo{font-size:15px;letter-spacing:.16em}
+    .hbtns{gap:6px}
+    .hbtn{padding:6px 8px;font-size:12px;white-space:nowrap}
+    main{display:grid;grid-template-columns:minmax(0,1fr) 82px;grid-template-rows:auto minmax(0,1fr);
+      grid-template-areas:"stats stats" "board side";gap:8px;flex:1;min-height:0;
+      padding:6px 10px 8px;align-items:stretch}
+    .side{gap:8px}
+    .side.left{grid-area:stats;flex-direction:row;width:auto}
+    .side.left .box{flex:1}
+    .side.right{grid-area:side;width:auto;min-width:0}
+    #boardWrap{grid-area:board;min-width:0;min-height:0;padding:6px;display:flex;align-items:center;justify-content:center}
     .box{padding:6px 4px}
     .box h3{font-size:10px;margin-bottom:4px}
     .box canvas{max-width:100%;height:auto}
-    .stat .v{font-size:14px}
-    #boardWrap{padding:6px}
-    #board{width:52vw;height:auto}
-    .overlay{left:-58px;right:-58px;padding:14px 10px}
+    .stat .v{font-size:16px}
+    .stat .k{font-size:9px}
+    .overlay{inset:6px;padding:14px 10px}
     .overlay h2{font-size:24px}
     .roomcode{font-size:24px}
-    .logo{font-size:16px}
-    .hbtn{padding:6px 9px;font-size:12px}
+    .touch{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;gap:8px;width:100%;max-width:860px;padding:0 10px calc(10px + env(safe-area-inset-bottom))}
+    .tbtn{flex:1;width:auto;height:54px}
+    .tbtn.hold{height:48px;font-size:17px}
+    .help{display:none}
+  }
+  @media (max-width:400px){
+    .logo{font-size:14px;letter-spacing:.08em}
+    .hbtn{padding:6px 7px}
   }
 </style>
-  <link rel="stylesheet" href="pw-ui.css">
-  <script src="pw-ui.js" defer></script>
 </head>
 <body>
 <header>
@@ -93,8 +106,7 @@
 </header>
 
 <main>
-  <div class="side">
-    <div class="box"><h3>HOLD</h3><canvas id="hold" width="104" height="64"></canvas></div>
+  <div class="side left">
     <div class="box stat"><div class="k">SCORE</div><div class="v" id="score">0</div></div>
     <div class="box stat"><div class="k">BEST</div><div class="v" id="best">0</div></div>
     <div class="box stat"><div class="k">LEVEL</div><div class="v" id="level">1</div></div>
@@ -145,7 +157,8 @@
     </div>
   </div>
 
-  <div class="side">
+  <div class="side right">
+    <div class="box"><h3>HOLD</h3><canvas id="hold" width="104" height="64"></canvas></div>
     <div class="box"><h3>NEXT</h3><canvas id="next" width="104" height="264"></canvas></div>
     <div class="box" id="oppBox" style="display:none">
       <h3>あいて</h3>
@@ -159,13 +172,17 @@
 </main>
 
 <div class="touch">
-  <button class="tbtn" data-k="left">←</button>
-  <button class="tbtn" data-k="right">→</button>
-  <button class="tbtn" data-k="down">↓</button>
-  <button class="tbtn" data-k="rotL">⟲</button>
-  <button class="tbtn" data-k="rotR">⟳</button>
-  <button class="tbtn" data-k="drop">⤓</button>
-  <button class="tbtn" data-k="hold">C</button>
+  <div class="trow">
+    <button class="tbtn" data-k="left">←</button>
+    <button class="tbtn" data-k="right">→</button>
+    <button class="tbtn" data-k="down">↓</button>
+    <button class="tbtn" data-k="rotL">⟲</button>
+    <button class="tbtn" data-k="rotR">⟳</button>
+    <button class="tbtn" data-k="drop">⤓</button>
+  </div>
+  <div class="trow fabspace">
+    <button class="tbtn hold" data-k="hold">C <span>ホールド</span></button>
+  </div>
 </div>
 
 <p class="help">
@@ -926,7 +943,22 @@ $('vsRematchBtn').onclick = () => {
   }
 };
 
+/* モバイル: 盤面をビューポートに合わせて最大化（描画解像度は固定でCSSサイズのみ調整） */
+function fitBoard(){
+  const cv = $('board'), wrap = $('boardWrap');
+  if(window.matchMedia('(max-width:680px)').matches){
+    const cs = getComputedStyle(wrap);
+    const availW = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const availH = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const w = Math.max(110, Math.min(availW, availH / 2));
+    cv.style.width = w + 'px'; cv.style.height = (w * 2) + 'px';
+  } else { cv.style.width = ''; cv.style.height = ''; }
+}
+window.addEventListener('resize', fitBoard);
+window.addEventListener('load', fitBoard);
+
 grid = emptyGrid(); queue = []; refill();
+fitBoard();
 requestAnimationFrame(loop);
 </script>
 <script>window.PW_GAME='tetris';window.PW_JOIN_CFG={openers:[{click:'#vsBtn'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>

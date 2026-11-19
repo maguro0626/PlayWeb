@@ -190,6 +190,12 @@
   footer{color:var(--sub); font-size:11.5px; text-align:center; line-height:1.9; padding:0 10px}
   @media (max-width:560px){
     #hud{gap:7px} .hud-card{padding:7px 10px} #jump-btn{width:76px;height:76px}
+    /* UI被り・空白対策: ステージを左右フルブリードにして盤面を広げ、
+       プレイ中は説明フッターを隠し、余った縦スペースを上下に配分する */
+    #game-container{margin-left:-14px; margin-right:-14px; border-radius:0}
+    body.playing footer{display:none}
+    body.playing #game-container{margin-top:auto}
+    body.playing #panel{margin-bottom:auto}
     /* 結果モーダル: スマホでは2:1枠に収まらないため全画面表示にする */
     #overlay{position:fixed; inset:0; z-index:60; gap:6px; padding:10px; justify-content:flex-start}
     #overlay > *:first-child{margin-top:auto}
@@ -499,6 +505,7 @@ function startGame(){
   setProg(0);
   hideOverlay();
   document.getElementById('panel').innerHTML = '<div id="play-hint">TAP / SPACE — JUMP（長押しで高く跳ぶ）</div>';
+  document.body.classList.add('playing');
   document.getElementById('jump-btn').classList.add('on');
   gameState = 'COUNTDOWN'; countT = 0; countShown = -1;
   bgmStop();
@@ -678,6 +685,7 @@ function showToast(msg){
 
 /* ---------- メニュー構築 ---------- */
 function buildMenu(){
+  document.body.classList.remove('playing');
   const panel = document.getElementById('panel');
   const tabsHTML = '<div class="mode-tabs">' +
     `<button class="mode-tab ${netMode === 'solo' ? 'on' : ''}" data-mode="solo">🎮 ソロプレイ</button>` +

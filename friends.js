@@ -49,6 +49,7 @@
     suica:      { title: 'スイカゲーム',           file: 'suica.html' },
     crepe:      { title: 'クレープ工房',           file: 'crepe.html' },
     survivors:  { title: 'まじょねこサバイバーズ', file: 'survivors.html', coop: true },
+    frostline:  { title: 'フロストライン',         file: 'frostline.html', coop: true },
     blockblast: { title: 'ブロックブラスト',       file: 'blockblast.html' },
     minesweeper:{ title: 'マインスイーパ',         file: 'minesweeper.html' },
     reversi:    { title: 'オセロ',                 file: 'reversi.html' },
@@ -62,10 +63,9 @@
     caring:     { title: '育成ゲーム',             file: 'caring.html', coop: true },
     gamedev:    { title: 'ゲーム工房物語',         file: 'gamedev.html' },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
-    otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true },
-    frostline:  { title: 'Frostline: Emberfront', file: 'frostline-field.html' }
+    otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true }
   };
-  var GAME_ORDER = ['tetris','suica','crepe','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','frostline'];
+  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
