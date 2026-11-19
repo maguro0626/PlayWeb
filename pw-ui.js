@@ -13,6 +13,13 @@
   if(file==='rpg2.html')return;
   var title=titles[id]||document.title.replace(/\s*[|｜].*$/,'').trim()||'ゲーム';
   document.body.classList.add(id==='index'?'pw-portal':'pw-game-page');
+  /* 各ゲームは個別HTMLのため、共通スキン用のクラスをDOMに付与して
+     ボタン・入力欄・面の見た目を一括で揃える。ゲームロジックやdata属性は変更しない。 */
+  document.querySelectorAll('button').forEach(function(el){el.classList.add('pw-control')});
+  document.querySelectorAll('input,select,textarea').forEach(function(el){el.classList.add('pw-field')});
+  document.querySelectorAll('.card,.panel,.box,.hud-card,.hudBox,.scoreBox,.status-strip,.online-card,.bkCard,.news,.glass-bar,.glass-header').forEach(function(el){el.classList.add('pw-surface')});
+  document.querySelectorAll('header,.topbar,.ttl,.logo,.glass-bar,.glass-header').forEach(function(el){el.classList.add('pw-header')});
+  document.querySelectorAll('.logo,.ttl,.game-title,.bar-title,#hdr-title').forEach(function(el){el.classList.add('pw-title')});
   var bar=document.createElement('div');
   bar.className='pw-global-bar';
   bar.innerHTML='<a class="pw-brand pw-home-link" href="index.html" aria-label="PlayWebホームへ戻る"><span class="pw-brand-mark">P</span><span>PLAYWEB</span></a><div class="pw-game-chip" title="'+title+'">'+title+'</div>';
