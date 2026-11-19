@@ -66,6 +66,10 @@
   .subTitle{color:#c9c4ff;font-size:13.5px;margin:8px 0 4px;line-height:1.7}
   .howto{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(160,150,255,.25);border-radius:14px;padding:12px 16px;font-size:13px;line-height:1.9;margin:14px 0;color:#dcd8ff}
   .bestBox{font-size:13.5px;color:#ffe9a8;font-weight:800;margin:6px 0 2px;min-height:20px}
+  /* お詫び補填（2026-11-20）: 受け取りボックスと確率UPバナー */
+  #apologyBox{margin:8px 0 2px}
+  #apologyBox .apologyNote{font-size:12px;color:#ffd9a8;font-weight:700;margin-top:5px;line-height:1.5}
+  #gachaUpBanner{background:linear-gradient(90deg,#ff5f9e,#ffb03a);color:#fff;font-weight:900;font-size:14.5px;text-align:center;border-radius:12px;padding:9px 10px;margin:8px 0;box-shadow:0 3px 12px rgba(255,95,158,.45)}
   .bigBtn{display:inline-block;margin-top:14px;background:linear-gradient(90deg,#7c6cff,#e879ff);color:#fff;border:none;border-radius:999px;padding:14px 44px;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 8px 24px rgba(160,90,255,.45);font-family:inherit}
   .bigBtn:active{transform:scale(.95)}
   .subBtn{display:inline-block;margin-top:10px;background:rgba(255,255,255,.1);color:#e6e2ff;border:1.5px solid rgba(180,170,255,.5);border-radius:999px;padding:10px 28px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit}
@@ -571,6 +575,7 @@ html,body{overscroll-behavior:none;}
         <div class="heroSub" id="heroSub"></div>
       </div>
       <div class="bestBox" id="bestBox"></div>
+      <div id="apologyBox"></div>
       <div class="secLabel">🗺️ ステージ</div>
       <div class="charRow" id="stageRow"></div>
       <div class="secLabel">⚔️ 難易度（クリアで次の難易度が解放）</div>
@@ -620,11 +625,12 @@ html,body{overscroll-behavior:none;}
     <h2 class="tabHead">🎰 キャラガチャ</h2>
     <p class="subTitle">キャラは<b>ガチャでしか手に入らない</b>。被ると限界突破でさらに強化。</p>
     <div class="shardBox" id="gachaShardBox"></div>
+    <div id="gachaUpBanner" style="display:none">🔥 期間限定：UR・SSR確率UP中！（2026/11/20 本日限り）</div>
     <div class="gachaRates">
-      <span class="rUR">UR 0.05%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ／るあ／たいち／すい／セラフィア／ルシフェル／タマモ）※UR専用武器が使える<br>
-      <span class="rSSR">SSR 2%</span>： ガチャ限定の強キャラ<br>
-      <span class="rSR">SR 17.5%</span>： 頼れる実力派ねこ<br>
-      <span class="rR">R 80.45%</span>： 個性豊かなねこたち<br>
+      <span class="rUR" id="rateUR">UR 0.05%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ／るあ／たいち／すい／セラフィア／ルシフェル／タマモ）※UR専用武器が使える<br>
+      <span class="rSSR" id="rateSSR">SSR 2%</span>： ガチャ限定の強キャラ<br>
+      <span class="rSR" id="rateSR">SR 17.5%</span>： 頼れる実力派ねこ<br>
+      <span class="rR" id="rateR">R 80.45%</span>： 個性豊かなねこたち<br>
       ・10連は <b>SR以上1体確定</b><br>
       ・天井： SSRは90連外すと次の1回で <b>SSR確定</b>（天井まで最大91連）／ URは1000連外すと次の1回で <b>UR確定</b>（最大1001連）<br>
       ・所持済みが被ると <b>限界突破</b>（最大5凸： 1凸ごとに与ダメージ+4%・最大HP+3%）<br>
@@ -1796,6 +1802,8 @@ function loadMeta(){
     gachaPity: Math.max(0, m.gachaPity | 0),
     /* 第5弾拡張: UR天井カウンタ（URが出てからの連数） */
     gachaPityUR: Math.max(0, m.gachaPityUR | 0),
+    /* お詫び補填（2026-11-20）: 詫び石を受け取り済みかどうか */
+    apology20261120: !!m.apology20261120,
     /* 第2弾拡張: 図鑑（敵は撃破数、武器は所持フラグ）。未知のキーは描画側で無視する */
     dex: {
       enemies: (m.dex && typeof m.dex.enemies === 'object' && m.dex.enemies) ? m.dex.enemies : {},
@@ -6244,6 +6252,7 @@ function renderHome(){
   if (hn) hn.innerHTML = `${ch.name}` + (rar ? ` <span class="cdRar" style="color:${RARITY_COLORS[rar]}">${rar}</span>` : '') + (lbOf(meta.char) > 0 ? ` <span style="color:#F5A623;font-size:16px">★${lbOf(meta.char)}</span>` : '');
   const hs = $('heroSub');
   if (hs) hs.textContent = ch.desc;
+  renderApologyBox();
   const wrap = $('homeDaily'); if (!wrap) return;
   wrap.innerHTML = '';
   /* 第10弾: 今日のラッキーキャラのチップ */
@@ -6458,11 +6467,66 @@ for (const id in CHARS) {
   const r = CHARS[id].rarity;
   if (r && GACHA_POOLS[r]) GACHA_POOLS[r].push(id);
 }
+/* ── お詫び補填キャンペーン（2026-11-20 の1日だけ） ──
+   セーブデータ消失事故への補填。期間中はガチャ確率UP（UR 0.5% / SSR 4% /
+   SR 17.5% / R 78%、天井は不変）＋対象アカウントへ詫び石 ⭐50,000 を1回配布。
+   対象は 2026-11-20 00:00 (JST) より前に作成されたアカウントのみ
+   （PWAccount.myCreatedAt() で判定）。リンクサーガ側と同一仕様 */
+const APOLOGY_END = Date.parse('2026-11-20T23:59:59+09:00');
+const APOLOGY_ACCOUNT_CUTOFF = Date.parse('2026-11-20T00:00:00+09:00');
+const APOLOGY_SHARDS = 50000;
+const GACHA_RATES = { UR: .0005, SSR: .02, SR: .175, R: .8045 };   /* 通常: UR 0.05% / SSR 2% / SR 17.5% / R 80.45% */
+const GACHA_RATES_UP = { UR: .005, SSR: .04, SR: .175, R: .78 };   /* 補填期間中: UR 0.5% / SSR 4% / SR 17.5% / R 78% */
+function apologyActive(now){ return (typeof now === 'number' ? now : Date.now()) < APOLOGY_END; }
+/* 現在時刻から実効確率を選ぶ純粋関数（期間中だけ UP 確率） */
+function gachaRatesAt(now){ return apologyActive(now) ? GACHA_RATES_UP : GACHA_RATES; }
+function apologyEligible(){
+  try {
+    if (!window.PWAccount || typeof PWAccount.myCreatedAt !== 'function') return false;
+    const ca = PWAccount.myCreatedAt();
+    return typeof ca === 'number' && isFinite(ca) && ca < APOLOGY_ACCOUNT_CUTOFF;
+  } catch (e) { return false; }
+}
+function claimApologyGift(){
+  if (!apologyActive()) return false;
+  if (meta.apology20261120) return false;
+  if (!apologyEligible()) return false;
+  meta.shards += APOLOGY_SHARDS;
+  meta.apology20261120 = true;
+  saveMeta();
+  updateShardUI();
+  renderApologyBox();
+  return true;
+}
+function renderApologyBox(){
+  const box = $('apologyBox');
+  if (!box) return;
+  if (!apologyActive()) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  if (meta.apology20261120) {
+    box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫びのほしのかけら ⭐50,000 受け取り済み</button>' +
+      '<div class="apologyNote">このたびはご迷惑をおかけしました。ほしのかけらは残高に加算済みです。</div>';
+    return;
+  }
+  if (apologyEligible()) {
+    box.innerHTML = '<button class="bigBtn" id="apologyBtn">🎁 お詫び：ほしのかけら ⭐50,000 受け取り</button>' +
+      '<div class="apologyNote">セーブデータの不具合へのお詫びです。本日限り・1回だけ受け取れます。</div>';
+    $('apologyBtn').onclick = () => { initAudio(); if (claimApologyGift()) showToast('🎁 お詫びのほしのかけら ⭐50,000 を受け取りました'); };
+    return;
+  }
+  box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫び：ほしのかけら ⭐50,000</button>' +
+    '<div class="apologyNote">対象は 2026年11月20日より前に作成されたアカウントです（ログイン中のアカウントの作成日時で判定します）。</div>';
+}
+/* ログイン状態が確定したら対象判定を描き直す（ゲスト→ログインの遷移に追随） */
+if (window.PWAccount && typeof PWAccount.onGateChange === 'function') {
+  try { PWAccount.onGateChange(() => { try { renderApologyBox(); } catch (e) {} }); } catch (e) {}
+}
 function rollGachaRarity(){
   if (meta.gachaPityUR >= GACHA_PITY_UR) { meta.gachaPityUR = 0; meta.gachaPity = 0; return 'UR'; } // UR天井: 1000連外したら次の1回はUR確定
   if (meta.gachaPity >= GACHA_PITY_MAX) { meta.gachaPity = 0; meta.gachaPityUR++; return 'SSR'; } // SSR天井: 90連外したら次の1回はSSR確定
   const r = Math.random();
-  const rar = r < .0005 ? 'UR' : r < .0205 ? 'SSR' : r < .1955 ? 'SR' : 'R'; /* UR 0.05% / SSR 2% / SR 17.5% / R 80.45% */
+  const RATES = gachaRatesAt();
+  const rar = r < RATES.UR ? 'UR' : r < RATES.UR + RATES.SSR ? 'SSR' : r < RATES.UR + RATES.SSR + RATES.SR ? 'SR' : 'R';
   if (rar === 'UR') { meta.gachaPityUR = 0; meta.gachaPity = 0; }
   else if (rar === 'SSR') { meta.gachaPity = 0; meta.gachaPityUR++; }
   else { meta.gachaPity++; meta.gachaPityUR++; }
@@ -6494,6 +6558,14 @@ function gachaDraw(count){
 let gachaLastResults = [];
 function renderGacha(){
   updateShardUI();
+  /* 確率表示は実効確率（補填期間中はUP確率）と必ず一致させる */
+  const ratesNow = gachaRatesAt();
+  const fmtPct = v => String(Math.round(v * 10000) / 100) + '%';
+  const setRate = (id, label, v) => { const e = $(id); if (e) e.textContent = label + ' ' + fmtPct(v); };
+  setRate('rateUR', 'UR', ratesNow.UR); setRate('rateSSR', 'SSR', ratesNow.SSR);
+  setRate('rateSR', 'SR', ratesNow.SR); setRate('rateR', 'R', ratesNow.R);
+  const upBanner = $('gachaUpBanner');
+  if (upBanner) upBanner.style.display = apologyActive() ? '' : 'none';
   const pl = gachaPityLeft();
   $('gachaPity').textContent = `🎯 SSR天井まで あと ${pl.ssr} 連 ／ UR天井まで あと ${pl.ur} 連（あと○連＝その連数以内に必ず確定が出る）`;
   $('gacha1Btn').disabled = meta.shards < GACHA_COST1;
@@ -7209,6 +7281,9 @@ window.__surv = {
   xpForLevel, maxHp: () => maxHp(), dmgMul: () => dmgMul(), moveSpeed: () => moveSpeed(), magnetR: () => magnetR(), xpMul: () => xpMul(),
   hpScale, dmgScale, critRate: () => critRate(), critDmgMul: () => critDmgMul(), cdMul: () => cdMul(), gemValMul: () => gemValMul(),
   MAX_WLV, MAX_PASSIVES, lbOf, LB_MAX, GACHA_POOLS, gachaDraw, renderGacha, rollGachaRarity,
+  /* お詫び補填（2026-11-20）: 確率UP・詫び石 */
+  GACHA_RATES, GACHA_RATES_UP, gachaRatesAt, APOLOGY_END, APOLOGY_ACCOUNT_CUTOFF, APOLOGY_SHARDS,
+  apologyActive, apologyEligible, claimApologyGift, renderApologyBox,
   /* 第19弾: URガチャ演出 */
   showUrGachaFx, hideUrGachaFx, get urFxActive(){ return urFxActive; }, get urFxCount(){ return urFxCount; },
   /* 第5弾: レアリティ・UR天井・新価格・UR専用武器 */

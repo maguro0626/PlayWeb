@@ -554,6 +554,7 @@
   var modalMode = 'login';    /* login | signup */
   /* 自分のプロフィール拡張フィールド（users/{uid} と同期する分） */
   var myProfile = { iconId: '', iconColor: '', comment: '', stats: null, mainChar: '' };
+  var myCreatedAtMs = null;   /* 自分のアカウント作成日時（ms）。未取得・不明は null */
   var lastExtrasJson = '';    /* stats/mainChar の publish 済み内容（無駄な書き込み防止） */
   var extrasTimer = null;
 
@@ -1151,13 +1152,17 @@
       });
     });
   }
-  function ensureProfileDocs(uid, username) {
+  function ensureProfileDocs(uid, username, isNew) {
     var lower = username.toLowerCase();
+    var profile = {
+      username: username, usernameLower: lower,
+      online: true, lastSeen: nowMs(), currentGame: MY_GAME
+    };
+    /* 作成日時は新規登録の時だけ記録する（ログインのたびの merge では
+       触らない＝一度記録された値を上書きしない） */
+    if (isNew) profile.createdAt = nowMs();
     return Promise.all([
-      userDoc(uid).set({
-        username: username, usernameLower: lower,
-        online: true, lastSeen: nowMs(), currentGame: MY_GAME
-      }, { merge: true }),
+      userDoc(uid).set(profile, { merge: true }),
       claimUsername(uid, lower)
     ]);
   }
@@ -1180,6 +1185,32 @@
   function isAdmin() {
     return !!(me && ADMIN_UIDS.indexOf(me.uid) >= 0);
   }
+  /* アカウント作成日時の保存形式ゆらぎを ms 数値へ正規化する。
+     数値（nowMs 形式）→そのまま / Timestamp（toMillis、または
+     seconds+nanoseconds）→変換 / 文字列→Date.parse。解釈不能は null */
+  function createdAtToMs(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    if (typeof v === 'string') { var p = Date.parse(v); return isNaN(p) ? null : p; }
+    if (typeof v === 'object') {
+      if (typeof v.toMillis === 'function') {
+        try { var m = v.toMillis(); return (typeof m === 'number' && isFinite(m)) ? m : null; } catch (e) { return null; }
+      }
+      if (typeof v.seconds === 'number' && isFinite(v.seconds)) {
+        return v.seconds * 1000 + Math.floor((typeof v.nanoseconds === 'number' ? v.nanoseconds : 0) / 1e6);
+      }
+    }
+    return null;
+  }
+  /* Auth 側の作成記録（user.metadata.creationTime）で作成日時を補う。
+     プロフィール文書に createdAt が無いアカウント（過去の登録分は全て
+     該当する）でも作成日時を返せるようにするフォールバック。
+     文書側の値が取れている場合はそちらを優先し、上書きしない */
+  function noteAuthCreation(user) {
+    if (myCreatedAtMs !== null) return;
+    var ms = createdAtToMs(user && user.metadata ? user.metadata.creationTime : null);
+    if (ms !== null) myCreatedAtMs = ms;
+  }
   /* プロフィール文書の拡張フィールドを myProfile へ取り込む */
   function absorbProfileData(data) {
     if (!data) return;
@@ -1188,6 +1219,8 @@
     if (typeof data.comment === 'string') myProfile.comment = data.comment;
     if (data.stats && typeof data.stats === 'object') myProfile.stats = data.stats;
     if (typeof data.mainChar === 'string') myProfile.mainChar = data.mainChar;
+    var ca = createdAtToMs(data.createdAt);
+    if (ca !== null) myCreatedAtMs = ca;
   }
   /* アイコン/コメントの保存（本人のプロフィール文書へ merge 書き込み） */
   function setMyProfile(patch) {
@@ -1322,7 +1355,7 @@
     authTransition = 'signup';
     return fb.auth.createUserWithEmailAndPassword(usernameToEmail(name), password).then(function (cred) {
       var uid = cred.user.uid;
-      return ensureProfileDocs(uid, name).then(function () {
+      return ensureProfileDocs(uid, name, true).then(function () {
         pendingUsername = null;
         /* 新アカウントは必ず空のクラウドから始める。ゲスト中に遊んだ分の
            メモリはここで破棄し、旧方式の「初回移行アップロード」はしない。
@@ -1380,6 +1413,7 @@
     setOffline();
     stopServices();
     me = null;
+    myCreatedAtMs = null;
     /* メモリ内ストアと引き継ぎを破棄してゲスト化する。以後の保存は
        ゲスト用メモリ（このページ限り）だけになり、クラウドのデータは
        次回ログイン時にそのアカウント分だけ読み直される */
@@ -1396,6 +1430,7 @@
       /* ログアウト/セッション切れ: メモリと引き継ぎを破棄してゲスト化する。
          ディスクには何も無いので、再読み込みで隠すような処理は不要 */
       if (me) { stopServices(); me = null; }
+      myCreatedAtMs = null;
       hydratedUid = null;
       memStore = {};
       dirtyVals = {};
@@ -1423,6 +1458,7 @@
       /* アカウント切替: 前のアカウントのメモリと引き継ぎを破棄する */
       stopServices();
       me = null;
+      myCreatedAtMs = null;
       hydratedUid = null;
       memStore = {};
       dirtyVals = {};
@@ -1431,6 +1467,7 @@
     var uid = user.uid;
     userDoc(uid).get().then(function (d) {
       absorbProfileData(d.exists ? d.data() : null);
+      noteAuthCreation(user);
       var username;
       if (d.exists && d.data() && d.data().username) {
         username = d.data().username;
@@ -1448,6 +1485,7 @@
       });
     }).catch(function () {
       /* プロフィール取得に失敗しても最低限ログイン状態にはする */
+      noteAuthCreation(user);
       var name = pendingUsername || (user.email || '').split('@')[0] || 'player';
       pendingUsername = null;
       me = { uid: uid, username: name, usernameLower: name.toLowerCase() };
@@ -2171,6 +2209,10 @@
         comment: myProfile.comment, stats: myProfile.stats, mainChar: myProfile.mainChar
       };
     },
+    /* 自分のアカウント作成日時（ms 数値）。プロフィール文書の createdAt を
+       優先し、無い場合は Auth の作成記録（metadata.creationTime）を使う。
+       どちらも取得できなければ null */
+    myCreatedAt: function () { return myCreatedAtMs; },
     setMyProfile: setMyProfile,
     openProfile: openProfile,
     relLastSeen: function (d) { return relLastSeenText(d); },
@@ -2192,6 +2234,7 @@
       seededFromStash: function () { return seededFromStash; },
       purgeKeyList: function () { return PURGE_KEYS.slice(); },
       computeStats: computeMyStats,
+      createdAtToMs: createdAtToMs,
       readMainChar: readMainChar,
       publishExtras: publishProfileExtras,
       setAdminUids: function (arr) {
