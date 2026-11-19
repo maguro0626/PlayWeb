@@ -337,6 +337,7 @@ if (sessionStorage.getItem('pw_updated')){
 </script>
 <script>window.PW_GAME='portal';</script>
 <script src="friends.js"></script>
+<script src="account.js"></script>
 <script>
 /* ─── セーブデータのバックアップ（書き出し／読み込み／読み込み前に戻す） ─── */
 (function(){
@@ -344,21 +345,26 @@ if (sessionStorage.getItem('pw_updated')){
   const STASH_KEY = 'playweb_pre_import_backup';
   const $ = id => document.getElementById(id);
 
+  // 内部キー（アカウント基盤の同期メタ・Firebase Auth）はユーザーのセーブデータではないため
+  // バックアップ対象から外し、読み込みで消したり上書きしたりしない（ログイン状態を壊さないため）
+  const isInternalKey = k => k.startsWith('pwacct_') || k.startsWith('firebase:');
+
   function collectData(){
     const data = {};
     for (let i = 0; i < localStorage.length; i++){
       const k = localStorage.key(i);
       if (k === STASH_KEY) continue; // 退避データ自体は対象外（読み込み時の退避を壊さないため）
+      if (isInternalKey(k)) continue;
       data[k] = localStorage.getItem(k);
     }
     return data;
   }
   function applyData(data){
-    // 現在のキー（退避キーを除く）をすべて消してから、バックアップの内容で復元する
+    // 現在のキー（退避キーと内部キーを除く）をすべて消してから、バックアップの内容で復元する
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
-    keys.forEach(k => { if (k !== STASH_KEY) localStorage.removeItem(k); });
-    Object.keys(data).forEach(k => { if (k !== STASH_KEY) localStorage.setItem(k, data[k]); });
+    keys.forEach(k => { if (k !== STASH_KEY && !isInternalKey(k)) localStorage.removeItem(k); });
+    Object.keys(data).forEach(k => { if (k !== STASH_KEY && !isInternalKey(k)) localStorage.setItem(k, data[k]); });
   }
   function saveStash(){
     const stash = { savedAt: new Date().toISOString(), data: collectData() };

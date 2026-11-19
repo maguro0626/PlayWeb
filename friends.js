@@ -31,6 +31,13 @@
    ゲストは参加後に matchjoin を送り、ホストは matchroster で参加者全員のコードを配る。
    各ゲームは終了時に PWFriends.recordMatch('win'|'lose'|'draw'|'coop', {cleared}) を呼ぶ。
    戦績はこの端末ローカルにのみ保存される（自分がそのフレンドと遊んだ記録だけ）。
+
+   【アカウント連携（account.js）】
+   ログイン時は account.js が Firestore 経由で在席・招待・チャット・フレンド一覧を
+   供給する。在席表示はクラウド在席（PWFriends._cloud.setPresence）を優先し、
+   招待・チャットの送信は相手のアカウントが引ける場合クラウド経路を使う
+   （オフラインでも届く）。未ログイン時は従来どおり本ファイル単独で動く。
+   対戦そのものの接続（ルーム参加・matchjoin 等）はログイン時も PeerJS のまま。
    ============================================================ */
 (function () {
   'use strict';
@@ -236,11 +243,28 @@
     chatWith: null, pickFor: null,
     panelOpen: false
   };
+  /* ---------------- アカウント（クラウド）連携 ----------------
+     ログイン時は account.js が Firestore の公開プロフィールから在席を流し込む。
+     クラウド在席がある相手はそちらを優先し、無い相手は従来の PeerJS 在席を使う。 */
+  var cloudPresence = {}; /* code -> {online, name, game} */
+  function cloudActive() {
+    return !!(window.PWAccount && window.PWAccount.cloudActive && window.PWAccount.cloudActive());
+  }
   function isOnline(code) {
+    var cp = cloudPresence[code];
+    if (cp) return !!cp.online;
     var p = state.presence[code];
     return !!(p && p.online);
   }
   function presenceText(code) {
+    var cp = cloudPresence[code];
+    if (cp) {
+      if (!cp.online) return 'オフライン';
+      if (cp.game && GAMES[cp.game]) {
+        return cp.game === 'portal' ? 'オンライン・ポータル' : 'オンライン・' + GAMES[cp.game].title + 'でプレイ中';
+      }
+      return 'オンライン';
+    }
     var p = state.presence[code];
     if (!p || !p.online) return 'オフライン';
     if (p.game && GAMES[p.game]) {
@@ -249,6 +273,8 @@
     return 'オンライン';
   }
   function displayName(code) {
+    var cp = cloudPresence[code];
+    if (cp && cp.name) return cp.name;
     var p = state.presence[code];
     if (p && p.name) return p.name;
     var f = friendOf(code);
@@ -438,6 +464,16 @@
   }
   function sendInvite(code, game, room) {
     if (!GAMES[game] || !ROOM_RE.test(room || '')) return false;
+    /* ログイン時は Firestore 招待を優先（相手がオフラインでも次に開いた時に届く）。
+       相手のアカウントが引けない場合だけ従来の PeerJS 送信にフォールバックする。 */
+    if (cloudActive() && window.PWAccount.sendInviteCloud) {
+      window.PWAccount.sendInviteCloud({ toCode: code, game: game, room: room }).then(function (ok) {
+        if (!ok && !sendRaw(code, { t: 'invite', game: game, room: room, from: myName() })) {
+          toast('招待を送れませんでした（相手との接続が切れています）', 'info');
+        }
+      }).catch(function () {});
+      return true; /* 送信処理はクラウド側で進むため楽観的に成功扱い */
+    }
     return sendRaw(code, { t: 'invite', game: game, room: room, from: myName() });
   }
   /* ゲーム側が window.PW_ROOM_CODE にコードを公開している場合はそちらを優先 */
@@ -464,7 +500,85 @@
     matchPeers: matchPeers,
     matchInfo: function () { return match ? { game: match.game, role: match.role, room: match.room, peers: matchPeers() } : null; },
     getRecords: function (code) { return records[code] || {}; },
-    autoHost: function () { callAutoHost(); }
+    autoHost: function () { callAutoHost(); },
+    /* ---- account.js（クラウド）からのブリッジ ----
+       ログイン時のみ account.js が使う。未ログイン時は一切呼ばれない。 */
+    _cloud: {
+      setPresence: function (code, info) {
+        if (!code || !info) return;
+        cloudPresence[code] = { online: !!info.online, name: info.name || '', game: info.game || null };
+        renderAll();
+      },
+      clearPresence: function () { cloudPresence = {}; renderAll(); },
+      /* クラウドから届いたチャット（未読扱い） */
+      receiveChat: function (code, msg) {
+        if (!friendOf(code) || !msg || typeof msg.x !== 'string' || !msg.x) return;
+        var arr = chats[code] || [];
+        for (var i = arr.length - 1; i >= 0 && i >= arr.length - 60; i--) {
+          if (arr[i].ts === msg.ts && arr[i].x === msg.x && arr[i].f === 'th') return; /* 重複 */
+        }
+        pushChat(code, { f: 'th', x: msg.x.slice(0, 500), ts: msg.ts || Date.now() });
+        if (state.view === 'chat' && state.chatWith === code && (state.panelOpen || isInline())) {
+          renderChatMsgs();
+        } else {
+          unread[code] = (unread[code] || 0) + 1; saveUnread();
+        }
+        updateBadge(); renderList();
+      },
+      /* クラウドの履歴を未読にせず一括取り込み（重複は ts+本文+方向 で除去） */
+      mergeChats: function (code, list) {
+        if (!Array.isArray(list) || !list.length) return;
+        var arr = chats[code] || (chats[code] = []);
+        var seen = {};
+        arr.forEach(function (m) { seen[m.f + '|' + m.ts + '|' + m.x] = true; });
+        var added = false;
+        list.forEach(function (m) {
+          if (!m || typeof m.x !== 'string') return;
+          var key = m.f + '|' + m.ts + '|' + m.x;
+          if (seen[key]) return;
+          seen[key] = true;
+          arr.push({ f: m.f === 'me' ? 'me' : 'th', x: m.x.slice(0, 500), ts: m.ts || 0 });
+          added = true;
+        });
+        if (!added) return;
+        arr.sort(function (a, b) { return a.ts - b.ts; });
+        if (arr.length > 200) chats[code] = arr.slice(-200);
+        saveChats();
+        if (state.view === 'chat' && state.chatWith === code) renderChatMsgs();
+      },
+      /* クラウドから届いた招待（PeerJS 招待と同じ見た目・導線に合流させる） */
+      receiveInvite: function (inv) {
+        if (!inv || !GAMES[inv.game] || !ROOM_RE.test(inv.room || '')) return;
+        for (var i = 0; i < state.invites.length; i++) {
+          var o = state.invites[i];
+          if (o.from === inv.from && o.game === inv.game && o.room === inv.room) return; /* 重複 */
+        }
+        var entry = {
+          from: inv.from, name: inv.name || displayName(inv.from), game: inv.game,
+          room: inv.room, ts: Date.now(), cloudId: inv.cloudId || null
+        };
+        state.invites.unshift(entry);
+        state.invites = state.invites.slice(0, 5);
+        showInviteToast(entry);
+        renderAll();
+      },
+      /* フレンド一覧をクラウド同期結果で置き換える */
+      setFriends: function (list) {
+        if (!Array.isArray(list)) return;
+        friends = list.filter(function (f) { return f && typeof f.code === 'string'; });
+        saveFriends();
+        renderAll();
+      },
+      addFriend: function (entry) {
+        if (!entry || !entry.code || friendOf(entry.code)) return false;
+        friends.push(entry);
+        saveFriends();
+        renderAll();
+        return true;
+      },
+      getFriends: function () { return friends.slice(); },
+      toast: function (msg, kind) { toast(msg, kind || 'info'); }
+    }
   };
 
   /* ---------------- 招待ピッカー（ゲーム内フレンド選択UI） ---------------- */
@@ -491,7 +605,7 @@
       '<div class="pwf-head"><span id="pwfPickerTitle">👥 フレンドを招待</span>' +
       '<button class="pwf-x" id="pwfPickerClose" aria-label="閉じる">✕</button></div>' +
       '<div id="pwfPickerList"></div>' +
-      '<div class="pwf-note" style="margin-top:10px">オンライン中のフレンドだけ招待できます。選ぶと部屋を自動で作って招待を送ります。複数人対戦のゲームでは、続けて別のフレンドも招待できます。</div>' +
+      '<div class="pwf-note" id="pwfPickerNote" style="margin-top:10px">オンライン中のフレンドだけ招待できます。選ぶと部屋を自動で作って招待を送ります。複数人対戦のゲームでは、続けて別のフレンドも招待できます。</div>' +
       '</div>';
     document.body.appendChild(ov);
     els.pickerOverlay = ov;
@@ -515,6 +629,10 @@
     if (!els.pickerList) return;
     var g = GAMES[MY_GAME];
     if (els.pickerTitle) els.pickerTitle.textContent = '👥 フレンドを招待' + (g ? ' — ' + g.title : '');
+    var noteEl = document.getElementById('pwfPickerNote');
+    if (noteEl) noteEl.textContent = cloudActive()
+      ? 'ログイン中は、オフラインのフレンドにも招待を送れます（相手が次にPlayWebを開いた時に届きます。部屋は開いたままお待ちください）。選ぶと部屋を自動で作って招待を送ります。'
+      : 'オンライン中のフレンドだけ招待できます。選ぶと部屋を自動で作って招待を送ります。複数人対戦のゲームでは、続けて別のフレンドも招待できます。';
     if (!friends.length) {
       els.pickerList.innerHTML = '<div class="pwf-note">まだフレンドがいません。オンライン対戦にはフレンドが必要です。まずフレンドコードを交換して、フレンドを追加してください。</div>' +
         '<button class="pwf-btn pri" id="pwfPickerAdd" style="margin-top:10px">フレンドを追加する</button>';
@@ -524,13 +642,14 @@
     }
     els.pickerList.innerHTML = friends.map(function (f) {
       var on = isOnline(f.code);
+      var canInvite = on || cloudActive(); /* ログイン中はオフラインでも招待を送れる */
       var invited = invitedActive(f.code);
       return '<div class="pwf-friend"><span class="pwf-dot' + (on ? ' on' : '') + '"></span>' +
         '<div class="pwf-fmeta"><div class="pwf-fname">' + esc(displayName(f.code)) + '</div>' +
         '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.code)) + '</div></div>' +
         (invited
           ? '<button class="pwf-btn" disabled>招待済み ✓</button>'
-          : '<button class="pwf-btn pri" data-invite="' + f.code + '"' + (on ? '' : ' disabled') + '>' + (on ? '招待する' : 'オフライン') + '</button>') +
+          : '<button class="pwf-btn pri" data-invite="' + f.code + '"' + (canInvite ? '' : ' disabled') + '>' + (canInvite ? '招待する' : 'オフライン') + '</button>') +
         '</div>';
     }).join('');
     els.pickerList.querySelectorAll('[data-invite]').forEach(function (btn) {
@@ -808,6 +927,9 @@
   }
   /* 招待を受けて参加する: 相手のフレンドコードを引き継いで遷移する */
   function gotoJoin(inv) {
+    if (inv.cloudId && window.PWAccount && window.PWAccount.consumeInvite) {
+      try { window.PWAccount.consumeInvite(inv.cloudId); } catch (e) {}
+    }
     try {
       sessionStorage.setItem('pw_join_ctx', JSON.stringify({ game: inv.game, room: inv.room, from: inv.from, ts: Date.now() }));
     } catch (e) {}
@@ -845,6 +967,12 @@
       '<div class="pwf-row"><input class="pwf-input" id="pwfAddCode" maxlength="8" placeholder="相手のコード（8文字）" autocomplete="off">' +
       '<button class="pwf-btn pri" id="pwfAddBtn">追加</button></div>' +
       '<div class="pwf-note" id="pwfAddNote"></div>' +
+      '<div id="pwfSearchSec" style="display:none">' +
+      '<div class="pwf-sec">ユーザー名で追加（アカウント）</div>' +
+      '<div class="pwf-row"><input class="pwf-input" id="pwfSearchName" maxlength="16" placeholder="相手のユーザー名" autocomplete="off" autocapitalize="none">' +
+      '<button class="pwf-btn pri" id="pwfSearchBtn">検索して追加</button></div>' +
+      '<div class="pwf-note" id="pwfSearchNote"></div>' +
+      '</div>' +
       '<div id="pwfInvites"></div>' +
       '<div id="pwfListView">' +
         '<div class="pwf-sec">フレンド <span id="pwfCount"></span></div>' +
@@ -864,7 +992,7 @@
         '<div class="pwf-sec">ゲームを選んで招待（選ぶと部屋を作りに移動します）</div>' +
         '<div class="pwf-games" id="pwfPickGrid"></div>' +
       '</div>' +
-      '<div class="pwf-note" style="margin-top:16px">オンライン状態は相手がPlayWebを開いている時だけ分かります。メッセージと招待は、両方がオンラインの時だけ届きます。</div>';
+      '<div class="pwf-note" id="pwfFootNote" style="margin-top:16px">オンライン状態は相手がPlayWebを開いている時だけ分かります。メッセージと招待は、両方がオンラインの時だけ届きます。アカウントにログインすると、ユーザー名検索での追加や、オフラインでも届く招待・メッセージが使えます。</div>';
 
     var portalBox = document.getElementById('pwFriendsPortal');
     if (portalBox) {
@@ -1068,6 +1196,20 @@
     var input = $('pwfChatInput');
     var text = input.value.trim();
     if (!text) return;
+    /* ログイン時はクラウド経由で送る（相手がオフラインでも、次に開いた時に届く） */
+    if (cloudActive() && window.PWAccount.canCloudChat && window.PWAccount.canCloudChat(code)) {
+      window.PWAccount.sendChatCloud(code, text).then(function (ok) {
+        if (ok) {
+          pushChat(code, { f: 'me', x: text, ts: Date.now() });
+          input.value = '';
+          $('pwfChatNote').textContent = '';
+          renderChatMsgs();
+        } else {
+          $('pwfChatNote').textContent = '送信できませんでした（通信環境を確認してください）';
+        }
+      }).catch(function () { $('pwfChatNote').textContent = '送信できませんでした'; });
+      return;
+    }
     if (!isOnline(code)) { $('pwfChatNote').textContent = '相手がオフラインのため送信できません'; return; }
     if (sendRaw(code, { t: 'chat', text: text, ts: Date.now() })) {
       pushChat(code, { f: 'me', x: text, ts: Date.now() });
@@ -1138,6 +1280,10 @@
     });
     box.querySelectorAll('[data-inv-del]').forEach(function (btn) {
       btn.onclick = function () {
+        var inv = state.invites[Number(btn.getAttribute('data-inv-del'))];
+        if (inv && inv.cloudId && window.PWAccount && window.PWAccount.dismissInvite) {
+          try { window.PWAccount.dismissInvite(inv.cloudId); } catch (e) {}
+        }
         state.invites.splice(Number(btn.getAttribute('data-inv-del')), 1);
         renderAll();
       };
@@ -1163,7 +1309,7 @@
         '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.code)) + '</div>' +
         (recSum ? '<div class="pwf-frec">' + esc(recSum) + '</div>' : '') + '</div>' +
         '<button class="pwf-iconbtn" data-act="chat" data-code="' + f.code + '">💬' + (un ? '<span class="pwf-ubadge">' + un + '</span>' : '') + '</button>' +
-        '<button class="pwf-iconbtn" data-act="pick" data-code="' + f.code + '"' + (on ? '' : ' disabled style="opacity:.4"') + '>🎮</button>' +
+        '<button class="pwf-iconbtn" data-act="pick" data-code="' + f.code + '"' + ((on || cloudActive()) ? '' : ' disabled style="opacity:.4"') + '>🎮</button>' +
         '<button class="pwf-iconbtn" data-act="del" data-code="' + f.code + '">✕</button></div>';
     }).join('');
     listEl.querySelectorAll('[data-act]').forEach(function (btn) {
@@ -1194,9 +1340,14 @@
     if (!code) return;
     $('pwfChatHead').textContent = displayName(code);
     var note = $('pwfChatNote');
-    if (note) note.textContent = isOnline(code) ? presenceText(code) : 'オフラインです。メッセージは送信できません。';
+    var canCloud = cloudActive() && window.PWAccount.canCloudChat && window.PWAccount.canCloudChat(code);
+    if (note) {
+      if (isOnline(code)) note.textContent = presenceText(code);
+      else if (canCloud) note.textContent = 'オフラインですが、アカウント宛に送信できます（相手が次にPlayWebを開いた時に届きます）。';
+      else note.textContent = 'オフラインです。メッセージは送信できません。';
+    }
     var send = $('pwfChatSend');
-    if (send) send.disabled = !isOnline(code);
+    if (send) send.disabled = !(isOnline(code) || canCloud);
     renderChatMsgs();
   }
   function renderChatMsgs() {
