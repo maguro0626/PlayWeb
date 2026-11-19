@@ -139,6 +139,60 @@
     } catch (e) {}
   })();
 
+  /* ---------------- 履歴ガード（全ページ共通） ----------------
+     ブラウザ自体の「戻る」操作（左端スワイプ等）で、ゲーム中にうっかり
+     前のページ（ポータル等）へ戻ってしまう誤操作を防ぐ。アプリ側の画面
+     遷移は通常のリンク移動で、ゲーム内のタブ切り替え等も履歴 API を
+     使わないため、読み込み時にガード用エントリを1つ積み、popstate が
+     発火したら即座に積み直してその場に留まる。同一ドキュメント内の
+     移動なのでページは再読み込みされず、対局・入力状態は保たれる。
+     繰り返し「戻る」をしても、その都度ガードが消費→再装填される。
+     ホームへの正規の導線は共通ヘッダーの 🏠 アイコンのまま。
+     誤って戻ろうとした初回（1ページにつき1回）だけ、控えめな
+     ヒントトーストを短時間出す。 */
+  (function installHistoryGuard() {
+    if (window.__pwHistoryGuard) return;
+    window.__pwHistoryGuard = true;
+    var hintShown = false;
+    function armGuard() {
+      /* reversi / crepe 等は棋譜・操作履歴に let history を使っており、
+         素の history 参照がそちらへ解決されてしまうため、必ず
+         window.history / window.location 経由で本物の履歴 API を使う */
+      try { window.history.pushState({ pwHomeGuard: 1 }, '', window.location.href); } catch (e) {}
+    }
+    function showHint() {
+      try {
+        var el = document.getElementById('pwHistGuardHint');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'pwHistGuardHint';
+          el.setAttribute('style',
+            'position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom, 0px));' +
+            'transform:translate(-50%, 8px);z-index:2147483000;pointer-events:none;' +
+            'background:rgba(18,20,36,.92);color:#fff;font-size:13px;line-height:1.45;' +
+            'padding:9px 14px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.35);' +
+            'opacity:0;transition:opacity .25s ease,transform .25s ease;' +
+            'max-width:88vw;text-align:center;white-space:nowrap;');
+          el.textContent = 'ホームへは左上の 🏠 アイコンから戻れます';
+          (document.body || document.documentElement).appendChild(el);
+        }
+        void el.offsetWidth;
+        el.style.opacity = '1';
+        el.style.transform = 'translate(-50%, 0)';
+        clearTimeout(el.__pwHideT);
+        el.__pwHideT = setTimeout(function () {
+          el.style.opacity = '0';
+          el.style.transform = 'translate(-50%, 8px)';
+        }, 2600);
+      } catch (e) {}
+    }
+    window.addEventListener('popstate', function () {
+      armGuard();
+      if (!hintShown) { hintShown = true; showHint(); }
+    });
+    armGuard();
+  })();
+
   /* ---------------- 生ストレージ（シムを通さない直接アクセス） ----------------
      ゲスト用シムは Storage.prototype を差し替えるため、account.js 自身が
      ディスク上の実データへ触るときは、差し替え前の原生メソッドを使う。 */

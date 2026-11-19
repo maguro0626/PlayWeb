@@ -37,7 +37,7 @@
 
   /* ── ホーム（全画面キャラ＋浮遊UI） ── */
   #favStage { position:relative; border-radius:20px; overflow:hidden; border:1.5px solid rgba(216,178,92,.75);
-              background:linear-gradient(160deg,#23235e,#3a1c5e 55%,#10102e); height:min(548px, 68dvh); min-height:430px; margin-top:2px;
+              background:linear-gradient(160deg,#23235e,#3a1c5e 55%,#10102e); height:min(624px, 76dvh); min-height:480px; margin-top:2px;
               box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 0 0 3px rgba(10,8,30,.55), inset 0 0 44px rgba(0,0,0,.35); }
   #favBg { position:absolute; inset:0; }
   #favBg img { width:100%; height:100%; object-fit:cover; object-position:center 22%; opacity:.92; }
@@ -312,6 +312,7 @@
   #btMid { display:flex; align-items:center; gap:8px; margin:8px 1px 2px; }
   #energyBox { flex:1; background:rgba(8,9,26,.72); border:1px solid rgba(255,215,110,.5); border-radius:11px; padding:5px 10px; font-size:12.5px; font-weight:900; display:flex; align-items:center; gap:6px; }
   #energyBox b { color:#ffd76e; font-size:23px; line-height:1; }
+  #energyBox.zoneReady { border-color:#ffd76e; box-shadow:0 0 12px rgba(255,215,110,.65); }
   #energyBox .turnLbl { margin-left:auto; color:#aeb6ff; font-size:11px; text-align:right; }
   #btBtns { display:flex; gap:8px; margin-top:8px; }
   .dmgFloat { position:absolute; z-index:9; font-weight:900; font-size:17px; color:#fff; text-shadow:0 2px 5px #000, 0 0 12px rgba(255,150,50,.8);
@@ -322,6 +323,90 @@
   @keyframes floatUp { from { transform:translateY(4px) scale(.7); opacity:0; } 18% { opacity:1; transform:translateY(0) scale(1.12); } 30% { transform:scale(1); } to { transform:translateY(-34px); opacity:0; } }
   @keyframes floatUpCrit { from { transform:translateY(4px) scale(.6) rotate(-4deg); opacity:0; } 18% { opacity:1; transform:translateY(0) scale(1.35) rotate(2deg); } 32% { transform:scale(1.1); } to { transform:translateY(-38px); opacity:0; } }
   .shake { animation:shk 0.32s; } @keyframes shk { 25% { transform:translateX(-4px); } 55% { transform:translateX(4px); } 80% { transform:translateX(-2px); } }
+  /* ── v60：ガイド／実況／演出レイヤー ── */
+  #btGuide { background:linear-gradient(90deg, rgba(38,40,110,.94), rgba(24,22,64,.94)); border:1px solid rgba(255,215,110,.55); border-radius:10px;
+             padding:5px 10px; font-size:12px; font-weight:900; color:#ffe9a8; text-align:center; margin-bottom:6px; box-shadow:0 2px 8px rgba(0,0,0,.35); }
+  #btGuide.foe { border-color:rgba(255,110,110,.6); color:#ffb0a0; }
+  #btGuide.done { border-color:rgba(120,255,190,.55); color:#a9ffce; }
+  #btCap { margin-top:6px; background:rgba(8,9,26,.8); border-left:3px solid #ffd76e; border-radius:7px; padding:4px 9px;
+           font-size:11.5px; font-weight:800; color:#eef0ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:22px; }
+  #btFx { position:absolute; inset:0; pointer-events:none; z-index:30; overflow:hidden; border-radius:17px; }
+  #btVeil { position:absolute; inset:0; background:rgba(8,8,24,.20); z-index:24; display:none; border-radius:17px; }
+  #btBanner { position:absolute; left:50%; top:37%; transform:translate(-50%,-50%); z-index:35; pointer-events:none; font-size:25px; font-weight:900; color:#fff;
+              text-shadow:0 2px 0 rgba(0,0,0,.35), 0 0 22px rgba(120,140,255,.9); white-space:nowrap; opacity:0;
+              background:linear-gradient(90deg, rgba(30,32,90,0), rgba(30,32,90,.88) 18%, rgba(30,32,90,.88) 82%, rgba(30,32,90,0)); padding:10px 44px; }
+  #btBanner.show { animation:bannerIn 1.15s ease forwards; }
+  #btBanner.foe { color:#ffb0a0; }
+  @keyframes bannerIn { 0% { opacity:0; transform:translate(-50%,-50%) scale(.8); } 14% { opacity:1; transform:translate(-50%,-50%) scale(1.06); }
+                        22% { transform:translate(-50%,-50%) scale(1); } 78% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-58%) scale(1); } }
+  /* サイコロ（先攻・後攻決定） */
+  #btDice { position:absolute; inset:0; z-index:40; background:rgba(5,5,18,.74); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; border-radius:17px; }
+  .diceRow { display:flex; align-items:center; gap:18px; }
+  .diceSide { text-align:center; }
+  .diceLbl { font-size:12px; font-weight:900; color:#dfe3ff; margin-bottom:6px; text-shadow:0 1px 3px #000; }
+  .die { width:58px; height:58px; border-radius:13px; background:linear-gradient(160deg,#ffffff,#cfd4ff); color:#23235c; font-size:39px; line-height:58px;
+         text-align:center; box-shadow:0 6px 16px rgba(0,0,0,.55), inset 0 -3px 0 rgba(30,30,90,.25); font-weight:900; }
+  .die.rolling { animation:diceShake .12s linear infinite; }
+  .die.win { box-shadow:0 0 0 3px #ffd76e, 0 0 22px rgba(255,215,110,.95); }
+  @keyframes diceShake { 0% { transform:rotate(-7deg) translateY(0); } 50% { transform:rotate(6deg) translateY(-4px); } 100% { transform:rotate(-5deg) translateY(1px); } }
+  .diceVs { font-size:15px; font-weight:900; color:#8a93d8; }
+  .diceMsg { font-size:16.5px; font-weight:900; color:#ffe9a8; text-shadow:0 2px 5px #000; text-align:center; padding:0 12px; }
+  .diceTap { font-size:10.5px; color:#8a93d8; font-weight:800; }
+  /* 演出パーツ（#btFx 内） */
+  .enOrb { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%; z-index:5;
+           background:radial-gradient(circle at 38% 35%, #fff8d6, #ffd76e 55%, #ff9d00); box-shadow:0 0 14px 4px rgba(255,200,60,.85);
+           font-size:11px; display:flex; align-items:center; justify-content:center; }
+  .sparkP { position:absolute; width:7px; height:7px; margin:-3px 0 0 -3px; border-radius:50%; background:#ffe082; box-shadow:0 0 8px 2px rgba(255,220,120,.9); z-index:5; }
+  .koGhost { position:absolute; z-index:4; pointer-events:none; animation:koFade .55s ease forwards; margin:0; }
+  @keyframes koFade { 0% { filter:grayscale(0) brightness(1.7); opacity:1; } 30% { filter:grayscale(.7) brightness(1.1); } 100% { filter:grayscale(1) brightness(.7); opacity:0; transform:translateY(10px) scale(.94); } }
+  .confettiP { position:absolute; width:8px; height:12px; top:-14px; z-index:6; border-radius:2px; animation:confFall linear forwards; }
+  @keyframes confFall { to { transform:translateY(var(--fall, 640px)) rotate(520deg); opacity:.85; } }
+  /* カードのアニメーション */
+  .pkc.lungeUp, .bchip.lungeUp { animation:lungeU .34s ease; } @keyframes lungeU { 35% { transform:translateY(-16px) scale(1.045); } }
+  .pkc.lungeDown, .bchip.lungeDown { animation:lungeD .34s ease; } @keyframes lungeD { 35% { transform:translateY(16px) scale(1.045); } }
+  .pkc.hitFlash, .bchip.hitFlash { animation:hitFl .3s ease; } @keyframes hitFl { 0% { filter:brightness(2.4) saturate(.3); } 100% { filter:brightness(1); } }
+  .pkc.placeIn, .bchip.placeIn { animation:placeInA .38s ease; }
+  @keyframes placeInA { 0% { transform:translateY(20px) scale(.92); opacity:.4; } 55% { box-shadow:0 0 0 5px rgba(255,215,110,.5); } 100% { transform:translateY(0) scale(1); opacity:1; } }
+  .pkc.drawIn { animation:drawInA .34s ease; } @keyframes drawInA { from { transform:translateX(38px); opacity:0; } }
+  .pkc.swapA { animation:swapAA .34s ease; } @keyframes swapAA { from { transform:translateX(-30px); opacity:.5; } }
+  .bchip.swapB { animation:swapBA .34s ease; } @keyframes swapBA { from { transform:translateX(30px); opacity:.5; } }
+  /* タップ対象の強調・状態表示 */
+  .tapTarget { animation:tapPulse 1s ease-in-out infinite !important; cursor:pointer; }
+  @keyframes tapPulse { 0%,100% { box-shadow:0 0 6px rgba(255,215,110,.4); } 50% { box-shadow:0 0 0 3px rgba(255,215,110,.9), 0 0 20px rgba(255,215,110,.95); } }
+  .playable { transform:translateY(-5px); box-shadow:0 0 0 2px rgba(255,215,110,.75), 0 8px 16px rgba(0,0,0,.5) !important; }
+  .dimCard { opacity:.55; filter:saturate(.6); }
+  .selCard { box-shadow:0 0 0 3px #ffd76e, 0 0 18px rgba(255,215,110,.85) !important; transform:translateY(-4px); }
+  .enPop { animation:enPopA .35s ease; display:inline-block; } @keyframes enPopA { 40% { transform:scale(1.55); } }
+  .pkc-lack { font-size:9.5px; color:#ff9d8a; font-weight:900; white-space:nowrap; }
+  .pkc-waza.noUse { opacity:.62; }
+  .pkc-used-tag { font-size:9.5px; color:#8a93d8; font-weight:900; white-space:nowrap; }
+  /* HPバーの残像（ゴースト） */
+  .pkc-hpbar { position:relative; }
+  .pkc-hpbar .hpGhost { position:absolute; left:0; top:0; background:rgba(255,255,255,.78); transition:width .7s ease .3s; }
+  .pkc-hpbar .hpMain { position:relative; }
+  .pkc.r-UR .pkc-hpbar .hpMain { background:linear-gradient(180deg,#fff3b0,#ffd76e 45%,#f39c12); }
+  .pkc.r-SSR .pkc-hpbar .hpMain { background:linear-gradient(180deg,#ffe082,#ffb300 45%,#e65100); }
+  .pkc.r-SR .pkc-hpbar .hpMain { background:linear-gradient(180deg,#e1bee7,#ba68c8 45%,#7b1fa2); }
+  .pkc.r-UR .pkc-name { color:#ffe9a8; } .pkc.r-SSR .pkc-name { color:#ffd54f; } .pkc.r-SR .pkc-name { color:#e1bee7; }
+  /* レアリティバッジ（カード共通） */
+  .rarBadge, .bcRar { flex:none; font-weight:900; letter-spacing:.06em; border-radius:6px; line-height:1.3; box-shadow:0 1px 4px rgba(0,0,0,.45); }
+  .rarBadge { font-size:9.5px; padding:1.5px 6px; }
+  .bcRar { font-size:8px; padding:.5px 4px; border-radius:4px; margin-right:3px; vertical-align:1px; box-shadow:none; }
+  .rarBadge.r-R, .bcRar.r-R { background:#546e7a; color:#fff; }
+  .rarBadge.r-SR, .bcRar.r-SR { background:linear-gradient(90deg,#8e24aa,#ba68c8); color:#fff; }
+  .rarBadge.r-SSR, .bcRar.r-SSR { background:linear-gradient(90deg,#ff9800,#ffc107); color:#3a2400; }
+  .rarBadge.r-UR, .bcRar.r-UR { background:linear-gradient(90deg,#ff4081,#ff9800,#ffee58,#69f0ae,#40c4ff,#b388ff); background-size:300% 100%; animation:rarShine 3s linear infinite; color:#2a0033; }
+  .rarBadge.r-UR { box-shadow:0 0 8px rgba(255,160,60,.85); }
+  .pkc-md .rarBadge { font-size:8px; padding:1px 4px; }
+  .pkc-art .artBadge { position:absolute; top:4px; left:4px; z-index:3; }
+  /* イラスト全画面ビューア */
+  #artViewer { position:fixed; inset:0; z-index:125; background:rgba(3,3,10,.95); display:none; flex-direction:column; align-items:center; justify-content:center; }
+  #artViewer.show { display:flex; }
+  #avArt { width:100%; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:12px; }
+  #avArt img { width:100% !important; height:100% !important; object-fit:contain !important; border-radius:12px; filter:drop-shadow(0 12px 32px rgba(0,0,0,.7)); }
+  #avArt svg { height:100%; max-height:88dvh; width:auto; max-width:96vw; }
+  #avCap { padding:8px 14px calc(14px + env(safe-area-inset-bottom)); font-size:16.5px; font-weight:900; color:#fff; text-align:center; text-shadow:0 2px 6px #000; }
+  #avHint { position:absolute; top:calc(10px + env(safe-area-inset-top)); right:14px; font-size:11px; color:#aeb6ff; font-weight:800; background:rgba(20,20,50,.7); padding:4px 10px; border-radius:99px; }
   /* スマホ級の高さでは、バトル中はリソースバーとタブバーを畳んで戦闘に集中させる */
   @media (max-height:900px) {
     body[data-scr="battle"] #resBar { display:none; }
@@ -330,16 +415,18 @@
   /* 中くらいの画面（844px級）ではバトルを少し圧縮して、手札とターン終了ボタンまで1画面に収める */
   @media (max-height:900px) and (min-height:741px) {
     #btField { padding:8px 8px 9px; }
-    #btLog { height:32px; font-size:10.5px; }
+    #btLog { height:20px; font-size:10.5px; }
+    #btGuide { font-size:11px; padding:4px 8px; margin-bottom:4px; }
+    #btCap { font-size:10.5px; min-height:20px; padding:3px 8px; margin-top:4px; }
     .zoneRow { margin-top:4px; }
-    .benchRow { min-height:40px; }
+    .benchRow { min-height:36px; }
     .bchip .bcArt { width:33px; height:33px; }
     .pkc { padding:5px 6px 6px; }
     .pkc-lg { width:146px; }
-    .pkc-lg .pkc-art { aspect-ratio:1/0.5; }
+    .pkc-lg .pkc-art { aspect-ratio:1/0.42; }
     .pkc-md { width:92px; }
-    .pkc-md .pkc-art { aspect-ratio:1/0.55; }
-    .pkc-waza { padding:3px 5px; margin-top:3px; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.46; }
+    .pkc-waza { padding:2px 5px; margin-top:3px; }
     #btMid { margin:4px 1px 1px; }
     #energyBox { padding:4px 9px; }
     #energyBox b { font-size:19px; }
@@ -352,23 +439,26 @@
     body[data-scr="battle"] #resBar { display:none; }
     body[data-scr="battle"] #tabBar { display:none; }
     #btField { padding:6px 7px 7px; }
-    #btLog { height:22px; font-size:10px; }
+    #btLog { display:none; }
+    #btGuide { font-size:10.5px; padding:3px 8px; margin-bottom:3px; }
+    #btCap { font-size:10.5px; min-height:19px; padding:3px 8px; margin-top:3px; }
     #btMid { margin:3px 1px 1px; }
     #btnAuto { padding:5px 9px !important; font-size:11px !important; }
     #energyBox { padding:3px 8px; font-size:11.5px; }
     #energyBox b { font-size:17px; }
     #btBtns { margin-top:4px; }
-    #btBtns .btn { padding-top:8px; padding-bottom:8px; }
-    .zoneRow { margin-top:3px; }
+    #btBtns .btn { padding-top:6px; padding-bottom:6px; }
+    .zoneRow { margin-top:2px; }
     .zoneLbl { font-size:9.5px; }
     .benchRow { min-height:28px; }
     .bchip { padding:2px 5px 2px 2px; }
     .bchip .bcArt { width:24px; height:24px; }
+    .bchip .bcSub { display:none; }
     .pkc { padding:4px 5px 5px; border-radius:11px; }
     .pkc-lg { width:118px; }
-    .pkc-lg .pkc-art { aspect-ratio:1/0.4; margin-top:3px; }
+    .pkc-lg .pkc-art { aspect-ratio:1/0.32; margin-top:3px; }
     .pkc-md { width:78px; }
-    .pkc-md .pkc-art { aspect-ratio:1/0.42; margin-top:3px; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.32; margin-top:3px; }
     .pkc-name { font-size:10.5px; }
     .pkc-hp { font-size:12px; }
     .pkc-sub { font-size:8.5px; margin-top:2px; }
@@ -382,7 +472,7 @@
     #handRow { min-height:0; padding-top:3px; }
     .activeWrap { margin-top:2px; }
     .noActive { width:118px; padding:10px 6px; font-size:10.5px; }
-    #favStage { min-height:400px; }
+    #favStage { min-height:448px; }
   }
 
   /* アリーナ/レイド */
@@ -464,8 +554,6 @@
       <div id="favBubble"></div>
       <button class="diaBtn" id="btnLoginBonus" style="left:8px;top:64px"><span class="dia"><span>🎁</span></span><span class="dl">ログイン</span><span class="bdg hidden" id="lbBdg">!</span></button>
       <button class="diaBtn" id="btnMissions" style="left:16px;top:142px"><span class="dia"><span>📋</span></span><span class="dl">ミッション</span><span class="bdg hidden" id="misBdg">!</span></button>
-      <button class="diaBtn" id="diaGacha" style="left:8px;top:220px"><span class="dia"><span>🔮</span></span><span class="dl">召喚</span><span class="bdg hidden" id="diaGachaBdg">!</span></button>
-      <button class="diaBtn" id="diaRaid" style="left:16px;top:298px"><span class="dia"><span>🐉</span></span><span class="dl">レイド</span></button>
       <div id="sideCol">
         <button class="sideBtn" id="btnNews" title="お知らせ">📢<span class="bdg hidden" id="newsBdg">!</span></button>
         <button class="sideBtn" id="menuHowto" title="遊び方">❓</button>
@@ -481,17 +569,6 @@
       <div class="bt">✨ ピックアップ召喚 開催中！</div>
       <div class="bs">UR「アストライア」ピックアップ中<br>UR排出率 0.05% ─ 引けたら世界が変わる</div>
       <span class="bgo">召喚へ ›</span>
-    </div>
-    <div class="secTitle">メニュー</div>
-    <div class="menuGrid">
-      <button class="menuBtn" data-go="story"><span class="ic">🗺️</span>ストーリー</button>
-      <button class="menuBtn" data-go="party"><span class="ic">🐾</span>編成</button>
-      <button class="menuBtn" data-go="gacha"><span class="ic">🔮</span>召喚</button>
-      <button class="menuBtn" data-go="dex"><span class="ic">📖</span>図鑑</button>
-      <button class="menuBtn" data-go="arena"><span class="ic">⚔️</span>アリーナ</button>
-      <button class="menuBtn" data-go="raid"><span class="ic">🐉</span>レイド共闘</button>
-      <button class="menuBtn" data-go="shop"><span class="ic">🛒</span>ショップ</button>
-      <button class="menuBtn" id="menuHowto2"><span class="ic">❓</span>遊び方</button>
     </div>
     <div class="secTitle">リンクスの心得</div>
     <div class="card note">
@@ -582,6 +659,7 @@
   <!-- ═══ バトル ═══ -->
   <section id="scr-battle" class="hidden">
     <div id="btField">
+      <div id="btGuide">手札からバトル場に出すキャラを選んでね</div>
       <div id="btLog"></div>
       <div class="zoneRow"><span class="zoneLbl">相手ベンチ</span><div class="benchRow" id="foeBench"></div><span class="zoneCounts" id="foeCounts"></span></div>
       <div class="activeWrap" id="foeActive"></div>
@@ -593,10 +671,23 @@
       <div class="zoneRow"><span class="zoneLbl">ベンチ</span><div class="benchRow" id="allyBench"></div><span class="zoneCounts" id="allyCounts"></span></div>
       <div class="zoneRow"><span class="zoneLbl">手札</span><span class="zoneCounts" id="handCounts" style="margin-left:2px"></span></div>
       <div id="handRow"></div>
+      <div id="btCap"></div>
       <div id="btBtns">
         <button class="btn ghost" id="btnFlee" style="flex:0 0 70px">撤退</button>
         <button class="btn ghost" id="btnRetreat" style="flex:0 0 82px">にげる</button>
         <button class="btn big" id="btnEndTurn" style="flex:1">ターン終了 ›</button>
+      </div>
+      <div id="btFx"></div>
+      <div id="btVeil"></div>
+      <div id="btBanner"></div>
+      <div id="btDice" style="display:none">
+        <div class="diceRow">
+          <div class="diceSide"><div class="diceLbl">あなた</div><div class="die" id="dieAlly">⚄</div></div>
+          <div class="diceVs">VS</div>
+          <div class="diceSide"><div class="diceLbl">相手</div><div class="die" id="dieFoe">⚂</div></div>
+        </div>
+        <div class="diceMsg" id="diceMsg">🎲 サイコロで先攻・後攻を決めるよ！</div>
+        <div class="diceTap">タップでスキップ</div>
       </div>
     </div>
   </section>
@@ -633,6 +724,13 @@
   <div style="max-width:440px;margin:0 auto;padding:0 14px 30px">
     <button class="btn gold big" id="grClose">閉じる</button>
   </div>
+</div>
+
+<!-- イラスト全画面ビューア（ピンチ拡縮は無効のまま・大きく表示するだけ） -->
+<div id="artViewer">
+  <div id="avArt"></div>
+  <div id="avCap"></div>
+  <div id="avHint">タップで閉じる ✕</div>
 </div>
 
 <div id="toast"></div>
@@ -1130,6 +1228,13 @@ const sfx = {
   win: () => { [523,659,784,1047,1319].forEach((f,i) => beep(f, 0.3, 'triangle', 0.07, i * 0.09)); },
   lose: () => { [392,330,262].forEach((f,i) => beep(f, 0.3, 'sine', 0.06, i * 0.12)); },
   gacha: () => { [784,988,1175].forEach((f,i) => beep(f, 0.18, 'sine', 0.06, i * 0.06)); },
+  draw: () => beep(540, 0.06, 'triangle', 0.045),
+  attach: () => { beep(1180, 0.08, 'sine', 0.05); beep(1560, 0.11, 'sine', 0.045, 0.05); },
+  place: () => { beep(420, 0.07, 'triangle', 0.06); beep(700, 0.09, 'sine', 0.05, 0.04); },
+  swap: () => { beep(500, 0.06, 'sine', 0.045); beep(760, 0.07, 'sine', 0.045, 0.05); },
+  ko: () => { [660,495,330].forEach((f,i) => beep(f, 0.14, 'sawtooth', 0.045, i * 0.06)); },
+  dice: () => beep(190, 0.03, 'square', 0.028),
+  diceWin: () => { [784,1047].forEach((f,i) => beep(f, 0.14, 'triangle', 0.06, i * 0.07)); },
   ur: () => { [523,659,784,1047,784,1047,1319,1568].forEach((f,i) => beep(f, 0.4, 'triangle', 0.09, i * 0.1)); },
 };
 
@@ -1164,7 +1269,6 @@ function renderResBar(){
   $('#misBdg').classList.toggle('hidden', !missionClaimable());
   const gBdg = !(S.tutorial.step === 'gacha' && !S.tutorial.done);
   $('#gachaBdg').classList.toggle('hidden', gBdg);
-  const dgb = $('#diaGachaBdg'); if (dgb) dgb.classList.toggle('hidden', gBdg);
   const nb = $('#newsBdg'); if (nb) nb.classList.toggle('hidden', !!S.seenNews);
   const rf = $('#rankFill'); if (rf) rf.style.width = clamp(S.rankXp / (80 * S.rank) * 100, 0, 100) + '%';
 }
@@ -1267,7 +1371,7 @@ function charCardHTML(id, opts){
   return '<button class="' + cls.join(' ') + '" data-char="' + id + '">' +
     (o && o.lb > 0 ? '<span class="lb">' + (isAwakened(id) ? '👑覚醒' : '★' + o.lb) + '</span>' : '') +
     '<span class="pt">' + charArtHTML(c) + '</span>' +
-    '<span class="inf" style="display:block"><span class="nm">' + esc(c.name) + '</span>' +
+    '<span class="inf" style="display:block"><span class="nm"><span class="rarTag rar-' + c.rar + '">' + c.rar + '</span> ' + esc(c.name) + '</span>' +
     '<span class="lv" style="display:block">' + (o ? 'Lv' + o.lv + ' ' + EL[c.el].i : '未所持') + '</span></span></button>';
 }
 function renderParty(){
@@ -1309,6 +1413,7 @@ function openCharDetail(id){
   const cost = o ? levelCost(o.lv) : null;
   const maxed = o && o.lv >= MAXLV[c.rar];
   let html = '<div style="display:flex;justify-content:center">' + pokeCardHTML(charToCardUnit(id), { size:'lg', waza:'show', noId:true }) + '</div>';
+  html += '<button class="btn ghost big" id="mArtView" style="margin-top:8px">⤢ イラストをフルサイズで見る</button>';
   html += '<div style="text-align:center;margin-top:8px"><span class="rarTag rar-' + c.rar + '">' + c.rar + '</span> <span class="roleTag">' + ROLE_N[c.role] + '</span>' +
     (o ? '<div class="note" style="margin-top:4px">Lv ' + o.lv + ' / ' + MAXLV[c.rar] + ' ・ 限界突破 ★' + o.lb + '/5' + (isAwakened(id) ? ' ・ 👑覚醒' : '') + '</div>' : '<div class="note" style="margin-top:4px">未所持（召喚で出会える）</div>') +
     '<div class="note" style="margin-top:4px">' + esc(c.flavor) + '</div></div>';
@@ -1323,6 +1428,7 @@ function openCharDetail(id){
   html += '<button class="btn ghost big" id="mClose" style="margin-top:8px">閉じる</button>';
   openModal(html);
   $('#mClose').onclick = closeModal;
+  bindArtViewerLink(id);
   const lv = $('#mLevelUp');
   if (lv) lv.onclick = () => {
     if (S.mats < cost.mats || S.coins < cost.coins) { toast('素材かコインが足りないよ'); return; }
@@ -1376,11 +1482,13 @@ function newBattle(cfg){
     }
     foes = foeData.map(mkFoeUnit);
   }
-  B = { kind:cfg.kind, allies, foes, turn:0, phase:'setup', over:false,
-    foeParty: !!cfg.foeParty,
+  const dice = rollDice(); /* サイコロで先攻・後攻を決定（シャッフルより前に振る） */
+  B = { kind:cfg.kind, allies, foes, turn:0, phase: FAST ? 'setup' : 'dice', over:false,
+    foeParty: !!cfg.foeParty, dice, first: dice.first,
     zone: 0, foeZone: 0,           /* 発生して未付着のエネルギー（ターン終了で消える） */
     attacked:false, foeAttacked:false, retreated:false, mode:null,
     log: [], auto:false, tutorial:!!cfg.tutorial, tutFlags:{},
+    _capText:null, _lockN:0, _fxShake:{}, _fxFlash:{}, _fxLunge:null, _fxPlace:0, _fxDraw:0, _fxSwap:null, _hpMemo:{}, _skipFx:false,
     meta: cfg.meta || {}, raidDamage:0, result:null, _promoteResolve:null };
   /* 山札（編成そのもの）をシャッフルし、両軍とも手札を3枚引く */
   shuffle(allies); shuffle(foes);
@@ -1389,6 +1497,7 @@ function newBattle(cfg){
   const fu = handOf('foe').slice().sort((a, b) => b.maxHp - a.maxHp)[0];
   if (fu) fu.zone = 'active';
   logPush('⚔️ バトル開始！ ' + (cfg.meta.title || ''));
+  logPush('🎲 サイコロ：あなた ' + dice.a + ' ／ 相手 ' + dice.f + ' → ' + (dice.first === 'ally' ? 'あなたが先行！' : '相手が先行！'));
   logPush('手札からバトル場に出すキャラを選んでね');
   return B;
 }
@@ -1424,6 +1533,7 @@ function hitUnit(src, dst, base){
     /* きぜつ：カードと付いていたエネルギーは捨て札になる */
     dst.alive = false; dst.zone = 'out'; dst.energy = 0;
     logPush((dst.side === 'foe' ? '敵' : '味方') + 'の' + dst.name + 'がきぜつ！');
+    fxKO(dst);
     if (dst.side === 'foe') promoteAuto('foe');
   }
   return dmg;
@@ -1441,7 +1551,9 @@ function promoteAuto(side){
   if (!c.length) return false;
   const u = c.slice().sort((a, b) => b.hp - a.hp)[0];
   u.zone = 'active';
+  if (B) B._fxPlace = u.uid;
   logPush((side === 'foe' ? '相手' : '味方') + 'は' + u.name + 'を繰り出した！');
+  if (side === 'foe') captionPush('相手は ' + u.name + ' を繰り出した！');
   return true;
 }
 /* 味方の繰り出し（プレイヤーが選ぶ。選ぶまで Promise で待つ） */
@@ -1458,7 +1570,10 @@ function ensureAllyActive(){
 function resolvePromote(u){
   if (!B || !u || !u.alive || (u.zone !== 'bench' && u.zone !== 'hand')) return;
   u.zone = 'active';
+  B._fxPlace = u.uid;
   logPush('味方は' + u.name + 'を繰り出した！');
+  captionPush(u.name + ' を繰り出した！');
+  sfx.place();
   const res = B._promoteResolve; B._promoteResolve = null;
   if (B.tutorial) tutBattleEvent('promote', {});
   renderBattle();
@@ -1469,10 +1584,14 @@ function resolvePromote(u){
 function placeActive(u){
   if (!B || B.over || B.phase !== 'setup' || !u || u.side !== 'ally' || u.zone !== 'hand') return false;
   u.zone = 'active';
+  B._fxPlace = u.uid;
   logPush(u.name + 'をバトル場に出した！');
-  sfx.tap();
+  captionPush(u.name + ' をバトル場に出した！');
+  sfx.place();
   if (B.tutorial) tutBattleEvent('place', {});
-  beginPlayerTurn(true);
+  /* 相手が先行なら、配置のあとに相手の1ターン目（ドロー・発生なし）が先に進む */
+  if (B.first === 'foe') { renderBattle(); foePhase(true); }
+  else beginPlayerTurn(true);
   return true;
 }
 /* 手札からベンチに出す（自分のターンに自由。ベンチは最大3体） */
@@ -1480,7 +1599,10 @@ function playBench(side, u){
   if (!B || B.over || !u || u.side !== side || u.zone !== 'hand') return false;
   if (benchOf(side).length >= 3) { if (side === 'ally') toast('ベンチは3体までだよ'); return false; }
   u.zone = 'bench';
+  B._fxPlace = u.uid;
   logPush((side === 'ally' ? '味方' : '相手') + 'は' + u.name + 'をベンチに出した');
+  captionPush((side === 'ally' ? '' : '相手は ') + u.name + ' をベンチに出した');
+  if (side === 'ally') sfx.place();
   return true;
 }
 /* 発生エネルギーを場のキャラ1体に付ける（付けたエネルギーは残り続ける） */
@@ -1489,8 +1611,10 @@ function attachEnergy(side, u){
   if (zoneEnergy(side) <= 0) return false;
   setZoneEnergy(side, zoneEnergy(side) - 1);
   u.energy++;
-  sfx.tap();
+  sfx.attach();
   renderBattle();
+  fxEnergyFly(side, u);
+  if (side === 'ally') captionPush(u.name + ' に⚡を付けた（⚡×' + u.energy + '）');
   return true;
 }
 /* にげる：バトル場のエネルギー1個を捨ててベンチと交代（ターン1回まで） */
@@ -1501,8 +1625,10 @@ function doRetreat(benchUnit){
   if (act.energy < 1) { toast('にげるにはバトル場のエネルギー1個が要るよ'); return false; }
   act.energy--; act.zone = 'bench'; benchUnit.zone = 'active';
   B.retreated = true; B.mode = null;
+  B._fxSwap = { a: benchUnit.uid, b: act.uid };
   logPush(act.name + 'がにげて、' + benchUnit.name + 'と交代！');
-  sfx.tap();
+  captionPush(act.name + ' がにげて、' + benchUnit.name + ' と交代！');
+  sfx.swap();
   renderBattle();
   return true;
 }
@@ -1524,10 +1650,16 @@ function attack(side, wazaIdx){
   if (w.all) { targets = fieldOf(foeSide); if (!targets.length) return false; }
   else targets = [foeActive];
   if (side === 'ally') B.attacked = true; else B.foeAttacked = true;
+  B._fxLunge = { uid: unit.uid, dir: side === 'ally' ? 'Up' : 'Down', t: Date.now() };
+  if (side === 'ally') { lockFx(true); setTimeout(() => lockFx(false), FAST ? 0 : 400); }
   let adv = false, tot = 0;
   targets.forEach(t => { if (typeMult(unit.el, t.el) > 1) adv = true; tot += hitUnit(unit, t, w.dmg); });
   logPush((side === 'ally' ? '味方' : '相手') + ' ' + unit.name + '「' + w.n + '」→ ' +
     (w.all ? '相手の場全体に計' + fmt(tot) : foeActive.name + 'に' + fmt(tot)) + (adv ? '（こうかばつぐん！）' : ''));
+  const koT = targets.find(t => !t.alive);
+  if (koT) captionPush(koT.name + ' は きぜつした！');
+  else if (w.all) captionPush((foeSide === 'foe' ? '相手' : '味方') + 'の場全体に ' + fmt(tot) + ' のダメージ！' + (adv ? ' こうかばつぐん！' : ''));
+  else captionPush((targets[0] ? targets[0].name : '') + ' に ' + fmt(tot) + ' のダメージ！' + (adv ? ' こうかばつぐん！' : ''));
   sfx.hit();
   if (side === 'ally' && B.tutorial) { tutBattleEvent('attack', {}); if (adv) tutBattleEvent('adv', {}); }
   renderBattle();
@@ -1536,17 +1668,29 @@ function attack(side, wazaIdx){
 }
 
 
-/* 敵ターン：引く→エネルギーが発生→ベンチに出す→バトル場優先で付ける→攻撃 */
-async function foePhase(){
+/* 敵ターン：引く→エネルギーが発生→ベンチに出す→バトル場優先で付ける→攻撃。
+   v60：行動を一括で終わらせず、付与→攻撃の順に段階表示して追えるようにした
+   （全体で約2.5秒以内。フィールドのタップで早送り可）。
+   first=true は「相手が先行した1ターン目」用で、ドローもエネルギー発生もしない */
+async function foePhase(first){
   if (!B || B.over) return;
   B.phase = 'foe'; B.foeAttacked = false; B.mode = null;
+  lockFx(true);
+  showTurnBanner('相手のターン', 'foe');
+  captionPush('相手のターン');
   renderBattle();
-  await wait(450);
-  if (B.over) return;
-  drawCards('foe', 1);
-  B.foeZone += 1;
+  await fxWait(first ? 380 : 520);
+  if (!B || B.over) { lockFx(false); return; }
+  if (!first) {
+    drawCards('foe', 1);
+    B.foeZone += 1;
+    captionPush('相手はカードを1枚引いて、⚡が1個発生');
+  }
   while (handOf('foe').length && benchOf('foe').length < 3) { if (!playBench('foe', handOf('foe')[0])) break; }
-  /* エネルギーはバトル場優先。余りはベンチの先頭に付ける */
+  renderBattle();
+  await fxWait(340);
+  if (!B || B.over) { lockFx(false); return; }
+  /* エネルギーはバトル場優先。余りはベンチの先頭に付ける（1個ずつ見せる） */
   let guard = 0;
   while (B.foeZone > 0 && guard++ < 12) {
     const a = activeOf('foe');
@@ -1556,17 +1700,29 @@ async function foePhase(){
     else { tgt = benchOf('foe').find(u => u.energy < maxC(u)) || a; }
     if (!tgt) break;
     B.foeZone--; tgt.energy++;
+    captionPush('相手は ' + tgt.name + ' に⚡を付けた（⚡×' + tgt.energy + '）');
+    renderBattle();
+    fxEnergyFly('foe', tgt);
+    sfx.attach();
+    await fxWait(230);
+    if (!B || B.over) { lockFx(false); return; }
   }
   renderBattle();
-  await wait(300);
-  if (checkEnd()) return;
+  if (checkEnd()) { lockFx(false); return; }
   const act = activeOf('foe');
   if (act) {
     const wis = act.waza.map((w, i) => i).filter(i => act.energy >= act.waza[i].cost)
       .sort((x, y) => act.waza[y].cost - act.waza[x].cost);
-    if (wis.length) { await wait(280); attack('foe', wis[0]); }
+    if (wis.length) {
+      captionPush('相手の ' + act.name + ' の ' + act.waza[wis[0]].n + '！');
+      await fxWait(240);
+      attack('foe', wis[0]);
+      await fxWait(430);
+    }
   }
-  if (checkEnd()) return;
+  if (!B || B.over) { lockFx(false); return; }
+  if (checkEnd()) { lockFx(false); return; }
+  lockFx(false);
   /* 味方のバトル場がきぜつしていたら、繰り出しを待ってから次のターンへ */
   if (!activeOf('ally')) {
     const ok = await ensureAllyActive();
@@ -1582,11 +1738,16 @@ function beginPlayerTurn(first){
   if (!first && B.turn > limit) { judgeByHp(); return; }
   B.phase = 'player';
   B.attacked = false; B.retreated = false; B.mode = null;
+  showTurnBanner('あなたのターン', 'ally');
   if (!first) {
-    drawCards('ally', 1);
+    const drawn = drawCards('ally', 1);
+    if (drawn && drawn[0]) { B._fxDraw = drawn[0].uid; sfx.draw(); }
     B.zone += 1; /* ターン開始時にエネルギーが1個発生（先行の1ターン目だけ、ドローも発生もしない） */
     logPush('⚡エネルギーが1個発生！付けたい自分のキャラをタップ');
+    captionPush('あなたのターン：⚡が1個発生！付けるキャラをタップ');
     if (B.tutorial) tutBattleEvent('energyGen', {});
+  } else {
+    captionPush('あなたのターン：先行の1ターン目は⚡が発生しないよ');
   }
   renderBattle();
   if (B.auto) autoPlayTurn();
@@ -1637,14 +1798,183 @@ async function endPlayerTurn(){
 }
 /* ── カード描画（ポケポケ式・共通コンポーネント） ── */
 function unitElId(u){ return 'unit-' + u.side + '-' + u.uid; }
+/* ── v60 演出ヘルパー ──
+   演出は #btFx レイヤー（renderBattle で書き換わらない領域）に集約する。
+   従来はダメージ表示をカード要素へ付けていたが、直後の renderBattle で消えてしまい
+   実際には見えていなかった。レイヤー方式で再描画後も残るようにした。 */
+const FX_DIE = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+function fxField(){ return document.getElementById('btField'); }
+function fxLayer(){ return document.getElementById('btFx'); }
+function fxRectOf(el){
+  try {
+    const f = fxField(); if (!f || !el || !el.getBoundingClientRect || !f.getBoundingClientRect) return null;
+    const r = el.getBoundingClientRect(), fr = f.getBoundingClientRect();
+    return { x: r.left - fr.left, y: r.top - fr.top, w: r.width, h: r.height, cx: r.left - fr.left + r.width / 2, cy: r.top - fr.top + r.height / 2 };
+  } catch(e) { return null; }
+}
+function unitRect(u){ const el = document.getElementById(unitElId(u)); return el ? fxRectOf(el) : null; }
+function captionPush(t){ if (!B) return; B._capText = t; const el = document.getElementById('btCap'); if (el) el.textContent = t; }
+function showTurnBanner(txt, cls){
+  if (FAST) return;
+  const b = document.getElementById('btBanner'); if (!b) return;
+  b.textContent = txt; b.className = ''; void b.offsetWidth;
+  b.className = 'show ' + (cls || '');
+  clearTimeout(b._h); b._h = setTimeout(() => { b.className = ''; }, 1250);
+}
+function lockFx(on){
+  if (!B) return;
+  B._lockN = Math.max(0, (B._lockN || 0) + (on ? 1 : -1));
+  const v = document.getElementById('btVeil');
+  if (v) v.style.display = (!FAST && B._lockN > 0) ? 'block' : 'none';
+}
+function fxLocked(){ return !!(B && B._lockN > 0); }
+/* 演出用ウェイト。フィールドのタップ（ベール）で _skipFx が立つと早く抜ける */
+async function fxWait(ms){
+  if (FAST || !B) return;
+  const b = B, t0 = Date.now();
+  while (Date.now() - t0 < ms) { if (B !== b || b._skipFx || b.over) break; await wait(40); }
+  if (B === b) b._skipFx = false;
+}
+function fxSparks(x, y, n, col){
+  const layer = fxLayer(); if (!layer || !layer.appendChild) return;
+  for (let i = 0; i < (n || 6); i++) {
+    const s = document.createElement('span'); s.className = 'sparkP';
+    if (col) s.style.background = col;
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    layer.appendChild(s);
+    const ang = Math.random() * Math.PI * 2, dist = 18 + Math.random() * 30;
+    if (s.animate) s.animate([
+      { transform: 'translate(0,0)', opacity: 1 },
+      { transform: 'translate(' + Math.cos(ang) * dist + 'px,' + (Math.sin(ang) * dist - 8) + 'px)', opacity: 0 }
+    ], { duration: 420 + Math.random() * 160, easing: 'ease-out' });
+    setTimeout(() => s.remove(), 650);
+  }
+}
+function popEnergyPip(u){
+  const el = document.getElementById(unitElId(u)); if (!el || !el.querySelector) return;
+  const p = el.querySelector('.pkc-en'); if (p) { p.classList.remove('enPop'); void p.offsetWidth; p.classList.add('enPop'); }
+}
+function fxEnergyFly(side, u){
+  if (FAST) return;
+  const layer = fxLayer(); if (!layer || !layer.appendChild) return;
+  const dst = unitRect(u); if (!dst) return;
+  let sx = dst.cx, sy = 8;
+  const srcEl = side === 'ally' ? document.getElementById('energyBox') : document.getElementById('foeCounts');
+  const sr = srcEl ? fxRectOf(srcEl) : null;
+  if (sr) { sx = sr.cx; sy = sr.cy; }
+  const orb = document.createElement('span'); orb.className = 'enOrb'; orb.textContent = '⚡';
+  orb.style.left = sx + 'px'; orb.style.top = sy + 'px';
+  layer.appendChild(orb);
+  if (orb.animate) {
+    const an = orb.animate([
+      { transform: 'translate(0,0) scale(.7)', opacity: .6 },
+      { transform: 'translate(' + (dst.cx - sx) + 'px,' + (dst.cy - sy) + 'px) scale(1.15)', opacity: 1 }
+    ], { duration: 360, easing: 'cubic-bezier(.3,.7,.4,1)' });
+    an.onfinish = () => { orb.remove(); fxSparks(dst.cx, dst.cy, 6); popEnergyPip(u); };
+  }
+  setTimeout(() => { if (orb.parentNode) { orb.remove(); popEnergyPip(u); } }, 620);
+}
+function fxKO(u){
+  if (FAST) return;
+  const el = document.getElementById(unitElId(u)); if (!el) return;
+  const r = fxRectOf(el); const layer = fxLayer();
+  if (r && layer && layer.appendChild && el.cloneNode) {
+    try {
+      const g = el.cloneNode(true);
+      g.removeAttribute('id'); g.className += ' koGhost';
+      g.style.left = r.x + 'px'; g.style.top = r.y + 'px'; g.style.width = r.w + 'px';
+      layer.appendChild(g); setTimeout(() => g.remove(), 640);
+    } catch(e) {}
+    fxSparks(r.cx, r.cy, 10, '#ffe082');
+  }
+  sfx.ko();
+}
+function fxConfetti(){
+  if (FAST) return;
+  const layer = fxLayer(); const f = fxField();
+  if (!layer || !layer.appendChild || !f || !f.getBoundingClientRect) return;
+  const H = f.getBoundingClientRect().height;
+  const cols = ['#ffd76e','#ff7bac','#69f0ae','#40c4ff','#b388ff','#fff59d'];
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement('span'); s.className = 'confettiP';
+    s.style.left = (Math.random() * 96 + 2) + '%';
+    s.style.background = cols[i % cols.length];
+    s.style.setProperty('--fall', (H + 30) + 'px');
+    s.style.animationDuration = (1.1 + Math.random() * 0.9) + 's';
+    s.style.animationDelay = (Math.random() * 0.35) + 's';
+    layer.appendChild(s); setTimeout(() => s.remove(), 2700);
+  }
+}
 function floatText(u, txt, cls){
+  const layer = fxLayer();
+  const r = unitRect(u);
+  if (layer && layer.appendChild && r) {
+    const s = document.createElement('span');
+    s.className = 'dmgFloat ' + (cls || ''); s.textContent = txt;
+    s.style.left = (r.x + r.w * (0.3 + Math.random() * 0.3)) + 'px'; s.style.top = (r.y + r.h * 0.14) + 'px';
+    layer.appendChild(s); setTimeout(() => s.remove(), 1000);
+    return;
+  }
   const el = document.getElementById(unitElId(u)); if (!el) return;
   const s = document.createElement('span');
   s.className = 'dmgFloat ' + (cls || ''); s.textContent = txt;
   s.style.left = (30 + Math.random() * 30) + '%'; s.style.top = '16%';
   el.appendChild(s); setTimeout(() => s.remove(), 1000);
 }
-function shakeUnit(u){ const el = document.getElementById(unitElId(u)); if (!el) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+function shakeUnit(u){
+  if (B) { (B._fxShake = B._fxShake || {})[u.uid] = Date.now(); (B._fxFlash = B._fxFlash || {})[u.uid] = Date.now(); }
+  const el = document.getElementById(unitElId(u)); if (!el) return;
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+}
+/* ── サイコロ（先攻・後攻の決定） ── */
+function rollDice(){
+  const die = () => 1 + Math.floor(RNG() * 6);
+  let a = die(), f = die(), tries = 0;
+  while (a === f && tries++ < 5) { a = die(); f = die(); }
+  if (a === f) a = a % 6 + 1; /* 固定乱数でも必ず決着させる最終手段（通常の乱数ではほぼ発動しない） */
+  return { a, f, first: a > f ? 'ally' : 'foe' };
+}
+function startDiceAnim(){
+  if (!B || B.phase !== 'dice' || B._diceStarted) return;
+  const b = B; b._diceStarted = true;
+  const ov = document.getElementById('btDice');
+  if (!ov) { finishDice(); return; }
+  const da = document.getElementById('dieAlly'), df = document.getElementById('dieFoe'), msg = document.getElementById('diceMsg');
+  ov.style.display = 'flex';
+  da.textContent = FX_DIE[b.dice.a - 1]; df.textContent = FX_DIE[b.dice.f - 1];
+  da.classList.add('rolling'); df.classList.add('rolling');
+  da.classList.remove('win'); df.classList.remove('win');
+  msg.textContent = '🎲 サイコロで先攻・後攻を決めるよ！';
+  let ticks = 0;
+  const iv = setInterval(() => {
+    if (B !== b) { clearInterval(iv); return; }
+    ticks++;
+    da.textContent = FX_DIE[Math.floor(Math.random() * 6)];
+    df.textContent = FX_DIE[Math.floor(Math.random() * 6)];
+    if (ticks % 3 === 0) sfx.dice();
+    if (ticks >= 10) { clearInterval(iv); settleDice(); }
+  }, 70);
+  ov.onclick = () => { if (B === b && b.phase === 'dice') { clearInterval(iv); settleDice(); } };
+  function settleDice(){
+    if (B !== b || b.phase !== 'dice' || b._diceSettled) return;
+    b._diceSettled = true;
+    da.classList.remove('rolling'); df.classList.remove('rolling');
+    da.textContent = FX_DIE[b.dice.a - 1]; df.textContent = FX_DIE[b.dice.f - 1];
+    (b.dice.first === 'ally' ? da : df).classList.add('win');
+    msg.textContent = 'あなた ' + b.dice.a + ' ： 相手 ' + b.dice.f + ' → ' + (b.dice.first === 'ally' ? '🎉 あなたが先行！' : '相手が先行！');
+    sfx.diceWin();
+    setTimeout(() => { if (B === b) finishDice(); }, 520);
+  }
+}
+function finishDice(){
+  if (!B || B.phase !== 'dice') return;
+  const ov = document.getElementById('btDice');
+  if (ov) { ov.style.display = 'none'; ov.onclick = null; }
+  B.phase = 'setup';
+  captionPush(B.dice && B.dice.first === 'ally' ? '🎲 あなたが先行！手札からバトル場に出そう' : '🎲 相手が先行！まずはバトル場に出そう');
+  renderBattle();
+  if (B.auto) { const h = handOf('ally').slice().sort((x, y) => y.maxHp - x.maxHp)[0]; if (h) placeActive(h); }
+}
 function weakElOf(el){ for (const a in EL) if (typeMult(a, el) > 1) return a; return null; }
 function energyPips(n){ let s = ''; for (let i = 0; i < n; i++) s += '<span class="pip">⚡</span>'; return s; }
 function cardArtOf(u){ return u.charId ? charArtHTML(CHAR_MAP[u.charId]) : foeFaceHTML(u); }
@@ -1658,10 +1988,11 @@ function pokeCardHTML(u, opts){
   const hpPct = Math.max(0, u.hp / u.maxHp * 100);
   let h = '<div class="pkc pkc-' + size + ' r-' + rar + (u.alive ? '' : ' dead') + '"' +
     (opts.noId ? '' : ' id="' + unitElId(u) + '"') + ' data-uid="' + u.uid + '" data-side="' + u.side + '">';
-  h += '<div class="pkc-head"><span class="pkc-name">' + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
+  h += '<div class="pkc-head">' + (u.charId && size !== 'md' ? '<span class="rarBadge r-' + rar + '">' + rar + '</span>' : '') +
+    '<span class="pkc-name">' + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
     '<span class="pkc-hp"><small>HP</small>' + fmt(Math.max(0, u.hp)) + '</span></div>';
-  h += '<div class="pkc-art">' + cardArtOf(u) + '<span class="pkc-el elTag el-' + u.el + '">' + EL[u.el].i + EL[u.el].n + '</span></div>';
-  h += '<div class="pkc-hpbar"><i style="width:' + hpPct + '%"></i></div>';
+  h += '<div class="pkc-art">' + cardArtOf(u) + (u.charId && size === 'md' ? '<span class="rarBadge artBadge r-' + rar + '">' + rar + '</span>' : '') + '<span class="pkc-el elTag el-' + u.el + '">' + EL[u.el].i + EL[u.el].n + '</span></div>';
+  h += '<div class="pkc-hpbar"><i class="hpGhost" style="width:' + hpPct + '%"></i><i class="hpMain" style="width:' + hpPct + '%"></i></div>';
   h += '<div class="pkc-sub"><span class="pkc-weak">弱点 ' + (weak ? EL[weak].i + EL[weak].n : '―') + '</span>' +
     '<span class="pkc-en">⚡付 ' + u.energy + '</span></div>';
   if (opts.waza !== 'none') {
@@ -1669,9 +2000,14 @@ function pokeCardHTML(u, opts){
       const can = opts.waza === 'tap' && opts.canWaza && opts.canWaza[wi];
       /* 押せる時だけ <button>。表示だけの行は <div> にして、カード本体へのタップを妨げない */
       const tag = opts.waza === 'tap' ? 'button' : 'div';
-      return '<' + tag + ' class="pkc-waza' + (can ? ' canUse' : '') + '" data-waza="' + wi + '"' + (tag === 'button' && !can ? ' disabled' : '') + '>' +
+      let extra = '';
+      if (opts.waza === 'tap' && !can) {
+        if (opts.attacked) extra = '<span class="pkc-used-tag">攻撃済み</span>';
+        else if (u.energy < w.cost) extra = '<span class="pkc-lack">あと⚡' + (w.cost - u.energy) + '</span>';
+      }
+      return '<' + tag + ' class="pkc-waza' + (can ? ' canUse' : (opts.waza === 'tap' ? ' noUse' : '')) + '" data-waza="' + wi + '"' + (tag === 'button' && !can ? ' disabled' : '') + '>' +
         '<span class="pkc-cost">' + energyPips(w.cost) + '</span>' +
-        '<span class="pkc-wname">' + esc(w.n) + '</span>' +
+        '<span class="pkc-wname">' + esc(w.n) + '</span>' + extra +
         '<span class="pkc-dmg">' + fmt(w.dmg) + (w.all ? ' 全体' : '') + '</span></' + tag + '>';
     }).join('');
   }
@@ -1683,7 +2019,7 @@ function benchChipHTML(u){
   const rar = u.charId ? u.rar : 'foe';
   return '<button class="bchip r-' + rar + (u.alive ? '' : ' dead') + '" id="' + unitElId(u) + '" data-uid="' + u.uid + '" data-side="' + u.side + '">' +
     '<span class="bcArt">' + cardArtOf(u) + '</span>' +
-    '<span class="bcInf"><span class="bcName">' + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
+    '<span class="bcInf"><span class="bcName">' + (u.charId ? '<span class="bcRar r-' + rar + '">' + rar + '</span>' : '') + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
     '<span class="hpBar"><i style="width:' + Math.max(0, u.hp / u.maxHp * 100) + '%"></i></span>' +
     '<span class="bcSub">' + EL[u.el].i + ' ⚡×' + u.energy + ' HP' + fmt(Math.max(0, u.hp)) + '</span></span></button>';
 }
@@ -1694,6 +2030,28 @@ function charToCardUnit(id){
   return { uid:0, side:'ally', charId:id, name:c.name, el:c.el, rar:c.rar, boss:false,
     maxHp:st.hp, hp:st.hp, atk:st.atk, alive:true, awakened:isAwakened(id), waza:wazaOf(c, st.atk), zone:'hand', energy:0 };
 }
+/* イラスト全画面ビューア：URは縦長イラスト（ART_HOME）を優先し、それ以外は通常アートを画面いっぱいに表示する。
+   アプリ全体の方針どおりピンチ拡縮は有効化しない（大きく表示するだけ） */
+function fullArtHTML(c){
+  if (typeof ART_HOME !== 'undefined' && ART_HOME[c.id]) return '<img src="' + ART_HOME[c.id] + '" alt="' + esc(c.name) + '">';
+  return charArtHTML(c, 340);
+}
+function openArtViewer(charId){
+  const c = CHAR_MAP[charId]; if (!c) return;
+  $('#avArt').innerHTML = fullArtHTML(c);
+  $('#avCap').innerHTML = '<span class="rarTag rar-' + c.rar + '">' + c.rar + '</span> ' + esc(c.name) +
+    ' <span class="elTag el-' + c.el + '">' + EL[c.el].i + EL[c.el].n + '</span>' +
+    '<div style="font-size:11.5px;color:#aeb6ff;margin-top:3px;font-weight:800">' + esc(c.flavor) + '</div>';
+  $('#artViewer').classList.add('show');
+  sfx.tap();
+}
+function closeArtViewer(){ $('#artViewer').classList.remove('show'); }
+/* モーダル内のカードに「イラストを大きく見る」導線（ボタン＋アート部分タップ）を付ける */
+function bindArtViewerLink(charId){
+  const av = $('#mArtView'); if (av) av.onclick = () => openArtViewer(charId);
+  const artEl = $('#modalCard .pkc-art');
+  if (artEl) { artEl.style.cursor = 'zoom-in'; artEl.onclick = () => openArtViewer(charId); }
+}
 /* カード拡大表示 */
 function openCardZoom(u){
   if (!u) return;
@@ -1703,9 +2061,82 @@ function openCardZoom(u){
   html += '<div class="kvRow"><span>HP</span><span>' + fmt(Math.max(0, u.hp)) + ' / ' + fmt(u.maxHp) + '</span></div>';
   html += '<div class="kvRow"><span>付いているエネルギー</span><span>⚡×' + u.energy + '</span></div>';
   if (u.charId) html += '<div class="note" style="margin-top:8px">' + esc(CHAR_MAP[u.charId].flavor) + '</div>';
+  if (u.charId) html += '<button class="btn ghost big" id="mArtView" style="margin-top:10px">⤢ イラストをフルサイズで見る</button>';
   html += '<button class="btn ghost big" id="mClose" style="margin-top:10px">閉じる</button>';
   openModal(html);
   $('#mClose').onclick = closeModal;
+  if (u.charId) bindArtViewerLink(u.charId);
+}
+/* フェイズガイド：「今やること」を状況で出し分ける */
+function guideText(){
+  if (!B) return '';
+  if (B.over) return B.result ? '🎉 バトルに勝った！' : 'バトル終了';
+  switch (B.phase) {
+    case 'dice': return '🎲 サイコロで先攻・後攻を決めるよ！';
+    case 'setup': return '👆 手札からバトル場に出すキャラをタップ！';
+    case 'promote': return '👆 バトル場に出すキャラを選んでね（ベンチ／手札）';
+    case 'foe': return '相手のターン…見守ろう 👀';
+    case 'player': {
+      if (B.mode === 'retreat') return '👆 交代するベンチのキャラをタップ';
+      if (B.zone > 0) return '⚡ エネルギーを付けるキャラをタップ！（光っているキャラが対象）';
+      const aa = activeOf('ally');
+      if (!B.attacked && aa && aa.waza.some(w => aa.energy >= w.cost)) return '👆 光っている「わざ」をタップして攻撃！';
+      if (!B.attacked) return '⚡が足りない…ベンチに出すか「ターン終了」しよう';
+      return '攻撃済み。ベンチに出すか「ターン終了」を押そう';
+    }
+  }
+  return '';
+}
+/* 描画後の演出パス：HP残像・一時アニメクラス・タップ対象の強調を当てる */
+function battleFxPass(){
+  if (!B) return;
+  const now = Date.now();
+  const els = $$('#btField [data-uid]');
+  B._hpMemo = B._hpMemo || {};
+  let placeApplied = false;
+  els.forEach(el => {
+    const uid = Number(el.dataset.uid);
+    const u = sideUnits(el.dataset.side).find(x => x.uid === uid);
+    if (!u) return;
+    if (el.querySelector) {
+      const bar = el.querySelector('.pkc-hpbar');
+      if (bar) {
+        const ghost = bar.querySelector('.hpGhost'), main = bar.querySelector('.hpMain');
+        if (ghost && main) {
+          const cur = Math.max(0, u.hp / u.maxHp * 100);
+          const prev = (B._hpMemo[uid] != null) ? B._hpMemo[uid] : cur;
+          ghost.style.width = prev + '%'; main.style.width = cur + '%';
+          const raf = window.requestAnimationFrame || (f => setTimeout(f, 16));
+          raf(() => { ghost.style.width = cur + '%'; });
+          B._hpMemo[uid] = cur;
+        }
+      }
+    }
+    if (B._fxLunge && B._fxLunge.uid === uid && now - B._fxLunge.t < 700) el.classList.add('lunge' + B._fxLunge.dir);
+    if (B._fxShake && now - (B._fxShake[uid] || 0) < 700) el.classList.add('shake');
+    if (B._fxFlash && now - (B._fxFlash[uid] || 0) < 700) el.classList.add('hitFlash');
+    if (B._fxPlace === uid) { el.classList.add('placeIn'); placeApplied = true; }
+    if (B._fxDraw === uid) el.classList.add('drawIn');
+    if (B._fxSwap) {
+      if (B._fxSwap.a === uid) el.classList.add('swapA');
+      if (B._fxSwap.b === uid) el.classList.add('swapB');
+    }
+  });
+  if (placeApplied) B._fxPlace = 0;
+  B._fxDraw = 0; B._fxSwap = null;
+  if (B.phase === 'player' && B.zone > 0 && !B.over)
+    $$('#allyActive .pkc, #allyBench .bchip').forEach(el => el.classList.add('tapTarget'));
+  if (B.phase === 'player' && B.mode === 'retreat') {
+    $$('#allyBench .bchip').forEach(el => el.classList.add('tapTarget'));
+    const ac = $('#allyActive .pkc'); if (ac) ac.classList.add('selCard');
+  }
+  if (B.phase === 'setup' || B.phase === 'promote') {
+    $$('#handRow .pkc').forEach(el => el.classList.add('playable'));
+    if (B.phase === 'promote') $$('#allyBench .bchip').forEach(el => el.classList.add('playable'));
+  } else if (B.phase === 'player') {
+    const canBench = benchOf('ally').length < 3;
+    $$('#handRow .pkc').forEach(el => el.classList.add(canBench ? 'playable' : 'dimCard'));
+  }
 }
 function renderBattle(){
   if (!B) return;
@@ -1714,6 +2145,10 @@ function renderBattle(){
   if (B.meta.fieldEl) field.classList.add('el-' + B.meta.fieldEl);
   $('#btLog').innerHTML = B.log.slice(-6).map(esc).join('<br>');
   $('#btLog').scrollTop = 9999;
+  const gd = $('#btGuide');
+  gd.textContent = guideText();
+  gd.className = B.over ? 'done' : (B.phase === 'foe' ? 'foe' : '');
+  $('#btCap').textContent = B._capText || (B.log.length ? B.log[B.log.length - 1] : '');
   /* 敵：ベンチ→バトル場 */
   $('#foeBench').innerHTML = benchOf('foe').map(benchChipHTML).join('') || '<div class="benchEmpty">ベンチなし</div>';
   $('#foeCounts').textContent = '手札×' + handOf('foe').length + ' 山札×' + deckOf('foe').length;
@@ -1724,7 +2159,7 @@ function renderBattle(){
   if (aa) {
     const canW = B.phase === 'player' && !B.over && !B.attacked;
     $('#allyActive').innerHTML = pokeCardHTML(aa, { size:'lg', waza: B.phase === 'player' ? 'tap' : 'show',
-      canWaza: aa.waza.map(w => canW && aa.energy >= w.cost) });
+      canWaza: aa.waza.map(w => canW && aa.energy >= w.cost), attacked: B.attacked });
   } else {
     $('#allyActive').innerHTML = '<div class="noActive">' + (B.phase === 'setup' ? '手札からバトル場に出す<br>キャラを選んでね' : 'バトル場が空いている…') + '</div>';
   }
@@ -1732,20 +2167,24 @@ function renderBattle(){
   $('#allyCounts').textContent = '山札×' + deckOf('ally').length + ' 捨て札×' + B.allies.filter(u => !u.alive).length;
   $('#handCounts').textContent = '×' + handOf('ally').length;
   $('#handRow').innerHTML = handOf('ally').map(u => pokeCardHTML(u, { size:'md', waza:'show' })).join('') || '<div class="benchEmpty">手札なし</div>';
-  /* エネルギー＆ターン表示 */
+  /* エネルギー＆ターン表示（詳しい指示は上部のガイドバーが担う） */
   let lbl;
   if (B.over) lbl = B.turn + 'ターン目';
-  else if (B.phase === 'setup') lbl = 'バトル場に出すキャラを選んでね';
-  else if (B.phase === 'promote') lbl = '繰り出すキャラを選んでね';
-  else if (B.phase === 'foe') lbl = B.turn + 'ターン目：敵のターン…';
-  else lbl = B.turn + 'ターン目' + (B.mode === 'retreat' ? '：交代するベンチをタップ' : B.zone > 0 ? '：⚡を付けるキャラをタップ' : B.attacked ? '：攻撃済み' : '：わざを選ぼう');
+  else if (B.phase === 'dice') lbl = 'サイコロ中…';
+  else if (B.phase === 'setup') lbl = '準備中';
+  else if (B.phase === 'promote') lbl = '繰り出し選択中';
+  else if (B.phase === 'foe') lbl = B.turn + 'ターン目・相手のターン';
+  else lbl = B.turn + 'ターン目' + (B.mode === 'retreat' ? '・交代先を選んでね' : B.zone > 0 ? '・⚡未付与' : B.attacked ? '・✔攻撃済み' : '');
   $('#energyBox').innerHTML = '発生⚡ <b>' + B.zone + '</b><span class="turnLbl">' + lbl + '</span>';
+  $('#energyBox').classList.toggle('zoneReady', B.phase === 'player' && B.zone > 0 && !B.over);
   $('#btnEndTurn').disabled = B.phase !== 'player' || B.over;
   $('#btnRetreat').disabled = !(B.phase === 'player' && !B.over && !B.retreated && aa && aa.energy >= 1 && benchOf('ally').length);
   $('#btnRetreat').style.color = B.mode === 'retreat' ? '#ffd76e' : '';
   $('#btnAuto').textContent = B.auto ? '⏸ オート中' : 'オート';
   $('#btnAuto').style.color = B.auto ? '#ffd76e' : '';
+  battleFxPass();
   bindBattleTaps();
+  if (B.phase === 'dice' && !B._diceStarted) startDiceAnim();
 }
 function bindBattleTaps(){
   $$('#btField [data-uid]').forEach(el => {
@@ -1761,6 +2200,7 @@ function bindBattleTaps(){
 function onCardTap(u){
   if (!B || B.over || !u) return;
   if (u.side === 'foe') { openCardZoom(u); return; }
+  if (fxLocked()) return; /* 演出中は味方操作をロック（敵カードの拡大表示だけ許可） */
   if (B.phase === 'setup') { if (u.zone === 'hand') placeActive(u); return; }
   if (B.phase === 'promote') { if (u.zone === 'bench' || u.zone === 'hand') resolvePromote(u); return; }
   if (B.phase !== 'player') return;
@@ -1770,7 +2210,7 @@ function onCardTap(u){
   openCardZoom(u);
 }
 function onWazaRowTap(wi){
-  if (!B || B.phase !== 'player' || B.over) return;
+  if (!B || B.phase !== 'player' || B.over || fxLocked()) return;
   const aa = activeOf('ally');
   if (!aa) return;
   if (!attack('ally', wi) && aa.energy < aa.waza[wi].cost) toast('エネルギーが足りないよ');
@@ -1779,6 +2219,8 @@ function endBattle(win){
   if (!B || B.over) return;
   B.over = true; B.result = win;
   if (win) sfx.win(); else sfx.lose();
+  captionPush(win ? '🎉 勝利！' : '敗北…');
+  if (win) fxConfetti();
   renderBattle();
   const onEnd = B.meta.onEnd;
   setTimeout(() => { if (onEnd) onEnd(win); }, FAST ? 10 : 700);
@@ -1822,7 +2264,8 @@ function startStoryBattle(ch, st, diff, tutorial){
   if (tutorial) tutBattleStart();
 }
 /* バトル画面ボタン */
-$('#btnEndTurn').onclick = () => { sfx.tap(); endPlayerTurn(); };
+$('#btnEndTurn').onclick = () => { if (B && fxLocked()) return; sfx.tap(); endPlayerTurn(); };
+$('#btVeil').onclick = () => { if (B) B._skipFx = true; }; /* 演出中フィールドのタップで早送り */
 $('#btnAuto').onclick = () => { if (!B) return; B.auto = !B.auto;
   if (B.auto && B.phase === 'setup') { const h = handOf('ally').slice().sort((a, b) => b.maxHp - a.maxHp)[0]; if (h) { placeActive(h); return; } }
   renderBattle(); if (B.auto) autoPlayTurn(); };
@@ -2022,6 +2465,7 @@ function openNews(){
 }
 function openHowto(){
   openModal('<h3>❓ バトルの遊び方（ポケポケ式カードバトル）</h3>' +
+    '<div class="skillBox"><div class="sn">⓪ 先攻・後攻はサイコロ</div><div class="sd">バトル開始時にサイコロを振って、出目が大きい方が先攻になるよ（同点は振り直し）。先攻の1ターン目はドローも⚡発生もなし。</div></div>' +
     '<div class="skillBox"><div class="sn">① カードと場</div><div class="sd">編成5人がそのままデッキになる。開始時に手札を3枚引き、まず1体を「バトル場」に出す。ベンチは3体までで、手札からいつでも（自分のターンに）出せるよ。戦えるのはバトル場の1体だけ。</div></div>' +
     '<div class="skillBox"><div class="sn">② ターンの流れ</div><div class="sd">ターン開始に山札から1枚引く→エネルギー1個が発生する→好きなキャラに付ける→バトル場のキャラで攻撃→「ターン終了」。先行の1ターン目だけはエネルギーが発生しないよ。</div></div>' +
     '<div class="skillBox"><div class="sn">③ エネルギー</div><div class="sd">毎ターン1個発生。自分の場のキャラをタップすると付いて、付けたエネルギーはずっと残る（攻撃しても減らない）。わざは「付いているエネルギー」がコスト以上で使える。付けずにターン終了すると発生分は消えちゃう。</div></div>' +
@@ -2345,7 +2789,9 @@ function tutBattleEvent(ev, data){
   }
   if (!B || !B.tutFlags) return;
   const f = B.tutFlags;
-  if (ev === 'place' && !f.place) { f.place = 1; tutShow('いいね！戦えるのはバトル場の1体だけ。先行の1ターン目は⚡エネルギーが発生しないから、そのまま「ターン終了」を押してみて。', { onNext: tutHide }); return; }
+  if (ev === 'place' && !f.place) { f.place = 1; tutShow(B && B.first === 'foe'
+    ? 'いいね！戦えるのはバトル場の1体だけ。今回はサイコロで相手が先行！相手のターンが終わると、あなたのターンに⚡が発生するよ。'
+    : 'いいね！戦えるのはバトル場の1体だけ。先行の1ターン目は⚡エネルギーが発生しないから、そのまま「ターン終了」を押してみて。', { onNext: tutHide }); return; }
   if (ev === 'energyGen' && !f.energyGen) { f.energyGen = 1; tutShow('⚡エネルギーが1個発生したよ！自分の場のキャラをタップすると付けられて、付けた⚡はそのキャラに残り続けるんだ。バトル場に付けてみてね。', { onNext: tutHide }); return; }
   if (ev === 'attack' && !f.attack) { f.attack = 1; tutShow('攻撃できたね！わざはカードの数字そのままの固定ダメージ。⚡が3個たまれば大きな「わざ2」も使えるよ。', { onNext: tutHide }); return; }
   if (ev === 'adv' && !f.adv) { f.adv = 1; tutShow('「こうかばつぐん！」が出たね🔥 相手の弱点の属性で攻撃するとダメージ1.5倍！カードに弱点が書いてあるよ。', { onNext: tutHide }); return; }
@@ -2380,11 +2826,8 @@ function init(){
   loadSave();
   missionDay(); regenStamina(); arenaTicketRegen(); raidState();
   $$('#tabBar button').forEach(b => b.onclick = () => { sfx.tap(); go(b.dataset.go); });
-  $$('.menuBtn[data-go]').forEach(b => b.onclick = () => { sfx.tap(); go(b.dataset.go); });
   $('#menuHowto').onclick = openHowto;
-  const mh2 = $('#menuHowto2'); if (mh2) mh2.onclick = openHowto;
-  const dg = $('#diaGacha'); if (dg) dg.onclick = () => { sfx.tap(); go('gacha'); };
-  const dr = $('#diaRaid'); if (dr) dr.onclick = () => { sfx.tap(); go('raid'); };
+  $('#artViewer').onclick = () => closeArtViewer();
   const sd = $('#sideDex'); if (sd) sd.onclick = () => { sfx.tap(); go('dex'); };
   const ss = $('#sideShop'); if (ss) ss.onclick = () => { sfx.tap(); go('shop'); };
   const snd = $('#sideSound'); if (snd) { snd.textContent = S.mute ? '🔇' : '🔊'; snd.onclick = () => { S.mute = !S.mute; save(); snd.textContent = S.mute ? '🔇' : '🔊'; toast(S.mute ? 'サウンド OFF' : 'サウンド ON'); if (!S.mute) sfx.tap(); }; }
