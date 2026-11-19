@@ -7,7 +7,7 @@
     index:'ゲームポータル',tetris:'テトリス',suica:'スイカゲーム',crepe:'クレープ工房',survivors:'まじょねこサバイバーズ',
     blockblast:'ブロックブラスト',minesweeper:'マインスイーパ',reversi:'オセロ',shogi:'将棋',majan:'麻雀',daihugou:'大富豪',
     hanahuda:'花札',uno:'UNO',blockzushi:'ブロック崩し',jump:'ジャンプラン',caring:'育成ゲーム',gamedev:'ゲーム工房物語',
-    rpg:'モンスターライズ',otome:'乙女ゲーム'
+    rpg:'モンスターライズ',otome:'乙女ゲーム',frostline:'Frostline: Emberfront'
   };
   var id=file.replace(/\.html$/,'')||'index';
   if(file==='rpg2.html')return;
