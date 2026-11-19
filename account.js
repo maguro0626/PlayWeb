@@ -19,8 +19,11 @@
      混ざるため、ログイン中アカウントの uid で名前空間を分ける:
        ゲームの素キー K  <->  ディスクキー "pwsave:<uid>:K"
      どの名前空間を読むかは、ページ読み込み直後に Firebase Auth のセッション
-     記録（firebase:authUser:*）から同期的に決める。認証が後から別の uid に
-     確定したら、その時点で名前空間を切り替える（切替前に読んだ値は混ざらない）。
+     記録（firebase:authUser:*）から同期的に決める。v73〜 SDK の記録が
+     localStorage に無い環境（永続化が IndexedDB 側の実ブラウザ等）でも
+     バインドできるよう、自前の uid ヒント（pwacct_uid_v1）をフォールバックに
+     使う。認証が後から別の uid に確定したら、その時点で名前空間を切り替える
+     （切替前に読んだ値は混ざらない）。
      クラウド（users/{uid}/saves/{encodeURIComponent(key)}）はバックアップと
      端末間同期用で、ログイン確定時にキーごとの updatedAt を比較して新しい方を
      採用する（比較メタはアカウント別に "pwmeta:<uid>" へ保存する）。
@@ -44,8 +47,10 @@
      実装は2層: (1) 保存シム — ログイン状態によらず常時有効で、ゲーム系キー
      への localStorage 読み書きを、ログイン中はそのアカウントの名前空間
      （実ディスク）へ、ゲスト時はメモリ内ストアへ振り替える。
-     ゲストのデータはメモリ内だけにあり、リロードで消える。ゲストの書き込みを
-     アカウントへ移行する処理は存在しない。
+     ゲストのデータはメモリ内だけにあり、リロードで消える。v73〜 例外として、
+     同一ページ内でゲスト→ログイン確定へ切り替わる際、そのページのメモリ分
+     だけを当アカウントの名前空間へ取り込む（ディスク上の既存データを
+     引き継ぐ処理は引き続き存在しない）。
      (2) ゲート — friends.js へ gateState（pending/member/guest/sdk-down）を
      通知し、フレンドUI・招待・オンライン入口を制御する。SDK が読み込めない
      環境ではログインできないため、マルチ/フレンドはゲスト扱いでブロックする。
@@ -144,6 +149,15 @@
      起動時パージでは絶対に消さない（現行のセーブそのもの） */
   var SAVE_NS_PREFIX = 'pwsave:';
   var META_PREFIX = 'pwmeta:';
+  /* v73〜 自前の uid ヒント（原始ディスクの素キー）。
+     Firebase Auth のセッション記録は SDK の永続化形式（localStorage か
+     IndexedDB か）に依存するため、実ブラウザでは authUidFromDisk() の
+     同期スキャンで uid が取れないことがある。その場合でもページ初期化の
+     時点で名前空間をバインドできるよう、認証確定時に uid だけを自前の
+     キーへ控えておく。あくまで「バインドの手がかり」であり、最終確定は
+     SDK の onAuthStateChanged が行う（違う uid なら切り替わる）。
+     起動時パージの対象には絶対に入れない（下のパージでも明示ガードする） */
+  var UID_HINT_KEY = 'pwacct_uid_v1';
   var PRESENCE_STALE_MS = 90000;   /* lastSeen がこれより古ければオフライン扱い */
   var HEARTBEAT_MS = 30000;
   /* 管理者 uid のリスト（意見ボックスの表示・読み取りに使う）。
@@ -304,6 +318,7 @@
     try {
       diskKeys().forEach(function (k) {
         if (k.indexOf(SAVE_NS_PREFIX) === 0 || k.indexOf(META_PREFIX) === 0) return;
+        if (k === UID_HINT_KEY) return;   /* v73 の uid ヒントは現行のバインド情報そのもの */
         var hit = !!PURGE_KEY_SET[k];
         if (!hit) {
           for (var i = 0; i < PURGE_PREFIXES.length; i++) {
@@ -341,6 +356,23 @@
       }
     } catch (e) {}
     return null;
+  }
+  /* v73〜 自前の uid ヒント（SDK の永続化形式に依存しないバインド担保）。
+     読み書きは原始ディスク直通（シムを通さない） */
+  function readUidHint() {
+    var v = diskGet(UID_HINT_KEY);
+    return (typeof v === 'string' && v) ? v : null;
+  }
+  function writeUidHint(uid) {
+    if (typeof uid === 'string' && uid) diskSet(UID_HINT_KEY, uid);
+  }
+  function clearUidHint() {
+    diskRemove(UID_HINT_KEY);
+  }
+  /* 起動時バインドの手がかり: SDK のセッション記録を優先し、
+     取れなければ自前のヒントを使う。どちらも最終確定ではない */
+  function initialUidGuess() {
+    return authUidFromDisk() || readUidHint();
   }
   function nsKey(uid, k) { return SAVE_NS_PREFIX + uid + ':' + k; }
   /* 現在の名前空間（またはゲストメモリ）から素キーを読む */
@@ -603,6 +635,11 @@
   var merging = false;
   var syncGen = 0;           /* 同期の世代。名前空間の切り替えとセーブ初期化で
                                 進み、進行中のマージの適用を無効化する */
+  var initiallyUnbound = false; /* ページ初期化時点で名前空間が未バインド
+                                （storeUid が null）だったか。遅延バインド時の
+                                1回だけリロード（v73）の発動条件になる */
+  var lateBindReloadAttempted = false; /* 同一ページ内での遅延バインド・
+                                リロードの再入防止フラグ */
   var resettingUid = null;   /* セーブ初期化の実行中 uid（その間アップロードを止める） */
   var dirtyKeys = {};        /* key -> true。このセッションでまだクラウドへ
                                 上がっていないローカル変更（再送スケジュール用。
@@ -658,14 +695,54 @@
     persistMeta();
   }
 
+  /* ---------------- 遅延バインド時の1回だけリロード（v73〜） ----------------
+     ページ初期化時点で未バインドだったページは、ゲーム側がゲスト前提で
+     初期表示を作ってしまっている。後から uid にバインドされても画面上の
+     値（ベスト記録等）は自動では直らないため、1回だけリロードして
+     バインド済みの状態で初期化し直す。
+     ループしない根拠（自己消滅性）:
+       - バインド確定時に uid ヒント（pwacct_uid_v1）が書かれており、
+         リロード後のページは初期化時点でヒントから即バインドされる
+         → initiallyUnbound が false になり、発動条件自体が消える。
+       - 念のため sessionStorage ガード（reloadOnce）と同一ページ内の
+         再入防止フラグ（lateBindReloadAttempted）でも二重発動を止める。
+       - 発動は「null → uid の遷移」の時だけ。uid → 別 uid や
+         uid → null では発動しない。
+     ポータル（index.html）では行わない（ポータルの表示はログイン状態に
+     合わせて動的に直るため、リロードしなくても表示が追いつく）。 */
+  function maybeLateBindReload() {
+    if (!initiallyUnbound) return;
+    if (lateBindReloadAttempted) return;
+    if (MY_GAME === 'portal') return;
+    /* 登録・ログインの処理中（authTransition）は発動しない。その最中に
+       リロードするとプロフィール作成などの後処理を中断してしまうため、
+       ハンドラ側が完了後に駆動する onAuthUser（非遷移パス）で発動させる。
+       ここではフラグを消費せず、発動機会を残す */
+    if (typeof authTransition !== 'undefined' && authTransition) return;
+    lateBindReloadAttempted = true;
+    initiallyUnbound = false;   /* このページでは二度と発動しない */
+    reloadOnce('latebind_v73');
+  }
+
   /* ---------------- 名前空間の切り替え ----------------
-     認証の確定に合わせてシムの向き先を切り替える。ゲストメモリは切り替えの
-     たびに破棄する（ログイン前のゲスト分をログイン後に持ち越さない、
-     ログアウト後に残さない）。同期状態（マージ済み uid・未送信集合・
-     フレンドの未送信フラグ）も名前空間ごとにリセットする。完了待ちの
-     Promise は「未確認（ok:false）」として解決しておく。 */
+     認証の確定に合わせてシムの向き先を切り替える。同期状態（マージ済み
+     uid・未送信集合・フレンドの未送信フラグ）も名前空間ごとにリセットする。
+     完了待ちの Promise は「未確認（ok:false）」として解決しておく。
+     v73〜 ゲスト（null）から uid へ切り替わる際は、破棄前にゲストメモリの
+     内容（このページで書かれた分だけ）を新名前空間へ書き込む。ページ初期化
+     時点で未バインドだった場合、ゲームの初期読みはゲストメモリを見ており、
+     その間の書き込み（例: 初回プレイのベスト記録）を切り替えで捨てると
+     保存が丸ごと消えるため。対象は当該ページのメモリ分のみで、ディスク上に
+     既存の他アカウントデータを引き継ぐ処理ではない（それは引き続き無い）。
+     uid → 別 uid の切り替えでは移行しない。 */
   function activateNamespace(uid) {
     var next = (typeof uid === 'string' && uid) ? uid : null;
+    var prev = storeUid;
+    var guestSnapshot = null;
+    if (prev === null && next !== null) {
+      guestSnapshot = {};
+      Object.keys(guestMem).forEach(function (k) { guestSnapshot[k] = guestMem[k]; });
+    }
     if (next === storeUid && (next === null || syncMeta)) { guestMem = {}; return; }
     storeUid = next;
     guestMem = {};
@@ -680,11 +757,33 @@
       var ws = ackWaiters; ackWaiters = [];
       ws.forEach(function (r) { r({ ok: false, remaining: 0 }); });
     }
+    if (guestSnapshot) {
+      var gkeys = Object.keys(guestSnapshot);
+      gkeys.forEach(function (k) {
+        var v = guestSnapshot[k];
+        diskSet(nsKey(next, k), v);
+        if (k === 'playweb_friends') {
+          friendsLocalDirty = true;
+          if (syncMeta) { syncMeta.friendsTs = nowMs(); persistMeta(); }
+          scheduleFriendsUpload();
+        } else if (syncableKey(k)) {
+          metaTouch(k, nowMs());
+          markDirty(k);
+        }
+      });
+      if (gkeys.length) {
+        /* 移行した分はこのページの正規の保存として扱う（リロード後も残る） */
+      }
+    }
+    if (prev === null && next !== null) maybeLateBindReload();
   }
-  /* 起動直後: Auth のセッション記録から名前空間を先に確定させる。
-     これにより、認証コールバックが届く前からゲームが正しい名前空間を
-     読める（通常の再訪ではこの時点で確定する） */
-  activateNamespace(authUidFromDisk());
+  /* 起動直後: Auth のセッション記録（取れなければ自前の uid ヒント）から
+     名前空間を先に確定させる。これにより、認証コールバックが届く前から
+     ゲームが正しい名前空間を読める（通常の再訪ではこの時点で確定する）。
+     どちらも取れなかった場合は未バインドとして記録し、後からバインド
+     された時の1回だけリロード（maybeLateBindReload）の条件にする */
+  activateNamespace(initialUidGuess());
+  initiallyUnbound = (storeUid === null);
 
   /* 書き込みをクラウド送信待ちにする（実送信はマージ完了後だけ。
      マージ前の書き込みはディスク＋メタに残っており、マージ時に新しい方と
@@ -1079,6 +1178,41 @@
       };
     });
     return result;
+  }
+
+  /* ---------------- バックアップを書き出し（v73〜復活） ----------------
+     現在の名前空間（＝ログイン中アカウントの端末内セーブ）を、復元側
+     （parseBackup / restoreFromBackup）がそのまま読める形式で JSON
+     ファイルとしてダウンロードさせる:
+       { app:'playweb-backup', version:1, exportedAt, data:{key:値} }
+     ログイン中（名前空間が自分の uid）の時だけ有効。戻り値は書き出した
+     ペイロードそのもの（テストや呼び出し側の検証用）。ダウンロードの
+     仕組み（Blob / URL）が無い環境ではペイロードを返すだけにする */
+  function exportBackup() {
+    if (!me || storeUid !== me.uid) {
+      setStatus('ログイン後に書き出せます');
+      return { ok: false, msg: 'ログイン後に書き出せます' };
+    }
+    var payload = {
+      app: 'playweb-backup', version: 1,
+      exportedAt: new Date().toISOString(),
+      data: storeSnapshot()
+    };
+    try {
+      if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && URL && typeof URL.createObjectURL === 'function') {
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'playweb-backup-' + payload.exportedAt.slice(0, 10) + '.json';
+        if (document.body && document.body.appendChild) document.body.appendChild(a);
+        if (a && typeof a.click === 'function') a.click();
+        if (typeof setTimeout === 'function') {
+          setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 4000);
+        }
+      }
+    } catch (e) {}
+    return payload;
   }
 
   /* ---------------- localStorage の名前空間化（保存シム・v72〜常時有効） ----
@@ -1590,9 +1724,11 @@
       var uid = cred.user.uid;
       return ensureProfileDocs(uid, name, true).then(function () {
         pendingUsername = null;
-        /* 新アカウントは必ず空の名前空間から始める。ゲスト中に遊んだ分は
-           名前空間の切り替えで見えなくなり、旧方式の「初回移行アップロード」
-           はしない。そのまま onAuthUser を駆動してマージ（空）を開始する */
+        /* 新アカウントは必ず空の名前空間から始める。ディスク上に既存の
+           他アカウントデータを引き継ぐ旧方式の「初回移行アップロード」は
+           しない（v73 で activateNamespace が取り込むのは、このページの
+           ゲストメモリに書かれた分だけ）。そのまま onAuthUser を駆動して
+           マージ（空）を開始する */
         authTransition = null;
         onAuthUser(cred.user);
         return { ok: true, msg: 'アカウントを作成しました' };
@@ -1621,8 +1757,9 @@
     authTransition = 'login';
     return fb.auth.signInWithEmailAndPassword(usernameToEmail(v.name), password)
       .then(function (cred) {
-        /* ゲスト中に遊んだ分は名前空間の切り替えで見えなくなる（アカウントの
-           データをゲスト分で上書きすることは構造的にない）。そのまま
+        /* 名前空間の切り替えで、このページのゲストメモリ分だけが当アカウント
+           へ取り込まれる（activateNamespace の v73 移行）。ディスク上の
+           他アカウントのデータが混ざることは構造的にない。そのまま
            onAuthUser を駆動し、このアカウントのローカル＋クラウドとマージする */
         authTransition = null;
         if (cred && cred.user) onAuthUser(cred.user);
@@ -1639,6 +1776,7 @@
     stopServices();
     me = null;
     myCreatedAtMs = null;
+    clearUidHint();   /* v73: 明示ログアウトで自前の uid ヒントも消す（次ページはゲストで始まる） */
     /* 名前空間をゲストへ切り替える。以後の保存はゲスト用メモリ（このページ
        限り）だけになり、アカウントのデータは端末（名前空間）とクラウドに
        残るので、次回ログイン時にそのアカウント分だけ読み直される */
@@ -1654,6 +1792,7 @@
          再読み込みで隠すような処理は不要 */
       if (me) { stopServices(); me = null; }
       myCreatedAtMs = null;
+      clearUidHint();   /* v73: セッションが無い確定なので uid ヒントも消す */
       activateNamespace(null);
       setGate(sdkState === 'unavailable' ? 'sdk-down' : 'guest');
       updatePill(); updateModal(); updateSearchRow();
@@ -1664,6 +1803,9 @@
        届くことがある。現在のセッションが無いならそのイベントは無視する
        （ゲスト扱いのままにして、誤った再読み込みを防ぐ） */
     if (fb && fb.auth && !fb.auth.currentUser) return;
+    /* v73: ユーザー確定を自前の uid ヒントとして控える（次回ページの
+       初期化時点バインドを SDK の永続化形式に依存させないため） */
+    writeUidHint(user.uid);
     /* 名前空間は認証の確定に合わせてここで一元的に切り替える */
     if (user.uid !== storeUid) activateNamespace(user.uid);
     if (authTransition) {
@@ -1701,6 +1843,10 @@
       /* 公開プロフィール（ユーザー名・在席）を最新化してからサービス開始 */
       ensureProfileDocs(uid, username).catch(function () {}).then(function () {
         startServices();
+        /* 遅延バインドのリロードは、登録・ログインの後処理が終わった
+           この時点で発動させる（activateNamespace 内で遷移が起きなかった
+           ケース＝authTransition 中に先行して切り替わっていた場合の受け皿） */
+        maybeLateBindReload();
       });
     }).catch(function () {
       /* プロフィール取得に失敗しても最低限ログイン状態にはする */
@@ -1710,6 +1856,7 @@
       me = { uid: uid, username: name, usernameLower: name.toLowerCase() };
       setGate('member');
       startServices();
+      maybeLateBindReload();
     });
   }
 
@@ -1900,6 +2047,8 @@
         '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:12px">📮 お問い合わせ・要望・バグ報告</button>' +
         '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:8px">ログアウト</button>' +
         '<div class="pwa-note">ログアウトするとゲストに戻ります。データはこの端末とクラウドに残るので、再ログインすれば続きが遊べます。</div>' +
+        '<button class="pwa-btn sub" id="pwaExportBtn" style="margin-top:14px">📤 バックアップを書き出し</button>' +
+        '<div class="pwa-note">現在のセーブをJSONファイルとして保存します。端末を変える前や、大事な記録がある時に書き出しておくと、下の「バックアップから復元」で戻せます。</div>' +
         '<button class="pwa-btn sub" id="pwaRestoreBtn" style="margin-top:14px">📥 バックアップから復元</button>' +
         '<input type="file" id="pwaRestoreFile" accept=".json" style="display:none">' +
         '<div class="pwa-note">ポータルで書き出したバックアップ（JSONファイル）を選ぶと、その時点のセーブで現在のセーブを上書きします。</div>' +
@@ -1919,6 +2068,10 @@
             btn.disabled = false;
           }
         });
+      };
+      $('pwaExportBtn').onclick = function () {
+        var r = exportBackup();
+        if (r && r.ok === false) window.alert(r.msg || '書き出せませんでした');
       };
       $('pwaRestoreBtn').onclick = function () {
         /* 名前空間が自分の uid に切り替わる前はファイル選択自体を開かない（何も書き込まない） */
@@ -2418,6 +2571,9 @@
     /* バックアップ JSON（文字列またはパース済みオブジェクト）を取り込む。
        ログイン中（名前空間が自分の uid）のみ実行される */
     restoreBackup: restoreFromBackup,
+    /* v73〜 現在のセーブをバックアップ JSON として書き出す。
+       ログイン中のみ有効。戻り値はペイロード {app, version, exportedAt, data} */
+    exportBackup: exportBackup,
     searchUser: searchUser,
     addFriendByUsername: addFriendByUsername,
     sendInviteCloud: sendInviteCloud,
@@ -2460,6 +2616,11 @@
       hydratedUid: function () { return mergedUid; },
       mergedUid: function () { return mergedUid; },
       storeUid: function () { return storeUid; },
+      /* v73: 自前の uid ヒントと遅延バインドの状態（テスト用） */
+      uidHint: function () { return readUidHint(); },
+      uidHintKey: function () { return UID_HINT_KEY; },
+      initiallyUnbound: function () { return initiallyUnbound; },
+      lateBindReloadAttempted: function () { return lateBindReloadAttempted; },
       syncMeta: function () { return syncMeta ? JSON.parse(JSON.stringify(syncMeta)) : null; },
       /* v72 でシード（window.name 引き継ぎ）は廃止。互換のため false を返す */
       seededFromStash: function () { return false; },

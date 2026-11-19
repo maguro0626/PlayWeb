@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PlayWeb 診断</title>
+<script src="account.js"></script>
+<style>
+  body { font-family: sans-serif; margin: 12px; font-size: 14px; line-height: 1.5; }
+  h1 { font-size: 18px; }
+  h2 { font-size: 15px; margin-top: 20px; border-bottom: 1px solid #999; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #f4f4f4; padding: 8px; font-size: 11px; max-height: 300px; overflow: auto; }
+  button { font-size: 15px; padding: 10px 14px; margin: 4px 4px 4px 0; }
+  .ok { color: #0a7d2c; font-weight: bold; }
+  .ng { color: #c00; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>PlayWeb 保存診断</h1>
+<div id="summary">読み込み中…</div>
+<button id="btnRefresh">再表示</button>
+<button id="btnWrite">書き込みテスト（pwdiag_probe）</button>
+<button id="btnTetris">tetris_best を書く（999）</button>
+
+<h2>アカウント状態（PWAccount）</h2>
+<pre id="acct">(未取得)</pre>
+
+<h2>シム経由で見える保存内容（storeSnapshot）</h2>
+<pre id="shim">(未取得)</pre>
+
+<h2>生の localStorage 全キー（別フレーム経由・無加工）</h2>
+<pre id="raw">(未取得)</pre>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  /* 別レーム（iframe）の Storage は account.js のパッチを受けないため、
+     生ディスクの列挙・読み取りに使える */
+  var frame = document.createElement('iframe');
+  frame.style.display = 'none';
+  frame.src = 'about:blank';
+  document.body.appendChild(frame);
+  function rawLS() {
+    try { return frame.contentWindow.localStorage; } catch (e) { return null; }
+  }
+  function trunc(v) {
+    if (v === null || v === undefined) return String(v);
+    v = String(v);
+    return v.length > 220 ? v.slice(0, 220) + '…(' + v.length + '文字)' : v;
+  }
+  function render() {
+    var lines = [];
+    /* アカウント状態 */
+    var acct = { gate: null, user: null, storeUid: null, mergedUid: null, status: null };
+    try {
+      acct.gate = PWAccount.gateState();
+      acct.user = PWAccount.user();
+      acct.storeUid = PWAccount._test.storeUid();
+      acct.mergedUid = PWAccount._test.mergedUid();
+      acct.status = PWAccount._test.statusText();
+    } catch (e) { acct.error = String(e); }
+    $('acct').textContent = JSON.stringify(acct, null, 1);
+    /* シム経由スナップショット */
+    var snap = null;
+    try { snap = PWAccount._test.memStore(); } catch (e) { snap = { error: String(e) }; }
+    $('shim').textContent = JSON.stringify(snap, null, 1);
+    /* 生ディスク */
+    var raw = rawLS();
+    var rawObj = { available: !!raw, keys: [] };
+    var authUid = null, hasAuthKey = false;
+    if (raw) {
+      try {
+        for (var i = 0; i < raw.length; i++) {
+          var k = raw.key(i);
+          var v = null;
+          try { v = raw.getItem(k); } catch (e) {}
+          rawObj.keys.push(k + ' = ' + trunc(v));
+          if (k && k.indexOf('firebase:authUser:') === 0) {
+            hasAuthKey = true;
+            try { var rec = JSON.parse(v || 'null'); if (rec && rec.uid) authUid = rec.uid; } catch (e) {}
+          }
+        }
+      } catch (e) { rawObj.error = String(e); }
+    }
+    $('raw').textContent = JSON.stringify(rawObj, null, 1);
+    /* サマリ判定 */
+    var s = [];
+    s.push('SDK認証キー(firebase:authUser:*)がディスクにあるか: ' + (hasAuthKey ? '<span class="ok">ある（uid=' + authUid + '）</span>' : '<span class="ng">無い</span>'));
+    s.push('現在の保存先 uid (storeUid): ' + (acct.storeUid ? '<span class="ok">' + acct.storeUid + '</span>' : '<span class="ng">未バインド（ゲスト扱い）</span>'));
+    if (hasAuthKey && authUid && acct.storeUid && authUid !== acct.storeUid) {
+      s.push('<span class="ng">認証キーの uid と保存先 uid が一致していない</span>');
+    }
+    var pwsaveCount = rawObj.keys.filter(function (x) { return x.indexOf('pwsave:') === 0; }).length;
+    s.push('ディスク上の pwsave: キー数: ' + pwsaveCount);
+    $('summary').innerHTML = s.join('<br>');
+  }
+  $('btnRefresh').onclick = render;
+  $('btnWrite').onclick = function () {
+    try { localStorage.setItem('pwdiag_probe', 'T' + Date.now()); } catch (e) {}
+    setTimeout(render, 300);
+  };
+  $('btnTetris').onclick = function () {
+    try { localStorage.setItem('tetris_best', '999'); } catch (e) {}
+    setTimeout(render, 300);
+  };
+  render();
+  setInterval(render, 3000);
+})();
+</script>
+</body>
+</html>
