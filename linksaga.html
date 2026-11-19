@@ -242,10 +242,10 @@
   #btField.el-dark { background:linear-gradient(180deg,#3c1250,#2c1a56 55%,#180a2e); }
   #btLog { background:rgba(8,9,26,.72); border:1px solid rgba(140,150,255,.3); border-radius:11px; padding:5px 10px; font-size:11px; line-height:1.5;
            height:52px; overflow-y:auto; color:#dfe3ff; }
-  .zoneRow { display:flex; align-items:center; gap:6px; margin-top:7px; }
+  .zoneRow { display:flex; align-items:center; gap:6px; margin-top:7px; min-width:0; }
   .zoneLbl { font-size:10.5px; font-weight:900; color:#aeb6ff; white-space:nowrap; text-shadow:0 1px 3px #000; }
   .zoneCounts { margin-left:auto; font-size:10px; color:#8a93d8; font-weight:800; white-space:nowrap; }
-  .benchRow { display:flex; gap:6px; flex:1; min-height:46px; align-items:stretch; }
+  .benchRow { display:flex; gap:6px; flex:1; min-width:0; min-height:42px; align-items:stretch; }
   .benchEmpty { font-size:10.5px; color:#79809f; font-weight:800; align-self:center; }
   .hpBar { display:block; height:7px; border-radius:99px; background:rgba(0,0,0,.6); overflow:hidden; margin-top:2px; border:1px solid rgba(216,178,92,.45); }
   .hpBar i { display:block; height:100%; background:linear-gradient(180deg,#b9ffd9 0%,#69f0ae 45%,#25a565 100%); transition:width .35s; box-shadow:inset 0 1px 0 rgba(255,255,255,.55); }
@@ -253,11 +253,12 @@
   .bchip { display:flex; align-items:center; gap:6px; flex:1; max-width:158px; min-width:0; background:linear-gradient(180deg,#262763,#141433);
            border:1.5px solid #546e7a; border-radius:11px; padding:3px 7px 3px 3px; cursor:pointer; position:relative; text-align:left;
            color:#eef0ff; font-family:inherit; box-shadow:0 3px 7px rgba(0,0,0,.4); }
-  .bchip .bcArt { width:38px; height:38px; flex:none; border-radius:8px; overflow:hidden; background:#10102e; position:relative; }
+  .bchip .bcArt { width:34px; height:34px; flex:none; border-radius:8px; overflow:hidden; background:#10102e; position:relative; }
   .bchip .bcArt svg, .bchip .bcArt img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
-  .bchip .bcInf { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .bchip .bcInf { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; }
   .bchip .bcName { font-size:10px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bchip .bcSub { font-size:9px; color:#ffd76e; font-weight:900; margin-top:1px; white-space:nowrap; }
+  .bchip .bcSub { font-size:9px; color:#ffd76e; font-weight:900; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .zoneCounts { flex:none; }
   .bchip.r-SR { border-color:#c05cd8; }
   .bchip.r-SSR { border-color:#ffb300; }
   .bchip.r-UR { border-color:#ffd76e; box-shadow:0 0 9px rgba(255,150,80,.65), 0 3px 7px rgba(0,0,0,.4); }
@@ -266,6 +267,30 @@
   .bchip.dead { filter:grayscale(1); opacity:.38; }
   .bchip.pick { border-color:#ffd76e; box-shadow:0 0 11px rgba(255,215,110,.9); animation:blinkB 0.9s infinite; }
   @keyframes blinkB { 50% { box-shadow:0 0 3px rgba(255,215,110,.4); } }
+  /* 味方ベンチ用：縦型ミニカード（わざまで見せる） */
+  .bcard { display:flex; flex-direction:column; flex:1; min-width:0; max-width:118px; padding:4px 5px 5px; border-radius:11px; cursor:pointer; position:relative;
+           text-align:left; color:#eef0ff; font-family:inherit; background:linear-gradient(180deg,#2e2f6e,#171738 80%);
+           border:1.5px solid #546e7a; box-shadow:0 3px 8px rgba(0,0,0,.42); }
+  .bcard.r-SR { border-color:#c05cd8; }
+  .bcard.r-SSR { border-color:#ffb300; }
+  .bcard.r-UR { border-color:#ffd76e; box-shadow:0 0 9px rgba(255,150,80,.6), 0 3px 8px rgba(0,0,0,.42); }
+  .bcard.dead { filter:grayscale(1); opacity:.38; }
+  .bc2-head { display:flex; align-items:center; gap:3px; min-width:0; }
+  .bc2-name { flex:1; min-width:0; font-size:10.5px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 2px #000; }
+  .bc2-hp { font-size:11px; font-weight:900; color:#ffe9a8; white-space:nowrap; text-shadow:0 1px 2px #000; }
+  .bc2-hp small { font-size:7.5px; color:#aeb6ff; margin-right:1px; }
+  .bc2-art { position:relative; margin-top:3px; border-radius:7px; overflow:hidden; background:#10102e; aspect-ratio:1/0.4; border:1px solid rgba(255,255,255,.22); }
+  .bc2-art svg, .bc2-art img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
+  .bc2-en { position:absolute; right:3px; bottom:3px; background:rgba(5,5,18,.8); color:#ffd76e; font-size:8.5px; font-weight:900; border-radius:99px; padding:1px 5px; }
+  .bcard .hpBar { margin-top:3px; height:5px; }
+  .bc2-waza { display:flex; align-items:center; gap:3px; margin-top:3px; padding:1px 4px; border-radius:6px; font-weight:900; line-height:1.2;
+              border:1px solid rgba(160,170,255,.35); background:linear-gradient(180deg,#2c2e6e,#1a1b47); }
+  .bc2-waza.ready { border-color:rgba(255,215,110,.7); }
+  .bc2-waza .pkc-cost { flex:none; white-space:nowrap; }
+  .bc2-waza .pip { font-size:8.5px; }
+  .bc2-wname { flex:1; min-width:0; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bc2-dmg { font-size:10.5px; color:#ffe9a8; white-space:nowrap; }
+  .bc2-waza .pkc-lack { font-size:8px; }
   /* ポケポケ式カード（共通コンポーネント） */
   .pkc { position:relative; border-radius:14px; padding:6px 7px 7px; background:linear-gradient(165deg,#2e2f6e,#171738 72%);
          border:2px solid #546e7a; color:#eef0ff; box-shadow:0 5px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25);
@@ -287,7 +312,7 @@
   .pkc-art svg, .pkc-art img { width:100%; height:100%; object-fit:cover; object-position:top center; display:block; }
   .pkc-art .pkc-el { position:absolute; left:4px; bottom:4px; z-index:2; }
   .pkc-md .pkc-art { aspect-ratio:1/0.66; }
-  .pkc-md .pkc-wname { display:none; } /* ミニカードではわざ名を省略し、コストとダメージだけを見せる */
+  .pkc-md .pkc-wname { } /* ミニカードでも わざ名 を見せる（収まらない分は省略記号） */
   .pkc-hpbar { height:6px; border-radius:99px; background:rgba(0,0,0,.6); overflow:hidden; margin-top:4px; border:1px solid rgba(216,178,92,.4); }
   .pkc-hpbar i { display:block; height:100%; background:linear-gradient(180deg,#b9ffd9,#25a565); transition:width .35s; }
   .pkc.r-foe .pkc-hpbar i { background:linear-gradient(180deg,#ffc4b0,#d63a2e); }
@@ -297,7 +322,7 @@
   .pip { color:#ffd76e; font-size:10px; text-shadow:0 0 5px rgba(255,180,0,.8); }
   .pkc-waza { display:flex; align-items:center; gap:5px; width:100%; margin-top:4px; padding:4px 6px; border-radius:8px; position:relative; z-index:1;
               border:1px solid rgba(160,170,255,.4); background:linear-gradient(180deg,#2c2e6e,#1a1b47); color:#fff;
-              font-family:inherit; font-weight:900; cursor:pointer; text-align:left; }
+              font-family:inherit; font-weight:900; cursor:pointer; text-align:left; line-height:1.25; }
   .pkc-waza:disabled { cursor:default; pointer-events:none; }
   .pkc-waza.canUse { border-color:#ffd76e; box-shadow:0 0 9px rgba(255,215,110,.6); }
   .pkc-waza .pkc-cost { flex:none; min-width:28px; white-space:nowrap; }
@@ -307,6 +332,14 @@
   .activeWrap { display:flex; justify-content:center; margin-top:5px; position:relative; }
   .noActive { width:164px; border:2px dashed rgba(150,160,255,.5); border-radius:14px; padding:20px 8px; text-align:center;
               font-size:11.5px; font-weight:900; color:#aeb6ff; line-height:1.6; }
+  /* バトル場：味方は大きく（キャラが主役）、敵は一回り小さく */
+  #allyActive .pkc-lg { width:196px; }
+  #foeActive .pkc-lg { width:150px; }
+  #allyActive .noActive { width:196px; }
+  #foeActive .noActive { width:150px; }
+  /* 味方バトル場のアートは顔が見える位置に（バスト絵は上寄せだと髪だけになるため少し下げる） */
+  #allyActive .pkc-art img { object-position:50% 45% !important; }
+  #foeActive .pkc-art img { object-position:50% 35% !important; }
   #handRow { display:flex; gap:6px; overflow-x:auto; padding:6px 2px 2px; min-height:118px; align-items:flex-start; }
   #handRow .pkc { cursor:pointer; }
   #btMid { display:flex; align-items:center; gap:8px; margin:8px 1px 2px; }
@@ -361,15 +394,41 @@
   @keyframes koFade { 0% { filter:grayscale(0) brightness(1.7); opacity:1; } 30% { filter:grayscale(.7) brightness(1.1); } 100% { filter:grayscale(1) brightness(.7); opacity:0; transform:translateY(10px) scale(.94); } }
   .confettiP { position:absolute; width:8px; height:12px; top:-14px; z-index:6; border-radius:2px; animation:confFall linear forwards; }
   @keyframes confFall { to { transform:translateY(var(--fall, 640px)) rotate(520deg); opacity:.85; } }
+  /* 属性エフェクトの粒（SSR/URカットイン後のバースト） */
+  .elP { position:absolute; z-index:6; font-size:14px; pointer-events:none; text-shadow:0 0 7px rgba(255,255,255,.65); }
+  .dmgFloat.bigHit { color:#ffe9a8; font-size:21px; text-shadow:0 2px 5px #000, 0 0 16px rgba(255,190,60,.95); }
+  .shakeBig { animation:shkB 0.42s; } @keyframes shkB { 20% { transform:translateX(-8px) rotate(-1.2deg); } 45% { transform:translateX(8px) rotate(1.2deg); } 70% { transform:translateX(-5px); } 88% { transform:translateX(3px); } }
+  /* SSR/UR わざカットイン（#btFx 内） */
+  .cutin { position:absolute; inset:0; z-index:26; display:flex; align-items:center; gap:12px; padding:0 16px; pointer-events:auto; overflow:hidden;
+           background:linear-gradient(90deg, rgba(6,6,20,.9) 26%, rgba(6,6,20,.45) 68%, rgba(6,6,20,.05)); animation:ciIn .28s ease; }
+  .cutin.foeSide { flex-direction:row-reverse; text-align:right; background:linear-gradient(-90deg, rgba(6,6,20,.9) 26%, rgba(6,6,20,.45) 68%, rgba(6,6,20,.05)); }
+  @keyframes ciIn { from { opacity:0; } }
+  .cutin.out { opacity:0; transition:opacity .18s ease; }
+  .ciArt { flex:none; height:152px; aspect-ratio:3/3.4; border-radius:13px; overflow:hidden; position:relative;
+           border:3px solid #ffb300; box-shadow:0 0 22px rgba(255,160,40,.8), 0 10px 26px rgba(0,0,0,.6); animation:ciSlide .3s cubic-bezier(.2,.8,.3,1.1); }
+  .cutin.foeSide .ciArt { animation-name:ciSlideR; }
+  @keyframes ciSlide { from { transform:translateX(-46px) scale(.94); opacity:0; } }
+  @keyframes ciSlideR { from { transform:translateX(46px) scale(.94); opacity:0; } }
+  .ciArt img, .ciArt svg { width:100% !important; height:100% !important; object-fit:cover; display:block; }
+  .cutin.r-UR .ciArt { height:168px; border-color:#ffd76e; box-shadow:0 0 34px rgba(255,190,60,1), 0 0 12px rgba(255,110,180,.8), 0 10px 26px rgba(0,0,0,.6); animation:ciSlide .3s cubic-bezier(.2,.8,.3,1.1), urFrame 1.1s ease-in-out infinite; }
+  .cutin.foeSide.r-UR .ciArt { animation-name:ciSlideR, urFrame; }
+  .ciInfo { min-width:0; animation:ciSlide .34s cubic-bezier(.2,.8,.3,1.1); }
+  .cutin.foeSide .ciInfo { animation-name:ciSlideR; }
+  .ciName { font-size:21px; font-weight:900; color:#fff; text-shadow:0 2px 6px #000, 0 0 14px rgba(140,150,255,.7); margin-top:5px; white-space:nowrap; }
+  .cutin.r-UR .ciName { color:#ffe9a8; text-shadow:0 2px 6px #000, 0 0 18px rgba(255,190,60,.95); }
+  .ciWaza { display:inline-block; margin-top:7px; font-size:24px; font-weight:900; color:#fff; padding:4px 14px; border-radius:99px;
+            background:linear-gradient(90deg, rgba(10,10,30,.25), rgba(10,10,30,.78)); border:1.5px solid var(--elc, #ffd54f);
+            text-shadow:0 2px 5px #000; box-shadow:0 0 16px var(--elc, #ffd54f); white-space:nowrap; }
+  .cutin.r-UR .ciWaza { font-size:27px; }
   /* カードのアニメーション */
   .pkc.lungeUp, .bchip.lungeUp { animation:lungeU .34s ease; } @keyframes lungeU { 35% { transform:translateY(-16px) scale(1.045); } }
   .pkc.lungeDown, .bchip.lungeDown { animation:lungeD .34s ease; } @keyframes lungeD { 35% { transform:translateY(16px) scale(1.045); } }
-  .pkc.hitFlash, .bchip.hitFlash { animation:hitFl .3s ease; } @keyframes hitFl { 0% { filter:brightness(2.4) saturate(.3); } 100% { filter:brightness(1); } }
-  .pkc.placeIn, .bchip.placeIn { animation:placeInA .38s ease; }
+  .pkc.hitFlash, .bchip.hitFlash, .bcard.hitFlash { animation:hitFl .3s ease; } @keyframes hitFl { 0% { filter:brightness(2.4) saturate(.3); } 100% { filter:brightness(1); } }
+  .pkc.placeIn, .bchip.placeIn, .bcard.placeIn { animation:placeInA .38s ease; }
   @keyframes placeInA { 0% { transform:translateY(20px) scale(.92); opacity:.4; } 55% { box-shadow:0 0 0 5px rgba(255,215,110,.5); } 100% { transform:translateY(0) scale(1); opacity:1; } }
   .pkc.drawIn { animation:drawInA .34s ease; } @keyframes drawInA { from { transform:translateX(38px); opacity:0; } }
   .pkc.swapA { animation:swapAA .34s ease; } @keyframes swapAA { from { transform:translateX(-30px); opacity:.5; } }
-  .bchip.swapB { animation:swapBA .34s ease; } @keyframes swapBA { from { transform:translateX(30px); opacity:.5; } }
+  .bchip.swapB, .bcard.swapB { animation:swapBA .34s ease; } @keyframes swapBA { from { transform:translateX(30px); opacity:.5; } }
   /* タップ対象の強調・状態表示 */
   .tapTarget { animation:tapPulse 1s ease-in-out infinite !important; cursor:pointer; }
   @keyframes tapPulse { 0%,100% { box-shadow:0 0 6px rgba(255,215,110,.4); } 50% { box-shadow:0 0 0 3px rgba(255,215,110,.9), 0 0 20px rgba(255,215,110,.95); } }
@@ -415,17 +474,36 @@
   /* 中くらいの画面（844px級）ではバトルを少し圧縮して、手札とターン終了ボタンまで1画面に収める */
   @media (max-height:900px) and (min-height:741px) {
     #btField { padding:8px 8px 9px; }
-    #btLog { height:20px; font-size:10.5px; }
+    #btLog { display:none; }
     #btGuide { font-size:11px; padding:4px 8px; margin-bottom:4px; }
     #btCap { font-size:10.5px; min-height:20px; padding:3px 8px; margin-top:4px; }
     .zoneRow { margin-top:4px; }
-    .benchRow { min-height:36px; }
-    .bchip .bcArt { width:33px; height:33px; }
+    .benchRow { min-height:34px; }
+    .bchip .bcArt { width:30px; height:30px; }
     .pkc { padding:5px 6px 6px; }
     .pkc-lg { width:146px; }
     .pkc-lg .pkc-art { aspect-ratio:1/0.42; }
-    .pkc-md { width:92px; }
-    .pkc-md .pkc-art { aspect-ratio:1/0.46; }
+    #allyActive .pkc-lg { width:178px; }
+    #allyActive .pkc-art { aspect-ratio:1/0.35; }
+    #allyActive .noActive { width:178px; }
+    #foeActive .pkc-lg { width:156px; }
+    #foeActive .pkc-art { aspect-ratio:1/0.28; }
+    #foeActive .noActive { width:156px; }
+    #foeActive .pkc-name { font-size:10.5px; }
+    #foeActive .pkc-hp { font-size:11px; }
+    #foeActive .pkc-waza { padding:1px 5px; }
+    .bchip { padding:2px 7px 2px 2px; }
+    .bchip .bcSub { display:none; }
+    .bchip .hpBar { height:5px; }
+    .bc2-art { aspect-ratio:1/0.28; }
+    #btGuide { font-size:10.5px; }
+    #energyBox { padding:3px 9px; }
+    .pkc-md { width:110px; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.18; }
+    .pkc-md .pkc-sub { display:none; }
+    .pkc-md .pkc-name { font-size:11px; }
+    .pkc-md .pkc-hp { font-size:12px; }
+    .pkc-md .pkc-waza { padding:1px 4px; }
     .pkc-waza { padding:2px 5px; margin-top:3px; }
     #btMid { margin:4px 1px 1px; }
     #energyBox { padding:4px 9px; }
@@ -448,17 +526,43 @@
     #energyBox b { font-size:17px; }
     #btBtns { margin-top:4px; }
     #btBtns .btn { padding-top:6px; padding-bottom:6px; }
-    .zoneRow { margin-top:2px; }
+    .zoneRow { margin-top:1px; }
     .zoneLbl { font-size:9.5px; }
-    .benchRow { min-height:28px; }
-    .bchip { padding:2px 5px 2px 2px; }
+    .benchRow { min-height:26px; }
+    .bchip { padding:1px 5px 1px 1px; }
     .bchip .bcArt { width:24px; height:24px; }
     .bchip .bcSub { display:none; }
+    .bcard { padding:3px 4px 4px; border-radius:9px; }
+    .bc2-art { aspect-ratio:1/0.14; margin-top:2px; border-radius:5px; }
+    .bcard .hpBar { display:none; }
+    .bc2-name { font-size:9.5px; }
+    .bc2-hp { font-size:10px; }
+    .bc2-waza { padding:1px 3px; margin-top:2px; border-radius:5px; }
+    .bc2-wname { font-size:8.5px; }
+    .bc2-dmg { font-size:9.5px; }
+    .bcard .hpBar { margin-top:2px; height:4px; }
     .pkc { padding:4px 5px 5px; border-radius:11px; }
     .pkc-lg { width:118px; }
     .pkc-lg .pkc-art { aspect-ratio:1/0.32; margin-top:3px; }
-    .pkc-md { width:78px; }
-    .pkc-md .pkc-art { aspect-ratio:1/0.32; margin-top:3px; }
+    #allyActive .pkc-lg { width:130px; }
+    #allyActive .pkc-art { aspect-ratio:1/0.24; }
+    #allyActive .noActive { width:130px; padding:12px 6px; }
+    #foeActive .pkc-lg { width:134px; }
+    #foeActive .pkc-art { aspect-ratio:1/0.15; }
+    #foeActive .noActive { width:134px; padding:12px 6px; }
+    #foeActive .pkc-name { font-size:9px; }
+    #foeActive .pkc-hp { font-size:9.5px; }
+    #foeActive .pkc-waza { padding:0px 4px; }
+    #btGuide { padding:2px 8px; font-size:10px; }
+    #btCap { min-height:18px; padding:2px 8px; }
+    #energyBox { padding:1px 8px; }
+    .pkc-sub { margin-top:1px; }
+    .pkc-md .pkc-name { font-size:10.5px; }
+    .pkc-md .pkc-hp { font-size:11.5px; }
+    .pkc-md .pkc-waza { padding:0px 4px; }
+    .pkc-md .pkc-sub { display:none; }
+    .pkc-md { width:82px; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.2; margin-top:3px; }
     .pkc-name { font-size:10.5px; }
     .pkc-hp { font-size:12px; }
     .pkc-sub { font-size:8.5px; margin-top:2px; }
@@ -668,7 +772,7 @@
         <button class="btn ghost" id="btnAuto" style="padding:8px 12px;font-size:12px">オート</button>
       </div>
       <div class="activeWrap" id="allyActive"></div>
-      <div class="zoneRow"><span class="zoneLbl">ベンチ</span><div class="benchRow" id="allyBench"></div><span class="zoneCounts" id="allyCounts"></span></div>
+      <div class="zoneRow"><span class="zoneLbl">ベンチ</span><div class="benchRow" id="allyBench"></div></div>
       <div class="zoneRow"><span class="zoneLbl">手札</span><span class="zoneCounts" id="handCounts" style="margin-left:2px"></span></div>
       <div id="handRow"></div>
       <div id="btCap"></div>
@@ -1223,6 +1327,7 @@ function beep(freq, dur, type, vol, when){
 const sfx = {
   tap: () => beep(660, 0.07, 'sine', 0.05),
   hit: () => { beep(180, 0.12, 'sawtooth', 0.07); beep(90, 0.15, 'square', 0.05, 0.02); },
+  cutin: () => { beep(196, 0.16, 'sawtooth', 0.04); [1047,1319,1568].forEach((f,i) => beep(f, 0.15, 'triangle', 0.055, 0.05 + i * 0.055)); },
   heal: () => { beep(880, 0.15, 'sine', 0.06); beep(1320, 0.2, 'sine', 0.05, 0.08); },
   burst: () => { [523,659,784,1047].forEach((f,i) => beep(f, 0.22, 'triangle', 0.08, i * 0.07)); },
   win: () => { [523,659,784,1047,1319].forEach((f,i) => beep(f, 0.3, 'triangle', 0.07, i * 0.09)); },
@@ -1488,7 +1593,7 @@ function newBattle(cfg){
     zone: 0, foeZone: 0,           /* 発生して未付着のエネルギー（ターン終了で消える） */
     attacked:false, foeAttacked:false, retreated:false, mode:null,
     log: [], auto:false, tutorial:!!cfg.tutorial, tutFlags:{},
-    _capText:null, _lockN:0, _fxShake:{}, _fxFlash:{}, _fxLunge:null, _fxPlace:0, _fxDraw:0, _fxSwap:null, _hpMemo:{}, _skipFx:false,
+    _capText:null, _lockN:0, _fxShake:{}, _fxFlash:{}, _fxShakeBig:{}, _fxLunge:null, _fxPlace:0, _fxDraw:0, _fxSwap:null, _hpMemo:{}, _skipFx:false,
     meta: cfg.meta || {}, raidDamage:0, result:null, _promoteResolve:null };
   /* 山札（編成そのもの）をシャッフルし、両軍とも手札を3枚引く */
   shuffle(allies); shuffle(foes);
@@ -1526,7 +1631,7 @@ function hitUnit(src, dst, base){
   const dmg = Math.max(1, Math.round(base * tm));
   dst.hp = Math.max(0, dst.hp - dmg);
   if (B.kind === 'raid' && dst.boss) B.raidDamage += dmg;
-  floatText(dst, '-' + fmt(dmg), tm > 1 ? 'crit' : '');
+  floatText(dst, '-' + fmt(dmg), tm > 1 ? 'crit' : (isHighRar(src) ? 'bigHit' : ''));
   if (tm > 1) floatText(dst, 'こうかばつぐん！', 'good');
   shakeUnit(dst);
   if (dst.hp <= 0 && dst.alive) {
@@ -1666,6 +1771,81 @@ function attack(side, wazaIdx){
   checkEnd();
   return true;
 }
+/* ── SSR/UR の わざ カットイン演出 ──
+   高レアリティのキャラ（SSR/UR）が わざ を使う時だけ、攻撃の直前に
+   イラストのカットイン＋属性バーストを挟む。ルール・数値は attack() が従来どおり処理する。 */
+const EL_FX = {
+  fire:  { col:'#ff7043', icon:'🔥' },
+  water: { col:'#42a5f5', icon:'💧' },
+  wood:  { col:'#66bb6a', icon:'🍃' },
+  light: { col:'#ffd54f', icon:'✨' },
+  dark:  { col:'#ba68c8', icon:'🌙' },
+};
+function isHighRar(u){ return !!(u && u.charId && (u.rar === 'SSR' || u.rar === 'UR')); }
+async function fxCutIn(unit, w){
+  if (FAST || !B) return;
+  const b = B, c = CHAR_MAP[unit.charId];
+  const layer = fxLayer();
+  if (!c || !layer || !layer.appendChild) return;
+  lockFx(true);
+  try {
+    const elx = EL_FX[unit.el] || EL_FX.light;
+    const div = document.createElement('div');
+    div.className = 'cutin r-' + unit.rar + (unit.side === 'foe' ? ' foeSide' : '');
+    div.innerHTML = '<div class="ciArt">' + fullArtHTML(c) + '</div>' +
+      '<div class="ciInfo"><span class="rarBadge r-' + unit.rar + '">' + unit.rar + '</span>' +
+      '<div class="ciName">' + esc(unit.name) + '</div>' +
+      '<div class="ciWaza" style="--elc:' + elx.col + '">' + EL[unit.el].i + ' ' + esc(w.n) + '</div></div>';
+    layer.appendChild(div);
+    div.onclick = () => { if (B === b) b._skipFx = true; };
+    if (sfx.cutin) sfx.cutin();
+    captionPush(unit.name + ' の ' + w.n + '！！');
+    await fxWait(unit.rar === 'UR' ? 1020 : 860);
+    if (B !== b) { div.remove(); return; }
+    div.classList.add('out');
+    await fxWait(170);
+    div.remove();
+  } finally { lockFx(false); }
+}
+/* 属性バースト：対象カードの位置に属性色の粒とアイコンを飛ばし、強めのシェイク予約を入れる */
+function fxElBurst(unit, w){
+  if (FAST || !B) return;
+  const foeSide = unit.side === 'ally' ? 'foe' : 'ally';
+  const targets = w.all ? fieldOf(foeSide) : [activeOf(foeSide)].filter(Boolean);
+  const elx = EL_FX[unit.el] || EL_FX.light;
+  const layer = fxLayer(); if (!layer || !layer.appendChild) return;
+  targets.forEach(t => {
+    (B._fxShakeBig = B._fxShakeBig || {})[t.uid] = Date.now();
+    const r = unitRect(t); if (!r) return;
+    fxSparks(r.cx, r.cy, 9, elx.col);
+    for (let i = 0; i < 7; i++) {
+      const s = document.createElement('span');
+      s.className = 'elP'; s.textContent = elx.icon;
+      s.style.left = r.cx + 'px'; s.style.top = r.cy + 'px';
+      layer.appendChild(s);
+      const ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 42;
+      if (s.animate) s.animate([
+        { transform: 'translate(-50%,-50%) scale(.55) rotate(0deg)', opacity: 1 },
+        { transform: 'translate(calc(-50% + ' + Math.round(Math.cos(ang) * dist) + 'px), calc(-50% + ' + Math.round(Math.sin(ang) * dist - 16) + 'px)) scale(1.2) rotate(40deg)', opacity: 0 }
+      ], { duration: 500 + Math.random() * 200, easing: 'ease-out' });
+      setTimeout(() => s.remove(), 760);
+    }
+  });
+}
+/* 攻撃の入口：SSR/UR のキャラなら カットイン→属性バースト→通常攻撃 の順で実行する */
+async function performAttack(side, wazaIdx){
+  const unit = (B && !B.over) ? activeOf(side) : null;
+  const foeSide = side === 'ally' ? 'foe' : 'ally';
+  const canCut = !!unit && isHighRar(unit) && !!unit.waza && !!unit.waza[wazaIdx] &&
+    B.phase === (side === 'ally' ? 'player' : 'foe') &&
+    !(side === 'ally' ? B.attacked : B.foeAttacked) &&
+    unit.energy >= unit.waza[wazaIdx].cost && !!activeOf(foeSide);
+  if (!canCut) return attack(side, wazaIdx);
+  await fxCutIn(unit, unit.waza[wazaIdx]);
+  if (!B || B.over) return false;
+  fxElBurst(unit, unit.waza[wazaIdx]);
+  return attack(side, wazaIdx);
+}
 
 
 /* 敵ターン：引く→エネルギーが発生→ベンチに出す→バトル場優先で付ける→攻撃。
@@ -1716,7 +1896,7 @@ async function foePhase(first){
     if (wis.length) {
       captionPush('相手の ' + act.name + ' の ' + act.waza[wis[0]].n + '！');
       await fxWait(240);
-      attack('foe', wis[0]);
+      await performAttack('foe', wis[0]);
       await fxWait(430);
     }
   }
@@ -1781,7 +1961,7 @@ async function aiPlaySide(side){
   if (a2 && !B.attacked) {
     const wis = a2.waza.map((w, i) => i).filter(i => a2.energy >= a2.waza[i].cost)
       .sort((x, y) => a2.waza[y].cost - a2.waza[x].cost);
-    if (wis.length) { await wait(220); attack('ally', wis[0]); }
+    if (wis.length) { await wait(220); await performAttack('ally', wis[0]); }
   }
 }
 async function autoPlayTurn(){
@@ -2014,7 +2194,26 @@ function pokeCardHTML(u, opts){
   h += '</div>';
   return h;
 }
-/* ベンチ用ミニカード（横型チップ） */
+/* 味方ベンチ用：縦型ミニカード（わざ2つまで表示する） */
+function benchCardHTML(u){
+  const rar = u.charId ? u.rar : 'foe';
+  let h = '<button class="bcard r-' + rar + (u.alive ? '' : ' dead') + '" id="' + unitElId(u) + '" data-uid="' + u.uid + '" data-side="' + u.side + '">';
+  h += '<span class="bc2-head">' + (u.charId ? '<span class="bcRar r-' + rar + '">' + rar + '</span>' : '') +
+    '<span class="bc2-name">' + (u.boss ? '👑' : '') + esc(u.name) + '</span>' +
+    '<span class="bc2-hp"><small>HP</small>' + fmt(Math.max(0, u.hp)) + '</span></span>';
+  h += '<span class="bc2-art">' + cardArtOf(u) + '<span class="bc2-en">⚡×' + u.energy + '</span></span>';
+  h += '<span class="hpBar"><i style="width:' + Math.max(0, u.hp / u.maxHp * 100) + '%"></i></span>';
+  h += u.waza.map(w => {
+    const lack = u.energy < w.cost;
+    return '<span class="bc2-waza' + (lack ? '' : ' ready') + '"><span class="pkc-cost">' + energyPips(w.cost) + '</span>' +
+      '<span class="bc2-wname">' + esc(w.n) + '</span>' +
+      (lack ? '<span class="pkc-lack">あと⚡' + (w.cost - u.energy) + '</span>' : '') +
+      '<span class="bc2-dmg">' + fmt(w.dmg) + (w.all ? ' 全体' : '') + '</span></span>';
+  }).join('');
+  h += '</button>';
+  return h;
+}
+/* ベンチ用ミニカード（横型チップ：相手ベンチ用） */
 function benchChipHTML(u){
   const rar = u.charId ? u.rar : 'foe';
   return '<button class="bchip r-' + rar + (u.alive ? '' : ' dead') + '" id="' + unitElId(u) + '" data-uid="' + u.uid + '" data-side="' + u.side + '">' +
@@ -2078,7 +2277,7 @@ function guideText(){
     case 'foe': return '相手のターン…見守ろう 👀';
     case 'player': {
       if (B.mode === 'retreat') return '👆 交代するベンチのキャラをタップ';
-      if (B.zone > 0) return '⚡ エネルギーを付けるキャラをタップ！（光っているキャラが対象）';
+      if (B.zone > 0) return '⚡エネルギーを付けるキャラをタップ！';
       const aa = activeOf('ally');
       if (!B.attacked && aa && aa.waza.some(w => aa.energy >= w.cost)) return '👆 光っている「わざ」をタップして攻撃！';
       if (!B.attacked) return '⚡が足りない…ベンチに出すか「ターン終了」しよう';
@@ -2114,6 +2313,7 @@ function battleFxPass(){
     }
     if (B._fxLunge && B._fxLunge.uid === uid && now - B._fxLunge.t < 700) el.classList.add('lunge' + B._fxLunge.dir);
     if (B._fxShake && now - (B._fxShake[uid] || 0) < 700) el.classList.add('shake');
+    if (B._fxShakeBig && now - (B._fxShakeBig[uid] || 0) < 700) el.classList.add('shakeBig');
     if (B._fxFlash && now - (B._fxFlash[uid] || 0) < 700) el.classList.add('hitFlash');
     if (B._fxPlace === uid) { el.classList.add('placeIn'); placeApplied = true; }
     if (B._fxDraw === uid) el.classList.add('drawIn');
@@ -2125,14 +2325,14 @@ function battleFxPass(){
   if (placeApplied) B._fxPlace = 0;
   B._fxDraw = 0; B._fxSwap = null;
   if (B.phase === 'player' && B.zone > 0 && !B.over)
-    $$('#allyActive .pkc, #allyBench .bchip').forEach(el => el.classList.add('tapTarget'));
+    $$('#allyActive .pkc, #allyBench .bcard').forEach(el => el.classList.add('tapTarget'));
   if (B.phase === 'player' && B.mode === 'retreat') {
-    $$('#allyBench .bchip').forEach(el => el.classList.add('tapTarget'));
+    $$('#allyBench .bcard').forEach(el => el.classList.add('tapTarget'));
     const ac = $('#allyActive .pkc'); if (ac) ac.classList.add('selCard');
   }
   if (B.phase === 'setup' || B.phase === 'promote') {
     $$('#handRow .pkc').forEach(el => el.classList.add('playable'));
-    if (B.phase === 'promote') $$('#allyBench .bchip').forEach(el => el.classList.add('playable'));
+    if (B.phase === 'promote') $$('#allyBench .bcard').forEach(el => el.classList.add('playable'));
   } else if (B.phase === 'player') {
     const canBench = benchOf('ally').length < 3;
     $$('#handRow .pkc').forEach(el => el.classList.add(canBench ? 'playable' : 'dimCard'));
@@ -2163,9 +2363,8 @@ function renderBattle(){
   } else {
     $('#allyActive').innerHTML = '<div class="noActive">' + (B.phase === 'setup' ? '手札からバトル場に出す<br>キャラを選んでね' : 'バトル場が空いている…') + '</div>';
   }
-  $('#allyBench').innerHTML = benchOf('ally').map(benchChipHTML).join('') || '<div class="benchEmpty">ベンチなし</div>';
-  $('#allyCounts').textContent = '山札×' + deckOf('ally').length + ' 捨て札×' + B.allies.filter(u => !u.alive).length;
-  $('#handCounts').textContent = '×' + handOf('ally').length;
+  $('#allyBench').innerHTML = benchOf('ally').map(benchCardHTML).join('') || '<div class="benchEmpty">ベンチなし</div>';
+  $('#handCounts').textContent = '×' + handOf('ally').length + ' ・ 山札×' + deckOf('ally').length + ' ・ 捨て札×' + B.allies.filter(u => !u.alive).length;
   $('#handRow').innerHTML = handOf('ally').map(u => pokeCardHTML(u, { size:'md', waza:'show' })).join('') || '<div class="benchEmpty">手札なし</div>';
   /* エネルギー＆ターン表示（詳しい指示は上部のガイドバーが担う） */
   let lbl;
@@ -2213,7 +2412,8 @@ function onWazaRowTap(wi){
   if (!B || B.phase !== 'player' || B.over || fxLocked()) return;
   const aa = activeOf('ally');
   if (!aa) return;
-  if (!attack('ally', wi) && aa.energy < aa.waza[wi].cost) toast('エネルギーが足りないよ');
+  if (aa.energy < aa.waza[wi].cost) { toast('エネルギーが足りないよ'); return; }
+  performAttack('ally', wi);
 }
 function endBattle(win){
   if (!B || B.over) return;
@@ -2270,7 +2470,7 @@ $('#btnAuto').onclick = () => { if (!B) return; B.auto = !B.auto;
   if (B.auto && B.phase === 'setup') { const h = handOf('ally').slice().sort((a, b) => b.maxHp - a.maxHp)[0]; if (h) { placeActive(h); return; } }
   renderBattle(); if (B.auto) autoPlayTurn(); };
 $('#btnRetreat').onclick = () => {
-  if (!B || B.over || B.phase !== 'player') return;
+  if (!B || B.over || B.phase !== 'player' || fxLocked()) return;
   if (B.retreated) { toast('にげるはターンに1回まで'); return; }
   const act = activeOf('ally');
   if (!act || act.energy < 1) { toast('にげるにはバトル場のエネルギー1個が要るよ'); return; }
