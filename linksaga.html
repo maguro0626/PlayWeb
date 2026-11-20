@@ -514,6 +514,23 @@
     #handRow { min-height:0; padding-top:4px; }
     #btBtns { margin-top:5px; }
     .activeWrap { margin-top:3px; }
+    /* v80追加圧縮：満杯バトル（ベンチ満員＋両アクティブ＋手札複数）でもターン終了ボタンまで画面内に収める */
+    #btField { padding:7px 8px 6px; }
+    .zoneRow { margin-top:3px; }
+    .activeWrap { margin-top:2px; }
+    .pkc { padding:4px 6px 5px; }
+    .pkc-hpbar { margin-top:3px; }
+    #allyActive .pkc-art { aspect-ratio:1/0.27; }
+    #foeActive .pkc-art { aspect-ratio:1/0.21; }
+    .bc2-art { aspect-ratio:1/0.20; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.10; }
+    .bchip .bcArt { width:26px; height:26px; }
+    .pkc-waza .pkc-wname { line-height:1.15; }
+    #allyActive .pkc-wname, #foeActive .pkc-wname { font-size:10.5px; }
+    .bc2-wname { line-height:1.12; }
+    #energyBox { padding:3px 9px; }
+    #btBtns { margin-top:4px; }
+    #btBtns .btn { padding-top:7px; padding-bottom:7px; }
   }
   /* 低い画面（667px級）ではバトルを強く圧縮して手札とターン終了ボタンまで収める */
   @media (max-height:740px) {
@@ -580,6 +597,33 @@
     .activeWrap { margin-top:2px; }
     .noActive { width:118px; padding:10px 6px; font-size:10.5px; }
     #favStage { min-height:448px; }
+    /* v80追加圧縮：満杯バトルでもターン終了ボタンまで画面内に収める
+       （味方・敵アクティブを少し広げて わざ名 の折り返し行数を減らし、アートと余白を詰める） */
+    #btField { padding:4px 7px 5px; }
+    .activeWrap { margin-top:1px; }
+    #allyActive .pkc-lg { width:168px; }
+    #allyActive .noActive { width:168px; }
+    #allyActive .pkc-art { aspect-ratio:1/0.16; }
+    #foeActive .pkc-lg { width:160px; }
+    #foeActive .noActive { width:160px; }
+    #foeActive .pkc-art { aspect-ratio:1/0.10; }
+    .pkc { padding:3px 5px 4px; }
+    .pkc-hpbar { margin-top:2px; }
+    .pkc-sub { margin-top:0; }
+    .pkc-waza .pkc-wname { font-size:9px; line-height:1.12; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.10; }
+    .pkc-md .pkc-name { line-height:1.1; }
+    .bc2-art { aspect-ratio:1/0.10; }
+    .bc2-waza { padding:0px 3px; }
+    .bc2-wname { line-height:1.1; }
+    .bchip .bcArt { width:20px; height:20px; }
+    .benchRow { min-height:24px; }
+    #btGuide { padding:1px 8px; }
+    #btCap { min-height:16px; padding-top:1px; padding-bottom:1px; }
+    #btMid { margin-top:2px; }
+    #handRow { padding-top:2px; }
+    #btBtns { margin-top:3px; }
+    #btBtns .btn { padding-top:5px; padding-bottom:5px; }
   }
 
   /* アリーナ/レイド */
@@ -688,7 +732,7 @@ html,body{overscroll-behavior:none;}
       バトルはポケポケ式カードバトル！手札から1体をバトル場に出して戦おう。<br>
       毎ターン⚡が1個発生。キャラに付けると残り続け、コスト以上でわざが使えるよ。<br>
       弱点の属性で攻撃すると「こうかばつぐん！」でダメージ1.5倍。<br>
-      URは排出率0.05%の代わりに、SSRの約3倍の力を持つ特別な存在だよ。
+      <span id="kokoroeUr">URは排出率0.05%の代わりに、SSRの約3倍の力を持つ特別な存在だよ。</span>
     </div>
   </section>
 
@@ -1422,7 +1466,13 @@ function renderHome(){
   $('#homeBannerArt').innerHTML = (typeof ART_HOME !== 'undefined' && ART_HOME.astraia) ? '<img src="' + ART_HOME.astraia + '" alt="">' : '';
   $('#favStage').onclick = e => { if (e.target.closest('button') || e.target.closest('#partyStrip') || e.target === b) return; openCharDetail(S.fav); };
   const hbSub = $('#homeBannerSub');
-  if (hbSub && apologyActiveAt(Date.now())) hbSub.innerHTML = 'UR「アストライア」ピックアップ中<br>🎁 期間限定：UR排出率 0.5%にUP中！';
+  if (hbSub) hbSub.innerHTML = apologyActiveAt(Date.now())
+    ? 'UR「アストライア」ピックアップ中<br>🎁 期間限定：UR排出率 0.5%にUP中！'
+    : 'UR「アストライア」ピックアップ中<br>UR排出率 0.05% ─ 引けたら世界が変わる';
+  const kr = $('#kokoroeUr');
+  if (kr) kr.textContent = apologyActiveAt(Date.now())
+    ? 'URは期間限定で排出率0.5%にUP中！（通常0.05%）SSRの約3倍の力を持つ特別な存在だよ。'
+    : 'URは排出率0.05%の代わりに、SSRの約3倍の力を持つ特別な存在だよ。';
   renderApology();
 }
 
@@ -3140,8 +3190,9 @@ function tutAdvance(from){
 function skipTutorial(){
   if (!S || S.tutorial.done) { tutHide(); return; }
   if (S.tutorial.step === 'battle' || S.tutorial.step === 'gacha') {
-    pullOne('pickup', { forceChar: PICKUP_SSR });
-    for (let i = 1; i < 10; i++) pullOne('pickup', {});
+    /* スキップ時もチュートリアル扱い：お詫び確率UP・天井緩和の対象外（noBoost） */
+    pullOne('pickup', { forceChar: PICKUP_SSR, noBoost: true });
+    for (let i = 1; i < 10; i++) pullOne('pickup', { noBoost: true });
   }
   if (B && !B.over) B.over = true;
   S.tutorial.done = true; S.tutorial.step = 'done'; S.gems += 1000; save();

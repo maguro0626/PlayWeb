@@ -892,16 +892,124 @@
 
   /* ---------------- ゲーム内UI変換（コードUIを隠し、招待/戦績バーを差し込む） ---------------- */
   function hideEl(el) { if (el) el.classList.add('pwf-hidden'); }
+  /* el 自身から body までの祖先に display:none があれば「隠しサブツリー内」とみなす */
+  function barChainHidden(el) {
+    var a = el;
+    while (a && a !== document.body) {
+      var cs = null;
+      try { cs = window.getComputedStyle(a); } catch (e) {}
+      if (cs && cs.display === 'none') return true;
+      a = a.parentElement;
+    }
+    return false;
+  }
+  /* ゲストバーを置ける「常に見える場所」を探す。
+     (1) オンライン入口（openers）の隣: 入口自身は pwf-hidden でも、親チェーンが
+         見えていればその場所に出す。入口が横並びのボタン行（flex row）の中なら、
+         行コンテナ（高さ140px以下のもの）ごと手前に出す。
+     (2) それも無ければ共通ヘッダー（#pwHeader）の直後。 */
+  function guestBarTarget(cfg) {
+    var ops = (cfg && cfg.openers) || [];
+    for (var i = 0; i < ops.length; i++) {
+      var op = ops[i];
+      if (!op || !op.click) continue;
+      var el = null;
+      try { el = document.querySelector(op.click); } catch (e) {}
+      if (!el || !el.parentNode) continue;
+      if (barChainHidden(el.parentElement)) continue;
+      var target = el;
+      var p = el.parentElement;
+      while (p && p !== document.body) {
+        var cs = null;
+        try { cs = window.getComputedStyle(p); } catch (e) {}
+        if (!cs || cs.display !== 'flex' || (cs.flexDirection !== 'row' && cs.flexDirection !== 'row-reverse')) break;
+        var r = null;
+        try { r = p.getBoundingClientRect(); } catch (e) {}
+        if (!r || r.height > 140) break;
+        target = p;
+        p = p.parentElement;
+      }
+      return { node: target, after: false };
+    }
+    var hdr = document.getElementById('pwHeader');
+    if (hdr && hdr.parentNode) return { node: hdr, after: true };
+    return null;
+  }
+  function buildGameBar(mode) {
+    var bar = document.createElement('div');
+    bar.className = 'pwf-gamebar pwf-root';
+    bar.setAttribute('data-pw-mode', mode);
+    if (mode === 'blocked') {
+      bar.innerHTML = '<div class="pwf-gb-note" style="flex:1 1 200px">🔒 オンライン対戦・フレンド機能にはログインが必要です（ゲストは1人用のみ・セーブされません）</div>' +
+        '<button class="pwf-gb-records pwf-gb-login">ログイン</button>';
+      bar.querySelector('.pwf-gb-login').onclick = function () { loginNotice(); };
+    } else {
+      var coop = !!(GAMES[MY_GAME] && GAMES[MY_GAME].coop);
+      bar.innerHTML = '<button class="pwf-gb-invite">' + (coop ? '👥 フレンドを招待して協力プレイ' : '👥 フレンドを招待して対戦') + '</button>' +
+        '<button class="pwf-gb-records">📊 フレンド戦績</button>' +
+        '<div class="pwf-gb-note">オンラインはフレンド招待制です（コード入力はありません）</div>';
+      bar.querySelector('.pwf-gb-invite').onclick = function () { openInvitePicker(); };
+      bar.querySelector('.pwf-gb-records').onclick = function () { openRecords(MY_GAME); };
+    }
+    return bar;
+  }
+  /* ゲストバーが隠しサブツリー内に埋もれていたら、可視スポットへ移設する。
+     既に見えている場合は何もしない。戻り値は「見える場所に置けたか」 */
+  function placeGuestBar(cfg, bar) {
+    if (!bar) return false;
+    if (bar.parentNode && !barChainHidden(bar)) return true;
+    var spot = guestBarTarget(cfg);
+    if (!spot || !spot.node.parentNode) return false;
+    if (spot.after) spot.node.parentNode.insertBefore(bar, spot.node.nextSibling);
+    else spot.node.parentNode.insertBefore(bar, spot.node);
+    return !barChainHidden(bar);
+  }
+  /* ゲート: ゲスト時はオンライン入口自体も隠す。ログイン状態に戻ったら戻す */
+  function applyOpenerGate(cfg, blocked) {
+    if (!cfg.openers) return;
+    cfg.openers.forEach(function (op) {
+      if (!op.click) return;
+      try {
+        document.querySelectorAll(op.click).forEach(function (el) {
+          if (blocked) el.classList.add('pwf-hidden');
+          else el.classList.remove('pwf-hidden');
+        });
+      } catch (e) {}
+    });
+  }
   function transformGameUI() {
     if (MY_GAME === 'portal') return true;
     /* 招待制でないゲーム（リンクサーガ等の非同期オンライン）は招待バーを出さない */
     if (GAMES[MY_GAME] && GAMES[MY_GAME].noInvite) return true;
     var cfg = window.PW_JOIN_CFG;
     if (!cfg) return true;
+    var blocked = gateBlocked();
     var anchor = null;
     if (cfg.hostBtn) { try { anchor = document.querySelector(cfg.hostBtn); } catch (e) {} }
     if (!anchor && cfg.input) { try { anchor = document.querySelector(cfg.input); } catch (e) {} }
-    if (!anchor) return false; /* DOMがまだ無い（動的生成など）→ リトライ */
+    if (!anchor) {
+      /* オンラインUIの要素がまだ無い（モードを開くまで生成されないゲームなど）。
+         メンバー時は従来どおりリトライで待つ。ただしゲート未確定（pending）期に
+         ゲスト扱いで隠した入口と案内バーは、メンバー確定時にここで巻き戻す
+         （アンカー出現後の通常フローでメンバー用バーが作り直される）。
+         ゲスト時は入口を封鎖したうえで、案内バーだけは常に見える場所へ先に出す
+         （v50仕様: 入口ごと封鎖し案内を表示） */
+      if (!blocked) {
+        applyOpenerGate(cfg, false);
+        var staleBar = document.querySelector('.pwf-gamebar');
+        if (staleBar && staleBar.getAttribute('data-pw-mode') === 'blocked') staleBar.remove();
+        return false;
+      }
+      applyOpenerGate(cfg, true);
+      if (cfg.joinBtn) hideEl(document.querySelector(cfg.joinBtn));
+      if (cfg.joinCall) {
+        try { document.querySelectorAll('[onclick*="' + cfg.joinCall + '"]').forEach(hideEl); } catch (e) {}
+      }
+      var gBar = document.querySelector('.pwf-gamebar');
+      if (gBar && gBar.getAttribute('data-pw-mode') !== 'blocked') { gBar.remove(); gBar = null; }
+      if (!gBar) gBar = buildGameBar('blocked');
+      return placeGuestBar(cfg, gBar);
+    }
     if (cfg.input) hideEl(document.querySelector(cfg.input));
     if (cfg.joinBtn) hideEl(document.querySelector(cfg.joinBtn));
     hideEl(anchor && cfg.hostBtn ? document.querySelector(cfg.hostBtn) : null);
@@ -920,43 +1028,21 @@
         if (p && /code/i.test(p.id || '')) hideEl(p);
       }
     });
-    /* ゲート: ゲスト時はオンライン入口自体も隠す。ログイン状態に戻ったら戻す */
-    var blocked = gateBlocked();
-    if (cfg.openers) {
-      cfg.openers.forEach(function (op) {
-        if (!op.click) return;
-        try {
-          document.querySelectorAll(op.click).forEach(function (el) {
-            if (blocked) el.classList.add('pwf-hidden');
-            else el.classList.remove('pwf-hidden');
-          });
-        } catch (e) {}
-      });
-    }
+    applyOpenerGate(cfg, blocked);
     var mode = blocked ? 'blocked' : 'member';
     var oldBar = document.querySelector('.pwf-gamebar');
     if (oldBar && oldBar.getAttribute('data-pw-mode') !== mode) { oldBar.remove(); oldBar = null; }
     if (!oldBar) {
-      var bar = document.createElement('div');
-      bar.className = 'pwf-gamebar pwf-root';
-      bar.setAttribute('data-pw-mode', mode);
-      if (blocked) {
-        bar.innerHTML = '<div class="pwf-gb-note" style="flex:1 1 200px">🔒 オンライン対戦・フレンド機能にはログインが必要です（ゲストは1人用のみ・セーブされません）</div>' +
-          '<button class="pwf-gb-records pwf-gb-login">ログイン</button>';
-        bar.querySelector('.pwf-gb-login').onclick = function () { loginNotice(); };
-      } else {
-        var coop = !!(GAMES[MY_GAME] && GAMES[MY_GAME].coop);
-        bar.innerHTML = '<button class="pwf-gb-invite">' + (coop ? '👥 フレンドを招待して協力プレイ' : '👥 フレンドを招待して対戦') + '</button>' +
-          '<button class="pwf-gb-records">📊 フレンド戦績</button>' +
-          '<div class="pwf-gb-note">オンラインはフレンド招待制です（コード入力はありません）</div>';
-        bar.querySelector('.pwf-gb-invite').onclick = function () { openInvitePicker(); };
-        bar.querySelector('.pwf-gb-records').onclick = function () { openRecords(MY_GAME); };
-      }
+      var bar = buildGameBar(mode);
       var target = anchor;
       var parent = anchor.parentElement;
       if (parent && parent.tagName === 'DIV' && parent.children.length <= 3 && parent.parentElement) target = parent;
       if (target.parentNode) target.parentNode.insertBefore(bar, target);
+      oldBar = bar;
     }
+    /* ゲストバーが隠しペイン内に埋もれている場合は可視スポットへ移設する
+       （メンバー用バーはペイン内が正規の位置なので移設しない） */
+    if (blocked) placeGuestBar(cfg, oldBar);
     return true;
   }
   function initGameUI() {
@@ -1017,6 +1103,10 @@
     '.pwf-gb-invite{flex:1 1 180px;background:linear-gradient(90deg,#0891b2,#7c3aed);border:none;color:#fff;border-radius:10px;padding:11px 13px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit}',
     '.pwf-gb-invite:active{transform:translateY(1px)}',
     '.pwf-gb-records{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#eef0ff;border-radius:10px;padding:11px 13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}',
+    /* ゲストバーの「ログイン」は淡色背景のゲームでも読めるよう濃色の塗りにする */
+    '.pwf-gb-login{background:linear-gradient(90deg,#0891b2,#7c3aed);border-color:transparent;color:#fff}',
+    /* ゲストバーは置かれる場所の背景色に左右されないよう、土台を濃色で固定する */
+    '.pwf-gamebar[data-pw-mode="blocked"]{background:rgba(49,10,101,.92)}',
     '.pwf-gb-note{flex-basis:100%;font-size:11.5px;color:#c3c8e8}',
     '.pwf-modal-overlay{position:fixed;inset:0;z-index:100005;background:rgba(3,4,12,.62);display:none;align-items:center;justify-content:center;padding:14px}',
     '.pwf-modal-overlay.show{display:flex}',
