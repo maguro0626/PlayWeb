@@ -2674,9 +2674,15 @@
     if (fbWrapEl) fbWrapEl.classList.remove('open');
     if (fbOpen) { fbOpen = false; emitOverlay('feedback'); }
   }
+  /* 送信タイムアウト（15秒）。通信が詰まると Firestore の add() の
+     Promise が解決も拒否もされないまま残ることがあり、そのままだと
+     送信ボタンが「送信中…」で固まる。時間切れは「失敗」として確定させ、
+     確定後に add() が遅れて成功しても結果は覆らない（完了表示に化けない）。
+     テスト用に _test.setFeedbackTimeoutMs で差し替え可能 */
+  var FB_SUBMIT_TIMEOUT_MS = 15000;
   function submitFeedback(data) {
     if (!fb) return Promise.resolve({ ok: false, msg: '送信できませんでした（通信環境を確認してください）' });
-    return fb.db.collection('feedback').add({
+    var payload = {
       type: FB_TYPE_LABELS[data.type] ? data.type : 'contact',
       title: String(data.title || '').slice(0, 100),
       body: String(data.body || '').slice(0, 2000),
@@ -2685,8 +2691,28 @@
       fromName: String(data.fromName || '').slice(0, 30),
       createdAt: nowMs(),
       status: 'new'
-    }).then(function () { return { ok: true }; })
-      .catch(function (e) { return { ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') }; });
+    };
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        finish({ ok: false, timeout: true, msg: '送信できませんでした。通信環境を確認して、もう一度お試しください' });
+      }, FB_SUBMIT_TIMEOUT_MS);
+      function finish(r) {
+        if (settled) return; /* 一度確定したら、遅れてきた結果では覆さない */
+        settled = true;
+        clearTimeout(timer);
+        resolve(r);
+      }
+      var addPromise;
+      try {
+        addPromise = fb.db.collection('feedback').add(payload);
+      } catch (e) {
+        finish({ ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') });
+        return;
+      }
+      Promise.resolve(addPromise).then(function () { finish({ ok: true }); })
+        .catch(function (e) { finish({ ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') }); });
+    });
   }
   function submitFeedbackFromUI() {
     var title = $('pwFbTitle').value.trim();
@@ -2973,6 +2999,9 @@
       },
       adminUids: function () { return ADMIN_UIDS.slice(); },
       inboxItems: function () { return fbInboxItems.slice(); },
+      /* フィードバック送信タイムアウト（ms）の差し替え（テスト用） */
+      setFeedbackTimeoutMs: function (ms) { if (typeof ms === 'number' && ms > 0) FB_SUBMIT_TIMEOUT_MS = ms; },
+      feedbackTimeoutMs: function () { return FB_SUBMIT_TIMEOUT_MS; },
       /* フレンド申請の現在状態（受信 pending 一覧と送信分） */
       friendRequests: function () {
         return {
