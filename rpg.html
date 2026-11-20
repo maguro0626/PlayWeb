@@ -489,7 +489,7 @@ html,body{overscroll-behavior:none;}
     <div class="pt-3" style="border-top:1px solid var(--c-border)">
       <div class="sl text-center mb-3" style="color:#4aaeff">ボックス（預けているモンスター）</div>
       <div id="box-cards" class="space-y-2"></div>
-      <div id="box-empty" class="hidden text-center py-4" style="font-size:11px;color:#223">まだ誰もいない</div>
+      <div id="box-empty" class="hidden text-center py-4" style="font-size:11px;color:#8899aa">まだ誰もいない</div>
     </div>
   </div>
 </div>
@@ -523,7 +523,7 @@ html,body{overscroll-behavior:none;}
     <div id="bag-orbs" class="space-y-2 mb-4"></div>
     <div class="sl mb-2" style="color:#4aaeff">どうぐ・くすり</div>
     <div id="bag-items" class="space-y-2"></div>
-    <div id="bag-empty" class="hidden text-center py-4" style="font-size:11px;color:#223">どうぐを持っていない</div>
+    <div id="bag-empty" class="hidden text-center py-4" style="font-size:11px;color:#8899aa">どうぐを持っていない</div>
   </div>
 </div>
 
@@ -1347,6 +1347,13 @@ function spawnWild(loc,table){
   for(const w of table){rnd-=w.r;if(rnd<=0){pick=w;break}}
   const lv=pick.mn+Math.floor(Math.random()*(pick.mx-pick.mn+1));
   const enemy=makeMon(pick.sp,lv);addSeen(pick.sp);
+  /* 野生戦のテンポ調整（野生のみ・トレーナー/ライバル/ボス戦は不変）:
+     HP式 scaleStat はレベルに対して超線形に伸びるのに与ダメ式は線形なため、
+     野生戦が平均16ターン超まで間延びしていた（実測）。野生の最大HPだけを
+     レベル連動で圧縮し、適正帯で数ターン決着に寄せる。攻撃・防御・素早さと
+     経験値（レベル基準）は不変。捕獲率は残HP割合ベースなので影響しない。 */
+  const wildHpMul=Math.max(.38,.58-.004*lv);
+  enemy.maxHp=Math.max(1,Math.floor(enemy.maxHp*wildHpMul));enemy.hp=enemy.maxHp;
   BT={type:'wild',loc,enemy,player,playerIdx:G.party.indexOf(player),isWild:true,caught:false,returnTo:'field'};
   showScreen('sc-battle');
   const btn=document.getElementById('btn-catch');btn.style.display='flex';
@@ -2429,7 +2436,7 @@ function renderDex(){
       <div class="flex-1 min-w-0"><div class="flex items-center gap-1.5 mb-0.5"><span class="font-black text-sm text-white">${d.name}</span><span class="tbadge" style="background:${tc.bg};color:${tc.t}">${d.type.toUpperCase()}</span>${caught?'<span class="tbadge" style="background:#22c55e;color:#fff">✓ 捕獲</span>':''}</div><div class="text-xs" style="color:#668">${d.desc}</div><div class="text-xs mt-0.5" style="color:#557">${evoChain(sp).map(k=>M[k].name).join(' → ')}</div></div>`;
     } else {
       div.innerHTML=`<div style="width:52px;height:52px;flex-shrink:0;background:#1a2535;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:22px">❓</span></div>
-      <div class="flex-1"><div class="font-bold text-sm" style="color:#334">？？？</div><div class="text-xs" style="color:#223">みつけていない</div></div>`;
+      <div class="flex-1"><div class="font-bold text-sm" style="color:#8899aa">？？？</div><div class="text-xs" style="color:#7d8aa5">みつけていない</div></div>`;
     }
     list.appendChild(div);
   });

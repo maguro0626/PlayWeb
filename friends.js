@@ -236,6 +236,12 @@
   function recordMatch(outcome, opts) {
     if (MY_GAME === 'portal') return false;
     var peers = matchPeers();
+    if (!peers.length) {
+      /* 対戦コンテキスト未確定のまま試合が終わった場合の最終回収：
+         フレンド一覧が既に届いていれば ?join から立て直して記録する
+         （ensureJoinMatch は冪等で、立っていれば何もしない） */
+      if (ensureJoinMatch()) peers = matchPeers();
+    }
     if (!peers.length) return false;
     var key = MY_GAME + '|' + peers.slice().sort().join(',') + '|' + outcome + '|' + (opts && opts.cleared ? 1 : 0);
     var now = Date.now();
@@ -635,12 +641,16 @@
         if (!Array.isArray(list)) return;
         friends = list.filter(function (f) { return f && typeof f.uid === 'string'; });
         saveFriends();
+        /* 一覧が届いたので、ゲート時点で friendOf に失敗して見送られた
+           ?join / ?hostinvite の対戦コンテキスト設定を再試行する */
+        retryPendingMatch();
         renderAll();
       },
       addFriend: function (entry) {
         if (!entry || !entry.uid || friendOf(entry.uid)) return false;
         friends.push(entry);
         saveFriends();
+        retryPendingMatch();
         renderAll();
         return true;
       },
@@ -1181,8 +1191,24 @@
   }
 
   /* ---------- 描画 ---------- */
+  /* 検索セクション（#pwfSearchSec）の表示は、パネルを描く側でも毎回同期する。
+     以前は account.js の updateSearchRow() だけが表示切替を担っていたが、
+     その呼び出しはポーリング（約10秒で打ち切り）と認証イベント時だけなので、
+     パネルの構築がそれらより後になると（通信が遅い環境など）二度と表示されず、
+     ドロワーを開いても検索欄が出ないまま固定される不具合があった。
+     renderAll はパネル構築時・在席変化時・ドロワーを開く時などに必ず呼ばれる
+     ので、ここで PWAccount のログイン状態と同期すれば自己完結する。
+     ゲスト（未ログイン）では出さない（検索・申請はクラウド機能のため）。 */
+  function renderSearchSec() {
+    var sec = $('pwfSearchSec');
+    if (!sec) return;
+    var api = window.PWAccount;
+    var active = !!(api && typeof api.cloudActive === 'function' && api.cloudActive());
+    sec.style.display = active ? '' : 'none';
+  }
   function renderAll() {
     if (!els.panel) return;
+    renderSearchSec();
     renderProfile();
     renderFriendReqs();
     renderInvites();
@@ -1453,6 +1479,59 @@
       })();
     });
   }
+  /* URL の ?join=<room>&from=<uid> からゲストの対戦コンテキストを立てる。
+     initHooks（ゲート member 化時点）ではフレンド一覧のクラウド同期が
+     まだ届いておらず friendOf(from) が失敗することがある（新規端末・
+     キャッシュ消去後など）。その場合は諦めず、一覧が届いた時点
+     （_cloud.setFriends / addFriend）や戦績記録の直前に再試行する。
+     冪等：同じ対戦が既に立っていれば joinSent ごと保持し、相手が
+     peers に居なければ補完だけ行う。ホスト対戦中のコンテキストは奪わない。 */
+  function ensureJoinMatch() {
+    var params;
+    try { params = new URLSearchParams(location.search); } catch (e) { return false; }
+    var join = params.get('join');
+    if (!join) return false;
+    var code = join.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
+    if (code.length !== 6) return false;
+    /* 招待者（ホスト）の uid を引き継ぎ、対戦相手として保持する */
+    var from = cleanUid(params.get('from') || '');
+    if (!from) {
+      try {
+        var ctx = JSON.parse(sessionStorage.getItem('pw_join_ctx') || 'null');
+        if (ctx && ctx.room === code) from = cleanUid(ctx.from || '');
+      } catch (e) {}
+    }
+    if (from.length < 4 || !friendOf(from)) return false;
+    if (match && match.game === MY_GAME && match.role === 'guest' && match.room === code) {
+      if (match.peers.indexOf(from) < 0) addMatchPeer(from);
+      trySendMatchJoin();
+      return true;
+    }
+    if (match && match.game === MY_GAME && match.role === 'host') return false;
+    setMatch({ game: MY_GAME, role: 'guest', room: code, peers: [from], joinSent: false });
+    trySendMatchJoin();
+    return true;
+  }
+  /* ?hostinvite=<uid> 側も同じ競合（ゲート時点では一覧未同期）があるため、
+     一覧到着後に再試行できる形にする。開始済みなら二重実行しない。 */
+  function ensureHostInviteMatch() {
+    if (window.PW_HOSTINVITE_STARTED) return false;
+    var params;
+    try { params = new URLSearchParams(location.search); } catch (e) { return false; }
+    var hi = params.get('hostinvite');
+    if (!hi) return false;
+    var fc = cleanUid(decodeURIComponent(hi));
+    if (fc.length < 4 || !friendOf(fc)) return false;
+    startHostMatch(fc);
+    runHostInviteHook(fc);
+    return true;
+  }
+  /* フレンド一覧が（再）同期されたタイミングで、未確定の対戦コンテキストを回収する */
+  function retryPendingMatch() {
+    if (gateBlocked()) return;
+    ensureJoinMatch();
+    ensureHostInviteMatch();
+  }
   function initHooks() {
     var params;
     try { params = new URLSearchParams(location.search); } catch (e) { return; }
@@ -1460,24 +1539,12 @@
     if (join) {
       var code = join.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
       if (code.length === 6) {
-        /* 招待者（ホスト）の uid を引き継ぎ、対戦相手として保持する */
-        var from = cleanUid(params.get('from') || '');
-        if (!from) {
-          try {
-            var ctx = JSON.parse(sessionStorage.getItem('pw_join_ctx') || 'null');
-            if (ctx && ctx.room === code) from = cleanUid(ctx.from || '');
-          } catch (e) {}
-        }
-        if (from.length >= 4 && friendOf(from)) {
-          setMatch({ game: MY_GAME, role: 'guest', room: code, peers: [from], joinSent: false });
-        }
+        ensureJoinMatch();
         runJoinHook(code); return;
       }
     }
-    var hi = params.get('hostinvite');
-    if (hi) {
-      var fc = cleanUid(decodeURIComponent(hi));
-      if (fc.length >= 4 && friendOf(fc)) { startHostMatch(fc); runHostInviteHook(fc); }
+    if (params.get('hostinvite')) {
+      ensureHostInviteMatch();
     }
   }
 

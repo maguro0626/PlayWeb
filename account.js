@@ -2233,9 +2233,32 @@
     var el = $('pwaStatus');
     if (el) el.textContent = t;
   }
+  /* フレンド欄（#pwFriendsSec）の置き場所の付け替え。
+     定位置は #pwaBody の直後（お問い合わせ欄より上）。ログイン中は
+     アカウント概要の直後・ログアウトボタンより上に見せたいので、
+     ログイン中テンプレート内の #pwFriendsAnchor の位置へ差し込む。
+     #pwaBody は updateModal が innerHTML ごと描き直すため、差し込んだまま
+     描き直すとフレンド欄（マウント済みパネルごと）消えてしまう。
+     描き直しの前に必ず定位置へ避難させ、描き直した後に差し込み直す。
+     DOM の移動（replaceChild / insertBefore）は子要素と結線を保持するので、
+     friends.js のパネル参照（els.panel）や renderAll の対象は壊れない */
+  function rescueFriendsSec() {
+    var sec = $('pwFriendsSec'), body = $('pwaBody');
+    if (!sec || !body || sec.parentNode !== body) return;
+    var fbSec = $('pwFeedbackSec');
+    if (fbSec && fbSec.parentNode === body.parentNode) body.parentNode.insertBefore(sec, fbSec);
+    else if (body.nextSibling) body.parentNode.insertBefore(sec, body.nextSibling);
+    else body.parentNode.appendChild(sec);
+  }
+  function placeFriendsSecAtAnchor() {
+    var sec = $('pwFriendsSec'), anchor = $('pwFriendsAnchor');
+    if (!sec || !anchor || !anchor.parentNode) return;
+    anchor.parentNode.replaceChild(sec, anchor);
+  }
   function updateModal() {
     var body = $('pwaBody');
     if (!body) return;
+    rescueFriendsSec();
     if (sdkState === 'loading') {
       body.innerHTML = '<div class="pwa-note">読み込み中…</div>';
       return;
@@ -2259,6 +2282,7 @@
         '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(myStats) +
         '<div class="pwa-note" id="pwaStatus">' + esc(statusText || 'クラウドセーブ有効') + '</div>' +
         '<div class="pwa-note">セーブはこの端末に保存され、ログイン中はクラウドにも控えが送られます。別のアカウントでログインすると、そのアカウントのセーブに入れ替わります。</div>' +
+        '<span id="pwFriendsAnchor"></span>' +
         '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:12px">ログアウト</button>' +
         '<div class="pwa-note">ログアウトするとゲストに戻ります。データはこの端末とクラウドに残るので、再ログインすれば続きが遊べます。</div>' +
         '<button class="pwa-btn sub" id="pwaExportBtn" style="margin-top:14px">📤 バックアップを書き出し</button>' +
@@ -2268,6 +2292,7 @@
         '<div class="pwa-note">ポータルで書き出したバックアップ（JSONファイル）を選ぶと、その時点のセーブで現在のセーブを上書きします。</div>' +
         '<button class="pwa-btn sub" id="pwaResetData" style="margin-top:14px;color:#fca5a5;border-color:rgba(239,68,68,.45)">🗑 セーブデータを初期化</button>' +
         '<div class="pwa-note">全ゲームのセーブと戦績を、この端末とクラウドから完全に削除します（元に戻せません）。</div>';
+      placeFriendsSecAtAnchor();
       $('pwaLogout').onclick = function () { doLogout(); };
       $('pwaResetData').onclick = function () {
         var btn = $('pwaResetData');
@@ -2371,9 +2396,11 @@
     notifyFriendsView();
     if (changed) emitOverlay('drawer');
   }
-  /* フレンドパネル内の「ユーザー名で検索」行の表示切替とイベント結線（friends.js 側に器がある）。
-     検索 → 結果カード表示 → カードのタップ or 「フレンド申請」ボタンで申請、の申請制フロー */
-  var searchBound = false;
+  /* フレンドパネル内の「ユーザー名で検索」行（器は friends.js 側）。
+     表示切替は friends.js の renderAll() が毎回同期する（そちらが本線）。
+     ここでも同じ条件で合わせるが、表示の最終保証は renderAll 側にある。
+     検索ボタンの結線はこの下の document 委譲が担う（updateSearchRow は
+     表示と注記の同期だけ） */
   function updateSearchRow() {
     var sec = $('pwfSearchSec');
     if (sec) sec.style.display = cloudActive() ? '' : 'none';
@@ -2381,28 +2408,6 @@
     if (note && cloudActive()) {
       note.textContent = 'フレンドの追加は、相手のユーザー名を検索して「フレンド申請」を送り、相手が承認するとフレンドになります。ログイン中はフレンドの在席・招待がクラウド経由で届きます（相手がオフラインでも届きます）。';
     }
-    if (searchBound) return;
-    var btn = $('pwfSearchBtn');
-    if (!btn) return;
-    searchBound = true;
-    btn.onclick = function () {
-      var input = $('pwfSearchName'), n = $('pwfSearchNote');
-      var name = input.value.trim();
-      n.classList.remove('err');
-      btn.disabled = true; n.textContent = '検索中…';
-      renderSearchResult(null);
-      searchUser(name).then(function (found) {
-        btn.disabled = false;
-        if (!found) {
-          n.textContent = 'そのユーザー名の人は見つかりませんでした';
-          n.classList.add('err');
-          return;
-        }
-        n.textContent = '';
-        renderSearchResult(found);
-      });
-    };
-    $('pwfSearchName').addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
   }
   /* 検索結果カード: アイコン・ユーザー名・オンライン状態＋状態に応じた操作。
      未申請なら「カードのタップ」でも「フレンド申請」ボタンでも申請できる */
@@ -2451,14 +2456,40 @@
       });
     };
   }
-  /* パネルは friends.js が遅れて作る場合があるので、しばらくポーリングして結線する */
-  (function bindSearchWhenReady() {
-    var tries = 0;
-    (function tick() {
-      updateSearchRow();
-      if (!searchBound && ++tries <= 20) setTimeout(tick, 500);
-    })();
-  })();
+  /* 検索の結線は document へのイベント委譲で1回だけ行う。
+     旧方式（ボタン要素への直接結線＋約10秒のポーリング）は、通信が遅い環境で
+     パネル構築がポーリング打ち切り後になるとボタンが無反応のまま固定される
+     欠陥があった（表示が直っても検索できない）。委譲ならパネルの構築・
+     再構築のタイミングに左右されず、二重結線にもならない。
+     検索 → 結果カード表示 → カードのタップ or 「フレンド申請」ボタンで申請 */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var btn = (t && t.closest) ? t.closest('#pwfSearchBtn') : null;
+    if (!btn) return;
+    var input = $('pwfSearchName'), n = $('pwfSearchNote');
+    if (!input || !n) return;
+    var name = input.value.trim();
+    n.classList.remove('err');
+    btn.disabled = true; n.textContent = '検索中…';
+    renderSearchResult(null);
+    searchUser(name).then(function (found) {
+      btn.disabled = false;
+      if (!found) {
+        n.textContent = 'そのユーザー名の人は見つかりませんでした';
+        n.classList.add('err');
+        return;
+      }
+      n.textContent = '';
+      renderSearchResult(found);
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var t = e.target;
+    if (!t || t.id !== 'pwfSearchName') return;
+    var btn = $('pwfSearchBtn');
+    if (btn) btn.click();
+  });
 
   /* ---------------- プロフィール表示（v52〜） ---------------- */
   function statsHTML(stats) {

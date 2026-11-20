@@ -473,7 +473,10 @@ function addLog(txt){
 }
 function toast(txt){
   const t = document.createElement('div'); t.className = 'toast'; t.textContent = txt;
-  $('#toasts').appendChild(t);
+  const box = $('#toasts'); box.appendChild(t);
+  /* 同時表示は最大3件まで: イベントが続くとトーストが何段も積み重なり、
+     モーダルやオフィス画面の中央を覆ってしまうため、古いものから間引く */
+  while(box.children.length > 3) box.firstChild.remove();
   setTimeout(()=>{ t.style.opacity = '0'; t.style.transition = 'opacity .4s'; setTimeout(()=>t.remove(), 420); }, 3400);
 }
 function confetti(n){
