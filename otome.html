@@ -1106,12 +1106,15 @@ button.title-btn { width:min(280px,88vw); }
 .vn-band { gap:6px; }
 .vn-band-right { flex:1; justify-content:flex-end; min-width:0; }
 .vn-band-deco { white-space:nowrap; flex-shrink:0; margin-right:4px; }
-.vn-controls { overflow-x:auto; scrollbar-width:none; flex-shrink:1; }
-.vn-controls::-webkit-scrollbar { display:none; }
+/* SAVE/MENUが横スクロールの外に隠れないよう、スクロールに頼らず全ボタンを帯内に収める */
+.vn-controls { overflow:visible; flex-shrink:1; min-width:0; }
+.vn-ctrl-btn { flex-shrink:1; min-width:0; }
 @media (max-width:460px) {
   .vn-band-top .vn-band-title { display:none; }
-  /* UI被り対策: 右端のMENUボタンが帯のスクロール外に切れないよう横余白を詰める */
-  .vn-ctrl-btn { padding:8px 5px; }
+  /* 390px幅でもSAVE/MENUまで全ボタンが画面内に収まるよう詰める(従来は余白約6pxでフォント差により切れた) */
+  .vn-band { padding:0 4px; gap:2px; }
+  .vn-band-deco { font-size:9px; margin-right:2px; letter-spacing:0; }
+  .vn-ctrl-btn { padding:8px 3px; font-size:9px; letter-spacing:0; }
 }
 .vn-ctrl-btn.active::after {
   content:''; position:absolute; left:8px; right:8px; bottom:2px; height:1px;
@@ -1739,7 +1742,7 @@ const COMMANDS = [
   { id:'study_library',label:'図書館で勉強',    icon:'📚', stamina:-10, effects:{intelligence:[15,25]}, desc:'知性 +15〜25', encounter:{rinto:0.30,souma:0.45,yuzuki:0.12} },
   { id:'study_home',   label:'自習（自室）',    icon:'✏️', stamina:-5,  effects:{intelligence:[8,12]},  desc:'知性 +8〜12', encounter:{haruko:0.35,haruka:0.20} },
   { id:'sports_club',  label:'運動部活動',      icon:'🏃', stamina:-20, effects:{sports:[15,25]},       desc:'スポーツ +15〜25', encounter:{kaito:0.40} },
-  { id:'jogging',      label:'ジョギング',      icon:'💨', stamina:-5,  effects:{sports:[8,8],stamina:[10,10]}, desc:'スポーツ +8  体力 +10', encounter:{kaito:0.25} },
+  { id:'jogging',      label:'ジョギング',      icon:'💨', stamina:-5,  effects:{sports:[8,8],stamina:[10,10]}, desc:'スポーツ +8', encounter:{kaito:0.25} },
   { id:'shopping',     label:'ショッピング',    icon:'👗', stamina:-10, effects:{fashion:[15,25]},      desc:'ファッション +15〜25', encounter:{aoi:0.20,yuzuki:0.18,haruka:0.25} },
   { id:'magazine',     label:'雑誌研究',        icon:'📰', stamina:-5,  effects:{fashion:[8,8],intelligence:[3,3]}, desc:'ファッション +8  知性 +3', encounter:{haruka:0.30} },
   { id:'music_room',   label:'音楽室練習',      icon:'🎵', stamina:-10, effects:{music:[15,25]},        desc:'音楽 +15〜25', encounter:{hayate:0.35} },
@@ -1747,9 +1750,9 @@ const COMMANDS = [
   { id:'cooking',      label:'料理教室',        icon:'🍳', stamina:-10, effects:{domestic:[15,25]},     desc:'家事 +15〜25', encounter:{haruko:0.40} },
   { id:'crafts',       label:'手芸・クラフト',  icon:'🧵', stamina:-5,  effects:{domestic:[10,10],fashion:[5,5]}, desc:'家事 +10  ファッション +5' },
   { id:'parttime',     label:'アルバイト',      icon:'💼', stamina:-25, effects:{intelligence:[5,5],sports:[5,5],fashion:[5,5],music:[5,5],domestic:[5,5]}, desc:'全パラ +5', availableFrom:{year:2,month:4}, encounter:{kurosaki:0.25} },
-  { id:'rest',         label:'休息',            icon:'💤', stamina:40,  effects:{}, desc:'体力 +40（回復）', encounter:{haruko:0.50} },
+  { id:'rest',         label:'休息',            icon:'💤', stamina:40,  effects:{}, desc:'ゆっくり回復する', encounter:{haruko:0.50} },
   { id:'observatory',  label:'天文台で観測',    icon:'🔭', stamina:-5,  effects:{intelligence:[5,5],music:[5,5]}, desc:'知性 +5  音楽 +5', encounter:{rinto:0.25,hayate:0.15}, availableFrom:{year:1,month:6} },
-  { id:'beach_walk',   label:'海岸散歩',        icon:'🌊', stamina:15,  effects:{}, desc:'体力 +15  出会い率UP', encounterBonus:0.20 }
+  { id:'beach_walk',   label:'海岸散歩',        icon:'🌊', stamina:15,  effects:{}, desc:'出会い率UP', encounterBonus:0.20 }
 ];
 
 const DATE_SPOTS = [
@@ -2869,6 +2872,7 @@ const INITIAL_STATE = ()=>({
   pendingEvents:[],
   actionsLeft:2,
   actionsUsed:0,
+  actionsMax:2,
   currentBg:'',
   money:5000,
   readLines:{}
@@ -3306,7 +3310,15 @@ function applyAffChange(charId,delta) {
   GS.affection[charId]=clampAff((GS.affection[charId]||0)+delta);
   if(delta>0 && charId!=='rival') spawnHearts();
 }
-function getActionsMax() { return GS.stats.stamina>=100?2:1; }
+function calcActionsMax() { return GS.stats.stamina>=100?2:1; }
+function getActionsMax() {
+  // 週の行動上限は「週開始時点の体力」で固定する。週の途中で体力を消費/回復しても
+  // 上限を再計算しない(従来は行動1回で体力<100になり上限2→1へ縮み、2回目が奪われた/残り-1表示になった)
+  if(typeof GS.actionsMax==='number'&&GS.actionsMax>0) return GS.actionsMax;
+  // 旧セーブ互換: 上限未記録なら現在値で決めて固定する(既に使った回数を下回らせない)
+  GS.actionsMax=Math.max(calcActionsMax(),Math.min(GS.actionsUsed||0,2));
+  return GS.actionsMax;
+}
 
 /* ══════════════════════════════════════════
    VN ENGINE
@@ -3850,7 +3862,7 @@ function renderCommandScreen() {
     if(existImg && existImg.style.display==='none') heroFallbackEl.textContent = GS.playerName[0]||'日';
   }
 
-  const actLeft = getActionsMax() - GS.actionsUsed;
+  const actLeft = Math.max(0, getActionsMax() - GS.actionsUsed);
   const tired = GS.stats.stamina < 50;
   document.getElementById('cmd-action-count').textContent = `（残り${actLeft}回${tired?' 🔴疲労':''}）`;
 
@@ -3907,7 +3919,7 @@ function renderCalendarBar() {
 
 function renderCommandGrid() {
   const grid=document.getElementById('cmd-grid'); grid.innerHTML='';
-  const actLeft=getActionsMax()-GS.actionsUsed;
+  const actLeft=Math.max(0,getActionsMax()-GS.actionsUsed);
   COMMANDS.forEach(cmd=>{
     if(cmd.availableFrom){
       const af=cmd.availableFrom;const gd=GS.gameDate;
@@ -3917,7 +3929,13 @@ function renderCommandGrid() {
     const canUse=actLeft>0&&(cmd.stamina>=0||staminaAfter>=0);
     const card=document.createElement('div');
     card.className='cmd-card'+(canUse?'':' disabled');
-    card.innerHTML=`<div class="cmd-card-icon">${cmd.icon}</div><div class="cmd-card-name">${cmd.label}</div><div class="cmd-card-effect">${cmd.desc}</div><div class="cmd-card-stamina">${cmd.stamina>=0?'体力 +'+cmd.stamina:'体力 '+cmd.stamina}</div>`;
+    // 体力表示は1行に統一: コスト(cmd.stamina)と効果(effects.stamina)の合算(正味)を表示する
+    // 例: ジョギングは -5 +10 = +5。desc側に体力表記は置かない(重複・矛盾防止)
+    let staminaNet=(cmd.stamina||0);
+    const effSt=cmd.effects&&cmd.effects.stamina;
+    if(Array.isArray(effSt)&&effSt[0]===effSt[1]) staminaNet+=effSt[0];
+    else if(typeof effSt==='number') staminaNet+=effSt;
+    card.innerHTML=`<div class="cmd-card-icon">${cmd.icon}</div><div class="cmd-card-name">${cmd.label}</div><div class="cmd-card-effect">${cmd.desc}</div><div class="cmd-card-stamina">${staminaNet>=0?'体力 +'+staminaNet:'体力 '+staminaNet}</div>`;
     if(canUse) card.onclick=()=>executeCommand(cmd);
     grid.appendChild(card);
   });
@@ -3976,6 +3994,7 @@ function showEventResultScreen(cmd,changes,encounterChar) {
   const efEl=document.getElementById('er-effects');
   efEl.innerHTML='';
   STATS_CONFIG.forEach(sc=>{
+    if(sc.id==='stamina') return; // 体力は下でコストと合算して1つだけ表示(重複・矛盾防止)
     if(changes[sc.id]!=null){
       const v=changes[sc.id];
       const pill=document.createElement('div');
@@ -3984,11 +4003,12 @@ function showEventResultScreen(cmd,changes,encounterChar) {
       efEl.appendChild(pill);
     }
   });
-  // スタミナ変化
-  if(cmd.stamina!==0){
+  // スタミナ変化(コスト+効果の正味を1つだけ表示)
+  const staminaNet=(cmd.stamina||0)+(changes.stamina||0);
+  if(staminaNet!==0){
     const pill=document.createElement('div');
-    pill.className='effect-pill'+(cmd.stamina>0?' positive':' negative');
-    pill.textContent=`❤️ 体力 ${cmd.stamina>0?'+':''}${cmd.stamina}`;
+    pill.className='effect-pill'+(staminaNet>0?' positive':' negative');
+    pill.textContent=`❤️ 体力 ${staminaNet>0?'+':''}${staminaNet}`;
     efEl.appendChild(pill);
   }
   const encEl=document.getElementById('er-encounter');
@@ -4013,7 +4033,7 @@ function showEventResultScreen(cmd,changes,encounterChar) {
 }
 
 document.getElementById('screen-event-result').addEventListener('click',()=>{
-  const actLeft=getActionsMax()-GS.actionsUsed;
+  const actLeft=Math.max(0,getActionsMax()-GS.actionsUsed);
   if(actLeft<=0){
     // アクション消費後：週末チェック → 次の週へ
     checkWeeklyEvents();
@@ -4255,6 +4275,8 @@ function proceedToNextWeek() {
   GS.actionsUsed=0;
   const oldMonth=GS.gameDate.month;
   GS.gameDate=nextWeek(GS.gameDate);
+  // 新しい週の上限は、この時点(週開始時)の体力で固定する。デート/週末イベント経由でも必ずここを通る
+  GS.actionsMax=calcActionsMax();
 
   // ゲームエンド判定
   if(isGameEnd(GS.gameDate)){

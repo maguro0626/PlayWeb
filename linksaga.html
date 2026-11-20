@@ -326,6 +326,9 @@
               border:1px solid rgba(160,170,255,.4); background:linear-gradient(180deg,#2c2e6e,#1a1b47); color:#fff;
               font-family:inherit; font-weight:900; cursor:pointer; text-align:left; line-height:1.25; }
   .pkc-waza:disabled { cursor:default; pointer-events:none; }
+  .pkc-waza.showRow { cursor:default; background:rgba(18,19,48,.55); border-style:dashed; border-color:rgba(160,170,255,.28); font-weight:700; }
+  .pkc-waza.showRow .pkc-dmg { color:#cfd4ff; }
+  .pkc-waza.foeRow { border-color:rgba(255,130,130,.35); }
   .pkc-waza.canUse { border-color:#ffd76e; box-shadow:0 0 9px rgba(255,215,110,.6); }
   .pkc-waza .pkc-cost { flex:none; min-width:28px; white-space:nowrap; }
   .pkc-sub span { white-space:nowrap; }
@@ -611,6 +614,13 @@
     .pkc-hpbar { margin-top:2px; }
     .pkc-sub { margin-top:0; }
     .pkc-waza .pkc-wname { font-size:9px; line-height:1.12; }
+    /* 手札mdカードの わざ名 見切れ対策：従来は詳細度で基本ルール(10px)に負けて縮小が効いておらず、
+       名前幅も約40pxしかなく長い わざ名 が2行に収まらず切れていた。手札は横スクロール前提なので
+       カードを少し広げ、コスト/ダメージ側も詰めて名前の表示幅を確保する */
+    .pkc-md { width:118px; }
+    .pkc-md .pkc-waza .pkc-wname { font-size:9px; }
+    .pkc-md .pkc-waza .pkc-cost { min-width:0; }
+    .pkc-md .pkc-dmg { font-size:11px; }
     .pkc-md .pkc-art { aspect-ratio:1/0.10; }
     .pkc-md .pkc-name { line-height:1.1; }
     .bc2-art { aspect-ratio:1/0.10; }
@@ -832,7 +842,7 @@ html,body{overscroll-behavior:none;}
       <div id="btCap"></div>
       <div id="btBtns">
         <button class="btn ghost" id="btnFlee" style="flex:0 0 70px">撤退</button>
-        <button class="btn ghost" id="btnRetreat" style="flex:0 0 82px">にげる</button>
+        <button class="btn ghost" id="btnRetreat" style="flex:0 0 104px">にげる（交代）</button>
         <button class="btn big" id="btnEndTurn" style="flex:1">ターン終了 ›</button>
       </div>
       <div id="btFx"></div>
@@ -934,7 +944,10 @@ const PA = (n,t,v,o) => Object.assign({n,t,v}, o||{});
    ダメージは「攻撃力 × わざ倍率」の固定値で、カードにそのまま数字を表示する。
    エネルギーは毎ターン1個発生し、キャラに付けると残り続ける（攻撃では消費しない）。
    倍率は既存スキルデータから導出：ダメージ系スキルはその p を使い、
-   回復/シールド/バフ系スキルはスロット既定の倍率に置き換える。 */
+   回復/シールド/バフ系スキルはスロット既定の倍率に置き換える。
+   ※そのため s1/s2 の「名前」は実効果に合わせて攻撃わざ名に統一している
+     （旧データで回復/補助系の名前だった21件は攻撃名へ改名済み。新規キャラ追加時も
+       非ダメージ系 kind に回復・補助と誤読される名前を付けないこと）。 */
 const DMG_KINDS = ['dmg','dmgAll','dmgBurn','dmgDebuff','drain'];
 function wazaMult(c){
   const dmgP = s => DMG_KINDS.includes(s.k) ? s.p : null;
@@ -974,7 +987,7 @@ const CHARS = [
    voice:['ふふ…あたしの本、開いてみる？','闇はね、使い方次第で優しいの。','さあ、影の舞台を始めましょう。'],
    pt:{hair:'#3a2a5e',ear:'#241a3e',eye:'#e53935',out:'#2a1a3e',style:0,acc:'🌙'} },
  { id:'seiren', name:'セイレーン', rar:'UR', el:'water', role:'HEAL', hp:2650, atk:545, def:215,
-   s1:SK('潮騒の子守唄','heal',3.4), s2:SK('恵みの潮流','healAll',1.9),
+   s1:SK('潮騒の激流','heal',3.4), s2:SK('大海の奔流','healAll',1.9),
    burst:SK('大海の讃歌 オーシャン・レクイエム','healAll',3.6,{x:'cleanseShieldAll',extra:'味方全体の弱体効果を全て解除＋シールド'}),
    passive:PA('歌姫の加護','healUp',30),
    flavor:'海に愛された歌姫猫。その歌声は傷を癒し、嵐すら静めるという。',
@@ -989,28 +1002,28 @@ const CHARS = [
    voice:['燃えてきたぜ！俺に続け！','背中は任せろ、全力で斬る！','熱い戦いこそ、生きてる証だ！'],
    pt:{hair:'#ff7043',ear:'#ff8a50',eye:'#c62828',out:'#5e2721',style:2,acc:'🔥'} },
  { id:'gracia', name:'グラキエス', rar:'SSR', el:'water', role:'TNK', hp:1490, atk:128, def:128,
-   s1:SK('氷結の盾','shield',2.2), s2:SK('フロストバイト','dmgDebuff',1.1),
+   s1:SK('氷結の槍','shield',2.2), s2:SK('フロストバイト','dmgDebuff',1.1),
    burst:SK('絶対零度の聖域','shieldAll',2.6,{x:'defUpAll',extra:'味方全体の防御+30%（3ターン）'}),
    passive:PA('氷壁の守り','defAll',12),
    flavor:'氷の聖域を守る騎士猫。彼女の盾の前では、どんな嵐も静まり返る。',
    voice:['私の後ろにいなさい。必ず守ります。','氷は冷たいけれど、嘘はつきません。','静かに、確実に、勝ちましょう。'],
    pt:{hair:'#b3e5fc',ear:'#e1f5fe',eye:'#0277bd',out:'#dcedf5',style:0,acc:'❄️'} },
  { id:'terra', name:'テラ', rar:'SSR', el:'wood', role:'TNK', hp:1560, atk:122, def:124,
-   s1:SK('大地の抱擁','shield',2.1), s2:SK('いばらの檻','dmgDebuff',1.0),
+   s1:SK('大地の鉄槌','shield',2.1), s2:SK('いばらの檻','dmgDebuff',1.0),
    burst:SK('世界樹の根','healAll',2.2,{x:'shieldAll',extra:'味方全体にシールド'}),
    passive:PA('大地の恵み','hpAll',12),
    flavor:'古い森に住む大地の番猫。どっしり構えて、みんなの帰る場所を守る。',
    voice:['ほれ、無理すんな。休んでいきな。','大地はいつも見守っとるよ。','根っこが強けりゃ、倒れんさ。'],
    pt:{hair:'#81c784',ear:'#a5d6a7',eye:'#2e7d32',out:'#4e5d3a',style:1,acc:'🌱'} },
  { id:'solaris', name:'ソラリス', rar:'SSR', el:'light', role:'SUP', hp:920, atk:168, def:84,
-   s1:SK('朝日の激励','buffAtk',0), s2:SK('サンライト','dmg',1.7),
+   s1:SK('朝日の閃光','buffAtk',0), s2:SK('サンライト','dmg',1.7),
    burst:SK('黎明の号令','buffAtk',0,{v:0.4,x:'gaugeAll',extra:'味方全体の攻撃+40%（3ターン）＋必殺ゲージ+30'}),
    passive:PA('朝日の導き','gauge',20),
    flavor:'朝日と共に現れる導き猫。彼女の声が響けば、味方の足取りは軽くなる。',
    voice:['さあ、夜明けです！行きましょう！','あなたの背中、押しますね。','今日もいい日になりますよ、きっと。'],
    pt:{hair:'#ffd54f',ear:'#ffecb3',eye:'#ef6c00',out:'#fff3d6',style:3,acc:'☀️'} },
  { id:'nox', name:'ノクス', rar:'SSR', el:'dark', role:'DEB', hp:900, atk:172, def:80,
-   s1:SK('影縫い','debuffDef',0), s2:SK('ナイトメア','dmgDebuff',1.3),
+   s1:SK('影縫いの爪','debuffDef',0), s2:SK('ナイトメア','dmgDebuff',1.3),
    burst:SK('無明の帳','dmgAll',2.6,{x:'atkDownAll',extra:'敵全体の攻撃-25%（2ターン）'}),
    passive:PA('弱点看破','chainDmg',12),
    flavor:'影に溶ける諜報猫。敵の綻びを見つける目にかけては、右に出る者はいない。',
@@ -1025,7 +1038,7 @@ const CHARS = [
    voice:['ドカンと行くよー！','火花みたいに、ぱっと咲くの！','次はもっと大きく打ち上げるね！'],
    pt:{hair:'#ffab40',ear:'#ffcc80',eye:'#d84315',out:'#6e3421',style:1,acc:'🎆'} },
  { id:'momiji', name:'モミジ', rar:'SR', el:'fire', role:'DEB', hp:690, atk:128, def:58,
-   s1:SK('紅葉落とし','debuffAtk',0), s2:SK('かえでの毒針','dmgDebuff',1.2),
+   s1:SK('紅葉斬り','debuffAtk',0), s2:SK('かえでの毒針','dmgDebuff',1.2),
    burst:SK('緋の葉嵐','dmgAll',2.4,{extra:'敵全体の防御-20%（2ターン）'}),
    passive:PA('毒の知識','chainDmg',8),
    flavor:'薬草と毒に詳しい山育ちの猫。笑顔でさらりと急所を突く。',
@@ -1039,14 +1052,14 @@ const CHARS = [
    voice:['にゃーん！…あ、鳴き方間違えた？','海の男にゃ、荒波が似合うのさ！','魚はあとで分けてやるからな！'],
    pt:{hair:'#4fc3f7',ear:'#81d4fa',eye:'#01579b',out:'#37474f',style:2,acc:'⚓'} },
  { id:'kohaku', name:'コハク', rar:'SR', el:'water', role:'HEAL', hp:680, atk:126, def:60,
-   s1:SK('琥珀の雫','heal',2.6), s2:SK('清流の守り','shield',1.8),
+   s1:SK('琥珀スプラッシュ','heal',2.6), s2:SK('清流クラッシュ','shield',1.8),
    burst:SK('琥珀色の奇跡','heal',5.2,{x:'cleanse',extra:'対象の弱体効果を全て解除'}),
    passive:PA('清らかな心','healUp',15),
    flavor:'川辺の薬屋の看板猫。琥珀色の瞳は、痛みの在り処を見抜く。',
    voice:['はい、絆創膏ペタッとな。','痛いの痛いの、飛んでいけー。','無理したら、また来るんだよ？'],
    pt:{hair:'#80cbc4',ear:'#b2dfdb',eye:'#ef8f16',out:'#e0f2f1',style:1,acc:'💊'} },
  { id:'wakaba', name:'ワカバ', rar:'SR', el:'wood', role:'HEAL', hp:700, atk:124, def:58,
-   s1:SK('若葉の癒し','heal',2.5), s2:SK('新緑の風','regen',0.9),
+   s1:SK('若葉カッター','heal',2.5), s2:SK('新緑ストーム','regen',0.9),
    burst:SK('芽吹きの祝祭','healAll',2.9),
    passive:PA('新緑の息吹','hpAll',8),
    flavor:'春の森から来た若葉の猫。そばにいるだけで、なんだか元気になる。',
@@ -1067,7 +1080,7 @@ const CHARS = [
    voice:['あたしの光、目に焼き付けなさい！','キラキラは正義なのよ。','ふふん、次はもっと眩しくいくわ。'],
    pt:{hair:'#fff59d',ear:'#fff9c4',eye:'#f9a825',out:'#fff8e1',style:1,acc:'💎'} },
  { id:'yomi', name:'ヨミ', rar:'SR', el:'dark', role:'DEB', hp:695, atk:130, def:56,
-   s1:SK('黄泉の囁き','debuffDef',0), s2:SK('魂縫い','dmgDebuff',1.25),
+   s1:SK('黄泉の鎌','debuffDef',0), s2:SK('魂縫い','dmgDebuff',1.25),
    burst:SK('黄泉比良坂','dmgAll',2.5,{extra:'敵全体の攻撃-20%（2ターン）'}),
    passive:PA('冥府の知識','chainDmg',8),
    flavor:'古い祠に住み着いた物静かな猫。あの世とこの世の境目に詳しい。',
@@ -1082,7 +1095,7 @@ const CHARS = [
    voice:['にゃんにゃん！今日も元気！','お魚くれたら、もっと頑張る！','負けないもん、絶対！'],
    pt:{hair:'#ffb74d',ear:'#ffcc80',eye:'#6d4c41',out:'#795548',style:2,acc:'🔔'} },
  { id:'chatra', name:'チャトラ', rar:'R', el:'fire', role:'TNK', hp:790, atk:72, def:66,
-   s1:SK('どっしりガード','shield',1.7), s2:SK('体当たり','dmg',1.3),
+   s1:SK('どっしりタックル','shield',1.7), s2:SK('体当たり','dmg',1.3),
    burst:SK('茶トラの壁','shieldAll',2.0),
    passive:PA('どっしり','defAll',6),
    flavor:'大きな体の茶トラ猫。昼寝が好きだが、仲間の前では絶対に退かない。',
@@ -1096,7 +1109,7 @@ const CHARS = [
    voice:['サバサバいこうぜ！','魚の匂い、嗅ぎつけた！','速さなら負けないって！'],
    pt:{hair:'#90a4ae',ear:'#b0bec5',eye:'#37474f',out:'#546e7a',style:2,acc:'🐟'} },
  { id:'yuki', name:'ユキ', rar:'R', el:'water', role:'HEAL', hp:510, atk:88, def:42,
-   s1:SK('雪の手当て','heal',2.2), s2:SK('ふわ雪シールド','shield',1.5),
+   s1:SK('雪のつぶて','heal',2.2), s2:SK('粉雪ブリザード','shield',1.5),
    burst:SK('雪解けの祈り','healAll',2.4),
    passive:PA('やさしさ','healUp',8),
    flavor:'雪のように白い猫。静かで優しく、みんなの痛みをそっと包む。',
@@ -1110,21 +1123,21 @@ const CHARS = [
    voice:['冒険だ、冒険！行くぞー！','高いところから見張ってるね！','次はもっとすごい技出すよ！'],
    pt:{hair:'#a1887f',ear:'#bcaaa4',eye:'#33691e',out:'#6d4c41',style:2,acc:'🧢'} },
  { id:'mint', name:'ミント', rar:'R', el:'wood', role:'SUP', hp:520, atk:86, def:43,
-   s1:SK('ミントの香り','buffDef',0), s2:SK('葉っぱカッター','dmg',1.5),
+   s1:SK('ミントブレス','buffDef',0), s2:SK('葉っぱカッター','dmg',1.5),
    burst:SK('爽やか応援団','buffAtk',0,{extra:'味方全体の攻撃+30%（3ターン）'}),
    passive:PA('爽風','gauge',8),
    flavor:'ハーブ園の番猫。爽やかな香りで、みんなの気持ちをほぐす。',
    voice:['深呼吸、はい吸ってー。','爽やかにいきましょう♪','ミントティー、淹れましょうか？'],
    pt:{hair:'#80cbc4',ear:'#b2dfdb',eye:'#00695c',out:'#e0f2f1',style:3,acc:'🌱'} },
  { id:'shiro', name:'シロ', rar:'R', el:'light', role:'HEAL', hp:515, atk:87, def:42,
-   s1:SK('ほんわかヒール','heal',2.2), s2:SK('おひさまパワー','buffAtk',0),
+   s1:SK('ほんわかパンチ','heal',2.2), s2:SK('おひさまビーム','buffAtk',0),
    burst:SK('まぶしい回復','healAll',2.4),
    passive:PA('ほんわか','hpAll',5),
    flavor:'真っ白なほんわか猫。いるだけで場が和む、天然の癒し役。',
    voice:['ほわほわ～、大丈夫だよ。','おひさまみたいに、ぽかぽか。','ゆっくりでいいんだよ。'],
    pt:{hair:'#fafafa',ear:'#ffffff',eye:'#f9a825',out:'#fff8e1',style:1,acc:'☀️'} },
  { id:'tama', name:'タマ', rar:'R', el:'light', role:'TNK', hp:780, atk:71, def:65,
-   s1:SK('鈴ガード','shield',1.7), s2:SK('鈴の音色','buffDef',0),
+   s1:SK('鈴タックル','shield',1.7), s2:SK('鈴の衝撃波','buffDef',0),
    burst:SK('招き猫の大盤振る舞い','healAll',2.0,{x:'shieldAll',extra:'味方全体にシールド'}),
    passive:PA('招き福','defAll',6),
    flavor:'駅前商店街の看板猫。鈴の音が福を呼ぶと評判。',
@@ -1138,7 +1151,7 @@ const CHARS = [
    voice:['夜は俺の庭だ。ついて来い。','…別に、心配してたわけじゃねえ。','暗闇は怖くない、慣れればな。'],
    pt:{hair:'#37474f',ear:'#263238',eye:'#c0ca33',out:'#263238',style:2,acc:'🌙'} },
  { id:'yoru', name:'ヨル', rar:'R', el:'dark', role:'SUP', hp:525, atk:88, def:41,
-   s1:SK('夜のささやき','debuffAtk',0), s2:SK('星屑集め','dmg',1.5),
+   s1:SK('夜の爪','debuffAtk',0), s2:SK('星屑集め','dmg',1.5),
    burst:SK('静かな夜の帳','debuffDef',0,{all:true,v:0.25,extra:'敵全体の防御-25%（2ターン）'}),
    passive:PA('夜の静けさ','gauge',8),
    flavor:'夜空を眺めるのが好きな物静かな猫。星の位置なら全部覚えている。',
@@ -1297,7 +1310,63 @@ function loadSave(){
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { const d = JSON.parse(raw); if (d && d.v === 1) { S = Object.assign(defaultSave(), d); return; } } } catch(e) {}
   S = defaultSave();
 }
-function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e) {} }
+/* アカウント切替の確定待ち中は書き込みを止める（開いたままの画面が、前の所有者の
+   セーブを新しい所有者の端末ストアへ書いてしまうのを防ぐ。bindSaveToAccount 参照） */
+let saveSuspended = false;
+function save(){ if (saveSuspended) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch(e) {} }
+
+/* ── セーブとアカウントの結び付けガード ──
+   端末ストアは「所有者」単位で、ログイン時に account.js が引き継ぎ（所有者が変われば
+   ストアを入れ替え）を行う。ゲーム画面を開いたままドロワーで別アカウントにログイン
+   すると、開いている画面は前の所有者のセーブをメモリに持ち続けるため、そのまま
+   save() すると新しい所有者のストアへ前の所有者のデータを書いてしまう。所有者の
+   変化を検知したら書き込みを止め、同期完了後にディスクから読み直してホームへ戻す。
+   また起動直後は、ログイン復帰とクラウドマージがゲーム初期化より後に完了すること
+   があるため、初回の所有者確定後に同期を取り直し、マージ結果がディスクへ反映されて
+   いたら読み直す（新しい端末でクラウド側の進行に復帰する経路もこれで塞ぐ）。 */
+let saveBoundUid;            /* undefined=未確定 / null=ゲスト / string=uid */
+let saveDiskRaw = null;      /* 読み込み時点のディスク値（マージでの変化検知用） */
+function accountUidNow(){ try { const u = window.PWAccount && PWAccount.user ? PWAccount.user() : null; return u ? u.uid : null; } catch(e) { return null; } }
+function reloadSaveFromDisk(toHome){
+  loadSave();
+  try { saveDiskRaw = localStorage.getItem(SAVE_KEY); } catch(e) { saveDiskRaw = null; }
+  missionDay(); regenStamina(); arenaTicketRegen();
+  if (toHome) { B = null; go('home'); }
+  else if (curScr !== 'battle') go(curScr);
+  renderResBar();
+}
+function bindSaveToAccount(){
+  try { saveDiskRaw = localStorage.getItem(SAVE_KEY); } catch(e) { saveDiskRaw = null; }
+  if (!window.PWAccount || !PWAccount.onGateChange) { saveBoundUid = null; return; }
+  PWAccount.onGateChange(() => {
+    const uid = accountUidNow();
+    if (saveBoundUid === undefined) {
+      saveBoundUid = uid;
+      if (uid && PWAccount.syncNow) {
+        PWAccount.syncNow().then(() => {
+          if (saveBoundUid !== uid || saveSuspended) return;
+          let raw = null; try { raw = localStorage.getItem(SAVE_KEY); } catch(e) {}
+          /* マージでディスクが読み込み時と違う値になっていたら、それが LWW の勝者。
+             古いメモリ側コピーで上書きしないよう、ディスクから読み直す
+             （新しい端末で初回ログインした時にクラウド側の進行へ復帰する経路もこれ） */
+          if (raw !== saveDiskRaw) reloadSaveFromDisk(false);
+        }).catch(() => {});
+      }
+      return;
+    }
+    if (uid && saveBoundUid !== uid) {
+      saveBoundUid = uid;
+      saveSuspended = true;
+      const done = () => { saveSuspended = false; reloadSaveFromDisk(true); toast('アカウントが切り替わったため、セーブを読み直したよ'); };
+      if (PWAccount.syncNow) {
+        let raced = false;
+        const timer = setTimeout(() => { if (!raced) { raced = true; done(); } }, 6000);
+        PWAccount.syncNow().then(() => { if (!raced) { raced = true; clearTimeout(timer); done(); } }).catch(() => { if (!raced) { raced = true; clearTimeout(timer); done(); } });
+      } else done();
+    }
+    /* ゲスト化（ログアウト）は端末ストアの所有者を変えないので、そのまま続行する */
+  });
+}
 function staminaMax(){ return 100 + (S.rank - 1) * 2; }
 function regenStamina(){
   const now = Date.now(), per = 3 * 60 * 1000;
@@ -1407,6 +1476,7 @@ const sfx = {
 let curScr = 'home';
 function go(scr){
   curScr = scr;
+  const tst = $('#toast'); if (tst) { clearTimeout(tst._h); tst.classList.remove('show'); } /* 画面遷移で前の画面の案内（トースト）を残さない */
   if (document.body) document.body.dataset.scr = scr; /* 低い画面でバトル中だけリソースバーを畳む等のCSS用 */
   ['home','story','party','dex','gacha','arena','raid','shop','battle'].forEach(id => {
     $('#scr-' + id).classList.toggle('hidden', id !== scr);
@@ -1505,7 +1575,7 @@ function renderStory(){
       const key = stageKey(ch, st), cl = S.cleared[key] || {};
       const unlocked = stageUnlocked(ch, st);
       const done = !!cl[curDiff];
-      const stars = done ? '★★★' : (cl.N ? '★☆☆' : '');
+      const stars = done ? '★★★' : ''; /* 星は「表示中の難易度」のクリアだけを示す（他難易度のクリアを漏らさない） */
       const D = DIFFS[curDiff];
       html += '<button class="stageRow" data-stage="' + key + '"' + (unlocked ? '' : ' disabled') + '>' +
         '<span class="no' + (st === 10 ? ' boss' : '') + '">' + ch + '-' + st + '</span>' +
@@ -1524,7 +1594,7 @@ function confirmStage(key){
   openModal(
     '<h3>' + ch + '-' + st + ' ' + esc(stageName(ch, st)) + '（' + D.n + '）</h3>' +
     '<div class="kvRow"><span>消費スタミナ</span><span>⚡ ' + D.stam + '（所持 ' + S.stamina.cur + '）</span></div>' +
-    '<div class="kvRow"><span>敵編成</span><span>' + foes.map(f => f.face + esc(f.name)).join(' ') + '</span></div>' +
+    '<div class="kvRow"><span>敵編成</span><span>' + foes.map(f => f.face + esc(f.name) + ' <span class="elTag el-' + f.el + '">' + EL[f.el].i + EL[f.el].n + '</span>').join(' ') + '</span></div>' +
     '<div class="kvRow"><span>パーティ戦力</span><span>' + fmt(partyPower()) + '</span></div>' +
     (first ? '<div class="kvRow"><span>初回クリア報酬</span><span>💎 ' + D.gem + ' ／ 🪙 ' + (200 + st * 60) + ' ／ 🔷 ' + (8 + st) + '</span></div>' : '<div class="kvRow"><span>クリア報酬</span><span>🪙 ' + (200 + st * 60) + ' ／ 🔷 ' + (8 + st) + '</span></div>') +
     '<button class="btn big" id="mStartBattle" style="margin-top:12px"' + (S.stamina.cur < D.stam ? ' disabled' : '') + '>' + (S.stamina.cur < D.stam ? 'スタミナが足りない' : '出発する！') + '</button>' +
@@ -1946,7 +2016,7 @@ async function foePhase(first){
     const maxC = u => (u && u.waza) ? Math.max.apply(null, u.waza.map(w => w.cost)) : 0;
     let tgt = null;
     if (a && a.energy < maxC(a)) tgt = a;
-    else { tgt = benchOf('foe').find(u => u.energy < maxC(u)) || a; }
+    else { tgt = benchOf('foe').find(u => u.energy < maxC(u)) || null; } /* 全員が最大コストまで貯まっていたら、それ以上は付けない（旧仕様はバトル場へ際限なく付けていた） */
     if (!tgt) break;
     B.foeZone--; tgt.energy++;
     captionPush('相手は ' + tgt.name + ' に⚡を付けた（⚡×' + tgt.energy + '）');
@@ -1956,6 +2026,7 @@ async function foePhase(first){
     await fxWait(230);
     if (!B || B.over) { lockFx(false); return; }
   }
+  B.foeZone = 0; /* 余った発生エネルギーは消える（プレイヤー側と同じ） */
   renderBattle();
   if (checkEnd()) { lockFx(false); return; }
   const act = activeOf('foe');
@@ -2021,7 +2092,8 @@ async function aiPlaySide(side){
     const maxC = Math.max.apply(null, act.waza.map(w => w.cost));
     let guard = 0;
     while (B.zone > 0 && guard++ < 12) {
-      const tgt = act.energy < maxC ? act : (benchOf('ally')[0] || act);
+      const tgt = act.energy < maxC ? act : (benchOf('ally').find(u => u.energy < Math.max.apply(null, u.waza.map(w => w.cost))) || null);
+      if (!tgt) break; /* 全員が最大コストまで貯まっていたら、それ以上は付けない */
       B.zone--; tgt.energy++;
     }
   }
@@ -2254,10 +2326,17 @@ function pokeCardHTML(u, opts){
         if (opts.attacked) extra = '<span class="pkc-used-tag">攻撃済み</span>';
         else if (u.energy < w.cost) extra = '<span class="pkc-lack">あと⚡' + (w.cost - u.energy) + '</span>';
       }
-      return '<' + tag + ' class="pkc-waza' + (can ? ' canUse' : (opts.waza === 'tap' ? ' noUse' : '')) + '" data-waza="' + wi + '"' + (tag === 'button' && !can ? ' disabled' : '') + '>' +
+      /* 表示だけの行（showRow）はボタンと見分けが付くよう平たくする。特に敵の「こうげき」行が
+         自分の攻撃ボタンと紛らわしいという問題への対策（A3） */
+      const rowCls = 'pkc-waza' + (can ? ' canUse' : (opts.waza === 'tap' ? ' noUse' : ' showRow')) + (u.side === 'foe' ? ' foeRow' : '');
+      /* 対面のバトル場との相性が分かる時は、実際に与えるダメージ（弱点1.5倍込み）を表示する。
+         カードの数字は基礎値で、実ダメージは hitUnit が基礎値×属性倍率で決まる（A2） */
+      const tmVs = (!w.all && opts.vsEl) ? typeMult(u.el, opts.vsEl) : 1;
+      const effDmg = Math.max(1, Math.round(w.dmg * tmVs));
+      return '<' + tag + ' class="' + rowCls + '" data-waza="' + wi + '"' + (tag === 'button' && !can ? ' disabled' : '') + '>' +
         '<span class="pkc-cost">' + energyPips(w.cost) + '</span>' +
         '<span class="pkc-wname" title="' + esc(w.n) + '">' + esc(w.n) + '</span>' + extra +
-        '<span class="pkc-dmg">' + fmt(w.dmg) + (w.all ? ' 全体' : '') + '</span></' + tag + '>';
+        '<span class="pkc-dmg">' + fmt(effDmg) + (tmVs > 1 ? ' 弱点' : '') + (w.all ? ' 全体' : '') + '</span></' + tag + '>';
     }).join('');
   }
   h += '</div>';
@@ -2403,7 +2482,7 @@ function battleFxPass(){
     $$('#handRow .pkc').forEach(el => el.classList.add('playable'));
     if (B.phase === 'promote') $$('#allyBench .bcard').forEach(el => el.classList.add('playable'));
   } else if (B.phase === 'player') {
-    const canBench = benchOf('ally').length < 3;
+    const canBench = B.mode !== 'retreat' && benchOf('ally').length < 3; /* 交代先の選択中は手札を無効表示にする */
     $$('#handRow .pkc').forEach(el => el.classList.add(canBench ? 'playable' : 'dimCard'));
   }
 }
@@ -2422,12 +2501,12 @@ function renderBattle(){
   $('#foeBench').innerHTML = benchOf('foe').map(benchChipHTML).join('') || '<div class="benchEmpty">ベンチなし</div>';
   $('#foeCounts').textContent = '手札×' + handOf('foe').length + ' 山札×' + deckOf('foe').length;
   const fa = activeOf('foe');
-  $('#foeActive').innerHTML = fa ? pokeCardHTML(fa, { size:'lg', waza:'show' }) : '<div class="noActive">バトル場なし</div>';
+  $('#foeActive').innerHTML = fa ? pokeCardHTML(fa, { size:'lg', waza:'show', vsEl: (activeOf('ally') || {}).el || null }) : '<div class="noActive">バトル場なし</div>';
   /* 味方：バトル場→ベンチ→手札 */
   const aa = activeOf('ally');
   if (aa) {
     const canW = B.phase === 'player' && !B.over && !B.attacked;
-    $('#allyActive').innerHTML = pokeCardHTML(aa, { size:'lg', waza: B.phase === 'player' ? 'tap' : 'show',
+    $('#allyActive').innerHTML = pokeCardHTML(aa, { size:'lg', waza: B.phase === 'player' ? 'tap' : 'show', vsEl: fa ? fa.el : null,
       canWaza: aa.waza.map(w => canW && aa.energy >= w.cost), attacked: B.attacked });
   } else {
     $('#allyActive').innerHTML = '<div class="noActive">' + (B.phase === 'setup' ? '手札からバトル場に出す<br>キャラを選んでね' : 'バトル場が空いている…') + '</div>';
@@ -2446,7 +2525,9 @@ function renderBattle(){
   $('#energyBox').innerHTML = '発生⚡ <b>' + B.zone + '</b><span class="turnLbl">' + lbl + '</span>';
   $('#energyBox').classList.toggle('zoneReady', B.phase === 'player' && B.zone > 0 && !B.over);
   $('#btnEndTurn').disabled = B.phase !== 'player' || B.over;
-  $('#btnRetreat').disabled = !(B.phase === 'player' && !B.over && !B.retreated && aa && aa.energy >= 1 && benchOf('ally').length);
+  const canRetreat = B.phase === 'player' && !B.over && !B.retreated && aa && aa.energy >= 1 && benchOf('ally').length;
+  $('#btnRetreat').disabled = false; /* 使えない時も押せるままにし、理由はクリック時のトーストで伝える（無効理由が伝わらない問題の対策） */
+  $('#btnRetreat').style.opacity = (canRetreat || B.mode === 'retreat') ? '' : '.45';
   $('#btnRetreat').style.color = B.mode === 'retreat' ? '#ffd76e' : '';
   $('#btnAuto').textContent = B.auto ? '⏸ オート中' : 'オート';
   $('#btnAuto').style.color = B.auto ? '#ffd76e' : '';
@@ -2472,7 +2553,11 @@ function onCardTap(u){
   if (B.phase === 'setup') { if (u.zone === 'hand') placeActive(u); return; }
   if (B.phase === 'promote') { if (u.zone === 'bench' || u.zone === 'hand') resolvePromote(u); return; }
   if (B.phase !== 'player') return;
-  if (u.zone === 'hand') { if (playBench('ally', u)) renderBattle(); else openCardZoom(u); return; }
+  if (u.zone === 'hand') {
+    if (B.mode === 'retreat') { toast('交代先はベンチのキャラだけだよ'); return; }
+    if (benchOf('ally').length >= 3) { toast('ベンチは3体までだよ'); return; } /* 満杯時は理由を示し、詳細は開かない */
+    if (playBench('ally', u)) renderBattle(); else openCardZoom(u); return;
+  }
   if (u.zone === 'bench' && B.mode === 'retreat') { doRetreat(u); return; }
   if ((u.zone === 'active' || u.zone === 'bench') && B.zone > 0) { attachEnergy('ally', u); return; }
   openCardZoom(u);
@@ -2487,6 +2572,7 @@ function onWazaRowTap(wi){
 function endBattle(win){
   if (!B || B.over) return;
   B.over = true; B.result = win;
+  const tst = $('#toast'); if (tst) { clearTimeout(tst._h); tst.classList.remove('show'); } /* 終了時に交代案内などのトーストを残さない */
   if (win) sfx.win(); else sfx.lose();
   captionPush(win ? '🎉 勝利！' : '敗北…');
   if (win) fxConfetti();
@@ -2506,7 +2592,7 @@ function startStoryBattle(ch, st, diff, tutorial){
   regenStamina();
   const D = DIFFS[diff];
   if (!tutorial && S.stamina.cur < D.stam) { toast('スタミナが足りないよ'); return; }
-  if (!tutorial) { S.stamina.cur -= D.stam; save(); }
+  if (!tutorial) { S.stamina.cur -= D.stam; save(); renderResBar(); } /* 消費直後にスタミナ表示を最新化 */
   const key = stageKey(ch, st);
   const foes = stageFoes(ch, st, diff);
   if (tutorial) foes.forEach(f => { f.maxHp = Math.round(f.maxHp * 0.5); f.atk = Math.round(f.atk * 0.55); });
@@ -2539,7 +2625,8 @@ $('#btnAuto').onclick = () => { if (!B) return; B.auto = !B.auto;
   if (B.auto && B.phase === 'setup') { const h = handOf('ally').slice().sort((a, b) => b.maxHp - a.maxHp)[0]; if (h) { placeActive(h); return; } }
   renderBattle(); if (B.auto) autoPlayTurn(); };
 $('#btnRetreat').onclick = () => {
-  if (!B || B.over || B.phase !== 'player' || fxLocked()) return;
+  if (!B || B.over || fxLocked()) return;
+  if (B.phase !== 'player') { toast('交代は自分のターンだけだよ'); return; }
   if (B.retreated) { toast('にげるはターンに1回まで'); return; }
   const act = activeOf('ally');
   if (!act || act.energy < 1) { toast('にげるにはバトル場のエネルギー1個が要るよ'); return; }
@@ -2707,6 +2794,7 @@ function doPulls(n, banner){
   return results;
 }
 function showGachaResults(results, onClose){
+  renderGacha(); /* 結果モーダルの裏でも天井カウンタ・💎・総召喚数を引いた直後の値に更新する */
   const hasUR = results.some(r => r.char.rar === 'UR');
   const hasSSR = !hasUR && results.some(r => r.char.rar === 'SSR');
   $('#urFx').classList.toggle('hidden', !hasUR);
@@ -2860,7 +2948,7 @@ function openHowto(){
      「フレンドコード→codes/{code} get→uid」の get チェーンのみ使用（list は使わない） */
 function fsDb(){ try { if (window.firebase && typeof firebase.firestore === 'function') return firebase.firestore(); } catch(e) {} return null; }
 function pwUser(){ try { return window.PWAccount && PWAccount.user ? PWAccount.user() : null; } catch(e) { return null; } }
-function isMember(){ try { return !!(window.PWAccount && PWAccount.cloudActive && PWAccount.cloudActive()); } catch(e) { return false; } }
+function isMember(){ try { if (!window.PWAccount) return false; if (typeof PWAccount.gateState === 'function') return PWAccount.gateState() === 'member'; return !!(PWAccount.cloudActive && PWAccount.cloudActive()); } catch(e) { return false; } }
 function tierName(rate){ return rate >= 1600 ? '👑 マスター' : rate >= 1300 ? '💠 プラチナ' : rate >= 1100 ? '🥇 ゴールド' : rate >= 900 ? '🥈 シルバー' : '🥉 ブロンズ'; }
 async function resolveFriendUids(){
   const db = fsDb(); if (!db) return [];
@@ -2914,8 +3002,14 @@ async function fetchArenaByUsername(name){
 }
 async function fetchFriendOpponents(){
   const fu = await resolveFriendUids();
-  const out = [];
-  for (const f of fu) { const o = await fetchArenaByUid(f.uid); if (o) { o.kind = 'friend'; out.push(o); } }
+  const me = pwUser();
+  const out = []; const seen = new Set();
+  for (const f of fu) {
+    if (!f || !f.uid || seen.has(f.uid)) continue; /* 同一 uid の重複取得を防ぐ */
+    if (me && f.uid === me.uid) continue; /* 自分自身は対戦相手にしない */
+    seen.add(f.uid);
+    const o = await fetchArenaByUid(f.uid); if (o) { o.kind = 'friend'; out.push(o); }
+  }
   return out;
 }
 function lockHTML(what){
@@ -2955,10 +3049,15 @@ function renderArena(){
     bindOppRows(res);
   };
   const renderOpps = list => {
-    $('#arOpponents').innerHTML = list.map(oppRowHTML).join('') || '<p class="note">フレンドの防衛編成はまだ無いよ。下のライバルと戦おう。</p>';
+    /* 同一人物が複数経路から重複して並ばないよう名前で一意化する。以前はランキング側で
+       list（フレンド＋HOUSE_RIVALS）に HOUSE_RIVALS を再度 concat しており、全ライバルが2回ずつ表示されていた */
+    const seenN = new Set(); const uniq = [];
+    list.forEach(o => { if (o && o.name && !seenN.has(o.name)) { seenN.add(o.name); uniq.push(o); } });
+    $('#arOpponents').innerHTML = uniq.map(oppRowHTML).join('') || '<p class="note">フレンドの防衛編成はまだ無いよ。下のライバルと戦おう。</p>';
     bindOppRows($('#arOpponents'));
-    const rows = [{ name: (pwUser() || {}).username || 'あなた', rate: S.arena.rate, me: true }]
-      .concat(list.map(o => ({ name: o.name, rate: o.rate })), HOUSE_RIVALS.map(o => ({ name: o.name, rate: o.rate })))
+    const meName = (pwUser() || {}).username || 'あなた';
+    const rows = [{ name: meName, rate: S.arena.rate, me: true }]
+      .concat(uniq.filter(o => o.name !== meName).map(o => ({ name: o.name, rate: o.rate })))
       .sort((a, b) => b.rate - a.rate);
     $('#arRanking').innerHTML = rows.map((r, i) => '<div class="rankRow' + (r.me ? ' me' : '') + '"><span>' + (i + 1) + '位</span><span style="flex:1">' + esc(r.name) + '</span><span>' + r.rate + '</span></div>').join('');
   };
@@ -2982,7 +3081,7 @@ function bindOppRows(container){
 function startArenaBattle(opp){
   arenaTicketRegen();
   if (S.arena.tickets < 1) { toast('挑戦チケットが足りないよ（30分で回復）'); return; }
-  S.arena.tickets--; save();
+  S.arena.tickets--; save(); renderResBar();
   newBattle({ kind:'arena', allyIds: S.party.slice(), foeParty: opp.team,
     meta: { title:'アリーナ vs ' + opp.name, backScr:'arena', opp,
       onEnd: win => {
@@ -3095,7 +3194,7 @@ async function startRaidBattle(){
   const total = contribs.reduce((s, x) => s + x.dmg, 0);
   const remain = boss.maxHp - total;
   if (remain <= 0) { toast('このボスは討伐済み！報酬を受け取ってね'); return; }
-  S.stamina.cur -= 10; save();
+  S.stamina.cur -= 10; save(); renderResBar(); /* 消費直後にスタミナ表示を最新化 */
   const runHp = Math.min(remain, Math.ceil(boss.maxHp * 0.25));
   const foe = { foeId:'raidboss', name: boss.name, el: boss.el, face: boss.face, col: boss.col, boss: true,
     maxHp: runHp, atk: boss.atk, def: boss.def, intents: [['atk',40],['heavy',35],['debuff',10],['buff',15]] };
@@ -3203,6 +3302,7 @@ function skipTutorial(){
 /* ════════════════ 初期化 ════════════════ */
 function init(){
   loadSave();
+  bindSaveToAccount();
   missionDay(); regenStamina(); arenaTicketRegen(); raidState();
   $$('#tabBar button').forEach(b => b.onclick = () => { sfx.tap(); go(b.dataset.go); });
   $('#menuHowto').onclick = openHowto;

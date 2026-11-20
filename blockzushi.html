@@ -485,7 +485,7 @@ function startGame(){
   initBlocks();
   gameState = 'playing';
   bannerText = 'STAGE 1'; bannerT = performance.now();
-  updateUI(); updatePUBar();
+  updateUI(); updatePUBar(); updateComboUI();
   startLoop();
 }
 function nextStage(){
@@ -501,7 +501,7 @@ function nextStage(){
   initBlocks();
   gameState = 'playing';
   bannerText = 'STAGE ' + stage; bannerT = performance.now();
-  updateUI(); updatePUBar();
+  updateUI(); updatePUBar(); updateComboUI();
   startLoop();
 }
 function stageClear(){
@@ -565,6 +565,7 @@ function gameOver(){
     return;
   }
   sfx.over();
+  refreshBest();   /* 判定前に後着マージを取り込む（小さいスコアで大きなベストを上書きしない） */
   const isBest = finalScore > best.score;
   if(isBest){
     best = { score: finalScore, stage: stagesCleared + 1 };
@@ -1136,7 +1137,22 @@ function drawIdle(now){
 }
 
 /* ══════════════ UI ══════════════ */
+/* BEST表示の統一: 出所は localStorage 'blockzushi_best'（{score, stage}）に一本化する。
+   account.js のクラウドマージは読み込み後に非同期でストレージを書き戻すため、
+   起動時に一度読んだだけではメモリ側 best が古くなり、起動時に一度だけ設定する
+   タイトル表示と HUD 表示が食い違い、さらに古い best を基準にした gameOver 判定が
+   大きなベストを小さいスコアで上書きする事故が起きていた。表示・判定の前に必ず
+   ストレージと突き合わせ、メモリ側は常に大きい方へ寄せる（blockblast と同型） */
+function refreshBest(){
+  try{
+    const b = JSON.parse(localStorage.getItem('blockzushi_best') || 'null');
+    if(b && b.score > best.score) best = { score: b.score, stage: b.stage || 0 };
+  }catch(e){}
+  $('uiBest').textContent = Math.max(best.score, score).toLocaleString();
+  $('titleBest').textContent = best.score ? `🏆 ハイスコア ${best.score.toLocaleString()}（ステージ ${best.stage} 到達）` : '';
+}
 function updateUI(){
+  refreshBest();
   $('uiStage').textContent = stage;
   $('uiBest').textContent = Math.max(best.score, score).toLocaleString();
   $('livesVl').textContent = livesLeft > 0 ? '❤️'.repeat(Math.min(livesLeft, 9)) : '💔';
@@ -1146,7 +1162,7 @@ function updateUI(){
 function updateComboUI(){
   const cb = $('comboBox');
   if(combo >= 4){ cb.classList.add('hot'); $('uiCombo').textContent = '×' + comboMult(); }
-  else cb.classList.remove('hot');
+  else { cb.classList.remove('hot'); $('uiCombo').textContent = '×1'; }
 }
 function updatePUBar(){
   const bar = $('puBar');
@@ -1245,6 +1261,7 @@ $('resetBtn').addEventListener('click', () => {
   if(mode === 'online' && racePhase === 'racing'){ showToast('対戦中はリセットできません'); return; }
   if(rafId) cancelAnimationFrame(rafId);
   gameState = 'title';
+  refreshBest();   /* タイトルに戻る時も BEST 表示（タイトル／HUD）を最新に揃える */
   showOv('titleOv');
   (function idleLoop(ts){ if(gameState === 'title') { drawIdle(ts); requestAnimationFrame(idleLoop); } })(performance.now());
 });
@@ -1265,7 +1282,8 @@ $('diffSeg').addEventListener('click', e => {
 /* 起動時: 保存済み設定を UI へ同期（変数への読み戻しは宣言部で実施） */
 $('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
 document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('on', x.dataset.d === diff));
-$('titleBest').textContent = best.score ? `🏆 ハイスコア ${best.score.toLocaleString()}（ステージ ${best.stage} 到達）` : '';
+refreshBest();
+window.addEventListener('focus', () => refreshBest());   /* クラウドマージ後着をタイトル／HUDへ反映 */
 
 /* ══════════════ オンライン対戦（PeerJS / WebRTC P2P） ══════════════
    制限時間3分のスコアレース。両者は同じシードで生成した同一配置で

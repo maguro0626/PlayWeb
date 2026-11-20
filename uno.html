@@ -391,6 +391,7 @@ html,body{overscroll-behavior:none;}
     </div>
 
     <button onclick="startMatch()" class="start-btn">▶ ゲームスタート</button>
+    <button onclick="resumeMatch()" id="btn-resume" class="start-btn hidden" style="background:linear-gradient(135deg,#38bdf8,#0369a1);">🔁 つづきから再開</button>
 
     <div class="settings-card" id="online-card">
       <div>
@@ -768,6 +769,7 @@ function buildPlayers(){
 
 function startMatch(){
   if(NET.active){ if(NET.host)netHostStartMatch(); return; }
+  clearResume();
   clearAllTimers();
   const players=buildPlayers();
   G={
@@ -852,6 +854,59 @@ function backToSetup(){
   showEl('screen-setup');
   document.querySelectorAll('.confetti-p,.victory-flash,.eff-flash,.toast-pop,.uno-callout').forEach(e=>e.remove());
   renderStats();
+  refreshResumeBtn();
+}
+
+/* ================= 途中セーブ（ソロ対戦のみ） =================
+   保存タイミングは beginTurn の入口＝ターン境界のみ。山札・捨て札・手札・
+   スコアが整合した状態でだけ保存し、再開時は beginTurn を呼び直して進行を
+   再開する。UNO宣言ウィンドウやNPCの指摘タイマーのような一時的な状態は
+   保存対象外（再開直後は宣言ウィンドウが閉じた状態から始まる）。 */
+const RESUME_KEY='uno_resume_v1';
+function saveResume(){
+  try{
+    if(NET.active||G.online)return;
+    if(!G||G.phase!=='playing')return;
+    const data={
+      v:1,numPlayers:G.numPlayers,difficulty:G.difficulty,target:G.target,
+      deck:G.deck,discard:G.discard,
+      players:G.players.map(p=>({name:p.name,emoji:p.emoji,isNPC:p.isNPC,hand:p.hand,bg:p.bg,out:p.out})),
+      scores:G.scores,round:G.round,starter:G.starter,currentIdx:G.currentIdx,
+      direction:G.direction,activeColor:G.activeColor,
+    };
+    localStorage.setItem(RESUME_KEY,JSON.stringify(data));
+  }catch(e){}
+}
+function clearResume(){try{localStorage.removeItem(RESUME_KEY);}catch(e){}}
+function loadResumeData(){
+  try{
+    const d=JSON.parse(localStorage.getItem(RESUME_KEY));
+    if(d&&d.v===1&&Array.isArray(d.players)&&d.players.length>=2&&Array.isArray(d.deck)&&Array.isArray(d.discard)&&d.discard.length>=1&&Array.isArray(d.scores))return d;
+  }catch(e){}
+  return null;
+}
+function refreshResumeBtn(){
+  const b=document.getElementById('btn-resume');
+  if(b)b.classList.toggle('hidden',!loadResumeData());
+}
+function resumeMatch(){
+  const d=loadResumeData();
+  if(!d){refreshResumeBtn();return;}
+  if(NET.active)return;
+  clearAllTimers();
+  G={
+    numPlayers:d.numPlayers,difficulty:d.difficulty,target:d.target,
+    deck:d.deck,discard:d.discard,players:d.players,
+    scores:d.scores,round:d.round,starter:d.starter,
+    currentIdx:d.currentIdx,direction:d.direction,activeColor:d.activeColor,
+    unoWin:{},pUnoDeclared:false,pUnoWindow:false,drawnCard:null,
+    busy:false,phase:'playing',pendingDraw:0,
+  };
+  hideEl('screen-setup');showEl('screen-game');
+  hideEl('overlay-end');hideEl('overlay-round');hideEl('overlay-cutin');hideEl('overlay-colorpick');hideEl('overlay-ctarget');
+  renderAll();
+  showToast('つづきから再開しました','🔁');
+  addTimer(()=>beginTurn(G.currentIdx),400);
 }
 
 /* 配布アニメーション：山札から各プレイヤーへカードが飛ぶ */
@@ -887,6 +942,8 @@ async function beginTurn(idx){
   // UNO challenge window closes when that player's turn starts (original rule)
   if(G.unoWin[idx]){G.unoWin[idx].open=false;}
   if(idx===0){G.pUnoWindow=false;}
+
+  saveResume();
 
   renderNPC();renderCenter();updateActionBar();updateStatus();updateDirIndicator(false);
   document.getElementById('btn-pass').classList.add('hidden');
@@ -1296,6 +1353,7 @@ function handPoints(p){return p.hand.reduce((a,c)=>a+cardPoints(c),0);}
 function endRound(winnerIdx){
   if(G.phase==='ended')return;
   G.phase='ended';
+  clearResume();
   clearAllTimers();
 
   const winner=G.players[winnerIdx];
@@ -2630,6 +2688,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   syncSeg('target-seg',[0,100,300,500],SETTINGS.target);
   refreshSoundBtns();
   renderStats();
+  refreshResumeBtn();
   consumeJoinParamFallback();
 });
 

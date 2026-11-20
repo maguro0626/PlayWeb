@@ -165,6 +165,7 @@
       text-shadow:0 1px 2px rgba(0,0,0,0.6);
     }
     #shogi-board {
+      touch-action:none; /* タッチドラッグをスクロール扱いせず pointer イベントで受け取る */
       display:grid;
       grid-template-columns:repeat(9,1fr);
       grid-template-rows:repeat(9,1fr);
@@ -418,6 +419,46 @@
     .online-code-row{ display:flex; align-items:center; gap:10px; }
     #online-code{ font-size:30px; font-weight:900; letter-spacing:.22em; color:var(--ink); font-variant-numeric:tabular-nums; }
     .hand-piece.npc.clickable{ cursor:pointer; }
+
+    /* ─── 短い画面向け圧縮レイアウト（390x667等で盤が上下のカードに隠れないように） ─── */
+    @media(max-height:760px){
+      .glass-header{ height:48px; }
+      .mode-bar{ padding-top:6px; }
+      .mode-bar .seg button{ padding:7px 4px; }
+      #online-panel{ padding-top:6px; }
+      .online-card{ padding:9px 11px; gap:7px; }
+      .score-grid{ padding-top:6px; gap:7px; }
+      .score-card{ padding:7px 9px; gap:5px; border-radius:16px; }
+      .komadai{ min-height:27px; }
+      .move-count{ font-size:16px; }
+      #eval-wrap{ padding-top:5px; }
+      .controls{ padding-bottom:8px; }
+      .controls-card{ padding:9px 11px; gap:7px; border-radius:20px; }
+      .btn-dark,.btn-ghost{ padding-top:9px; padding-bottom:9px; }
+    }
+    @media(max-height:680px){
+      .glass-header{ height:44px; }
+      .mode-bar{ padding-top:4px; }
+      .mode-bar .seg button{ padding:5px 4px; font-size:11.5px; }
+      #online-panel{ padding-top:4px; }
+      .online-card{ padding:7px 9px; gap:5px; border-radius:16px; }
+      .online-note{ display:none; }
+      #online-code{ font-size:22px; }
+      #join-code{ padding:7px 10px; }
+      .score-grid{ padding-top:4px; gap:6px; }
+      .score-card{ padding:5px 8px; gap:3px; border-radius:14px; }
+      .komadai{ min-height:22px; padding:2px 4px; }
+      .mini-piece{ width:20px; height:20px; }
+      .mini-piece span{ font-size:9px; }
+      .move-count{ font-size:14px; }
+      #eval-wrap{ display:none; }
+      #board-frame{ padding:16px 16px 8px 8px; }
+      .controls{ padding-bottom:6px; }
+      .controls-card{ padding:7px 9px; gap:5px; border-radius:16px; }
+      .btn-dark,.btn-ghost{ padding-top:7px; padding-bottom:7px; }
+      .btn-mini{ padding:4px 9px; }
+      .seg button{ padding:4px 10px; }
+    }
 
     /* ─── NPC thinking ─── */
     .thinking-dot{display:inline-block;animation:think-bounce 1.1s ease-in-out infinite;font-size:8px;opacity:0.6;}
@@ -1265,6 +1306,10 @@ function updateModeUI(){
   updateLabels();
   updateOnlinePanel();
   updateUI();
+  /* オンラインパネルの表示/非表示で board-wrapper の高さが変わるため、
+     レイアウト確定後に盤サイズを再計算する（従来はパネル表示前の
+     サイズのまま盤がはみ出していた） */
+  requestAnimationFrame(()=>{render();renderHandMinis();});
 }
 function updateLabels(){
   const lp=document.getElementById('label-player-text'),ln=document.getElementById('label-npc-text');
@@ -1327,6 +1372,8 @@ function updateOnlinePanel(){
     main.style.display='block';codeWrap.style.display='none';
     setOnlineInfo('未接続');
   }
+  /* パネルの段階変化（待機→対戦中など）でも高さが変わるため盤を再計算する */
+  requestAnimationFrame(()=>{render();renderHandMinis();});
 }
 function startHost(){
   if(!window.PWMatch){
@@ -2006,6 +2053,56 @@ function handleHandClick(type,owner){
   render();renderHandMinis();
 }
 
+// ─── ドラッグ操作（駒を掴んで移動先で離す）───
+// 従来は click のみ対応で、押したマスと離したマスが違うドラッグ操作では
+// click が盤要素側に発火してしまい、選択も移動もされなかった。
+// しきい値以上動いた場合だけドラッグとして扱い、通常のタップ
+// （同一マスで押して離す → click で処理）には影響させない。
+let dragTrack=null;
+(function initDrag(){
+  const boardEl=document.getElementById('shogi-board');
+  if(!boardEl)return;
+  /* move/up は window で受け、セル判定は座標から行う。
+     render() でセル要素が作り直されると、タッチの暗黙ポインタキャプチャ先
+     （押した瞬間のセル）が切り離され、盤要素へのバブリングが届かず
+     ドラッグが無反応になる端末があるため、e.target には依存しない */
+  const cellAt=(x,y)=>{
+    const b=boardEl.getBoundingClientRect();
+    if(x<b.left||x>=b.right||y<b.top||y>=b.bottom)return null;
+    return {r:Math.floor((y-b.top)/(b.height/9)),c:Math.floor((x-b.left)/(b.width/9))};
+  };
+  boardEl.addEventListener('pointerdown',e=>{
+    if(e.isPrimary===false)return;
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    const cl=cellAt(e.clientX,e.clientY);
+    dragTrack=cl?{x:e.clientX,y:e.clientY,r:cl.r,c:cl.c,active:false}:null;
+  });
+  window.addEventListener('pointermove',e=>{
+    if(!dragTrack||dragTrack.active)return;
+    if(Math.hypot(e.clientX-dragTrack.x,e.clientY-dragTrack.y)<12)return;
+    dragTrack.active=true;
+    if(isAnimating||!gameActive||!canControl(turn))return;
+    const p=board[dragTrack.r]&&board[dragTrack.r][dragTrack.c];
+    if(p&&p.owner===turn){
+      selected={r:dragTrack.r,c:dragTrack.c};
+      validMoves=legalMovesFor(dragTrack.r,dragTrack.c,board);
+      render();renderHandMinis();
+    }
+  },{passive:true});
+  window.addEventListener('pointerup',e=>{
+    if(!dragTrack)return;
+    const dt=dragTrack;
+    dragTrack=null;
+    if(!dt.active||!selected||selected.drop)return;
+    if(selected.r!==dt.r||selected.c!==dt.c)return; /* 掴んだ駒の選択でなければ何もしない */
+    const cl=cellAt(e.clientX,e.clientY);
+    if(!cl)return;
+    if(!validMoves.some(([vr,vc])=>vr===cl.r&&vc===cl.c))return;
+    handleHumanMove(selected.r,selected.c,cl.r,cl.c);
+  });
+  window.addEventListener('pointercancel',()=>{dragTrack=null;});
+})();
+
 // ═══════════════════════════════════════════════════════════
 // PROMOTION MODAL
 // ═══════════════════════════════════════════════════════════
@@ -2262,18 +2359,22 @@ function showBanner(msg,size=54){
 function buildCoords(sz){
   const frame=document.getElementById('board-frame');
   frame.querySelectorAll('.coord-label').forEach(e=>e.remove());
+  /* 座標ラベルの位置は盤枠の実パディングに合わせる（短い画面向けに
+     パディングを詰めてもラベルがずれないように） */
+  const fcs=getComputedStyle(frame);
+  const padL=parseFloat(fcs.paddingLeft)||12, padT=parseFloat(fcs.paddingTop)||24;
   const cell=sz/9;
   for(let c=0;c<9;c++){
     const el=document.createElement('div');
     el.className='coord-label';
-    el.style.cssText=`left:${12+(c+0.5)*cell}px;top:5px;transform:translateX(-50%);font-size:${Math.max(9,cell*0.3)}px;`;
+    el.style.cssText=`left:${padL+(c+0.5)*cell}px;top:${Math.max(1,padT-19)}px;transform:translateX(-50%);font-size:${Math.max(9,cell*0.3)}px;`;
     el.textContent=FILE_DIGITS[8-c];
     frame.appendChild(el);
   }
   for(let r=0;r<9;r++){
     const el=document.createElement('div');
     el.className='coord-label';
-    el.style.cssText=`top:${24+(r+0.5)*cell}px;right:5px;transform:translateY(-50%);font-size:${Math.max(9,cell*0.3)}px;`;
+    el.style.cssText=`top:${padT+(r+0.5)*cell}px;right:5px;transform:translateY(-50%);font-size:${Math.max(9,cell*0.3)}px;`;
     el.textContent=RANK_KANJI[r];
     frame.appendChild(el);
   }
@@ -2286,8 +2387,16 @@ function render(){
      その場合はビューポートから推定して盤面が消えないようにする */
   const ww=wrapper.clientWidth||window.innerWidth;
   const wh=wrapper.clientHeight||Math.floor(window.innerHeight*0.45);
-  const avail=Math.min(ww,wh)-52;
-  const sz=Math.max(180,Math.floor(avail/9)*9);
+  /* 盤枠（フレームのパディング＋ラッパーのパディング）を含めてラッパー内に
+     収まるサイズにする。旧仕様は下限180pxを強制していたため、短い画面
+     （オンライン表示時の 390x667 等）では盤枠がラッパーからはみ出し、
+     上下のカードに盤の両端が隠れてしまった */
+  const frameEl=document.getElementById('board-frame');
+  const fcs=frameEl?getComputedStyle(frameEl):null;
+  const padW=fcs?(parseFloat(fcs.paddingLeft)||0)+(parseFloat(fcs.paddingRight)||0):36;
+  const padH=fcs?(parseFloat(fcs.paddingTop)||0)+(parseFloat(fcs.paddingBottom)||0):36;
+  const avail=Math.min(ww-12-padW,wh-12-padH);
+  const sz=Math.max(108,Math.floor(avail/9)*9);
   boardEl.style.width=sz+'px';boardEl.style.height=sz+'px';
   buildCoords(sz);
   const cellSz=Math.floor(sz/9);
@@ -2411,7 +2520,13 @@ function syncSideUI(){
 }
 function changeSide(s){
   if(s!=='sente'&&s!=='gote'&&s!=='random')return;
-  if(s===senteChoice){syncSideUI();return;}
+  /* 選択表示と実際の担当側（humanSide）が食い違う状態では、同じボタンの
+     再押下でも必ず選び直せるようにする。食い違いは、復元した保存局面の
+     humanSide と保存済みの手番選択がズレた場合に起こり得て、従来は
+     早期 return で何も起きず「後手を選んだのに先手の駒しか動かない」
+     状態から抜け出せなかった */
+  const sideMatches=s==='random'||(s==='sente'&&humanSide==='player')||(s==='gote'&&humanSide==='npc');
+  if(s===senteChoice&&sideMatches){syncSideUI();return;}
   const prev=senteChoice;
   senteChoice=s;
   try{localStorage.setItem(SHOGI_SIDE_KEY,s);}catch(e){}

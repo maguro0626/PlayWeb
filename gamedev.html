@@ -585,6 +585,9 @@ function monthEnd(){
   if(S.money < 0){
     S.gameOver = true; S.paused = true;
     if(VS.active && !VS.finished){ vsOnBankrupt(); return; }
+    /* 破産状態を即座に保存する: monthEnd は weekTick で週が1に戻った直後に呼ばれるため
+       定期セーブ（週%2）には乗らず、保存しないと復元側で破産を再現できない */
+    save(true);
     showGameOver(); return;
   }
   if(S.money < 300000) toast('⚠️ 資金が心もとない…受託開発で稼ごう');
@@ -1838,6 +1841,14 @@ if(load() && S.started){
   if(loadedFromVs) restoreVsSession();
   if(!S.contractOffers || !S.contractOffers.length) refreshContracts();
   refreshCandidates(false);
+  /* 破産状態で保存されたセーブの復元: 従来はこの判定が無く、gameOver/paused だけが
+     復元されて時間ループが止まったままゲームオーバー画面が出なかった（フリーズに見えた）。
+     資金がマイナスのまま保存されたケース（旧セーブ等）も破産として扱う */
+  if(S.gameOver || S.money < 0){
+    S.gameOver = true; S.paused = true;
+    if(loadedFromVs && VS.finished) showVsResult();
+    else showGameOver();
+  }
 } else {
   S = newState();
   showStart();

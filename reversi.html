@@ -695,6 +695,54 @@ function saveSettings(){
   }catch (e){}
 }
 
+/* ソロ対戦（CPU／対面）の途中保存。オンラインは Firestore マッチ側で
+   再開する設計（tryResumeMatch）のため対象外。保存する状態は盤面・
+   手番・棋譜だけの小さな単一オブジェクトで、startTurn の入口で
+   着手のたびに書き、終局（endGame）で消す。待った用の history は
+   復元しない（復元した対局では待ったは使えない）。 */
+const SOLO_KEY = 'reversi_solo_v1';
+function saveSolo(){
+  try{
+    if (mode === 'online' || gameOver){ localStorage.removeItem(SOLO_KEY); return; }
+    const flat = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) flat.push(board[r][c]);
+    localStorage.setItem(SOLO_KEY, JSON.stringify({
+      mode, board: flat, turn,
+      log: moveLog.map(m => [m.player, m.r, m.c, m.flips]),
+      lastMove: lastMove ? [lastMove.r, lastMove.c] : null
+    }));
+  }catch (e){}
+}
+function tryRestoreSolo(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(SOLO_KEY) || 'null'); }catch (e){}
+  if (!s || (s.mode !== 'cpu' && s.mode !== 'local')) return false;
+  if (!Array.isArray(s.board) || s.board.length !== 64) return false;
+  if (!s.board.every(v => v === 0 || v === 1 || v === 2)) return false;
+  if (!Array.isArray(s.log) || s.log.length === 0) return false;
+  mode = s.mode;
+  els.modeCpu.classList.toggle('on', mode === 'cpu');
+  els.modeLocal.classList.toggle('on', mode === 'local');
+  els.modeOnline.classList.toggle('on', false);
+  els.onlinePanel.classList.add('hidden');
+  els.cpuSettings.style.display = mode === 'cpu' ? '' : 'none';
+  board = initialBoard();
+  for (let i = 0; i < 64; i++) board[i >> 3][i & 7] = s.board[i];
+  turn = s.turn === WHITE ? WHITE : BLACK;
+  moveLog = s.log.map(a => ({player: a[0] | 0, r: a[1] | 0, c: a[2] | 0, flips: a[3] | 0}));
+  lastMove = Array.isArray(s.lastMove) ? {r: s.lastMove[0] | 0, c: s.lastMove[1] | 0} : null;
+  history = [];
+  gameOver = false;
+  thinking = false;
+  passing = false;
+  recorded = false;
+  flipDelayMap = new Map();
+  rendered = Array.from({length: 8}, () => Array(8).fill(EMPTY));
+  startTurn();
+  showToast('前回の対局を再開しました');
+  return true;
+}
+
 function buildBoard(){
   const boardEl = els.board;
   boardEl.innerHTML = '';
@@ -867,6 +915,7 @@ function doMove(m, fromRemote){
 
 function startTurn(){
   render();
+  saveSolo();
   if (gameOver) return;
   /* パス処理中（手番交代タイマー待ち）の再入ガード。同期ハンドラ等から
      startTurn が重ねて呼ばれるとパス記録が二重化し、交代タイマーが複数
@@ -916,6 +965,7 @@ function startTurn(){
 
 function endGame(){
   gameOver = true;
+  saveSolo(); /* 終局した対局は途中保存から消す（再開対象にしない） */
   const {b, w} = countDiscs(board);
   let title, snd, scoreText, recText;
   if (mode === 'local'){
@@ -1549,7 +1599,8 @@ function init(){
     }
   });
 
-  newGame();
+  /* ソロ対戦の途中保存があれば再開し、無ければ新規対局 */
+  if (!tryRestoreSolo()) newGame();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

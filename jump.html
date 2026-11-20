@@ -595,6 +595,10 @@ function respawn(){
 /* ---------- クリア / ゲームオーバー ---------- */
 function fmtTime(ms){ return (ms / 1000).toFixed(1); }
 function stageClear(){
+  /* クリア判定フレームは step() のHUD進捗更新前に return するため、HUDが前フレームの
+     切り捨て値（例: 99%）で止まり、結果表示（scrollX>=length で100%）と食い違った。
+     クリア時はHUD進捗も100%に寄せて一致させる（レース時も自分の進捗は100%が正） */
+  setProg(1); prevProg = 100;
   if (raceActive){ onRaceGoal(); return; }
   gameState = 'CLEAR'; bgmStop();
   sfx.clear(); confetti(player.x + player.size / 2, player.y);

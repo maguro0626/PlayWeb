@@ -388,7 +388,7 @@ html,body{overscroll-behavior:none;}
     <h2>💾 セーブ / ロード</h2>
     <p class="sub">自動セーブとは別に、3つの記録が残せます</p>
     <div id="slots-content"></div>
-    <button onclick="document.getElementById('slots-overlay').classList.add('hidden')" class="btn soft" style="margin-top:6px">とじる</button>
+    <button onclick="closeSlots()" class="btn soft" style="margin-top:6px">とじる</button>
   </div>
 </div>
 
@@ -417,6 +417,7 @@ html,body{overscroll-behavior:none;}
       <div class="row"><span class="k">発見した進化</span><span class="v" id="dead-disc"></span></div>
     </div>
     <button onclick="resetGame()" class="btn" style="background:#fff;color:#17102a">あたらしく始める 🥚</button>
+    <button onclick="openSlots()" class="btn" style="background:rgba(255,255,255,.16);color:#fff;margin-top:10px">💾 セーブ / ロード（スロットから復活）</button>
   </div>
 </div>
 
@@ -1372,7 +1373,17 @@ function getSlots() {
   try { return JSON.parse(localStorage.getItem(SLOT_KEY) || '[null,null,null]'); } catch(e) { return [null,null,null]; }
 }
 function setSlots(s) { try { localStorage.setItem(SLOT_KEY, JSON.stringify(s)); } catch(e) {} }
-function openSlots() { SFX.click(); renderSlots(); document.getElementById('slots-overlay').classList.remove('hidden'); }
+function openSlots() {
+  SFX.click(); renderSlots();
+  /* 死亡画面（z-index 190）から開く場合は死亡画面を一旦隠す。スロット画面（z-index 80）が
+     死亡画面の下に隠れて操作できなくなるため。閉じる/ロード時に死亡状態なら再表示する */
+  document.getElementById('dead-overlay').classList.add('hidden');
+  document.getElementById('slots-overlay').classList.remove('hidden');
+}
+function closeSlots() {
+  document.getElementById('slots-overlay').classList.add('hidden');
+  if (!G.isAlive) showDead(); /* 死亡中に開いた場合は死亡画面へ戻す */
+}
 function renderSlots() {
   const slots = getSlots();
   const wrap = document.getElementById('slots-content');
@@ -1417,6 +1428,9 @@ function loadSlot(i) {
   logEvent('📂', `スロット${i+1}をロードした`);
   updateUI();
   showMsg(`スロット${i+1}から もどってきた！`);
+  /* 生存スロットをロードしたら死亡画面を消す（従来は消えず、復活しても死亡画面が残った）。
+     死亡スロットをロードした場合は死亡画面を出す */
+  document.getElementById('dead-overlay').classList.toggle('hidden', G.isAlive);
   if (!G.isAlive) showDead();
 }
 

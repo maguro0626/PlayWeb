@@ -49,6 +49,18 @@ input[type=text]{background:rgba(0,0,0,.4);border:1px solid var(--line);border-r
 #onlinePane{flex:0 1 auto;min-height:0;overflow-y:auto}
 .pads{flex:1;min-height:0;grid-template-rows:1fr 1fr}
 .pad{aspect-ratio:auto;height:100%}
+/* 低い画面（667px）ではゲストバー＋見出し類で gameArea が圧迫され、
+   パッドが20pxまで潰れていた（QA第6回）。高さ740px以下では説明文を畳み
+   余白を絞ってパッドの高さを確保する */
+@media (max-height:740px){
+  .wrap>.sub{display:none}
+  .ttl{padding:2px 0 0}
+  #soloPane .card{padding:8px}
+  #gameArea>.card{gap:8px;padding:10px}
+  .pads{gap:8px}
+  .level{font-size:17px}
+  .level span{font-size:23px}
+}
 </style>
 <style>
 /* バウンス抑止（麻雀方式：画面固定） */
@@ -103,7 +115,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest
 setTimeout(renderBest,2000);setTimeout(renderBest,5000);
 function setPadsEnabled(en){document.querySelectorAll('.pad').forEach(p=>p.disabled=!en);}
 function flash(c,cb){const el=document.querySelector('.pad[data-c="'+c+'"]');if(el)el.classList.add('lit');tone(FREQS[c],.28,'sine',.15);setTimeout(()=>{if(el)el.classList.remove('lit');if(cb)cb();},320);}
-function playSeq(seq,done){setPadsEnabled(false);$('phaseText').textContent='再生中…よく見てね';let i=0;function next(){if(i>=seq.length){setTimeout(()=>{if(done)done();},250);return;}flash(seq[i],()=>{i++;setTimeout(next,140);});}setTimeout(next,400);}
+let playToken=0;
+function playSeq(seq,done){const tk=++playToken;const m=mode;setPadsEnabled(false);$('phaseText').textContent='再生中…よく見てね';let i=0;function alive(){return tk===playToken&&mode===m;}function next(){if(!alive())return;if(i>=seq.length){setTimeout(()=>{if(alive()&&done)done();},250);return;}flash(seq[i],()=>{if(!alive())return;i++;setTimeout(next,140);});}setTimeout(next,400);}
 // Solo
 let sSeq=[],sInputIdx=0,sPlaying=false;
 /* ベストは「新しい長さに到達した時点」で即保存する。
@@ -121,7 +134,10 @@ if(oPhase==='add'){flash(c);oSeq.push(c);$('levelText').textContent=oSeq.length;
 function resetOnlineGame(){oSeq=[];oInputIdx=0;oPhase='idle';oFinished=false;oRecorded=false;oMyTurn=false;$('levelText').textContent='0';$('gameMsg').textContent='';$('phaseText').textContent='接続を待っています…';$('rematchBtn').classList.add('hidden');setPadsEnabled(false);updateTurnText();}
 function startOnlineHost(){if(!isHost){$('gameMsg').textContent='スタートはホストが押します';return;}const seq=[Math.floor(Math.random()*4)];oSeq=[];oMyTurn=false;oPhase='idle';oFinished=false;oRecorded=false;updateTurnText();$('phaseText').textContent='相手へ最初のシーケンスを送りました';$('gameMsg').textContent='相手のターンを待ってね';sendNet({t:'seq',seq:seq});}
 document.querySelectorAll('.pad').forEach(p=>{p.addEventListener('click',()=>{const c=parseInt(p.dataset.c,10);if(mode==='solo'){if(sPlaying)soloTap(c);}else{if(oPhase==='repro'||oPhase==='add')onlineTap(c);}});});
-document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);if(on){resetOnlineGame();}else{$('turnText').classList.add('hidden');setPadsEnabled(false);$('phaseText').textContent='スタートを押してね';$('levelText').textContent='0';}tone(660,.08,'sine',.08);});});
+document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);playToken++;if(on){resetOnlineGame();}else{/* オンライン側の文言・状態をソロへ持ち越さない（QA35: 非ホストが
+オンラインスタートを押した時の「スタートはホストが押します」や対戦結果・
+再戦ボタンが gameMsg/rematchBtn に残ったままソロへ戻っていた） */
+$('turnText').classList.add('hidden');setPadsEnabled(false);$('phaseText').textContent='スタートを押してね';$('levelText').textContent='0';$('gameMsg').textContent='';$('rematchBtn').classList.add('hidden');sSeq=[];sInputIdx=0;sPlaying=false;}tone(660,.08,'sine',.08);});});
 $('soloStartBtn').addEventListener('click',soloStart);
 $('onlineStartBtn').addEventListener('click',startOnlineHost);
 $('rematchBtn').addEventListener('click',()=>{if(isHost){startOnlineHost();}else{sendNet({t:'rematch'});$('gameMsg').textContent='再戦を申し込みました…';}});

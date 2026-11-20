@@ -212,17 +212,17 @@ html,body{overscroll-behavior:none;}
       <div class="card p-5 mb-4">
         <div class="text-4xl mb-3">🌐</div>
         <div class="font-black text-sm text-white mb-1">オンライン対戦</div>
-        <div class="text-sm text-blue-200 mb-4 leading-relaxed">友達と1対1のモンスターバトル！両者とも <b>Lv.50・3体編成</b> で対戦します（ストーリーのセーブは使いません）。</div>
+        <div class="text-sm text-blue-200 mb-4 leading-relaxed">友達と1対1のモンスターバトル！両者とも <b>Lv.50・3体編成</b> で対戦します（ストーリーのセーブは使いません）。<br>オンラインは<b>フレンド招待制</b>です（コード入力はありません）。「フレンドを招待して対戦」からフレンドを招待してください。参加はフレンドからの招待からだけできます。</div>
         <button onclick="ovHostRoom()" class="bbtn w-full py-4 rounded-2xl font-black text-sm text-white mb-3" style="background:linear-gradient(135deg,#5a2a8a,#8a2acc);border:1px solid #c04aff">🏠 部屋を作る</button>
         <div id="ov-code-wrap" class="hidden mb-3">
-          <div class="sl text-center mb-2" style="color:#c9a6ff">ルームコード（相手に伝えてね）</div>
+          <div class="sl text-center mb-2" style="color:#c9a6ff">フレンド招待用コード（招待で自動送信されます）</div>
           <div class="ov-code" id="ov-room-code">------</div>
           <button onclick="ovCopyCode()" class="bbtn w-full py-2.5 mt-2 rounded-xl font-bold text-xs" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#c8d8e8">📋 コードをコピー</button>
         </div>
-        <div class="sl text-center my-3" style="color:#4aaeff">― 相手の部屋に参加する ―</div>
+        <div class="sl text-center my-3" style="color:#4aaeff">― 参加はフレンドからの招待から ―</div>
         <input id="ov-join-code" class="ov-input mb-2" type="text" maxlength="6" placeholder="CODE" autocomplete="off">
         <button onclick="ovJoinRoom()" class="bbtn w-full py-3.5 rounded-2xl font-black text-sm text-white" style="background:linear-gradient(135deg,#1a4a8a,#2a6acc);border:1px solid #4aaeff">🚪 参加する</button>
-        <div id="ov-status" class="text-center mt-4" style="font-size:12px;font-weight:700;color:#aaccff;line-height:1.8">「部屋を作る」か、相手のコードで「参加する」を選んでください。</div>
+        <div id="ov-status" class="text-center mt-4" style="font-size:12px;font-weight:700;color:#aaccff;line-height:1.8">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。</div>
       </div>
       <button onclick="ovLeaveToTitle()" class="bbtn w-full py-3 rounded-2xl font-bold text-sm" style="background:rgba(26,39,56,.8);border:1px solid var(--c-border);color:#8899aa">タイトルにもどる</button>
     </div>
@@ -521,7 +521,7 @@ html,body{overscroll-behavior:none;}
     </div>
     <div class="sl mb-2" style="color:#4aaeff">モンスターボール</div>
     <div id="bag-orbs" class="space-y-2 mb-4"></div>
-    <div class="sl mb-2" style="color:#4aaeff">どうぐ・くすり</div>
+    <div class="sl mb-2" style="color:#4aaeff">どうぐ・くすり（タップで使う）</div>
     <div id="bag-items" class="space-y-2"></div>
     <div id="bag-empty" class="hidden text-center py-4" style="font-size:11px;color:#8899aa">どうぐを持っていない</div>
   </div>
@@ -1464,7 +1464,11 @@ function buildField(loc,entry){
   else if(entry==='fromSouth'){px=5;py=7}
   else{px=5;py=7}
   if(!['path','grass','flower','floor','water'].includes(tiles[py*W+px])){py=4;px=5}
-  FLD={loc,tiles,px,py,npcs,bldgs,exits,sign:signMsg?{...signPos,msg:signMsg}:null,steps:0};
+  /* 向き（調べる判定の優先方向）: 入場経路から初期化する。南から入場（北へ進んできた）→北向き、
+     北から入場→南向き、読み込み・初期配置→南向き。従来は向きの概念が無く fieldAction が
+     北→南→西→東の固定順で最初に当たった対象を開いていたため、施設が2つ隣接するマス
+     （例: マートとジムに挟まれた (9,2)）では意図と違う施設が開き、回り込む必要があった */
+  FLD={loc,tiles,px,py,npcs,bldgs,exits,sign:signMsg?{...signPos,msg:signMsg}:null,steps:0,dir:entry==='fromSouth'?[0,-1]:[0,1]};
 }
 function tileAt(x,y){if(!FLD||x<0||y<0||x>=FIELD_W||y>=FIELD_H)return'rock';return FLD.tiles[y*FIELD_W+x]}
 function renderField(){
@@ -1497,6 +1501,7 @@ function fieldExitTo(destId,entry){
 }
 function fieldMove(dx,dy){
   if(!FLD||curScreen!=='sc-field')return;
+  FLD.dir=[dx,dy]; /* 移動できなくても「そちらを向く」: 壁・施設・人にぶつかる入力で向きが変わる */
   const nx=FLD.px+dx,ny=FLD.py+dy;
   const t=tileAt(nx,ny);
   if(t==='tree'||t==='rock'||t==='npc'||t==='sign'||t==='bldg'){sfx('cancel');return}
@@ -1516,7 +1521,12 @@ function fieldMove(dx,dy){
 }
 function fieldAction(){
   if(!FLD)return;
-  const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+  /* 向いている方向を最優先で調べ、対象が無ければ他の3方向も探す（従来の寛容さは維持）。
+     固定順だけだと隣接する別の施設・人が先にヒットし、目的の施設が開かないことがあった */
+  const base=[[0,-1],[0,1],[-1,0],[1,0]];
+  const dirs=[];
+  if(Array.isArray(FLD.dir))dirs.push(FLD.dir);
+  base.forEach(d=>{if(!dirs.some(x=>x[0]===d[0]&&x[1]===d[1]))dirs.push(d)});
   for(const[dx,dy]of dirs){
     const x=FLD.px+dx,y=FLD.py+dy;const t=tileAt(x,y);
     if(t==='sign'&&FLD.sign){showDialog('🪧','看板',FLD.sign.msg,'とじる',null);return}
@@ -2459,9 +2469,56 @@ function renderBag(){
   allItems.forEach(([id,cnt])=>{
     const def=ITEMS_DEF[id];if(!def)return;
     const div=document.createElement('div');div.className='card p-3 flex items-center gap-3';
-    div.innerHTML=`<span style="font-size:28px">${def.emoji}</span><div class="flex-1"><div class="font-black text-sm text-white">${def.name}</div><div class="text-xs" style="color:#668">${def.desc}</div></div><span class="font-black text-lg text-white">×${cnt}</span>`;
+    /* 回復・状態異常系はフィールド（バッグ画面）からも使えるようにする。
+       従来は表示専用のカードで、使用経路がバトル中の onItem() しか無かった */
+    const usable=def.type==='heal'||def.type==='status';
+    if(usable){div.style.cursor='pointer';div.onclick=()=>useFieldItem(id)}
+    div.innerHTML=`<span style="font-size:28px">${def.emoji}</span><div class="flex-1"><div class="font-black text-sm text-white">${def.name}</div><div class="text-xs" style="color:#668">${def.desc}</div></div>${usable?'<span class="tbadge" style="background:#2a6acc;color:#fff">使う ›</span>':''}<span class="font-black text-lg text-white">×${cnt}</span>`;
     itemsEl.appendChild(div);
   });
+}
+/* フィールドでのどうぐ使用: 対象にできるか（満タン・ひんし・状態異常の有無） */
+function fieldItemTargetOk(def,m){
+  if(!def||!m)return false;
+  if(def.healHp==='revive')return !alive(m);
+  if(def.type==='heal')return alive(m)&&m.hp<m.maxHp;
+  if(def.type==='status'){if(!m.status)return false;const c=def.cureStatus||[];return c.includes('all')||c.includes(m.status)}
+  return false;
+}
+function useFieldItem(id){
+  const def=ITEMS_DEF[id];if(!def||(G.items[id]||0)<=0)return;
+  if(curScreen==='sc-battle')return; /* バトル中は従来どおり onItem() 経由 */
+  if(!G.party.some(m=>fieldItemTargetOk(def,m))){
+    showToast(def.healHp==='revive'?'ひんしのモンスターがいない':def.type==='status'?'治せる状態異常がない':'みんなHPは まんたんだ！');
+    return;
+  }
+  showDialog(def.emoji,def.name,'だれに使いますか？','キャンセル',null);
+  const msgEl=document.getElementById('dlg-msg');msgEl.innerHTML='';
+  const container=document.createElement('div');container.className='space-y-2 mb-4 text-left';
+  G.party.forEach((m,i)=>{
+    const ok=fieldItemTargetOk(def,m);
+    const btn=document.createElement('button');
+    btn.className='w-full flex items-center gap-3 p-3 rounded-xl bbtn'+(ok?'':' opacity-40 pointer-events-none');
+    btn.style.cssText='background:rgba(0,0,0,.06);border:1px solid #eee;font-size:13px;font-weight:700;color:#111';
+    btn.innerHTML=`<div class="flex-1 text-left"><div>${mname(m)} <span style="font-size:11px;color:#888">Lv.${m.lv}</span></div><div style="font-size:11px;color:#888">HP ${m.hp}/${m.maxHp}${m.status?' · 状態異常あり':''}${alive(m)?'':' · ひんし'}</div></div>`;
+    if(ok)btn.onclick=()=>{
+      document.getElementById('ov-dlg').classList.add('hidden');
+      document.getElementById('ov-dlg').classList.remove('flex');
+      applyFieldItem(id,i);
+    };
+    container.appendChild(btn);
+  });
+  msgEl.appendChild(container);
+}
+function applyFieldItem(id,idx){
+  const def=ITEMS_DEF[id];const m=G.party[idx];
+  if(!def||!m||(G.items[id]||0)<=0||!fieldItemTargetOk(def,m))return;
+  let msg='';
+  if(def.healHp==='revive'){m.hp=Math.floor(m.maxHp/2);msg=`${mname(m)}が 復活した！`}
+  else if(def.type==='heal'){const old=m.hp;m.hp=Math.min(m.maxHp,m.hp+(def.healHp||0));msg=`${mname(m)}の HPが ${m.hp-old} 回復した！`}
+  else{m.status=null;msg=`${mname(m)}の 状態異常が治った！`}
+  G.items[id]--;if(G.items[id]<=0)delete G.items[id];
+  save();sfx('heal');showToast(msg);renderBag();
 }
 // SHOP
 function openShop(shopId){
@@ -2657,7 +2714,7 @@ function ovLeaveToTitle(){
   ovEl('ov-lobby').classList.remove('hidden');
   ovEl('ov-select').classList.add('hidden');
   ovEl('ov-code-wrap').classList.add('hidden');
-  ovSetStatus('「部屋を作る」か、相手のコードで「参加する」を選んでください。');
+  ovSetStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。');
   BT=null;
   showScreen('sc-title');
 }
@@ -2681,7 +2738,7 @@ function ovHostRoom(){
   ovPeer.on('open', ()=>{
     ovEl('ov-room-code').textContent=ovRoomCode;
     ovEl('ov-code-wrap').classList.remove('hidden');
-    ovSetStatus('相手の参加を待っています… コードを相手に伝えてください。');
+    ovSetStatus('フレンドの参加を待っています… 招待したフレンドが参加すると対戦が始まります。');
   });
   ovPeer.on('connection', c=>{
     ovSetupConn(c);
@@ -2689,7 +2746,7 @@ function ovHostRoom(){
     ovArmTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
   });
   ovPeer.on('error', err=>{
-    if (err && err.type==='unavailable-id') ovSetStatus('<span class="ov-err">コードが重複しました。もう一度「部屋を作る」を押してください。</span>');
+    if (err && err.type==='unavailable-id') ovSetStatus('<span class="ov-err">部屋を作成できませんでした。もう一度フレンド招待からお試しください。</span>');
     else if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">接続エラーが発生しました。</span>');
   });
   ovPeer.on('disconnected', ()=>{ try{ ovPeer.reconnect(); }catch(e){} });
@@ -2697,14 +2754,14 @@ function ovHostRoom(){
 function ovJoinRoom(){
   if (!ovPeerAvailable()){ ovSetStatus('<span class="ov-err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
   const code=(ovEl('ov-join-code').value||'').trim().toUpperCase();
-  if (code.length!==6){ ovSetStatus('<span class="ov-err">6文字のルームコードを入力してください。</span>'); return; }
+  if (code.length!==6){ ovSetStatus('<span class="ov-err">招待の情報が正しくありません。フレンドからの招待をもう一度開いてください。</span>'); return; }
   ovTeardown(); ovClosing=false;
   ovIsHost=false; ovMySide=1; ovPhase='lobby'; ovRoomCode=code;
   ovSetStatus('接続中…');
   try{ ovPeer=new Peer(undefined, OV_PEER_OPTS); }
   catch(e){ ovSetStatus('<span class="ov-err">接続の作成に失敗しました。</span>'); return; }
   ovPeer.on('open', ()=>{
-    ovArmTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+    ovArmTimer('接続を確立できませんでした。ネットワーク環境を変えて、フレンドからの招待からもう一度お試しください。');
     const c=ovPeer.connect(OV_PREFIX+code, {reliable:true});
     ovSetupConn(c);
     c.on('open', ()=>{
@@ -2713,7 +2770,7 @@ function ovJoinRoom(){
     });
   });
   ovPeer.on('error', err=>{
-    if (err && err.type==='peer-unavailable') ovSetStatus('<span class="ov-err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    if (err && err.type==='peer-unavailable') ovSetStatus('<span class="ov-err">部屋が見つかりませんでした。招待してくれたフレンドにもう一度招待してもらってください。</span>');
     else if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">接続エラーが発生しました。</span>');
   });
 }

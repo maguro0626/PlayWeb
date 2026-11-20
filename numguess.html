@@ -107,29 +107,42 @@ function renderBest(){const s=loadSave();$('bestLine').textContent='ベスト: '
 renderBest();
 window.addEventListener('focus',renderBest);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest();});
-setTimeout(renderBest,2000);setTimeout(renderBest,5000);
+setTimeout(renderBest,2000);setTimeout(renderBest,5000);setTimeout(renderBest,10000);
+/* QA46: 認証解決前に初期描画するとベストが「ー」にラッチされ、従来の
+   focus/2秒/5秒だけではクラウドマージが遅れた時に取りこぼした。
+   ゲーム側には PWAccount.onGateChange（認証状態変化フック）があるので、
+   ゲート確定時に再描画し、さらに syncNow() のマージ完了後にも再描画する。
+   ヘッダーのゲスト/メンバー表示そのものは account.js 側の updatePill が
+   ゲート変化で更新する責務（ゲーム側では触らない）。 */
+if(window.PWAccount&&PWAccount.onGateChange){try{PWAccount.onGateChange(()=>{renderBest();try{const p=PWAccount.syncNow&&PWAccount.syncNow();if(p&&p.then)p.then(()=>renderBest());}catch(e){} setTimeout(renderBest,1500);});}catch(e){}}
 document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);$('soloGame').classList.toggle('hidden',on);$('onlineGame').classList.toggle('hidden',!on);tone(660,.08,'sine',.08);});});
 // Solo
 let sSecret=0,sTries=0,sLo=1,sHi=100,sActive=false,sHist=[];
 function soloStart(){sSecret=1+Math.floor(Math.random()*100);sTries=0;sLo=1;sHi=100;sActive=true;sHist=[];$('soloGuessBtn').disabled=false;$('soloHint').textContent='数字を予想してね！';$('soloMsg').textContent='';$('rangeText').textContent='1 〜 100';$('soloHist').innerHTML='';$('soloInput').value='';tone(523,.12,'sine',.1);tone(784,.12,'sine',.1,.1);}
-function soloGuess(){if(!sActive)return;const n=parseInt($('soloInput').value,10);if(isNaN(n)||n<1||n>100){$('soloHint').textContent='1〜100で入力してね';return;}sTries++;if(n===sSecret){sActive=false;$('soloGuessBtn').disabled=true;$('soloHint').textContent='🎉 正解！ '+n;$('soloMsg').textContent=sTries+'手で当てました！';sHist.unshift('<b>'+n+'</b> → 正解！');tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.25,'sine',.12,.24);const bs=loadSave();if(bs.best===null||sTries<bs.best){bs.best=sTries;storeSave(bs);}}else if(n<sSecret){sLo=Math.max(sLo,n+1);$('soloHint').textContent='もっと大きい ⬆';sHist.unshift('<b>'+n+'</b> → もっと大きい');tone(330,.12,'square',.07);}else{sHi=Math.min(sHi,n-1);$('soloHint').textContent='もっと小さい ⬇';sHist.unshift('<b>'+n+'</b> → もっと小さい');tone(220,.12,'square',.07);}$('rangeText').textContent=sLo+' 〜 '+sHi;$('soloHist').innerHTML=sHist.join('<br>');$('soloInput').value='';}
+function soloGuess(){if(!sActive)return;const n=parseInt($('soloInput').value,10);if(isNaN(n)||n<1||n>100){/* QA38: 従来は hint 1行だけ差し替わり「無反応」に見えた。
+   msg 行にも警告を出し、エラー音も鳴らして反応を明確にする（手数は数えない） */
+$('soloHint').textContent='1〜100で入力してね';$('soloMsg').textContent='⚠ 1〜100の数字を入力してね';tone(220,.15,'square',.08);return;}if(n<sLo||n>sHi){/* QA38: 絞り込み済み範囲の外は候補になり得ない。警告なく受け付けて
+   手数を消費していたため、警告して受け付けない（手数・履歴に残さない） */
+$('soloHint').textContent='その数字はもう候補外だよ';$('soloMsg').textContent='⚠ 絞り込み範囲 '+sLo+'〜'+sHi+' の外です（候補ではありません）';tone(220,.15,'square',.08);return;}$('soloMsg').textContent='';sTries++;if(n===sSecret){sActive=false;$('soloGuessBtn').disabled=true;$('soloHint').textContent='🎉 正解！ '+n;$('soloMsg').textContent=sTries+'手で当てました！';sHist.unshift('<b>'+n+'</b> → 正解！');tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.25,'sine',.12,.24);const bs=loadSave();if(bs.best===null||sTries<bs.best){bs.best=sTries;storeSave(bs);}}else if(n<sSecret){sLo=Math.max(sLo,n+1);$('soloHint').textContent='もっと大きい ⬆';sHist.unshift('<b>'+n+'</b> → もっと大きい');tone(330,.12,'square',.07);}else{sHi=Math.min(sHi,n-1);$('soloHint').textContent='もっと小さい ⬇';sHist.unshift('<b>'+n+'</b> → もっと小さい');tone(220,.12,'square',.07);}$('rangeText').textContent=sLo+' 〜 '+sHi;$('soloHist').innerHTML=sHist.join('<br>');$('soloInput').value='';}
 $('soloStartBtn').addEventListener('click',soloStart);
 $('soloGuessBtn').addEventListener('click',soloGuess);
 $('soloInput').addEventListener('keydown',e=>{if(e.key==='Enter')soloGuess();});
 // Online state
 let mySecret=0,myReady=false,oppReady=false,started=false,myTurn=false,finished=false,recorded=false,myHistArr=[],oppHistArr=[];
+let oLo=1,oHi=100; /* 自分の予想に対する回答から絞り込んだ候補範囲（QA38オンライン版） */
 function renderOnlineTurn(){const t=$('turnText');if(!started||finished){t.classList.add('hidden');return;}t.classList.remove('hidden');t.textContent=myTurn?'🟢 あなたのターンです':'⏳ 相手のターンです';$('onlineGuessBtn').disabled=!myTurn;}
 function checkStart(){if(myReady&&oppReady&&!started){started=true;$('readyMsg').textContent='対戦開始！';myTurn=isHost;renderOnlineTurn();tone(784,.15,'sine',.1);}}
 function finishOnline(win){if(finished)return;finished=true;started=false;renderOnlineTurn();$('onlineMsg').textContent=win?'🎉 あなたの勝ち！':'😢 相手が先に当てました…';$('rematchBtn').classList.remove('hidden');if(!recorded){recorded=true;if(window.PWFriends&&PWFriends.recordMatch)PWFriends.recordMatch(win?'win':'lose');}if(win){tone(523,.15,'sine',.12);tone(784,.25,'sine',.12,.15);}else tone(220,.3,'sine',.1);}
-function resetOnlineGame(){mySecret=0;myReady=false;oppReady=false;started=false;myTurn=false;finished=false;recorded=false;myHistArr=[];oppHistArr=[];$('myHist').innerHTML='';$('oppHist').innerHTML='';$('onlineMsg').textContent='';$('onlineHint').textContent='';$('readyMsg').textContent='';$('mySecretInput').value='';$('onlineInput').value='';$('readyBtn').disabled=false;$('rematchBtn').classList.add('hidden');renderOnlineTurn();}
+function resetOnlineGame(){mySecret=0;myReady=false;oppReady=false;started=false;myTurn=false;finished=false;recorded=false;oLo=1;oHi=100;myHistArr=[];oppHistArr=[];$('myHist').innerHTML='';$('oppHist').innerHTML='';$('onlineMsg').textContent='';$('onlineHint').textContent='';$('readyMsg').textContent='';$('mySecretInput').value='';$('onlineInput').value='';$('readyBtn').disabled=false;$('rematchBtn').classList.add('hidden');renderOnlineTurn();}
 $('readyBtn').addEventListener('click',()=>{const n=parseInt($('mySecretInput').value,10);if(isNaN(n)||n<1||n>100){$('readyMsg').textContent='1〜100で入力してください';return;}mySecret=n;myReady=true;$('readyBtn').disabled=true;$('readyMsg').textContent='準備完了！相手を待っています…';sendNet({t:'ready'});tone(660,.1,'sine',.1);checkStart();});
-$('onlineGuessBtn').addEventListener('click',()=>{if(!started||!myTurn||finished)return;const n=parseInt($('onlineInput').value,10);if(isNaN(n)||n<1||n>100){$('onlineHint').textContent='1〜100で入力してね';return;}$('onlineGuessBtn').disabled=true;sendNet({t:'guess',n:n});$('onlineHint').textContent=n+' と予想しました…';$('onlineInput').value='';});
+$('onlineGuessBtn').addEventListener('click',()=>{if(!started||!myTurn||finished)return;const n=parseInt($('onlineInput').value,10);if(isNaN(n)||n<1||n>100){$('onlineHint').textContent='1〜100で入力してね';$('onlineMsg').textContent='⚠ 1〜100の数字を入力してね';tone(220,.15,'square',.08);return;}if(n<oLo||n>oHi){/* QA38: 絞り込み済み範囲外は送信せず警告する（ターンを消費しない） */
+$('onlineHint').textContent='その数字はもう候補外だよ';$('onlineMsg').textContent='⚠ 絞り込み範囲 '+oLo+'〜'+oHi+' の外です（候補ではありません）';tone(220,.15,'square',.08);return;}$('onlineMsg').textContent='';$('onlineGuessBtn').disabled=true;sendNet({t:'guess',n:n});$('onlineHint').textContent=n+' と予想しました…';$('onlineInput').value='';});
 $('rematchBtn').addEventListener('click',()=>{if(isHost){resetOnlineGame();sendNet({t:'rematchStart'});$('readyMsg').textContent='再戦！秘密の数字を決めてください';}else{sendNet({t:'rematch'});$('onlineMsg').textContent='再戦を申し込みました…';}});
 function onNetData(m){if(!m||!m.t)return;if(m.t==='ping')return;
 if(m.t==='hello'){setOnlineStatus('接続しました！秘密の数字を決めて準備完了を押してください。');return;}
 if(m.t==='ready'){oppReady=true;$('readyMsg').textContent=myReady?'両者準備完了！':'相手が準備完了しました';checkStart();return;}
 if(m.t==='guess'){const n=m.n;let r;if(n===mySecret)r='hit';else if(n<mySecret)r='up';else r='down';const label=r==='hit'?'正解！':(r==='up'?'もっと大きい':'もっと小さい');oppHistArr.unshift('<b>'+n+'</b> → '+label);$('oppHist').innerHTML=oppHistArr.join('<br>');sendNet({t:'ans',n:n,r:r});if(r==='hit'){finishOnline(false);}else{myTurn=true;renderOnlineTurn();$('onlineHint').textContent='相手が '+n+' と予想 → '+label;}return;}
-if(m.t==='ans'){const label=m.r==='hit'?'🎉 正解！':(m.r==='up'?'もっと大きい ⬆':'もっと小さい ⬇');myHistArr.unshift('<b>'+m.n+'</b> → '+label);$('myHist').innerHTML=myHistArr.join('<br>');$('onlineHint').textContent=label;if(m.r==='hit'){finishOnline(true);}else{myTurn=false;renderOnlineTurn();}return;}
+if(m.t==='ans'){if(m.r==='up')oLo=Math.max(oLo,m.n+1);else if(m.r==='down')oHi=Math.min(oHi,m.n-1);const label=m.r==='hit'?'🎉 正解！':(m.r==='up'?'もっと大きい ⬆':'もっと小さい ⬇');myHistArr.unshift('<b>'+m.n+'</b> → '+label);$('myHist').innerHTML=myHistArr.join('<br>');$('onlineHint').textContent=label;if(m.r==='hit'){finishOnline(true);}else{myTurn=false;renderOnlineTurn();}return;}
 if(m.t==='rematch'){if(isHost){resetOnlineGame();sendNet({t:'rematchStart'});$('readyMsg').textContent='再戦！秘密の数字を決めてください';}return;}
 if(m.t==='rematchStart'){resetOnlineGame();$('readyMsg').textContent='再戦！秘密の数字を決めてください';return;}
 }

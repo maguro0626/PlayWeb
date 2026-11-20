@@ -414,6 +414,7 @@ html,body{overscroll-behavior:none;}
       </details>
 
       <button class="start-btn" onclick="startGame()">ゲームスタート ▶</button>
+      <button class="start-btn hidden" id="btn-resume" onclick="resumeGame()" style="background:linear-gradient(180deg,#7dd3fc,#0284c7); color:#082f49; margin-top:10px;">▶ つづきから再開</button>
 
       <div class="grp-label">🌐 オンライン対戦（最大4人・空き席はCPU）</div>
       <input class="net-input" id="net-name" maxlength="10" placeholder="あなたの名前（例：たろう）">
@@ -614,6 +615,84 @@ try {
   }
 } catch (e) {}
 function persistSettings() { try { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); } catch (e) {} }
+
+/* ================= 途中セーブ（ソロ対戦のみ） =================
+   保存タイミングは processTurn の入口＝ターン境界のみ。場・手札・ターン
+   位置が整合した状態でだけ保存するので、再開時は processTurn を呼び直す
+   だけで安全に続きを進行できる。アニメーション途中や献上中は保存しない。 */
+const LS_RESUME = 'daihugou_resume_v1';
+function saveResume() {
+  try {
+    if (typeof NET !== 'undefined' && NET.mode !== 'solo') return;
+    if (game.state !== 'playing') return;
+    const data = {
+      v: 1,
+      settings: JSON.parse(JSON.stringify(settings)),
+      players: game.players.map(p => ({
+        id: p.id, name: p.name, isCPU: p.isCPU,
+        hand: p.hand.map(c => ({ suit: c.suit, number: c.number })),
+        isFinished: p.isFinished, rankThisRound: p.rankThisRound, rankPos: p.rankPos, lastRank: p.lastRank
+      })),
+      table: { cards: game.table.cards.map(c => ({ suit: c.suit, number: c.number })), lastPlayerId: game.table.lastPlayerId },
+      turnIndex: game.turnIndex, passCount: game.passCount,
+      isRevolution: game.isRevolution, is11Back: game.is11Back, lockSuits: game.lockSuits,
+      finishedCount: game.finishedCount, rankMap: game.rankMap, roundNum: game.roundNum, sortDir: game.sortDir
+    };
+    localStorage.setItem(LS_RESUME, JSON.stringify(data));
+  } catch (e) {}
+}
+function clearResume() { try { localStorage.removeItem(LS_RESUME); } catch (e) {} }
+function loadResumeData() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_RESUME));
+    if (d && d.v === 1 && Array.isArray(d.players) && d.players.length >= 2 && d.players[0] && Array.isArray(d.players[0].hand) && d.table && Array.isArray(d.table.cards)) return d;
+  } catch (e) {}
+  return null;
+}
+function refreshResumeBtn() {
+  const b = document.getElementById('btn-resume');
+  if (b) b.classList.toggle('hidden', !loadResumeData());
+}
+function resumeGame() {
+  const d = loadResumeData();
+  if (!d) { refreshResumeBtn(); return; }
+  if (typeof NET !== 'undefined' && NET.mode !== 'solo') { showToast('オンライン対戦中は再開できません', 1600); return; }
+  SoundFX.ensure(); SoundFX.click();
+  settings = d.settings;
+  persistSettings();
+  refreshSetupUI();
+  game.players = d.players.map(pd => {
+    const p = new Player(pd.id, pd.name, pd.isCPU);
+    p.hand = pd.hand.map(c => new Card(c.suit, c.number));
+    p.isFinished = !!pd.isFinished;
+    p.rankThisRound = pd.rankThisRound;
+    p.rankPos = pd.rankPos;
+    p.lastRank = pd.lastRank;
+    return p;
+  });
+  game.table.cards = d.table.cards.map(c => new Card(c.suit, c.number));
+  game.table.lastPlayerId = d.table.lastPlayerId;
+  game.turnIndex = d.turnIndex;
+  game.passCount = d.passCount || 0;
+  game.isRevolution = !!d.isRevolution;
+  game.is11Back = !!d.is11Back;
+  game.lockSuits = d.lockSuits || null;
+  game.finishedCount = d.finishedCount || 0;
+  game.rankMap = d.rankMap || [];
+  game.roundNum = d.roundNum || 1;
+  game.sortDir = d.sortDir || 1;
+  game.state = 'playing';
+  game.animating = false;
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('screen-game').classList.remove('hidden');
+  document.getElementById('round-label').textContent = `第${game.roundNum}ラウンド`;
+  renderStreakLabel();
+  updateBodyClass();
+  updateStatusBar();
+  renderAll();
+  showToast('つづきから再開しました', 1500);
+  processTurn();
+}
 
 /* ================= ゲーム状態 ================= */
 let game = {
@@ -887,6 +966,7 @@ function refreshSetupUI() {
 /* ================= ゲーム開始 ================= */
 function startGame() {
   if (typeof NET !== 'undefined' && NET.mode !== 'solo') { showToast('オンライン対戦中はソロプレイを開始できません', 1600); return; }
+  clearResume();
   SoundFX.ensure(); SoundFX.click();
   game.players = [new Player('p0', 'あなた', false)];
   for (let i = 1; i <= settings.cpuCount; i++) {
@@ -906,8 +986,10 @@ function backToSetup() {
   document.getElementById('screen-setup').classList.remove('hidden');
   document.body.classList.remove('revolution-active');
   document.getElementById('round-label').textContent = '';
+  game.animating = false;
   renderStatsBox();
   refreshSetupUI();
+  refreshResumeBtn();
 }
 
 async function startRound() {
@@ -1005,6 +1087,7 @@ async function processExchangeRitual() {
 /* ================= ターン進行 ================= */
 async function processTurn() {
   if (game.state !== 'playing') return;
+  saveResume();
   const current = game.players[game.turnIndex];
   if (current.isFinished) { nextTurn(); return; }
 
@@ -1030,6 +1113,8 @@ async function processTurn() {
     showThinking(current);
     updatePlayerControls();
   } else {
+    /* 自分の判断待ちに入る時点でアクションロックを解除する（#12） */
+    game.animating = false;
     showToast('あなたのターンです', 1300);
     updatePlayerControls();
   }
@@ -1198,6 +1283,7 @@ async function endRound() {
     return;
   }
   game.state = 'result';
+  clearResume();
   game.rankMap = game.players.map(p => ({ id: p.id, name: p.name, rank: p.rankThisRound, pos: p.rankPos }));
 
   /* 戦績を記録（自分の順位） */
@@ -1293,11 +1379,15 @@ function updatePlayerControls() {
   const btnPass = document.getElementById('btn-pass');
   const btnHint = document.getElementById('btn-hint');
   const myTurn = isMyTurn();
-  btnPlay.classList.toggle('off', !myTurn);
-  btnPass.classList.toggle('off', !myTurn);
-  btnHint.classList.toggle('off', !myTurn);
+  /* アクション実行中（パス/プレイの非同期チェーン進行中）は入力をロックする。
+     ロックしないと、チェーン側の再描画が選択直後のボタン状態を上書きしたり、
+     パスの二度押しでターン処理が二重に走ったりする（#12） */
+  const locked = !myTurn || game.animating;
+  btnPlay.classList.toggle('off', locked);
+  btnPass.classList.toggle('off', locked);
+  btnHint.classList.toggle('off', locked);
   btnPass.classList.remove('pulse');
-  if (!myTurn) return;
+  if (locked) return;
   const player = game.players[0];
   const selected = player.hand.filter(c => c.selected);
   const ok = isValidPlay(evaluatePlay(selected));
@@ -1305,7 +1395,7 @@ function updatePlayerControls() {
   if (playableOptions(player).length === 0) btnPass.classList.add('pulse');
 }
 function handlePlayerPass() {
-  if (!isMyTurn()) return;
+  if (!isMyTurn() || game.animating) return;
   if (typeof NET !== 'undefined' && NET.mode === 'guest') {
     if (NET.actSent) return;
     NET.actSent = true;
@@ -1314,13 +1404,14 @@ function handlePlayerPass() {
     document.getElementById('btn-play').classList.add('off');
     return;
   }
+  game.animating = true;
   game.players[0].hand.forEach(c => c.selected = false);
   renderHand();
   updatePlayerControls();
   handlePass(game.players[0]);
 }
 function handlePlayerPlay() {
-  if (!isMyTurn()) return;
+  if (!isMyTurn() || game.animating) return;
   const player = game.players[0];
   const selected = player.hand.filter(c => c.selected);
   if (!isValidPlay(evaluatePlay(selected))) return;
@@ -1332,6 +1423,7 @@ function handlePlayerPlay() {
     document.getElementById('btn-pass').classList.add('off');
     return;
   }
+  game.animating = true;
   document.getElementById('btn-play').classList.add('off');
   document.getElementById('btn-pass').classList.add('off');
   selected.forEach(c => c.selected = false);
@@ -1626,6 +1718,7 @@ window.addEventListener('load', () => {
   refreshSetupUI();
   renderStatsBox();
   renderStreakLabel();
+  refreshResumeBtn();
   document.body.addEventListener('touchmove', e => {
     if (!e.target.closest('#my-hand') && !e.target.closest('#screen-setup') && !e.target.closest('#modal-card')) {
       e.preventDefault();

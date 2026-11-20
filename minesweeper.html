@@ -164,7 +164,7 @@ html,body{overscroll-behavior:none;}
   </div>
 </div>
 
-<p class="help">左クリック / タップ: 開く　右クリック / 長押し: フラグ 🚩<br>数字を両ボタン同時押し（またはダブルタップ）で周囲を一括オープン（コード）。最初のクリックは絶対に安全です。<br>🌐 オンライン対戦: ふたりとも同じシード＋同じ初手ルールで生成した盤面で勝負。先に全部開けた方が勝ち、地雷を踏んだら負けです。</p>
+<p class="help">左クリック / タップ: 開く　右クリック / 長押し: フラグ 🚩<br>数字を両ボタン同時押し（またはダブルタップ）で周囲を一括オープン（コード）。最初のクリックは絶対に安全です。<br>💾 ソロの途中経過は自動保存され、次に開いたとき「つづきから」再開できます（😊ボタンで新規開始すると破棄）。<br>🌐 オンライン対戦: ふたりとも同じシード＋同じ初手ルールで生成した盤面で勝負。先に全部開けた方が勝ち、地雷を踏んだら負けです。</p>
 
 <script>
 "use strict";
@@ -272,10 +272,11 @@ function cellFromEvent(e){
 $('board').addEventListener('pointerdown', e=>{
   if(e.button!==undefined && e.button>0) return; // 右ボタンは contextmenu（フラグ）に任せる
   const c=cellFromEvent(e); if(!c) return;
+  suppressClick=false; // 新しいジェスチャの開始: 前ジェスチャで消費されなかった suppress を持ち越さない
   press={ cell:c, id:e.pointerId, x:e.clientX, y:e.clientY, px:panX, py:panY, mode:'pending' };
   press.timer=setTimeout(()=>{
     if(press && press.mode==='pending'){ press.mode='flag'; lastLongFlagAt=Date.now(); toggleFlag(press.cell); suppressClick=true; }
-  },380);
+  },500); // 長押し判定は OS 標準の 500ms。380ms だと低速端末/スロットル環境で通常タップ(実測最大296ms@CPU4x)が旗に化ける
 });
 window.addEventListener('pointermove', e=>{
   if(!press || e.pointerId!==press.id) return;
@@ -321,7 +322,7 @@ function timerElapsedSec(){ return timerT0 ? Math.floor((performance.now()-timer
 function renderTimer(){ $('timer').textContent=String(Math.min(999,Math.max(0,seconds))).padStart(3,'0'); }
 function startTimer(){
   if(started) return; started=true;
-  timerT0=performance.now(); seconds=0; renderTimer();
+  timerT0=performance.now()-seconds*1000; renderTimer(); // seconds は init で 0 に戻る。通常は従来どおり 0 始まり、途中セーブ復元時は保存済み経過から再開する
   clearInterval(timerInt);
   /* 経過は「tickで+1」ではなく開始時刻から算出する。tick間隔だけに頼ると、
      ゲームオーバー/クリアが最初のtick前に起きた場合や、バックグラウンドで
@@ -333,7 +334,55 @@ function stopTimer(){
   if(timerT0){ seconds=Math.min(999,timerElapsedSec()); timerT0=0; }
   clearInterval(timerInt); renderTimer();
 }
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && started && timerT0){ seconds=Math.min(999,timerElapsedSec()); renderTimer(); } });
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ saveGame(); } else if(started && timerT0){ seconds=Math.min(999,timerElapsedSec()); renderTimer(); } });
+window.addEventListener('beforeunload', ()=>saveGame());
+/* ===== 途中セーブ（ソロのみ）: 盤面を localStorage に自動保存し、次回「つづきから」再開する =====
+   地雷配置が決まる初手以降だけを保存する（初手前は保存する意味がない）。
+   レース中は保存しない。勝敗が付いたらセーブは消す。経過秒は保存時点の値で止め、
+   復元時にタイマーをその続きから再開する（閉じている間は進まない）。 */
+const SAVE_KEY='ms_save_v1';
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+function saveGame(){
+  if(over){ clearSave(); return; }
+  if(raceActive || netMode!=='solo' || !firstClickDone) return;
+  try{
+    const bits=k=>cells.map(c=>c[k]?'1':'0').join('');
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v:1, diff, mines:bits('mine'), open:bits('open'), flag:bits('flag'), seconds:timerElapsedSec(), started:!!started }));
+  }catch(e){}
+}
+function restoreGame(){
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); }catch(e){}
+  if(!s || s.v!==1 || !DIFFS[s.diff]) return false;
+  const d=DIFFS[s.diff], total=d.w*d.h;
+  const okStr=v=>typeof v==='string' && v.length===total;
+  if(!okStr(s.mines) || !okStr(s.open) || !okStr(s.flag)){ clearSave(); return false; }
+  if(s.mines.split('').filter(ch=>ch==='1').length!==d.mines){ clearSave(); return false; }
+  const savedOpen=s.open.split('').filter(ch=>ch==='1').length;
+  if(savedOpen>=total-d.mines){ clearSave(); return false; } // 勝敗確定済みの盤面は復元しない
+  diff=s.diff;
+  document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.toggle('on', x.dataset.d===diff));
+  init();
+  cells.forEach((c,i)=>{ c.mine = s.mines[i]==='1'; });
+  cells.forEach(c=>{ c.n=neighbors(c).filter(n=>n.mine).length; });
+  let openCount=0, flagCount=0;
+  cells.forEach((c,i)=>{
+    if(s.open[i]==='1' && !c.mine){
+      c.open=true; openCount++;
+      c.el.classList.add('open');
+      if(c.n>0){ c.el.textContent=c.n; c.el.classList.add('n'+c.n); }
+    }else if(s.flag[i]==='1'){
+      c.flag=true; flagCount++;
+      c.el.textContent='🚩'; c.el.classList.add('flag');
+    }
+  });
+  opened=openCount; flags=flagCount; firstClickDone=true;
+  $('mineCount').textContent=String(Math.max(-99,M-flags)).padStart(3,'0');
+  seconds=Math.min(999, Math.max(0, s.seconds|0));
+  if(s.started) startTimer(); else renderTimer();
+  $('msg').textContent='▶ つづきから再開しました';
+  return true;
+}
 function onCell(c){
   if(over) return;
   if(flagMode){ toggleFlag(c); return; }
@@ -357,6 +406,7 @@ function openCell(c){
   beep(660,0.04,'triangle',0.03);
   checkWin();
   sendProg(false);
+  saveGame();
 }
 function chord(c){
   if(over||!c.open||c.n===0) return;
@@ -374,10 +424,11 @@ function toggleFlag(c){
   $('mineCount').textContent=String(Math.max(-99,M-flags)).padStart(3,'0');
   beep(c.flag?880:440,0.04,'square',0.03);
   sendProg(false);
+  saveGame();
 }
 function checkWin(){
   if(opened === W*H-M){
-    won=true; over=true; stopTimer();
+    won=true; over=true; stopTimer(); clearSave();
     cells.forEach(c=>{ if(c.mine&&!c.flag){ c.flag=true; c.el.textContent='🚩'; c.el.classList.add('flag'); } });
     $('mineCount').textContent='000';
     $('face').textContent='😎';
@@ -398,7 +449,7 @@ function checkWin(){
   }
 }
 function lose(hit){
-  over=true; stopTimer();
+  over=true; stopTimer(); clearSave();
   cells.forEach(c=>{
     if(c.mine){ c.el.classList.add('mine'); c.el.textContent='💣'; if(c.flag) c.el.textContent='🚩'; }
     else if(c.flag){ c.el.textContent='❌'; }
@@ -419,9 +470,9 @@ function showBest(){
   $('best').textContent = v ? `🏆 ${DIFFS[diff].label}ベスト: ${v}秒` : '';
 }
 document.querySelectorAll('#diffSeg button').forEach(b=>{
-  b.onclick=()=>{ if(raceActive) return; document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); diff=b.dataset.d; init(); };
+  b.onclick=()=>{ if(raceActive) return; document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); diff=b.dataset.d; clearSave(); init(); };
 });
-$('face').onclick=()=>{ if(netMode==='online') return; init(); };
+$('face').onclick=()=>{ if(netMode==='online') return; clearSave(); init(); };
 $('soundBtn').onclick=()=>{ soundOn=!soundOn; $('soundBtn').textContent=soundOn?'🔊 サウンド':'🔇 ミュート'; };
 $('flagMode').onclick=()=>{ flagMode=!flagMode; $('flagMode').textContent='🚩 フラグモード: '+(flagMode?'ON':'OFF'); };
 
@@ -502,6 +553,7 @@ function sendMyStanding(){
 function fmtMs(ms){ return (ms/1000).toFixed(1)+'秒'; }
 
 function startRace(seed, d){
+  clearSave(); // レース盤面は途中セーブ対象外。ソロの旧セーブもここで破棄する
   raceSeed=seed;
   if(DIFFS[d]){ diff=d; document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.toggle('on', x.dataset.d===diff)); }
   raceActive=true; raceResolved=false; myResult=null; oppResult=null; myClearMs=0; oppClearMs=0; raceT0=0;
@@ -765,6 +817,7 @@ function leaveOnline(){
   $('resultModal').classList.remove('show');
   document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x.dataset.m==='solo'));
   setOnlineStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」から始めましょう。');
+  clearSave();
   init();
 }
 function copyRoomCode(){
@@ -812,7 +865,7 @@ $('rematchBtn').onclick=()=>{
     $('rematchNote').textContent='ホストの開始を待っています…';
   }
 };
-init();
+if(!restoreGame()) init();
 </script>
 <script>
 window.PW_GAME='minesweeper';

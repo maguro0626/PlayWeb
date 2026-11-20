@@ -310,22 +310,38 @@
   .ghost-btn:disabled,.start-btn:disabled{opacity:.45; cursor:default}
   .ghost-btn:disabled:active,.start-btn:disabled:active{transform:none}
 
-  /* UI被り・見切れ対策: 背の低い画面(667px級)では場札エリアが潰れて
-     場札の2段目が見えなくなるため、固定セクションを圧縮し場札を縮小して
-     初期配置の8枚が全て収まるようにする(従来の640px以下向け調整を760pxまで拡張) */
+  /* UI被り・見切れ対策: 場札エリアは残りの高さしかもらえないため、
+     390×844 では場パネル231pxに対し2段分の場札が267px必要で2段目の
+     下部（月名・月数ラベル）が切れ、390×667 ではパネル96pxに対し
+     161px必要で2段目がほぼ見えなかった（実測）。画面の高さに応じて
+     場札を縮小し、背の低い画面では固定セクション側も圧縮して、
+     初期配置の8枚（2段）が場パネル内にスクロールなしで収まるようにする */
+  @media (max-height:900px){
+    .field-slot{aspect-ratio:auto}
+    .field-slot .hana-card{width:74%}
+  }
+  @media (max-height:820px){
+    .field-slot .hana-card{width:60%}
+    #player-hand .hana-card{width:min(62px, calc((100vw - 40px)/8))}
+    .caps{min-height:36px}
+  }
   @media (max-height:760px){
-    main{gap:3px}
-    .score-panel{padding:5px 10px}
+    main{gap:2px;padding-bottom:20px}
+    header{height:42px}
+    #matchbar{padding-top:3px;padding-bottom:3px}
+    .score-panel{padding:3px 10px}
     .score-panel .avatar{width:26px;height:26px}
     .sc .v{font-size:20px}
-    .caps{min-height:34px;padding:3px 8px}
-    .cap-group .minis .hana-card{width:18px}
-    #cpu-hand .hana-card{width:29px}
+    .caps{min-height:28px;padding:3px 8px}
+    .cap-group .minis .hana-card{width:16px}
+    #cpu-hand{min-height:0 !important}
+    #cpu-hand .hana-card{width:24px}
+    #player-hand{min-height:0 !important}
     #player-hand .hana-card{width:min(54px, calc((100vw - 40px)/8))}
     #player-yaku{min-height:16px}
     #field-cards{padding:5px;gap:3px}
     .field-slot{aspect-ratio:auto}
-    .field-slot .hana-card{width:58%}
+    .field-slot .hana-card{width:54%}
     #drawn-area .hana-card{width:54px}
   }
 </style>
@@ -465,6 +481,7 @@ html,body{overscroll-behavior:none;}
         <p>手札を場の同じ月の札に合わせて取り、役を作るゲームです。役ができたら「あがり」で確定するか、「こいこい」で続行して大きな役を狙えます。ただしこいこいした後に相手に上がられると、相手の点数が2倍になります。局ごとに親が替わり、最終局終了時の累計点で勝敗が決まります。</p>
       </div>
       <button class="start-btn" id="btn-start">対戦をはじめる</button>
+      <button class="ghost-btn hidden" id="btn-start-new">最初から新しく対戦する</button>
       <button class="ghost-btn" id="btn-start-help">役図鑑をみる</button>
     </div>
   </div>
@@ -1100,7 +1117,18 @@ let toastSyncMute=false;   // trueの間 showToast を状態同期に載せな�
 function startMatch(){
   if(typeof NET!=='undefined' && NET.mode==='guest'){ showToast('オンライン参加中です。ホストの開始を待ってください'); return; }
   if(typeof NET!=='undefined' && NET.mode==='host' && NET.phase==='lobby'){ showToast('オンラインの部屋を作成中です'); return; }
-  totalP=0;totalCPU=0;roundNum=1;matchStarted=true;matchRecorded=false;
+  /* ソロ対戦の途中経過（累計・局数）が保存されていれば続きから再開する。
+     保存は局の開始時点で行うため、再開は「その局の最初から・累計は
+     前局まで確定した値」になる。対戦の長さが保存時と違う場合は
+     新規対戦として扱い、保存も消す。オンライン対戦は対象外。 */
+  const soloMatch = typeof NET==='undefined' || NET.mode==='solo';
+  if(soloMatch && typeof hnSaved!=='undefined' && hnSaved && hnSaved.matchLen===matchLen){
+    totalP=hnSaved.totalP; totalCPU=hnSaved.totalCPU; roundNum=hnSaved.roundNum;
+  }else{
+    totalP=0;totalCPU=0;roundNum=1;
+    if(soloMatch && typeof hnSaved!=='undefined'){ hnSaved=null; try{ localStorage.removeItem(HN_MATCH_KEY); }catch(e){} }
+  }
+  matchStarted=true;matchRecorded=false;
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('result-overlay').classList.add('hidden');
   sfx.agari();
@@ -1120,6 +1148,13 @@ async function startRound(){
   lastCapIds=[];
   dealAnim=true;
   hideDecision();hideNextBtn();showCpuThinking(false);hideDrawn();
+  /* ソロ対戦の途中経過を局の開始時点で保存する（累計スコア＋局数）。
+     局の途中の手札・場・山札までは保存しないため、リロードした場合は
+     この局の最初から、累計は前局までの確定値で再開する。 */
+  if(typeof NET==='undefined' || NET.mode==='solo'){
+    hnSaved={totalP,totalCPU,roundNum,matchLen};
+    try{ localStorage.setItem(HN_MATCH_KEY, JSON.stringify(hnSaved)); }catch(e){}
+  }
   const first = (roundNum%2===1) ? 'player' : 'cpu'; // 局ごとに親（先手）が交代
   turn=first;
   render();
@@ -1381,7 +1416,12 @@ function showDrawn(card){
 function hideDrawn(){ drawnCardId=null; document.getElementById('drawn-area').classList.add('hidden'); }
 
 async function drawPhase(who){
-  if(deck.length===0){hideDrawn();await checkRoundEnd();return;}
+  /* 山札が尽きていたら、めくりを省略して通常の手番後処理へ進む。
+     ここで即座に局を終えると、手札が残っているのに局が終わったり、
+     役判定（こいこい）を飛ばしたりする。通常の配札では山札24枚に
+     対し消費は16枚で尽きることはないが、終了条件は nextTurn 側の
+     「両者の手札0枚」に一本化する。 */
+  if(deck.length===0){hideDrawn();await afterTurn(who);return;}
   const drawn=deck.shift();
   sfx.draw();
   renderMeta();
@@ -1525,7 +1565,11 @@ function playerDecision(dec){
 }
 
 async function nextTurn(who){
-  if(playerHand.length===0&&cpuHand.length===0&&deck.length===0){await checkRoundEnd();return;}
+  /* 局の終了条件は「両者の手札が尽きたこと」。山札は初期24枚に対し
+     めくり消費は全16手分で8枚余るため、deck===0 を条件に含めると
+     手札が尽きても終了判定に入れず、空の手札で手番が回り続けて
+     進行不能になる（旧条件のバグ）。 */
+  if(playerHand.length===0&&cpuHand.length===0){await checkRoundEnd();return;}
   turn=who==='player'?'cpu':'player';
   renderScores();
   if(turn==='cpu'){
@@ -1548,6 +1592,14 @@ async function checkRoundEnd(){
 //  CPU AI
 // ══════════════════════════════════════════════════════════════
 async function cpuTurn(){
+  /* 空の手札で呼ばれた場合の安全弁（cpuPickHand が undefined を掴んで
+     例外になり、思考中表示のまま固まるのを防ぐ） */
+  if(!cpuHand||cpuHand.length===0){
+    showCpuThinking(false);
+    if(playerHand.length===0){await checkRoundEnd();}
+    else{await nextTurn('cpu');}
+    return;
+  }
   busy=true;showCpuThinking(true);
   const card=cpuPickHand();
   const m=field.filter(f=>f.m===card.m);
@@ -1651,6 +1703,12 @@ function onNextBtn(){
 
 function showMatchResult(){
   phase='end';
+  /* 全局が終わった試合は途中経過の保存対象から外す（次回は新規対戦） */
+  if(typeof NET==='undefined' || NET.mode==='solo'){
+    hnSaved=null;
+    try{ localStorage.removeItem(HN_MATCH_KEY); }catch(e){}
+    refreshHnResumeUI();
+  }
   const w=document.getElementById('result-winner');
   const d=document.getElementById('result-detail');
   if(totalP>totalCPU){ w.innerText='🏆 あなたの勝利！'; w.style.color='var(--gold-hi)'; sfx.win(); spawnConfetti('player'); }
@@ -1812,7 +1870,14 @@ function startStateTimer(){
 function stopStateTimer(){ if(NET.stateTimer)clearInterval(NET.stateTimer); NET.stateTimer=null; }
 function armConnTimer(msg){
   clearTimeout(NET.connTimer);
-  NET.connTimer=setTimeout(()=>{ if(NET.phase==='lobby') setNetStatus('<span class="err">'+msg+'</span>'); },25000);
+  NET.connTimer=setTimeout(()=>{
+    if(NET.phase!=='lobby')return;
+    /* ゲスト側の確立タイムアウトは参加失敗としてソロへ戻す。
+       ホスト側は「接続したが hello が来ない相手」だけの問題で、
+       部屋自体は生きているため状態表示だけにとどめる。 */
+    if(NET.mode==='guest') netFailToSolo('<span class="err">'+msg+'</span>');
+    else setNetStatus('<span class="err">'+msg+'</span>');
+  },25000);
 }
 function disarmConnTimer(){ clearTimeout(NET.connTimer); }
 
@@ -1875,6 +1940,16 @@ function netLeave(){
   restoreLabels();
   setNetStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してください。');
   updateNetUI();
+}
+/* 接続・招待の失敗時はオンライン状態をソロへ完全に戻す。以前はエラー文を
+   出すだけで NET.mode/phase が 'guest'/'host' の 'lobby' に残り、
+   「対戦をはじめる」が startMatch のガード（参加中／作成中）で永久に
+   弾かれ、部屋を作る／参加するボタンも disabled のまま戻らなかった。 */
+function netFailToSolo(msgHtml){
+  netTeardown(false);
+  restoreLabels();
+  updateNetUI();
+  setNetStatus(msgHtml);
 }
 
 // ─── 状態の構築（ホスト→ゲスト、秘匿つき）と配信 ───
@@ -1942,6 +2017,9 @@ function netCreateHostPeer(){
     if(err&&err.type==='unavailable-id'){
       try{ NET.peer.destroy(); }catch(e){}
       netCreateHostPeer(); /* コードを変えて再試行 */
+    }else if(NET.phase==='lobby'){
+      /* 部屋が確立する前の失敗は、ホスト状態のまま固まらないようソロへ戻す */
+      netFailToSolo('<span class="err">接続エラーが発生しました。もう一度お試しください。</span>');
     }else{
       setNetStatus('<span class="err">接続エラーが発生しました。</span>');
     }
@@ -2104,7 +2182,11 @@ function netJoinRoom(){
   });
   NET.peer.on('error',err=>{
     if(err&&err.type==='peer-unavailable'){
-      setNetStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+      /* 部屋が無い＝招待・参加の失敗。guest/lobby のまま残すと
+         「対戦をはじめる」が永久に反応しなくなるためソロへ戻す */
+      netFailToSolo('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    }else if(NET.phase==='lobby'){
+      netFailToSolo('<span class="err">接続エラーが発生しました。もう一度お試しください。</span>');
     }else{
       setNetStatus('<span class="err">接続エラーが発生しました。</span>');
     }
@@ -2119,7 +2201,7 @@ function setupHostConn(c){
     if(NET.conn!==c)return;
     if((st==='failed'||st==='disconnected')&&NET.phase==='lobby'){
       disarmConnTimer();
-      setNetStatus('<span class="err">接続を確立できませんでした。ネットワーク環境を変えてもう一度お試しください。</span>');
+      netFailToSolo('<span class="err">接続を確立できませんでした。ネットワーク環境を変えて（Wi-Fi／モバイル回線の切替など）もう一度お試しください。</span>');
     }
   });
 }
@@ -2150,7 +2232,8 @@ function onHostConnLost(){
     showToast('接続が切れました。再接続を試みています…');
     scheduleGuestReconnect();
   }else{
-    setNetStatus('<span class="err">ホストとの接続が切れました。</span>');
+    /* 対戦開始前に切れた場合は参加失敗としてソロへ戻す */
+    netFailToSolo('<span class="err">ホストとの接続が切れました。</span>');
   }
 }
 function onHostBye(){
@@ -2314,6 +2397,36 @@ const HN_SETTINGS_KEY='hanahuda_settings';
 function saveHanaSettings(){
   try{ localStorage.setItem(HN_SETTINGS_KEY, JSON.stringify({difficulty:difficulty, matchLen:matchLen, sound:soundOn})); }catch(e){}
 }
+/* ── ソロ対戦の途中経過の保存（hanahuda_match 素キー） ──
+   保存するのは累計スコア・現在の局・対戦の長さだけ。局の開始時点
+   （startRound）で書き、全試合終了（showMatchResult）で消す。
+   手札・場・山札・役の進行といった局内状態は保存しない（非同期の
+   手番処理やこいこい待ちと結びついており、安全な復元が難しいため）。
+   そのため再開は「その局の最初から」になる。 */
+const HN_MATCH_KEY='hanahuda_match';
+let hnSaved=null;
+(function loadHanaMatch(){
+  try{
+    const s=JSON.parse(localStorage.getItem(HN_MATCH_KEY)||'null');
+    if(s && [3,6,12].indexOf(s.matchLen)>=0 &&
+       Number.isFinite(s.totalP) && Number.isFinite(s.totalCPU) &&
+       s.roundNum>=1 && s.roundNum<=s.matchLen){
+      hnSaved={totalP:s.totalP|0, totalCPU:s.totalCPU|0, roundNum:s.roundNum|0, matchLen:s.matchLen|0};
+    }
+  }catch(e){}
+})();
+function refreshHnResumeUI(){
+  const b=document.getElementById('btn-start');
+  const nb=document.getElementById('btn-start-new');
+  if(!b||!nb) return;
+  if(hnSaved && hnSaved.matchLen===matchLen){
+    b.textContent=`続きから対戦（第${hnSaved.roundNum}局・累計 ${hnSaved.totalP}―${hnSaved.totalCPU}）`;
+    nb.classList.remove('hidden');
+  }else{
+    b.textContent='対戦をはじめる';
+    nb.classList.add('hidden');
+  }
+}
 (function loadHanaSettings(){
   try{
     const s=JSON.parse(localStorage.getItem(HN_SETTINGS_KEY)||'null');
@@ -2330,10 +2443,18 @@ function syncHanaSettingsUI(){
   if(sb) sb.innerText=soundOn?'音 ON':'音 OFF';
 }
 segWire('seg-diff','d',v=>{difficulty=v; saveHanaSettings();});
-segWire('seg-rounds','r',v=>{matchLen=v; saveHanaSettings();});
+segWire('seg-rounds','r',v=>{matchLen=v; saveHanaSettings(); refreshHnResumeUI();});
 syncHanaSettingsUI();
+refreshHnResumeUI();
 
 document.getElementById('btn-start').addEventListener('click',()=>{ ac(); startMatch(); });
+document.getElementById('btn-start-new').addEventListener('click',()=>{
+  /* 保存済みの途中経過を破棄して第1局から始める */
+  hnSaved=null;
+  try{ localStorage.removeItem(HN_MATCH_KEY); }catch(e){}
+  refreshHnResumeUI();
+  ac(); startMatch();
+});
 document.getElementById('btn-start-help').addEventListener('click',()=>{ sfx.click(); showHelp(); });
 document.getElementById('btn-help').addEventListener('click',()=>{ sfx.click(); showHelp(); });
 document.getElementById('btn-help-close').addEventListener('click',()=>{ sfx.click(); hideHelp(); });
@@ -2342,6 +2463,7 @@ document.getElementById('btn-setting').addEventListener('click',()=>{
   if(NET.mode!=='solo') netLeave();
   document.getElementById('result-overlay').classList.add('hidden');
   document.getElementById('start-overlay').classList.remove('hidden');
+  refreshHnResumeUI();
 });
 document.getElementById('btn-sound').addEventListener('click',(e)=>{
   soundOn=!soundOn;

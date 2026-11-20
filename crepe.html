@@ -146,6 +146,13 @@ html,body{overscroll-behavior:none;}
         <button class="modeBtn" id="orderBtn"><b>🧾 注文チャレンジ</b><span>お客さんの注文どおりに作って、一致度で採点される職人モード。</span></button>
         <button class="modeBtn" id="vsBtn"><b>⚔️ オンライン対戦</b><span>同じ注文で友達と勝負。全5注文の審査スコア合計で競う対決モード。</span></button>
       </div>
+      <div id="resumeWrap" style="display:none;flex-direction:column;gap:8px;align-items:center">
+        <p class="hint" id="resumeInfo" style="text-align:center"></p>
+        <div class="rowBtns" style="justify-content:center">
+          <button class="subbtn" id="resumeBtn" style="border-color:var(--acc);font-weight:800">▶ つづきから作る</button>
+          <button class="subbtn" id="resumeDiscardBtn">破棄する</button>
+        </div>
+      </div>
     </div>
 
     <div class="overlay hidden" id="vsOv">
@@ -999,7 +1006,7 @@ function placeItemGroup(kind, id, x, z, baseY){
   it.group = grp;
   items.push(it); history.push({ type:'item', obj: it });
   dropAnims.push({ grp, from: baseY + 1.7, to: baseY, t: 0, dur: 0.42 });
-  sfx.place(); updatePrice();
+  sfx.place(); updatePrice(); saveResume();
   return it;
 }
 function removeItem(it){
@@ -1179,6 +1186,7 @@ function setPhase(p){
   phase = p; tool = null; refreshGhost();
   camMode = (p==='deco' || p==='serve') ? 'serve' : 'work';
   renderSteps(); buildPanel(); updatePrice(); updateMascot();
+  if(p==='fill' || p==='fold' || p==='deco') saveResume();
   if(!GL_OK) return;
   if(p==='spread'){ initSpreadTex(); blobMesh.visible = false; tombo.visible = true; paintSpreadTex(TC, TC, 150); }
   if(p==='bake'){ bake = 0; baked = false; lastBakeStep = 0; bakeStart = performance.now(); drawBatterBase(0); tombo.visible = false; }
@@ -1269,23 +1277,23 @@ function doAction(act){
   else if(cmd==='toBake'){ if(spreadDone){ setPhase('bake'); toast('焼き色をよく見て！'); } }
   else if(cmd==='finishBake'){ finishBake(); }
   else if(cmd==='toFold'){ setPhase('fold'); }
-  else if(cmd==='fold'){ fold = FOLDS.find(f=>f.id===arg); sfx.pop(); buildPanel(); }
+  else if(cmd==='fold'){ fold = FOLDS.find(f=>f.id===arg); sfx.pop(); buildPanel(); saveResume(); }
   else if(cmd==='doFold'){ startFold(); }
   else if(cmd==='serve'){ serve(); }
-  else if(cmd==='again'){ if(mode==='vs' && vs.active) vsNext(); else resetAll(); }
+  else if(cmd==='again'){ if(mode==='vs' && vs.active) vsNext(); else { clearResume(); resetAll(); } }
   else if(cmd==='undo'){
     const h = history.pop();
     if(h){
       if(h.type==='item') removeItem(h.obj);
       else { removeStroke(h.obj); }
-      updatePrice();
+      updatePrice(); saveResume();
     }
   }
   else if(cmd==='clearFill'){
     items.filter(i=>i.kind==='fill').slice().forEach(removeItem);
     strokes.filter(s=>s.stage==='fill').slice().forEach(removeStroke);
     history = history.filter(h=> (h.type==='item' && h.obj.kind!=='fill') || (h.type==='stroke' && h.obj.stage!=='fill'));
-    redrawOverlay(); updatePrice();
+    redrawOverlay(); updatePrice(); saveResume();
   }
 }
 function removeStroke(s){
@@ -1330,6 +1338,7 @@ function startFold(){
 }
 function serve(){
   setPhase('serve');
+  if(mode!=='vs') clearResume(); // 完成した1枚はギャラリーに残るので途中セーブは破棄
   const j = judge();
   $('judgeBox').style.display = 'block';
   $('judgeBody').innerHTML =
@@ -1439,7 +1448,7 @@ function resetAll(){
   setPhase('batter');
   toast(mode==='free' ? '新しいクレープを作ろう！' : '注文をよく確認してね');
 }
-$('againBtn').onclick = ()=>{ if(mode==='vs' && vs.active) vsNext(); else resetAll(); };
+$('againBtn').onclick = ()=>{ if(mode==='vs' && vs.active) vsNext(); else { clearResume(); resetAll(); } };
 $('savePngBtn').onclick = ()=>{
   if(!GL_OK) return;
   renderer.render(scene, camera); // 保存直前に再描画して確実にキャプチャ
@@ -1447,12 +1456,124 @@ $('savePngBtn').onclick = ()=>{
   a.download = ($('nameInput').value || 'クレープ') + '.png';
   a.href = renderer.domElement.toDataURL('image/png'); a.click();
 };
-$('freeBtn').onclick = ()=>{ mode='free'; order=null; $('orderBox').style.display='none'; $('startOv').classList.add('hidden'); resetAll(); };
+$('freeBtn').onclick = ()=>{ clearResume(); mode='free'; order=null; $('orderBox').style.display='none'; $('startOv').classList.add('hidden'); resetAll(); };
 $('orderBtn').onclick = ()=>{
+  clearResume();
   mode='order'; order = ORDERS[Math.floor(Math.random()*ORDERS.length)];
   showOrder();
   $('startOv').classList.add('hidden'); resetAll();
 };
+
+/* ================================================================
+   途中セーブ＋つづきから（項目58対応）
+   切り分け:
+   - メタ進行相当（完成作品ギャラリー crepe_gallery／サウンド設定）は従来から保存済み。
+     本作に所持金・解放・実績のようなメタ進行は存在しない。
+   - ここで扱うのは「調理中1枚分」の途中状態。対象はソロ（free/order）のみ。
+   - 保存開始は具材フェーズ到達時（チェックポイント）。のばす工程はキャンバスへの
+     手描きで正確な再現ができず、焼く工程は14秒の実時間タイミング勝負のため
+     途中再開の意味が薄いので対象外（広げ方・焼き加減はスコアとして保持される）。
+   - 対戦(vs)は相手と同期する状態（接続・タイマー・相手スコア）のため対象外。
+   ================================================================ */
+const RESUME_KEY = 'crepe_resume_v1';
+const RESUME_PHASES = ['fill', 'fold', 'deco'];
+function saveResume(){
+  try{
+    if(mode === 'vs') return;
+    if(!RESUME_PHASES.includes(phase)) return;
+    const data = {
+      v: 1, savedAt: Date.now(), mode, phase,
+      orderIdx: order ? ORDERS.indexOf(order) : -1,
+      batterId: batter.id, foldId: fold.id,
+      spreadScore, bakeScore, bakeLevel,
+      items: items.map(it => ({ kind: it.kind, id: it.id, x: it.x, z: it.z, y: it.y, rot: it.rot, scale: it.scale, seed: it.seed })),
+      strokes: strokes.map(s => s.stage === 'fill'
+        ? { stage: s.stage, sauceId: s.sauceId, color: s.color, w: s.w, pts: s.pts.map(p => ({ px: p.px, py: p.py })) }
+        : { stage: s.stage, sauceId: s.sauceId, color: s.color, w: s.w, pts: s.pts.map(p => ({ x: p.x, y: p.y, z: p.z })) }),
+    };
+    localStorage.setItem(RESUME_KEY, JSON.stringify(data));
+  }catch(e){}
+}
+function loadResume(){
+  try{
+    const d = JSON.parse(localStorage.getItem(RESUME_KEY) || 'null');
+    if(!d || d.v !== 1 || !RESUME_PHASES.includes(d.phase)) return null;
+    if(d.mode !== 'free' && d.mode !== 'order') return null;
+    if(!BATTERS.some(b => b.id === d.batterId)) return null;
+    if(!Array.isArray(d.items) || !Array.isArray(d.strokes)) return null;
+    if(d.items.length > 300 || d.strokes.length > 200) return null;
+    if(d.strokes.some(s => !Array.isArray(s.pts) || s.pts.length > 5000)) return null;
+    return d;
+  }catch(e){ return null; }
+}
+function clearResume(){ try{ localStorage.removeItem(RESUME_KEY); }catch(e){} refreshResumeUI(); }
+function refreshResumeUI(){
+  const w = $('resumeWrap'); if(!w) return;
+  const d = GL_OK ? loadResume() : null;
+  if(!d){ w.style.display = 'none'; return; }
+  const phaseName = { fill: '具材', fold: '包む', deco: 'デコ' }[d.phase] || d.phase;
+  const when = d.savedAt ? new Date(d.savedAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  $('resumeInfo').textContent = `作りかけのクレープがあります（${d.mode === 'order' ? '注文チャレンジ' : 'フリーモード'}・${phaseName}の途中・具材/デコ ${d.items.length}個${when ? '・' + when : ''}）`;
+  w.style.display = 'flex';
+}
+function restoreResume(){
+  const d = loadResume();
+  if(!d || !GL_OK) return;
+  mode = d.mode;
+  order = (mode === 'order' && d.orderIdx >= 0 && ORDERS[d.orderIdx]) ? ORDERS[d.orderIdx] : (mode === 'order' ? ORDERS[0] : null);
+  if(mode === 'order') showOrder(); else $('orderBox').style.display = 'none';
+  batter = BATTERS.find(b => b.id === d.batterId) || BATTERS[0];
+  fold = FOLDS.find(f => f.id === d.foldId) || FOLDS[0];
+  spreadScore = d.spreadScore | 0; bakeScore = d.bakeScore | 0;
+  bakeLevel = Math.min(1, Math.max(0, +d.bakeLevel || 0));
+  baked = true;
+  /* 盤面を手動で初期化（resetAll は phase を batter に戻すため使わない） */
+  items.slice().forEach(removeItem);
+  strokes.slice().forEach(removeStroke);
+  items = []; strokes = []; history = []; dropAnims = [];
+  while(foldGroup.children.length) foldGroup.remove(foldGroup.children[0]);
+  blobMesh.visible = false; blobMat.color.set(batter.base); tombo.visible = false;
+  $('judgeBox').style.display = 'none';
+  $('serveOv').classList.add('hidden');
+  $('startOv').classList.add('hidden');
+  /* 生地テクスチャは焼き上がり状態で再生成（のばしの絵柄自体は保持せず、評価は spreadScore に保持済み） */
+  drawBatterBase(bakeLevel);
+  for(const s of d.items){
+    if(!defOf(s.id)) continue;
+    if(s.kind !== 'fill' && s.kind !== 'deco') continue;
+    const it = { kind: s.kind, id: s.id, x: +s.x || 0, z: +s.z || 0, y: +s.y || 0, rot: +s.rot || 0, scale: +s.scale || 1, seed: (s.seed | 0) || 1, group: null };
+    const grp = buildItemMesh(it.id, it.seed);
+    grp.scale.setScalar(it.scale); grp.rotation.y = it.rot;
+    grp.position.set(it.x, it.y, it.z);
+    (it.kind === 'fill' ? fillGroup : decoGroup).add(grp);
+    it.group = grp; items.push(it); history.push({ type: 'item', obj: it });
+  }
+  for(const s of d.strokes){
+    if(s.stage === 'fill'){
+      const st = { stage: 'fill', sauceId: s.sauceId, color: s.color, w: s.w, pts: (s.pts || []).map(p => ({ px: +p.px || 0, py: +p.py || 0 })) };
+      if(st.pts.length >= 2){ strokes.push(st); history.push({ type: 'stroke', obj: st }); }
+    } else if(s.stage === 'deco'){
+      const st = { stage: 'deco', sauceId: s.sauceId, color: s.color, w: s.w, pts: (s.pts || []).map(p => ({ x: +p.x || 0, y: +p.y || 0, z: +p.z || 0 })), mesh: null };
+      if(st.pts.length >= 2){ strokes.push(st); history.push({ type: 'stroke', obj: st }); buildDecoTube(st); }
+    }
+  }
+  redrawOverlay();
+  if(d.phase === 'deco'){
+    /* 包み済みの見た目を再構築（startFold と同じくソースを生地へ焼き込む） */
+    batterCtx.drawImage(overlayCanvas, 0, 0); batterTex.needsUpdate = true;
+    overlayMesh.visible = false;
+    buildFold();
+    cookGroup.visible = false; fillGroup.visible = false; plateGroup.visible = true;
+  } else {
+    cookGroup.visible = true; fillGroup.visible = true; plateGroup.visible = false;
+  }
+  setPhase(d.phase);
+  if(d.phase === 'fold') overlayMesh.visible = true;
+  updatePrice();
+  toast('つづきから再開しました！');
+}
+$('resumeBtn').onclick = restoreResume;
+$('resumeDiscardBtn').onclick = ()=>{ clearResume(); toast('作りかけを破棄しました'); };
 
 /* ================= ゴースト表示 ================= */
 let ghost = null;
@@ -1508,14 +1629,14 @@ function eraseAt(kind, pt){
     const thr = (def ? def.r * ITEM_K : 0.25) * (it.scale||1) + 0.17;
     if(dist < thr && dist < bestD){ bestD = dist; bestIt = it; }
   }
-  if(bestIt){ removeItem(bestIt); sfx.pop(); updatePrice(); return; }
+  if(bestIt){ removeItem(bestIt); sfx.pop(); updatePrice(); saveResume(); return; }
   if(kind==='fill'){
     const t = worldToTex(pt.x, pt.z);
     const s = strokes.find(s=> s.stage==='fill' && s.pts.some(p=>Math.hypot(p.px-t.px, p.py-t.py) < 44));
-    if(s){ removeStroke(s); sfx.pop(); }
+    if(s){ removeStroke(s); sfx.pop(); saveResume(); }
   } else {
     const s = strokes.find(s=> s.stage==='deco' && s.pts.some(p=>Math.hypot(p.x-pt.x, p.z-pt.z) < 0.3));
-    if(s){ removeStroke(s); sfx.pop(); }
+    if(s){ removeStroke(s); sfx.pop(); saveResume(); }
   }
 }
 function buildDecoTube(s){
@@ -1630,6 +1751,7 @@ function attachInput(){
       }
       if(curStroke.stage==='deco' && curStroke.pts.length < 2) removeStroke(curStroke);
       curStroke = null;
+      saveResume();
     }
   }
   cvs.addEventListener('pointerup', endPointer);
@@ -2119,7 +2241,7 @@ try{
   $('startOv').classList.add('hidden');
 }
 phase = 'batter';
-renderSteps(); buildPanel(); updatePrice(); renderGallery(); updateMascot();
+renderSteps(); buildPanel(); updatePrice(); renderGallery(); updateMascot(); refreshResumeUI();
 if(GL_OK) requestAnimationFrame(animate);
 </script>
 <script>window.PW_GAME='crepe';window.PW_JOIN_CFG={openers:[{click:'#vsBtn'}],input:'#vsJoinCode',joinBtn:'#vsJoinBtn',hostBtn:'#vsHostBtn'};</script>
