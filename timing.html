@@ -77,9 +77,17 @@ html,body{overscroll-behavior:none;}
 <script>
 let AC=null;
 function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+(d||0.12));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||0.12)+0.02);}catch(e){}}
-function loadSave(){try{return JSON.parse(localStorage.getItem('mini_timing_v1')||'{}');}catch(e){return{};}}
-function storeSave(o){try{localStorage.setItem('mini_timing_v1',JSON.stringify(o));}catch(e){}}
+/* ベスト保存: メモリにも保持し、保存・表示のたびに保存済みの値と union（大きい方）を取る。
+   account.js のクラウドマージが読み込み後に localStorage へ値を書き戻すため、
+   読み込み時に1回だけ読む方式では「保存されているのに表示が - のまま」や
+   「後着した良い記録を古い値で上書き」が起きる。その対策として再描画フックも付ける。 */
+let saveCache=null;
+function loadSave(){let s={};try{s=JSON.parse(localStorage.getItem('mini_timing_v1')||'{}')||{};}catch(e){}if(saveCache&&typeof saveCache.best==='number'&&(typeof s.best!=='number'||saveCache.best>s.best))s.best=saveCache.best;if(typeof s.best==='number')saveCache={best:s.best};return s;}
+function storeSave(o){const cur=loadSave();if(typeof cur.best==='number'&&(typeof o.best!=='number'||cur.best>o.best))o.best=cur.best;if(typeof o.best==='number')saveCache={best:o.best};try{localStorage.setItem('mini_timing_v1',JSON.stringify(o));}catch(e){}}
 function showBest(){const s=loadSave();document.getElementById('bestText').textContent='ベスト: '+(s.best!==undefined?s.best+'点 / 300':'-');}
+window.addEventListener('focus',showBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)showBest();});
+setTimeout(showBest,2000);setTimeout(showBest,5000);
 let mode='solo';
 document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;document.getElementById('soloPane').classList.toggle('hidden',mode!=='solo');document.getElementById('onlinePane').classList.toggle('hidden',mode!=='online');cancelAnim();resetOnlineGame();if(mode==='solo'){document.getElementById('oppBox').classList.add('hidden');setInfo('スタートを押してね');}}));
 showBest();

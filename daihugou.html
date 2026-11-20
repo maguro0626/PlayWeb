@@ -281,7 +281,7 @@
     opacity:1; transition:opacity .3s;
   }
   #modal-overlay.hidden{display:none !important}
-  #modal-overlay.fade{opacity:0}
+  #modal-overlay.fade{opacity:0; pointer-events:none}
   #modal-card{
     width:100%; max-width:400px; max-height:86dvh; overflow-y:auto; background:linear-gradient(170deg,#123527,#0b241a);
     border:1px solid rgba(245,196,81,.4); border-radius:24px; padding:24px 20px;
@@ -511,8 +511,15 @@ const SoundFX = {
     }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   },
+  /* ミュート判定はメモリ上の enabled だけでなく、保存済み設定を毎回見る。
+     別タブでミュートされた／クラウド同期で設定が書き戻された場合に、開いたままの
+     タブの古い enabled=true が残って「ミュート中なのに一部だけ鳴る」乖離を防ぐ */
+  isMuted() {
+    try { if (localStorage.getItem(LS_SOUND) === 'off') return true; } catch (e) {}
+    return !this.enabled;
+  },
   tone(freq, dur, type, vol, delay, slideTo) {
-    if (!this.enabled) return;
+    if (this.isMuted()) return;
     this.ensure();
     if (!this.ctx) return;
     try {
@@ -529,7 +536,7 @@ const SoundFX = {
     } catch (e) {}
   },
   noise(dur, vol, freq, delay) {
-    if (!this.enabled) return;
+    if (this.isMuted()) return;
     this.ensure();
     if (!this.ctx) return;
     try {
@@ -1567,6 +1574,7 @@ let modalResolve = null;
 function showModal(title, contentHTML, buttons) {
   return new Promise(resolve => {
     modalResolve = resolve;
+    modalGen++; /* 表示のたびに世代を進め、過去のフェード完了タイマーを無効化 */
     const overlay = document.getElementById('modal-overlay');
     const card = document.getElementById('modal-card');
     let html = '';
@@ -1600,11 +1608,16 @@ function showModal(title, contentHTML, buttons) {
     }
   });
 }
+/* モーダルの世代カウンタ: フェードアウト完了を遅延登録した後に別のモーダルが
+   表示されても、古いタイマーが新しいモーダルを消したり、逆にフェード状態の
+   透明オーバーレイが残ってタップを塞いだりしないようにする */
+let modalGen = 0;
 function hideModal(immediate) {
   const overlay = document.getElementById('modal-overlay');
+  const gen = ++modalGen;
   if (immediate) { overlay.classList.add('hidden', 'fade'); return; }
   overlay.classList.add('fade');
-  setTimeout(() => overlay.classList.add('hidden'), 280);
+  setTimeout(() => { if (gen === modalGen) overlay.classList.add('hidden'); }, 280);
 }
 
 /* ================= 初期化 ================= */
@@ -1691,7 +1704,10 @@ function netInputName(def) {
   return netCleanName(el ? el.value : '') || def;
 }
 function netShowLobbyUI() {
-  if (NET.code) window.PW_ROOM_CODE = NET.code; /* friends.js の招待フロー用（表示は隠したまま） */
+  /* window.PW_ROOM_CODE はホストの Peer が open した時点でだけ立てる
+     （netHostCreatePeer の open ハンドラ）。ここで先に立てると、接続が
+     確立していない部屋のコードを friends.js が拾って招待してしまう。
+     ゲスト側はそもそも自分の部屋ではないので立てない。 */
   document.getElementById('net-lobby').classList.remove('hidden');
   document.getElementById('net-room-code').textContent = NET.code || '------';
   document.getElementById('net-lobby-exit').classList.remove('hidden');
@@ -1743,6 +1759,13 @@ function netTeardown() {
   NET.reconnecting = false; NET.actBusy = false; NET.actSent = false;
   NET.resultRound = -1; NET.prevTurnSeat = -1; NET.turnSeat = -1;
   NET.rematchVotes = {};
+  /* 終了した部屋のコードを残すと、friends.js の招待フローが古いコードを
+     「いま開いている部屋」と誤認して死んだ部屋へ招待してしまう（参加側は
+     部屋が見つからず接続エラーになる）。必ず消して表示も初期値に戻す。 */
+  NET.code = '';
+  window.PW_ROOM_CODE = '';
+  const rcEl = document.getElementById('net-room-code');
+  if (rcEl) rcEl.textContent = '------';
   netBarHide();
 }
 function netExitLobby() {
@@ -1795,6 +1818,7 @@ function netHostCreatePeer() {
   let opened = false;
   NET.peer.on('open', () => {
     opened = true;
+    window.PW_ROOM_CODE = NET.code; /* 招待フローには「実際に開けた部屋」のコードだけを渡す */
     netDisarmTimer();
     netSetStatus('参加者を待っています。フレンドを招待すると参加できます。ゲストが1人以上来たらスタートできます。');
     netBroadcastLobby();

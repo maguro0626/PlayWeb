@@ -360,6 +360,10 @@ function platformShare(p, absMonth){
 /* ================= 状態 ================= */
 const SAVE_KEY = 'gamedev_story_v1';
 const VS_SAVE_KEY = 'gamedev_story_vs';
+const MODE_KEY = 'gamedev_story_mode'; /* 最後に保存したモード: 'solo' | 'vs' | 'none'（消去して最初から） */
+const VS_META_KEY = 'gamedev_story_vs_meta'; /* 対戦セッションの復旧用メタ（シード・相手・勝敗状態） */
+let suppressSave = false; /* データ消去→リロード直前に立てる。以後のセーブで消したはずのデータが復活したり別キーへ漏れたりするのを防ぐ */
+let loadedFromVs = false; /* load() が対戦キーから復旧した場合に true */
 /* オンライン対戦（ライバル対決）の状態。ネット接続の実体もここに持つ */
 let VS = {
   active:false, started:false, finished:false, reconnecting:false, isHost:false,
@@ -375,7 +379,7 @@ function absMonth(){ return (S.year-1)*12 + (S.month-1); }
 function newState(){
   return {
     started:false, companyName:'ほしぞら工房',
-    money:3000000, fans:120, research:20,
+    money:3500000, fans:120, research:20,
     year:1, month:1, week:1, speed:1, paused:false,
     officeLv:0, staff:[], nextStaffId:1,
     candidates:[], candKey:'',
@@ -390,11 +394,77 @@ function newState(){
   };
 }
 function save(silent){
-  try{ localStorage.setItem(currentSaveKey(), JSON.stringify(S)); if(!silent) toast('💾 セーブしました'); }catch(e){}
+  /* 未開始の初期状態では絶対に書かない: 読み込み失敗などで初期状態が作られた場合に、
+     そのまま保存すると既存の会社データが空白で上書きされて消えるため。
+     データ消去直後（suppressSave）も同様に書かない（消去した対戦データがソロキーへ漏れる経路を塞ぐ） */
+  if(suppressSave || !S || !S.started) return;
+  try{
+    localStorage.setItem(currentSaveKey(), JSON.stringify(S));
+    localStorage.setItem(MODE_KEY, VS.active ? 'vs' : 'solo');
+    if(VS.active){
+      localStorage.setItem(VS_META_KEY, JSON.stringify({
+        seed:VS.seed, years:VS.years, totalWeeks:VS.totalWeeks, oppName:VS.oppName, myName:VS.myName,
+        roomCode:VS.roomCode, isHost:VS.isHost, finished:VS.finished, myFinal:VS.myFinal,
+        oppFinal:VS.oppFinal, oppProg:VS.oppProg, oppBankrupt:VS.oppBankrupt,
+        finishReason:VS.finishReason, matchRecorded:VS.matchRecorded,
+      }));
+    }
+    if(!silent) toast('💾 セーブしました');
+  }catch(e){}
 }
 function load(){
-  try{ const d = localStorage.getItem(SAVE_KEY); if(d){ S = Object.assign(newState(), JSON.parse(d)); return true; } }catch(e){}
+  /* save() は対戦中は対戦キーへ書くため、読み込みも「最後に保存したモード」のキーを正として対称にする。
+     従来は常にソロキーしか読まず、対戦会社のセーブ→リロードで会社が消えた（キー不一致）。
+     正キーが無い/壊れている場合はもう一方のキーへ救済フォールバックする。
+     壊れたデータは退避キーへ写してから諦める（初期状態での上書きは save() 側のガードで防ぐ） */
+  let mode = null;
+  try{ mode = localStorage.getItem(MODE_KEY); }catch(e){}
+  if(mode === 'none') return false; /* 「データを消して最初から」を選んだ直後は他キーを復活させない */
+  const keys = mode === 'vs' ? [VS_SAVE_KEY, SAVE_KEY] : [SAVE_KEY, VS_SAVE_KEY];
+  for(const k of keys){
+    let d = null;
+    try{ d = localStorage.getItem(k); }catch(e){}
+    if(!d) continue;
+    try{
+      const parsed = JSON.parse(d);
+      if(!parsed || typeof parsed !== 'object') throw new Error('bad save data');
+      S = Object.assign(newState(), parsed);
+      loadedFromVs = (k === VS_SAVE_KEY);
+      return true;
+    }catch(e){
+      try{ localStorage.setItem(k + '_corrupt_backup', d); }catch(_){}
+    }
+  }
   return false;
+}
+/* リロードで対戦キーから復旧した場合に、対戦セッション（少なくとも会社と保存先キー）を立て直す。
+   接続そのものはホスト=同じコードで部屋を再作成、ゲスト=既存の再接続スケジュールで試みる */
+function restoreVsSession(){
+  let meta = null;
+  try{ meta = JSON.parse(localStorage.getItem(VS_META_KEY) || 'null'); }catch(e){}
+  VS.active = true; VS.started = true;
+  VS.myName = S.companyName;
+  if(meta){
+    VS.seed = meta.seed || 0; VS.years = meta.years || 3; VS.totalWeeks = meta.totalWeeks || VS.years * 48;
+    VS.oppName = meta.oppName || VS.oppName; VS.roomCode = meta.roomCode || ''; VS.isHost = !!meta.isHost;
+    VS.finished = !!meta.finished; VS.myFinal = meta.myFinal || null; VS.oppFinal = meta.oppFinal || null;
+    VS.oppProg = meta.oppProg || null; VS.oppBankrupt = !!meta.oppBankrupt;
+    VS.finishReason = meta.finishReason || ''; VS.matchRecorded = !!meta.matchRecorded;
+    VS.trendSchedule = buildTrendSchedule(VS.seed, VS.years * 12 + 2);
+  }
+  if(VS.finished){ S.paused = true; return; }
+  VS.reconnecting = true;
+  if(VS.isHost) vsRestoreHostPeer(); else scheduleVsReconnect();
+  toast('⚔️ 対戦データを復旧しました。再接続を試みています…');
+}
+function vsRestoreHostPeer(){
+  if(!vsPeerAvailable() || !VS.roomCode) return;
+  try{
+    VS.peer = new Peer(VS_PEER_PREFIX + VS.roomCode, VS_PEER_OPTS);
+    VS.peer.on('connection', c => { vsSetupConn(c); });
+    VS.peer.on('error', () => {});
+    VS.peer.on('disconnected', () => { try{ VS.peer.reconnect(); }catch(e){} });
+  }catch(e){}
 }
 function addLog(txt){
   S.log.unshift({ y:S.year, m:S.month, txt });
@@ -448,7 +518,7 @@ function teamTotals(){
   return t;
 }
 function officeCap(){ return 4 + S.officeLv*2; }
-function officeRent(){ return [80000, 150000, 260000][S.officeLv]; }
+function officeRent(){ return [50000, 150000, 260000][S.officeLv]; }
 
 /* ================= 時間エンジン ================= */
 let tickTimer = null;
@@ -515,6 +585,7 @@ function monthEnd(){
     showGameOver(); return;
   }
   if(S.money < 300000) toast('⚠️ 資金が心もとない…受託開発で稼ごう');
+  else if(S.money < 700000) toast('⚠️ 資金が減ってきた…大きな開発は慎重に');
   renderAll();
 }
 
@@ -628,6 +699,20 @@ function releaseGame(title){
   if(VS.active && !VS.finished){ vsSend({ t:'release', title, review: total }); vsSendProg(); }
   save(true);
   showReviews(game);
+}
+/* 発売レビューに出す「見込み」専用の積算。salesTick と同一の週次減衰（24%×0.76^週）・
+   終了条件（14週/残り僅少で打ち切り）・入金率（価格の70%）で計算し、実際の総販売数・総売上と一致させる。
+   従来の表示は totalUnits（減衰前の総量）×価格そのままの印象で、実際の入金（70%＋約97%で販売終了）と約32%食い違っていた。
+   ※実際の売上処理（salesTick）とゲームバランスは変更しない。直すのは見込み表示側のみ */
+function salesForecast(totalUnits, price){
+  let units = 0, revenue = 0;
+  for(let age = 1; age <= 14; age++){
+    const wUnits = Math.round(totalUnits * 0.24 * Math.pow(0.76, age-1));
+    if(age > 3 && wUnits < totalUnits * 0.008) break;
+    units += wUnits;
+    revenue += Math.round(wUnits * price * 0.7);
+  }
+  return { units, revenue };
 }
 function salesTick(){
   for(const g of S.selling){
@@ -989,6 +1074,12 @@ function renderDevModal(){
   const dir = DIRECTIONS.find(d=>d.id===devSel.direction);
   const devCost = Math.round(380000 * pf.devSize * gn.cost * dir.cost);
   const total = pf.license + devCost;
+  /* 資金繰り警告: 開発費を払った後の残金が固定費2ヶ月分を下回ると、発売前に資金が尽きる恐れがある */
+  const fixedCost = S.staff.reduce((a,st)=>a+st.salary,0) + officeRent();
+  const leftAfter = S.money - total;
+  const warnHtml = leftAfter < fixedCost * 2
+    ? `<div style="margin-top:10px;background:#ffe1e1;border:2px solid #e5484d;border-radius:12px;padding:10px 12px;font-weight:800;font-size:13px;color:#a02020">⚠️ 開発費を払うと残り ${fmtYen(leftAfter)}。毎月の固定費（給料＋家賃）が ${fmtYen(fixedCost)} かかるため、発売前に資金が尽きる恐れがあります。先に「📄 受託開発」で稼ぐのも手です。</div>`
+    : '';
   const found = S.comboFound[devSel.genre+'|'+devSel.theme];
   const combo = COMBO_MULT[comboOf(devSel.genre, devSel.theme)];
   const availPlatforms = PLATFORMS.filter(p => !p.launch || absMonth() >= p.launch);
@@ -1023,7 +1114,7 @@ function renderDevModal(){
     <div style="margin-top:14px;background:#fff3d6;border:2px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:800;font-size:14px">
       開発費合計: <b style="color:#b97a0e;font-size:17px">${fmtYen(total)}</b>（所持金 ${fmtYen(S.money)}）
       ／ 相性: ${found ? combo.mark + ' ' + combo.label : '？ 未発見（作れば分かります）'}
-    </div>
+    </div>${warnHtml}
     <div class="close-row">
       <button class="big-btn" id="dev-start" style="margin-top:0" ${S.money < total ? 'disabled' : ''}>開発スタート！</button>
       <button class="sub-btn" id="dev-cancel">やめる</button>
@@ -1086,6 +1177,7 @@ function showReleaseModal(){
   };
 }
 function showReviews(g){
+  const fc = salesForecast(g.totalUnits, g.price);
   const hof = g.hof;
   if(hof){ confetti(70); sfx.fanfare(); } else sfx.ok();
   showModal(`
@@ -1093,7 +1185,7 @@ function showReviews(g){
     <div class="review-cards">${g.reviews.map(r => `
       <div class="review"><div class="who">${r.who}</div><div class="score" style="color:${r.score>=8 ? '#e5484d' : r.score>=5 ? '#b97a0e' : '#8a7663'}">${r.score}</div><div class="cmt">${r.cmt}</div></div>`).join('')}</div>
     <div style="text-align:center;font-weight:900;font-size:19px">合計 ${g.reviewTotal} 点 ${hof ? '／ 40点満点中32点以上で殿堂入り！' : '／ 殿堂入りまであと ' + (32 - g.reviewTotal) + ' 点'}</div>
-    <div class="desc" style="text-align:center;margin-top:8px">予想総販売数: 約 ${fmtNum(g.totalUnits)} 本（価格 ${fmtYen(g.price)}）<br>これから約3か月、毎週売上が入ります。</div>
+    <div class="desc" style="text-align:center;margin-top:8px">予想総販売数: 約 ${fmtNum(fc.units)} 本 ／ 予想総売上: 約 ${fmtYen(fc.revenue)}<br>（価格 ${fmtYen(g.price)}。実際の入金額は価格の70%で計算されます）<br>これから約3か月、毎週売上が入ります。</div>
     <div class="close-row"><button class="big-btn" id="rev-close" style="margin-top:0">やった！</button></div>`);
   $('#modal-box').dataset.locked = '1';
   $('#rev-close').onclick = () => { delete $('#modal-box').dataset.locked; closeModal(); };
@@ -1208,7 +1300,7 @@ function openResearch(){
     <div class="close-row"><button class="sub-btn" id="rs-close">閉じる</button>
     <button class="sub-btn danger" id="rs-reset">データを消して最初から</button></div>`);
   $('#rs-close').onclick = closeModal;
-  $('#rs-reset').onclick = () => { if(confirm('セーブデータを消して最初から始めますか？')){ localStorage.removeItem(currentSaveKey()); location.reload(); } };
+  $('#rs-reset').onclick = () => { if(confirm('セーブデータを消して最初から始めますか？')){ suppressSave = true; const wasVs = VS.active; localStorage.removeItem(currentSaveKey()); try{ localStorage.setItem(MODE_KEY, wasVs ? 'solo' : 'none'); if(wasVs) localStorage.removeItem(VS_META_KEY); }catch(e){} location.reload(); } };
   document.querySelectorAll('[data-ug]').forEach(b => b.onclick = () => { const g = GENRES.find(x=>x.id===b.dataset.ug); S.research -= g.unlock; S.unlockedGenres.push(g.id); toast(`🎲 ジャンル「${g.name}」を解放！`); sfx.fanfare(); openResearch(); renderAll(); });
   document.querySelectorAll('[data-ut]').forEach(b => b.onclick = () => { const t = THEMES.find(x=>x.id===b.dataset.ut); S.research -= t.unlock; S.unlockedThemes.push(t.id); toast(`🎨 テーマ「${t.name}」を解放！`); sfx.fanfare(); openResearch(); renderAll(); });
   const ou = $('#office-up'); if(ou) ou.onclick = () => { S.money -= nextOffice.cost; S.research -= nextOffice.res; S.officeLv++; toast('🏢 オフィスを拡張した！'); addLog('🏢 オフィスを拡張した'); sfx.fanfare(); openResearch(); renderAll(); };
@@ -1278,7 +1370,7 @@ function showGameOver(){
     <div class="desc">コツ: 最初はPC向けの小さいゲームと受託開発で資金を安定させ、相性◎の組み合わせを狙うと伸びていきます。</div>
     <div class="close-row"><button class="big-btn" id="go-restart" style="margin-top:0">最初からやり直す</button></div>`);
   $('#modal-box').dataset.locked = '1';
-  $('#go-restart').onclick = () => { localStorage.removeItem(currentSaveKey()); location.reload(); };
+  $('#go-restart').onclick = () => { suppressSave = true; localStorage.removeItem(currentSaveKey()); try{ localStorage.setItem(MODE_KEY, 'none'); }catch(e){} location.reload(); };
 }
 
 /* ================= 開始モーダル ================= */
@@ -1648,7 +1740,7 @@ function showVsResult(){
   $('#vs-result-close').onclick = () => {
     delete $('#modal-box').dataset.locked;
     closeModal();
-    if(VS.finishReason === 'bankrupt'){ try{ localStorage.removeItem(VS_SAVE_KEY); }catch(e){} location.reload(); }
+    if(VS.finishReason === 'bankrupt'){ suppressSave = true; try{ localStorage.removeItem(VS_SAVE_KEY); localStorage.removeItem(VS_META_KEY); localStorage.setItem(MODE_KEY, 'solo'); }catch(e){} location.reload(); }
     else S.paused = false;
   };
 }
@@ -1676,7 +1768,7 @@ function renderVsPanel(){
     <div class="vs-grid">${side(mine.name + '（あなた）', mine, true)}${side(VS.oppName, opp, false)}</div>
     <button class="sub-btn danger" id="vs-quit" style="margin-top:8px">対戦をやめる</button>`;
   const q = $('#vs-quit');
-  if(q) q.onclick = () => { if(confirm('対戦をやめますか？（対戦データは破棄され、ソロプレイに戻ります）')){ vsTeardown(); try{ localStorage.removeItem(VS_SAVE_KEY); }catch(e){} location.reload(); } };
+  if(q) q.onclick = () => { if(confirm('対戦をやめますか？（対戦データは破棄され、ソロプレイに戻ります）')){ vsTeardown(); suppressSave = true; try{ localStorage.removeItem(VS_SAVE_KEY); localStorage.removeItem(VS_META_KEY); localStorage.setItem(MODE_KEY, 'solo'); }catch(e){} location.reload(); } };
 }
 
 /* ---------- 切断・再接続 ---------- */
@@ -1740,6 +1832,7 @@ document.addEventListener('visibilitychange', () => { if(document.hidden) save(t
 
 if(load() && S.started){
   toast('👋 おかえりなさい！続きから再開します');
+  if(loadedFromVs) restoreVsSession();
   if(!S.contractOffers || !S.contractOffers.length) refreshContracts();
   refreshCandidates(false);
 } else {

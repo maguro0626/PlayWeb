@@ -117,6 +117,10 @@ const FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
 function loadSave(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'); }catch(e){ return {}; } }
 function storeSave(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }catch(e){} }
 function renderBest(){ const s=loadSave(); const parts=[]; if(s.wins!=null) parts.push('CPU戦 勝利数: '+s.wins); if(s.bestTurns!=null) parts.push('最少ターン勝利: '+s.bestTurns+' ターン'); const txt=parts.length?('ベスト: '+parts.join(' / ')):''; document.getElementById('soloBest').textContent=txt; document.getElementById('bestLine').textContent=txt?('🏆 '+txt):''; }
+/* account.js のクラウドマージが読み込み後にベストを書き戻しても表示へ反映する */
+window.addEventListener('focus',renderBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest();});
+setTimeout(renderBest,2000);setTimeout(renderBest,5000);
 let mode='solo';
 let pos=[0,0], rest=[false,false], current=0, playing=false, finished=false, rolling=false, myTurns=0;
 function myIdx(){ return mode==='online' ? (isHost?0:1) : 0; }

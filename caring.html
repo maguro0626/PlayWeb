@@ -309,6 +309,17 @@ html,body{overscroll-behavior:none;}
     <button onclick="care('light')" class="action-btn light"><span class="a-ic" id="light-icon">💡</span><span class="a-lb">でんき</span><span class="a-sub">LIGHT</span></button>
   </div>
 
+  <!-- how to play -->
+  <details class="card" style="padding:12px 16px">
+    <summary style="font-weight:800;font-size:13px;cursor:pointer">❓ 遊び方・孵化と進化の条件</summary>
+    <div style="font-size:12px;font-weight:700;color:#5d5170;line-height:1.9;margin-top:8px">
+      🥚 <b>孵化</b>：年齢が<b>1日</b>になると卵から孵るよ。年齢は<b>約6分で1日</b>進む（ページを閉じている間も少し進む）。<br>
+      ✨ <b>進化</b>：年齢<b>3日</b>で第二形態、年齢<b>6日</b>で最終形態に進化するよ。<br>
+      🔀 進化先はお世話の仕方で変わるよ：あそぶ・ごはん多め／ごはん・おそうじ多め／しかる・お世話不足多め、で行き先が分かれる。<br>
+      🐣 卵の間は「あそぶ」「しかる」はできないよ。ごはんはおなかが減っていればあげられる。おそうじはうんちがある時、おくすりは病気の時だけ使えるよ。
+    </div>
+  </details>
+
   <!-- online co-op -->
   <div class="card" id="online-panel">
     <div class="log-head"><span>🌐</span><span class="sl" style="font-size:10px">オンライン・いっしょに育成</span><span id="net-dot" class="net-dot"></span></div>
@@ -1306,17 +1317,44 @@ function saveGame() {
   G.lastSave = Date.now();
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch(e) {}
 }
+let saveLoadBroken = false; /* オートセーブが壊れていた（原文は退避済み） */
 function loadGame() {
+  let raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY); } catch(e) {}
+  if (!raw) return false;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return false;
     const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== 'object' || typeof saved.stage !== 'string' || !M[saved.stage]) throw new Error('bad save');
     G = Object.assign({}, G, saved);
     const elapsed = Date.now() - (G.lastSave || Date.now());
     const elapsedSec = Math.min(elapsed / 1000, 3600);
     applyOfflineTime(elapsedSec);
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    /* 壊れたオートセーブを初期データ（新しい卵）で上書きして消してしまわないよう、
+       原文を別キーへ退避してから「読み込み失敗」として扱う。復旧はスロットから試みる */
+    saveLoadBroken = true;
+    try { localStorage.setItem(SAVE_KEY + '_broken', raw); } catch(e2) {}
+    return false;
+  }
+}
+/* オートセーブが無い/壊れている時に、最新のスロット記録から復旧する。
+   オートセーブが正常な場合はそちらが正（意図的なリセット等を尊重し、復旧しない） */
+function restoreFromLatestSlot() {
+  const slots = getSlots();
+  let best = -1, bestSave = -1;
+  slots.forEach((s, i) => { if (s && typeof s.stage === 'string' && M[s.stage] && (s.lastSave || 0) > bestSave) { bestSave = s.lastSave || 0; best = i; } });
+  if (best < 0) return false;
+  const keepDiscovered = G.discovered;
+  const merged = Array.from(new Set([...(keepDiscovered || []), ...(slots[best].discovered || [])]));
+  G = Object.assign({}, G, slots[best]);
+  G.discovered = merged;
+  delete G.when;
+  G.lastSave = Date.now(); G.lastTick = Date.now();
+  tickCount = 0;
+  saveGame();
+  logEvent('📂', `スロット${best+1}の記録から復旧した`);
+  return true;
 }
 function applyOfflineTime(sec) {
   const hours = sec / 300;
@@ -1326,7 +1364,7 @@ function applyOfflineTime(sec) {
   G.hunger = Math.max(0, G.hunger - decayH);
   G.happy  = Math.max(0, G.happy  - decayHp);
   G.ageMs  = (G.ageMs || 0) + sec * 1000;
-  G.age    = Math.floor(G.ageMs / (86400000/24));
+  G.age    = Math.floor(G.ageMs / 360000); // gameTick と同じ換算（1日=360秒）。以前は /3600000 で再読み込み直後に年齢が巻き戻って見えた
   if (G.hunger === 0 && !G.isSick) { G.isSick = true; G.missedCare += decayH; }
   if (G.isSick && hours > 2) { G.isAlive = false; }
 }
@@ -1350,6 +1388,7 @@ function renderSlots() {
   }).join('');
 }
 function saveSlot(i) {
+  saveGame(); /* スロット保存のついでにオートセーブも最新化する（保存直後に再読み込みしても巻き戻らないように） */
   const slots = getSlots();
   const snap = JSON.parse(JSON.stringify(G));
   const d = new Date();
@@ -1507,7 +1546,7 @@ function floatDelta(gaugeId, text, color) {
 function doFeed() {
   if (!G.isAlive) return;
   if (G.isSleeping) { showMsg('ねてるよ💤'); SFX.fail(); return; }
-  if (G.hunger >= 4) { showMsg('おなかいっぱい！'); SFX.fail(); return; }
+  if (G.hunger >= 4) { showMsg(G.stage === 'egg' ? 'たまごは おなかいっぱいだよ🥚' : 'おなかいっぱい！'); SFX.fail(); return; }
   G.hunger = Math.min(4, G.hunger + 1);
   G.weight = Math.min(99, G.weight + 1);
   G.totalFed++;
@@ -1522,13 +1561,13 @@ function doFeed() {
 function doPlay() {
   if (!G.isAlive) return;
   if (G.isSleeping) { showMsg('ねてるよ💤'); SFX.fail(); return; }
-  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); SFX.fail(); return; }
+  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚（年齢1日で孵化するよ）'); SFX.fail(); return; }
   SFX.click();
   openMinigame();
 }
 function doClean() {
   if (!G.isAlive) return;
-  if (!G.poop) { showMsg('きれいだよ✨'); SFX.fail(); return; }
+  if (!G.poop) { showMsg(G.stage === 'egg' ? 'まだたまごだよ🥚（うんちもないよ）' : 'きれいだよ✨'); SFX.fail(); return; }
   G.poop = false;
   G.totalClean++;
   SFX.clean(); react('hop');
@@ -1540,7 +1579,7 @@ function doClean() {
 }
 function doMedicine() {
   if (!G.isAlive) return;
-  if (!G.isSick) { showMsg('げんきだよ！'); SFX.fail(); return; }
+  if (!G.isSick) { showMsg(G.stage === 'egg' ? 'まだたまごだよ🥚（びょうきじゃないよ）' : 'げんきだよ！'); SFX.fail(); return; }
   G.isSick = false;
   G.hunger = Math.min(4, G.hunger + 1);
   SFX.med(); react('hop');
@@ -1552,7 +1591,7 @@ function doMedicine() {
 }
 function doScold() {
   if (!G.isAlive) return;
-  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚'); SFX.fail(); return; }
+  if (G.stage === 'egg') { showMsg('まだたまごだよ🥚（年齢1日で孵化するよ）'); SFX.fail(); return; }
   const before = G.happy;
   G.happy = Math.max(0, G.happy - 1);
   G.totalScold++;
@@ -2438,7 +2477,9 @@ function updateNetDot() {
 window.addEventListener('DOMContentLoaded', function() {
   const savedNetName = localStorage.getItem('monster_caring_name');
   if (savedNetName) document.getElementById('net-name').value = savedNetName;
-  const loaded = loadGame();
+  let loaded = loadGame();
+  let restored = false;
+  if (!loaded) { restored = restoreFromLatestSlot(); loaded = restored; }
   if (G.isSleeping) {
     document.getElementById('sleep-overlay').classList.remove('hidden');
     document.getElementById('light-icon').textContent = '🌙';
@@ -2447,8 +2488,11 @@ window.addEventListener('DOMContentLoaded', function() {
   updateUI();
   renderLog();
   if (!loaded) {
-    showMsg('あたらしいたまごが うまれた！🥚');
+    showMsg(saveLoadBroken ? 'セーブが読めなかったので あたらしいたまごから始めるね🥚' : 'あたらしいたまごが うまれた！🥚');
     logEvent('🥚', 'あたらしいたまごがうまれた');
+  } else if (restored) {
+    showMsg('スロットの記録から もどってきた！');
+    if (!G.isAlive) showDead();
   } else {
     showMsg(`おかえり！${M[G.stage] ? M[G.stage].name : 'たまご'}だよ！`);
     if (!G.isAlive) showDead();

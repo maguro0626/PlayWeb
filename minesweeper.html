@@ -170,7 +170,7 @@ html,body{overscroll-behavior:none;}
 "use strict";
 const DIFFS = { easy:{w:9,h:9,mines:10,label:'初級'}, mid:{w:16,h:16,mines:40,label:'中級'}, hard:{w:30,h:16,mines:99,label:'上級'} };
 const $ = id=>document.getElementById(id);
-let diff='easy', W,H,M, cells, started, over, won, flags, opened, timerInt, seconds, firstClickDone;
+let diff='easy', W,H,M, cells, started, over, won, flags, opened, timerInt, seconds, timerT0=0, firstClickDone;
 let soundOn=true, audioCtx=null, flagMode=false;
 let rngFn=Math.random; // ソロは Math.random、レース中はシード付きRNGに差し替える
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
@@ -190,7 +190,7 @@ function beep(f,d=0.06,type='square',v=0.045){
 
 function init(){
   const d=DIFFS[diff]; W=d.w; H=d.h; M=d.mines;
-  cells=[]; started=false; over=false; won=false; flags=0; opened=0; seconds=0; firstClickDone=false;
+  cells=[]; started=false; over=false; won=false; flags=0; opened=0; seconds=0; timerT0=0; firstClickDone=false;
   if(!raceActive) rngFn=Math.random;
   clearInterval(timerInt);
   $('timer').textContent='000';
@@ -317,10 +317,23 @@ function placeMines(safe){
   }
   cells.forEach(c=>{ c.n=neighbors(c).filter(n=>n.mine).length; });
 }
+function timerElapsedSec(){ return timerT0 ? Math.floor((performance.now()-timerT0)/1000) : seconds; }
+function renderTimer(){ $('timer').textContent=String(Math.min(999,Math.max(0,seconds))).padStart(3,'0'); }
 function startTimer(){
   if(started) return; started=true;
-  timerInt=setInterval(()=>{ seconds=Math.min(999,seconds+1); $('timer').textContent=String(seconds).padStart(3,'0'); },1000);
+  timerT0=performance.now(); seconds=0; renderTimer();
+  clearInterval(timerInt);
+  /* 経過は「tickで+1」ではなく開始時刻から算出する。tick間隔だけに頼ると、
+     ゲームオーバー/クリアが最初のtick前に起きた場合や、バックグラウンドで
+     インターバルが抑制された場合に、表示が 000 のまま固まって見えるため。
+     終了時は stopTimer() が最終経過を確定してから止める。 */
+  timerInt=setInterval(()=>{ seconds=Math.min(999,timerElapsedSec()); renderTimer(); },200);
 }
+function stopTimer(){
+  if(timerT0){ seconds=Math.min(999,timerElapsedSec()); timerT0=0; }
+  clearInterval(timerInt); renderTimer();
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && started && timerT0){ seconds=Math.min(999,timerElapsedSec()); renderTimer(); } });
 function onCell(c){
   if(over) return;
   if(flagMode){ toggleFlag(c); return; }
@@ -353,7 +366,8 @@ function chord(c){
 }
 function toggleFlag(c){
   if(over||c.open) return;
-  if(!firstClickDone) startTimer(), started=started; // フラグだけではタイマー開始しない
+  /* フラグだけではタイマーを開始しない（開始は最初のマス開け= openCell のみ）。
+     旧コードは startTimer() を呼んでしまい、フラグ先行で計時が始まっていた。 */
   c.flag=!c.flag; flags+=c.flag?1:-1;
   c.el.textContent=c.flag?'🚩':'';
   c.el.classList.toggle('flag',c.flag);
@@ -363,7 +377,7 @@ function toggleFlag(c){
 }
 function checkWin(){
   if(opened === W*H-M){
-    won=true; over=true; clearInterval(timerInt);
+    won=true; over=true; stopTimer();
     cells.forEach(c=>{ if(c.mine&&!c.flag){ c.flag=true; c.el.textContent='🚩'; c.el.classList.add('flag'); } });
     $('mineCount').textContent='000';
     $('face').textContent='😎';
@@ -378,13 +392,13 @@ function checkWin(){
       resolveRace();
     }else{
       const key='ms_best_'+diff, prev=+(localStorage.getItem(key)||0);
-      if(!prev||seconds<prev) localStorage.setItem(key,seconds);
+      if(seconds>=1&&(!prev||seconds<prev)) localStorage.setItem(key,seconds); // 1秒未満クリアで「0秒ベスト」を記録しない
     }
     showBest();
   }
 }
 function lose(hit){
-  over=true; clearInterval(timerInt);
+  over=true; stopTimer();
   cells.forEach(c=>{
     if(c.mine){ c.el.classList.add('mine'); c.el.textContent='💣'; if(c.flag) c.el.textContent='🚩'; }
     else if(c.flag){ c.el.textContent='❌'; }
@@ -438,6 +452,28 @@ let lastProgSent=0, progFlushTimer=null;
 
 function genRoomCode(){ let s=''; for(let i=0;i<6;i++) s+=CODE_CHARS[(Math.random()*CODE_CHARS.length)|0]; return s; }
 function peerAvailable(){ return typeof window.Peer!=='undefined'; }
+/* PeerJS（CDN）の読み込みが一瞬遅れた/失敗しただけで自動参加が即エラーに
+   ならないよう、最大12秒ポーリングし、無ければ CDN スクリプトを1回だけ
+   読み直してからコールバックする。?join 経由の自動参加はユーザーが
+   リトライを押す機会がないため、この待ち合わせが無いと「接続エラー」で終わる。 */
+let peerLoadRequested=false;
+function ensurePeer(cb){
+  if(peerAvailable()){ cb(true); return; }
+  setOnlineStatus('オンライン機能を読み込んでいます…');
+  if(!peerLoadRequested){
+    peerLoadRequested=true;
+    try{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+      document.head.appendChild(s);
+    }catch(e){}
+  }
+  const t0=Date.now();
+  const iv=setInterval(()=>{
+    if(peerAvailable()){ clearInterval(iv); cb(true); }
+    else if(Date.now()-t0>12000){ clearInterval(iv); cb(false); }
+  },300);
+}
 function setOnlineStatus(html){ $('onlineStatus').innerHTML=html; }
 function sendOnline(obj){ if(conn&&conn.open){ try{ conn.send(obj); }catch(e){} } }
 function startHeartbeat(){ stopHeartbeat(); heartbeatTimer=setInterval(()=>{ sendOnline({t:'ping'}); },8000); }
@@ -494,7 +530,7 @@ function resolveRace(){
   else if(oppResult==='clear'){ title='😢 敗北…'; detail='相手が先にクリアしました。'; }
   else return;
   raceResolved=true; raceActive=false;
-  over=true; clearInterval(timerInt);
+  over=true; stopTimer();
   /* フレンド戦績（friends.js）へ記録: resolveRace は勝敗確定時に1回だけ通る（退出時は通らない）。
      対戦レース形式: 自分/相手の地雷=負け/勝ち、両者クリア時はタイム差、同タイムは引き分け */
   if(window.PWFriends && PWFriends.recordMatch){
@@ -573,7 +609,7 @@ function handleOnlineData(msg){
   }
   else if(msg.t==='bye'){
     if(raceActive || raceResolved){
-      raceResolved=true; raceActive=false; over=true; clearInterval(timerInt);
+      raceResolved=true; raceActive=false; over=true; stopTimer();
       showResult('🚪 相手が退出しました', '対戦相手が退出したため、レースを終了しました。');
     }
     setOnlineStatus('相手が退出しました。');
@@ -648,7 +684,12 @@ function teardownOnline(){
   conn=null; peer=null; connOpen=false;
 }
 function hostRoom(){
-  if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  ensurePeer(ok=>{
+    if(!ok){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+    hostRoomNow();
+  });
+}
+function hostRoomNow(){
   teardownOnline();
   onlineClosing=false;
   isHost=true;
@@ -678,9 +719,14 @@ function hostRoom(){
   peer.on('disconnected', ()=>{ try{ peer.reconnect(); }catch(e){} });
 }
 function joinRoom(){
-  if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
   const code=($('joinCode').value||'').trim().toUpperCase();
   if(code.length!==6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  ensurePeer(ok=>{
+    if(!ok){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+    joinRoomNow(code);
+  });
+}
+function joinRoomNow(code){
   teardownOnline();
   onlineClosing=false;
   isHost=false;
@@ -742,7 +788,7 @@ document.querySelectorAll('#modeSeg button').forEach(b=>{
       netMode='online';
       document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on', x===b));
       $('onlinePanel').classList.add('show');
-      if(!peerAvailable()) setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>');
+      if(!peerAvailable()) setOnlineStatus('オンライン機能を読み込んでいます…（部屋の作成／参加時に自動で読み直します）');
     }else{
       leaveOnline();
     }
@@ -768,7 +814,29 @@ $('rematchBtn').onclick=()=>{
 };
 init();
 </script>
-<script>window.PW_GAME='minesweeper';window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script>
+window.PW_GAME='minesweeper';
+window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};
+/* 招待参加/作成の minesweeper 側エントリ（friends.js は定義済みのこちらを尊重する。
+   ?join の読み取りとログインゲート判定は friends.js の initHooks/runJoinHook が担い、
+   最終的に #joinBtn クリック→ joinRoom() へ合流する。ここでは friends.js の
+   DOMクリック経路に頼らず、モード切替→コード入力→ joinRoom() を直接行う経路も用意する） */
+window.PW_AUTO_HOST=function(){
+  if(window.PWFriends&&PWFriends.gateState&&PWFriends.gateState()!=='member') return; /* ゲストは friends.js 側の案内に従う */
+  if(isHost&&roomCode) return;
+  if(netMode!=='online'){ const b=document.querySelector('button[data-m="online"]'); if(b) b.click(); }
+  hostRoom();
+};
+window.PW_AUTO_JOIN=function(code){
+  if(window.PWFriends&&PWFriends.gateState&&PWFriends.gateState()!=='member') return;
+  const c=(code||'').toString().trim().toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'').slice(0,6);
+  if(c.length!==6) return;
+  if(!isHost&&roomCode===c&&peer) return; /* 参加処理中/参加済みへの二重発火を防ぐ */
+  if(netMode!=='online'){ const b=document.querySelector('button[data-m="online"]'); if(b) b.click(); }
+  const inp=document.getElementById('joinCode'); if(inp) inp.value=c;
+  joinRoom();
+};
+</script>
 <script src="friends.js"></script>
 </body>
 </html>

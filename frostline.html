@@ -211,7 +211,7 @@ html,body{overscroll-behavior:none;}
     <div class="note" style="font-size:13px;color:#cfe4ff">
       ・左下スティック（画面左半分をドラッグ）で移動。木・岩・実に近づくと自動で採取します。<br>
       ・拠点の中心は「炉」。暖かい光の範囲の中では体温が回復し、外では下がります。体温が0になると体力が減ります。<br>
-      ・炉の近くに立つと、木材が自動で燃料になります。火が消えると拠点でも凍えるので注意！<br>
+      ・炉の暖かい範囲（点線の輪の中）に立つと、木材が自動で燃料になります。火が消えると拠点でも凍えるので注意！<br>
       ・🏠建設ボタンで施設を建てられます。作業台で道具が進化し、調理場で食料を食事に変えられます。<br>
       ・雪原にいる生存者（！マーク）に近づくと救助でき、仕事を割り当てると自動で働きます。ベッドが多いほど多く働けます。<br>
       ・夜は寒波で体温が下がりやすく、3日ごとの夜は吹雪＋オオカミ襲撃！炉のそばが安全です。オオカミは近づくと斧で戦えます（肉が取れる）。<br>
@@ -729,8 +729,10 @@ function stepPlayer(p, dt) {
   if (!p.chTarget) p.swing = Math.max(0, (p.swing || 0) - dt * 4);
   updateNeeds(p, dt);
   if (!p.dead) doInteract(p, dt);
-  /* 炉への燃料投入（近くに立つだけ） */
-  if (dist2(p.x, p.y, BASE.x, BASE.y) < 112 * 112 && S.res.wood > 0 && S.fuel < fuelMax() - 1) {
+  /* 炉への燃料投入（近くに立つだけ）。投入範囲は画面に見える暖かい範囲
+     （furnRadius）に合わせる。火が消えている時は最低112pxを保証して再点火できるようにする */
+  const depR = Math.max(112, furnRadius());
+  if (dist2(p.x, p.y, BASE.x, BASE.y) < depR * depR && S.res.wood > 0 && S.fuel < fuelMax() - 1) {
     p.depT += dt;
     if (p.depT >= 0.22) {
       p.depT = 0; S.res.wood--; S.fuel = Math.min(fuelMax(), S.fuel + 13);
@@ -1491,7 +1493,10 @@ function guestTick(dt) {
 
 <script>
 /* ─────────────── ゲームフロー ─────────────── */
-function showScr(id) { document.querySelectorAll('.scr').forEach(e => e.classList.toggle('show', e.id === id)); }
+function showScr(id) {
+  document.querySelectorAll('.scr').forEach(e => e.classList.toggle('show', e.id === id));
+  if (id === 'titleScr') refreshTitle(); /* タイトル表示のたびに最新のセーブ状態を反映する */
+}
 function beginPlay() {
   document.querySelectorAll('.scr').forEach(e => e.classList.remove('show'));
   $('hud').style.display = 'block'; $('btnCol').style.display = 'flex'; $('pauseBtn').style.display = 'block';
@@ -1516,6 +1521,7 @@ function refreshTitle() {
 }
 function startRun(saved) {
   initAudio();
+  if (NET.role || NET.inGame) cleanupNet(); /* 協力プレイ側の状態残りがソロ開始を妨げないよう掃除する */
   const b = loadBest(); saveBest({ plays: b.plays + 1 });
   S = saved ? newRun(saved.seed, saved) : newRun((Math.random() * 1e9) | 0);
   S.cam.x = S.players[0].x; S.cam.y = S.players[0].y;
@@ -1595,9 +1601,15 @@ function requestAssign(i, job) {
   renderBuildPanel();
 }
 /* ─────────────── 入力（スティック＋キー） ─────────────── */
-const keys = {};
-window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) e.preventDefault(); });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+const keys = {}, keyCodes = {};
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.code) keyCodes[e.code] = true;
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; if (e.code) keyCodes[e.code] = false; });
+/* フォーカスを失った時に押下状態が残って固まらないよう全キー解除する */
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; for (const k in keyCodes) keyCodes[k] = false; });
 const joy = { on: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
 function joyStart(x, y, id) {
   joy.on = true; joy.id = id; joy.ox = x; joy.oy = y; joy.dx = 0; joy.dy = 0;
@@ -1621,10 +1633,10 @@ window.addEventListener('mousemove', e => { if (joy.on && joy.id === 'm') joyMov
 window.addEventListener('mouseup', () => { if (joy.id === 'm') joyEnd(); });
 function readInput() {
   let x = 0, y = 0;
-  if (keys['a'] || keys['arrowleft']) x -= 1;
-  if (keys['d'] || keys['arrowright']) x += 1;
-  if (keys['w'] || keys['arrowup']) y -= 1;
-  if (keys['s'] || keys['arrowdown']) y += 1;
+  if (keys['a'] || keys['arrowleft'] || keyCodes['KeyA'] || keyCodes['ArrowLeft']) x -= 1;
+  if (keys['d'] || keys['arrowright'] || keyCodes['KeyD'] || keyCodes['ArrowRight']) x += 1;
+  if (keys['w'] || keys['arrowup'] || keyCodes['KeyW'] || keyCodes['ArrowUp']) y -= 1;
+  if (keys['s'] || keys['arrowdown'] || keyCodes['KeyS'] || keyCodes['ArrowDown']) y += 1;
   if (x || y) { const d = Math.hypot(x, y); return { x: x / d, y: y / d }; }
   if (joy.on) return { x: joy.dx, y: joy.dy };
   return { x: 0, y: 0 };
@@ -1637,9 +1649,27 @@ function updateInput() {
 }
 /* ─────────────── ボタン配線 ─────────────── */
 let paused = false;
+/* 「はじめから」はネイティブ confirm() を使わない（ダイアログを処理できない
+   環境ではクリック自体がブロックされ無反応になるため、ゲーム内2段階確認にする）。
+   セーブがある場合: 1回目でボタンを確認状態にし、2回目で開始する。 */
+let newBtnArmT = 0;
+function disarmNewBtn() {
+  newBtnArmT = 0;
+  const b = $('newBtn');
+  b.textContent = '❄️ はじめから';
+  b.style.background = '';
+}
 $('newBtn').onclick = () => {
   initAudio();
-  if (loadSave() && !confirm('保存された記録を消して、はじめから始めますか？')) return;
+  if (loadSave() && !newBtnArmT) {
+    newBtnArmT = Date.now();
+    const b = $('newBtn');
+    b.textContent = '⚠ 記録を消して開始（もう一度タップ）';
+    b.style.background = 'linear-gradient(90deg,#c0392b,#e67e22)';
+    setTimeout(() => { if (newBtnArmT && Date.now() - newBtnArmT >= 3900) disarmNewBtn(); }, 4000);
+    return;
+  }
+  disarmNewBtn();
   clearSave(); startRun(null);
 };
 $('continueBtn').onclick = () => { const sv = loadSave(); if (sv) startRun(sv); };
@@ -1684,7 +1714,7 @@ window.addEventListener('beforeunload', () => { if (S && !NET.inGame && NET.role
 let lastT = 0;
 function frame(ts) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, lastT ? (ts - lastT) / 1000 : 0.016);
+  const dt = Math.min(0.1, lastT ? (ts - lastT) / 1000 : 0.016); /* 低FPS時も実時間速度を保つ（1ステップ最大17pxで判定範囲より小さい） */
   lastT = ts;
   if (S) {
     if (NET.role === 'guest') guestTick(dt);
@@ -1702,6 +1732,15 @@ function frame(ts) {
 resize();
 setMuted(muted);
 refreshTitle();
+/* ログイン確定後にクラウドセーブが端末へ復元されると、読み込み時点の
+   refreshTitle では「つづきから」に反映されない。ゲート変化・復帰・
+   時間差でタイトル表示を最新化する（いずれも title DOM への冪等な反映のみ） */
+if (window.PWAccount && window.PWAccount.onGateChange) {
+  try { window.PWAccount.onGateChange(() => refreshTitle()); } catch (e) {}
+}
+[900, 2200, 5000].forEach(ms => setTimeout(() => refreshTitle(), ms));
+window.addEventListener('focus', () => refreshTitle());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshTitle(); });
 requestAnimationFrame(frame);
 /* ─────────────── テスト用フック ─────────────── */
 window.__fl = {

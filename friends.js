@@ -392,7 +392,7 @@
       if (cur && cur.conn !== c && cur.open) {
         /* 既存接続が無音（相手の再起動などで死んでいる）なら差し替える。
            生きていれば開始側コードの小さい方を勝者にする */
-        var stale = cur.lastSeen && (Date.now() - cur.lastSeen > 25000);
+        var stale = cur.lastSeen && (Date.now() - cur.lastSeen > 45000);
         if (stale || initiator < cur.initiator) {
           try { cur.conn.close(); } catch (e) {}
         } else {
@@ -468,14 +468,19 @@
     }
     else if (msg.t === 'bye') { clearInvited(code); setPresence(code, { online: false, game: null }); }
   }
-  /* ハートビート＆再接続スイープ */
+  /* ハートビート＆再接続スイープ
+     無音で切断扱いにする閾値は 90 秒（クラウド在席の PRESENCE_STALE_MS と同値）。
+     以前は 40 秒で、バックグラウンドタブのタイマー抑制（Chrome の intensive
+     throttling 等）で ping/pong が遅れるだけでオフライン表示に落ち、在席表示が
+     数分単位でフリッカーする原因になっていた。 */
+  var PRESENCE_DROP_MS = 90000;
   setInterval(function () {
     var now = Date.now();
     Object.keys(state.conns).forEach(function (code) {
       var e = state.conns[code];
       if (e && e.open) {
         sendRaw(code, { t: 'ping' });
-        if (e.lastSeen && now - e.lastSeen > 40000) {
+        if (e.lastSeen && now - e.lastSeen > PRESENCE_DROP_MS) {
           try { e.conn.close(); } catch (err) {}
           delete state.conns[code];
           setPresence(code, { online: false, game: null });
@@ -483,22 +488,50 @@
       }
     });
   }, 15000);
-  setInterval(function () {
+  function reconnectSweep() {
     if (!state.peerOpen) return;
     friends.forEach(function (f) { if (!isOnline(f.uid)) connectTo(f.uid); });
-  }, 12000);
+  }
+  setInterval(reconnectSweep, 12000);
+  /* タブ復帰・ネットワーク復帰時は、間隔タイマーを待たず即座に在席を立て直す。
+     隠れたこと自体ではオフライン扱いにしない（切断判定は上の無音閾値だけ）。 */
+  function refreshPresenceNow() {
+    if (state.peer && !state.peerOpen) { try { state.peer.reconnect(); } catch (e) {} }
+    Object.keys(state.conns).forEach(function (code) {
+      var e = state.conns[code];
+      if (e && e.open) {
+        sendRaw(code, { t: 'ping' });
+        sendRaw(code, { t: 'hello', name: myName(), game: MY_GAME });
+      }
+    });
+    reconnectSweep();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') refreshPresenceNow();
+  });
+  window.addEventListener('online', refreshPresenceNow);
+  window.addEventListener('focus', refreshPresenceNow);
   window.addEventListener('beforeunload', function () {
     Object.keys(state.conns).forEach(function (code) { sendRaw(code, { t: 'bye' }); });
     try { if (state.peer) state.peer.destroy(); } catch (e) {}
   });
 
   /* ---------------- 公開API（招待まわり） ---------------- */
+  /* 文字列からルームコードらしい6文字を抽出する。要素の表示テキストに
+     ラベルや空白・改行が混ざっていても拾えるようにし、検出漏れで招待が
+     送れなくなるのを防ぐ（従来は全文がコードと完全一致しないと無効だった） */
+  function extractRoomCode(s) {
+    if (typeof s !== 'string') return null;
+    var m = s.toUpperCase().match(/[A-HJ-NP-Z2-9]{6}/);
+    return m ? m[0] : null;
+  }
   function detectRoomCode() {
     for (var i = 0; i < ROOM_CODE_SELS.length; i++) {
       var el = document.querySelector(ROOM_CODE_SELS[i]);
       if (el) {
-        var t = (el.textContent || '').trim().toUpperCase();
-        if (ROOM_RE.test(t)) return t;
+        var code = extractRoomCode(el.textContent || '') ||
+          (typeof el.value === 'string' ? extractRoomCode(el.value) : null);
+        if (code) return code;
       }
     }
     return null;
@@ -520,7 +553,10 @@
   }
   /* ゲーム側が window.PW_ROOM_CODE にコードを公開している場合はそちらを優先 */
   function currentRoomCode() {
-    if (typeof window.PW_ROOM_CODE === 'string' && ROOM_RE.test(window.PW_ROOM_CODE)) return window.PW_ROOM_CODE;
+    if (typeof window.PW_ROOM_CODE === 'string') {
+      var c = extractRoomCode(window.PW_ROOM_CODE);
+      if (c && window.PW_ROOM_CODE.trim().toUpperCase() === c) return c;
+    }
     return detectRoomCode();
   }
   window.PWFriends = {
@@ -653,6 +689,18 @@
     pickerOpen = false;
     if (els.pickerOverlay) els.pickerOverlay.classList.remove('show');
   }
+  /* 同一HTMLの再描画を避けるためのキャッシュ。在席更新のたびに renderAll が
+     走っても、内容が変わらない一覧は DOM を作り直さない（タップ中のボタンが
+     detach して招待/参加のタップを取りこぼすのを防ぐ）。パネルDOMを作り直す
+     タイミング（buildUI / teardown）で必ずクリアすること。 */
+  var htmlCache = {};
+  function setHtmlCached(el, key, html) {
+    if (!el) return false;
+    if (htmlCache[key] === html) return false;
+    htmlCache[key] = html;
+    el.innerHTML = html;
+    return true;
+  }
   function renderPickerList() {
     if (!els.pickerList) return;
     var g = GAMES[MY_GAME];
@@ -662,13 +710,14 @@
       ? 'ログイン中は、オフラインのフレンドにも招待を送れます（相手が次にPlayWebを開いた時に届きます。部屋は開いたままお待ちください）。選ぶと部屋を自動で作って招待を送ります。'
       : 'オンライン中のフレンドだけ招待できます。選ぶと部屋を自動で作って招待を送ります。複数人対戦のゲームでは、続けて別のフレンドも招待できます。';
     if (!friends.length) {
-      els.pickerList.innerHTML = '<div class="pwf-note">まだフレンドがいません。オンライン対戦にはフレンドが必要です。まずアカウントタブの「フレンドを追加」で、相手のユーザー名を検索して追加してください。</div>' +
-        '<button class="pwf-btn pri" id="pwfPickerAdd" style="margin-top:10px">フレンドを追加する</button>';
-      var b = document.getElementById('pwfPickerAdd');
-      if (b) b.onclick = function () { closeInvitePicker(); openPanel(); };
+      if (setHtmlCached(els.pickerList, 'picker', '<div class="pwf-note">まだフレンドがいません。オンライン対戦にはフレンドが必要です。まずアカウントタブの「フレンドを追加」で、相手のユーザー名を検索して追加してください。</div>' +
+        '<button class="pwf-btn pri" id="pwfPickerAdd" style="margin-top:10px">フレンドを追加する</button>')) {
+        var b = document.getElementById('pwfPickerAdd');
+        if (b) b.onclick = function () { closeInvitePicker(); openPanel(); };
+      }
       return;
     }
-    els.pickerList.innerHTML = friends.map(function (f) {
+    if (!setHtmlCached(els.pickerList, 'picker', friends.map(function (f) {
       var on = isOnline(f.uid);
       var canInvite = on || cloudActive(); /* ログイン中はオフラインでも招待を送れる */
       var invited = invitedActive(f.uid);
@@ -679,7 +728,7 @@
           ? '<button class="pwf-btn" disabled>招待済み ✓</button>'
           : '<button class="pwf-btn pri" data-invite="' + f.uid + '"' + (canInvite ? '' : ' disabled') + '>' + (canInvite ? '招待する' : 'オフライン') + '</button>') +
         '</div>';
-    }).join('');
+    }).join(''))) return; /* 内容が同じなら既存DOM・リスナーを維持 */
     els.pickerList.querySelectorAll('[data-invite]').forEach(function (btn) {
       btn.onclick = function () { inviteFriendFlow(btn.getAttribute('data-invite'), btn); };
     });
@@ -1020,6 +1069,7 @@
   }
   function buildUI() {
     buildShell();
+    htmlCache = {}; /* パネルDOMを作り直すので描画キャッシュは破棄 */
     /* ドロワー内マウント時は見出し行を出さない（ドロワー側に「👥 フレンド」がある） */
     var mount = document.getElementById('pwFriendsMount');
     var panelHtml =
@@ -1146,13 +1196,13 @@
   function renderInvites() {
     var box = $('pwfInvites');
     if (!box) return;
-    if (!state.invites.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<div class="pwf-sec">届いている招待</div>' + state.invites.map(function (inv, i) {
+    if (!state.invites.length) { setHtmlCached(box, 'invites', ''); return; }
+    if (!setHtmlCached(box, 'invites', '<div class="pwf-sec">届いている招待</div>' + state.invites.map(function (inv, i) {
       return '<div class="pwf-invite"><b>' + esc(inv.name) + '</b> さんから「' + esc(GAMES[inv.game].title) +
         '」への招待' +
         '<div class="pwf-row" style="margin-top:8px"><button class="pwf-btn pri" data-inv-join="' + i + '">参加する</button>' +
         '<button class="pwf-btn" data-inv-del="' + i + '">閉じる</button></div></div>';
-    }).join('');
+    }).join(''))) return; /* 内容が同じなら既存DOM・リスナーを維持 */
     box.querySelectorAll('[data-inv-join]').forEach(function (btn) {
       btn.onclick = function () {
         var inv = state.invites[Number(btn.getAttribute('data-inv-join'))];
@@ -1180,7 +1230,7 @@
     if (cnt) cnt.textContent = '（' + friends.length + '人）';
     var empty = $('pwfEmpty');
     if (empty) empty.textContent = friends.length ? '' : 'まだフレンドがいません。上の「フレンドを追加」で相手のユーザー名を検索して追加しましょう。相手がPlayWebを開くと、ここにオンライン状態が表示されます。';
-    listEl.innerHTML = friends.map(function (f) {
+    if (!setHtmlCached(listEl, 'list', friends.map(function (f) {
       var on = isOnline(f.uid);
       var recSum = recordSummary(f.uid);
       var cp = cloudPresence[f.uid] || {};
@@ -1192,7 +1242,7 @@
         (recSum ? '<div class="pwf-frec">' + esc(recSum) + '</div>' : '') + '</div>' +
         '<button class="pwf-iconbtn" data-act="pick" data-uid="' + f.uid + '"' + ((on || cloudActive()) ? '' : ' disabled style="opacity:.4"') + '>🎮</button>' +
         '<button class="pwf-iconbtn" data-act="del" data-uid="' + f.uid + '">✕</button></div>';
-    }).join('');
+    }).join(''))) return; /* 内容が同じなら既存DOM・リスナーを維持 */
     listEl.querySelectorAll('[data-act]').forEach(function (btn) {
       btn.onclick = function () {
         var code = btn.getAttribute('data-uid'), act = btn.getAttribute('data-act');
@@ -1220,9 +1270,9 @@
     var roomBox = $('pwfPickRoom');
     var room = (MY_GAME !== 'portal') ? currentRoomCode() : null;
     if (roomBox) {
-      roomBox.innerHTML = room
+      if (setHtmlCached(roomBox, 'pickRoom:' + code, room
         ? '<button class="pwf-btn pri" id="pwfPickRoomBtn" style="width:100%">🏠 いま開いている部屋に招待する</button>'
-        : '';
+        : '')) {
       var rb = $('pwfPickRoomBtn');
       if (rb) rb.onclick = function () {
         startHostMatch(code);
@@ -1235,18 +1285,20 @@
           toast('招待を送れませんでした（接続が切れています）', 'info');
         }
       };
+      }
     }
     var grid = $('pwfPickGrid');
     if (grid) {
-      grid.innerHTML = GAME_ORDER.filter(function (g) { return !(GAMES[g] && GAMES[g].noInvite); }).map(function (g) {
+      if (setHtmlCached(grid, 'pickGrid:' + code, GAME_ORDER.filter(function (g) { return !(GAMES[g] && GAMES[g].noInvite); }).map(function (g) {
         return '<button class="pwf-game" data-game="' + g + '">' + esc(GAMES[g].title) + '</button>';
-      }).join('');
-      grid.querySelectorAll('[data-game]').forEach(function (btn) {
-        btn.onclick = function () {
-          var g = btn.getAttribute('data-game');
-          location.href = GAMES[g].file + '?hostinvite=' + encodeURIComponent(code);
-        };
-      });
+      }).join(''))) {
+        grid.querySelectorAll('[data-game]').forEach(function (btn) {
+          btn.onclick = function () {
+            var g = btn.getAttribute('data-game');
+            location.href = GAMES[g].file + '?hostinvite=' + encodeURIComponent(code);
+          };
+        });
+      }
     }
   }
 
@@ -1293,8 +1345,14 @@
     });
     return chain;
   }
+  /* ゲート未確定（pending/guest）の間に参加・招待ホストが要求された場合の
+     再試行キュー。認証確定が遅い端末では、ブロックされた参加がそのまま
+     消えて「?join で移動しても設定画面のまま」になるため、member 遷移時に
+     applyGate から再実行する。 */
+  var joinRetryCode = null;
+  var hostInviteRetryUid = null;
   function runJoinHook(code) {
-    if (gateBlocked()) { loginNotice(); return; }
+    if (gateBlocked()) { joinRetryCode = code; loginNotice(); return; }
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.input) return;
     window.PW_JOIN_STARTED = true;
@@ -1317,7 +1375,7 @@
     });
   }
   function runHostInviteHook(friendUid) {
-    if (gateBlocked()) return;
+    if (gateBlocked()) { hostInviteRetryUid = friendUid; return; }
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.hostBtn) return;
     window.PW_HOSTINVITE_STARTED = true;
@@ -1397,6 +1455,7 @@
     if (window.PWAccount && window.PWAccount.openModal) window.PWAccount.openModal();
   }
   function teardownFriendsUI() {
+    htmlCache = {}; /* パネルDOMを破棄するので描画キャッシュも破棄 */
     try { closePanel(); } catch (e) {}
     closeInvitePicker();
     closeRecords();
@@ -1431,6 +1490,22 @@
       } else {
         if (!els.panel) buildUI();
         if (!state.peer) startPeerWhenReady();
+        /* 再試行: ゲート未確定の間にブロックされた参加/招待ホスト要求や、
+           member→guest→member の teardown サイクルで initHooks が再実行
+           されないケースを、認証確定のたびに回収する。開始済みフラグが
+           立っているものは二重実行しない。 */
+        if (joinRetryCode && !window.PW_JOIN_STARTED) {
+          var rc = joinRetryCode; joinRetryCode = null;
+          runJoinHook(rc);
+        } else if (hostInviteRetryUid && !window.PW_HOSTINVITE_STARTED) {
+          var hu = hostInviteRetryUid; hostInviteRetryUid = null;
+          if (friendOf(hu)) { startHostMatch(hu); runHostInviteHook(hu); }
+        } else if (!window.PW_JOIN_STARTED && !window.PW_HOSTINVITE_STARTED) {
+          try {
+            var p = new URLSearchParams(location.search);
+            if (p.get('join') || p.get('hostinvite')) initHooks();
+          } catch (e) {}
+        }
       }
       initGameUI();
     } else {
@@ -1451,7 +1526,7 @@
     }
     if (typeof window.PW_AUTO_JOIN !== 'function') {
       window.PW_AUTO_JOIN = function (room) {
-        if (gateBlocked()) { loginNotice(); return; }
+        /* ブロック時は runJoinHook 側で再試行キュー＋案内まで行う */
         runJoinHook(room);
       };
     }

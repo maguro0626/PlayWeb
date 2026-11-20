@@ -29,8 +29,8 @@ body{display:flex;flex-direction:column}
 .ball-wobble{animation:ballWobble .55s ease-in-out}
 .fld-btn{background:rgba(26,39,56,.9);border:1px solid var(--c-border);border-radius:14px;color:#c8d8e8;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
 .fld-btn:active{background:rgba(74,174,255,.3);transform:scale(.95)}
-.fld-tile{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:clamp(11px,3.4vw,17px);line-height:1;position:relative}
-.fld-player{filter:drop-shadow(0 0 5px #ffd700);font-size:clamp(14px,4.2vw,21px)}
+.fld-tile{border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:clamp(13px,4.2vw,26px);line-height:1;position:relative;min-height:0;overflow:hidden}
+.fld-player{filter:drop-shadow(0 0 5px #ffd700);font-size:clamp(17px,5.2vw,32px)}
 @keyframes ballCatchGlow{0%{transform:scale(1)}40%{transform:scale(1.25);filter:drop-shadow(0 0 18px #ffd700)}100%{transform:scale(1.1)}}
 .ball-caught{animation:ballCatchGlow .6s ease forwards}
 @keyframes dance{0%{transform:rotate(-6deg) translateY(0)}25%{transform:rotate(0) translateY(-8px)}50%{transform:rotate(6deg) translateY(0)}75%{transform:rotate(0) translateY(-8px)}100%{transform:rotate(-6deg) translateY(0)}}
@@ -45,7 +45,7 @@ body{display:flex;flex-direction:column}
 @keyframes toast-anim{0%{transform:translate(-50%,-50%) scale(.5);opacity:0}15%{transform:translate(-50%,-50%) scale(1.05);opacity:1}80%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}.toast-pop{animation:toast-anim 2s cubic-bezier(.175,.885,.32,1.2) forwards}
 @keyframes credits-roll{0%{transform:translateY(52vh);opacity:0}6%{opacity:1}92%{opacity:1}100%{transform:translateY(-105%);opacity:0}}
 .credits-roll{animation:credits-roll 16s linear forwards}
-.fld-bldg{font-size:clamp(14px,4.4vw,22px)!important}
+.fld-bldg{font-size:clamp(17px,5.4vw,32px)!important}
 .fld-exit-n{box-shadow:inset 0 3px 0 rgba(120,220,255,.85)}
 .fld-exit-s{box-shadow:inset 0 -3px 0 rgba(120,220,255,.85)}
 @keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg);opacity:1}85%{opacity:1}100%{transform:translateY(115vh) rotate(var(--rot,720deg));opacity:0}}.confetti{position:fixed;top:-30px;z-index:200;pointer-events:none;animation:confetti-fall linear forwards}
@@ -337,7 +337,7 @@ html,body{overscroll-behavior:none;}
 
 <!-- FIELD (タイルマップ探索) -->
 <div id="sc-field" class="screen">
-  <div class="flex-1 flex flex-col max-w-lg mx-auto w-full px-3 py-3 gap-2 min-h-0" style="padding-bottom:max(12px,env(safe-area-inset-bottom))">
+  <div class="flex-1 flex flex-col max-w-lg mx-auto w-full px-3 py-3 gap-2 min-h-0" style="max-width:720px;padding-bottom:max(12px,env(safe-area-inset-bottom))">
     <div class="card px-3 py-2 flex items-center gap-2 shrink-0">
       <span id="field-emoji" class="text-2xl"></span>
       <div class="flex-1 min-w-0">
@@ -348,9 +348,10 @@ html,body{overscroll-behavior:none;}
       <button onclick="showParty()" class="bbtn w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:13px" title="手持ち">👥</button>
       <button onclick="showBag()" class="bbtn w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(74,174,255,.12);border:1px solid rgba(74,174,255,.25);font-size:13px" title="バッグ">🎒</button>
     </div>
-    <div id="field-grid" class="shrink-0 mx-auto w-full" style="display:grid;grid-template-columns:repeat(12,1fr);gap:2px;max-width:430px"></div>
+    <!-- フィールドは画面幅いっぱい＋残り高さいっぱいに広げる（旧: max-width:430px の正方形固定＋
+         flex-1 の空白スペーサで、マップが画面の一部に小さく浮き周囲が黒余白になっていた） -->
+    <div id="field-grid" class="mx-auto w-full" style="display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(9,1fr);gap:2px;flex:1 1 auto;min-height:0"></div>
     <div id="field-msg" class="card px-3 py-2 text-xs font-bold shrink-0" style="color:#aaccff;min-height:34px;line-height:1.6">十字キーやボタンで移動。看板や人の前で「調べる」を押してみよう。</div>
-    <div class="flex-1"></div>
     <div class="shrink-0 mx-auto" style="display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,54px);gap:5px">
       <div></div>
       <button class="fld-btn" onclick="fieldMove(0,-1)">⬆</button>
@@ -978,7 +979,7 @@ function healParty(){G.party.forEach(m=>{m.hp=m.maxHp;m.status=null;m.moves.forE
 function getTotalBalls(){return(G.orbs||0)+(G.goodOrbs||0)+(G.superOrbs||0)}
 function getFirstAlive(party){return party.find(m=>alive(m))||null}
 function wait(ms){return new Promise(r=>setTimeout(r,SETTINGS.speed===2?ms*0.45:ms))}
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');curScreen=id;updateHdr(id);icons()}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');curScreen=id;updateHdr(id);icons();if(id==='sc-title'&&typeof refreshContBtn==='function')refreshContBtn()}
 function updateHdr(id){
   const L={'sc-title':'ホーム','sc-intro':'もどる','sc-map':'マップ','sc-loc':'もどる','sc-field':'もどる','sc-battle':'バトル中','sc-party':'もどる','sc-dex':'もどる','sc-bag':'もどる','sc-online':'もどる'};
   const T={'sc-title':'MONSTER RISE','sc-intro':'NEW GAME','sc-map':'WORLD MAP','sc-loc':'LOCATION','sc-field':'FIELD','sc-battle':'BATTLE','sc-party':'PARTY','sc-dex':'MONSTER DEX','sc-bag':'BAG','sc-online':'ONLINE BATTLE'};
@@ -1050,7 +1051,7 @@ function openSlots(mode){
   document.getElementById('slot-title').textContent=mode==='new'?'どのスロットで はじめますか？':'どのスロットから つづけますか？';
   renderSlots();sfx('select');
 }
-function closeSlots(){document.getElementById('slot-panel').classList.add('hidden');document.getElementById('title-menu').classList.remove('hidden');slotConfirm=-1;sfx('cancel')}
+function closeSlots(){document.getElementById('slot-panel').classList.add('hidden');document.getElementById('title-menu').classList.remove('hidden');slotConfirm=-1;refreshContBtn();sfx('cancel')}
 function closeSlotsSilent(){document.getElementById('slot-panel').classList.add('hidden');document.getElementById('title-menu').classList.remove('hidden')}
 function renderSlots(){
   const list=document.getElementById('slot-list');if(!list)return;list.innerHTML='';
@@ -1061,12 +1062,14 @@ function renderSlots(){
     if(d){
       const badgeN=(d.badges||[]).length;
       const lead=d.party&&d.party[0]&&M[d.party[0].sp]?M[d.party[0].sp]:null;
+      const leadLv=d.party&&d.party[0]&&d.party[0].lv?d.party[0].lv:null;
       card.innerHTML=`<div class="flex items-center gap-3">
         ${lead?`<div style="width:44px;height:44px;flex-shrink:0;background:${lead.bg};border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="38" height="38" viewBox="0 0 200 200">${lead.draw()}</svg></div>`:'<div style="font-size:24px">🎒</div>'}
         <div class="flex-1 min-w-0">
           <div class="font-black text-sm">スロット${i+1} · ${d.playerName||'ゆうしゃ'}</div>
-          <div class="text-xs mt-0.5" style="color:#8af">バッジ ${badgeN}/5 · 仲間 ${(d.party||[]).length+(d.box||[]).length}匹 · ¥${(d.money||0).toLocaleString()}</div>
-          ${slotMode==='new'&&slotConfirm===i?'<div class="text-xs font-black mt-1" style="color:#ff8a96">もう一度押すと このデータを消して新規開始！</div>':''}
+          <div class="text-xs mt-0.5" style="color:#8af">バッジ ${badgeN}/5 · 先頭 Lv.${leadLv==null?'―':leadLv} · 仲間 ${(d.party||[]).length+(d.box||[]).length}匹 · ¥${(d.money||0).toLocaleString()}</div>
+          ${slotMode==='load'?'<div class="text-xs font-black mt-1" style="color:#7dd87d">▶ タップで つづきから再開</div>':''}
+          ${slotMode==='new'&&slotConfirm===i?'<div class="text-xs font-black mt-1" style="color:#ff8a96">⚠️ もう一度押すと確認ダイアログが出ます（OKした時だけ このデータを消して新規開始）</div>':''}
         </div>
         ${slotMode==='load'?`<span class="text-xs px-2 py-1 rounded-lg" style="background:rgba(255,80,90,.15);border:1px solid rgba(255,80,90,.4);color:#ff9aa5;flex-shrink:0" data-del="${i}">消す</span>`:''}
       </div>`;
@@ -1088,8 +1091,18 @@ function slotClicked(i,hasData){
   }
   if(hasData&&slotConfirm!==i){
     slotConfirm=i;renderSlots();sfx('cancel');
-    clearTimeout(slotConfirmTimer);slotConfirmTimer=setTimeout(()=>{slotConfirm=-1;renderSlots()},3200);
+    clearTimeout(slotConfirmTimer);slotConfirmTimer=setTimeout(()=>{slotConfirm=-1;renderSlots()},6000);
     return;
+  }
+  if(hasData){
+    /* 誤上書き防止: 2回目のタップでも即確定せず、必ず確認ダイアログを挟む。
+       連打や誤タップだけでは上書きされず、キャンセルすればセーブは保持される */
+    clearTimeout(slotConfirmTimer);
+    const d=slotData(i);
+    const lv=d&&d.party&&d.party[0]&&d.party[0].lv?d.party[0].lv:'―';
+    const ok=window.confirm(`スロット${i+1}には既にセーブがあります。\n${d?(d.playerName||'ゆうしゃ')+' / 先頭 Lv.'+lv+' / バッジ '+((d.badges||[]).length)+'/5':''}\n\nこのデータを消して はじめから始めますか？\n（取り消せません）`);
+    slotConfirm=-1;
+    if(!ok){renderSlots();sfx('cancel');return}
   }
   slotConfirm=-1;curSlot=i;closeSlotsSilent();startNew();
 }
@@ -1880,14 +1893,13 @@ function onCatch(){
   if(!BT.isWild)return;
   const total=getTotalBalls();
   if(total<=0){setMsg('ボールが ない！\n先に補充しよう。');return}
-  // pick best ball
-  let ballId='orb';let bestMul=1;
-  [['superOrb','superOrb',2.5],['goodOrbs','goodOrb',1.5],['orbs','orb',1]].forEach(([gKey,itemId,mul])=>{
-    if((G[gKey]||0)>0&&mul>bestMul){bestMul=mul;ballId=gKey==='orbs'?'orb':gKey==='goodOrbs'?'goodOrb':'superOrb'}
-  });
-  if(G.orbs>0)ballId='orb';
-  if(G.goodOrbs>0&&bestMul<1.5)ballId='goodOrb';
-  if(G.superOrbs>0&&bestMul<2.5)ballId='superOrb';
+  // pick best ball: 所持する中で最も捕獲倍率が高いボールを選ぶ。
+  // ※旧実装はキー名の取り違え（G.superOrb は存在せず正しくは G.superOrbs）と
+  //   後段の無条件上書き（通常オーブ所持時に ballId='orb' へ戻す）により、
+  //   グッドオーブが通常オーブと併せ持ちだと一切使われず捕獲率が上がらなかった。
+  let ballId='orb';
+  if((G.superOrbs||0)>0)ballId='superOrb';
+  else if((G.goodOrbs||0)>0)ballId='goodOrb';
   const gKey=ballId==='orb'?'orbs':ballId==='goodOrb'?'goodOrbs':'superOrbs';
   G[gKey]--;save();
   document.getElementById('orb-label').textContent=`オーブ(${getTotalBalls()})`;
@@ -1925,9 +1937,16 @@ function onCatch(){
           spawnConfetti();
         },700);
       } else {
+        /* 捕獲失敗は「ボールから出た」だけであり逃走ではない（旧実装は失敗のたびに
+           「にげてしまった！」と表示し、捕まえられない＝逃げられると誤認させていた）。
+           バトルは継続し、どうぐ使用時などと同様に相手のターンへ進む。 */
         if(ballEl)ballEl.style.display='none';
         if(eAnim)eAnim.style.visibility='';
-        setMsg(`${mname(e)}は\nにげてしまった！`);disableMenu(false);showMain();
+        setMsg(`${mname(e)}は\nボールから出てしまった！`);
+        setTimeout(async()=>{
+          if(BT&&alive(BT.enemy))await enemyTurnAsync();
+          if(BT&&!BT.caught&&curScreen==='sc-battle'){disableMenu(false);showMain()}
+        },1100);
       }
     },600);
   };
@@ -3336,6 +3355,11 @@ function ovScheduleReconnect(){
 window.onload=function(){
   icons();
   refreshContBtn();
+  /* クラウド保存の復元（account.js のマージ）は onload より遅れて届くことがあり、
+     その場合は hasSave() が後から true になる。タイトル表示中は定期的に再判定して
+     「つづきから」を後からでも表示する（セーブがあるのに導線が出ない事故防止） */
+  [600,1500,3000,6000].forEach(ms=>setTimeout(refreshContBtn,ms));
+  setInterval(()=>{if(curScreen==='sc-title')refreshContBtn()},1500);
   refreshSetUI();
   const tm=document.getElementById('title-mons');
   if(tm){tm.innerHTML='';['A','B','C'].forEach((sp,i)=>{const d=M[sp];const div=document.createElement('div');div.className='title-mon '+d.anim;div.style.background=d.bg;div.style.animationDelay=(i*0.35)+'s';div.innerHTML=`<svg width="62" height="62" viewBox="0 0 200 200">${d.draw()}</svg>`;tm.appendChild(div)})}

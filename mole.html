@@ -75,9 +75,17 @@ html,body{overscroll-behavior:none;}
 <script>
 let AC=null;
 function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+(d||0.12));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||0.12)+0.02);}catch(e){}}
-function loadSave(){try{return JSON.parse(localStorage.getItem('mini_mole_v1')||'{}');}catch(e){return{};}}
-function storeSave(o){try{localStorage.setItem('mini_mole_v1',JSON.stringify(o));}catch(e){}}
+/* ベスト保存: メモリにも保持し、保存・表示のたびに保存済みの値と union（大きい方）を取る。
+   account.js のクラウドマージが読み込み後に localStorage へ値を書き戻すため、
+   読み込み時に1回だけ読む方式では「保存されているのに表示が - のまま」や
+   「後着した良い記録を古い値で上書き」が起きる。その対策として再描画フックも付ける。 */
+let saveCache=null;
+function loadSave(){let s={};try{s=JSON.parse(localStorage.getItem('mini_mole_v1')||'{}')||{};}catch(e){}if(saveCache&&typeof saveCache.best==='number'&&(typeof s.best!=='number'||saveCache.best>s.best))s.best=saveCache.best;if(typeof s.best==='number')saveCache={best:s.best};return s;}
+function storeSave(o){const cur=loadSave();if(typeof cur.best==='number'&&(typeof o.best!=='number'||cur.best>o.best))o.best=cur.best;if(typeof o.best==='number')saveCache={best:o.best};try{localStorage.setItem('mini_mole_v1',JSON.stringify(o));}catch(e){}}
 function showBest(){const s=loadSave();document.getElementById('bestText').textContent='ベスト: '+(s.best!==undefined?s.best+'点':'-');}
+window.addEventListener('focus',showBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)showBest();});
+setTimeout(showBest,2000);setTimeout(showBest,5000);
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 let mode='solo';
 document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;document.getElementById('soloPane').classList.toggle('hidden',mode!=='solo');document.getElementById('onlinePane').classList.toggle('hidden',mode!=='online');stopGame();resetOnlineGame();}));
@@ -106,11 +114,11 @@ document.getElementById('hostBtn').addEventListener('click',hostRoom);
 document.getElementById('joinBtn').addEventListener('click',joinRoom);
 document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
 // ---- game core ----
-let score=0,playing=false,schedule=[],schedIdx=0,gameStartAt=0,timers=[],rafId=null,scoreInt=null,myFinal=null,oppFinal=null,oppScore=0,recorded=false,activeMap={};
+let score=0,playing=false,schedule=[],schedIdx=0,gameStartAt=0,timers=[],rafId=null,scoreInt=null,myFinal=null,oppFinal=null,oppScore=0,recorded=false,activeMap={},gameSeqNo=0;
 function buildSchedule(seed){const rnd=mulberry32(seed);const arr=[];for(let t=400;t<29500;t+=700){const hole=Math.floor(rnd()*9);const r=rnd();const kind=r<0.75?'mole':r<0.85?'gold':'bomb';arr.push({at:t,hole:hole,kind:kind,dur:800});}return arr;}
 function clearTimers(){timers.forEach(clearTimeout);timers=[];if(rafId)cancelAnimationFrame(rafId);rafId=null;if(scoreInt)clearInterval(scoreInt);scoreInt=null;}
 function stopGame(){clearTimers();playing=false;activeMap={};holes.forEach(h=>{h.innerHTML='';h.classList.remove('gold');});}
-function startGame(seed,isOnline){stopGame();score=0;oppScore=0;myFinal=null;oppFinal=null;schedule=buildSchedule(seed);schedIdx=0;playing=true;document.getElementById('scoreText').textContent='0';document.getElementById('oppScoreText').textContent='0';document.getElementById('timeText').textContent='30';document.getElementById('rematchBtn').classList.add('hidden');setInfo('モグラを叩け！');gameStartAt=performance.now();schedule.forEach((ev,idx)=>{const tid=setTimeout(()=>{if(!playing)return;showMole(idx,ev);},ev.at);timers.push(tid);});const tick=()=>{if(!playing)return;const left=Math.max(0,30000-(performance.now()-gameStartAt));document.getElementById('timeText').textContent=Math.ceil(left/1000);if(left<=0){endGame(isOnline);return;}rafId=requestAnimationFrame(tick);};rafId=requestAnimationFrame(tick);if(isOnline){scoreInt=setInterval(()=>{sendNet({t:'score',s:score});},2000);}}
+function startGame(seed,isOnline){stopGame();score=0;oppScore=0;myFinal=null;oppFinal=null;schedule=buildSchedule(seed);schedIdx=0;playing=true;document.getElementById('scoreText').textContent='0';document.getElementById('oppScoreText').textContent='0';document.getElementById('timeText').textContent='30';document.getElementById('rematchBtn').classList.add('hidden');setInfo('モグラを叩け！');gameStartAt=performance.now();schedule.forEach((ev,idx)=>{const tid=setTimeout(()=>{if(!playing)return;showMole(idx,ev);},ev.at);timers.push(tid);});const tick=()=>{if(!playing)return;const left=Math.max(0,30000-(performance.now()-gameStartAt));document.getElementById('timeText').textContent=Math.ceil(left/1000);if(left<=0){endGame(isOnline);return;}rafId=requestAnimationFrame(tick);};rafId=requestAnimationFrame(tick);/* 終了判定の保険: rAF が止まる環境（タブが隠れた・スロットリング等）でも setTimeout で必ず終了し、ベスト保存まで到達する */const myGameId=++gameSeqNo;const endTid=setTimeout(()=>{if(playing&&gameSeqNo===myGameId)endGame(isOnline);},30500);timers.push(endTid);if(isOnline){scoreInt=setInterval(()=>{sendNet({t:'score',s:score});},2000);}}
 function showMole(idx,ev){const h=holes[ev.hole];const emoji=ev.kind==='bomb'?'💣':ev.kind==='gold'?'🌟':'🐹';h.innerHTML='<span class="pop">'+emoji+'</span>';h.classList.toggle('gold',ev.kind==='gold');activeMap[ev.hole]={idx:idx,kind:ev.kind};const tid=setTimeout(()=>{if(activeMap[ev.hole]&&activeMap[ev.hole].idx===idx){delete activeMap[ev.hole];h.innerHTML='';h.classList.remove('gold');}},ev.dur);timers.push(tid);}
 function hitHole(i){if(!playing)return;const a=activeMap[i];if(!a)return;delete activeMap[i];holes[i].innerHTML='';holes[i].classList.remove('gold');if(a.kind==='mole'){score+=10;tone(700,0.08,'sine',0.12);}else if(a.kind==='gold'){score+=30;tone(1000,0.12,'sine',0.14);}else{score-=20;tone(140,0.2,'sawtooth',0.14);}document.getElementById('scoreText').textContent=score;}
 function endGame(isOnline){playing=false;clearTimers();activeMap={};holes.forEach(h=>{h.innerHTML='';h.classList.remove('gold');});document.getElementById('timeText').textContent='0';tone(660,0.2,'sine',0.13);const s=loadSave();if(s.best===undefined||score>s.best){s.best=score;storeSave(s);showBest();}if(!isOnline){setInfo('終了！ スコア '+score+'点');}else{myFinal=score;sendNet({t:'score',s:score});sendNet({t:'final',s:score});setInfo('終了！結果を待っています…');checkFinal();}}

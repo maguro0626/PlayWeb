@@ -80,9 +80,17 @@ html,body{overscroll-behavior:none;}
 <script>
 let AC=null;
 function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+(d||0.12));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||0.12)+0.02);}catch(e){}}
-function loadSave(){try{return JSON.parse(localStorage.getItem('mini_reaction_v1')||'{}');}catch(e){return{};}}
-function storeSave(o){try{localStorage.setItem('mini_reaction_v1',JSON.stringify(o));}catch(e){}}
+/* ベスト保存: メモリにも保持し、保存・表示のたびに保存済みの値と union（小さい方）を取る。
+   account.js のクラウドマージが読み込み後に localStorage へ値を書き戻すため、
+   読み込み時に1回だけ読む方式では「保存されているのに表示が - のまま」や
+   「後着した良い記録を古い値で上書き」が起きる。その対策として再描画フックも付ける。 */
+let saveCache=null;
+function loadSave(){let s={};try{s=JSON.parse(localStorage.getItem('mini_reaction_v1')||'{}')||{};}catch(e){}if(saveCache){['bestAvg','bestSingle'].forEach(k=>{if(typeof saveCache[k]==='number'&&(typeof s[k]!=='number'||saveCache[k]<s[k]))s[k]=saveCache[k];});}if(typeof s.bestAvg==='number'||typeof s.bestSingle==='number')saveCache={bestAvg:s.bestAvg,bestSingle:s.bestSingle};return s;}
+function storeSave(o){const cur=loadSave();['bestAvg','bestSingle'].forEach(k=>{if(typeof cur[k]==='number'&&(typeof o[k]!=='number'||cur[k]<o[k]))o[k]=cur[k];});saveCache={bestAvg:o.bestAvg,bestSingle:o.bestSingle};try{localStorage.setItem('mini_reaction_v1',JSON.stringify(o));}catch(e){}}
 function showBest(){const s=loadSave();document.getElementById('bestText').textContent='ベスト: '+(s.bestAvg?('平均 '+s.bestAvg+'ms'):'平均 -')+' / '+(s.bestSingle?('単発 '+s.bestSingle+'ms'):'単発 -');}
+window.addEventListener('focus',showBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)showBest();});
+setTimeout(showBest,2000);setTimeout(showBest,5000);
 let mode='solo';
 document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;document.getElementById('soloPane').classList.toggle('hidden',mode!=='solo');document.getElementById('onlinePane').classList.toggle('hidden',mode!=='online');resetSolo();resetOnlineGame();}));
 showBest();
@@ -108,20 +116,24 @@ document.getElementById('joinBtn').addEventListener('click',joinRoom);
 document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
 // ---- solo ----
 const pad=document.getElementById('tapPad'),infoEl=document.getElementById('reactInfo'),listEl=document.getElementById('reactList');
-let soloState='idle',soloTimes=[],soloTimer=null,goAt=0;
+let soloState='idle',soloTimes=[],soloTimer=null,goAt=0,soloGen=0;
 function setPad(cls,big,small){pad.className=cls;pad.innerHTML='<div class="big">'+big+'</div><div class="small">'+small+'</div>';}
-function resetSolo(){clearTimeout(soloTimer);soloState='idle';soloTimes=[];listEl.innerHTML='';if(mode==='solo'){setPad('idle','タップでスタート','押すと「待て…」が始まります');infoEl.textContent='5回計って平均を出します';}}
+function resetSolo(){clearTimeout(soloTimer);soloGen++;soloState='idle';soloTimes=[];listEl.innerHTML='';if(mode==='solo'){setPad('idle','タップでスタート','押すと「待て…」が始まります');infoEl.textContent='5回計って平均を出します';}}
 function renderList(){listEl.innerHTML=soloTimes.map((v,i)=>'<span class="chip">'+(i+1)+'回目: '+v+'ms</span>').join('');}
-function soloStartRound(){soloState='wait';setPad('wait','待て…','緑になるまで待って！');infoEl.textContent=(soloTimes.length+1)+'回目 / 5回';const delay=1200+Math.random()*3300;soloTimer=setTimeout(()=>{soloState='go';goAt=performance.now();setPad('go','タップ！','今だ！');tone(880,0.15,'sine',0.15);},delay);}
+/* 反応計測の開始は「今だ！（緑）」の合図を表示した瞬間。
+   合図の表示（setPad）を先に行ってから goAt を取ること。ラウンド開始時点や
+   「待て…」表示時点で計測を始めない。また古いラウンドのタイマが遅れて
+   発火しても計測開始を上書きしないよう世代番号でガードする。 */
+function soloStartRound(){soloState='wait';setPad('wait','待て…','緑になるまで待って！');infoEl.textContent=(soloTimes.length+1)+'回目 / 5回';const delay=1200+Math.random()*3300;const gen=++soloGen;soloTimer=setTimeout(()=>{if(gen!==soloGen)return;soloState='go';setPad('go','タップ！','今だ！');goAt=performance.now();tone(880,0.15,'sine',0.15);},delay);}
 function soloTap(){if(soloState==='flying'){soloStartRound();return;}if(soloState==='idle'||soloState==='done'){soloTimes=[];renderList();soloStartRound();return;}if(soloState==='wait'){clearTimeout(soloTimer);soloState='flying';setPad('idle','フライング！','その回は無効です。タップでやり直し');infoEl.textContent='フライングは無効。タップでもう一度この回に挑戦';tone(160,0.2,'sawtooth',0.12);return;}if(soloState==='go'){const ms=Math.max(1,Math.round(performance.now()-goAt));soloTimes.push(ms);renderList();tone(660,0.1,'sine',0.12);if(soloTimes.length>=5){soloState='done';const avg=Math.round(soloTimes.reduce((a,b)=>a+b,0)/soloTimes.length);const single=Math.min.apply(null,soloTimes);setPad('idle','完了！ 平均 '+avg+'ms','タップで再挑戦');infoEl.textContent='平均 '+avg+'ms / ベスト単発 '+single+'ms';const s=loadSave();if(!s.bestAvg||avg<s.bestAvg)s.bestAvg=avg;if(!s.bestSingle||single<s.bestSingle)s.bestSingle=single;storeSave(s);showBest();}else{soloState='between';setPad('idle',ms+'ms','次へ…');infoEl.textContent='記録 '+ms+'ms';soloTimer=setTimeout(soloStartRound,800);}return;}if(soloState==='between')return;if(soloState==='idle'){soloStartRound();}}
 // ---- online ----
-let oRound=0,oState='idle',oTimer=null,oGoAt=0,myTap=null,oppTap=null,myWinsN=0,oppWinsN=0,myTimes=[],oppTimes=[],recorded=false;
-function resetOnlineGame(){clearTimeout(oTimer);oRound=0;oState='idle';myTap=null;oppTap=null;myWinsN=0;oppWinsN=0;myTimes=[];oppTimes=[];recorded=false;document.getElementById('rematchBtn').classList.add('hidden');if(mode==='online'){document.getElementById('vsRow').classList.remove('hidden');updateVs();setPad('idle','オンライン対戦','部屋を作るか参加してください');infoEl.textContent='接続すると自動で始まります';listEl.innerHTML='';}else{document.getElementById('vsRow').classList.add('hidden');}}
+let oRound=0,oState='idle',oTimer=null,oGoAt=0,oGen=0,myTap=null,oppTap=null,myWinsN=0,oppWinsN=0,myTimes=[],oppTimes=[],recorded=false;
+function resetOnlineGame(){clearTimeout(oTimer);oGen++;oRound=0;oState='idle';myTap=null;oppTap=null;myWinsN=0;oppWinsN=0;myTimes=[];oppTimes=[];recorded=false;document.getElementById('rematchBtn').classList.add('hidden');if(mode==='online'){document.getElementById('vsRow').classList.remove('hidden');updateVs();setPad('idle','オンライン対戦','部屋を作るか参加してください');infoEl.textContent='接続すると自動で始まります';listEl.innerHTML='';}else{document.getElementById('vsRow').classList.add('hidden');}}
 function avgOf(a){const v=a.filter(x=>x>=0);return v.length?Math.round(v.reduce((x,y)=>x+y,0)/v.length):null;}
 function updateVs(){document.getElementById('myWins').textContent=myWinsN+'勝';document.getElementById('oppWins').textContent=oppWinsN+'勝';const a=avgOf(myTimes),b=avgOf(oppTimes);document.getElementById('myAvg').textContent='平均 '+(a===null?'-':a+'ms');document.getElementById('oppAvg').textContent='平均 '+(b===null?'-':b+'ms');}
 function hostStartMatch(){myWinsN=0;oppWinsN=0;myTimes=[];oppTimes=[];recorded=false;oRound=1;updateVs();hostSendRound();}
 function hostSendRound(){const delay=Math.round(1200+Math.random()*3300);sendNet({t:'round',n:oRound,delay:delay});startOnlineRound(oRound,delay);}
-function startOnlineRound(n,delay){oRound=n;myTap=null;oppTap=null;oState='wait';document.getElementById('rematchBtn').classList.add('hidden');setPad('wait','待て… ラウンド'+n,'緑になったらタップ！');infoEl.textContent='ラウンド '+n+' / 5';clearTimeout(oTimer);oTimer=setTimeout(()=>{oState='go';oGoAt=performance.now();setPad('go','タップ！','今だ！');tone(880,0.15,'sine',0.15);},delay);}
+function startOnlineRound(n,delay){oRound=n;myTap=null;oppTap=null;oState='wait';document.getElementById('rematchBtn').classList.add('hidden');setPad('wait','待て… ラウンド'+n,'緑になったらタップ！');infoEl.textContent='ラウンド '+n+' / 5';clearTimeout(oTimer);const gen=++oGen;oTimer=setTimeout(()=>{if(gen!==oGen)return;oState='go';setPad('go','タップ！','今だ！');oGoAt=performance.now();tone(880,0.15,'sine',0.15);},delay);}
 function onlineTap(){if(oState==='wait'){clearTimeout(oTimer);oState='tapped';myTap=-1;sendNet({t:'tap',n:oRound,ms:-1});setPad('idle','フライング！','相手の結果を待っています');tone(160,0.2,'sawtooth',0.12);checkRoundEnd();return;}if(oState==='go'){const ms=Math.max(1,Math.round(performance.now()-oGoAt));oState='tapped';myTap=ms;sendNet({t:'tap',n:oRound,ms:ms});setPad('idle',ms+'ms','相手の結果を待っています');tone(660,0.1,'sine',0.12);checkRoundEnd();}}
 function checkRoundEnd(){if(myTap===null||oppTap===null||oState==='judged')return;if(oState!=='tapped'&&oState!=='go'&&oState!=='wait')return;oState='judged';myTimes.push(myTap);oppTimes.push(oppTap);let msg='';if(myTap===-1&&oppTap===-1){msg='両者フライングで引き分け';}else if(myTap===-1){oppWinsN++;msg='フライングで相手の勝ち';}else if(oppTap===-1){myWinsN++;msg='相手フライングであなたの勝ち！';}else if(myTap<oppTap){myWinsN++;msg='あなたの勝ち！ '+myTap+'ms vs '+oppTap+'ms';}else if(oppTap<myTap){oppWinsN++;msg='相手の勝ち '+myTap+'ms vs '+oppTap+'ms';}else{msg='同タイムで引き分け';}updateVs();infoEl.textContent='ラウンド'+oRound+': '+msg;setPad('idle','ラウンド'+oRound+' 結果',msg);tone(myWinsN>=oppWinsN?720:300,0.12,'sine',0.1);if(oRound>=5){setTimeout(finishOnline,900);}else if(isHost){oTimer=setTimeout(()=>{oRound++;hostSendRound();},1600);}}
 function finishOnline(){const a=avgOf(myTimes),b=avgOf(oppTimes);let res='';if(myWinsN>oppWinsN)res='win';else if(myWinsN<oppWinsN)res='lose';else{if(a!==null&&b!==null){if(a<b)res='win';else if(b<a)res='lose';else res='draw';}else if(a!==null&&b===null)res='win';else if(a===null&&b!==null)res='lose';else res='draw';}const label=res==='win'?'🏆 あなたの勝ち！':res==='lose'?'相手の勝ち':'引き分け';setPad('idle',label,'勝ち数 '+myWinsN+' - '+oppWinsN);infoEl.textContent=label+' 平均 あなた '+(a===null?'-':a+'ms')+' / 相手 '+(b===null?'-':b+'ms');document.getElementById('rematchBtn').classList.remove('hidden');if(!recorded){recorded=true;if(window.PWFriends&&PWFriends.recordMatch)PWFriends.recordMatch(res);}}

@@ -40,6 +40,18 @@
        v74 ではログイン確定時に、そのアカウントの名前空間残骸
        （pwsave:<uid>:* / pwmeta:<uid>）を時刻比較で素キーへ救済
        インポートしてから削除する（1回きり・冪等）。
+     ※ 消失経路の精査で入れたガード（保存方式の根幹は不変）:
+       - 未ログインでも所有者がいる端末での書き込み/削除は、所有者の版
+         として同期メタの時刻だけ記録する（認証確定前・ログアウト中の
+         最新書き込みが、古い版のまま LWW でクラウドに負けるのを防ぐ。
+         所有者がいない端末では従来どおり触らない）
+       - updatedAt を持たないクラウド文書（ts=0）は、メタ記録の無い
+         ローカル値を上書き・削除しない（ローカルを初版として上げる）
+       - ログアウト/ログイン/登録の直前に、現ユーザーの未送信分を
+         本人のクラウドへ上げ切る（上限2.5秒。引き継ぎ消去で未送信分
+         まで消えるのを防ぐ）
+       - 同期メタの版上げ時は、所有者が一致すればディスク上の最新メタを
+         取り込んでから書く（複数ページ同時表示での版の巻き戻し防止）
    - フレンド基盤（ログイン時）: フレンド一覧は users/{uid}/data/friends と同期し、
      ユーザー名検索で追加できる。プレゼンスは公開プロフィールの
      online/lastSeen/currentGame をハートビート更新して使う。
@@ -73,6 +85,13 @@
      ログイン/登録/ログアウトとフレンド機能（friends.js が #pwFriendsMount
      にマウント）を集約表示する。旧・左下ピルとログインモーダル、
      friends.js の右下 FAB は廃止。PWAccount.openModal() はドロワーを開く。
+     閉じたドロワーの残留対策: ラッパーは閉時 visibility:hidden（遅延つき
+     transition）でヒットテスト自体を消し、スクリム/ドロワーには
+     :not(.open) の pointer-events:none!important と開閉連動のインライン
+     指定・inert を併用する（閉後に透明パネルがクリックを奪わない）。
+     開閉は document へ 'pw:overlay' CustomEvent（detail.open/drawer/feedback）
+     で通知し、ゲーム側がポーズ連動できる（PWAccount.overlayOpen /
+     onOverlayChange でも取得可）。
    - v52〜 リアルタイム化の仕上げ＋プロフィール＋フィードバック:
      在席/チャット/招待は Firestore の onSnapshot 購読で即時反映する
      （ハートビートは30秒のまま。購読が即時化の本命で、間隔短縮は
@@ -571,9 +590,36 @@
   }
   syncMeta = loadMeta();
   storeOwner = syncMeta.owner;
+  /* ディスク上の最新メタを取り込む（複数ページ同時表示対策）。
+     各ページは syncMeta の写しをメモリに持ち、書き込みのたびに写し全体を
+     ディスクへ戻すため、古い写しを持つページの書き込みが、他ページが
+     記録したキーの版を巻き戻してしまう（版が消えたキーは次回マージで
+     「メタ無し」扱いになり、古いクラウド値に負け得る）。書き込みの版上げ
+     の直前に、所有者が一致する場合だけディスク側の新しい版を取り込む。
+     所有者が違う場合は他ページで引き継ぎが起きた後のため触らない */
+  function refreshMetaFromDisk() {
+    if (!syncMeta) { syncMeta = loadMeta(); return; }
+    var fresh = loadMeta();
+    if (fresh.owner !== syncMeta.owner) return;
+    var win = {};   /* key -> {ts, del}（両写しのうち新しい方） */
+    Object.keys(syncMeta.keys).forEach(function (k) { win[k] = { ts: syncMeta.keys[k], del: false }; });
+    Object.keys(syncMeta.del).forEach(function (k) { win[k] = { ts: syncMeta.del[k], del: true }; });
+    Object.keys(fresh.keys).forEach(function (k) {
+      if (!win[k] || fresh.keys[k] > win[k].ts) win[k] = { ts: fresh.keys[k], del: false };
+    });
+    Object.keys(fresh.del).forEach(function (k) {
+      if (!win[k] || fresh.del[k] > win[k].ts) win[k] = { ts: fresh.del[k], del: true };
+    });
+    syncMeta.keys = {}; syncMeta.del = {};
+    Object.keys(win).forEach(function (k) {
+      if (win[k].del) syncMeta.del[k] = win[k].ts; else syncMeta.keys[k] = win[k].ts;
+    });
+    if (fresh.friendsTs > (syncMeta.friendsTs || 0)) syncMeta.friendsTs = fresh.friendsTs;
+  }
   /* ローカルへ値を書いた記録（そのキーの版を上げる） */
   function metaTouch(key, ts) {
     if (!syncMeta) return;
+    refreshMetaFromDisk();
     syncMeta.keys[key] = ts;
     delete syncMeta.del[key];
     persistMeta();
@@ -581,6 +627,7 @@
   /* ローカルで削除した記録（削除の版を上げる。クラウドへも伝播させる） */
   function metaDelete(key, ts) {
     if (!syncMeta) return;
+    refreshMetaFromDisk();
     delete syncMeta.keys[key];
     syncMeta.del[key] = ts;
     persistMeta();
@@ -751,6 +798,23 @@
     uploadDirty();
     return uploadsSettled();
   }
+  /* 認証状態が変わる前（ログアウト／アカウント切替）に、現在ログイン中の
+     ユーザーの未送信分を本人のクラウドへ上げ切る。デバウンス（400ms）待ちや
+     送信失敗のまま認証が切り替わると、所有者引き継ぎの端末消去で未送信分
+     ごと消え、本人のクラウドにも残らないため。切替後のユーザーでは他人
+     （切替前ユーザー）のクラウドへは書けないので、このタイミングしかない。
+     応答が無い送信で認証操作自体が固まらないよう上限時間を設ける
+     （上限を超えた分は端末＋メタに残り、次回本人がログインした時の
+     マージで必ず拾われる） */
+  function flushBeforeAuthChange() {
+    if (!me || !fb || mergedUid !== me.uid) return Promise.resolve();
+    if (!Object.keys(dirtyKeys).length && pendingUploads === 0) return Promise.resolve();
+    var settled = flushUploads();
+    return Promise.race([
+      settled,
+      new Promise(function (res) { setTimeout(res, 2500); })
+    ]);
+  }
   function scheduleFriendsUpload() {
     if (friendsUploadTimer) return;
     friendsUploadTimer = setTimeout(function () { friendsUploadTimer = null; uploadFriends(); }, UPLOAD_DEBOUNCE_MS);
@@ -900,10 +964,13 @@
       if (hasLocal && localTs === null && delTs === null) {
         /* メタに記録が無いローカル値（ゲスト期の書き込み・メタ喪失時など）:
            クラウドに在ればクラウドを正とし、無ければこの端末の値を
-           初版として上げる */
-        if (c && !c.del) {
+           初版として上げる。ただし updatedAt を持たないクラウド文書
+           （ts=0）は「新しい」根拠が無いため、値・削除のどちらでも
+           ローカルを上書きしない（ローカルを初版として上げ、文書の
+           時刻も修復する） */
+        if (c && c.ts > 0 && !c.del) {
           diskSet(k, c.v); meta.keys[k] = c.ts; delete meta.del[k];
-        } else if (c && c.del) {
+        } else if (c && c.ts > 0 && c.del) {
           diskRemove(k); delete meta.keys[k]; meta.del[k] = c.ts;
         } else {
           meta.keys[k] = nowMs(); dirtyKeys[k] = true;
@@ -1153,7 +1220,19 @@
       scheduleFriendsUpload();
       return;
     }
-    if (!me) return;   /* ゲストの書き込みは端末に残るが、同期メタには触らない */
+    if (!me) {
+      /* 未ログインでも、端末ストアに所有者がいる場合は「所有者の端末での
+         書き込み」として版だけは記録する。認証確定前（ページ読み込み直後、
+         ゲームの初期化やオートセーブが認証復元より先に走る）やログアウト中
+         の書き込みは実際に一番新しいのに、版を上げないと次回マージで
+         古い版のまま扱われ、別端末で少し進んだだけのクラウド値に LWW で
+         負けて実データが消えるため。送信予約はしない（上げるのは所有者が
+         次にログインした時のマージが、版と値の比較から自動で行う）。
+         所有者がいない端末（ゲスト専用端末）では従来どおり触らない:
+         初回ログイン時にクラウドを正とする設計を守る */
+      if (syncMeta && syncMeta.owner) metaTouch(key, nowMs());
+      return;
+    }
     metaTouch(key, nowMs());
     markDirty(key);
   }
@@ -1166,7 +1245,11 @@
       scheduleFriendsUpload();
       return;
     }
-    if (!me) return;
+    if (!me) {
+      /* 書き込みと同じ理由で、所有者がいる端末での未ログイン削除も版を残す */
+      if (syncMeta && syncMeta.owner) metaDelete(key, nowMs());
+      return;
+    }
     metaDelete(key, nowMs());
     markDirty(key);
   }
@@ -1634,6 +1717,10 @@
     /* 注意: ルール上 usernames の get はログイン済みでないと許可されないため、
        登録前の空き確認はできない。まず認証ユーザーを作り、ログイン状態で
        名前を確保する（claimUsername）。他人が確保済みなら巻き戻す。 */
+    /* ログイン中の別ユーザーがいる場合は、先にその人の未送信分を本人の
+       クラウドへ上げてから認証を切り替える（所有者引き継ぎの消去で
+       未送信分まで消えないようにするため） */
+    return flushBeforeAuthChange().then(function () {
     pendingUsername = name;
     authTransition = 'signup';
     return fb.auth.createUserWithEmailAndPassword(usernameToEmail(name), password).then(function (cred) {
@@ -1665,11 +1752,15 @@
       authTransition = null;
       return { ok: false, msg: authErrorMessage(e) };
     });
+    });
   }
   function doLogin(username, password) {
     var v = validateUsername(username);
     if (!v.ok) return Promise.resolve({ ok: false, msg: v.error });
     if (!fb) return Promise.resolve({ ok: false, msg: 'ログイン機能を読み込めませんでした' });
+    /* ログイン中の別ユーザーがいる場合は、先にその人の未送信分を本人の
+       クラウドへ上げてから認証を切り替える（doSignup と同じ引き継ぎ対策） */
+    return flushBeforeAuthChange().then(function () {
     authTransition = 'login';
     return fb.auth.signInWithEmailAndPassword(usernameToEmail(v.name), password)
       .then(function (cred) {
@@ -1685,9 +1776,14 @@
         authTransition = null;
         return { ok: false, msg: authErrorMessage(e) };
       });
+    });
   }
   function doLogout() {
     if (!fb) return Promise.resolve();
+    /* 先に未送信分を本人のクラウドへ上げ切る（デバウンス待ちの書き込みが
+       ログアウトで宙に浮き、その後の引き継ぎで消えるのを防ぐ）。
+       端末ストアと owner は従来どおり消さない */
+    return flushBeforeAuthChange().then(function () {
     setOffline();
     stopServices();
     me = null;
@@ -1699,6 +1795,7 @@
     setGate('guest');
     updatePill(); updateModal(); updateSearchRow();
     return fb.auth.signOut().catch(function () {});
+    });
   }
   function onAuthUser(user) {
     if (!user) {
@@ -1779,7 +1876,11 @@
     minesweeper: 'マインスイーパ', reversi: 'オセロ', shogi: '将棋', majan: '麻雀',
     daihugou: '大富豪', hanahuda: '花札', uno: 'UNO', blockzushi: 'ブロック崩し',
     jump: 'ジャンプラン', caring: '育成ゲーム', gamedev: 'ゲーム工房物語',
-    rpg: 'モンスターライズ', otome: '乙女ゲーム', linksaga: 'スターリンクサーガ'
+    rpg: 'モンスターライズ', otome: '乙女ゲーム', linksaga: 'スターリンクサーガ',
+    reaction: 'はんしゃテスト', mash: 'れんだバトル', numguess: 'かずあて',
+    janken: 'じゃんけんバトル', calc: 'けいさんダッシュ', memory: 'しんけいすいじゃく',
+    mole: 'もぐらパニック', simon: 'いろメモリ', timing: 'タイミングストップ',
+    dice: 'ダイスレース'
   };
   function pageTitle() {
     if (typeof window.PW_PAGE_TITLE === 'string' && window.PW_PAGE_TITLE) return window.PW_PAGE_TITLE;
@@ -1798,7 +1899,13 @@
     '.pw-tab .pw-dot{position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;background:#8a90ad;border:1.5px solid #0d1020;pointer-events:none}',
     '.pw-tab.on .pw-dot{background:#3ED6A5}',
     '#pwTabBadge{position:absolute;top:-6px;right:-6px;min-width:19px;height:19px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:900;padding:0 5px;display:none;align-items:center;justify-content:center;border:2px solid #0b1026;pointer-events:none}',
-    '#pwDrawerWrap{position:fixed;inset:0;z-index:100006;pointer-events:none;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif}',
+    '#pwDrawerWrap{position:fixed;inset:0;z-index:100006;pointer-events:none;visibility:hidden;transition:visibility 0s linear .4s;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif}',
+    '#pwDrawerWrap.open{visibility:visible;transition-delay:0s}',
+    /* 閉じている間は visibility:hidden でヒットテスト自体を消す。pointer-events の
+       解釈差や他 CSS の上書きがあっても、閉じた後の透明パネルが裏のゲームの
+       クリックを奪わないための二重ガード（開閉時のインライン指定と併用） */
+    '#pwDrawerWrap:not(.open) #pwDrawerScrim{pointer-events:none!important}',
+    '#pwDrawerWrap:not(.open) #pwDrawer{pointer-events:none!important}',
     /* スクリムとドロワーは共通ヘッダーの下から始める（開いている間も
        ヘッダーのタブでメインへ戻れるようにするため） */
     '#pwDrawerScrim{position:absolute;left:0;right:0;bottom:0;top:var(--pw-header-h,46px);background:rgba(3,4,12,.48);opacity:0;transition:opacity .3s ease;pointer-events:none}',
@@ -1855,6 +1962,36 @@
     '.pw-fb-body{white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.7;color:#e6e9f7;background:rgba(255,255,255,.04);border-radius:12px;padding:12px;margin-top:8px}'
   ].join('\n');
   var headerEl = null, drawerWrapEl = null, drawerOpen = false;
+  var fbOpen = false;   /* フィードバックモーダル（#pwFbWrap）の開閉状態 */
+
+  /* ---------------- オーバーレイ開閉イベント（ゲーム側のポーズ連動用） ----------------
+     ドロワーとフィードバックモーダルの開閉を document へ通知する。
+     ゲーム側は document.addEventListener('pw:overlay', handler) で購読でき、
+     handler には detail = { open: どちらか1つでも開いているか,
+     drawer: bool, feedback: bool, source: 'drawer'|'feedback' } が渡る。
+     PWAccount.onOverlayChange(cb) / PWAccount.overlayOpen() でも同じ状態を取れる。
+     発火は「開閉状態が実際に変わった時」だけ（多重 open/close では発火しない） */
+  var overlayCbs = [];
+  function overlayOpenNow() { return !!(drawerOpen || fbOpen); }
+  function emitOverlay(source) {
+    var detail = { open: overlayOpenNow(), drawer: !!drawerOpen, feedback: !!fbOpen, source: source || 'drawer' };
+    try { document.dispatchEvent(new CustomEvent('pw:overlay', { detail: detail })); } catch (e) {}
+    overlayCbs.slice().forEach(function (cb) { try { cb(detail); } catch (e) {} });
+  }
+  /* 閉じたドロワーがクリックを奪わないよう、開閉に合わせてスクリム/ドロワーへ
+     インラインでも pointer-events を明示する（CSS の visibility/pointer-events
+     ガードと合わせた三重化）。閉時は inert＋aria-hidden でフォーカスも止める */
+  function setDrawerHitState() {
+    if (!drawerWrapEl) return;
+    var scrim = drawerWrapEl.querySelector('#pwDrawerScrim');
+    var drawer = drawerWrapEl.querySelector('#pwDrawer');
+    if (scrim) scrim.style.pointerEvents = drawerOpen ? '' : 'none';
+    if (drawer) {
+      drawer.style.pointerEvents = drawerOpen ? '' : 'none';
+      try { drawer.inert = !drawerOpen; } catch (e) {}
+      try { drawer.setAttribute('aria-hidden', drawerOpen ? 'false' : 'true'); } catch (e) {}
+    }
+  }
   function buildUI() {
     if (headerEl) return;
     var style = document.createElement('style');
@@ -1894,6 +2031,7 @@
       '</div>' +
       '</aside>';
     document.body.appendChild(drawerWrapEl);
+    setDrawerHitState();
     drawerWrapEl.querySelector('#pwDrawerScrim').addEventListener('click', closeModal);
     drawerWrapEl.querySelector('#pwDrawerClose').onclick = closeModal;
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drawerOpen) closeModal(); });
@@ -2047,17 +2185,23 @@
   function openModal() {
     buildUI();
     if (!drawerWrapEl) return;
+    var changed = !drawerOpen;
     drawerOpen = true;
     drawerWrapEl.classList.add('open');
+    setDrawerHitState();
     updatePill(); updateModal();
     notifyFriendsView();
+    if (changed) emitOverlay('drawer');
   }
   function closeModal() {
     if (!drawerWrapEl) { drawerOpen = false; return; }
+    var changed = drawerOpen;
     drawerOpen = false;
     drawerWrapEl.classList.remove('open');
+    setDrawerHitState();
     updatePill();
     notifyFriendsView();
+    if (changed) emitOverlay('drawer');
   }
   /* フレンドパネル内の「ユーザー名で追加」行の表示切替とイベント結線（friends.js 側に器がある） */
   var searchBound = false;
@@ -2260,9 +2404,15 @@
     if (!fbWrapEl) return;
     var row = $('pwFbNameRow');
     if (row) row.style.display = me ? 'none' : '';
+    var changed = !fbOpen;
+    fbOpen = true;
     fbWrapEl.classList.add('open');
+    if (changed) emitOverlay('feedback');
   }
-  function closeFeedback() { if (fbWrapEl) fbWrapEl.classList.remove('open'); }
+  function closeFeedback() {
+    if (fbWrapEl) fbWrapEl.classList.remove('open');
+    if (fbOpen) { fbOpen = false; emitOverlay('feedback'); }
+  }
   function submitFeedback(data) {
     if (!fb) return Promise.resolve({ ok: false, msg: '送信できませんでした（通信環境を確認してください）' });
     return fb.db.collection('feedback').add({
@@ -2480,6 +2630,14 @@
     openDrawer: openModal,
     closeDrawer: closeModal,
     drawerOpen: function () { return drawerOpen; },
+    /* ドロワー/フィードバックモーダルのどちらかが開いているか（ゲーム側のポーズ連動用）。
+       開閉は document の 'pw:overlay' イベントでも通知される */
+    overlayOpen: function () { return overlayOpenNow(); },
+    onOverlayChange: function (cb) {
+      if (typeof cb !== 'function') return;
+      overlayCbs.push(cb);
+      try { cb({ open: overlayOpenNow(), drawer: !!drawerOpen, feedback: !!fbOpen, source: 'init' }); } catch (e) {}
+    },
     syncNow: function () { flushUploads(); return mergeCloudSaves({ force: true }); },
     /* v66〜 自分のセーブ全削除（端末ストア＋同期メタ＋クラウド）＋公開戦績リセット */
     resetMyData: resetMyData,
@@ -2523,6 +2681,7 @@
       dirtyKeys: function () { var c = {}; Object.keys(dirtyKeys).forEach(function (k) { c[k] = true; }); return c; },
       /* ゲスト相当の分離状態か（ログイン中は false / それ以外は true） */
       guestActive: function () { return gateState !== 'member'; },
+      overlayOpen: function () { return overlayOpenNow(); },
       /* 端末ストアの内容 {素キー: 値}（認証状態によらず実ディスクの素キー） */
       memStore: function () { return storeSnapshot(); },
       statusText: function () { return statusText; },

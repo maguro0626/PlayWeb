@@ -496,7 +496,11 @@ html,body{overscroll-behavior:none;}
       <div class="score-head">
         <div class="score-who">
           <div class="mini-piece"><span>玉</span></div>
-          <span class="score-label"><span id="label-player-text">あなた（先手）</span></span>
+          <span class="score-label"><span id="label-player-text">あなた（先手）</span>
+            <span id="thinking-indicator-player" style="display:none;margin-left:2px;">
+              <span class="thinking-dot">●</span><span class="thinking-dot">●</span><span class="thinking-dot">●</span>
+            </span>
+          </span>
         </div>
         <span class="move-count"><span id="move-count-player">0</span><small>手</small></span>
       </div>
@@ -534,6 +538,14 @@ html,body{overscroll-behavior:none;}
           <button onclick="changeDiff('easy')"   id="df-easy">弱い</button>
           <button onclick="changeDiff('medium')" id="df-medium" class="active">普通</button>
           <button onclick="changeDiff('hard')"   id="df-hard">強い</button>
+        </div>
+      </div>
+      <div class="ctl-row" id="side-row">
+        <span class="ctl-label">手番</span>
+        <div class="seg">
+          <button onclick="changeSide('sente')"  id="sd-sente" class="active">先手</button>
+          <button onclick="changeSide('gote')"   id="sd-gote">後手</button>
+          <button onclick="changeSide('random')" id="sd-random">ランダム</button>
         </div>
       </div>
       <div class="ctl-row" id="declare-row" style="display:none;">
@@ -583,7 +595,17 @@ const FILE_DIGITS='１２３４５６７８９';
 // ═══════════════════════════════════════════════════════════
 let board=[],captured={player:[],npc:[]},turn='player';
 let selected=null,validMoves=[],lastMove=null;
-let gameActive=true,isAnimating=false,difficulty='medium';
+let gameActive=true,isAnimating=false;
+/* 設定は素の localStorage キーに保存する（他ゲームの慣例に合わせる。
+   account.js の保存シム経由でクラウド同期の対象にもなる） */
+const SHOGI_DIFF_KEY='shogi_diff',SHOGI_SIDE_KEY='shogi_side',SHOGI_CPU_SAVE_KEY='shogi_cpu_save_v1';
+let difficulty='medium';
+try{const sd=localStorage.getItem(SHOGI_DIFF_KEY);if(sd==='easy'||sd==='medium'||sd==='hard')difficulty=sd;}catch(e){}
+let senteChoice='sente'; // CPU戦の手番選択: 'sente'|'gote'|'random'
+try{const ss=localStorage.getItem(SHOGI_SIDE_KEY);if(ss==='sente'||ss==='gote'||ss==='random')senteChoice=ss;}catch(e){}
+let humanSide='player'; // CPU戦で人間が担当する側（'player'=先手 / 'npc'=後手）。ランダムは対局ごとに resetGame で決定
+function getCpuSide(){return humanSide==='player'?'npc':'player';}
+let npcTimer=null; // 予約済み CPU タイマー（二重予約防止）
 let moveCountPlayer=0,moveCountNpc=0;
 let kifuList=[],lastDest=null,lastMover=null,snapshots=[];
 let posHist=[]; // 局面履歴 {k:局面キー, c:その局面で手番側に王手がかかっているか}。posHist[i]=i手目終了後の局面（手番は i が偶数なら先手）。千日手判定とオンライン同期に使う
@@ -696,6 +718,66 @@ function restoreSnapshot(s){
   kifuList=s.kifu.slice();
   lastDest=s.lastDest?[...s.lastDest]:null;
   bothCampPlies=s.bothCampPlies||0;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CPU対局の保存・再開（リロードで対局が消えないようにする）
+// 着手のたびに素キーへ保存し、次回表示時に進行中なら復元する。
+// 終局・新規対局・待ったで初期局面に戻った場合は保存を消す。
+// ═══════════════════════════════════════════════════════════
+function clearCpuSave(){try{localStorage.removeItem(SHOGI_CPU_SAVE_KEY);}catch(e){}}
+function saveCpuGame(){
+  if(mode!=='cpu')return;
+  if(!gameActive||!kifuList.length){clearCpuSave();return;}
+  try{
+    localStorage.setItem(SHOGI_CPU_SAVE_KEY,JSON.stringify({
+      v:1,board:cloneBoard(board),
+      captured:{player:[...captured.player],npc:[...captured.npc]},
+      turn,moveCountPlayer,moveCountNpc,
+      kifu:kifuList.slice(),
+      lastMove:lastMove?{...lastMove}:null,
+      lastDest:lastDest?[...lastDest]:null,
+      lastMover,bothCampPlies,
+      posHist:posHist.map(e=>({k:e.k,c:!!e.c})),
+      snapshots:snapshots.map(s=>({
+        board:cloneBoard(s.board),
+        captured:{player:[...s.captured.player],npc:[...s.captured.npc]},
+        moveCountPlayer:s.moveCountPlayer,moveCountNpc:s.moveCountNpc,
+        lastMove:s.lastMove?{...s.lastMove}:null,
+        kifu:s.kifu.slice(),
+        lastDest:s.lastDest?[...s.lastDest]:null,
+        bothCampPlies:s.bothCampPlies||0
+      })),
+      humanSide,difficulty
+    }));
+  }catch(e){}
+}
+function loadCpuSave(){
+  let d=null;
+  try{const raw=localStorage.getItem(SHOGI_CPU_SAVE_KEY);if(raw)d=JSON.parse(raw);}catch(e){}
+  if(!d||d.v!==1)return null;
+  if(!Array.isArray(d.board)||d.board.length!==9||!d.board.every(r=>Array.isArray(r)&&r.length===9))return null;
+  if(!d.captured||!Array.isArray(d.captured.player)||!Array.isArray(d.captured.npc))return null;
+  if(!Array.isArray(d.kifu)||!d.kifu.length)return null;
+  if(d.turn!=='player'&&d.turn!=='npc')return null;
+  if(!kingPos('player',d.board)||!kingPos('npc',d.board))return null;
+  return d;
+}
+function restoreCpuSave(d){
+  board=cloneBoard(d.board);
+  captured={player:[...d.captured.player],npc:[...d.captured.npc]};
+  turn=d.turn;
+  moveCountPlayer=d.moveCountPlayer|0; moveCountNpc=d.moveCountNpc|0;
+  kifuList=d.kifu.slice();
+  lastMove=d.lastMove?{...d.lastMove}:null;
+  lastDest=d.lastDest?[...d.lastDest]:null;
+  lastMover=d.lastMover||null;
+  bothCampPlies=d.bothCampPlies||0;
+  posHist=(Array.isArray(d.posHist)&&d.posHist.length)?d.posHist.map(e=>({k:e.k,c:!!e.c})):[posEntryFor(board,captured,turn)];
+  snapshots=(Array.isArray(d.snapshots)&&d.snapshots.length)?d.snapshots:[takeSnapshot()];
+  humanSide=d.humanSide==='npc'?'npc':'player';
+  if(d.difficulty==='easy'||d.difficulty==='medium'||d.difficulty==='hard')difficulty=d.difficulty;
+  gameActive=true;gameResult=null;selected=null;validMoves=[];isAnimating=false;matchRecorded=false;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -849,6 +931,12 @@ function kifuText(owner,type,promotedBefore,didPromote,tr,tc,isDrop){
 // INIT
 // ═══════════════════════════════════════════════════════════
 function resetGame(){
+  if(npcTimer){clearTimeout(npcTimer);npcTimer=null;}
+  hideCpuThinking();
+  /* CPU戦: 手番選択を解決する（ランダムは対局ごとに抽選） */
+  if(mode==='cpu'){
+    humanSide=senteChoice==='gote'?'npc':senteChoice==='random'?(Math.random()<0.5?'player':'npc'):'player';
+  }
   board=Array.from({length:9},()=>Array(9).fill(null));
   captured={player:[],npc:[]};
   turn='player';selected=null;validMoves=[];lastMove=null;
@@ -868,15 +956,19 @@ function resetGame(){
   for(let c=0;c<9;c++)board[6][c]={type:'pawn',owner:'player',promoted:false};
   snapshots=[takeSnapshot()];
   posHist=[posEntryFor(board,captured,'player')];
+  if(mode==='cpu')clearCpuSave(); /* 新規対局なので前局の保存は破棄 */
+  updateLabels();
   render();updateUI();
   setStatus(resetStatusText());
+  /* 後手（CPUが先手）を選んだ場合は CPU が初手を指す */
+  if(mode==='cpu'&&turn===getCpuSide())scheduleNPC();
 }
 function resetStatusText(){
   if(mode==='local')return '先手の番です';
   if(mode==='online')return onlinePhase==='playing'
     ?(mySide==='player'?'あなたの番です（先手）':'相手の番です（後手）')
     :'オンライン接続待ち…';
-  return 'あなたの番です';
+  return humanSide==='player'?'あなたの番です':'CPUが考え中…';
 }
 function setStatus(txt,isCheck=false){
   const el=document.getElementById('status-text');
@@ -1068,23 +1160,30 @@ function sameMove(a,b){
   if(a.type==='drop')return a.piece===b.piece&&a.to[0]===b.to[0]&&a.to[1]===b.to[1];
   return a.from[0]===b.from[0]&&a.from[1]===b.from[1]&&a.to[0]===b.to[0]&&a.to[1]===b.to[1]&&!!a.promote===!!b.promote;
 }
-function getBestMove(){
+function getBestMoveFor(side){
   /* 実際に指す手は必ず合法手（王手回避済み）の中から選ぶ。
-     探索（aiPseudo）は擬似合法手ベースなので、その返した手が合法とは限らなかった */
-  const legal=allLegalMoves('npc',board,captured);
+     探索（aiPseudo）は擬似合法手ベースなので、その返した手が合法とは限らなかった。
+     評価値 evalBoard は後手（npc）視点（+＝npc有利）なので、先手の CPU は
+     最小化、後手の CPU は最大化する。探索の深さ・分岐上限は従来通り（強さ不変） */
+  const legal=allLegalMoves(side,board,captured);
   if(!legal.length)return null;
   if(difficulty==='easy')return legal[Math.floor(Math.random()*legal.length)];
   const depth=difficulty==='hard'?3:2;
-  const{move}=minimax(board,captured,depth,-Infinity,Infinity,true,{n:0});
+  const{move}=minimax(board,captured,depth,-Infinity,Infinity,side==='npc',{n:0});
   if(move&&legal.some(m=>sameMove(m,move)))return move;
   /* 探索が合法手を返さなかった場合は、合法手の中から1手読み評価で最良の手を選ぶ */
   let best=null,bestScore=-Infinity;
   for(const mv of legal){
     const{nb,nc}=applyAI(board,captured,mv);
-    const s=evalBoard(nb,nc)+(mv.promote?30:0);
-    if(s>bestScore){bestScore=s;best=mv;}
+    const s=evalBoard(nb,nc);
+    const mine=(side==='npc'?s:-s)+(mv.promote?30:0); /* 指し手側から見た評価 */
+    if(mine>bestScore){bestScore=mine;best=mv;}
   }
   return best;
+}
+function getBestMove(){
+  /* CPU の最善手（従来の呼び名を維持。CPU が先手の場合は先手側の手を返す） */
+  return getBestMoveFor(getCpuSide());
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1093,15 +1192,33 @@ function getBestMove(){
 function otherSide(o){return o==='player'?'npc':'player';}
 // その手を「今この端末の人間が」操作できるか
 function canControl(side){
-  if(mode==='cpu')return side==='player';
+  if(mode==='cpu')return side===humanSide;
   if(mode==='local')return true;
   return onlinePhase==='playing'&&side===mySide;
+}
+/* CPU思考中表示: CPU 側のスコアカードにだけドットを出し、ヘッダーも切り替える */
+function showCpuThinking(){
+  if(mode!=='cpu')return;
+  const cpu=getCpuSide();
+  const tiN=document.getElementById('thinking-indicator');
+  const tiP=document.getElementById('thinking-indicator-player');
+  if(tiN)tiN.style.display=cpu==='npc'?'inline':'none';
+  if(tiP)tiP.style.display=cpu==='player'?'inline':'none';
+  setStatus('CPUが考え中…');
+}
+function hideCpuThinking(){
+  const tiN=document.getElementById('thinking-indicator');
+  const tiP=document.getElementById('thinking-indicator-player');
+  if(tiN)tiN.style.display='none';
+  if(tiP)tiP.style.display='none';
 }
 function updateTurnStatus(){
   if(!gameActive)return;
   const chk=isInCheck(turn,board);
   if(mode==='cpu'){
-    setStatus(turn==='player'?(chk?'王手がかかっています':'あなたの番です'):'CPUが考え中…',chk&&turn==='player');
+    const mine=turn===humanSide;
+    if(mine)setStatus(chk?'王手がかかっています':'あなたの番です',chk);
+    else showCpuThinking();
     return;
   }
   if(mode==='local'){
@@ -1115,7 +1232,7 @@ function updateTurnStatus(){
 function afterHumanMove(side){
   if(mode==='online')sendState();
   if(!gameActive)return;
-  if(mode==='cpu'&&side==='player'){scheduleNPC();return;}
+  if(mode==='cpu'&&side===humanSide){saveCpuGame();scheduleNPC();return;}
   updateTurnStatus();
 }
 
@@ -1126,6 +1243,7 @@ function setMode(m){
   if(mode==='online')leaveOnline(false);
   mode=m;
   mySide='player';
+  clearCpuSave(); /* モード切替で CPU対局は破棄（上の確認で了承済み） */
   resetGame();
   updateModeUI();
   playClick();
@@ -1141,6 +1259,9 @@ function updateModeUI(){
   if(panel)panel.style.display=mode==='online'?'block':'none';
   const dr=document.getElementById('diff-row');
   if(dr)dr.style.display=mode==='cpu'?'flex':'none';
+  const sr=document.getElementById('side-row');
+  if(sr)sr.style.display=mode==='cpu'?'flex':'none';
+  syncDiffUI();syncSideUI();
   updateLabels();
   updateOnlinePanel();
   updateUI();
@@ -1150,8 +1271,13 @@ function updateLabels(){
   const ep=document.getElementById('eval-side-player'),en=document.getElementById('eval-side-npc');
   if(!lp||!ln)return;
   if(mode==='cpu'){
-    lp.textContent='あなた（先手）';ln.textContent='CPU（後手）';
-    ep.textContent='▲ あなた';en.textContent='△ CPU';
+    if(humanSide==='player'){
+      lp.textContent='あなた（先手）';ln.textContent='CPU（後手）';
+      ep.textContent='▲ あなた';en.textContent='△ CPU';
+    }else{
+      lp.textContent='CPU（先手）';ln.textContent='あなた（後手）';
+      ep.textContent='▲ CPU';en.textContent='△ あなた';
+    }
   }else if(mode==='local'){
     lp.textContent='先手（1P）';ln.textContent='後手（2P）';
     ep.textContent='▲ 先手';en.textContent='△ 後手';
@@ -1690,10 +1816,10 @@ async function executeMove(fr,fc,tr,tc,promo){
   lastDest=[tr,tc]; lastMover=mp.owner;
   snapshots.push(takeSnapshot());
   posHist.push(posEntryFor(board,captured,mp.owner==='player'?'npc':'player'));
-  if(didPromote&&mp.owner==='player')playPromote();
+  if(didPromote&&(mode==='cpu'?mp.owner===humanSide:mp.owner==='player'))playPromote();
   const opp=mp.owner==='player'?'npc':'player';
   if(isCheckmate(opp,board,captured)){gameActive=false;isAnimating=false;render();updateUI();await sleep(250);showBanner('詰み',64);playCheck();await sleep(750);endGame(mp.owner,'checkmate');return;}
-  if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player')setStatus('王手がかかっています',true);}
+  if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player'||(mode==='cpu'&&opp===humanSide))setStatus('王手がかかっています',true);}
   else{render();updateUI();}
   const senM=checkSennichite();
   if(senM){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senM.loser?otherSide(senM.loser):null,'sennichite');return;}
@@ -1712,7 +1838,7 @@ async function executeDrop(type,owner,tr,tc){
   posHist.push(posEntryFor(board,captured,owner==='player'?'npc':'player'));
   const opp=owner==='player'?'npc':'player';
   if(isCheckmate(opp,board,captured)){gameActive=false;isAnimating=false;render();updateUI();await sleep(250);showBanner('詰み',64);playCheck();await sleep(750);endGame(owner,'checkmate');return;}
-  if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player')setStatus('王手がかかっています',true);}
+  if(isInCheck(opp,board)){render();updateUI();highlightKing(opp);showBanner('王手',54);playCheck();if(opp==='player'||(mode==='cpu'&&opp===humanSide))setStatus('王手がかかっています',true);}
   else{render();updateUI();}
   const senD=checkSennichite();
   if(senD){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senD.loser?otherSide(senD.loser):null,'sennichite');return;}
@@ -1747,32 +1873,39 @@ async function handleHumanDrop(type,owner,tr,tc){
   afterHumanMove(owner);
 }
 function scheduleNPC(){
+  /* 予約した瞬間に思考中表示へ切り替える（従来はタイマー発火まで
+     「あなたの番です」のまま変わらず、思考中も分かりにくかった） */
+  showCpuThinking();
+  updateUI(); /* スコアカードの手番ハイライトも即時切り替え */
+  if(npcTimer)return; /* 二重予約防止 */
   const d=difficulty==='easy'?500:difficulty==='medium'?750:1100;
-  setTimeout(doNPCTurn,d);
+  npcTimer=setTimeout(()=>{npcTimer=null;doNPCTurn();},d);
 }
 async function doNPCTurn(){
+  const cpu=getCpuSide();
   /* 待った・最初から・モード切替で手番が戻った後に、予約済みタイマーが発火しても指さない */
-  if(!gameActive||mode!=='cpu'||turn!=='npc')return;
+  if(!gameActive||mode!=='cpu'||turn!==cpu)return;
+  if(isAnimating)return; /* 実行中の CPU 手番との二重起動防止 */
   isAnimating=true;
-  const ti=document.getElementById('thinking-indicator');if(ti)ti.style.display='inline';
-  setStatus('CPUが考え中…');
+  showCpuThinking();
   updateUI();
   await sleep(40); /* 「考え中」表示を画面に描画してから重い探索に入る */
-  if(!gameActive||mode!=='cpu'||turn!=='npc'){isAnimating=false;if(ti)ti.style.display='none';return;}
+  if(!gameActive||mode!=='cpu'||turn!==cpu){isAnimating=false;hideCpuThinking();return;}
   /* 入玉宣言法: CPU も条件を満たせば手番の始めに宣言して終局する */
-  if(canDeclare('npc',board,captured)){
-    if(ti)ti.style.display='none';
+  if(canDeclare(cpu,board,captured)){
+    hideCpuThinking();
     gameActive=false;isAnimating=false;render();updateUI();
     showToast('CPUが入玉宣言しました');
-    endGame('npc','declaration');
+    endGame(cpu,'declaration');
     return;
   }
   const move=getBestMove();
-  if(ti)ti.style.display='none';
-  if(!move){gameActive=false;isAnimating=false;render();updateUI();endGame('player','checkmate');return;}
+  if(!move){hideCpuThinking();gameActive=false;isAnimating=false;render();updateUI();endGame(humanSide,'checkmate');return;}
+  /* 思考中表示は CPU の着手アニメーションが終わるまで維持する */
   if(move.type==='move')await executeMove(move.from[0],move.from[1],move.to[0],move.to[1],move.promote);
-  else await executeDrop(move.piece,'npc',move.to[0],move.to[1]);
-  if(gameActive){turn='player';render();updateUI();if(!isInCheck('player',board))setStatus('あなたの番です');isAnimating=false;}
+  else await executeDrop(move.piece,cpu,move.to[0],move.to[1]);
+  hideCpuThinking();
+  if(gameActive){turn=humanSide;render();updateUI();updateTurnStatus();isAnimating=false;saveCpuGame();}
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1780,31 +1913,39 @@ async function doNPCTurn(){
 // ═══════════════════════════════════════════════════════════
 function canUndo(){
   if(mode==='online')return false; // オンライン中は待った無効
-  return snapshots.length>1&&!isAnimating&&(turn==='player'||!gameActive||mode==='local');
+  return snapshots.length>1&&!isAnimating&&(turn===humanSide||!gameActive||mode==='local');
 }
 function undoMove(){
   if(!canUndo())return;
+  if(npcTimer){clearTimeout(npcTimer);npcTimer=null;}
+  hideCpuThinking();
   const ply=snapshots.length-1;
   let target;
   if(mode==='local')target=ply-1; // 対面2人は1手だけ戻す
-  else target=(!gameActive&&lastMover==='player')?ply-1:ply-2;
+  else target=(!gameActive&&lastMover===humanSide)?ply-1:ply-2;
   if(target<0)target=0;
   if(target===ply)return;
   snapshots.length=target+1;
   if(posHist.length>target+1)posHist.length=target+1;
   restoreSnapshot(snapshots[target]);
   lastMover=target===0?null:(target%2===1?'player':'npc');
-  turn=mode==='local'?(target%2===0?'player':'npc'):'player';
+  turn=target%2===0?'player':'npc'; // 先手が奇数手目を指すため、手数 parity で手番が決まる
   gameActive=true;selected=null;validMoves=[];
   document.querySelectorAll('.modal-overlay').forEach(e=>e.remove());
   render();updateUI();
-  setStatus(mode==='local'?(turn==='player'?'先手の番です':'後手の番です'):'あなたの番です');
+  if(mode==='local')setStatus(turn==='player'?'先手の番です':'後手の番です');
+  else if(turn===humanSide)setStatus('あなたの番です');
+  else showCpuThinking();
+  if(mode==='cpu'){
+    saveCpuGame(); /* 0手に戻ったら saveCpuGame 側で保存を消す */
+    if(turn===getCpuSide())scheduleNPC(); /* 後手で CPU の初手まで戻した場合は指し直させる */
+  }
   playClick();
   showToast('待ったしました');
 }
 function askResign(){
   if(!gameActive||isAnimating)return;
-  if(mode==='cpu'&&turn!=='player')return;
+  if(mode==='cpu'&&turn!==humanSide)return;
   if(mode==='online'&&onlinePhase!=='playing')return;
   const sub=mode==='cpu'?'この対局は CPU の勝ちになります'
     :mode==='local'?`この対局は ${(turn==='player'?'先手':'後手')} の負けになります`
@@ -1834,7 +1975,7 @@ function doResign(){
     endGame(otherSide(turn),'resign');
     return;
   }
-  endGame('npc','resign');
+  endGame(getCpuSide(),'resign');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1951,6 +2092,8 @@ function openKifu(){
 // END GAME
 // ═══════════════════════════════════════════════════════════
 function endGame(winner,reason='checkmate'){
+  if(mode==='cpu')clearCpuSave(); /* 終局した対局は再開対象にしない */
+  hideCpuThinking();
   gameResult={winner:(winner===undefined?null:winner),reason};
   let win,title,sub,statusTxt;
   if(reason==='sennichite'){
@@ -1977,10 +2120,10 @@ function endGame(winner,reason='checkmate'){
         if(codeEl)codeEl.textContent='';
       }
     }else{
-      win=winner==='player';
-      title=winner==='player'?'あなたの勝ち！':winner==='npc'?'CPUの勝ち…':'引き分け';
-      sub=winner==='player'?'千日手（CPUの連続王手は反則負け）':winner==='npc'?'千日手（あなたの連続王手は反則負け）':'千日手が成立しました';
-      statusTxt=winner==='player'?'あなたの勝ち':winner==='npc'?'CPUの勝ち':'千日手で引き分け';
+      win=winner===humanSide;
+      title=!winner?'引き分け':win?'あなたの勝ち！':'CPUの勝ち…';
+      sub=!winner?'千日手が成立しました':win?'千日手（CPUの連続王手は反則負け）':'千日手（あなたの連続王手は反則負け）';
+      statusTxt=!winner?'千日手で引き分け':win?'あなたの勝ち':'CPUの勝ち';
     }
     setStatus(statusTxt);
     if(winner){if(win){spawnConfetti();playWin();}else playLose();}
@@ -2013,12 +2156,13 @@ function endGame(winner,reason='checkmate'){
         :`持将棋の点数判定（先手 ${sP.points}点 ／ 後手 ${sN.points}点）`;
       statusTxt=winner?(winner==='player'?'先手の勝ち':'後手の勝ち'):'持将棋で引き分け';
     }else{
-      win=winner==='player';
-      title=winner==='player'?'あなたの勝ち！':winner==='npc'?'CPUの勝ち…':'引き分け';
+      const hS=humanSide==='player'?sP:sN, cS=humanSide==='player'?sN:sP;
+      win=winner===humanSide;
+      title=!winner?'引き分け':win?'あなたの勝ち！':'CPUの勝ち…';
       sub=reason==='declaration'
-        ?(winner==='player'?`入玉宣言が成立しました（${sP.points}点）`:`CPUが入玉宣言しました（${sN.points}点）`)
-        :`持将棋の点数判定（あなた ${sP.points}点 ／ CPU ${sN.points}点）`;
-      statusTxt=winner==='player'?'あなたの勝ち':winner==='npc'?'CPUの勝ち':'持将棋で引き分け';
+        ?(win?`入玉宣言が成立しました（${hS.points}点）`:`CPUが入玉宣言しました（${cS.points}点）`)
+        :`持将棋の点数判定（あなた ${hS.points}点 ／ CPU ${cS.points}点）`;
+      statusTxt=!winner?'持将棋で引き分け':win?'あなたの勝ち':'CPUの勝ち';
     }
     setStatus(statusTxt);
     if(winner){if(win){spawnConfetti();playWin();}else playLose();}
@@ -2059,7 +2203,7 @@ function endGame(winner,reason='checkmate'){
       if(codeEl)codeEl.textContent='';
     }
   }else{
-    win=winner==='player';
+    win=winner===humanSide;
     title=win?'あなたの勝ち！':'CPUの勝ち…';
     sub=reason==='resign'?'投了しました':(win?'王将を詰めました':'詰まれてしまいました');
     statusTxt=win?'あなたの勝ち':'CPUの勝ち';
@@ -2138,7 +2282,11 @@ function render(){
   if(!board||board.length<9)return; /* 初期化前(resize等)では描画しない */
   const boardEl=document.getElementById('shogi-board');if(!boardEl)return;
   const wrapper=document.getElementById('board-wrapper');
-  const avail=Math.min(wrapper.clientWidth,wrapper.clientHeight)-52;
+  /* 初回描画時にレイアウト未確定で wrapper が 0 サイズになることがあるため、
+     その場合はビューポートから推定して盤面が消えないようにする */
+  const ww=wrapper.clientWidth||window.innerWidth;
+  const wh=wrapper.clientHeight||Math.floor(window.innerHeight*0.45);
+  const avail=Math.min(ww,wh)-52;
   const sz=Math.max(180,Math.floor(avail/9)*9);
   boardEl.style.width=sz+'px';boardEl.style.height=sz+'px';
   buildCoords(sz);
@@ -2210,12 +2358,15 @@ function updateEvalBar(){
   const fill=document.getElementById('eval-fill');
   const label=document.getElementById('eval-label');
   if(!fill||!board.length)return;
-  const s=evalBoard(board,captured); // + = CPU有利
-  const share=1/(1+Math.exp(s/650)); // あなたの占有率
+  const s=evalBoard(board,captured); // + = 後手（npc）有利
+  const share=1/(1+Math.exp(s/650)); // 先手の占有率（バーは先手 vs 後手）
   fill.style.width=(share*100).toFixed(1)+'%';
-  label.textContent=mode==='cpu'
-    ?(s<-700?'あなた優勢':s<-250?'あなたやや優勢':s>700?'CPU優勢':s>250?'CPUやや優勢':'互角')
-    :(s<-700?'先手優勢':s<-250?'先手やや優勢':s>700?'後手優勢':s>250?'後手やや優勢':'互角');
+  if(mode==='cpu'){
+    const hs=humanSide==='npc'?s:-s; // + = あなた有利
+    label.textContent=hs>700?'あなた優勢':hs>250?'あなたやや優勢':hs<-700?'CPU優勢':hs<-250?'CPUやや優勢':'互角';
+  }else{
+    label.textContent=s<-700?'先手優勢':s<-250?'先手やや優勢':s>700?'後手優勢':s>250?'後手やや優勢':'互角';
+  }
 }
 
 function updateUI(){
@@ -2239,16 +2390,74 @@ function updateUI(){
   updateEvalBar();
 }
 
-function changeDiff(d){
-  difficulty=d;
+function syncDiffUI(){
   ['easy','medium','hard'].forEach(v=>{
-    document.getElementById(`df-${v}`).classList.toggle('active',v===d);
+    const b=document.getElementById(`df-${v}`);
+    if(b)b.classList.toggle('active',v===difficulty);
   });
+}
+function changeDiff(d){
+  if(d!=='easy'&&d!=='medium'&&d!=='hard')return;
+  difficulty=d;
+  try{localStorage.setItem(SHOGI_DIFF_KEY,d);}catch(e){} /* リロードしても難易度を保持 */
+  syncDiffUI();
   playClick();
+}
+function syncSideUI(){
+  ['sente','gote','random'].forEach(v=>{
+    const b=document.getElementById(`sd-${v}`);
+    if(b)b.classList.toggle('active',v===senteChoice);
+  });
+}
+function changeSide(s){
+  if(s!=='sente'&&s!=='gote'&&s!=='random')return;
+  if(s===senteChoice){syncSideUI();return;}
+  const prev=senteChoice;
+  senteChoice=s;
+  try{localStorage.setItem(SHOGI_SIDE_KEY,s);}catch(e){}
+  syncSideUI();
+  playClick();
+  if(mode!=='cpu')return;
+  if(kifuList.length>0&&!confirm('対局を破棄して手番を変更しますか？')){
+    senteChoice=prev;
+    try{localStorage.setItem(SHOGI_SIDE_KEY,prev);}catch(e){}
+    syncSideUI();
+    return;
+  }
+  resetGame();
+  updateModeUI();
+  if(senteChoice==='random')showToast(humanSide==='player'?'ランダム：先手になりました':'ランダム：後手になりました');
 }
 
 window.addEventListener('resize',()=>{render();renderHandMinis();});
-window.onload=()=>{resetGame();updateModeUI();};
+window.addEventListener('beforeunload',()=>{saveCpuGame();});
+/* 初期化: 従来は window.onload のみで、外部リソース読込が遅い／終わらないと
+   盤面がいつまでも表示されなかった。スクリプトは body 末尾にあるため即時実行し、
+   load / pageshow は再描画だけ行う（対局の初期化は1回だけ）。 */
+let shogiInited=false;
+function initShogi(){
+  if(shogiInited){render();renderHandMinis();return;}
+  shogiInited=true;
+  syncDiffUI();syncSideUI();
+  const saved=mode==='cpu'?loadCpuSave():null;
+  if(saved){
+    restoreCpuSave(saved);
+    updateModeUI();
+    render();updateUI();updateTurnStatus();
+    showToast('対局を再開しました');
+    if(turn===getCpuSide())scheduleNPC(); /* CPU の手番で保存されていた場合は指し直させる */
+  }else{
+    resetGame();
+    updateModeUI();
+  }
+  /* レイアウト確定後にも再描画する（dvh／アドレスバー等で初回サイズがずれる端末対策） */
+  requestAnimationFrame(()=>{render();renderHandMinis();});
+  setTimeout(()=>{render();renderHandMinis();},350);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initShogi);
+else initShogi();
+window.addEventListener('load',initShogi);
+window.addEventListener('pageshow',()=>{if(shogiInited){render();renderHandMinis();}});
 </script>
 <script>window.PW_GAME='shogi';window.PW_JOIN_CFG={openers:[{click:'#mode-online'}],input:'#join-code',joinCall:'joinRoom',hostBtn:'[onclick="startHost()"]'};</script>
 <script src="friends.js"></script>

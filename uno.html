@@ -27,7 +27,11 @@
   button{font-family:inherit;}
   a{text-decoration:none;color:inherit;}
 
-  .screen{position:fixed;inset:0;display:flex;flex-direction:column;z-index:30;}
+  /* 共通ヘッダー(#pwHeader, account.js)の下から画面を始める。他ゲームと同じ
+     top:var(--pw-header-h) 方式。inset:0 のままだと自前のヘッダーバーが共通
+     ヘッダーの裏に隠れ、右上のタップが「アカウント」タブに誤爆してドロワー
+     が勝手に開く／左上が🏠に化けるため。 */
+  .screen{position:fixed;top:var(--pw-header-h,46px);left:0;right:0;bottom:0;display:flex;flex-direction:column;z-index:30;}
   .glass-bar{background:rgba(24,6,10,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border-bottom:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:space-between;padding:0 12px;flex-shrink:0;}
   .bar-btn{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
@@ -88,7 +92,7 @@
     box-shadow:0 16px 30px rgba(59,130,246,.55), 0 0 0 3px #60a5fa, 0 0 20px rgba(96,165,250,.7);}
 
   /* ============ NPC SLOTS ============ */
-  #npc-area{display:flex;flex-wrap:wrap;justify-content:center;padding:8px 8px 2px;gap:4px;flex-shrink:0;}
+  #npc-area{display:flex;flex-wrap:wrap;justify-content:center;padding:22px 8px 2px;gap:4px;flex-shrink:0;}
   .npc-slot{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;
     padding:7px 6px 6px;border-radius:16px;border:2px solid transparent;min-width:64px;
     background:rgba(0,0,0,.16);transition:border-color .3s, background .3s, box-shadow .3s, opacity .3s;}
@@ -108,7 +112,10 @@
   .npc-out-badge{font-size:8px;font-weight:900;background:#52525b;color:#fff;padding:2px 6px;border-radius:999px;}
   .npc-slot.eliminated{opacity:.32;filter:grayscale(.8);}
 
-  .uno-bubble{position:absolute;top:-34px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;
+  /* top はスロット上方にはみ出す量。-34px だと共通ヘッダー／自前ヘッダーバーの
+     ボタン群に重なり、タップがアカウントタブ等へ誤爆する。#npc-area の
+     padding-top(22px) と合わせて、バブルがヘッダーバーより下に収まる値にする */
+  .uno-bubble{position:absolute;top:-18px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;
     background:#fff;border:3px solid #ec1c24;border-radius:12px;padding:3px 10px;
     font-size:12px;font-weight:900;color:#ec1c24;white-space:nowrap;font-family:'Arial Black',Arial,sans-serif;font-style:italic;
     box-shadow:0 5px 16px rgba(236,28,36,.4);animation:bubble-in .38s cubic-bezier(.34,1.56,.64,1) both;}
@@ -289,6 +296,10 @@
   .action-bar{padding:6px 12px calc(12px + env(safe-area-inset-bottom));display:flex;gap:9px;flex-shrink:0;}
   /* UI被り対策: 右側ボタン(チャレンジ)がフレンドFAB(右下固定)に隠れないよう、モバイルではバー右に余白を確保 */
   @media(max-width:560px){ .action-bar{padding-right:86px} }
+  /* UI被り対策: friends.js の招待トースト(.pwf-toasts, 画面下部中央・最大20秒表示)が
+     アクションバー(UNO!/チャレンジ)上に被り、ボタンへのタップを横取りしないよう
+     トーストの置き場をアクションバーの上へ逃がす（uno.html 側の上書き） */
+  body .pwf-toasts{bottom:calc(92px + env(safe-area-inset-bottom,0px));}
 
   /* ============ ONLINE / LOBBY ============ */
   .net-input{width:100%;box-sizing:border-box;padding:11px 13px;border-radius:13px;border:1px solid rgba(255,255,255,.2);
@@ -1195,12 +1206,16 @@ function scheduleNPCChallengePlayer(){
 
 function playerUno(){
   if(NET.active&&!NET.host){
-    netSendAct({uno:true});
+    /* ゲスト: 宣言が有効なタイミングの時だけホストへ送る。無効な act を送ると
+       ホスト側でペナルティ(1枚)を課されてしまうため、ここで止める */
     const gp=G.players[0];
-    if(gp&&gp.hand.length===1&&!G.pUnoDeclared){
+    if(gp&&gp.hand.length===1&&!G.pUnoDeclared&&G.phase==='playing'){
+      netSendAct({uno:true});
       G.pUnoDeclared=true;
       document.getElementById('p-uno-badge').classList.remove('hidden');
       Snd.uno();showPlayerUnoBubble();updateActionBar();
+    } else {
+      showToast('UNO宣言は残り1枚になった時だけ！','📣');
     }
     return;
   }
@@ -1213,10 +1228,9 @@ function playerUno(){
     showPlayerUnoBubble();
     updateActionBar();
   } else {
-    const c=drawCard();if(c)p.hand.push(c);
-    renderHand();updatePCount();
-    Snd.bad();
-    showToast('ペナルティ！1枚引きます 😬','⚠️');
+    /* 無効なタイミングのクリックではカードは引かせない（他人のUNOバッジ等への
+       誤タップが自分のペナルティになるのを防ぐ）。案内だけ出す */
+    showToast('UNO宣言は残り1枚になった時だけ！','📣');
   }
 }
 
@@ -1386,7 +1400,10 @@ function renderNPC(){
     slot.className='npc-slot'+(G.currentIdx===i&&G.phase==='playing'?' active-turn':'')+(p.out?' eliminated':'')+(p.hand.length===1?' danger':'');
     slot.dataset.idx=i;
 
-    if(w&&w.open&&w.declared){
+    /* UNO宣言バッジは「宣言済み・ウィンドウ継続中・実際に残り1枚・対局中」の
+       全てを満たす時だけ出す。declared フラグだけ見ると、宣言後にカードを
+       引いて3枚に戻った／ラウンドが終わった後もバッジが残り続ける（常時表示化） */
+    if(w&&w.open&&w.declared&&p.hand.length===1&&G.phase==='playing'){
       const bbl=document.createElement('div');bbl.className='uno-bubble';bbl.textContent='UNO!';
       slot.appendChild(bbl);
     }
@@ -1522,10 +1539,14 @@ function updateActionBar(){
   const chalbtn=document.getElementById('btn-challenge');
   const unoValid=p.hand.length===1&&!G.pUnoDeclared&&G.phase==='playing';
   unobtn.className=unoValid?'btn-valid':'btn-disabled';
+  /* 無効なタイミングではボタン自体を disabled にし、クリックが発火しないように
+     する（見た目だけ薄くしても押せてしまい、誤タップでペナルティを引いていた） */
+  unobtn.disabled=!unoValid;
   const chalTargets=Object.entries(G.unoWin)
     .filter(([i,w])=>w.open&&!w.declared&&parseInt(i)!==0);
   const chalValid=chalTargets.length>0&&G.phase==='playing';
   chalbtn.className=chalValid?'btn-valid':'btn-disabled';
+  chalbtn.disabled=!chalValid;
 }
 
 function updateStatus(){
@@ -1616,6 +1637,9 @@ function showColorBanner(color,name){
 }
 
 function showUnoBubble(idx){
+  /* 宣言した瞬間でも、既に残り1枚でない／対局中でないなら吹き出しは出さない */
+  const p=G.players&&G.players[idx];
+  if(!p||p.hand.length!==1||G.phase!=='playing')return;
   const slot=document.querySelector(`.npc-slot[data-idx="${idx}"]`);
   if(!slot)return;
   const old=slot.querySelector('.uno-bubble');if(old)old.remove();
@@ -2273,27 +2297,35 @@ function netJoinRoom(){
 }
 
 function netGuestConnect(rejoin){
+  /* 参加タイムアウトは Peer 生成の「前」に張る。以前は peer の 'open' の中で
+     張っていたため、シグナリング接続自体が開かないケースではタイマーが永遠に
+     発火せず、「接続しています…」のまま固まっていた（welcome 受信時に解除） */
+  clearTimeout(NET.joinTimer);
+  NET.joinTimer=setTimeout(()=>{
+    if(!NET.joined){
+      if(NET.reconnecting)scheduleGuestRejoin();
+      else{
+        netSetStatus('net-join-status','<span class="err">接続を確立できませんでした。コードと通信環境を確認してもう一度お試しください。</span>');
+        NET.joining=false;
+        try{if(NET.peer)NET.peer.destroy();}catch(e){}
+        NET.peer=null;NET.guestConn=null;
+      }
+    }
+  },25000);
   try{
     if(NET.peer){try{NET.peer.destroy();}catch(e){}}
     NET.peer=new Peer(undefined,NET_PEER_OPTS);
   }catch(e){
+    clearTimeout(NET.joinTimer);
+    if(NET.reconnecting){scheduleGuestRejoin();return;}
     netSetStatus('net-join-status','<span class="err">接続に失敗しました。</span>');
+    NET.joining=false; /* joining を残すと再試行が netJoinRoom で弾かれ続ける */
     return;
   }
   NET.peer.on('open',()=>{
     const c=NET.peer.connect(NET_PREFIX+NET.code,{reliable:true});
     NET.guestConn=c;
     netWireHostConn(c);
-    clearTimeout(NET.joinTimer);
-    NET.joinTimer=setTimeout(()=>{
-      if(!NET.joined){
-        if(NET.reconnecting)scheduleGuestRejoin();
-        else{
-          netSetStatus('net-join-status','<span class="err">接続を確立できませんでした。コードと通信環境を確認してもう一度お試しください。</span>');
-          NET.joining=false;
-        }
-      }
-    },25000);
     c.on('open',()=>{
       try{c.send({t:'join',name:NET.name,rejoin:!!rejoin});}catch(e){}
     });
@@ -2303,8 +2335,21 @@ function netGuestConnect(rejoin){
       if(NET.reconnecting){scheduleGuestRejoin();return;}
       netSetStatus('net-join-status','<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
       NET.joining=false;NET.active=false;
+      clearTimeout(NET.joinTimer);
       try{NET.peer.destroy();}catch(err){}
       NET.peer=null;
+      return;
+    }
+    /* peer-unavailable 以外（network / server-error / socket 系など）も、参加中
+       なら握り潰さず失敗として確定させる。これまでは無視され、タイムアウトも
+       無かったため「接続しています…」のまま止まっていた */
+    if(NET.reconnecting){scheduleGuestRejoin();return;}
+    if(!NET.joined&&NET.joining){
+      netSetStatus('net-join-status','<span class="err">接続エラーが発生しました。通信環境を確認してもう一度お試しください。</span>');
+      NET.joining=false;NET.active=false;
+      clearTimeout(NET.joinTimer);
+      try{if(NET.peer)NET.peer.destroy();}catch(err){}
+      NET.peer=null;NET.guestConn=null;
     }
   });
 }
@@ -2585,7 +2630,43 @@ window.addEventListener('DOMContentLoaded',()=>{
   syncSeg('target-seg',[0,100,300,500],SETTINGS.target);
   refreshSoundBtns();
   renderStats();
+  consumeJoinParamFallback();
 });
+
+/* ?join=CODE の uno.html 側フォールバック消費。
+   通常は friends.js が PW_JOIN_CFG（input:'#net-code', joinCall:'netJoinRoom'）を
+   使って自動参加させる（PW_JOIN_STARTED が立つ）。friends.js のゲート判定や
+   初期化が止まって JOIN が発火しないまま一定時間経った場合だけ、こちらで
+   コードを入力欄へ入れて netJoinRoom() を直接呼ぶ（二重発火は
+   PW_JOIN_STARTED / NET.joining / NET.active で防止）。未ログイン時は
+   friends.js 側のログイン案内に任せ、ここでは参加させない。 */
+function consumeJoinParamFallback(){
+  let code='';
+  try{
+    const j=new URLSearchParams(location.search).get('join');
+    if(j)code=j.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'').slice(0,6);
+  }catch(e){}
+  if(code.length!==6)return;
+  const t0=Date.now();
+  const tick=()=>{
+    if(window.PW_JOIN_STARTED||NET.active||NET.joining)return; /* friends.js 経路が動いた */
+    if(window.PWAccount&&typeof PWAccount.gateState==='function'&&PWAccount.gateState()!=='member'){
+      if(Date.now()-t0<20000)setTimeout(tick,600); /* ログイン確認の完了待ち */
+      return;
+    }
+    const input=document.getElementById('net-code');
+    if(input){
+      input.value=code;
+      try{
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        input.dispatchEvent(new Event('change',{bubbles:true}));
+      }catch(e){}
+    }
+    window.PW_JOIN_STARTED=true;
+    netJoinRoom();
+  };
+  setTimeout(tick,5000);
+}
 </script>
 <script>window.PW_GAME='uno';window.PW_JOIN_CFG={openers:[],input:'#net-code',joinCall:'netJoinRoom',hostBtn:'[onclick="netCreateRoom()"]'};</script>
 <script src="friends.js"></script>

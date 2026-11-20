@@ -289,7 +289,8 @@ const BCOL = [
 ];
 
 /* ══════════════ WebAudio 効果音 ══════════════ */
-let AC = null, soundOn = true;
+let AC = null, soundOn = true; try { soundOn = localStorage.getItem('blockzushi_sound') !== 'off'; } catch(e) {}
+function saveSoundPref(){ try{ localStorage.setItem('blockzushi_sound', soundOn ? 'on' : 'off'); }catch(e){} }
 function ac(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended') AC.resume(); return AC; }
 function tone(freq, dur, type, vol, when=0, slideTo=null){
   if(!soundOn) return;
@@ -333,7 +334,8 @@ const sfx = {
 };
 
 /* ══════════════ 状態 ══════════════ */
-let diff = 'normal';
+let diff = 'normal'; try { const sd = localStorage.getItem('blockzushi_diff'); if (sd && DIFF[sd]) diff = sd; } catch(e) {}
+function saveDiffPref(){ try{ localStorage.setItem('blockzushi_diff', diff); }catch(e){} }
 let gameState = 'title'; // title | playing | paused | stageclear | gameover
 let stage = 1, score = 0, dispScore = 0, livesLeft = 3;
 let blocksDestroyed = 0, stagesCleared = 0;
@@ -513,6 +515,7 @@ function stageClear(){
   sfx.clear();
   flashScreen('rgba(255,255,255,0.4)');
   burstConfetti();
+  syncHudScore();
   updateUI();
   $('clearTitle').textContent = `STAGE ${stage} CLEAR!`;
   $('clearSub').textContent = `クリアボーナス +${bonus}pts\n破壊ブロック ${blocksDestroyed} 個 ／ 最大コンボ ${maxCombo}`;
@@ -536,10 +539,18 @@ function loseLife(){
   updatePUBar(); updateComboUI();
   showToast(`残り ${livesLeft} 機`);
 }
+function syncHudScore(){
+  /* 集計経路の統一: 最終スコアは HUD と同じ score そのもの。
+     draw() の dispScore アニメーションは playing 中しか進まず、終了時に
+     ループが止まると HUD が古い値で凍るため、終了遷移では即時同期する。 */
+  dispScore = score;
+  const el = $('uiScore');
+  if(el) el.textContent = score.toLocaleString();
+}
 function gameOver(){
   gameState = 'gameover';
-  const finalScore = score + stagesCleared * 50 + blocksDestroyed * 5;
-  score = finalScore;
+  const finalScore = score;
+  syncHudScore();
   if(mode === 'online' && racePhase === 'racing'){
     /* オンライン対戦: ソロ用オーバーレイは出さず、over を送って観戦状態へ */
     myOver = true;
@@ -1188,16 +1199,40 @@ canvas.addEventListener('pointerdown', e => {
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys[k] = true;
-  if(['arrowleft','arrowright',' '].includes(k)) e.preventDefault();
-  if(k === ' ' && gameState === 'playing'){
-    let launched = false;
-    balls.forEach(b => { if(b.stuck){ b.stuck = false; launched = true; } });
-    if(launched) sfx.launch();
+  /* スペース判定: key の表記は環境で揺れる（' ' / 旧 'Spacebar'、IME 有効時は
+     key が変わることもある）ため、物理キーを示す code === 'Space' でも拾う。
+     従来は key === ' ' のみで、上記環境では発射できなかった */
+  const isSpace = e.code === 'Space' || k === ' ' || k === 'spacebar';
+  if(isSpace) keys[' '] = true;
+  const tag = e.target && e.target.tagName;
+  if(tag === 'INPUT' || tag === 'TEXTAREA') return; /* ルームコード入力欄では通常入力を妨げない */
+  if(['arrowleft','arrowright'].includes(k) || isSpace) e.preventDefault();
+  if(isSpace){
+    /* フォーカス中のボタン（リセット／サウンド等）がスペースで誤発火すると
+       発射せずゲームが終わる等に見えるため、フォーカスを外しておく */
+    if(document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+    if(gameState === 'playing'){
+      let launched = false;
+      balls.forEach(b => { if(b.stuck){ b.stuck = false; launched = true; } });
+      if(launched) sfx.launch();
+    } else if(gameState === 'paused'){
+      togglePause(false);   /* ポーズ中はスペースで再開（従来は無反応だった） */
+    } else if(gameState === 'title' && mode === 'solo' && !e.repeat){
+      startGame();          /* タイトルでもスペースで開始できるように（従来は無反応だった） */
+    }
   }
   if(k === 'p') togglePause();
   if(k === 'm') $('soundBtn').click();
 });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+window.addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false;
+  if(e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar'){
+    keys[' '] = false;
+    const tag = e.target && e.target.tagName;
+    /* ボタンのスペース発火は keyup 側で起きるブラウザがあるため、こちらも抑止する */
+    if(tag !== 'INPUT' && tag !== 'TEXTAREA') e.preventDefault();
+  }
+});
 
 /* ══════════════ 配線・起動 ══════════════ */
 $('startBtn').addEventListener('click', () => { sfx.pickup(); startGame(); });
@@ -1215,6 +1250,7 @@ $('resetBtn').addEventListener('click', () => {
 });
 $('soundBtn').addEventListener('click', () => {
   soundOn = !soundOn;
+  saveSoundPref();
   $('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
   if(soundOn) sfx.pickup();
 });
@@ -1223,8 +1259,12 @@ $('diffSeg').addEventListener('click', e => {
   if(!b) return;
   if(mode === 'online' && racePhase !== 'idle'){ showToast('対戦中は難易度を変更できません'); return; }
   diff = b.dataset.d;
+  saveDiffPref();
   document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('on', x === b));
 });
+/* 起動時: 保存済み設定を UI へ同期（変数への読み戻しは宣言部で実施） */
+$('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
+document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('on', x.dataset.d === diff));
 $('titleBest').textContent = best.score ? `🏆 ハイスコア ${best.score.toLocaleString()}（ステージ ${best.stage} 到達）` : '';
 
 /* ══════════════ オンライン対戦（PeerJS / WebRTC P2P） ══════════════
@@ -1276,6 +1316,7 @@ function startHeartbeat(){
 }
 function stopHeartbeat(){ if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
 function setDiff(d){
+  /* オンライン同期専用: ホストの難易度を一時適用するだけなので個人設定 (blockzushi_diff) には保存しない */
   if (!DIFF[d]) return;
   diff = d;
   document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('on', x.dataset.d === d));
@@ -1373,7 +1414,7 @@ function finishRace(){
   racePhase = 'finished';
   stopRaceTick();
   clearTimeout(raceStartTimer);
-  if (!myOver) myFinalScore = score + stagesCleared * 50 + blocksDestroyed * 5;
+  if (!myOver){ myFinalScore = score; syncHudScore(); }
   if (gameState === 'playing' || gameState === 'paused' || gameState === 'stageclear'){
     gameState = 'gameover';
     if (rafId){ cancelAnimationFrame(rafId); rafId = null; }

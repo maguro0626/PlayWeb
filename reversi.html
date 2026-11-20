@@ -65,9 +65,11 @@
     user-select:none;touch-action:manipulation;
   }
   .cell{position:relative;aspect-ratio:1/1;border-radius:4px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(0,0,0,.09));box-shadow:inset 0 0 0 1px rgba(0,45,22,.35)}
-  .cell .coord{position:absolute;font-size:clamp(8px,1.8vw,11px);font-weight:700;color:rgba(255,255,255,.55);pointer-events:none;z-index:3;line-height:1}
-  .cell .coord.file{top:2px;left:4px}
-  .cell .coord.rank{bottom:2px;right:4px}
+  .cell .coord{position:absolute;font-size:clamp(8px,1.8vw,11px);font-weight:700;color:rgba(255,255,255,.85);pointer-events:none;z-index:3;line-height:1;padding:1px 3px;border-radius:5px;background:rgba(6,32,18,.42);text-shadow:0 1px 2px rgba(0,0,0,.6)}
+  .cell .coord.file{top:3px;left:3px}
+  /* 行番号は右下隅（4マスの境界が交わる点）に置くと境界線・石の縁に重なって
+     見えるため、左辺の中央（上下の境界から最も離れる位置）へ移す */
+  .cell .coord.rank{top:50%;left:3px;transform:translateY(-50%)}
   .cell.shake{animation:shake .28s}
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
 
@@ -743,7 +745,7 @@ function renderHistory(){
   }
   els.historyEmpty.style.display = 'none';
   ol.innerHTML = moveLog.map((e, i) => {
-    const no = (i >> 1) + 1;
+    const no = i + 1; /* 1手ごとに連番（黒・白で同じ番号を共有しない） */
     const dot = `<span class="mdot ${e.player === BLACK ? 'b' : 'w'}"></span>`;
     if (e.r < 0) return `<li>${dot}<span class="no">${no}.</span><span class="pass">パス</span></li>`;
     return `<li>${dot}<span class="no">${no}.</span><span class="mv">${coordName(e.r, e.c)}</span><span class="fl">${e.flips}枚返した</span></li>`;
@@ -866,6 +868,11 @@ function doMove(m, fromRemote){
 function startTurn(){
   render();
   if (gameOver) return;
+  /* パス処理中（手番交代タイマー待ち）の再入ガード。同期ハンドラ等から
+     startTurn が重ねて呼ばれるとパス記録が二重化し、交代タイマーが複数
+     発火して手番が余分に往復してしまう（相手が CPU の場合は思考タイマーと
+     競合し、CPU の手を自分の石として打つ事故にもつながる） */
+  if (passing) return;
   const seq = gameSeq;
   const moves = legalMoves(board, turn);
   if (moves.length === 0){
@@ -883,8 +890,13 @@ function startTurn(){
     render();
     setTimeout(() => {
       if (seq !== gameSeq) return;
-      turn = opp(turn);
+      /* 現在の turn ではなく「パスした本人」の相手へ手番を渡す
+         （待ち時間の間に turn が書き換わっていても手番を誤らないため） */
+      turn = opp(passer);
       passing = false;
+      /* オンラインではパスによる手番交代を相手へ伝える。伝えないと
+         相手側は自分の手番になったことに気づけず対局が止まる */
+      if (mode === 'online') sendState();
       startTurn();
     }, 850);
     return;
@@ -945,6 +957,10 @@ function endGame(){
     else { title = '引き分け'; snd = playDraw; }
     if (!recorded){
       recorded = true;
+      /* 加算前に保存済みの最新値を読み直す。ページ表示中にクラウド同期
+         （account.js のマージ）が localStorage 側を新しい値へ更新していても、
+         古いメモリ上の値で上書きして通算成績が消えることがないようにする */
+      loadRecord();
       if (hd > cd) record.win++;
       else if (hd < cd) record.lose++;
       else record.draw++;
@@ -963,6 +979,9 @@ function endGame(){
 
 function newGame(){
   gameSeq++;
+  /* 対局開始のたびに保存済み成績を読み直し、ヘッダー表示へ反映する
+     （初期表示後にクラウド同期で届いた最新値もここで拾える） */
+  loadRecord();
   board = initialBoard();
   turn = BLACK;
   history = [];
@@ -1107,7 +1126,10 @@ function applyState(st){
   els.modal.classList.add('hidden');
   onlineActive = true;
   render();
-  if (!legalMoves(board, turn).length && !legalMoves(board, opp(turn)).length) endGame();
+  /* 手番側の合法手チェックやパス処理はここでは行わない。
+     棋譜・最終手を復元する applyDocState 側で startTurn に委ねる
+     （以前は両者合法手なし＝終局のチェックしかなく、手番側だけが
+     置けない局面ではパスが発動せず対局が止まっていた） */
 }
 
 /* ドキュメントの state を適用する（applyState に加えて棋譜と最終手を復元） */
@@ -1120,6 +1142,11 @@ function applyDocState(st){
     lastMove = {r: st.lastMove[0] | 0, c: st.lastMove[1] | 0};
   }
   render();
+  /* 棋譜を復元した後に手番処理を行う。手番側に合法手が無ければ
+     パス（両者とも無ければ終局）が startTurn 側で処理される。
+     これが無いと、同期された局面で手番側だけが置けない場合に
+     誰もパスを進められずソフトロックしていた */
+  startTurn();
 }
 
 /* ホスト側: パスが未解決なら確定させてから状態を送る（同期ずれ防止） */
@@ -1480,7 +1507,10 @@ function init(){
     difficulty = els.difficulty.value;
     saveSettings();
     playClick();
-    newGame();
+    /* 対局中に強さを変えても対局・棋譜はリセットしない。
+       chooseMove は手番のたびに difficulty を参照するため、次のCPU手から反映される */
+    render();
+    showToast('CPUの強さを変更しました（次のCPUの手から反映されます）');
   });
   els.sideSelect.addEventListener('change', () => {
     human = els.sideSelect.value === 'white' ? WHITE : BLACK;
@@ -1495,7 +1525,17 @@ function init(){
   els.modeOnline.addEventListener('click', () => setMode('online'));
   els.hostBtn.addEventListener('click', hostRoom);
   els.joinBtn.addEventListener('click', joinRoom);
-  els.onlineLeaveBtn.addEventListener('click', leaveOnline);
+  els.onlineLeaveBtn.addEventListener('click', () => {
+    /* 「やめる」はオンライン対局を終了し、CPU対戦モードへ戻す。
+       leaveOnline() 単体では購読を外して状態文を戻すだけで画面が何も
+       変わらず「反応しない」ように見えたため、モード切替（盤面リセット
+       込み）まで行い、トーストでも終了を明示する */
+    const code = roomCode;
+    if (code && window.PWMatch && PWMatch.close){ try{ PWMatch.close(code); }catch (e){} }
+    if (mode === 'online') setMode('cpu');
+    else { leaveOnline(); newGame(); }
+    showToast('オンライン対戦を終了しました');
+  });
   els.joinCode.addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
   els.copyCodeBtn.addEventListener('click', async () => {
     try{ await navigator.clipboard.writeText(roomCode); showToast('コードをコピーしました'); }

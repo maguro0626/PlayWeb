@@ -91,15 +91,28 @@ html,body{overscroll-behavior:none;}
 let AC=null;function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.12,t);g.gain.exponentialRampToValueAtTime(.001,t+(d||.15));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||.15));}catch(e){}}
 const $=id=>document.getElementById(id);
 let mode='solo';
-let save={best:null};try{const s=localStorage.getItem('mini_numguess_v1');if(s)save=JSON.parse(s);}catch(e){}
-function persist(){try{localStorage.setItem('mini_numguess_v1',JSON.stringify(save));}catch(e){} renderBest();}
-function renderBest(){$('bestLine').textContent='ベスト: '+(save.best?save.best+'手で的中':'ー');}
+/* ベスト保存: メモリにも保持し、保存・表示のたびに保存済みの値と union
+   （best は小さい方＝少ない手数）を取る。
+   account.js のクラウドマージが読み込み後に localStorage へ値を書き戻すため、
+   読み込み時に1回だけ読む方式では「保存されているのに表示が ー のまま」に
+   なるだけでなく、古いメモリ値（best=null 等）で新しい記録を書くと後着した
+   良い記録を悪い記録で上書きして BEST が消えたように見える。その対策として
+   再描画フック（focus / visibilitychange / 遅延）も付ける（timing 等と同方式）。 */
+let saveCache=null;
+function loadSave(){const s={best:null};try{const p=JSON.parse(localStorage.getItem('mini_numguess_v1')||'{}');if(p&&typeof p.best==='number')s.best=p.best;}catch(e){}
+if(saveCache&&typeof saveCache.best==='number'&&(s.best===null||saveCache.best<s.best))s.best=saveCache.best;
+if(typeof s.best==='number')saveCache={best:s.best};return s;}
+function storeSave(o){const cur=loadSave();if(typeof cur.best==='number'&&(typeof o.best!=='number'||cur.best<o.best))o.best=cur.best;if(typeof o.best==='number')saveCache={best:o.best};try{localStorage.setItem('mini_numguess_v1',JSON.stringify({best:o.best}));}catch(e){} renderBest();}
+function renderBest(){const s=loadSave();$('bestLine').textContent='ベスト: '+(s.best?s.best+'手で的中':'ー');}
 renderBest();
+window.addEventListener('focus',renderBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest();});
+setTimeout(renderBest,2000);setTimeout(renderBest,5000);
 document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);$('soloGame').classList.toggle('hidden',on);$('onlineGame').classList.toggle('hidden',!on);tone(660,.08,'sine',.08);});});
 // Solo
 let sSecret=0,sTries=0,sLo=1,sHi=100,sActive=false,sHist=[];
 function soloStart(){sSecret=1+Math.floor(Math.random()*100);sTries=0;sLo=1;sHi=100;sActive=true;sHist=[];$('soloGuessBtn').disabled=false;$('soloHint').textContent='数字を予想してね！';$('soloMsg').textContent='';$('rangeText').textContent='1 〜 100';$('soloHist').innerHTML='';$('soloInput').value='';tone(523,.12,'sine',.1);tone(784,.12,'sine',.1,.1);}
-function soloGuess(){if(!sActive)return;const n=parseInt($('soloInput').value,10);if(isNaN(n)||n<1||n>100){$('soloHint').textContent='1〜100で入力してね';return;}sTries++;if(n===sSecret){sActive=false;$('soloGuessBtn').disabled=true;$('soloHint').textContent='🎉 正解！ '+n;$('soloMsg').textContent=sTries+'手で当てました！';sHist.unshift('<b>'+n+'</b> → 正解！');tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.25,'sine',.12,.24);if(!save.best||sTries<save.best){save.best=sTries;persist();}}else if(n<sSecret){sLo=Math.max(sLo,n+1);$('soloHint').textContent='もっと大きい ⬆';sHist.unshift('<b>'+n+'</b> → もっと大きい');tone(330,.12,'square',.07);}else{sHi=Math.min(sHi,n-1);$('soloHint').textContent='もっと小さい ⬇';sHist.unshift('<b>'+n+'</b> → もっと小さい');tone(220,.12,'square',.07);}$('rangeText').textContent=sLo+' 〜 '+sHi;$('soloHist').innerHTML=sHist.join('<br>');$('soloInput').value='';}
+function soloGuess(){if(!sActive)return;const n=parseInt($('soloInput').value,10);if(isNaN(n)||n<1||n>100){$('soloHint').textContent='1〜100で入力してね';return;}sTries++;if(n===sSecret){sActive=false;$('soloGuessBtn').disabled=true;$('soloHint').textContent='🎉 正解！ '+n;$('soloMsg').textContent=sTries+'手で当てました！';sHist.unshift('<b>'+n+'</b> → 正解！');tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.25,'sine',.12,.24);const bs=loadSave();if(bs.best===null||sTries<bs.best){bs.best=sTries;storeSave(bs);}}else if(n<sSecret){sLo=Math.max(sLo,n+1);$('soloHint').textContent='もっと大きい ⬆';sHist.unshift('<b>'+n+'</b> → もっと大きい');tone(330,.12,'square',.07);}else{sHi=Math.min(sHi,n-1);$('soloHint').textContent='もっと小さい ⬇';sHist.unshift('<b>'+n+'</b> → もっと小さい');tone(220,.12,'square',.07);}$('rangeText').textContent=sLo+' 〜 '+sHi;$('soloHist').innerHTML=sHist.join('<br>');$('soloInput').value='';}
 $('soloStartBtn').addEventListener('click',soloStart);
 $('soloGuessBtn').addEventListener('click',soloGuess);
 $('soloInput').addEventListener('keydown',e=>{if(e.key==='Enter')soloGuess();});

@@ -250,6 +250,7 @@ const sfx = {
 let grid, cur, queue, holdPiece, canHold, score = 0, best, lines = 0, level = 1, combo = -1, b2b = false;
 let state = 'ready'; // ready | playing | paused | over | clearing
 let dropTimer = 0, lockTimer = 0, lastTime = 0, clearAnim = null;
+let overlayHold = false; // アカウントドロワー/モーダル表示中は進行を止める（手動ポーズとは独立）
 let particles = [], shake = 0, flashRows = [];
 best = +(localStorage.getItem('tetris_best')||0);
 $('best').textContent = best.toLocaleString();
@@ -485,7 +486,7 @@ function drawSide(){
 function loop(ts){
   requestAnimationFrame(loop);
   const dt = Math.min(60, ts - (lastTime||ts)); lastTime = ts;
-  if(state==='playing' && cur && !netFrozen){
+  if(state==='playing' && cur && !netFrozen && !overlayHold){
     dropTimer += dt * (keys.down ? 18 : 1);
     if(dropTimer >= dropInterval()){
       dropTimer = 0;
@@ -496,7 +497,7 @@ function loop(ts){
       if(lockTimer >= 480) lockPiece();
     } else lockTimer = 0;
   }
-  if(state==='clearing' && clearAnim && !netFrozen){
+  if(state==='clearing' && clearAnim && !netFrozen && !overlayHold){
     clearAnim.t += dt/1000;
     if(clearAnim.t >= 0.28) finishClear();
   }
@@ -514,6 +515,8 @@ function startDAS(dir){
 }
 function stopDAS(){ clearTimeout(dasTimer); clearInterval(arrTimer); }
 document.addEventListener('keydown', e=>{
+  /* ドロワー/モーダル表示中はゲーム入力を受けない（Escape で閉じる操作は account.js 側が処理する） */
+  if(overlayHold || (window.PWAccount && PWAccount.overlayOpen && PWAccount.overlayOpen())) return;
   if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space'].includes(e.code)) e.preventDefault();
   if(state==='ready' && (e.code==='Space'||e.code==='Enter')){ if(!$('onlineOv').classList.contains('hidden')) return; startGame(); return; }
   if(state==='over' && e.code==='Enter'){ if(vsActive) return; startGame(); return; }
@@ -542,14 +545,14 @@ function togglePause(){
 document.querySelectorAll('.tbtn').forEach(b=>{
   const k = b.dataset.k;
   const act = ()=>{
-    if(state!=='playing'||!cur||netFrozen) return;
+    if(state!=='playing'||!cur||netFrozen||overlayHold) return;
     if(k==='left') move(-1); else if(k==='right') move(1);
     else if(k==='rotL') rotate(-1); else if(k==='rotR') rotate(1);
     else if(k==='drop') hardDrop(); else if(k==='hold') holdSwap();
   };
-  b.addEventListener('touchstart', e=>{ e.preventDefault(); if(k==='down'){ keys.down = true; } else act(); }, {passive:false});
+  b.addEventListener('touchstart', e=>{ e.preventDefault(); if(overlayHold) return; if(k==='down'){ keys.down = true; } else act(); }, {passive:false});
   b.addEventListener('touchend', e=>{ e.preventDefault(); if(k==='down') keys.down = false; }, {passive:false});
-  b.addEventListener('mousedown', ()=>{ if(k==='down') keys.down = true; else act(); });
+  b.addEventListener('mousedown', ()=>{ if(overlayHold) return; if(k==='down') keys.down = true; else act(); });
   b.addEventListener('mouseup', ()=>{ if(k==='down') keys.down = false; });
 });
 $('startBtn').onclick = ()=>{ vsActive = false; $('oppBox').style.display = 'none'; startGame(); };
@@ -557,6 +560,18 @@ $('retryBtn').onclick = ()=>{ vsActive = false; $('oppBox').style.display = 'non
 $('resumeBtn').onclick = togglePause;
 $('pauseBtn').onclick = ()=>{ if(state==='playing'||state==='paused') togglePause(); };
 $('soundBtn').onclick = ()=>{ soundOn = !soundOn; $('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 ミュート'; };
+/* ============ アカウントドロワー/モーダル連動ポーズ ============
+   account.js が発火する 'pw:overlay'（detail.open）を受け、ドロワーや
+   アカウントモーダル（フィードバック含む）が開いている間だけ進行を止める。
+   手動ポーズ（state='paused'）とは独立したフラグなので、閉じても手動ポーズは
+   維持され、プレイ中だった場合だけ自動で再開する。対戦中も落下だけ止まる
+   （切断時の netFrozen と同じ扱い。相手側は相手側のドロワーで止まる）。 */
+function setOverlayHold(open){
+  overlayHold = !!open;
+  if(overlayHold){ stopDAS(); keys.down = false; }
+}
+document.addEventListener('pw:overlay', e=>{ setOverlayHold(!!(e && e.detail && e.detail.open)); });
+if(window.PWAccount && PWAccount.overlayOpen) setOverlayHold(PWAccount.overlayOpen());
 /* ============================================================
    オンライン対戦（PeerJS / WebRTC P2P・おじゃまライン対戦）
    両者が同じ落下ルールで同時進行し、ライン消去でおじゃまを送る。

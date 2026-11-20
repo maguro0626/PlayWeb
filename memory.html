@@ -43,6 +43,9 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .face.back{background:linear-gradient(145deg,#7c3aed,#4c1d95);color:#fff;font-size:20px;border:1px solid rgba(255,255,255,.25)}
 .face.front{background:#1e1b3a;border:1px solid var(--line);font-size:clamp(20px,7vw,30px);transform:rotateY(180deg)}
+/* 裏向きカードの表面は絵柄を出さない（DOMに絵柄を残さない実装と二重化）。
+   backface-visibility 任せにせず、開いていないカードの表面は不可視にする */
+.mcard:not(.open) .face.front{visibility:hidden}
 .mcard.matched .face.front{background:rgba(139,92,246,.35);border-color:var(--accent)}
 .mcard.matched{cursor:default}
 .mcard:disabled{cursor:default}
@@ -106,13 +109,21 @@ const SAVE_KEY='mini_memory_v1';
 function loadSave(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'); }catch(e){ return {}; } }
 function storeSave(s){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }catch(e){} }
 function renderBest(){ const s=loadSave(); const txt=(s.bestMoves!=null)?('ベスト: '+s.bestMoves+' 手 / '+fmtTime(s.bestTime||0)):''; document.getElementById('soloBest').textContent=txt; document.getElementById('bestLine').textContent=txt?('🏆 '+txt):''; }
+/* account.js のクラウドマージが読み込み後にベストを書き戻しても表示へ反映する */
+window.addEventListener('focus',renderBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest();});
+setTimeout(renderBest,2000);setTimeout(renderBest,5000);
 function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+':'+String(s).padStart(2,'0'); }
 let mode='solo';
 let deck=[], matched=[], firstPick=-1, lock=false, playing=false, finished=false;
 let scores=[0,0], current=0, moves=0, startAt=0, timerId=null, elapsed=0;
 function myIdx(){ return isHost?0:1; }
 function buildDeck(seed){ const rnd=mulberry32(seed); const arr=[]; EMOJIS.forEach(e=>{arr.push(e);arr.push(e);}); for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); const tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp; } return arr; }
-function renderBoard(){ const b=document.getElementById('board'); b.innerHTML=''; deck.forEach((e,i)=>{ const btn=document.createElement('button'); btn.className='mcard'+(matched[i]?' open matched':(i===firstPick||openSecond===i?' open':'')); btn.dataset.i=i; btn.innerHTML='<span class="inner"><span class="face back">🃏</span><span class="face front">'+e+'</span></span>'; btn.addEventListener('click',()=>onCardTap(i)); b.appendChild(btn); }); }
+/* 裏向きのカードは絵柄を DOM に入れない。以前は全カードの表面に絵柄を
+   常駐させ backface-visibility で隠していたため、DOM の textContent や
+   スタイル経由で裏向きカードの絵柄が分かってしまっていた（透け報告）。
+   表向き（選択中・マッチ済み）のカードだけ表面に絵柄を描く。 */
+function renderBoard(){ const b=document.getElementById('board'); b.innerHTML=''; deck.forEach((e,i)=>{ const isOpen=!!matched[i]||i===firstPick||openSecond===i; const btn=document.createElement('button'); btn.className='mcard'+(matched[i]?' open matched':(isOpen?' open':'')); btn.dataset.i=i; btn.setAttribute('aria-label', isOpen?'めくれたカード':'裏向きのカード'); btn.innerHTML='<span class="inner"><span class="face back">🃏</span><span class="face front">'+(isOpen?e:'')+'</span></span>'; btn.addEventListener('click',()=>onCardTap(i)); b.appendChild(btn); }); }
 let openSecond=-1;
 function updateHud(){ document.getElementById('score0').textContent=scores[0]+' ペア'; document.getElementById('score1').textContent=scores[1]+' ペア'; document.getElementById('movesTime').textContent=moves+' 手 ・ '+fmtTime(elapsed); document.getElementById('p0Box').classList.toggle('turn', playing&&!finished&&mode==='online'&&current===0); document.getElementById('p1Box').classList.toggle('turn', playing&&!finished&&mode==='online'&&current===1); }
 function setMsg(t){ document.getElementById('msg').textContent=t; }

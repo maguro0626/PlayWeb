@@ -312,6 +312,7 @@ function prefillBoard(kind){
 /* ---------- 状態 ---------- */
 let board, tray, score, best, combo, maxCombo, linesTotal, piecesPlaced, gameOver;
 let particles = [], floaters = [], cellAnims = {}, banner = null, shake = 0, flashLines = null;
+let invalidFlash = null;   /* 置けない場所へドロップした時の赤フラッシュ {cells:[[x,y]..], t0} */
 let beams = [], rings = [];
 let drag = null, returning = null;
 let inputLockUntil = 0;
@@ -319,7 +320,8 @@ let dispScore = 0;
 let mode = 'endless';           // 'endless' | 'stage'
 let stageIdx = 0, movesLeft = 0, stageBaseLines = 0, stageDone = false;
 let unlocked = +(localStorage.getItem('blockblast_unlocked') || 1);
-best = +(localStorage.getItem('blockblast_best') || 0);
+function loadBest(){ try{ return +(localStorage.getItem('blockblast_best') || 0) || 0; }catch(e){ return 0; } }
+best = loadBest();
 
 function emptyBoard(){ return Array.from({length:N}, ()=>Array(N).fill(0)); }
 function newPiece(){ return { shape: pickShape(), color: 1 + Math.floor(rngFn()*8), used:false, bornAt: performance.now() }; }
@@ -356,7 +358,7 @@ function findClears(bd){
 }
 
 /* ---------- サウンド ---------- */
-let AC = null, soundOn = true;
+let AC = null, soundOn = true; try { soundOn = localStorage.getItem('blockblast_sound') !== 'off'; } catch(e) {}
 function ac(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended') AC.resume(); return AC; }
 function tone(freq, dur, type, vol, when=0, slideTo=null){
   if(!soundOn) return;
@@ -547,6 +549,12 @@ function render(now){
         ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
         rr(px + gap*0.5 + 1, py + gap*0.5 + 1, cell - gap - 2, cell - gap - 2, cell * 0.15); ctx.stroke();
         ctx.restore();
+      } else {
+        /* 置けない位置のゴーストは赤枠で示す（色だけでは伝わらないため） */
+        ctx.save();
+        ctx.strokeStyle = 'rgba(248,113,113,0.95)'; ctx.lineWidth = 2;
+        rr(px + gap*0.5 + 1, py + gap*0.5 + 1, cell - gap - 2, cell - gap - 2, cell * 0.15); ctx.stroke();
+        ctx.restore();
       }
     }
   }
@@ -572,6 +580,22 @@ function render(now){
       }
     }
     drawBlock(px, py, cell, v, alpha, scale);
+  }
+
+  /* 置けない場所へのドロップ: 対象セルの赤フラッシュ */
+  if(invalidFlash){
+    const ft2 = (now - invalidFlash.t0) / 380;
+    if(ft2 >= 1) invalidFlash = null;
+    else{
+      ctx.save();
+      ctx.globalAlpha = (1 - ft2) * 0.55;
+      ctx.fillStyle = '#ef4444';
+      for(const [fx, fy] of invalidFlash.cells){
+        const fp = cellXY(fx, fy);
+        rr(fp.x + gap*0.5, fp.y + gap*0.5, cell - gap, cell - gap, cell * 0.16); ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   /* 消去ビーム（ラインを光が走る） */
@@ -743,8 +767,25 @@ function addFloater(text, x, y, size=26, color='#fde68a'){
 ================================================================ */
 const $ = id => document.getElementById(id);
 
-function updateHUD(){
+/* ベストの読み直し: account.js のクラウドマージは読み込み後に非同期で
+   localStorage を書き戻す（生ストレージ経由）ため、起動時に一度読んだだけでは
+   表示が古いまま（最悪 0）になる。表示のたび・フォーカス復帰時などに
+   ストレージと突き合わせ、メモリ側は常に大きい方へ寄せる */
+function refreshBest(){
+  const stored = loadBest();
+  if(stored > best) best = stored;
   $('bestVal').textContent = best.toLocaleString();
+}
+function saveBest(){
+  refreshBest();   /* 書き込み直前にも読み直し、後着の大きなベストを小さい値で上書きしない */
+  if(score > best){
+    best = score;
+    try{ localStorage.setItem('blockblast_best', String(best)); }catch(e){}
+    $('bestVal').textContent = best.toLocaleString();
+  }
+}
+function updateHUD(){
+  refreshBest();
   const cb = $('comboBox');
   if(combo >= 2){ cb.classList.add('hot'); $('comboVal').textContent = '×' + combo; }
   else{ cb.classList.remove('hot'); $('comboVal').textContent = '×1'; }
@@ -764,17 +805,21 @@ function updateStageHUD(){
   $('stageMoves').textContent = '残り ' + movesLeft + ' 手';
   $('stageProg').style.width = (goalProgress() * 100).toFixed(1) + '%';
 }
+let lastStateJson = null;   /* 最後に保存／復元した盤面JSON（後着マージとの差分検知用） */
+let lateRestoreArmed = true; /* 起動直後のみ true。この間は1手も置いていない前提で、クラウドから後着した盤面への差し替えを許可する */
 function saveState(){
   if(mode !== 'endless' || gameOver) return;
   try{
-    localStorage.setItem('blockblast_state', JSON.stringify({
+    const json = JSON.stringify({
       board, tray: tray.map(p => p ? { cells: p.shape.cells, color: p.color, used: p.used } : null),
       score, combo, maxCombo, linesTotal, piecesPlaced,
-    }));
+    });
+    localStorage.setItem('blockblast_state', json);
+    lastStateJson = json;
   }catch(e){}
 }
 
-function newGame(){
+function newGame(deferSave){
   board = emptyBoard();
   score = 0; dispScore = 0; combo = 0; maxCombo = 0; linesTotal = 0; piecesPlaced = 0;
   gameOver = false; drag = null; returning = null; banner = null; flashLines = null;
@@ -782,7 +827,11 @@ function newGame(){
   tray = genTray();
   $('scoreVal').textContent = '0';
   $('overOv').classList.add('hidden'); $('clearOv').classList.add('hidden');
-  updateHUD(); updateStageHUD(); saveState();
+  updateHUD(); updateStageHUD();
+  /* 起動直後（deferSave）は即保存しない。クラウドマージ前の空盤面を保存すると
+     そのタイムスタンプが最新になり、クラウド上の進行中盤面を潰してしまう。
+     保存は最初の配置（afterMove→saveState）から通常どおり行われる */
+  if(!deferSave) saveState();
 }
 function startStage(idx){
   stageIdx = idx; mode = 'stage';
@@ -794,36 +843,56 @@ function startStage(idx){
   particles = []; floaters = []; cellAnims = {}; beams = []; rings = [];
   tray = genTray();
   $('scoreVal').textContent = '0';
-  $('overOv').classList.add('hidden'); $('clearOv').classList.add('hidden'); $('modeOv').classList.add('hidden');
+  modeReturnOv = null;
+  ['overOv', 'clearOv', 'modeOv', 'onlineOv', 'battleOv'].forEach(id => $(id).classList.add('hidden'));
   updateHUD(); updateStageHUD();
   banner = { text: 'ステージ ' + (idx + 1), t0: performance.now() };
 }
-function startEndless(resume=true){
+function startEndless(resume=true, deferSave=false){
   mode = 'endless';
-  $('modeOv').classList.add('hidden'); $('clearOv').classList.add('hidden');
+  modeReturnOv = null;
+  ['modeOv', 'clearOv', 'overOv', 'onlineOv', 'battleOv'].forEach(id => $(id).classList.add('hidden'));
   if(resume && restoreState()){ updateHUD(); updateStageHUD(); return; }
-  newGame();
+  newGame(deferSave);
 }
 function restoreState(){
   try{
     const raw = localStorage.getItem('blockblast_state');
     if(!raw) return false;
     const st = JSON.parse(raw);
-    if(!st.board || !Array.isArray(st.tray)) return false;
-    board = st.board;
-    tray = st.tray.map(tp => tp ? { shape: shape(tp.cells), color: tp.color, used: tp.used, bornAt: performance.now() - 400 } : null);
+    if(!Array.isArray(st.board) || st.board.length !== N || st.board.some(r => !Array.isArray(r) || r.length !== N)) return false;
+    if(!Array.isArray(st.tray)) return false;
+    board = st.board.map(r => r.map(v => v | 0));
+    tray = st.tray.map(tp => (tp && Array.isArray(tp.cells) && tp.cells.length)
+      ? { shape: shape(tp.cells), color: tp.color | 0 || 1, used: !!tp.used, bornAt: performance.now() - 400 } : null);
+    /* 使えるピースが1つも無い保存データ（全て使用済み等）はそのまま復元すると
+       何も置けず詰むため、トレイだけ補充する */
+    if(!tray.some(p => p && !p.used)) tray = genTray();
     score = st.score || 0; dispScore = score; combo = st.combo || 0;
     maxCombo = st.maxCombo || 0; linesTotal = st.linesTotal || 0; piecesPlaced = st.piecesPlaced || 0;
     gameOver = false; drag = null; returning = null; banner = null; flashLines = null;
     particles = []; floaters = []; cellAnims = {}; beams = []; rings = [];
     $('scoreVal').textContent = score.toLocaleString();
     $('overOv').classList.add('hidden');
+    lastStateJson = raw;
     return true;
   }catch(e){ return false; }
+}
+/* クラウドマージ後着でストレージの盤面が差し替わっていたら読み直す。
+   1手でも置いた後は自分のプレイを優先し、差し替えはしない（lateRestoreArmed） */
+function tryLateRestore(){
+  if(!lateRestoreArmed || mode !== 'endless' || gameOver) return false;
+  let raw = null;
+  try{ raw = localStorage.getItem('blockblast_state'); }catch(e){}
+  if(!raw || raw === lastStateJson) return false;
+  if(!restoreState()) return false;
+  updateHUD(); updateStageHUD();
+  return true;
 }
 
 function doPlace(slot, bx, by){
   const p = tray[slot]; if(!p || p.used) return;
+  lateRestoreArmed = false;   /* 自分のプレイが始まったら後着マージで盤面を差し替えない */
   const now = performance.now();
   for(const [cx,cy] of p.shape.cells){
     board[by+cy][bx+cx] = p.color;
@@ -915,7 +984,7 @@ function afterMove(){
 function stageClear(){
   stageDone = true; gameOver = true;
   if(stageIdx + 2 > unlocked){ unlocked = Math.min(STAGES.length, stageIdx + 2); localStorage.setItem('blockblast_unlocked', unlocked); }
-  if(score > best){ best = score; localStorage.setItem('blockblast_best', best); updateHUD(); }
+  saveBest(); updateHUD();
   sfx.fanfare();
   ojisanVoice('グーっど');
   vibrate([30, 50, 30, 50, 60]);
@@ -946,8 +1015,9 @@ function stageFail(reason){
 function showGameOver(){
   gameOver = true;
   sfx.over(); vibrate([60, 40, 60]);
+  refreshBest();   /* 後着マージで大きなベストが来ていれば先に取り込む（更新判定の取り違え防止） */
   const isBest = score > best;
-  if(isBest){ best = score; localStorage.setItem('blockblast_best', best); }
+  if(isBest) saveBest();
   try{ localStorage.removeItem('blockblast_state'); }catch(e){}
   $('overTitle').textContent = 'ゲームオーバー';
   $('finalScore').textContent = score.toLocaleString();
@@ -1017,7 +1087,20 @@ function endDrag(e){
     doPlace(d.slot, gx, gy);
   } else {
     returning = { piece: d.piece, slot: d.slot, fx: d.px - d.grabDX * cell, fy: d.py - d.grabDY * cell, t0: performance.now() };
-    sfx.invalid(); vibrate(30);
+    /* 盤面に重なる無効ドロップだけ「置けない」フィードバックを出す。
+       トレイ側へ戻すだけのキャンセルは無音にして、置けないのに無反応／
+       置けるつもりが戻った、のどちらにも見えないようにする */
+    const overlap = d.piece.shape.cells.filter(([cx,cy]) => {
+      const x = gx + cx, y = gy + cy;
+      return x >= 0 && y >= 0 && x < N && y < N;
+    });
+    if(overlap.length){
+      invalidFlash = { cells: overlap.map(([cx,cy]) => [gx + cx, gy + cy]), t0: performance.now() };
+      shake = Math.max(shake, 7);
+      const cc = cellXY(gx + d.piece.shape.w / 2 - 0.5, gy);
+      addFloater('置けない！', cc.x + cell / 2, Math.max(boardY + 26, cc.y), 20, '#f87171');
+      sfx.invalid(); vibrate([30, 40, 30]);
+    }
   }
 }
 cv.addEventListener('pointerup', endDrag);
@@ -1031,17 +1114,30 @@ function renderStageGrid(){
   grid.innerHTML = '';
   STAGES.forEach((st, i) => {
     const b = document.createElement('button');
-    const locked = i + 1 > unlocked, cleared = i + 1 < unlocked || (mode === 'stage' && false);
+    const locked = i + 1 > unlocked, cleared = i + 1 < unlocked;
     if(locked) b.className = 'locked';
-    else if(i + 1 < unlocked) b.className = 'cleared';
+    else if(cleared) b.className = 'cleared';
     b.innerHTML = `<span class="no">${locked ? '🔒' : (i + 1)}</span><span class="gl">${st.goal.type === 'score' ? st.goal.target.toLocaleString() + '点' : 'ライン' + st.goal.target + '本'}<br>${st.moves}手以内</span>`;
     if(!locked) b.addEventListener('click', ()=>{ sfx.click(); if(mode === 'online') leaveBattleToLocal(); startStage(i); });
     grid.appendChild(b);
   });
 }
+let modeReturnOv = null;   /* モード選択を開く前に表示されていた画面（'overOv' | 'clearOv' | null） */
 function openModeSelect(){
+  if($('modeOv').classList.contains('hidden')){
+    /* ゲームオーバー／クリア画面から開いた場合は戻り先を覚える。
+       元の画面は隠さずに重ねて表示し、「とじる」でそのまま戻れるようにする
+       （以前は元の画面を隠して開いていたため、閉じると操作不能な盤面だけが残った） */
+    if(!$('overOv').classList.contains('hidden')) modeReturnOv = 'overOv';
+    else if(!$('clearOv').classList.contains('hidden')) modeReturnOv = 'clearOv';
+    else modeReturnOv = null;
+  }
   renderStageGrid();
   $('modeOv').classList.remove('hidden');
+}
+function closeModeSelect(){
+  $('modeOv').classList.add('hidden');
+  if(modeReturnOv){ $(modeReturnOv).classList.remove('hidden'); modeReturnOv = null; }
 }
 
 /* ================================================================
@@ -1133,6 +1229,7 @@ function startBattle(seed, sendStart){
   particles = []; floaters = []; cellAnims = {}; beams = []; rings = [];
   tray = genTray();
   $('scoreVal').textContent = '0';
+  modeReturnOv = null;
   ['overOv', 'clearOv', 'modeOv', 'onlineOv', 'battleOv'].forEach(id => $(id).classList.add('hidden'));
   $('oppBar').classList.add('show');
   updateHUD(); updateStageHUD();
@@ -1384,15 +1481,24 @@ function copyRoomCode(){
    UI配線・初期化
 ================================================================ */
 $('againBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'stage') startStage(stageIdx); else newGame(); });
-$('overModeBtn').addEventListener('click', ()=>{ sfx.click(); $('overOv').classList.add('hidden'); openModeSelect(); });
+$('overModeBtn').addEventListener('click', ()=>{ sfx.click(); openModeSelect(); });
 $('nextStageBtn').addEventListener('click', ()=>{ sfx.click(); startStage(Math.min(STAGES.length - 1, stageIdx + 1)); });
-$('clearModeBtn').addEventListener('click', ()=>{ sfx.click(); $('clearOv').classList.add('hidden'); openModeSelect(); });
-$('endlessBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'online') leaveBattleToLocal(); startEndless(false); });
-$('modeCloseBtn').addEventListener('click', ()=>{ sfx.click(); $('modeOv').classList.add('hidden'); });
+$('clearModeBtn').addEventListener('click', ()=>{ sfx.click(); openModeSelect(); });
+$('endlessBtn').addEventListener('click', ()=>{
+  sfx.click();
+  if(mode === 'online') leaveBattleToLocal();
+  /* 進行中のエンドレスはそのまま続行する（以前は常に新規ゲームになり、
+     モード選択を開いて戻っただけで盤面が消えた） */
+  if(mode === 'endless' && !gameOver){ closeModeSelect(); return; }
+  startEndless(true);   /* 保存済みの盤面があれば復元、無ければ新規ゲーム */
+});
+$('modeCloseBtn').addEventListener('click', ()=>{ sfx.click(); closeModeSelect(); });
 $('modeBtn').addEventListener('click', ()=>{ sfx.click(); openModeSelect(); });
 $('restartBtn').addEventListener('click', ()=>{ sfx.click(); if(mode === 'online') return; if(mode === 'stage') startStage(stageIdx); else newGame(); });
+$('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
 $('soundBtn').addEventListener('click', ()=>{
   soundOn = !soundOn;
+  try{ localStorage.setItem('blockblast_sound', soundOn ? 'on' : 'off'); }catch(e){}
   $('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
   if(!soundOn){ try{ speechSynthesis.cancel(); }catch(e){} }
   if(soundOn) sfx.click();
@@ -1426,8 +1532,25 @@ $('rematchBtn').addEventListener('click', ()=>{
   }
 });
 
+/* クラウドマージ後着対策（他ミニゲームと同型）: フォーカス復帰・可視化・
+   遅延タイミングでベスト表示を読み直し、未操作時のみ盤面も読み直す。
+   非表示化／ページ離脱時はその時点の盤面を必ず保存する */
+window.addEventListener('focus', ()=>{ refreshBest(); tryLateRestore(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden) saveState();
+  else { refreshBest(); tryLateRestore(); }
+});
+window.addEventListener('pagehide', ()=>{ saveState(); });
+window.addEventListener('storage', e=>{
+  if(!e.key || e.key === 'blockblast_best') refreshBest();
+  if(e.key === 'blockblast_state') tryLateRestore();
+});
+setTimeout(()=>{ refreshBest(); tryLateRestore(); }, 1500);
+setTimeout(()=>{ refreshBest(); tryLateRestore(); }, 3500);
+setTimeout(()=>{ refreshBest(); tryLateRestore(); lateRestoreArmed = false; }, 7000);
+
 resize();
-startEndless(true);
+startEndless(true, true);
 openModeSelect();
 function loop(now){ render(now); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);

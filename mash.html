@@ -78,9 +78,17 @@ html,body{overscroll-behavior:none;}
 <script>
 let AC=null;
 function tone(f,d,type,v,delay){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime+(delay||0);const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+(d||0.12));o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+(d||0.12)+0.02);}catch(e){}}
-function loadSave(){try{return JSON.parse(localStorage.getItem('mini_mash_v1')||'{}');}catch(e){return{};}}
-function storeSave(o){try{localStorage.setItem('mini_mash_v1',JSON.stringify(o));}catch(e){}}
+/* ベスト保存: メモリにも保持し、保存・表示のたびに保存済みの値と union（大きい方）を取る。
+   account.js のクラウドマージが読み込み後に localStorage へ値を書き戻すため、
+   読み込み時に1回だけ読む方式では「保存されているのに表示が - のまま」や
+   「後着した良い記録を古い値で上書き」が起きる。その対策として再描画フックも付ける。 */
+let saveCache=null;
+function loadSave(){let s={};try{s=JSON.parse(localStorage.getItem('mini_mash_v1')||'{}')||{};}catch(e){}if(saveCache&&typeof saveCache.best==='number'&&(typeof s.best!=='number'||saveCache.best>s.best))s.best=saveCache.best;if(typeof s.best==='number')saveCache={best:s.best};return s;}
+function storeSave(o){const cur=loadSave();if(typeof cur.best==='number'&&(typeof o.best!=='number'||cur.best>o.best))o.best=cur.best;if(typeof o.best==='number')saveCache={best:o.best};try{localStorage.setItem('mini_mash_v1',JSON.stringify(o));}catch(e){}}
 function showBest(){const s=loadSave();document.getElementById('bestText').textContent='ベスト: '+(s.best? s.best+'回':'-');}
+window.addEventListener('focus',showBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)showBest();});
+setTimeout(showBest,2000);setTimeout(showBest,5000);
 let mode='solo';
 document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;document.getElementById('soloPane').classList.toggle('hidden',mode!=='solo');document.getElementById('onlinePane').classList.toggle('hidden',mode!=='online');stopAll();resetOnlineGame();if(mode==='solo'){document.getElementById('oppRow').classList.add('hidden');setInfo('スタートを押してね');}}));
 showBest();
@@ -110,9 +118,9 @@ document.getElementById('hostBtn').addEventListener('click',hostRoom);
 document.getElementById('joinBtn').addEventListener('click',joinRoom);
 document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
 // ---- shared play ----
-let myCount=0,oppCount=0,playing=false,myFinal=null,oppFinal=null,recorded=false,playEndsAt=0;
+let myCount=0,oppCount=0,playing=false,myFinal=null,oppFinal=null,recorded=false,playEndsAt=0,playSeqNo=0;
 function runCountdown(sec,cb){stopAll();let n=sec;setInfo(n);tone(440,0.1,'sine',0.12);timerText.textContent='10.0秒';intId=setInterval(()=>{n--;if(n<=0){clearInterval(intId);intId=null;cb();}else{setInfo(n);tone(440,0.1,'sine',0.12);}},1000);}
-function startPlay(isOnline){myCount=0;oppCount=isOnline?oppCount:0;myFinal=null;oppFinal=null;playing=true;mashBtn.disabled=false;setInfo('れんだ！れんだ！');updateGauges(0,oppCount);tone(880,0.18,'sine',0.15);playEndsAt=performance.now()+10000;const tick=()=>{const left=Math.max(0,playEndsAt-performance.now());timerText.textContent=(left/1000).toFixed(1)+'秒';if(left<=0){endPlay(isOnline);return;}rafId=requestAnimationFrame(tick);};rafId=requestAnimationFrame(tick);if(isOnline){intId=setInterval(()=>{sendNet({t:'count',n:myCount});},100);}}
+function startPlay(isOnline){myCount=0;oppCount=isOnline?oppCount:0;myFinal=null;oppFinal=null;playing=true;mashBtn.disabled=false;setInfo('れんだ！れんだ！');updateGauges(0,oppCount);tone(880,0.18,'sine',0.15);playEndsAt=performance.now()+10000;const tick=()=>{const left=Math.max(0,playEndsAt-performance.now());timerText.textContent=(left/1000).toFixed(1)+'秒';if(left<=0){endPlay(isOnline);return;}rafId=requestAnimationFrame(tick);};rafId=requestAnimationFrame(tick);/* 終了判定の保険: rAF が止まる環境でも setTimeout で必ず終了し、ベスト保存まで到達する */const myPlayId=++playSeqNo;setTimeout(()=>{if(playing&&playSeqNo===myPlayId)endPlay(isOnline);},10300);if(isOnline){intId=setInterval(()=>{sendNet({t:'count',n:myCount});},100);}}
 function endPlay(isOnline){playing=false;mashBtn.disabled=true;if(intId)clearInterval(intId);intId=null;timerText.textContent='0.0秒';tone(660,0.2,'sine',0.14);if(!isOnline){setInfo('終了！ '+myCount+'回');const s=loadSave();if(!s.best||myCount>s.best){s.best=myCount;storeSave(s);showBest();setInfo('終了！ '+myCount+'回 🎉ベスト更新！');}}else{myFinal=myCount;sendNet({t:'count',n:myCount});sendNet({t:'final',n:myCount});setInfo('終了！結果を待っています…');checkFinal();}}
 mashBtn.addEventListener('pointerdown',e=>{e.preventDefault();if(!playing)return;myCount++;updateGauges(myCount,oppCount);tone(300+Math.random()*200,0.05,'square',0.06);});
 document.getElementById('soloStart').addEventListener('click',()=>{if(mode!=='solo')return;myCount=0;oppCount=0;updateGauges(0,0);runCountdown(3,()=>startPlay(false));});

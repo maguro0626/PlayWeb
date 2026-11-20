@@ -310,7 +310,7 @@ let history = [];      // {type:'item'|'stroke', obj}
 let GL_OK = false;
 
 /* ================= サウンド（2D版から踏襲） ================= */
-let audioCtx = null, soundOn = true;
+let audioCtx = null, soundOn = true; try { soundOn = localStorage.getItem('crepe_sound') !== 'off'; } catch(e) {}
 function ac(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); return audioCtx; }
 function tone(f, d=0.08, type='sine', v=0.05, delay=0){
   if(!soundOn) return;
@@ -334,7 +334,7 @@ const sfx = {
   good:()=>{ [523,659,784,1046].forEach((f,i)=>tone(f,0.12,'triangle',0.06,i*0.08)); },
   fanfare:()=>{ [392,523,659,784,1046,1318,1568].forEach((f,i)=>tone(f,0.16,'triangle',0.06,i*0.09)); },
 };
-$('soundBtn').onclick = ()=>{ soundOn=!soundOn; $('soundBtn').textContent = soundOn?'🔊 サウンド':'🔇 ミュート'; };
+$('soundBtn').textContent = soundOn?'🔊 サウンド':'🔇 ミュート'; $('soundBtn').onclick = ()=>{ soundOn=!soundOn; try{ localStorage.setItem('crepe_sound', soundOn?'on':'off'); }catch(e){} $('soundBtn').textContent = soundOn?'🔊 サウンド':'🔇 ミュート'; };
 
 /* ================= ユーティリティ ================= */
 function rng(seed){ let t = seed*9301+49297; return ()=>{ t = (t*9301+49297)%233280; return t/233280; }; }
@@ -1190,6 +1190,15 @@ function setPhase(p){
     while(foldGroup.children.length) foldGroup.remove(foldGroup.children[0]);
   }
 }
+/* 注文と違う生地かどうかの判定（警告のみ・進行は止めない） */
+function isBatterMismatch(){
+  return (mode==='order' || mode==='vs') && !!order && !!batter && !!order.batter && batter.id !== order.batter;
+}
+function batterMismatchText(){
+  if(!isBatterMismatch()) return '';
+  const want = BATTERS.find(b=>b.id===order.batter);
+  return `⚠️ 注文は「${want ? want.name : order.batter}」生地です。今は「${batter.name}」を選んでいます。このまま作ることもできますが、注文一致度が下がります。`;
+}
 function buildPanel(){
   const T = $('panelTitle'), B = $('panelBody');
   if(phase==='batter'){
@@ -1198,6 +1207,7 @@ function buildPanel(){
       `<button class="item ${batter.id===b.id?'on':''}" data-act="batter:${b.id}">
         <span class="em">${b.em}</span><span class="nm">${b.name}</span><span class="pr">¥${BASE_PRICE}</span></button>`).join('')}
       </div>
+      ${isBatterMismatch() ? `<p class="hint" id="batterWarn" role="alert" style="margin:10px 0 0;padding:9px 11px;border:1px solid rgba(248,113,113,.55);background:rgba(239,68,68,.14);border-radius:10px;color:#fecaca;font-weight:700">${batterMismatchText()}</p>` : `<p id="batterWarn" style="display:none"></p>`}
       <p class="hint" style="margin:10px 0">生地の色で仕上がりの雰囲気が変わるよ。選んだら鉄板に流そう。</p>
       <button class="bigbtn" data-act="pour">鉄板に生地を流す →</button>`;
   }
@@ -1211,7 +1221,7 @@ function buildPanel(){
   else if(phase==='bake'){
     T.textContent = '③ 焼く（タイミング勝負）';
     B.innerHTML = `<p class="hint">焼き色がついてきたら<b>緑のゾーン</b>で取り上げよう。早いと生焼け、遅いと焦げちゃう。湯気と焼き色をよく見て。</p>
-      <div class="gauge" style="margin:14px 0 8px"><div class="zone" style="left:48%;width:37%"></div><i id="bakeBar"></i></div>
+      <div class="gauge" style="margin:14px 0 8px"><div class="zone" style="left:38%;width:57%"></div><i id="bakeBar"></i></div>
       <p class="hint" style="text-align:center" id="bakeLabel">焼きはじめ…</p>
       <button class="bigbtn" data-act="finishBake" style="margin-top:10px">🔥 焼き上がり！</button>`;
   }
@@ -1254,8 +1264,8 @@ function buildPanel(){
 function doAction(act){
   if(!GL_OK) return;
   const [cmd, arg] = act.split(':');
-  if(cmd==='batter'){ batter = BATTERS.find(b=>b.id===arg); blobMat.color.set(batter.base); sfx.pop(); buildPanel(); }
-  else if(cmd==='pour'){ sfx.flip(); setPhase('spread'); toast('ドラッグで円くのばそう！'); }
+  if(cmd==='batter'){ batter = BATTERS.find(b=>b.id===arg); blobMat.color.set(batter.base); sfx.pop(); buildPanel(); if(isBatterMismatch()) toast(batterMismatchText(), 2800); }
+  else if(cmd==='pour'){ const mismatch = isBatterMismatch(); const warn = mismatch ? batterMismatchText() : ''; sfx.flip(); setPhase('spread'); if(mismatch) toast(warn, 2800); else toast('ドラッグで円くのばそう！'); }
   else if(cmd==='toBake'){ if(spreadDone){ setPhase('bake'); toast('焼き色をよく見て！'); } }
   else if(cmd==='finishBake'){ finishBake(); }
   else if(cmd==='toFold'){ setPhase('fold'); }
@@ -1289,12 +1299,12 @@ function finishBake(){
   if(phase!=='bake' || baked) return;
   baked = true; bakeLevel = bake;
   paintBakeProgress(bake);
-  // 適正ゾーン 48〜85%（中心0.665）
-  let sc = 100 - Math.abs(bake - 0.665) * 150;
-  if(bake > 0.9) sc -= (bake - 0.9) * 160;
+  // 適正ゾーン 38〜95%（中心0.665）。ゾーンを広げた分、傾きはゾーン端のスコアが従来とほぼ同じ（約72点）になるよう比例調整
+  let sc = 100 - Math.abs(bake - 0.665) * 100;
+  if(bake > 0.95) sc -= (bake - 0.95) * 160;
   bakeScore = Math.round(Math.max(0, Math.min(100, sc)));
-  if(bake < 0.42){ toast('ちょっと生焼け… でもこれはこれで', 2200); }
-  else if(bake > 0.93){ toast('焦げちゃった！ 香ばしい（？）', 2200); sfx.flip(); }
+  if(bake < 0.32){ toast('ちょっと生焼け… でもこれはこれで', 2200); }
+  else if(bake > 0.98){ toast('焦げちゃった！ 香ばしい（？）', 2200); sfx.flip(); }
   else if(bakeScore >= 85){ toast('完璧な焼き加減！ ✨', 2200); sfx.good(); }
   else { toast('いい焼き色！', 1800); sfx.pop(); }
   setTimeout(()=>setPhase('fill'), 650);
@@ -1376,8 +1386,8 @@ function judge(){
     comment = matchInfo>=90 ? '注文どおり完璧！ お客さん大喜びです。' : matchInfo>=65 ? 'だいたい注文どおり。あと一歩で完璧でした。' : '注文と少し違ったみたい… お客さんは首をかしげています。';
   } else {
     total = Math.round(lines.reduce((a,l)=>a+l.v,0) / lines.length);
-    if(bakeLevel > 0.93) comment = '香ばしさ全開のワイルドな一枚。焦げも味のうち！';
-    else if(bakeLevel < 0.42) comment = 'もちもち生焼け食感。これはこれで新しい。';
+    if(bakeLevel > 0.98) comment = '香ばしさ全開のワイルドな一枚。焦げも味のうち！';
+    else if(bakeLevel < 0.32) comment = 'もちもち生焼け食感。これはこれで新しい。';
     else if(uniq >= 7) comment = '具材の宝石箱！ どこから食べても楽しい一枚。';
     else if(fills.length === 0) comment = '潔い、素クレープ。生地の味で勝負する通な一枚。';
     else if(total >= 85) comment = 'お店に出せるレベル！ 見た目も味も文句なし。';
@@ -1653,13 +1663,13 @@ function animate(){
     tombo.position.z += (tomboTarget.z - tombo.position.z) * 0.45;
     if(painting) tombo.rotation.y += dt * 5;
   }
-  // 焼く（14秒ゲージ、適正ゾーン48〜85%）
+  // 焼く（14秒ゲージ、適正ゾーン38〜95%）
   if(phase==='bake' && !baked){
     bake = Math.min(1, (performance.now() - bakeStart) / 14000); // 実時間ベース（低fps環境でも14秒で満タン）
     paintBakeProgress(bake);
     const bar = $('bakeBar'), lbl = $('bakeLabel');
     if(bar) bar.style.width = (bake*100) + '%';
-    if(lbl) lbl.textContent = bake<0.35 ? 'まだ生焼け…' : bake<0.48 ? 'だんだん色づいてきた' : bake<=0.85 ? '✨ 今が取りどき！' : bake<0.93 ? 'ちょっと焼きすぎ…' : '🔥 焦げてる！';
+    if(lbl) lbl.textContent = bake<0.35 ? 'まだ生焼け…' : bake<0.38 ? 'だんだん色づいてきた' : bake<=0.95 ? '✨ 今が取りどき！' : bake<0.98 ? 'ちょっと焼きすぎ…' : '🔥 焦げてる！';
     sizzleAcc += dt * 1000;
     if(sizzleAcc > 480){ sizzleAcc = 0; noiseBurst(0.07, 0.02); }
     glowLight.intensity = 0.35 + bake*0.5 + Math.sin(t*37)*0.06;
@@ -1669,7 +1679,7 @@ function animate(){
   }
   // 適正ゾーン滞在中だけ大きなコールアウトを点滅表示
   if(!bakeCalloutEl) bakeCalloutEl = $('bakeCallout');
-  if(bakeCalloutEl) bakeCalloutEl.style.display = (phase==='bake' && !baked && bake>=0.48 && bake<=0.85) ? 'block' : 'none';
+  if(bakeCalloutEl) bakeCalloutEl.style.display = (phase==='bake' && !baked && bake>=0.38 && bake<=0.95) ? 'block' : 'none';
   updateSteam(dt);
   updateDropAnims(dt);
   // 包むアニメーション（前半: 生地を持ち上げて返す）

@@ -193,6 +193,10 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
   color:#ffe9a8;background:rgba(0,0,0,0.45);border:1px solid rgba(255,215,0,0.3);}
 #waits-bar.show{display:block;}
 #waits-bar .wt{color:#fff;}
+#discard-hint{display:none;margin:3px 8px 0;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:800;
+  color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.14);text-align:center;}
+#discard-hint.show{display:block;}
+#discard-hint.sel{color:#ffe9a8;border-color:rgba(255,215,0,0.45);}
 
 /* ── ACTION BUTTONS ─────────────────────────── */
 #action-area,#self-action{display:none;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
@@ -419,6 +423,7 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
         <div id="melds-s" class="melds-row"></div>
       </div>
       <div id="waits-bar"></div>
+      <div id="discard-hint"></div>
       <div id="hand-south"></div>
     </div>
   </main>
@@ -492,7 +497,7 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
       </div>
     </div>
     <button class="big-cta" id="start-btn" style="margin-top:6px;">対局開始</button>
-    <div class="start-note">赤ドラ・カン・裏ドラ・一発ありの本格リーチ麻雀。<br>全員 25,000 点持ち、0 点を割ると飛び終了です。</div>
+    <div class="start-note">赤ドラ・カン・裏ドラ・一発ありの本格リーチ麻雀。<br>全員 25,000 点持ち、0 点を割ると飛び終了です。<br>捨て牌は、牌をタップするとそのまま捨てられます（1回タップ）。</div>
     <div class="net-divider">オンライン対戦</div>
     <div class="start-sec">
       <div class="lb">最大4人対戦（空き席はCPUが埋めます）</div>
@@ -542,8 +547,21 @@ if ('serviceWorker' in navigator) {
 const SETTINGS = (() => {
   let s = { diff: 2, len: 8, sound: true };
   try { Object.assign(s, JSON.parse(localStorage.getItem('majan2_settings') || '{}')); } catch(e) {}
+  /* 型の正規化: 過去に文字列で保存された値（len:"4" 等）が残っていると
+     G.gameLength === 4 の厳密比較が外れて「東風を選んでも半荘」になるため、
+     読み取り時点で必ず数値・有効値に直す（#3/#5） */
+  s.len = Number(s.len) === 4 ? 4 : 8;
+  s.diff = [1, 2, 3].includes(Number(s.diff)) ? Number(s.diff) : 2;
+  s.sound = s.sound !== false;
   return s;
 })();
+/* 対局長の単一の参照元: 進行中は G.gameLength、未開始時は SETTINGS.len。
+   表示（最終結果・場風・セグメント）はすべてここ経由に統一する（#5） */
+function matchGameLength(){
+  try { return (G && (G.gameLength === 4 || G.gameLength === 8)) ? G.gameLength : SETTINGS.len; }
+  catch(e) { return SETTINGS.len; }
+}
+function matchLengthLabel(){ return matchGameLength() === 4 ? '東風戦' : '半荘戦'; }
 function saveSettings(){ try { localStorage.setItem('majan2_settings', JSON.stringify(SETTINGS)); } catch(e) {} }
 
 /* ── CONSTANTS / UTILS ── */
@@ -1035,7 +1053,7 @@ let _riichiMode = false;
 let _riichiCandidates = [];
 let _prevScores = null;
 
-function roundWind(){ return G.gameLength === 4 ? 0 : (G.roundNum <= 4 ? 0 : 1); }
+function roundWind(){ return matchGameLength() === 4 ? 0 : (G.roundNum <= 4 ? 0 : 1); }
 function roundLabel(){
   const rw = roundWind();
   return WIND_KANJI[rw] + (((G.roundNum - 1) % 4) + 1) + '局';
@@ -1048,7 +1066,7 @@ function startMatch(){
   G = {
     dealer: 0, roundNum: 1, honba: 0, riichiSticks: 0,
     scores: [25000, 25000, 25000, 25000],
-    difficulty: SETTINGS.diff, gameLength: SETTINGS.len,
+    difficulty: SETTINGS.diff, gameLength: Number(SETTINGS.len) === 4 ? 4 : 8,
   };
   _prevScores = [...G.scores];
   newRound();
@@ -1063,7 +1081,7 @@ function newRound(){
   const keep = {
     dealer: G.dealer ?? 0, roundNum: G.roundNum ?? 1, honba: G.honba ?? 0,
     riichiSticks: G.riichiSticks ?? 0, scores: G.scores ?? [25000, 25000, 25000, 25000],
-    difficulty: G.difficulty ?? SETTINGS.diff, gameLength: G.gameLength ?? SETTINGS.len,
+    difficulty: G.difficulty ?? SETTINGS.diff, gameLength: Number(G.gameLength ?? SETTINGS.len) === 4 ? 4 : 8,
   };
   G = {
     wall: deck, dead, kanCount: 0,
@@ -1292,7 +1310,7 @@ function doKan(p, opt, dp = -1){
 /* ── ROUND END ── */
 function endHand(dealerKept, isDraw){
   if (G.scores.some(s => s < 0)){ finalGameOver(); return; }
-  if (!dealerKept && G.roundNum >= G.gameLength){ finalGameOver(); return; }
+  if (!dealerKept && G.roundNum >= matchGameLength()){ finalGameOver(); return; }
   if (!isDraw && !dealerKept) G.honba = 0; else G.honba++;
   if (!dealerKept){ G.dealer = (G.dealer + 1) % 4; G.roundNum++; }
   newRound();
@@ -1325,8 +1343,9 @@ function onTileClick(tile){
     doRiichi(HUMAN, tile);
     return;
   }
-  if (_selTile?.id === tile.id){ _selTile = null; doDiscard(HUMAN, tile); }
-  else { _selTile = tile; renderHandSouth(); }
+  /* 1回タップで即捨てる（選択状態は経由しない） */
+  _selTile = null;
+  doDiscard(HUMAN, tile);
 }
 
 function canRiichi(p){
@@ -1351,8 +1370,13 @@ function refreshSelfActions(){
   }
   if (canRiichi(HUMAN))
     btns.push({ type: 'riichi', label: 'リーチ', fn: () => startRiichi() });
-  if (!G.riichi[HUMAN])
-    getKanOptions(HUMAN).forEach(opt => {
+  /* リーチ中は原則カン不可だが、ツモ牌で完成する暗槓だけは手牌構成・
+     待ちが変わらないため許可する（従来はリーチ中は全カン不可で、
+     カンできる牌が揃ってもボタン自体が出なかった）。加槓は不可 */
+  getKanOptions(HUMAN).filter(opt => {
+    if (!G.riichi[HUMAN]) return true;
+    return opt.type === 'ankan' && G.drawnTile && opt.tiles.some(t => t.id === G.drawnTile.id);
+  }).forEach(opt => {
       const t0 = opt.type === 'kakan' ? G.melds[HUMAN][opt.meldIdx].tiles[0] : opt.tiles[0];
       btns.push({ type: 'kan', label: 'カン（' + tileName(t0) + '）', fn: () => { hideSelfActions(); doKan(HUMAN, opt); } });
     });
@@ -1443,7 +1467,9 @@ function showChiSel(acts, dp){
     const btn = document.createElement('div');
     btn.className = 'chi-opt';
     btn.innerHTML = act.seq.map(t => tileHTML(t, 'mtile', 24, 34)).join('');
-    btn.onclick = () => { closeChiSel(); doPlayerChi(act, dp); };
+    /* 選択肢経由のチーでも鳴き制限時間タイマーを止める（止めないと
+       打牌フェーズ中に旧タイマーが発火して番が飛び、カン等の機会を失う） */
+    btn.onclick = () => { clearTimeout(G.actionTimeout); closeChiSel(); doPlayerChi(act, dp); };
     opts.appendChild(btn);
   }
 }
@@ -1585,12 +1611,12 @@ function closeWin(){
 }
 
 function finalGameOver(){
-  G.gameOver = true;
+  G.gameOver = true; G._matchDone = true;
   if (NET.mode === 'host') netBroadcastFinal();
   const winner = G.scores.indexOf(Math.max(...G.scores));
   document.getElementById('win-emoji').textContent = '🏆';
   document.getElementById('win-title').textContent = winner === HUMAN ? '優勝！' : '対局終了';
-  document.getElementById('win-subtitle').textContent = (G.gameLength === 4 ? '東風戦' : '半荘戦') + ' 最終結果';
+  document.getElementById('win-subtitle').textContent = matchLengthLabel() + ' 最終結果';
   document.getElementById('win-tiles').innerHTML = '';
   document.getElementById('win-extra').innerHTML = '';
   document.getElementById('win-yaku').innerHTML = '';
@@ -1648,9 +1674,23 @@ function svgDot(x, y, c, r = 5){
 function svgBam(x, y, c, s = 1){
   return `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-3.2" y="-6.8" width="6.4" height="13.6" rx="3" fill="${PIP_C[c]}"/><rect x="-3.2" y="-1" width="6.4" height="2" fill="rgba(255,255,255,0.55)"/><rect x="-0.9" y="-6.8" width="1.8" height="13.6" fill="rgba(255,255,255,0.35)"/></g>`;
 }
+/* 牌データが不正でも例外で描画全体を落とさず、必ず「何の牌か分かる」
+   文字表示に落とすフォールバック（#1）。従来は筒/索の num=0 等で
+   PIN_PIPS[t.num] が undefined になり .map で例外、字牌 num=0 は
+   空文字で無地牌になっていた（ゲスト側ダミー牌 {z,0} 等が混入経路） */
+function svgFaceFallback(t){
+  const F = `'Hiragino Mincho ProN','YuMincho','Yu Mincho',serif`;
+  let label = '?';
+  try { if (t && ['m','p','s','z'].includes(t.suit) && Number.isFinite(Number(t.num))) label = tileName({ suit: t.suit, num: Number(t.num) }) || (t.suit + t.num); } catch(e) {}
+  if (!label) label = t ? String(t.suit || '?') + String(t.num ?? '') : '?';
+  const short = label.length > 2 ? label.slice(0, 2) : label;
+  return `<svg viewBox="0 0 40 56"><text x="20" y="36" text-anchor="middle" font-family="${F}" font-weight="700" font-size="${short.length > 1 ? 15 : 24}" fill="#22354f">${short}</text></svg>`;
+}
 function svgFace(t){
   const F = `'Hiragino Mincho ProN','YuMincho','Yu Mincho',serif`;
+  if (!t || !['m','p','s','z'].includes(t.suit) || !Number.isInteger(t.num)) return svgFaceFallback(t);
   if (t.suit === 'm'){
+    if (!(t.num >= 1 && t.num <= 9)) return svgFaceFallback(t);
     const c1 = t.aka ? '#d92b2b' : '#22354f';
     return `<svg viewBox="0 0 40 56"><text x="20" y="21" text-anchor="middle" font-family="${F}" font-weight="700" font-size="16" fill="${c1}">${NUM_KANJI[t.num]}</text><text x="20" y="44" text-anchor="middle" font-family="${F}" font-weight="700" font-size="18" fill="#c0272d">萬</text></svg>`;
   }
@@ -1663,6 +1703,7 @@ function svgFace(t){
       }
       return `<svg viewBox="0 0 40 56"><circle cx="20" cy="28" r="14.6" fill="none" stroke="#1d9e4b" stroke-width="3"/><circle cx="20" cy="28" r="10" fill="none" stroke="#2456c8" stroke-width="2.4"/><circle cx="20" cy="28" r="5.6" fill="none" stroke="#d92b2b" stroke-width="2.2"/><circle cx="20" cy="28" r="2.1" fill="#d92b2b"/>${spokes}</svg>`;
     }
+    if (!PIN_PIPS[t.num]) return svgFaceFallback(t);
     const pips = PIN_PIPS[t.num].map(([x, y, c, r]) => svgDot(x, y, t.aka ? 'r' : c, r || 5)).join('');
     return `<svg viewBox="0 0 40 56">${pips}</svg>`;
   }
@@ -1680,17 +1721,24 @@ function svgFace(t){
         <path d="M-2.5 -15.5 Q1.5 -20.5 6 -16.5" stroke="#d92b2b" stroke-width="1.8" fill="none" stroke-linecap="round"/>
       </g></svg>`;
     }
+    if (!SOU_PIPS[t.num]) return svgFaceFallback(t);
     const pips = SOU_PIPS[t.num].map(([x, y, c, s]) => svgBam(x, y, c, s || 1)).join('');
     return `<svg viewBox="0 0 40 56">${pips}</svg>`;
   }
   // 字牌
+  /* 白（z5）は従来「青い長方形の枠だけ」で文字がなく、何の牌か分からない
+     という報告の主因。枠の中に「白」の字を明示する（#1） */
   if (t.num === 5)
-    return `<svg viewBox="0 0 40 56"><rect x="9.5" y="12" width="21" height="32" rx="3" fill="none" stroke="#2456c8" stroke-width="2.4"/><rect x="15" y="18.5" width="10" height="19" rx="2" fill="none" stroke="#2456c8" stroke-width="1.3" opacity="0.55"/></svg>`;
+    return `<svg viewBox="0 0 40 56"><rect x="9.5" y="12" width="21" height="32" rx="3" fill="none" stroke="#2456c8" stroke-width="2.4"/><rect x="15" y="18.5" width="10" height="19" rx="2" fill="none" stroke="#2456c8" stroke-width="1.3" opacity="0.55"/><text x="20" y="39" text-anchor="middle" font-family="${F}" font-weight="700" font-size="20" fill="#2456c8">白</text></svg>`;
+  if (!(t.num >= 1 && t.num <= 7) || !HONOR_TXT[t.num]) return svgFaceFallback(t);
   const col = t.num === 6 ? '#1d9e4b' : t.num === 7 ? '#d92b2b' : '#22354f';
   return `<svg viewBox="0 0 40 56"><text x="20" y="39" text-anchor="middle" font-family="${F}" font-weight="700" font-size="27" fill="${col}">${HONOR_TXT[t.num]}</text></svg>`;
 }
 function tileHTML(t, cls, w, h, extra = ''){
-  return `<div class="${cls} tile3d t-${t.suit} ${t.aka ? 'aka' : ''} ${extra}" style="width:${w}px;height:${h}px;">${svgFace(t)}</div>`;
+  const suit = t && ['m','p','s','z'].includes(t.suit) ? t.suit : 'z';
+  let name = '';
+  try { name = t ? tileName(t) : ''; } catch(e) { name = ''; }
+  return `<div class="${cls} tile3d t-${suit} ${t && t.aka ? 'aka' : ''} ${extra}" data-tile="${suit}${t ? t.num : ''}" ${name ? `title="${name}"` : ''} style="width:${w}px;height:${h}px;">${svgFace(t)}</div>`;
 }
 function tileBackHTML(w, h){
   return `<div class="tile3d tile-back" style="width:${w}px;height:${h}px;"></div>`;
@@ -1710,6 +1758,12 @@ function renderAll(){
   renderMelds();
   renderHandSouth();
   renderWaits();
+  /* 自分の打牌フェーズでは描画のたびにアクション（ツモ/リーチ/カン）を
+     再構築し、呼び出し漏れや後続の再描画でカンボタンが消えたままに
+     ならないようにする。ゲスト時はホスト主導のボタンを使うため対象外 */
+  if ((typeof NET === 'undefined' || NET.mode !== 'guest')
+      && G.phase === 'discard' && G.current === HUMAN && !G.animating && !G.gameOver && !_riichiMode)
+    refreshSelfActions();
   if (NET.mode === 'host') netScheduleBroadcast();
 }
 function renderInfoBar(){
@@ -1829,20 +1883,28 @@ function renderHandSouth(){
   const el = document.getElementById('hand-south'); if (!el || !G) return;
   el.innerHTML = '';
   const hand = G.hands[HUMAN];
-  const drawn = G.drawnTile;
+  /* ツモ牌は自家の手牌に含まれる場合だけ分離表示する。他家の番では
+     G.drawnTile に他家のツモ牌が入っており、それをそのまま使うと
+     他家の牌が自家手牌に1枚余分に表示されてしまう（混入バグ対策） */
+  const drawn = (G.drawnTile && hand.some(t => t.id === G.drawnTile.id)) ? G.drawnTile : null;
   const main = drawn ? hand.filter(t => t.id !== drawn.id) : hand;
   const sorted = sortH(main);
   const { w, h } = handTileSize();
   const justDealt = G.phase === 'init';
   const makeEl = (t, isDrawn, idx) => {
-    const isSelected = _selTile?.id === t.id;
+    /* 不正な牌データ（他家表示用のダミー牌 num=0 等）が混入した場合は
+       顔のない空白牌にせず、裏向き牌として表示する */
+    if (!t || !['m','p','s','z'].includes(t.suit) || !(t.num >= 1 && t.num <= (t.suit === 'z' ? 7 : 9))){
+      const back = document.createElement('div');
+      back.innerHTML = tileBackHTML(w, h);
+      return back.firstChild;
+    }
     const isPlayable = (G.phase === 'discard' && G.current === HUMAN && !G.animating);
     const riichiLocked = G.riichi[HUMAN] && !isDrawn;
     const isCand = _riichiMode && _riichiCandidates.includes(t.id);
     let classes = 'tile';
     if (isPlayable && !riichiLocked) classes += ' playable';
-    if (isSelected) classes += ' selected';
-    if (isDrawn && !isSelected) classes += ' just-drawn';
+    if (isDrawn) classes += ' just-drawn';
     if (isCand) classes += ' riichi-cand';
     if ((_riichiMode && !isCand) || riichiLocked) classes += ' dim';
     if (isDoraT(t, G.doraIndicators)) classes += ' is-dora';
@@ -1860,6 +1922,7 @@ function renderHandSouth(){
     el.appendChild(sep);
     el.appendChild(makeEl(drawn, true, 99));
   }
+  updateDiscardHint();
 }
 function renderWaits(){
   const bar = document.getElementById('waits-bar');
@@ -1878,6 +1941,19 @@ function renderWaits(){
     }
   }
   bar.classList.remove('show');
+}
+/* 捨て牌は「1回タップで即捨てる」仕様（誤タップ防止の2段階から
+   ユーザー承認で1回化）。操作を誤解しないよう、自分の打牌中は
+   常時ヒントを表示する */
+function updateDiscardHint(){
+  const bar = document.getElementById('discard-hint');
+  if (!bar || !G){ if (bar) bar.classList.remove('show'); return; }
+  const guestTurn = (typeof NET !== 'undefined' && NET.mode === 'guest') ? !!NET.myTurn : false;
+  const myTurn = guestTurn || (NET.mode !== 'guest' && G.phase === 'discard' && G.current === HUMAN && !G.animating && !G.gameOver);
+  if (!myTurn || _riichiMode){ bar.classList.remove('show'); bar.classList.remove('sel'); return; }
+  bar.textContent = '捨てる牌をタップすると、そのまま捨てます（1回タップ）';
+  bar.classList.remove('sel');
+  bar.classList.add('show');
 }
 function updateStatus(txt){ document.getElementById('status-text').textContent = txt; }
 
@@ -1915,12 +1991,50 @@ function spawnConfetti(win){
   }
 }
 
+/* ── 招待で対局を離れる前の確認（#2） ──
+   アカウント画面（🎮ドロワー内フレンド欄）やゲーム内招待ピッカーから
+   招待すると、部屋作成／ページ遷移で進行中の対局が無言で破棄されていた。
+   他ゲーム（将棋のモード切替）と同様に window.confirm で確認する。
+   friends.js 側のボタンは majan.html からは書き換えられないため、
+   ①捕捉フェーズのクリック監視で「実際に破棄が起きる最終ボタン」を止め、
+   ②このページ自身の部屋作成・参加入口でも二重にガードする */
+let _inviteConfirmAt = 0;
+function isMatchInProgress(){
+  try {
+    if (!G || G._matchDone) return false;
+    if (!Array.isArray(G.hands)) return false;
+    return G.hands.some(h => Array.isArray(h) && h.length > 0);
+  } catch(e) { return false; }
+}
+function confirmDiscardMatchForInvite(){
+  if (!isMatchInProgress()) return true;
+  if (Date.now() - _inviteConfirmAt < 30000) return true; /* 直前に確認済みなら二重に出さない */
+  const ok = window.confirm('進行中の対局を破棄して招待しますか？\n（現在の対局は失われます）');
+  if (ok) _inviteConfirmAt = Date.now();
+  return ok;
+}
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!t || typeof t.closest !== 'function') return;
+  let hit = null;
+  try { hit = t.closest('[data-invite], .pwf-game[data-game], [data-inv-join]'); } catch(err) {}
+  if (!hit) return;
+  if (!isMatchInProgress()) return;
+  if (!confirmDiscardMatchForInvite()){
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    showToast('対局を続けます');
+  }
+}, true);
+
 /* ── UI WIRING ── */
 function syncSegs(){
   document.querySelectorAll('#seg-diff button, #start-seg-diff button').forEach(b =>
     b.classList.toggle('on', +b.dataset.d === SETTINGS.diff));
+  /* 対局長のセグメント表示は matchGameLength()（進行中は G、未開始時は
+     SETTINGS）に統一し、最終結果表示と食い違わないようにする（#5）。
+     ゲスト時はホスト設定の G.gameLength がそのまま表示される */
   document.querySelectorAll('#seg-len button, #start-seg-len button').forEach(b =>
-    b.classList.toggle('on', +b.dataset.l === SETTINGS.len));
+    b.classList.toggle('on', +b.dataset.l === matchGameLength()));
   document.querySelectorAll('#start-seg-sound button').forEach(b =>
     b.classList.toggle('on', (+b.dataset.s === 1) === SETTINGS.sound));
   document.getElementById('sound-btn').textContent = SETTINGS.sound ? '🔊' : '🔇';
@@ -1930,7 +2044,15 @@ function setDifficulty(d){
   if (G) G.difficulty = d;
 }
 function setLength(l){
-  SETTINGS.len = l; saveSettings(); syncSegs();
+  l = Number(l) === 4 ? 4 : 8;
+  SETTINGS.len = l; saveSettings();
+  /* 難度（setDifficulty は G.difficulty へ即反映）と違い、従来は長さを
+     SETTINGS に保存するだけで進行中の G.gameLength に反映されず、
+     「東風を選んでも（進行中・次の局以降も）半荘のまま」になっていた（#3）。
+     進行中の対局にも即反映し、表示とも単一の値に揃える（#5） */
+  if (typeof G !== 'undefined' && G) G.gameLength = l;
+  syncSegs();
+  if (typeof G !== 'undefined' && G && typeof renderAll === 'function') renderAll();
 }
 function setSound(on){
   SETTINGS.sound = on; saveSettings(); syncSegs();
@@ -1939,7 +2061,7 @@ function setSound(on){
 document.querySelectorAll('#seg-diff button, #start-seg-diff button').forEach(b =>
   b.addEventListener('click', () => { setDifficulty(+b.dataset.d); snd.select(); }));
 document.querySelectorAll('#seg-len button, #start-seg-len button').forEach(b =>
-  b.addEventListener('click', () => { setLength(+b.dataset.l); snd.select(); showToast('対局の長さは次の新規対局から反映されます'); }));
+  b.addEventListener('click', () => { setLength(+b.dataset.l); snd.select(); showToast('対局の長さを' + matchLengthLabel() + 'にしました' + (typeof G !== 'undefined' && G ? '（進行中の対局にも反映されます）' : '')); }));
 document.querySelectorAll('#start-seg-sound button').forEach(b =>
   b.addEventListener('click', () => setSound(+b.dataset.s === 1)));
 document.getElementById('sound-btn').addEventListener('click', () => setSound(!SETTINGS.sound));
@@ -2074,6 +2196,9 @@ function netConnBadge(show, text){
    ホスト側
    ============================================================ */
 function netHostCreateRoom(){
+  /* 招待フロー（friends.js の自動ホスト含む）で進行中の対局を無言で
+     破棄しないためのガード（#2）。捕捉監視で確認済みの場合は再確認しない */
+  if (!confirmDiscardMatchForInvite()){ showToast('対局を続けます'); return; }
   if (!netPeerAvailable()){ netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
   netTeardownNet();
   NET.mode = 'host';
@@ -2253,7 +2378,7 @@ function netBuildState(seat){
   return {
     you: seat, handSeq: NET.handSeq,
     dealer: G.dealer, roundNum: G.roundNum, honba: G.honba, riichiSticks: G.riichiSticks,
-    gameLength: G.gameLength, kanCount: G.kanCount,
+    gameLength: matchGameLength(), kanCount: G.kanCount,
     scores: [...G.scores], riichi: [...G.riichi], tempFuriten: [...G.tempFuriten],
     current: G.current, phase: G.phase, gameOver: G.gameOver,
     wallCount: G.wall.length,
@@ -2549,6 +2674,7 @@ function showActionsNetHost(acts, tile, dp){
    ゲスト側
    ============================================================ */
 function netGuestJoinFromUI(){
+  if (!confirmDiscardMatchForInvite()){ showToast('対局を続けます'); return; }
   if (!netPeerAvailable()){ netSetStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
   const code = (document.getElementById('net-code').value || '').trim().toUpperCase();
   if (code.length !== 6){ netSetStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
@@ -2700,7 +2826,7 @@ function netGuestApplyState(st){
     discards: rotArr(st.discards.map(ds => ds.map(desT))),
     melds: rotArr(meldsAbs),
     dealer: rotSeat(st.dealer), roundNum: st.roundNum, honba: st.honba, riichiSticks: st.riichiSticks,
-    scores: rotArr(st.scores), difficulty: SETTINGS.diff, gameLength: st.gameLength,
+    scores: rotArr(st.scores), difficulty: SETTINGS.diff, gameLength: Number(st.gameLength) === 4 ? 4 : 8,
     riichi: rotArr(st.riichi), ippatsu: [false, false, false, false], tempFuriten: rotArr(st.tempFuriten),
     current: rotSeat(st.current), drawnTile: null,
     lastDiscard: st.lastDiscard ? desT(st.lastDiscard.tile) : null,
@@ -2728,6 +2854,7 @@ function netGuestApplyState(st){
   if (NET.myTurn && !(st.current === st.you && st.phase === 'discard')) netGuestEndTurnUI();
   if (NET.callOpen && st.phase !== 'action'){ NET.callOpen = false; hideActionArea(); closeChiSel(); netStopTimer(); }
   renderAll();
+  syncSegs(); /* ゲスト側の対局長表示もホスト設定（G.gameLength）に統一（#5） */
   if (G.gameOver) updateStatus('—');
   else if (st.current === st.you) updateStatus('Your Turn');
   else {
@@ -2739,6 +2866,7 @@ function netGuestEndTurnUI(){
   NET.myTurn = false; NET.turnOptions = null; NET.riichiPending = false;
   _riichiMode = false; _riichiCandidates = [];
   hideSelfActions(); netStopTimer();
+  if (typeof updateDiscardHint === 'function') updateDiscardHint();
 }
 function netGuestOnTurn(msg){
   NET.myTurn = true;
@@ -2791,14 +2919,10 @@ function netGuestTileClick(tile){
     renderHandSouth(); renderWaits();
     return;
   }
-  if (_selTile && _selTile.id === tile.id){
-    _selTile = null;
-    netSendToHost({ t: 'act', kind: 'discard', id: tile.id });
-    netGuestEndTurnUI();
-  } else {
-    _selTile = tile;
-    renderHandSouth();
-  }
+  /* 1回タップで即捨てる（送信メッセージ自体は従来どおり） */
+  _selTile = null;
+  netSendToHost({ t: 'act', kind: 'discard', id: tile.id });
+  netGuestEndTurnUI();
 }
 function netGuestOnCall(msg){
   NET.callOpen = true;

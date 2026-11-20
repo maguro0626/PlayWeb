@@ -68,7 +68,11 @@
   .bestBox{font-size:13.5px;color:#ffe9a8;font-weight:800;margin:6px 0 2px;min-height:20px}
   /* お詫び補填（2026-11-20）: 受け取りボックスと確率UPバナー */
   #apologyBox{margin:8px 0 2px}
-  #apologyBox .apologyNote{font-size:12px;color:#ffd9a8;font-weight:700;margin-top:5px;line-height:1.5}
+  /* お詫び文の読みやすさ改善: クリーム背景でも読める濃い文字色＋カード化＋改行前提の行間 */
+  #apologyBox .apologyCard{background:#FFF6D8;border:2px solid #FFC93C;border-radius:16px;padding:12px 14px;text-align:left;box-shadow:0 4px 0 #F5D67A}
+  #apologyBox .apologyTitle{font-size:14px;font-weight:900;color:#7A4A00;margin-bottom:2px}
+  #apologyBox .apologyNote{font-size:12.5px;color:#6B5510;font-weight:700;margin-top:6px;line-height:1.75}
+  #apologyBox .apologyCard .bigBtn{width:100%;text-align:center;margin-top:10px;box-sizing:border-box}
   #gachaUpBanner{background:linear-gradient(90deg,#ff5f9e,#ffb03a);color:#fff;font-weight:900;font-size:14.5px;text-align:center;border-radius:12px;padding:9px 10px;margin:8px 0;box-shadow:0 3px 12px rgba(255,95,158,.45)}
   .bigBtn{display:inline-block;margin-top:14px;background:linear-gradient(90deg,#7c6cff,#e879ff);color:#fff;border:none;border-radius:999px;padding:14px 44px;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 8px 24px rgba(160,90,255,.45);font-family:inherit}
   .bigBtn:active{transform:scale(.95)}
@@ -625,7 +629,7 @@ html,body{overscroll-behavior:none;}
     <h2 class="tabHead">🎰 キャラガチャ</h2>
     <p class="subTitle">キャラは<b>ガチャでしか手に入らない</b>。被ると限界突破でさらに強化。</p>
     <div class="shardBox" id="gachaShardBox"></div>
-    <div id="gachaUpBanner" style="display:none">🔥 期間限定：UR・SSR確率UP中！ 天井も緩和中（SSR 30連・UR 100連）（2026/11/20 本日限り）</div>
+    <div id="gachaUpBanner" style="display:none">🔥 期間限定：UR・SSR確率UP中！ 天井も緩和中（SSR 30連・UR 100連）<br>2026/11/20 本日限り</div>
     <div class="gachaRates">
       <span class="rUR" id="rateUR">UR 0.05%</span>： ガチャ限定の最強ねこ（セレスティア／ネビュラ／るあ／たいち／すい／セラフィア／ルシフェル／タマモ）※UR専用武器が使える<br>
       <span class="rSSR" id="rateSSR">SSR 2%</span>： ガチャ限定の強キャラ<br>
@@ -1904,12 +1908,19 @@ const S = {
   /* 第15弾: 精算はクリア時点で確定（shardFrozen が立ったら以後のエンドレス分は変換しない）。runShardGain はこのランの精算合計（表示用） */
   shardFrozen: false, runShardGain: 0,
   eidSeq: 0, pidSeq: 0, snapT: 0, chestPicker: null,
-  stage: 'grass', nextMiniAt: 95, miniIdx: 0, nextSurgeAt: 100,
+  stage: 'grass', nextMiniAt: 70, miniIdx: 0, nextSurgeAt: 75,
   /* 第4弾: 難易度とランダムイベント */
   difficulty: 'normal', nextEventAt: 120, fountains: [], gemRushT: 0,
   /* 第17弾: 制限時間モード（秒）。ホスト/ソロは meta.timeMode、ゲストは開始メッセージに従う */
   timeMode: 600,
   merchant: null, merchantUntil: 0, merchantGuestBought: false,
+  /* 行商人とレベルアップの競合対策: 店を開いている間に発生したレベルアップは
+     消費せず保留し（pendingLv / pendingLvFree）、店を閉じてから出す。
+     協力ゲスト宛の選択肢（pendingChoices）も同様に店を閉じるまで保留する */
+  pendingLv: false, pendingLvFree: 0, pendingChoices: null,
+  /* 宝箱も同じ競合対策: 店を開いている間に拾った宝箱は pendingChest に保留し、
+     店を閉じてから開封画面を出す。協力ゲスト宛の宝箱通知は pendingGuestChest に保留する */
+  pendingChest: null, pendingGuestChest: false,
   /* 第11弾: フィナーレ（金のエリート）の出現管理 */
   finaleSpawned: 0, nextFinaleAt: 750
 };
@@ -2001,13 +2012,19 @@ function resetGame(){
   S.shardFrozen = false; S.runShardGain = 0;
   S.eidSeq = 0; S.pidSeq = 0; S.snapT = 0; S.chestPicker = null; lvPhase = null;
   lvOps = freshLvOps(); lvSession = null; /* 第17弾: 再抽選/スキップ回数はラン毎リセット（第18弾: 回数は自機のショップ段階で決まる） */
-  S.nextMiniAt = 95; S.miniIdx = 0; S.nextSurgeAt = 100;
+  S.nextMiniAt = 70; S.miniIdx = 0; S.nextSurgeAt = 75; /* 序盤の引き締め: 初回の中ボス/サージを前倒し（以後は従来間隔） */
   /* 第4弾: 難易度はホスト/ソロが選択に従い、ランダムイベントも初期化 */
   if (NET.role !== 'guest') { S.difficulty = curDiff(); S.timeMode = TIME_MODES[meta.timeMode] ? meta.timeMode : 600; }
   S.nextEventAt = rand(90, 150); S.fountains = []; S.gemRushT = 0;
   S.merchantGuestBought = false; S.merchantUntil = 0;
+  S.pendingLv = false; S.pendingLvFree = 0; S.pendingChoices = null; S.pendingChest = null; S.pendingGuestChest = false; /* 保留レベルアップ・宝箱はランをまたがない */
   S.finaleSpawned = 0; S.nextFinaleAt = clearTime() + 150; /* 第17弾: エンドレスのフィナーレ初回はクリア時刻+150秒（10分モードでは従来どおり750秒） */
   closeMerchant();
+  /* ラン開始時の表示リセット: 前ランのウェーブ/イベントバナー（例「影の群れが押し寄せる！」）が
+     リトライ直後の新ランに残らないよう、バナー文・タイマーを消し、ボスバー等の付随表示も初期化する */
+  hideBanner();
+  { const bw = document.getElementById('bossWrap'); if (bw) bw.style.display = 'none';
+    const sm = document.getElementById('spectateMsg'); if (sm) sm.style.display = 'none'; }
   if (!coopMode || NET.role !== 'guest') S.stage = STAGES[meta.stageSel] ? meta.stageSel : 'grass';
   resetPlayer(P, meta.char, meta.upgrades);
   P.level = 1; P.xp = 10 * (meta.upgrades.startxp || 0); P.xpNext = xpForLevel(1);
@@ -2023,11 +2040,16 @@ function resetGame(){
    - 敵HP: 分 m に対して 1 + 0.45m + 0.09m²（2分で約2.3倍＝従来並み、10分で約14.5倍）。エンドレスは追加で強く加速（×(1 + 0.55/分 + 0.15/分²)）。
    - 敵攻撃: 1 + 0.09m（エンドレス +0.16/分）。ステージ倍率はHPに全乗せ、攻撃は平方根で緩やかに。
    - 出現密度: 間隔は 1.02s→0.26s へ短縮、バッチは最大12体。380体キャップで間引き（性能維持）。
-   - エリート: 2分以降 2%→終盤 5%（HP×10・攻撃×1.5・報酬大）。中ボス: 95秒ごと。サージ: 100秒から40秒ごとに包囲湧き（最大20体）。 */
+   - エリート: 2分以降 2%→終盤 5%（HP×10・攻撃×1.5・報酬大）。中ボス: 初回70秒・以後170秒ごと。サージ: 初回75秒・以後40秒ごとに包囲湧き（最大20体）。
+   - 序盤の引き締め（意見対応）: 開始〜180秒は敵HPに最大+25%の係数と出現間隔の最大2割短縮が乗り、180秒で従来曲線へ合流する。 */
 function stageMul(){ return stageDef().mul; }
 function hpScale(){
   const m = S.time / 60;
   let s = 1 + m * .45 + m * m * .09;
+  /* 序盤の引き締め（意見対応・本人GO）: 開始直後は敵HP +25%、180秒かけて通常の曲線へ
+     滑らかに合流する。180秒以降は従来のスケーリングと完全に同一で、終盤や
+     難易度倍率（diffDef）には波及しない。全難易度共通（ノーマルも序盤だけ対象） */
+  if (S.time < 180) s *= 1 + .25 * (1 - S.time / 180);
   if (S.time > clearTime()) { const em = (S.time - clearTime()) / 60; s *= 1 + em * .55 + em * em * .15; } /* 第17弾: 加速の起点はモードのクリア時刻 */
   return s * stageMul() * diffDef().hp;
 }
@@ -2133,7 +2155,10 @@ function updateSpawning(dt){
   }
   S.spawnT -= dt;
   if (S.spawnT <= 0) {
-    const interval = clamp(1.02 - S.time * .0013, .26, 1.02);
+    /* 序盤の引き締め（意見対応・本人GO）: 出現間隔は開始直後に約2割短く（密度アップ）、
+       180秒かけて従来の間隔へ合流する。180秒以降は従来と完全に同一 */
+    const earlyMul = S.time < 180 ? .8 + .2 * (S.time / 180) : 1;
+    const interval = clamp(1.02 - S.time * .0013, .26, 1.02) * earlyMul;
     S.spawnT = interval;
     const batch = Math.min(12, 1 + Math.floor(S.time / 60));
     const ec = eliteChance() * luckMul();
@@ -2240,12 +2265,20 @@ function openMerchant(){
   const el = document.getElementById('merchantScr');
   if (el) el.style.display = 'block';
   clearInterval(openMerchant._iv);
+  tickMerchant._last = performance.now();
   openMerchant._iv = setInterval(tickMerchant, 120);
   tickMerchant();
 }
 function tickMerchant(){
   if (!S.merchant) { clearInterval(openMerchant._iv); return; }
-  const left = Math.max(0, (S.merchantUntil - performance.now()) / 1000);
+  const now = performance.now();
+  const dtMs = tickMerchant._last ? Math.max(0, now - tickMerchant._last) : 0;
+  tickMerchant._last = now;
+  /* 宝箱の開封画面が出ている間は、店の制限時間を進めない（締め切りを経過分だけ後ろへずらす）。
+     通常は保留化の仕組みで店と宝箱は重ならないが、協力ゲスト側で宝箱の表示中に
+     行商人イベントが届いた場合でも、選んでいる間に時間切れにならないための保証 */
+  if (S.state === 'chest' && dtMs > 0) S.merchantUntil += dtMs;
+  const left = Math.max(0, (S.merchantUntil - now) / 1000);
   const tt = document.getElementById('merchantTimeText');
   if (tt) tt.textContent = `あと ${Math.ceil(left)} 秒`;
   const fl = document.getElementById('merchantTimeFill');
@@ -2253,11 +2286,54 @@ function tickMerchant(){
   renderMerchantCosts();
   if (left <= 0) closeMerchant();
 }
+/* 店が閉じた後に、保留していたレベルアップを表示する（closeMerchant から呼ぶ）。
+   ゲスト宛の選択肢だけは、スナップショットで state が 'levelup' に同期されている場合も届ける */
+function flushPendingLevelUp(){
+  if (S.merchant) return;
+  if (S.pendingChoices) {
+    if (S.state === 'play' || S.state === 'levelup') {
+      const msg = S.pendingChoices; S.pendingChoices = null;
+      guestOnData(msg);
+    }
+    return;
+  }
+  if (S.state !== 'play') return;
+  if (S.pendingLvFree > 0) { S.pendingLvFree--; levelUpSequence({ free: true }); return; }
+  if (S.pendingLv) {
+    S.pendingLv = false;
+    if (P.xp >= P.xpNext) levelUpSequence();
+  }
+}
+/* 店が閉じた後に、保留していた宝箱を表示する（closeMerchant から呼ぶ）。
+   宝箱を開いたら true を返す（保留レベルアップは宝箱を閉じてから出すため、
+   レベルアップ側の flush は呼び出し元で後回しにされる） */
+function flushPendingChest(){
+  if (S.merchant) return false;
+  if (S.pendingGuestChest) {
+    /* 協力ゲスト: ホストから届いていた宝箱通知を、店を閉じた今になって表示する */
+    S.pendingGuestChest = false;
+    S.state = 'chest';
+    sfx.chest();
+    document.getElementById('chestScr').classList.add('show');
+    return true;
+  }
+  if (S.pendingChest) {
+    const picker = S.pendingChest; S.pendingChest = null;
+    openChest(picker);
+    return true;
+  }
+  return false;
+}
 function closeMerchant(){
+  const wasOpen = !!S.merchant;
   S.merchant = null;
   clearInterval(openMerchant._iv);
+  tickMerchant._last = 0;
   const el = document.getElementById('merchantScr');
   if (el) el.style.display = 'none';
+  /* 店を閉じたら、店の間に後回しにした宝箱→レベルアップの順に出す（購入・買わない・時間切れの全経路共通）。
+     宝箱が開いた場合、保留レベルアップは宝箱を閉じた後（applyChestChoice の末尾）に出る */
+  if (wasOpen && !flushPendingChest()) flushPendingLevelUp();
 }
 function renderMerchant(){
   const wrap = document.getElementById('merchantItems');
@@ -3560,6 +3636,15 @@ let lvFreePick = false;
    フェーズ自体を発生させない。 */
 function levelUpSequence(opts){
   const free = !!(opts && opts.free);
+  /* 行商人を開いている間はレベルアップ画面を出さない。店は z-index 8 でレベル画面（10）より
+     後ろに隠れ、制限時間15秒も壁時計で進み続けるため、そのまま出すと買えなくなる。
+     ここでは XP・レベルをまだ消費せず保留だけ記録し、closeMerchant 後の flush で改めて通す。
+     連続レベルアップ分は XP に残っているので、flush 後のチェーンで順に消化される */
+  if (S.merchant) {
+    if (free) S.pendingLvFree = (S.pendingLvFree || 0) + 1;
+    else S.pendingLv = true;
+    return 'deferred';
+  }
   if (!free) { P.xp -= P.xpNext; if (P.xp < 0) P.xp = 0; }
   P.level++; P.xpNext = xpForLevel(P.level);
   lvFreePick = free;
@@ -3617,9 +3702,14 @@ function levelUpSequence(opts){
 function finishLevelUp(){
   closeLvSession();
   document.getElementById('levelScr').classList.remove('show');
-  if (!lvFreePick && P.xp >= P.xpNext) { levelUpSequence(); return; }
+  if (!lvFreePick && P.xp >= P.xpNext) {
+    /* チェーン先が店の都合で保留された場合は、画面なしでプレイに戻る（保留は店を閉じた時に出る） */
+    if (levelUpSequence() === 'deferred') { lvFreePick = false; S.state = 'play'; }
+    return;
+  }
   lvFreePick = false;
   S.state = 'play';
+  flushPendingLevelUp();
 }
 function checkLvDone(){
   if (!lvPhase || !lvPhase.hostDone || !lvPhase.guestDone) return;
@@ -3627,10 +3717,15 @@ function checkLvDone(){
   closeLvSession();
   document.getElementById('levelScr').classList.remove('show');
   document.getElementById('lvWait').style.display = 'none';
-  if (!lvFreePick && P.xp >= P.xpNext) { levelUpSequence(); return; }
+  if (!lvFreePick && P.xp >= P.xpNext) {
+    /* チェーン先が店の都合で保留された場合は、ゲストの待機を resume で解除してプレイに戻る */
+    if (levelUpSequence() === 'deferred') { lvFreePick = false; S.state = 'play'; sendNet({ t: 'resume' }); }
+    return;
+  }
   lvFreePick = false;
   S.state = 'play';
   sendNet({ t: 'resume' });
+  flushPendingLevelUp();
 }
 /* ゲストが切断したままなら、その分の選択を自動で済ませる */
 function autoPickGuest(){
@@ -3642,6 +3737,10 @@ function autoPickGuest(){
   if (S.state === 'chest' && S.chestPicker === P2) { S.chestPicker = null; S.state = 'play'; }
 }
 function openChest(picker){
+  /* 行商人を開いている間は宝箱画面を出さない。宝箱画面（z-10）が店（z-8）の上に被さり、
+     店の制限時間も進み続けて買えなくなるため、拾った宝箱は保留し、店を閉じてから出す
+     （レベルアップの保留と同じ方式。閉店時に flushPendingChest が改めてここを通す） */
+  if (S.merchant) { S.pendingChest = picker; return 'deferred'; }
   S.state = 'chest'; sfx.chest();
   if (picker === localPlayer()) addDailyProg('chest', 1);
   S.chestPicker = picker;
@@ -3677,6 +3776,9 @@ function applyChestChoice(p, which){
     if (p === localPlayer()) renderWeaponsBar();
     S.state = 'play';
   }
+  /* 店を開いている間に保留されていたレベルアップがあれば、宝箱を閉じたここで出す
+     （上の分岐でレベルアップ画面が開いた場合は、flush 側の状態チェックで何もしない） */
+  flushPendingLevelUp();
 }
 document.getElementById('chestLvBtn').onclick = () => {
   if (NET.role === 'guest') { document.getElementById('chestScr').classList.remove('show'); sendNet({ t: 'chestpick', which: 'lv' }); return; }
@@ -3706,6 +3808,12 @@ function showBanner(txt){
   const b = $('banner'); b.textContent = txt; b.style.opacity = 1;
   clearTimeout(showBanner._t);
   showBanner._t = setTimeout(() => { b.style.opacity = 0; }, 2400);
+}
+/* バナーを即座に消す（文言・残りタイマーごと）。ラン開始/タイトル復帰で前ランの表示を持ち越さないために使う */
+function hideBanner(){
+  const b = $('banner'); if (!b) return;
+  clearTimeout(showBanner._t); showBanner._t = null;
+  b.textContent = ''; b.style.opacity = 0;
 }
 function renderWeaponsBar(){
   const me = localPlayer();
@@ -3855,6 +3963,9 @@ function startGame(){
   $('partnerWrap').style.display = 'none';
   $('spectateMsg').style.display = 'none';
   renderWeaponsBar(); updateHud();
+  /* ドロワーを開いたまま開始された場合は、開閉の遷移が無いのでここで連動ポーズに入る */
+  drawerUiWasOpen = isAccountUiOpen();
+  if (drawerUiWasOpen && !coopMode && S.state === 'play') { drawerPaused = true; S.state = 'drawerpause'; }
   if (isLuckyChar(P.char)) showToast('🍀 今日のラッキーキャラ！ このランは かけら+15%');
   if (isAwakened(P.char)) showToast('✨ 覚醒イラストで出発！');
 }
@@ -3865,8 +3976,70 @@ function pauseGame(){
   $('pauseScr').classList.add('show');
 }
 function resumeGame(){ if (S.state !== 'pause') return; S.state = 'play'; $('pauseScr').classList.remove('show'); }
+/* ── アカウントドロワー／意見モーダル連動ポーズ ──
+   account.js のドロワー（#pwDrawerWrap.open）と意見モーダル（#pwFbWrap.open）が
+   開いている間、ソロのランを一時停止し、閉じたら再開する。account.js 側に開閉
+   イベントは無い（PWAccount.drawerOpen() と DOM の .open が正）ため、
+   MutationObserver＋定期チェックで survivors.html 内で完結させる。将来
+   account.js に onDrawerChange 等が追加された場合はそれも購読する。
+   協力時は既存仕様に合わせる: pauseGame() が coopMode ではポーズしないのと
+   同じ方針で連動ポーズもしない（ホストを止めると同期が崩れるため）。
+   手動ポーズ・レベルアップ等の停止中に開いた場合はその停止を奪わない
+   （閉じても勝手に再開しない）。停止は専用 state 'drawerpause' で表し、
+   ポーズ画面は出さない */
+let drawerPaused = false;
+let drawerUiWasOpen = false;
+function isAccountUiOpen(){
+  try { if (window.PWAccount && typeof PWAccount.drawerOpen === 'function' && PWAccount.drawerOpen()) return true; } catch (e) {}
+  const dw = document.getElementById('pwDrawerWrap');
+  if (dw && dw.classList && dw.classList.contains('open')) return true;
+  const fb = document.getElementById('pwFbWrap');
+  if (fb && fb.classList && fb.classList.contains('open')) return true;
+  return false;
+}
+function syncDrawerPause(){
+  const open = isAccountUiOpen();
+  if (open === drawerUiWasOpen) return;
+  drawerUiWasOpen = open;
+  if (open) {
+    if (!coopMode && S.state === 'play') { drawerPaused = true; S.state = 'drawerpause'; }
+  } else if (drawerPaused) {
+    drawerPaused = false;
+    if (S.state === 'drawerpause') S.state = 'play';
+  }
+}
+(function initDrawerPause(){
+  try {
+    const api = window.PWAccount;
+    const hook = api && (api.onDrawerChange || api.onDrawerToggle);
+    if (typeof hook === 'function') hook.call(api, () => { try { syncDrawerPause(); } catch (e) {} });
+  } catch (e) {}
+  try {
+    if (typeof MutationObserver === 'function' && document.body) {
+      new MutationObserver(() => { try { syncDrawerPause(); } catch (e) {} })
+        .observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true });
+    }
+  } catch (e) {}
+  try { setInterval(() => { try { syncDrawerPause(); } catch (e) {} }, 250); } catch (e) {}
+})();
+/* 中断したランの統計記録: ポーズ→タイトル等の「やめる」経路でも、そのランを
+   プレイ回数・統計へ記録する。通常終了（gameOver→recordRunStats）と二重計上に
+   ならないよう、加算は recordRunStats 本来のガード（statsCounted／timeCountedAt の
+   差分方式）に任せる。クリア扱いにはせず（clearedRun=false）、かけら等の報酬も
+   従来仕様どおり中断時は付与しない（awardShards は呼ばない）。
+   タイトル滞在中（ラン無し）やロビーから呼ばれた場合は何もしない */
+function settleAbortedRun(){
+  if (S.state === 'title') return false;
+  recordRunStats(false);
+  if (S.time >= 1 || S.kills > 0) saveBest(false);
+  return true;
+}
 function quitToTitle(){
+  settleAbortedRun(); /* cleanupNet で coopMode/NET が消える前に、中断ランを記録する */
+  drawerPaused = false; /* ドロワーを開いたまま終了しても、閉じた時に再開させない */
+  hideBanner();
   cleanupNet();
+  S.pendingLv = false; S.pendingLvFree = 0; S.pendingChoices = null; S.pendingChest = null; S.pendingGuestChest = false; /* タイトルへ戻る時に保留レベルアップ・宝箱は出さない */
   closeMerchant();
   closeWeaponDetail();
   coopMode = false;
@@ -3972,6 +4145,7 @@ function recordRunStats(clearedRun){
 }
 function gameOver(clearedRun){
   if (S.state === 'over') return;
+  S.pendingLv = false; S.pendingLvFree = 0; S.pendingChoices = null; S.pendingChest = null; S.pendingGuestChest = false; /* 終了時に保留レベルアップ・宝箱は出さない */
   closeMerchant();
   closeWeaponDetail();
   const isNew = saveBest(clearedRun);
@@ -6531,9 +6705,11 @@ function renderApologyBox(){
   box.style.display = '';
   const claimed = apologyClaimedAmount();
   const remaining = apologyRemaining();
+  /* 読みやすさ調整: 見出し＋1文ごとの改行に分割（内容・数値・条件は従来どおり） */
+  const head = '<div class="apologyCard"><div class="apologyTitle">📢 お詫びと補填のお知らせ</div>';
   if (remaining <= 0) {
-    box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫びのほしのかけら ⭐' + APOLOGY_SHARDS.toLocaleString() + ' 受け取り済み</button>' +
-      '<div class="apologyNote">このたびはご迷惑をおかけしました。ほしのかけらは残高に加算済みです。</div>';
+    box.innerHTML = head + '<button class="bigBtn" disabled>🎁 お詫びのほしのかけら ⭐' + APOLOGY_SHARDS.toLocaleString() + ' 受け取り済み</button>' +
+      '<div class="apologyNote">このたびはご迷惑をおかけしました。<br>ほしのかけらは残高に加算済みです。</div></div>';
     return;
   }
   if (apologyEligible()) {
@@ -6541,15 +6717,15 @@ function renderApologyBox(){
       ? '🎁 お詫び（追加分）：ほしのかけら ⭐' + remaining.toLocaleString() + ' 受け取り'
       : '🎁 お詫び：ほしのかけら ⭐' + remaining.toLocaleString() + ' 受け取り';
     const note = claimed > 0
-      ? 'お詫びを増額しました。前回受け取った分との差額を受け取れます。本日限りです。'
-      : 'セーブデータの不具合へのお詫びです。本日限り・1回だけ受け取れます。';
-    box.innerHTML = '<button class="bigBtn" id="apologyBtn">' + label + '</button>' +
-      '<div class="apologyNote">' + note + '</div>';
+      ? 'お詫びを増額しました。<br>前回受け取った分との差額を受け取れます。<br>・本日限りです'
+      : 'セーブデータの不具合へのお詫びです。<br>・本日限りです<br>・1回だけ受け取れます';
+    box.innerHTML = head + '<button class="bigBtn" id="apologyBtn">' + label + '</button>' +
+      '<div class="apologyNote">' + note + '</div></div>';
     $('apologyBtn').onclick = () => { initAudio(); const amt = apologyRemaining(); if (claimApologyGift()) showToast('🎁 お詫びのほしのかけら ⭐' + amt.toLocaleString() + ' を受け取りました'); };
     return;
   }
-  box.innerHTML = '<button class="bigBtn" disabled>🎁 お詫び：ほしのかけら ⭐' + APOLOGY_SHARDS.toLocaleString() + '</button>' +
-    '<div class="apologyNote">対象は 2026年11月20日より前に作成されたアカウントです（ログイン中のアカウントの作成日時で判定します）。</div>';
+  box.innerHTML = head + '<button class="bigBtn" disabled>🎁 お詫び：ほしのかけら ⭐' + APOLOGY_SHARDS.toLocaleString() + '</button>' +
+    '<div class="apologyNote">対象は 2026年11月20日より前に作成されたアカウントです。<br>（ログイン中のアカウントの作成日時で判定します）</div></div>';
 }
 /* ログイン状態が確定したら対象判定を描き直す（ゲスト→ログインの遷移に追随） */
 if (window.PWAccount && typeof PWAccount.onGateChange === 'function') {
@@ -7103,7 +7279,8 @@ function guestOnData(msg){
     if (STAGES[msg.stage]) S.stage = msg.stage;
     if (DIFFS[msg.diff]) S.difficulty = msg.diff; // 難易度はホストの選択に従う
     if (TIME_MODES[msg.mode]) S.timeMode = msg.mode; // 第17弾: 制限時間モードもホストに従う
-    S.fountains = []; closeMerchant();
+    S.fountains = []; S.pendingLv = false; S.pendingLvFree = 0; S.pendingChoices = null; S.pendingChest = null; S.pendingGuestChest = false; closeMerchant();
+    hideBanner(); /* ゲスト開始も resetGame を通らないため、ここで前ランのバナーを消す */
     renderEnemyMap.clear(); renderProjMap.clear();
     resetPlayer(P, CHARS[msg.hostChar] ? msg.hostChar : 'nowa', null);
     resetPlayer(P2, meta.char, meta.upgrades);
@@ -7121,6 +7298,9 @@ function guestOnData(msg){
   } else if (msg.t === 'state') {
     applySnapshot(msg);
   } else if (msg.t === 'choices') {
+    /* 行商人を開いている間は選択画面を後回しにする（店が後ろに隠れて買えなくなるため）。
+       保留した選択肢は closeMerchant 後の flushPendingLevelUp で表示する */
+    if (S.merchant) { S.pendingChoices = msg; return; }
     S.state = 'levelup';
     if (!msg.reroll) { sfx.levelup(); applySnapshot._lvSndT = performance.now(); } /* 第14弾: ゲスト側のレベルアップ音（再抽選の応答では鳴らさない） */
     if (!msg.picks || !msg.picks.length) {
@@ -7144,6 +7324,9 @@ function guestOnData(msg){
       guestWaitFn();
     }, () => { sendNet({ t: 'skip' }); guestWaitFn(); }); /* 第17弾: ゲストのスキップ（何も適用されない） */
   } else if (msg.t === 'chest') {
+    /* 行商人を開いている間は宝箱画面を後回しにする（レベルアップ選択肢の保留と同じ方式）。
+       保留した宝箱は closeMerchant 後の flushPendingChest で表示する */
+    if (S.merchant) { S.pendingGuestChest = true; return; }
     S.state = 'chest';
     sfx.chest(); /* 第14弾: ゲスト側の宝箱音 */
     $('chestScr').classList.add('show');
@@ -7343,6 +7526,9 @@ window.__surv = {
   hostCreateRoom, guestJoin, startCoopGame, buildSnapshot, handleNetData, applySnapshot,
   renderWeaponsBar, openPassiveDetail, syncRadius, /* 第14弾 */
   quitToTitle,
+  /* バナー表示リセット／中断ランの統計記録／ドロワー連動ポーズ（回帰テスト用） */
+  showBanner, hideBanner, recordRunStats, settleAbortedRun,
+  isAccountUiOpen, syncDrawerPause, get drawerPaused(){ return drawerPaused; },
   EVOLUTIONS, ACHIEVEMENTS, MISSIONS, TITLES, ENEMY_TYPES, ENEMY_DEX,
   buildPool, rollPicks, applyPick, showPickUI, achDone, claimAch, claimDaily, ensureDaily,
   missionsForDate, dailyKeyStr, achCount, selectTitle, addDailyProg, renderAch, saveMeta,
@@ -7363,7 +7549,8 @@ window.__surv = {
   DIFFS, DIFF_ORDER, diffDef, diffAt, diffUnlocked, diffCleared, curDiff, renderDiff,
   setDifficulty: d => { if (DIFFS[d]) { meta.diff = d; S.difficulty = d; saveMeta(); renderTitleMeta(); } },
   INHERIT_MAX, inheritDmgMul, inheritShardMul, rebirthEligible, canRebirth, doRebirth, renderRebirth,
-  EVENT_KINDS, triggerEvent, guestOnEvent, MERCHANT_ITEMS, buyMerchant, openMerchant, closeMerchant,
+  EVENT_KINDS, triggerEvent, guestOnEvent, MERCHANT_ITEMS, buyMerchant, openMerchant, closeMerchant, flushPendingLevelUp,
+  flushPendingChest, tickMerchant,
   get fountains(){ return S.fountains; }, get merchant(){ return S.merchant; },
   awardShards, saveBest, gameOver,
   /* 第10弾: 覚醒イラスト・ラッキーキャラ・星屑ラッシュ */

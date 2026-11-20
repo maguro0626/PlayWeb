@@ -102,7 +102,7 @@
     transform-style:preserve-3d;
   }
   .hana-card svg{display:block; border-radius:7px; width:100%; height:auto}
-  #player-hand .hana-card{width:min(56px, calc((100vw - 96px)/8)); cursor:pointer}
+  #player-hand .hana-card{width:min(68px, calc((100vw - 40px)/8)); cursor:pointer}
   #player-hand .hana-card.hoverable:hover{transform:translateY(-9px) scale(1.06); box-shadow:0 14px 26px rgba(0,0,0,.75)}
   .hana-card.selected{transform:translateY(-13px) scale(1.09) !important; box-shadow:0 0 0 3px var(--gold-hi), 0 18px 36px rgba(0,0,0,.8), 0 0 22px rgba(240,201,79,.55) !important}
   .hana-card.matchable{animation:card-matchable 1.1s infinite ease-in-out}
@@ -321,7 +321,7 @@
     .caps{min-height:34px;padding:3px 8px}
     .cap-group .minis .hana-card{width:18px}
     #cpu-hand .hana-card{width:29px}
-    #player-hand .hana-card{width:min(46px, calc((100vw - 96px)/8))}
+    #player-hand .hana-card{width:min(54px, calc((100vw - 40px)/8))}
     #player-yaku{min-height:16px}
     #field-cards{padding:5px;gap:3px}
     .field-slot{aspect-ratio:auto}
@@ -405,7 +405,7 @@ html,body{overscroll-behavior:none;}
         <span class="lb">あなたの手札</span>
         <span class="rt" id="player-hand-count"></span>
       </div>
-      <div id="player-hand" class="cards-row" style="min-height:74px"></div>
+      <div id="player-hand" class="cards-row" style="min-height:100px"></div>
     </section>
 
     <!-- Controls -->
@@ -1160,6 +1160,17 @@ function render(){
 }
 
 function renderMeta(){
+  /* 開始前（ダミー盤面）では対局中と誤認する表示にしない:
+     「第1局・山札0枚・親」ではなく、開始前の初期状態として表示する */
+  if(!matchStarted){
+    document.getElementById('round-label').innerText='対戦前';
+    document.getElementById('round-month').innerText='';
+    document.getElementById('dealer-label').innerText='';
+    document.getElementById('deck-label').innerText='山札 48枚';
+    document.getElementById('oya-player').innerText='';
+    document.getElementById('oya-cpu').innerText='';
+    return;
+  }
   document.getElementById('round-label').innerText=`第${roundNum}局`;
   document.getElementById('round-month').innerText=`${roundNum}月・${MONTH_FLOWER[roundNum]} ／ 全${matchLen}局`;
   let dealer = (roundNum%2===1) ? 'player' : 'cpu';
@@ -1850,6 +1861,13 @@ function netTeardown(sendBye){
   NET.conn=null; NET.peer=null; NET.mode='solo'; NET.phase='idle';
   NET.guestConnected=false; NET.cpuTakeover=false; NET.appliedOnce=false; NET.lastStateKey=''; NET.lastState=null;
   guestDrawPend=null; guestKoiPend=null;
+  /* 終了した部屋のコードを残すと、friends.js の招待フローが古いコードを
+     「いま開いている部屋」と誤認して死んだ部屋へ招待してしまう（参加側は
+     部屋が見つからず接続エラーになる）。必ず消して表示も初期値に戻す。 */
+  NET.code='';
+  window.PW_ROOM_CODE='';
+  const rcEl=document.getElementById('net-room-code');
+  if(rcEl) rcEl.textContent='------';
 }
 function netLeave(){
   if(NET.mode==='solo')return;
@@ -2183,6 +2201,7 @@ function applyNetState(st){
   const key=JSON.stringify(st);
   if(key===NET.lastStateKey)return;
   const prevPhase=phase;
+  matchStarted=true; /* ゲストは startMatch を通らないため、状態受信を開始済みに */
   NET.lastStateKey=key; NET.lastState=st;
   NET.actSent=false;
   NET.awaiting=st.awaiting;
@@ -2286,8 +2305,33 @@ function segWire(id,attr,fn){
     });
   });
 }
-segWire('seg-diff','d',v=>{difficulty=v;});
-segWire('seg-rounds','r',v=>{matchLen=v;});
+/* ── 設定の保存（素キー hanahuda_settings に JSON で保存する。
+   firebase:/pwacct_ 接頭辞ではない素キーなので account.js の syncableKey()
+   対象になり、端末内保存＋クラウド同期の現行方式にそのまま乗る。
+   ゲスト時にホスト設定を applyNetState で上書きされても、保存はUI操作時
+   だけなので自分の設定が書き換わることはない） ── */
+const HN_SETTINGS_KEY='hanahuda_settings';
+function saveHanaSettings(){
+  try{ localStorage.setItem(HN_SETTINGS_KEY, JSON.stringify({difficulty:difficulty, matchLen:matchLen, sound:soundOn})); }catch(e){}
+}
+(function loadHanaSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem(HN_SETTINGS_KEY)||'null');
+    if(!s) return;
+    if([1,2,3].indexOf(s.difficulty)>=0) difficulty=s.difficulty;
+    if([3,6,12].indexOf(s.matchLen)>=0) matchLen=s.matchLen;
+    if(typeof s.sound==='boolean') soundOn=s.sound;
+  }catch(e){}
+})();
+function syncHanaSettingsUI(){
+  document.querySelectorAll('#seg-diff button').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.d,10)===difficulty));
+  document.querySelectorAll('#seg-rounds button').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.r,10)===matchLen));
+  const sb=document.getElementById('btn-sound');
+  if(sb) sb.innerText=soundOn?'音 ON':'音 OFF';
+}
+segWire('seg-diff','d',v=>{difficulty=v; saveHanaSettings();});
+segWire('seg-rounds','r',v=>{matchLen=v; saveHanaSettings();});
+syncHanaSettingsUI();
 
 document.getElementById('btn-start').addEventListener('click',()=>{ ac(); startMatch(); });
 document.getElementById('btn-start-help').addEventListener('click',()=>{ sfx.click(); showHelp(); });
@@ -2302,6 +2346,7 @@ document.getElementById('btn-setting').addEventListener('click',()=>{
 document.getElementById('btn-sound').addEventListener('click',(e)=>{
   soundOn=!soundOn;
   e.currentTarget.innerText=soundOn?'音 ON':'音 OFF';
+  saveHanaSettings();
   if(soundOn)sfx.click();
 });
 document.getElementById('btn-rematch').addEventListener('click',()=>{

@@ -95,9 +95,16 @@ const $=id=>document.getElementById(id);
 const HANDS=['✊','✌️','✋'];const HNAMES=['グー','チョキ','パー'];
 let mode='solo';
 let save={wins:0,bestStreak:0};try{const s=localStorage.getItem('mini_janken_v1');if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}
-function persist(){try{localStorage.setItem('mini_janken_v1',JSON.stringify(save));}catch(e){} renderBest();}
-function renderBest(){$('bestLine').textContent='ベスト: CPU戦勝利数 '+save.wins+' / 最高連勝 '+save.bestStreak;}
+/* account.js のクラウドマージは読み込み後に localStorage へ値を書き戻すため、
+   読み込み時点のメモリだけで保存すると後着した良い記録を古い値で上書きしてしまう。
+   保存・表示のたびに保存済みの値と union（大きい方）を取ってから使う。 */
+function unionSave(){try{const r=localStorage.getItem('mini_janken_v1');if(r){const s=JSON.parse(r);if(s){if(typeof s.wins==='number'&&s.wins>save.wins)save.wins=s.wins;if(typeof s.bestStreak==='number'&&s.bestStreak>save.bestStreak)save.bestStreak=s.bestStreak;}}}catch(e){}}
+function persist(){unionSave();try{localStorage.setItem('mini_janken_v1',JSON.stringify(save));}catch(e){} renderBest();}
+function renderBest(){unionSave();$('bestLine').textContent='ベスト: CPU戦勝利数 '+save.wins+' / 最高連勝 '+save.bestStreak;}
 renderBest();
+window.addEventListener('focus',renderBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest();});
+setTimeout(renderBest,2000);setTimeout(renderBest,5000);
 let myScore=0,oppScore=0,round=0,playing=false,finished=false,recorded=false,histArr=[],streak=0;
 let myHand=null,oppHand=null,waiting=false;
 function judge(a,b){if(a===b)return 0;if((a===0&&b===1)||(a===1&&b===2)||(a===2&&b===0))return 1;return -1;}

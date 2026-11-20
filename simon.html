@@ -91,16 +91,27 @@ const $=id=>document.getElementById(id);
 const FREQS=[329.63,261.63,392.00,440.00];
 let mode='solo';
 let save={best:0};try{const s=localStorage.getItem('mini_simon_v1');if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}
-function persist(){try{localStorage.setItem('mini_simon_v1',JSON.stringify(save));}catch(e){} renderBest();}
-function renderBest(){$('bestLine').textContent='ベスト: '+(save.best?('長さ '+save.best):'ー');}
+/* account.js のクラウドマージは読み込み後に localStorage へ値を書き戻すため、
+   読み込み時点のメモリだけで保存すると後着した良い記録を古い値で上書きしてしまう。
+   保存・表示のたびに保存済みの値と union（大きい方）を取ってから使う。 */
+function unionSave(){try{const r=localStorage.getItem('mini_simon_v1');if(r){const s=JSON.parse(r);if(s&&typeof s.best==='number'&&s.best>save.best)save.best=s.best;}}catch(e){}}
+function persist(){unionSave();try{localStorage.setItem('mini_simon_v1',JSON.stringify(save));}catch(e){} renderBest();}
+function renderBest(){unionSave();$('bestLine').textContent='ベスト: '+(save.best?('長さ '+save.best):'ー');}
 renderBest();
+window.addEventListener('focus',renderBest);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderBest();});
+setTimeout(renderBest,2000);setTimeout(renderBest,5000);
 function setPadsEnabled(en){document.querySelectorAll('.pad').forEach(p=>p.disabled=!en);}
 function flash(c,cb){const el=document.querySelector('.pad[data-c="'+c+'"]');if(el)el.classList.add('lit');tone(FREQS[c],.28,'sine',.15);setTimeout(()=>{if(el)el.classList.remove('lit');if(cb)cb();},320);}
 function playSeq(seq,done){setPadsEnabled(false);$('phaseText').textContent='再生中…よく見てね';let i=0;function next(){if(i>=seq.length){setTimeout(()=>{if(done)done();},250);return;}flash(seq[i],()=>{i++;setTimeout(next,140);});}setTimeout(next,400);}
 // Solo
 let sSeq=[],sInputIdx=0,sPlaying=false;
-function soloStart(){sSeq=[Math.floor(Math.random()*4)];sPlaying=true;$('levelText').textContent=sSeq.length;$('gameMsg').textContent='';$('rematchBtn').classList.add('hidden');playSeq(sSeq,()=>{sInputIdx=0;$('phaseText').textContent='あなたの番：同じ順にタップ';setPadsEnabled(true);});}
-function soloTap(c){flash(c);if(sSeq[sInputIdx]!==c){sPlaying=false;setPadsEnabled(false);$('phaseText').textContent='ゲームオーバー';$('gameMsg').textContent='記録：長さ '+sSeq.length+' まで到達';if(sSeq.length>save.best){save.best=sSeq.length;persist();}tone(160,.4,'sawtooth',.1);return;}sInputIdx++;if(sInputIdx>=sSeq.length){setPadsEnabled(false);$('phaseText').textContent='正解！次へ…';tone(784,.15,'sine',.12);setTimeout(()=>{sSeq.push(Math.floor(Math.random()*4));$('levelText').textContent=sSeq.length;playSeq(sSeq,()=>{sInputIdx=0;$('phaseText').textContent='あなたの番：同じ順にタップ';setPadsEnabled(true);});},700);}}
+/* ベストは「新しい長さに到達した時点」で即保存する。
+   以前はゲームオーバー時にしか保存しなかったため、好記録の途中で
+   やめる／スタートし直す／モードを切り替えるとベストが残らなかった。 */
+function noteSoloBest(){unionSave();if(sSeq.length>save.best){save.best=sSeq.length;persist();}}
+function soloStart(){sSeq=[Math.floor(Math.random()*4)];sPlaying=true;$('levelText').textContent=sSeq.length;$('gameMsg').textContent='';$('rematchBtn').classList.add('hidden');noteSoloBest();playSeq(sSeq,()=>{sInputIdx=0;$('phaseText').textContent='あなたの番：同じ順にタップ';setPadsEnabled(true);});}
+function soloTap(c){flash(c);if(sSeq[sInputIdx]!==c){sPlaying=false;setPadsEnabled(false);$('phaseText').textContent='ゲームオーバー';$('gameMsg').textContent='記録：長さ '+sSeq.length+' まで到達';noteSoloBest();tone(160,.4,'sawtooth',.1);return;}sInputIdx++;if(sInputIdx>=sSeq.length){setPadsEnabled(false);$('phaseText').textContent='正解！次へ…';tone(784,.15,'sine',.12);setTimeout(()=>{sSeq.push(Math.floor(Math.random()*4));$('levelText').textContent=sSeq.length;noteSoloBest();playSeq(sSeq,()=>{sInputIdx=0;$('phaseText').textContent='あなたの番：同じ順にタップ';setPadsEnabled(true);});},700);}}
 // Online
 let oSeq=[],oInputIdx=0,oPhase='idle',oFinished=false,oRecorded=false,oMyTurn=false;
 function updateTurnText(){const t=$('turnText');if(mode!=='online'){t.classList.add('hidden');return;}t.classList.remove('hidden');if(oFinished){t.textContent='対戦終了';return;}if(oPhase==='idle'){t.textContent='対戦開始を待っています';return;}t.textContent=oMyTurn?'🟢 あなたのターンです':'⏳ 相手のターンです';}

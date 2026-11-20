@@ -353,6 +353,14 @@ const FRUITS = [
 ];
 const MAXT = FRUITS.length - 1;
 const DROP_MAX_TIER = 4;             // 落下するのは かき まで
+// 序盤の出現制限: 開始直後にデコポン/かき等の大型が落ちるとすぐ詰まるため段階的に解放する
+//  - 落下 0〜14回目 (最初の15回): tier 0〜2（さくらんぼ/いちご/ぶどう）のみ
+//  - 落下 15〜29回目 (16〜30回目): tier 0〜3（デコポンまで、かきはまだ出ない）
+//  - 落下 30回目以降: tier 0〜4（従来通り かき まで、重みも従来通り）
+const EARLY_DROPS = 15;
+const MID_DROPS = 30;
+const EARLY_MAX_TIER = 2;
+const MID_MAX_TIER = 3;
 const mergeScore = t => (t + 1) * (t + 2) / 2 * 10;  // 進化先tierで得点
 
 // ---------- 状態 ----------
@@ -361,19 +369,23 @@ let particles = [];     // {x,y,vx,vy,life,maxLife,size,color}
 let popups = [];        // {x,y,vy,life,text,color,size}
 let score = 0;
 let best = +(localStorage.getItem(HS_KEY) || 0);
-let curTier = randTier(), nextTier = randTier();
+let dropCount = 0;      // このゲームで落下させた回数（序盤判定用、resetGameで0に戻る）
+let curTier = randTier(0), nextTier = randTier(1);
 let dropX = W / 2;
 let lastDrop = 0;
 let overTimer = 0;
 let gameState = "ready";   // ready | play | over
 let combo = 0, comboTimer = 0;
 let shake = 0;
-let muted = false;
+let muted = false; try { muted = localStorage.getItem('suica_dx_sound') === 'off'; } catch(e) {}
 let startTime = 0;
 
-function randTier(){
-  // 小さいものが出やすい重み付き
-  const weights = [34, 27, 19, 12, 8];
+function randTier(dropIdx){
+  // 小さいものが出やすい重み付き。序盤は上限tierを絞る（相対的な重み比は従来通り維持）
+  const allWeights = [34, 27, 19, 12, 8];
+  const idx = (typeof dropIdx === "number") ? dropIdx : dropCount;
+  const maxTier = idx < EARLY_DROPS ? EARLY_MAX_TIER : (idx < MID_DROPS ? MID_MAX_TIER : DROP_MAX_TIER);
+  const weights = allWeights.slice(0, maxTier + 1);
   let sum = weights.reduce((a,b)=>a+b,0), v = Math.random()*sum;
   for (let i=0;i<weights.length;i++){ v -= weights[i]; if (v<=0) return i; }
   return 0;
@@ -809,8 +821,9 @@ function drop(){
   fruits.push(f);
   burst(x, DROP_Y, 5, "#ffffff", 60);
   sfxDrop();
+  dropCount++;
   curTier = nextTier;
-  nextTier = randTier();
+  nextTier = randTier(dropCount + 1);
   refreshHUD();
 }
 
@@ -853,7 +866,8 @@ function resetGame(){
   fruits = []; particles = []; popups = [];
   score = 0; combo = 0; overTimer = 0; shake = 0;
   maxTierEver = 0;
-  curTier = randTier(); nextTier = randTier();
+  dropCount = 0;
+  curTier = randTier(0); nextTier = randTier(1);
   lastDrop = 0;
   startTime = performance.now();
   refreshHUD();
@@ -1072,8 +1086,10 @@ $("restartBtn").addEventListener("click", ()=>{
   resetGame();
   gameState = "play";
 });
+$("muteBtn").textContent = muted ? "🔇 サウンド OFF" : "🔊 サウンド ON";
 $("muteBtn").addEventListener("click", function(){
   muted = !muted;
+  try { localStorage.setItem('suica_dx_sound', muted ? 'off' : 'on'); } catch(e) {}
   this.textContent = muted ? "🔇 サウンド OFF" : "🔊 サウンド ON";
   if (!muted) sfxClick();
 });
