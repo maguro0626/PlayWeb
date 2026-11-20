@@ -128,7 +128,8 @@
   var USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{2,15}$/; /* 3〜16文字・半角英数字と _ - */
   /* セーブ同期から外すキー: フレンド一覧は users/{uid}/data/friends の専用経路、
      チャット系2キーは v55 で機能廃止済みの残骸（同期せず、パージ対象）。
-     playweb_profile（フレンド表示名）は v66 から通常のセーブとして同期する */
+     playweb_profile は v66 から通常のセーブとして同期する（旧・表示名の残骸。
+     表示名は廃止済みで、もう name は書き込まれない） */
   var FRIENDS_KEYS = {
     playweb_friends: true, playweb_chats: true, playweb_unread: true
   };
@@ -1402,13 +1403,33 @@
     Object.keys(presenceData).forEach(pushPresence);
   }
 
-  /* ---------------- 招待（Firestore） ---------------- */
+  /* ---------------- 招待（Firestore） ----------------
+     invites コレクションにはゲーム招待（kind なし）とフレンド申請
+     （kind:'friend'）が同居する。双方の処理で kind を見て確実に振り分ける
+     （フレンド申請をゲーム招待として拾わない／その逆もしない）。 */
   var seenInviteIds = {};
   function startInviteListener() {
     var q = fb.db.collection('invites').where('toUid', '==', me.uid);
     var unsub = q.onSnapshot(function (snap) {
+      var newReqIn = {};
       snap.forEach(function (d) {
         var inv = d.data() || {};
+        if (inv.kind === 'friend') {
+          /* フレンド申請は申請セクション側で扱う（下のフレンド申請節）。
+             pending のものだけを受信リストに集める */
+          if (inv.status === 'pending' && inv.fromUid) {
+            if (friendEntryByUid(inv.fromUid)) {
+              /* 既にフレンドの相手からの古い申請は静かに掃除する */
+              fb.db.doc('invites/' + d.id).delete().catch(function () {});
+            } else {
+              newReqIn[d.id] = {
+                fromUid: inv.fromUid, fromName: inv.fromName || '',
+                createdAt: inv.createdAt || 0
+              };
+            }
+          }
+          return;
+        }
         if (inv.status !== 'pending') return;
         if (seenInviteIds[d.id]) return;
         seenInviteIds[d.id] = true;
@@ -1425,6 +1446,8 @@
         }
         fb.db.doc('invites/' + d.id).set({ status: 'delivered' }, { merge: true }).catch(function () {});
       });
+      friendReqIn = newReqIn;
+      pushFriendReqUI();
     }, function () {});
     unsubs.push(unsub);
   }
@@ -1453,7 +1476,16 @@
      コレクションはもう購読も送信もしない（ルール側は変更していない）。
      旧 pwacct_meta に残っていた chatSeen 等も v66 でメタごと全廃した。 */
 
-  /* ---------------- ユーザー名検索・フレンド追加 ---------------- */
+  /* ---------------- ユーザー名検索・フレンド申請 ----------------
+     フレンド追加は「検索 → 申請 → 相手が承認して初めてフレンド」の申請制。
+     申請は invites コレクションに kind:'friend' のドキュメントとして作る
+     （現行ルールで当事者だけが読み書きできる）。
+       { kind:'friend', fromUid, toUid, fromName, toName,
+         status:'pending'|'accepted', createdAt }
+     承認した側はその場で相手をフレンド一覧に加える。申請した側は自分の
+     送信分購読で status=='accepted' を検知して相手を加え、ドキュメントを
+     削除して消費する（consumed 化）。断る時はドキュメントを削除する
+     （申請者側の「申請中」表示が消えるだけで、断られた旨は表示しない）。 */
   function searchUser(username) {
     if (!cloudActive()) return Promise.resolve(null);
     var v = validateUsername(username);
@@ -1466,30 +1498,154 @@
       return fb.db.doc('users/' + uid).get().then(function (p) {
         if (!p.exists) return null;
         var data = p.data() || {};
-        return { uid: uid, username: data.username || v.name };
+        return {
+          uid: uid, username: data.username || v.name,
+          iconId: data.iconId || '', iconColor: data.iconColor || '',
+          comment: data.comment || '', online: !!data.online,
+          lastSeen: data.lastSeen || 0
+        };
       });
     }).catch(function () { return null; });
   }
-  function addFriendByUsername(username) {
+  function friendEntryByUid(uid) {
+    var list = localFriends();
+    for (var i = 0; i < list.length; i++) if (list[i].uid === uid) return list[i];
+    return null;
+  }
+  /* フレンド一覧へ1件追加する共通経路（重複は無視）。
+     friends.js の _cloud.addFriend 経由で端末ストアへ入れ、クラウド同期と
+     プレゼンス購読に乗せる */
+  function addFriendEntry(entry) {
+    if (!entry || !entry.uid) return false;
+    if (friendEntryByUid(entry.uid)) return false;
+    var api = pwf();
+    if (api && api._cloud && api._cloud.addFriend) api._cloud.addFriend(entry);
+    else {
+      var list = localFriends();
+      list.push(entry);
+      try { localStorage.setItem('playweb_friends', JSON.stringify(list)); } catch (e) {}
+    }
+    refreshPresenceWatch();
+    return true;
+  }
+
+  /* フレンド申請の状態（購読で再構築される）
+     friendReqIn:  id -> {fromUid, fromName, createdAt}（自分宛・pending のみ）
+     friendReqOut: id -> {toUid, toName, status}（自分の送信分） */
+  var friendReqIn = {};
+  var friendReqOut = {};
+  var friendReqConsuming = {}; /* accepted 消費処理中の送信ドキュメント id */
+
+  function friendStateFor(uid) {
+    if (!uid) return 'none';
+    if (me && uid === me.uid) return 'self';
+    if (friendEntryByUid(uid)) return 'friend';
+    var ids = Object.keys(friendReqOut);
+    for (var i = 0; i < ids.length; i++) {
+      if (friendReqOut[ids[i]].toUid === uid && friendReqOut[ids[i]].status === 'pending') return 'outgoing';
+    }
+    var iids = Object.keys(friendReqIn);
+    for (var j = 0; j < iids.length; j++) {
+      if (friendReqIn[iids[j]].fromUid === uid) return 'incoming';
+    }
+    return 'none';
+  }
+  function friendReqInList() {
+    return Object.keys(friendReqIn).map(function (id) {
+      var r = friendReqIn[id];
+      return { id: id, fromUid: r.fromUid, fromName: r.fromName, createdAt: r.createdAt };
+    }).sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  }
+  /* 受信申請リストを friends.js（フレンド欄の申請セクション＋バッジ）へ渡す */
+  function pushFriendReqUI() {
+    var api = pwf();
+    if (api && api._cloud && api._cloud.setFriendRequests) {
+      try { api._cloud.setFriendRequests(friendReqInList()); } catch (e) {}
+    }
+  }
+  function sendFriendRequest(username) {
     if (!cloudActive()) return Promise.resolve({ ok: false, msg: 'ログインが必要です' });
     var v = validateUsername(username);
     if (!v.ok) return Promise.resolve({ ok: false, msg: v.error });
     if (v.name.toLowerCase() === me.usernameLower) return Promise.resolve({ ok: false, msg: 'それはあなた自身のユーザー名です' });
     return searchUser(v.name).then(function (found) {
       if (!found) return { ok: false, msg: 'そのユーザー名の人は見つかりませんでした' };
-      var list = localFriends();
-      for (var i = 0; i < list.length; i++) {
-        if (list[i].uid === found.uid) {
-          return { ok: false, msg: 'すでにフレンドに登録されています' };
-        }
-      }
-      var entry = { uid: found.uid, username: found.username, addedAt: nowMs() };
-      var api = pwf();
-      if (api && api._cloud && api._cloud.addFriend) api._cloud.addFriend(entry);
-      else { list.push(entry); try { localStorage.setItem('playweb_friends', JSON.stringify(list)); } catch (e) {} }
-      refreshPresenceWatch();
-      return { ok: true, msg: found.username + 'さんをフレンドに追加しました' };
+      var st = friendStateFor(found.uid);
+      if (st === 'friend') return { ok: false, msg: 'すでにフレンドです', user: found };
+      if (st === 'outgoing') return { ok: false, msg: 'すでに申請中です', user: found };
+      if (st === 'incoming') return { ok: false, msg: 'この人から申請が届いています。下の「フレンド申請が届いています」で承認できます', user: found };
+      return fb.db.collection('invites').add({
+        kind: 'friend', fromUid: me.uid, toUid: found.uid,
+        fromName: me.username, toName: found.username,
+        status: 'pending', createdAt: nowMs()
+      }).then(function (ref) {
+        /* 購読が届く前に「申請中」表示へ切り替えられるよう楽観的に記録する */
+        if (ref && ref.id) friendReqOut[ref.id] = { toUid: found.uid, toName: found.username, status: 'pending' };
+        return { ok: true, msg: found.username + 'さんにフレンド申請を送りました', user: found };
+      }).catch(function () {
+        return { ok: false, msg: '申請を送れませんでした（通信環境を確認してください）', user: found };
+      });
     });
+  }
+  function cancelFriendRequest(toUid) {
+    if (!cloudActive() || !toUid) return Promise.resolve(false);
+    var ids = Object.keys(friendReqOut);
+    for (var i = 0; i < ids.length; i++) {
+      var r = friendReqOut[ids[i]];
+      if (r.toUid === toUid && r.status === 'pending') {
+        var id = ids[i];
+        delete friendReqOut[id];
+        return fb.db.doc('invites/' + id).delete()
+          .then(function () { return true; }).catch(function () { return false; });
+      }
+    }
+    return Promise.resolve(false);
+  }
+  function respondFriendRequest(id, accept) {
+    if (!cloudActive() || !id) return Promise.resolve(false);
+    var req = friendReqIn[id];
+    if (!req) return Promise.resolve(false);
+    var ref = fb.db.doc('invites/' + id);
+    if (!accept) {
+      delete friendReqIn[id];
+      pushFriendReqUI();
+      return ref.delete().then(function () { return true; }).catch(function () { return false; });
+    }
+    return ref.set({ status: 'accepted' }, { merge: true }).then(function () {
+      addFriendEntry({ uid: req.fromUid, username: req.fromName, addedAt: nowMs() });
+      delete friendReqIn[id];
+      pushFriendReqUI();
+      return true;
+    }).catch(function () { return false; });
+  }
+  /* 自分の送信分の購読: accepted を検知してフレンド化＋ドキュメント消費 */
+  function startFriendReqOutListener() {
+    var q = fb.db.collection('invites').where('fromUid', '==', me.uid);
+    var unsub = q.onSnapshot(function (snap) {
+      var next = {};
+      snap.forEach(function (d) {
+        var inv = d.data() || {};
+        if (inv.kind !== 'friend' || !inv.toUid) return;
+        next[d.id] = { toUid: inv.toUid, toName: inv.toName || '', status: inv.status || 'pending' };
+      });
+      friendReqOut = next;
+      Object.keys(next).forEach(function (id) {
+        var r = next[id];
+        if (r.status !== 'accepted' || friendReqConsuming[id]) return;
+        friendReqConsuming[id] = true;
+        var already = !!friendEntryByUid(r.toUid);
+        if (!already) {
+          addFriendEntry({ uid: r.toUid, username: r.toName, addedAt: nowMs() });
+          var api = pwf();
+          if (api && api._cloud && api._cloud.toast) {
+            try { api._cloud.toast('👥 ' + (r.toName || 'フレンド') + 'さんがフレンド申請を承認しました', 'info'); } catch (e) {}
+          }
+        }
+        fb.db.doc('invites/' + id).delete().catch(function () {})
+          .then(function () { delete friendReqConsuming[id]; });
+      });
+    }, function () {});
+    unsubs.push(unsub);
   }
 
   /* ---------------- プロフィール作成・プレゼンス ---------------- */
@@ -1653,6 +1809,7 @@
     }, function () {});
     unsubs.push(fu);
     startInviteListener();
+    startFriendReqOutListener();
     heartbeat();
     timers.push(setInterval(heartbeat, HEARTBEAT_MS));
     timers.push(setInterval(function () { uploadDirty(); }, 15000));
@@ -1673,8 +1830,9 @@
     fbInboxDetailId = null;
     fbInboxStarted = false;
     profDraft = null;
-    var pv = $('pwaProfileView');
-    if (pv) { pv.style.display = 'none'; pv.innerHTML = ''; }
+    closeProfile();
+    friendReqIn = {}; friendReqOut = {};
+    pushFriendReqUI();
     updatePill(); updateModal(); updateSearchRow();
   }
   var lastPullAt = 0;
@@ -1959,7 +2117,15 @@
     '.pw-fb-badge.new{background:#ef4444;color:#fff}',
     '.pw-fb-badge.read{background:rgba(255,255,255,.14);color:#9aa1c0}',
     '.pw-fb-badge.type{background:rgba(34,211,238,.18);color:#67e8f9}',
-    '.pw-fb-body{white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.7;color:#e6e9f7;background:rgba(255,255,255,.04);border-radius:12px;padding:12px;margin-top:8px}'
+    '.pw-fb-body{white-space:pre-wrap;word-break:break-word;font-size:13.5px;line-height:1.7;color:#e6e9f7;background:rgba(255,255,255,.04);border-radius:12px;padding:12px;margin-top:8px}',
+    /* プロフィールのポップアップ（画面中央モーダル。フィードバックと同じ作法） */
+    '#pwProfileWrap{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-start;justify-content:center;background:rgba(3,4,12,.62);backdrop-filter:blur(3px);font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;padding:5vh 14px 14px;box-sizing:border-box}',
+    '#pwProfileWrap.open{display:flex}',
+    '#pwProfileWrap *{box-sizing:border-box}',
+    '.pw-prof-card{position:relative}',
+    '.pw-prof-x{position:absolute;top:10px;right:10px;z-index:2}',
+    /* フレンド検索の結果カード（タップで申請できる状態の時だけポインタ） */
+    '.pwf-req-card.tap{cursor:pointer}'
   ].join('\n');
   var headerEl = null, drawerWrapEl = null, drawerOpen = false;
   var fbOpen = false;   /* フィードバックモーダル（#pwFbWrap）の開閉状態 */
@@ -2019,10 +2185,12 @@
       '<div class="pw-drawer-head"><span>👤 アカウント</span>' +
       '<button class="pw-x" id="pwDrawerClose" aria-label="閉じる">✕</button></div>' +
       '<div id="pwaBody"></div>' +
-      '<div id="pwaProfileView" style="display:none"></div>' +
       '<div id="pwFriendsSec" data-pw-member-only style="display:none">' +
       '<div class="pw-drawer-sec">👥 フレンド</div>' +
       '<div id="pwFriendsMount"></div>' +
+      '</div>' +
+      '<div id="pwFeedbackSec">' +
+      '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:16px">📮 お問い合わせ・要望・バグ報告</button>' +
       '</div>' +
       '<div class="pwa-note" data-pw-guest-note style="display:none;margin-top:16px">いまはゲストとして遊んでいます。ゲストでは1人用モードのみです。セーブはこの端末に保存されますが、ログインするとクラウドにも控えが送られ、別の端末でも続きが遊べるようになります。</div>' +
       '<div id="pwFbAdminSec" style="display:none">' +
@@ -2034,6 +2202,9 @@
     setDrawerHitState();
     drawerWrapEl.querySelector('#pwDrawerScrim').addEventListener('click', closeModal);
     drawerWrapEl.querySelector('#pwDrawerClose').onclick = closeModal;
+    /* お問い合わせボタンはドロワー内の固定セクション（フレンド欄の下）に置く。
+       updateModal の本文には含めない（並び順をフレンド欄より下に固定するため） */
+    drawerWrapEl.querySelector('#pwaFeedbackBtn').onclick = function () { openFeedback(); };
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drawerOpen) closeModal(); });
     updatePill(); updateModal();
     applyMemberOnlyVisibility();
@@ -2088,8 +2259,7 @@
         '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(myStats) +
         '<div class="pwa-note" id="pwaStatus">' + esc(statusText || 'クラウドセーブ有効') + '</div>' +
         '<div class="pwa-note">セーブはこの端末に保存され、ログイン中はクラウドにも控えが送られます。別のアカウントでログインすると、そのアカウントのセーブに入れ替わります。</div>' +
-        '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:12px">📮 お問い合わせ・要望・バグ報告</button>' +
-        '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:8px">ログアウト</button>' +
+        '<button class="pwa-btn sub" id="pwaLogout" style="margin-top:12px">ログアウト</button>' +
         '<div class="pwa-note">ログアウトするとゲストに戻ります。データはこの端末とクラウドに残るので、再ログインすれば続きが遊べます。</div>' +
         '<button class="pwa-btn sub" id="pwaExportBtn" style="margin-top:14px">📤 バックアップを書き出し</button>' +
         '<div class="pwa-note">現在のセーブをJSONファイルとして保存します。端末を変える前や、大事な記録がある時に書き出しておくと、下の「バックアップから復元」で戻せます。</div>' +
@@ -2148,7 +2318,6 @@
         reader.onerror = function () { setStatus('ファイルの読み込みに失敗しました'); };
         reader.readAsText(f);
       };
-      $('pwaFeedbackBtn').onclick = function () { openFeedback(); };
       $('pwaProfEditBtn').onclick = function () { toggleProfEditor(); };
       refreshAdminUI();
       return;
@@ -2161,8 +2330,8 @@
       '<input class="pwa-input" id="pwaPass" type="password" maxlength="64" placeholder="パスワード（6文字以上）" autocomplete="' + (modalMode === 'signup' ? 'new-password' : 'current-password') + '">' +
       '<button class="pwa-btn" id="pwaSubmit">' + (modalMode === 'signup' ? 'アカウントを作成' : 'ログイン') + '</button>' +
       '<div class="pwa-note" id="pwaMsg"></div>' +
-      '<button class="pwa-btn sub" id="pwaFeedbackBtn" style="margin-top:4px">📮 お問い合わせ・要望・バグ報告（ゲストでも送れます）</button>' +
-      '<div class="pwa-note">いまはゲストとして遊んでいます。ゲストでは1人用モードのみです。セーブはこの端末に保存されますが、ログインするとクラウドにも控えが送られ、別の端末でも続きが遊べるようになります。</div>';
+      '<div class="pwa-note">いまはゲストとして遊んでいます。ゲストでは1人用モードのみです。セーブはこの端末に保存されますが、ログインするとクラウドにも控えが送られ、別の端末でも続きが遊べるようになります。</div>' +
+      '<div class="pwa-note">お問い合わせ・要望・バグ報告は、ドロワー下部の「📮 お問い合わせ・要望・バグ報告」からゲストでも送れます。</div>';
     $('pwaTabLogin').onclick = function () { modalMode = 'login'; updateModal(); };
     $('pwaTabSignup').onclick = function () { modalMode = 'signup'; updateModal(); };
     var submit = function () {
@@ -2177,7 +2346,6 @@
       });
     };
     $('pwaSubmit').onclick = submit;
-    $('pwaFeedbackBtn').onclick = function () { openFeedback(); };
     $('pwaPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
   }
   /* アカウントドロワーの開閉（旧モーダルの openModal/closeModal を置き換え。
@@ -2203,14 +2371,15 @@
     notifyFriendsView();
     if (changed) emitOverlay('drawer');
   }
-  /* フレンドパネル内の「ユーザー名で追加」行の表示切替とイベント結線（friends.js 側に器がある） */
+  /* フレンドパネル内の「ユーザー名で検索」行の表示切替とイベント結線（friends.js 側に器がある）。
+     検索 → 結果カード表示 → カードのタップ or 「フレンド申請」ボタンで申請、の申請制フロー */
   var searchBound = false;
   function updateSearchRow() {
     var sec = $('pwfSearchSec');
     if (sec) sec.style.display = cloudActive() ? '' : 'none';
     var note = $('pwfFootNote');
     if (note && cloudActive()) {
-      note.textContent = 'ログイン中はフレンドの在席・招待がクラウド経由で届きます（相手がオフラインでも届きます）。';
+      note.textContent = 'フレンドの追加は、相手のユーザー名を検索して「フレンド申請」を送り、相手が承認するとフレンドになります。ログイン中はフレンドの在席・招待がクラウド経由で届きます（相手がオフラインでも届きます）。';
     }
     if (searchBound) return;
     var btn = $('pwfSearchBtn');
@@ -2221,14 +2390,66 @@
       var name = input.value.trim();
       n.classList.remove('err');
       btn.disabled = true; n.textContent = '検索中…';
-      addFriendByUsername(name).then(function (r) {
+      renderSearchResult(null);
+      searchUser(name).then(function (found) {
         btn.disabled = false;
-        n.textContent = r.msg;
-        if (!r.ok) n.classList.add('err');
-        if (r.ok) input.value = '';
+        if (!found) {
+          n.textContent = 'そのユーザー名の人は見つかりませんでした';
+          n.classList.add('err');
+          return;
+        }
+        n.textContent = '';
+        renderSearchResult(found);
       });
     };
     $('pwfSearchName').addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
+  }
+  /* 検索結果カード: アイコン・ユーザー名・オンライン状態＋状態に応じた操作。
+     未申請なら「カードのタップ」でも「フレンド申請」ボタンでも申請できる */
+  function renderSearchResult(found) {
+    var box = $('pwfSearchResult');
+    if (!box) return;
+    if (!found) { box.innerHTML = ''; return; }
+    var st = friendStateFor(found.uid);
+    var online = found.online && (nowMs() - (found.lastSeen || 0) < PRESENCE_STALE_MS);
+    var action = '';
+    if (st === 'self') action = '<div class="pwa-note" style="margin-top:8px">あなた自身のユーザー名です</div>';
+    else if (st === 'friend') action = '<div class="pwa-note" style="margin-top:8px">✅ フレンドです</div>';
+    else if (st === 'outgoing') action = '<button class="pwa-btn sub" id="pwfReqCancel" style="margin-top:8px">申請中（タップで取り消し）</button>';
+    else if (st === 'incoming') action = '<div class="pwa-note" style="margin-top:8px">この人からフレンド申請が届いています。下の「フレンド申請が届いています」から承認できます</div>';
+    else action = '<button class="pwa-btn" id="pwfReqSend" style="margin-top:8px">👥 フレンド申請</button>';
+    box.innerHTML =
+      '<div class="pwf-req-card' + (st === 'none' ? ' tap' : '') + '" id="pwfReqCard">' +
+      '<div class="pwa-prof" style="margin-top:10px">' + profileIconHTML(found, 40) +
+      '<div class="pwa-prof-meta"><div class="pwa-user" style="margin:0">' + esc(found.username) + '</div>' +
+      '<div class="pwa-note" style="margin:2px 0 0">' + (online ? 'オンライン' : 'オフライン') + '</div></div></div>' +
+      (found.comment ? '<div class="pwa-prof-comment">💬 ' + esc(found.comment) + '</div>' : '') +
+      action +
+      '<div class="pwa-note" id="pwfReqMsg"></div></div>';
+    var doSend = function () {
+      var m = $('pwfReqMsg');
+      if (m) m.textContent = '申請を送っています…';
+      sendFriendRequest(found.username).then(function (r) {
+        renderSearchResult(found);
+        var m2 = $('pwfReqMsg');
+        if (m2) { m2.textContent = r.msg; if (!r.ok) m2.classList.add('err'); }
+      });
+    };
+    var send = $('pwfReqSend');
+    if (send) send.onclick = function (e) { e.stopPropagation(); send.disabled = true; doSend(); };
+    if (st === 'none') {
+      var card = $('pwfReqCard');
+      if (card) card.onclick = doSend;
+    }
+    var cancel = $('pwfReqCancel');
+    if (cancel) cancel.onclick = function () {
+      cancel.disabled = true;
+      cancelFriendRequest(found.uid).then(function () {
+        renderSearchResult(found);
+        var m = $('pwfReqMsg');
+        if (m) m.textContent = '申請を取り消しました';
+      });
+    };
   }
   /* パネルは friends.js が遅れて作る場合があるので、しばらくポーリングして結線する */
   (function bindSearchWhenReady() {
@@ -2304,13 +2525,31 @@
       });
     };
   }
-  /* フレンド（または自分）のプロフィール画面をドロワー内に出す */
+  /* フレンド（または自分）のプロフィールを画面中央のポップアップで出す。
+     フィードバックモーダル（#pwFbWrap）と同じ作法のオーバーレイ＋カードで、
+     背景タップと×ボタンで閉じる */
+  var profileWrapEl = null;
+  function buildProfilePopup() {
+    if (profileWrapEl) return;
+    profileWrapEl = document.createElement('div');
+    profileWrapEl.id = 'pwProfileWrap';
+    profileWrapEl.innerHTML =
+      '<div class="pw-fb-card pw-prof-card">' +
+      '<button class="pw-x pw-prof-x" id="pwProfileClose" aria-label="閉じる">✕</button>' +
+      '<div id="pwProfileCard"></div></div>';
+    document.body.appendChild(profileWrapEl);
+    profileWrapEl.addEventListener('click', function (e) { if (e.target === profileWrapEl) closeProfile(); });
+    profileWrapEl.querySelector('#pwProfileClose').onclick = closeProfile;
+  }
+  function closeProfile() {
+    if (profileWrapEl) profileWrapEl.classList.remove('open');
+  }
   function openProfile(uid) {
     buildUI();
-    var view = $('pwaProfileView');
-    if (!view) return;
-    openModal();
-    view.style.display = '';
+    buildProfilePopup();
+    var view = $('pwProfileCard');
+    if (!view || !profileWrapEl) return;
+    profileWrapEl.classList.add('open');
     if (me && uid === me.uid) {
       renderProfileView(view, {
         name: me.username, iconId: myProfile.iconId, iconColor: myProfile.iconColor,
@@ -2329,13 +2568,11 @@
       });
       return;
     }
-    view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">読み込み中…</div>';
-    bindProfBack(view);
-    if (!fb) { view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">プロフィールを読み込めませんでした</div>'; bindProfBack(view); return; }
+    view.innerHTML = '<div class="pwa-note">読み込み中…</div>';
+    if (!fb) { view.innerHTML = '<div class="pwa-note">プロフィールを読み込めませんでした</div>'; return; }
     userDoc(uid).get().then(function (doc) {
       if (!doc.exists) {
-        view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">プロフィールが見つかりませんでした</div>';
-        bindProfBack(view);
+        view.innerHTML = '<div class="pwa-note">プロフィールが見つかりませんでした</div>';
         return;
       }
       var data = doc.data() || {};
@@ -2345,25 +2582,18 @@
         game: data.currentGame || null, stats: data.stats || null, mainChar: data.mainChar || ''
       });
     }).catch(function () {
-      view.innerHTML = '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button><div class="pwa-note">プロフィールを読み込めませんでした</div>';
-      bindProfBack(view);
+      view.innerHTML = '<div class="pwa-note">プロフィールを読み込めませんでした</div>';
     });
-  }
-  function bindProfBack(view) {
-    var b = view.querySelector('#pwaProfBack');
-    if (b) b.onclick = function () { view.style.display = 'none'; view.innerHTML = ''; };
   }
   function renderProfileView(view, p) {
     var playing = p.online && p.game && GAME_TITLES[p.game] && (p.lastSeen && nowMs() - p.lastSeen < PRESENCE_STALE_MS);
     view.innerHTML =
-      '<button class="pwa-btn sub" id="pwaProfBack" style="margin:14px 0 10px">← もどる</button>' +
       '<div class="pwa-prof">' + profileIconHTML(p, 56) +
       '<div class="pwa-prof-meta"><div class="pwa-user" style="margin:0">' + esc(p.name || 'プレイヤー') + '</div>' +
       '<div class="pwa-note" style="margin:2px 0 0">' + esc(relLastSeenText(p)) + (playing ? '・' + esc(GAME_TITLES[p.game]) + 'でプレイ中' : '') + '</div></div></div>' +
       (p.comment ? '<div class="pwa-prof-comment">💬 ' + esc(p.comment) + '</div>' : '') +
       (p.mainChar ? '<div class="pwa-note">🎴 使用キャラ（スターリンクサーガ）: <b style="color:#fde68a">' + esc(p.mainChar) + '</b></div>' : '') +
       '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(p.stats);
-    bindProfBack(view);
   }
 
   /* ---------------- フィードバック（v52〜・作業4） ----------------
@@ -2648,7 +2878,10 @@
        ログイン中のみ有効。戻り値はペイロード {app, version, exportedAt, data} */
     exportBackup: exportBackup,
     searchUser: searchUser,
-    addFriendByUsername: addFriendByUsername,
+    sendFriendRequest: sendFriendRequest,
+    cancelFriendRequest: cancelFriendRequest,
+    respondFriendRequest: respondFriendRequest,
+    friendStateFor: friendStateFor,
     sendInviteCloud: sendInviteCloud,
     consumeInvite: consumeInvite,
     dismissInvite: dismissInvite,
@@ -2708,7 +2941,17 @@
         if (cloudActive()) startAdminInbox();
       },
       adminUids: function () { return ADMIN_UIDS.slice(); },
-      inboxItems: function () { return fbInboxItems.slice(); }
+      inboxItems: function () { return fbInboxItems.slice(); },
+      /* フレンド申請の現在状態（受信 pending 一覧と送信分） */
+      friendRequests: function () {
+        return {
+          in: friendReqInList(),
+          out: Object.keys(friendReqOut).map(function (id) {
+            var r = friendReqOut[id];
+            return { id: id, toUid: r.toUid, toName: r.toName, status: r.status };
+          })
+        };
+      }
     }
   };
 

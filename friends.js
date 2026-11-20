@@ -3,10 +3,12 @@
    ------------------------------------------------------------
    アカウント（account.js）と連携する共通モジュール。v51〜 フレンドの
    同一性はフレンドコードではなくアカウントの uid に統一した。
-   - プロフィール: localStorage 'playweb_profile' {name}
-       （表示名のみ。旧 code フィールドは読み捨てる）
+   - 表示名は廃止（ユーザー名に統一）。localStorage 'playweb_profile' の
+       name はもう書き込まない（既存データは無害なので残してよい）。
    - フレンド: localStorage 'playweb_friends' [{uid, username, addedAt}]
-       追加はユーザー名検索のみ（account.js の addFriendByUsername）。
+       追加は申請制: ユーザー名検索 → フレンド申請 → 相手が承認して初めて
+       フレンドになる（account.js の sendFriendRequest / respondFriendRequest。
+       申請は invites コレクションの kind:'friend' ドキュメント）。
    - PeerID は 'playweb-u-<uid>'。Peer チャネルは在席の補助・招待の
      フォールバック・matchjoin/matchroster（戦績の相手引き継ぎ）に使う。
    メッセージ種別: hello / ping / pong / invite / bye / matchjoin / matchroster
@@ -32,9 +34,9 @@
    「招待済み」表示は重複送信防止のための一時状態で、相手の参加（matchjoin）・
    試合終了（recordMatch）・切断で解除され、最大90秒で失効する。再戦はいつでも可能。
    【戦績】
-   localStorage 'playweb_records' {uid: {_name: 表示名スナップショット,
+   localStorage 'playweb_records' {uid: {_name: 名前スナップショット,
      ゲームID: {w,l,d,plays,clears,last}}}
-   表示名の解決順: フレンド一覧/在席の現在名 → _name スナップショット → 'フレンド'。
+   名前の解決順: フレンド一覧/在席の現在名（ユーザー名） → _name スナップショット → 'フレンド'。
    対戦相手の uid は招待フローから引き継ぎ（ホスト=招待した相手、ゲスト=招待者）、
    ゲストは参加後に matchjoin を送り、ホストは matchroster で参加者全員の uid を配る。
    各ゲームは終了時に PWFriends.recordMatch('win'|'lose'|'draw'|'coop', {cleared}) を呼ぶ。
@@ -145,7 +147,7 @@
   if (!records || typeof records !== 'object') records = {};
   function saveRecords() { lsSet(LS_RECORDS, records); }
   /* result: 'win' | 'lose' | 'draw' | 'coop'（coop は opts.cleared でクリア数も加算）
-     キーは相手の uid。バケットには表示名スナップショット _name も持たせ、
+     キーは相手の uid。バケットには名前スナップショット _name も持たせ、
      フレンドを削除した後でも名前が引けるようにする */
   function recordResult(gameId, friendUid, result, opts) {
     if (!GAMES[gameId] || gameId === 'portal') return false;
@@ -165,7 +167,7 @@
     saveRecords();
     return true;
   }
-  /* 戦績用の表示名解決: 在席名（画面に出ている名前）→ フレンドのユーザー名
+  /* 戦績用の名前解決: 在席名（=ユーザー名）→ フレンドのユーザー名
      → スナップショット → '' の順 */
   function friendDisplayName(uid) {
     var cp = cloudPresence[uid];
@@ -257,7 +259,15 @@
 
   function saveProfile() { lsSet(LS_PROFILE, profile); }
   function saveFriends() { lsSet(LS_FRIENDS, friends); }
-  function myName() { return (profile.name || '').trim() || 'プレイヤー'; }
+  /* 自分の名前はアカウントのユーザー名に統一する（表示名は廃止）。
+     PeerJS の hello / 招待の from にもユーザー名を使う */
+  function myName() {
+    try {
+      var u = window.PWAccount && window.PWAccount.user && window.PWAccount.user();
+      if (u && u.username) return u.username;
+    } catch (e) {}
+    return 'プレイヤー';
+  }
   function friendOf(uid) {
     for (var i = 0; i < friends.length; i++) if (friends[i].uid === uid) return friends[i];
     return null;
@@ -277,6 +287,9 @@
      ログイン時は account.js が Firestore の公開プロフィールから在席を流し込む。
      クラウド在席がある相手はそちらを優先し、無い相手は従来の PeerJS 在席を使う。 */
   var cloudPresence = {}; /* code -> {online, name, game} */
+  /* 自分宛のフレンド申請（pending）。account.js が invites 購読から
+     _cloud.setFriendRequests で流し込む: [{id, fromUid, fromName, createdAt}] */
+  var friendReqList = [];
   function cloudActive() {
     return !!(window.PWAccount && window.PWAccount.cloudActive && window.PWAccount.cloudActive());
   }
@@ -566,7 +579,7 @@
     _applyGate: function (state) { applyGate(state); },
     gateState: function () { return gateState; },
     loginNotice: loginNotice,
-    profile: function () { return { name: profile.name, uid: myUid() }; },
+    profile: function () { return { name: myName(), uid: myUid() }; },
     isOnline: isOnline,
     sendInvite: sendInvite,
     detectRoomCode: currentRoomCode,
@@ -632,7 +645,23 @@
         return true;
       },
       getFriends: function () { return friends.slice(); },
-      toast: function (msg, kind) { toast(msg, kind || 'info'); }
+      toast: function (msg, kind) { toast(msg, kind || 'info'); },
+      /* 自分宛のフレンド申請（pending）の一覧を account.js から受け取る。
+         新しく届いた申請は、パネルが閉じている時だけトーストでも知らせる
+         （開いている時は申請セクションが見えているので出さない。
+         ゲーム招待トーストの抑制ルールと揃える） */
+      setFriendRequests: function (list) {
+        var prev = {};
+        friendReqList.forEach(function (r) { prev[r.id] = true; });
+        friendReqList = Array.isArray(list) ? list.slice() : [];
+        friendReqList.forEach(function (r) {
+          if (!prev[r.id] && !state.panelOpen) {
+            toast('👥 ' + (r.fromName || 'フレンド') + 'さんからフレンド申請が届きました', 'info',
+              { label: '見る', fn: function () { openPanel(); } });
+          }
+        });
+        renderAll();
+      }
     },
     /* account.js のドロワー開閉にパネル状態を同期させる */
     _viewState: function (open) {
@@ -1076,17 +1105,15 @@
       (mount ? '' :
       '<div class="pwf-head"><span>👥 フレンド</span>' +
       '<button class="pwf-x" id="pwfClose" aria-label="閉じる">✕</button></div>') +
-      '<div class="pwf-sec">あなた</div>' +
-      '<div class="pwf-row"><input class="pwf-input" id="pwfName" maxlength="12" placeholder="表示名（例：たろう）">' +
-      '<button class="pwf-btn" id="pwfNameSave">保存</button></div>' +
-      '<div class="pwf-note" id="pwfNameNote"></div>' +
       '<div class="pwf-note" id="pwfMeNote"></div>' +
       '<div id="pwfSearchSec" style="display:none">' +
       '<div class="pwf-sec">フレンドを追加</div>' +
       '<div class="pwf-row"><input class="pwf-input" id="pwfSearchName" maxlength="16" placeholder="相手のユーザー名" autocomplete="off" autocapitalize="none">' +
-      '<button class="pwf-btn pri" id="pwfSearchBtn">検索して追加</button></div>' +
+      '<button class="pwf-btn pri" id="pwfSearchBtn">検索</button></div>' +
       '<div class="pwf-note" id="pwfSearchNote"></div>' +
+      '<div id="pwfSearchResult"></div>' +
       '</div>' +
+      '<div id="pwfFriendReqs"></div>' +
       '<div id="pwfInvites"></div>' +
       '<div id="pwfListView">' +
         '<div class="pwf-sec">フレンド <span id="pwfCount"></span></div>' +
@@ -1099,7 +1126,7 @@
         '<div class="pwf-sec">ゲームを選んで招待（選ぶと部屋を作りに移動します）</div>' +
         '<div class="pwf-games" id="pwfPickGrid"></div>' +
       '</div>' +
-      '<div class="pwf-note" id="pwfFootNote" style="margin-top:16px">フレンドの追加は、相手のアカウントのユーザー名を検索するだけです。オンライン状態は相手がPlayWebを開いている時だけ分かります。招待はログイン中ならオフラインの相手にも届きます。</div>';
+      '<div class="pwf-note" id="pwfFootNote" style="margin-top:16px">フレンドの追加は、相手のユーザー名を検索して「フレンド申請」を送り、相手が承認するとフレンドになります。オンライン状態は相手がPlayWebを開いている時だけ分かります。招待はログイン中ならオフラインの相手にも届きます。</div>';
 
     if (mount) {
       inlineMode = true;
@@ -1150,16 +1177,6 @@
 
   function bindPanelEvents() {
     if (!inlineMode) $('pwfClose').onclick = closePanel;
-    $('pwfNameSave').onclick = function () {
-      profile.name = $('pwfName').value.trim().slice(0, 12);
-      saveProfile();
-      /* 名前変更を接続中のフレンドへ知らせる */
-      Object.keys(state.conns).forEach(function (code) {
-        sendRaw(code, { t: 'hello', name: myName(), game: MY_GAME });
-      });
-      $('pwfNameNote').textContent = '名前を保存しました';
-      renderList();
-    };
     $('pwfPickBack').onclick = function () { state.view = 'list'; state.pickFor = null; renderAll(); };
   }
 
@@ -1167,6 +1184,7 @@
   function renderAll() {
     if (!els.panel) return;
     renderProfile();
+    renderFriendReqs();
     renderInvites();
     renderList();
     if (state.view === 'pick') renderPicker();
@@ -1174,9 +1192,8 @@
     if (recordsOpen) renderRecords();
     updateBadge();
   }
+  /* パネル上部の自分の状態メモ（接続状態のみ。表示名の編集欄は廃止した） */
   function renderProfile() {
-    var nameEl = $('pwfName');
-    if (nameEl && document.activeElement !== nameEl) nameEl.value = profile.name || '';
     var note = $('pwfMeNote');
     if (note) {
       if (state.unavailable) note.textContent = 'オンライン機能を読み込めませんでした（通信環境を確認してください）。フレンド機能は使えませんが、ゲームは遊べます。';
@@ -1185,13 +1202,43 @@
       else note.textContent = 'オンラインです。フレンドにはあなたの状態が見えます。';
     }
   }
-  /* 招待のバッジは、共通ヘッダーのアカウントタブ（#pwTabBadge）に出す（v55〜 招待のみを数える） */
+  /* バッジは、共通ヘッダーのアカウントタブ（#pwTabBadge）に出す。
+     ゲーム招待＋未処理のフレンド申請の件数を数える */
   function updateBadge() {
     var b = document.getElementById('pwTabBadge');
     if (!b) return;
-    var n = state.invites.length;
+    var n = state.invites.length + friendReqList.length;
     b.style.display = n > 0 ? 'flex' : 'none';
     b.textContent = n > 99 ? '99+' : String(n);
+  }
+  /* 自分宛のフレンド申請セクション（承認でフレンド化、断ると申請は消える） */
+  function renderFriendReqs() {
+    var box = $('pwfFriendReqs');
+    if (!box) return;
+    if (!friendReqList.length) { setHtmlCached(box, 'freqs', ''); return; }
+    if (!setHtmlCached(box, 'freqs', '<div class="pwf-sec">フレンド申請が届いています</div>' + friendReqList.map(function (r) {
+      return '<div class="pwf-invite"><b>' + esc(r.fromName || 'フレンド') + '</b> さんからフレンド申請が届いています' +
+        '<div class="pwf-row" style="margin-top:8px"><button class="pwf-btn pri" data-freq-ok="' + esc(r.id) + '">承認</button>' +
+        '<button class="pwf-btn" data-freq-no="' + esc(r.id) + '">断る</button></div></div>';
+    }).join(''))) return; /* 内容が同じなら既存DOM・リスナーを維持 */
+    box.querySelectorAll('[data-freq-ok]').forEach(function (btn) {
+      btn.onclick = function () {
+        btn.disabled = true;
+        if (window.PWAccount && window.PWAccount.respondFriendRequest) {
+          window.PWAccount.respondFriendRequest(btn.getAttribute('data-freq-ok'), true)
+            .then(function () { renderAll(); });
+        }
+      };
+    });
+    box.querySelectorAll('[data-freq-no]').forEach(function (btn) {
+      btn.onclick = function () {
+        btn.disabled = true;
+        if (window.PWAccount && window.PWAccount.respondFriendRequest) {
+          window.PWAccount.respondFriendRequest(btn.getAttribute('data-freq-no'), false)
+            .then(function () { renderAll(); });
+        }
+      };
+    });
   }
   function renderInvites() {
     var box = $('pwfInvites');
@@ -1229,7 +1276,7 @@
     var cnt = $('pwfCount');
     if (cnt) cnt.textContent = '（' + friends.length + '人）';
     var empty = $('pwfEmpty');
-    if (empty) empty.textContent = friends.length ? '' : 'まだフレンドがいません。上の「フレンドを追加」で相手のユーザー名を検索して追加しましょう。相手がPlayWebを開くと、ここにオンライン状態が表示されます。';
+    if (empty) empty.textContent = friends.length ? '' : 'まだフレンドがいません。上の「フレンドを追加」で相手のユーザー名を検索して申請を送りましょう。相手が承認するとフレンドになります。相手がPlayWebを開くと、ここにオンライン状態が表示されます。';
     if (!setHtmlCached(listEl, 'list', friends.map(function (f) {
       var on = isOnline(f.uid);
       var recSum = recordSummary(f.uid);
