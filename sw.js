@@ -1,93 +1,31 @@
-const CACHE_NAME = 'game-platform-cache-v77';
+const CACHE_NAME = 'game-platform-cache-v78';
+/* 実行時キャッシュ（バージョンをまたいで保持する）。
+   ゲーム本体や画像は「初めて開いた時」にここへ入り、更新のたびに
+   消えることがない。更新で消えるのは下のコアキャッシュだけ。 */
+const RUNTIME_CACHE = 'game-platform-runtime-v1';
 
-// ⚠️ 重要：ディレクトリごと（otome_images/* のような指定）はできません。
-// キャッシュしたいファイルを1つずつ正確に書く必要があります。
+// 事前キャッシュはプラットフォームのコアだけ（約0.5MB）。
+// ⚠️ cache.addAll は原子的：リストのファイルが1つでも存在しないと
+// インストール全体が失敗する。実在するファイルだけを書くこと。
+// 各ゲームのHTML・乙女ゲームの画像/音声は事前キャッシュしない
+// （開いた時に実行時キャッシュへ入る方式に v78 で変更。以前は
+// 画像だけで数十MBあり、更新のたびに全再ダウンロードが走っていた）。
 const urlsToCache = [
-  // プラットフォームのコア
   'index.html',
   'friends.js',
   'account.js',
   'match.js',
   'manifest.json',
   'icon-192.png',
-
-  // 各ゲームのHTML
-  'reversi.html',
-  'shogi.html',
-  'minesweeper.html',
-  'majan.html',
-  'daihugou.html',
-  'hanahuda.html',
-  'tetris.html',
-  'blockzushi.html',
-  'suica.html',
-  'crepe.html',
-  'blockblast.html',
-  'gamedev.html',
-  'jump.html',
-  'caring.html',
-  'uno.html',
-  'rpg.html',
-  'rpg2.html',
-  'otome.html',
-  'survivors.html',
-  'frostline.html',
-  'linksaga.html',
-  'reaction.html',
-  'mash.html',
-  'numguess.html',
-  'janken.html',
-  'calc.html',
-  'memory.html',
-  'mole.html',
-  'simon.html',
-  'timing.html',
-  'dice.html',
-
-  // 乙女ゲームの画像
-  './otome_images/st_yuzuki_01.png',
-  './otome_images/bg_beach_01.png',
-  './otome_images/bg_city_cafe_01.png',
-  './otome_images/bg_city_park_01.png',
-  './otome_images/bg_city_shopping_01.png',
-  './otome_images/bg_coastal_path_01.png',
-  './otome_images/bg_observatory_night_01.png',
-  './otome_images/bg_protagonist_room_01.png',
-  './otome_images/bg_school_art_room_01.png',
-  './otome_images/bg_school_classroom_01.png',
-  './otome_images/bg_school_council_room_01.png',
-  './otome_images/bg_school_entrance_01.png',
-  './otome_images/bg_school_ground_01.png',
-  './otome_images/bg_school_gym_01.png',
-  './otome_images/bg_school_hallway_01.png',
-  './otome_images/bg_school_library_01.png',
-  './otome_images/bg_school_music_room_01.png',
-  './otome_images/bg_school_rooftop_01.png',
-  './otome_images/CG_kaito_01.png',
-  './otome_images/CG_rinto_01.png',
-  './otome_images/CG_rinto_02.png',
-  './otome_images/CG_souma_01.png',
-  './otome_images/st_aoi_01.png',
-  './otome_images/st_hayate_01.png',
-  './otome_images/st_hiyori_01.png',
-  './otome_images/st_kaito_01.png',
-  './otome_images/st_rinto_01.png',
-  './otome_images/st_souma_01.png',
-
-  // 乙女ゲームの音声
-  './otome_sounds/school_day.mp3',
-  './otome_sounds/title_theme.mp3'
 ];
+const CORE_SET = new Set(urlsToCache.map(u => new URL(u, self.location.href).pathname));
 
-// インストール時にリストのファイルをすべて事前キャッシュ！
+// インストール時にコアだけを事前キャッシュする
 self.addEventListener('install', event => {
   // 新バージョンは待たずに即有効化する（ポータルの更新ボタンと連動）
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('Opened cache and pre-caching all assets');
-      return cache.addAll(urlsToCache);
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
 });
 
@@ -96,33 +34,67 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// 通信の処理（キャッシュ優先、なければネットワークへ）
-self.addEventListener('fetch', event => {
-  if (!event.request.url.startsWith('http')) return;
+function isAssetRequest(url) {
+  return /\.(png|jpe?g|gif|webp|svg|mp3|wav|ogg|ico)$/i.test(url.pathname);
+}
 
+// 通信の処理
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return; // 外部（CDN・Firebase等）は素通し
+
+  // コア：バージョンと同期したキャッシュ優先（なければネット→コアキャッシュへ）
+  if (CORE_SET.has(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(req).then(hit => hit || fetch(req).then(res => {
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        }))
+      )
+    );
+    return;
+  }
+
+  // 画像・音声：キャッシュ優先（初回だけネットから取得して実行時キャッシュへ）
+  if (isAssetRequest(url)) {
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then(cache =>
+        cache.match(req).then(hit => hit || fetch(req).then(res => {
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        }))
+      )
+    );
+    return;
+  }
+
+  // それ以外（各ゲームのHTMLなど）：ネット優先で常に最新を取りに行き、
+  // 取得できたら実行時キャッシュに控えを残す。オフライン時は控えを返す。
   event.respondWith(
-    caches.match(event.request).then(response => {
-      // キャッシュにあれば即座にそれを返す
-      if (response) return response;
-      
-      // 事前キャッシュのリストに書き忘れたファイルがあった場合の保険として、
-      // ネットワークから取得したものをその場でキャッシュに追加する処理
-      return fetch(event.request).then(networkResponse => {
-        return caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, networkResponse.clone());
-          return networkResponse;
-        });
-      });
-    })
+    fetch(req).then(res => {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(RUNTIME_CACHE).then(cache => cache.put(req, copy));
+      }
+      return res;
+    }).catch(() =>
+      caches.open(RUNTIME_CACHE).then(cache => cache.match(req)).then(hit => {
+        if (hit) return hit;
+        throw new Error('offline and not cached');
+      })
+    )
   );
 });
 
-// 古いキャッシュのお掃除
+// 古いキャッシュのお掃除（実行時キャッシュは残す）
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.filter(name => name !== CACHE_NAME)
+        cacheNames.filter(name => name !== CACHE_NAME && name !== RUNTIME_CACHE)
           .map(name => caches.delete(name))
       );
     }).then(() => self.clients.claim())
