@@ -38,12 +38,22 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 /* 1画面フィット（共通ヘッダー46pxを除く高さに収める） */
 .wrap{height:calc(100dvh - 46px);overflow:hidden;padding:10px 14px 12px;gap:9px}
 #gameArea{flex:1;min-height:0;display:flex;flex-direction:column}
+/* バーは中身が絶対配置のみで内容高さが0のため、flexの縮小圧力で潰れる。
+   667px高さでは5pxまで縮んでマーカーが見えなくなっていた（QA第6回）。
+   flex:none で64pxを死守する */
+#barWrap{flex:none}
 .info{min-height:36px}
 .list{flex-wrap:nowrap;overflow:hidden}
 #onlinePane{flex:0 1 auto;min-height:0;overflow-y:auto}
 #soloPane .card{padding:10px}
 #soloPane .help{line-height:1.55}
 .hudBox{padding:7px}
+/* 低い画面（667px）ではゲストバー分だけ縦が足りず、バー死守だけでは
+   info/best がはみ出して下の説明文と重なった（QA第6回・修正後の目視で確認）。
+   高さ740px以下では1画面フィットをやめ、縦スクロールで全要素を見せる */
+@media (max-height:740px){
+  .wrap{height:auto;min-height:calc(100dvh - 46px);overflow-y:auto}
+}
 </style>
 <style>
 /* バウンス抑止（麻雀方式：画面固定） */
