@@ -1386,6 +1386,7 @@ function locNext(id){const i=locIndex(id);return(i>=0&&i<LOCS.length-1)?LOCS[i+1
 /* entry: 'fromSouth'=南の隣接マップから入場 / 'fromNorth'=北から / 'load'=読み込み・初期配置 */
 function openField(locId,entry){
   const loc=LOCS.find(l=>l.id===locId);if(!loc)return;
+  G.currentLoc=locId;
   buildField(loc,entry);
   showScreen('sc-field');
   document.getElementById('field-emoji').textContent=loc.emoji;
@@ -1398,6 +1399,7 @@ function openField(locId,entry){
   renderField();
   startAmbient(loc);
   checkAch();
+  checkStoryTriggers(locId);
 }
 function buildField(loc,entry){
   const rnd=fldRng(fldSeed(loc.id));
