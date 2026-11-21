@@ -71,20 +71,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 .scoreBox .mini i{display:block;height:100%;background:#4ade80;width:0%}
 #stageWrap{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:2px solid rgba(255,255,255,.22);background:#1a0d14;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.5),inset 0 0 0 1px rgba(0,0,0,.45)}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
-#tapZones{position:absolute;left:0;right:0;bottom:0;height:45%;display:flex;z-index:2;pointer-events:none}
-.tz{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden}
-.tzDon{background:linear-gradient(180deg,rgba(230,57,70,.04),rgba(230,57,70,.17));border-top:2px dashed rgba(255,110,90,.4);border-right:1px solid rgba(255,255,255,.15)}
-.tzKatsu{background:linear-gradient(180deg,rgba(58,134,255,.04),rgba(58,134,255,.17));border-top:2px dashed rgba(120,180,255,.4)}
-.tzFlash{position:absolute;inset:0;opacity:0}
-.tzDon .tzFlash{background:radial-gradient(circle at 50% 62%,rgba(255,130,100,.9),rgba(230,57,70,.22) 72%)}
-.tzKatsu .tzFlash{background:radial-gradient(circle at 50% 62%,rgba(140,195,255,.9),rgba(58,134,255,.22) 72%)}
-.tzIcon{font-size:27px;line-height:1.1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
-.tzDon .tzIcon{color:#ff6b5e}
-.tzKatsu .tzIcon{color:#6ea8ff}
-.tzLbl{font-size:22px;font-weight:900;letter-spacing:.22em;text-shadow:0 2px 0 rgba(0,0,0,.5)}
-.tzDon .tzLbl{color:#ff9d8f}
-.tzKatsu .tzLbl{color:#a9c8ff}
-.tzSub{font-size:10.5px;color:rgba(255,247,234,.68);font-weight:700;letter-spacing:.04em}
+/* タップ色分けは Canvas 上の大太鼓（中=ドン）とその外側エリア（=カツ）で描く。旧 #tapZones は廃止 */
 #resultPanel{position:absolute;inset:0;background:rgba(10,4,8,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:16px;text-align:center;z-index:5}
 #resultPanel .rank{font-size:62px;font-weight:900;line-height:1;color:var(--gold);text-shadow:0 3px 0 rgba(0,0,0,.45),0 0 26px rgba(255,201,60,.55);animation:rankIn .5s cubic-bezier(.2,1.6,.4,1)}
 @keyframes rankIn{0%{transform:scale(.3) rotate(-8deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
@@ -127,7 +114,7 @@ html,body{overscroll-behavior:none;}
 </div>
 <div id="soloPane">
 <button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
-<p class="help" style="margin-top:8px">音符が左端の太鼓に重なったら叩こう！<br>赤い音符＝<b style="color:#ff8a7a">ドン（左半分タップ）</b>、青い音符＝<b style="color:#8ab6ff">カツ（右半分タップ）</b>。キー F・J＝ドン / D・K＝カツ でも叩けます。</p>
+<p class="help" style="margin-top:8px">音符が左端の太鼓に重なったら叩こう！<br>赤い音符＝<b style="color:#ff8a7a">ドン（下の大太鼓の中をタップ）</b>、青い音符＝<b style="color:#8ab6ff">カツ（大太鼓の外をタップ）</b>。キー F・J＝ドン / D・K＝カツ でも叩けます。</p>
 </div>
 <div id="onlinePane" class="hidden"><div class="card">
 <div class="netBtns"><button id="hostBtn" class="btn">部屋を作る</button></div>
@@ -144,7 +131,7 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="tapZones"><div class="tz tzDon"><div class="tzFlash" id="zoneDonFlash"></div><div class="tzIcon">●</div><div class="tzLbl">ドン</div><div class="tzSub">面 ・ 左半分タップ / F・J</div></div><div class="tz tzKatsu"><div class="tzFlash" id="zoneKatsuFlash"></div><div class="tzIcon">◎</div><div class="tzLbl">カツ</div><div class="tzSub">縁 ・ 右半分タップ / D・K</div></div></div><div id="resultPanel" class="hidden"></div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">曲はすべて WebAudio 合成のオリジナル曲です。魂ゲージ70%以上でクリア！</p>
 </div>
@@ -400,7 +387,7 @@ var curSong = null, curData = null, chart = [], notePtr = 0;
 var score = 0, combo = 0, maxCombo = 0, gauge = 0, counts = { good: 0, ok: 0, bad: 0 };
 var popups = [], drumPulse = { don: 0, katsu: 0 }, particles = [];
 var zoneFlash = { don: 0, katsu: 0 }, hitFx = [], bursts = [];
-var zoneDonEl = null, zoneKatsuEl = null;
+var lastHitType = null; /* 直近の打撃種別（テスト検証用） */
 var CW = 0, CH = 0, DPR = 1;
 var APPROACH = 1.9; /* 音符が見えてから判定までの秒数 */
 
@@ -461,6 +448,7 @@ function startSong() {
   notePtr = 0;
   score = 0; combo = 0; maxCombo = 0; gauge = 0;
   counts = { good: 0, ok: 0, bad: 0 };
+  lastHitType = null;
   popups = []; hitFx = []; bursts = []; particles = initParticles(curSong.theme);
   playing = true;
   wrapEl.classList.add('playing');
@@ -548,6 +536,7 @@ function hit(type) {
   if (!playing) return;
   ensureAudio();
   playHit(type, false);
+  lastHitType = type;
   drumPulse[type] = 1;
   zoneFlash[type] = 1;
   if (songTime < 0) return;
@@ -599,6 +588,21 @@ function laneGeom() {
   var h = clamp(CH * 0.24, 84, 112);
   return { y: CH * 0.30, h: h, judgeX: CW * 0.20 };
 }
+/* 下部の大太鼓の配置（描画とタップ判定で共有）：レーンの下に大きく置く */
+function bigDrumGeom() {
+  var lg = laneGeom();
+  var top = lg.y + lg.h / 2 + 8;
+  var availH = Math.max(80, CH - top - 4);
+  var R = Math.min(CW * 0.34, (availH - 10) / 2, 142);
+  if (R < 42) R = 42;
+  return { x: CW / 2, y: top + availH / 2, R: R, top: top };
+}
+/* タップ位置→種別：大太鼓の円の内側=ドン、外側=カツ */
+function tapTypeAt(px, py) {
+  var bd = bigDrumGeom();
+  var dx = px - bd.x, dy = py - bd.y;
+  return (dx * dx + dy * dy <= bd.R * bd.R) ? 'don' : 'katsu';
+}
 function spawnPopup(nt, res) {
   var lg = laneGeom();
   popups.push({ y: lg.y - lg.h / 2 - 8, txt: res === 'good' ? '良' : (res === 'ok' ? '可' : '不可'), col: res === 'good' ? '#ffc93c' : (res === 'ok' ? '#ffffff' : '#f87171'), t0: performance.now(), big: nt.big, res: res });
@@ -619,8 +623,8 @@ var stageWrap = $('stageWrap');
 stageWrap.addEventListener('pointerdown', function (e) {
   e.preventDefault();
   var r = stageWrap.getBoundingClientRect();
-  var x = (e.clientX - r.left) / r.width;
-  hit(x < 0.5 ? 'don' : 'katsu');
+  /* 大太鼓の中心からの距離で判定：円の内側=ドン、外側=カツ */
+  hit(tapTypeAt(e.clientX - r.left, e.clientY - r.top));
 });
 document.addEventListener('keydown', function (e) {
   if (e.repeat) return;
@@ -683,9 +687,6 @@ function draw() {
   drumPulse.katsu = Math.max(0, drumPulse.katsu - dt * 5);
   zoneFlash.don = Math.max(0, zoneFlash.don - dt * 4.2);
   zoneFlash.katsu = Math.max(0, zoneFlash.katsu - dt * 4.2);
-  if (!zoneDonEl) { zoneDonEl = $('zoneDonFlash'); zoneKatsuEl = $('zoneKatsuFlash'); }
-  if (zoneDonEl) zoneDonEl.style.opacity = (zoneFlash.don * 0.95).toFixed(3);
-  if (zoneKatsuEl) zoneKatsuEl.style.opacity = (zoneFlash.katsu * 0.95).toFixed(3);
   drawScene(now / 1000, dt);
 }
 function drawScene(t, dt) {
@@ -696,6 +697,7 @@ function drawScene(t, dt) {
   else { g.addColorStop(0, '#1c0b18'); g.addColorStop(1, '#33101c'); }
   ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
   drawBackdrop(theme, t, dt);
+  drawBigDrum();
   var lg = laneGeom(), laneY = lg.y, laneH = lg.h, judgeX = lg.judgeX;
   /* ── ノーツレーン帯（上レイヤーとして浮かせる） ── */
   ctx.save();
@@ -719,7 +721,9 @@ function drawScene(t, dt) {
   ctx.moveTo(judgeX - 6, laneY - laneH / 2 - 1); ctx.lineTo(judgeX + 6, laneY - laneH / 2 - 1); ctx.lineTo(judgeX, laneY - laneH / 2 + 8); ctx.closePath();
   ctx.fillStyle = '#ffc93c'; ctx.fill();
   ctx.restore();
-  /* 流れる音符 */
+  /* 判定太鼓は音符より先に描く（音符が太鼓の縁や装飾に隠れないように） */
+  drawDrum(judgeX, laneY, laneH);
+  /* 流れる音符（常に太鼓より手前に描く） */
   if (playing || chart.length) {
     for (var i = 0; i < chart.length; i++) {
       var nt = chart[i];
@@ -731,7 +735,6 @@ function drawScene(t, dt) {
       drawNote(x, laneY, nt);
     }
   }
-  drawDrum(judgeX, laneY, laneH);
   /* ヒットリング */
   var nowMs = performance.now();
   hitFx = hitFx.filter(function (f) { return nowMs - f.t0 < 340; });
@@ -785,15 +788,16 @@ function drawScene(t, dt) {
   if (playing && songTime < 0) {
     var n = Math.ceil(-songTime);
     var frac = 1 - (-songTime - (n - 1));
+    var cbd = bigDrumGeom(), cr = Math.min(46, cbd.R * 0.52);
     ctx.save();
-    ctx.beginPath(); ctx.arc(CW / 2, CH * 0.60, 44, 0, 6.29);
+    ctx.beginPath(); ctx.arc(cbd.x, cbd.y, cr, 0, 6.29);
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(CW / 2, CH * 0.60, 44, -1.57, -1.57 + frac * 6.283);
+    ctx.beginPath(); ctx.arc(cbd.x, cbd.y, cr, -1.57, -1.57 + frac * 6.283);
     ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = 5; ctx.stroke();
-    ctx.font = '900 52px sans-serif'; ctx.textAlign = 'center';
+    ctx.font = '900 ' + Math.round(cr * 1.15) + 'px sans-serif'; ctx.textAlign = 'center';
     ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,.6)';
-    ctx.strokeText(String(n), CW / 2, CH * 0.60 + 18);
-    ctx.fillStyle = '#ffc93c'; ctx.fillText(String(n), CW / 2, CH * 0.60 + 18);
+    ctx.strokeText(String(n), cbd.x, cbd.y + cr * 0.4);
+    ctx.fillStyle = '#ffc93c'; ctx.fillText(String(n), cbd.x, cbd.y + cr * 0.4);
     ctx.font = '800 13px sans-serif'; ctx.fillStyle = 'rgba(255,247,234,.9)';
     ctx.fillText('音符が太鼓に重なったら叩こう！', CW / 2, laneY + laneH / 2 + 17);
     ctx.restore();
@@ -906,8 +910,12 @@ function drawNote(x, y, nt) {
   ctx.restore();
 }
 function drawDrum(x, y, laneH) {
+  var R = (laneH ? laneH * 0.60 : 44) * (1 + drumPulse.don * 0.07 + drumPulse.katsu * 0.04);
+  drawDrumBody(x, y, R, null, true);
+}
+/* 太鼓の描画本体（判定太鼓と下部の大太鼓で共用。drumPulse の叩き演出も両方に連動する） */
+function drawDrumBody(x, y, R, label, goldRing) {
   var pd = drumPulse.don, pk = drumPulse.katsu;
-  var R = (laneH ? laneH * 0.60 : 44) * (1 + pd * 0.07 + pk * 0.04);
   ctx.save();
   /* 台座の影 */
   ctx.beginPath(); ctx.ellipse(x, y + R + 7, R * 0.95, 7, 0, 0, 6.29);
@@ -941,9 +949,63 @@ function drawDrum(x, y, laneH) {
   ctx.beginPath(); ctx.arc(x, y + sink, R * 0.62, 0, 6.29);
   ctx.fillStyle = fg; ctx.fill();
   ctx.strokeStyle = 'rgba(120,60,30,.4)'; ctx.lineWidth = 1.5; ctx.stroke();
-  /* 判定リング */
-  ctx.beginPath(); ctx.arc(x, y, R + 6 + Math.sin(performance.now() / 280) * 1.2, 0, 6.29);
-  ctx.strokeStyle = 'rgba(255,201,60,.75)'; ctx.lineWidth = 2; ctx.stroke();
+  /* 面のラベル（大太鼓のみ） */
+  if (label) {
+    ctx.font = '900 ' + Math.round(R * 0.38) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(154,52,24,.88)';
+    ctx.fillText(label, x, y + sink + R * 0.02);
+    ctx.textBaseline = 'alphabetic';
+  }
+  /* 判定リング（判定太鼓のみ） */
+  if (goldRing) {
+    ctx.beginPath(); ctx.arc(x, y, R + 6 + Math.sin(performance.now() / 280) * 1.2, 0, 6.29);
+    ctx.strokeStyle = 'rgba(255,201,60,.75)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.restore();
+}
+/* 下部の大太鼓と、その外側＝カツの色分けエリア */
+function drawBigDrum() {
+  var bd = bigDrumGeom();
+  /* 外側エリア（カツ）：青く色分けし、叩くと一面が光る */
+  var ag = ctx.createLinearGradient(0, bd.top, 0, CH);
+  ag.addColorStop(0, 'rgba(58,134,255,.05)');
+  ag.addColorStop(1, 'rgba(58,134,255,.17)');
+  ctx.fillStyle = ag;
+  ctx.fillRect(0, bd.top, CW, CH - bd.top);
+  if (zoneFlash.katsu > 0.01) {
+    ctx.fillStyle = 'rgba(96,165,255,' + (zoneFlash.katsu * 0.30).toFixed(3) + ')';
+    ctx.fillRect(0, bd.top, CW, CH - bd.top);
+  }
+  /* 太鼓本体（面=ドン。カウントダウン中は数字を優先してラベルを隠す） */
+  drawDrumBody(bd.x, bd.y, bd.R, (playing && songTime < 0) ? null : 'ドン', false);
+  /* 内/外の境界リング（この円の外がカツ） */
+  ctx.save();
+  ctx.beginPath(); ctx.arc(bd.x, bd.y, bd.R + 4, 0, 6.29);
+  ctx.strokeStyle = 'rgba(150,195,255,.55)'; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.stroke();
+  ctx.restore();
+  /* ドンを叩いた瞬間の発光 */
+  if (zoneFlash.don > 0.01) {
+    var dg = ctx.createRadialGradient(bd.x, bd.y, 4, bd.x, bd.y, bd.R);
+    dg.addColorStop(0, 'rgba(255,150,110,' + (zoneFlash.don * 0.5).toFixed(3) + ')');
+    dg.addColorStop(1, 'rgba(255,90,60,0)');
+    ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.arc(bd.x, bd.y, bd.R, 0, 6.29); ctx.fill();
+  }
+  /* カツのラベル（左右下のコーナー） */
+  ctx.save();
+  ctx.font = '900 19px sans-serif';
+  ctx.fillStyle = 'rgba(169,200,255,.92)';
+  ctx.textAlign = 'left';
+  ctx.fillText('◎ カツ', 12, CH - 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('カツ ◎', CW - 12, CH - 14);
+  ctx.font = '700 10px sans-serif';
+  ctx.fillStyle = 'rgba(200,220,255,.62)';
+  ctx.textAlign = 'left';
+  ctx.fillText('外側タップ', 12, CH - 31);
+  ctx.textAlign = 'right';
+  ctx.fillText('外側タップ', CW - 12, CH - 31);
   ctx.restore();
 }
 function roundRect(x, y, w, h, r) {
@@ -1148,7 +1210,9 @@ window.__taiko = {
   SONGS: SONGS, DIFFS: DIFFS, buildSongData: buildSongData, buildChart: buildChart,
   judgeFor: judgeFor, scoreFor: scoreFor, gaugeDelta: gaugeDelta, makeResult: makeResult,
   mulberry32: mulberry32,
-  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length }; },
+  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType }; },
+  bigDrum: function () { var bd = bigDrumGeom(); return { x: bd.x, y: bd.y, R: bd.R, top: bd.top }; },
+  tapTypeAt: tapTypeAt,
   startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
   hit: hit,
   finishNow: function () { if (playing) { songTime = curData.duration + 1; finishSong(); } }

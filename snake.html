@@ -39,6 +39,12 @@
   #boostBtn small { display:block; font-size:10px; font-weight:700; opacity:.85; }
   #pauseBtn { position:fixed; left:8px; bottom:calc(146px + env(safe-area-inset-bottom)); z-index:22; width:44px; height:44px; border-radius:50%;
               border:1px solid rgba(140,220,180,.4); background:rgba(8,26,20,.72); color:#c9ffe0; font-size:17px; display:none; font-family:inherit; }
+  /* ── フローティングスティック（まじょねこサバイバーズと同寸法・同方式） ── */
+  #stickBase { position:fixed; width:110px; height:110px; border-radius:50%; border:2px solid rgba(140,255,190,.55);
+               background:rgba(30,160,90,.13); display:none; z-index:23; pointer-events:none; transform:translate(-50%,-50%); }
+  #stickKnob { position:fixed; width:48px; height:48px; border-radius:50%; display:none; z-index:23; pointer-events:none;
+               background:radial-gradient(circle at 35% 32%, #c9ffe0, #17a35c); transform:translate(-50%,-50%);
+               box-shadow:0 4px 14px rgba(0,0,0,.5); }
   /* ── 画面（タイトル等） ── */
   .scr { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:18px;
          background:radial-gradient(ellipse at 50% 30%, rgba(16,84,54,.88), rgba(3,10,8,.96)); overflow-y:auto; }
@@ -88,6 +94,7 @@
 <div id="netStatus"></div>
 <button id="boostBtn">🚀<br><small>ブースト</small></button>
 <button id="pauseBtn">⏸</button>
+<div id="stickBase"></div><div id="stickKnob"></div>
 
 <!-- タイトル -->
 <div class="scr show" id="titleScr">
@@ -127,8 +134,8 @@
   <div class="card" style="text-align:left">
     <div style="font-size:20px;font-weight:900;text-align:center">📖 あそびかた</div>
     <div class="note" style="font-size:13px;color:#d2ffe4">
-      ・画面をドラッグ（マウスは移動）すると、指の方向へヘビの頭が向かいます。<br>
-      ・🚀ブーストボタン（またはマウスクリック長押し／スペースキー）を押している間は加速しますが、長さが少しずつ減ってオーブを落とします。<br>
+      ・画面をドラッグすると、触った場所にスティックが出て、ドラッグした方向へヘビが進みます（マウスでも同じ）。スティックを離すと、そのままの向きで直進します。<br>
+      ・🚀ブーストボタン（またはスペースキー）を押している間は加速しますが、長さが少しずつ減ってオーブを落とします。<br>
       ・光るオーブを食べると長くなります。大きなオーブほどたくさん伸びます。<br>
       ・頭が他のヘビの体やアリーナの壁（赤い境界）に触れると死んでしまい、体はオーブの列に変わります。自分の体は触れても大丈夫。<br>
       ・小さいヘビの進路をふさいだり、大きなヘビを囲い込むと仕留められます。倒すとキル数が増えます。<br>
@@ -192,7 +199,18 @@ const PATH_STEP = 4;             /* 経路点の間隔(px) */
 const BASE_SPEED = 168, BOOST_SPEED = 305;
 const BOOST_DRAIN = 3.2;         /* ブースト中の質量減少/秒 */
 const GRID_CELL = 90;
-const WIG_K = Math.PI * 2 / 130;   /* うねりの波数（波長130px） */
+const WIG_MIN_L = 150, WIG_MAX_L = 340;   /* うねりの波長(px)の範囲 */
+/* うねりの波数：波長は体の半径×11（大きなヘビほどゆったり大きく波打つ） */
+function wigKFor(s) { return TAU / clamp(s.radius * 11, WIG_MIN_L, WIG_MAX_L); }
+/* うねりの基本振幅：半径の約8割（旧実装は半径×0.38・上限10pxで、太い体では
+   輪郭の内側に埋もれて直線に見えていた）。ブースト中・旋回中はさらに強まる。
+   最終的なオフセットは computeSamples 側で半径×0.95 にクランプする */
+function wigAmpFor(s) {
+  let a = clamp(s.radius * 0.8, 3, 26);
+  if (s.boost) a *= 1.25;
+  a *= 1 + 0.45 * (s.turnRatio || 0);
+  return a;
+}
 const NECK_SEGS = 3;               /* 当たり判定から外す首元のセグメント数 */
 
 /* ── サウンド（WebAudio合成・最小） ── */
@@ -266,7 +284,7 @@ function mkSnake(name, hue, pattern, opts) {
   const s = {
     id: S ? S.nextId++ : ++snakeSeq, name, hue, pattern: pattern || 0,
     isPlayer: !!opts.isPlayer, isGuest: !!opts.isGuest, ai: opts.ai || null,
-    x, y, px: x, py: y, wigDist: 0, ang, targetAng: ang, boost: false, boostHeld: false,
+    x, y, px: x, py: y, wigDist: 0, wigPhase: 0, turnRatio: 0, ang, targetAng: ang, boost: false, boostHeld: false,
     mass, maxMass: mass, kills: 0, alive: true, deadAt: 0,
     radius: radiusFor(mass), path: [], lenPx: 0, samples: [],
     bornAt: S ? S.time : 0, aiT: Math.random() * 0.2, dropT: 0, nameW: 0,
@@ -327,19 +345,26 @@ function computeSamples(s) {
   const tail = p[p.length - 1];
   if (raw[raw.length - 1].x !== tail.x || raw[raw.length - 1].y !== tail.y) raw.push({ x: tail.x, y: tail.y, d: dist });
   /* クネクネ（うねり）：進行方向に垂直な正弦波オフセットを体に沿って加える。
-     位相は「頭が進んだ距離」で流れるので、波が頭から尾へ伝わって見える。
-     頭（先頭）は正確な位置のまま、首元ではフェードインさせて折れ曲がりを防ぐ。
+     位相は「頭が進んだ距離×そのヘビの波数」で蓄積され（s.wigPhase）、
+     波が頭から尾へ流れて見える。振幅は体の太さに比例して大きく取り、
+     尾へ向けてさらに増幅するので、中〜後半と尾がよく揺れる。
+     頭（先頭）は正確な位置のまま、首元ではスムーズステップでフェードインさせ、
+     進路が読みにくくならないようにする。旋回中はうねりが強まる（wigAmpFor）。
      samples は描画・当たり判定・スナップショットの共通データなので、
      ここで加えると見た目と判定が一致し、NPC・ゲスト表示にも同じうねりが出る。 */
-  const amp = Math.min(10, Math.max(2.2, s.radius * 0.38)) * (s.boost ? 1.3 : 1);
-  const phase = (s.wigDist || 0) * WIG_K;
+  const k = wigKFor(s), baseAmp = wigAmpFor(s), phase = s.wigPhase || 0;
+  const totalD = raw.length ? raw[raw.length - 1].d : 0;
+  const maxOff = s.radius * 0.95;
   s.samples = raw.map((q, i) => {
     if (i === 0) return { x: q.x, y: q.y };
     const a = raw[Math.max(0, i - 1)], b = raw[Math.min(raw.length - 1, i + 1)];
     let vx = b.x - a.x, vy = b.y - a.y;
     const vl = Math.hypot(vx, vy) || 1; vx /= vl; vy /= vl;
-    const fade = Math.min(1, q.d / 34);
-    const off = Math.sin(q.d * WIG_K - phase) * amp * fade;
+    const ff = Math.min(1, q.d / 80);
+    const fade = ff * ff * (3 - 2 * ff);   /* 首元はなだらかに（進路の読みやすさ優先） */
+    const grow = 0.78 + 0.4 * (totalD > 0 ? q.d / totalD : 0);   /* 尾ほど大きく揺れる */
+    let off = Math.sin(q.d * k - phase) * baseAmp * fade * grow;
+    off = clamp(off, -maxOff, maxOff);
     return { x: q.x - vy * off, y: q.y + vx * off };
   });
 }
@@ -371,6 +396,9 @@ function moveSnake(s, dt, w) {
   let da = angDiff(s.targetAng, s.ang);
   da = clamp(da, -maxTurn, maxTurn);
   s.ang += da;
+  /* 旋回率（0..1）をなめらかに追跡：旋回中はうねりを強めるために使う */
+  const tr = maxTurn > 0 ? Math.abs(da) / maxTurn : 0;
+  s.turnRatio = (s.turnRatio || 0) + (tr - (s.turnRatio || 0)) * Math.min(1, dt * 6);
   const boosting = s.boostHeld && s.mass > START_MASS + 2;
   s.boost = boosting;
   const spd = boosting ? BOOST_SPEED : BASE_SPEED;
@@ -378,14 +406,26 @@ function moveSnake(s, dt, w) {
   const nx = s.x + Math.cos(s.ang) * spd * dt;
   const ny = s.y + Math.sin(s.ang) * spd * dt;
   s.x = nx; s.y = ny;
-  s.wigDist = (s.wigDist || 0) + Math.hypot(nx - s.px, ny - s.py);
+  const stepDist = Math.hypot(nx - s.px, ny - s.py);
+  s.wigDist = (s.wigDist || 0) + stepDist;
+  s.wigPhase = (s.wigPhase || 0) + stepDist * wigKFor(s);   /* 波の位相を進んだ距離で蓄積（波長が変わっても跳ばない） */
   const head = s.path[0];
-  const hd = Math.hypot(nx - head.x, ny - head.y);
-  if (hd >= PATH_STEP) {
-    s.path.unshift({ x: nx, y: ny });
-    s.lenPx += hd;
-  } else if (s.path.length) {
-    s.path[0] = { x: nx, y: ny };
+  if (!head) { s.path = [{ x: nx, y: ny }]; s.lenPx = 0; }
+  else {
+    const hd = Math.hypot(nx - head.x, ny - head.y);
+    if (hd >= 0.01) {
+      /* 頭の軌跡は進んだ分を補間して必ず点列に残す。以前は「PATH_STEP未満なら
+         先頭を上書き」していたため、60fps（1ステップ2.8px）では先頭だけが進み
+         2番目の点が置き去りになって、体の前半が1本の長い直線区間になっていた。
+         それが「蛇が直線に見える」主因で、首元の判定除外もその全区間に及んでいた。
+         点列が密になれば、うねりも線分判定も体の全長に正しく効く。 */
+      const n = Math.max(1, Math.round(hd / PATH_STEP));
+      for (let i = 1; i <= n; i++) {
+        const t = i / n;
+        s.path.unshift({ x: head.x + (nx - head.x) * t, y: head.y + (ny - head.y) * t });
+      }
+      s.lenPx += hd;
+    }
   }
   if (boosting) {
     s.mass = Math.max(START_MASS, s.mass - BOOST_DRAIN * dt);
@@ -855,41 +895,60 @@ function drawMinimap(w) {
   ctx.restore();
 }
 
-/* ═══════════════ 入力 ═══════════════ */
-const pointer = { x: 0, y: 0, seen: false, touchDown: false };
+/* ═══════════════ 入力（フローティングスティック） ═══════════════
+   まじょねこサバイバーズの仮想スティックと同じ方式：画面のどこを触っても
+   その場所がスティックの基点になり、ドラッグした方向へヘビが進む。
+   マウスもドラッグで同じ操作。スティックを離している間は今の向きで直進する。
+   基点・最大半径(46px)・ノブの見た目は survivors に揃えた。 */
+const STICK_MAX = 46;        /* スティックの最大ドラッグ半径(px) */
+const STICK_DEAD = 0.15;     /* 角度として読む最小の倒し量（正規化 0..1） */
+const joy = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+const stickBase = $('stickBase'), stickKnob = $('stickKnob');
 let keyBoost = false, btnBoost = false, keyAng = null;
+function stickPlaying() {
+  return (mode === 'solo' || mode === 'host' || mode === 'guest') && !paused && !!playerSnake && playerSnake.alive;
+}
+function stickStart(x, y, id) {
+  joy.active = true; joy.id = id; joy.ox = x; joy.oy = y; joy.dx = 0; joy.dy = 0;
+  stickBase.style.left = x + 'px'; stickBase.style.top = y + 'px'; stickBase.style.display = 'block';
+  stickKnob.style.left = x + 'px'; stickKnob.style.top = y + 'px'; stickKnob.style.display = 'block';
+}
+function stickMove(x, y) {
+  let dx = x - joy.ox, dy = y - joy.oy;
+  const d = Math.hypot(dx, dy);
+  if (d > STICK_MAX) { dx = dx / d * STICK_MAX; dy = dy / d * STICK_MAX; }
+  joy.dx = dx / STICK_MAX; joy.dy = dy / STICK_MAX;
+  stickKnob.style.left = (joy.ox + dx) + 'px'; stickKnob.style.top = (joy.oy + dy) + 'px';
+}
+function stickEnd() {
+  if (!joy.active) return;
+  joy.active = false; joy.id = null; joy.dx = 0; joy.dy = 0;
+  stickBase.style.display = 'none'; stickKnob.style.display = 'none';
+}
 function localTargetAngle() {
   if (keyAng !== null) return keyAng;
-  if (!pointer.seen || !playerSnake) return playerSnake ? playerSnake.ang : 0;
-  /* 方向は「画面中心」ではなく「自分の頭の画面上の位置」から測る。
-     カメラは追随に遅れが出るため、中心基準だと頭が中心からずれた分だけ
-     指した方向と進む方向が食い違い、もっさり・曖昧な操作感になっていた。
-     頭基準ならカメラの遅れに引きずられず、指の方向へ正確に向く。
-     デッドゾーンも頭の周りに取るので、指を頭の上に置いても暴れない。 */
-  const hx = viewW / 2 + (playerSnake.x - cam.x) * cam.zoom;
-  const hy = viewH / 2 + (playerSnake.y - cam.y) * cam.zoom;
-  const dx = pointer.x - hx, dy = pointer.y - hy;
-  if (dx * dx + dy * dy < 26 * 26) return playerSnake.ang;
-  return Math.atan2(dy, dx);
+  if (!playerSnake) return 0;
+  /* デッドゾーン未満の倒しでは向きを変えない（指を置いただけで暴れない） */
+  if (joy.active && Math.hypot(joy.dx, joy.dy) >= STICK_DEAD) return Math.atan2(joy.dy, joy.dx);
+  return playerSnake.ang;
 }
-function localBoost() { return keyBoost || btnBoost || mouseBoost; }
-let mouseBoost = false;
-window.addEventListener('pointermove', e => {
-  pointer.x = e.clientX; pointer.y = e.clientY; pointer.seen = true;
-  if (e.pointerType !== 'mouse') keyAng = null;
-  if (e.pointerType === 'mouse') keyAng = null;
-});
+function localBoost() { return keyBoost || btnBoost; }
 window.addEventListener('pointerdown', e => {
   initAudio();
   if (e.target && (e.target.id === 'boostBtn' || e.target.id === 'pauseBtn')) return;
-  if (e.target && e.target.closest && e.target.closest('.scr')) return;
-  pointer.x = e.clientX; pointer.y = e.clientY; pointer.seen = true; keyAng = null;
-  if (e.pointerType === 'mouse') mouseBoost = true; else pointer.touchDown = true;
+  if (e.target && e.target.closest && (e.target.closest('.scr') || e.target.closest('#pwHeader') || e.target.closest('#pwDrawerWrap'))) return;
+  if (joy.active || !stickPlaying()) return;
+  keyAng = null;
+  stickStart(e.clientX, e.clientY, e.pointerId);
 });
-window.addEventListener('pointerup', e => {
-  if (e.pointerType === 'mouse') mouseBoost = false; else pointer.touchDown = false;
+window.addEventListener('pointermove', e => {
+  if (!joy.active || e.pointerId !== joy.id) return;
+  keyAng = null;
+  stickMove(e.clientX, e.clientY);
 });
-window.addEventListener('pointercancel', () => { mouseBoost = false; pointer.touchDown = false; });
+const stickRelease = e => { if (joy.active && e.pointerId === joy.id) stickEnd(); };
+window.addEventListener('pointerup', stickRelease);
+window.addEventListener('pointercancel', stickRelease);
 window.addEventListener('keydown', e => {
   const k = e.key;
   if (k === ' ' || k === 'Shift') { keyBoost = true; initAudio(); e.preventDefault(); }
@@ -1004,6 +1063,7 @@ function respawnLocal() {
 }
 function quitToTitle() {
   netHook('onQuitToTitle');
+  stickEnd();
   mode = 'title'; paused = false;
   startDemoWorld();
   showScr('titleScr');
@@ -1025,6 +1085,7 @@ function togglePause() {
 let lastT = performance.now(), hudT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (joy.active && !stickPlaying()) stickEnd();   /* 死亡・ポーズ・画面遷移でスティックを残さない */
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > 0.06) dt = 0.06;
   if (!paused) {
@@ -1091,6 +1152,7 @@ window.__snake = {
   mkSnake, spawnNPC, stepWorld, killSnake, rankingOf, rankOf, radiusFor, pathLenFor,
   moveSnake, eatOrbs, buildBodyGrid, buildOrbGrid, aiThink, checkCollisions,
   buildSegmentGrid, segSegDist, ptSegDist, computeSamples,
+  joy, localTargetAngle, stickStart, stickMove, stickEnd,
   setPlayer: s => { playerSnake = s; }, setGuestView: g => { guestView = g; },
   setMode: m => { mode = m; },
   WORLD_R, NPC_TARGET, START_MASS, AMBIENT_ORBS, ORB_CAP,

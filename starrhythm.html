@@ -51,6 +51,10 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 #diffSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:8px}
 #diffSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:8px 4px;border-radius:999px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:40px}
 #diffSeg button.on{background:linear-gradient(92deg,var(--gold),#ff9d5c);color:#2a1500;box-shadow:0 2px 10px rgba(255,201,60,.4)}
+#speedSeg{display:flex;align-items:center;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:8px}
+#speedSeg .segLbl{font-size:11px;color:var(--sub);font-weight:800;padding:0 4px 0 9px;white-space:nowrap}
+#speedSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:6px 2px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:34px}
+#speedSeg button.on{background:linear-gradient(92deg,var(--cyan),#2563eb);color:#fff;box-shadow:0 2px 10px rgba(63,214,255,.4)}
 #hud{display:flex;flex-direction:column;gap:5px}
 .hudRow{display:flex;align-items:baseline;gap:12px}
 #hudScore{font-size:22px;font-weight:900;letter-spacing:.03em;text-shadow:0 2px 12px rgba(124,92,255,.55)}
@@ -93,6 +97,7 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 .iconBtn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--txt);border-radius:12px;min-width:48px;min-height:44px;font-size:19px;cursor:pointer;font-family:inherit}
 #quitBtn{flex:1}
 .wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane{display:none!important}
+.wrap.playing #footHelp{display:none} /* 演奏中はフッター説明を隠してステージを広く使う（特に低丈画面） */
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
 </style>
 <style>
@@ -108,10 +113,11 @@ html,body{overscroll-behavior:none;}
 <div id="songArea">
 <div class="songList" id="songList"></div>
 <div id="diffSeg"><button data-d="easy">かんたん</button><button data-d="normal" class="on">ふつう</button><button data-d="hard">むずかしい</button></div>
+<div id="speedSeg"><span class="segLbl">落下速度</span><button data-s="0.8">×0.8</button><button data-s="1" class="on">×1.0</button><button data-s="1.25">×1.25</button><button data-s="1.5">×1.5</button><button data-s="2">×2.0</button></div>
 </div>
 <div id="soloPane">
 <button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
-<p class="help" style="margin-top:8px">ノーツが下の判定ラインに重なる瞬間にレーンをタップ！<b style="color:#ffd94d">ロング</b>は押しっぱなし、<b style="color:#3fd6ff">フリック</b>は矢印の向きにシュッと弾こう。キーは D F J K（レーン）／ 矢印キー（フリック）。</p>
+<p class="help" style="margin-top:8px">ノーツが下の<b style="color:#fff">パッド（判定ゾーン）</b>に届く瞬間にパッドをタップ！<b style="color:#ffd94d">ロング</b>は最後の瞬間にピタッと離す、<b style="color:#ffb300">フリック</b>は矢印の向きにシュッと弾こう。落下速度は上のボタンで変えられるよ。キーは D F J K（レーン）／ 矢印キー（フリック）。</p>
 </div>
 <div id="onlinePane" class="hidden"><div class="card">
 <div class="netBtns"><button id="hostBtn" class="btn">部屋を作る</button></div>
@@ -130,7 +136,7 @@ html,body{overscroll-behavior:none;}
 </div>
 <div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
-<p class="help">曲はすべて WebAudio 合成のオリジナル曲です。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
+<p class="help" id="footHelp">曲はすべて WebAudio 合成のオリジナル曲です。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
 </div>
 <script>
 /*__SR_MAIN__*/
@@ -148,6 +154,7 @@ function lerp(a, b, k) { return a + (b - a) * k; }
 
 var LANE_COLORS = ['#ff5d8f', '#3fd6ff', '#ffd94d', '#9d6bff'];
 var LANE_KEYS = ['d', 'f', 'j', 'k'];
+var FLICK_COL = '#ffb300'; /* フリック専用色（鮮やかな黄〜オレンジ系。レーン色と明確に区別する） */
 
 /* ---------------- 曲データ ----------------
    mel は 1フレーズ=4小節×16ステップ=64文字。'.'=休符、'1'〜'9'=スケールの度数。
@@ -471,11 +478,28 @@ function laneAtPoint(x, y) {
   var l = Math.floor((x - left) / (hw * 2 / 4));
   return clamp(l, 0, 3);
 }
-function noteY(t) {
-  var ap = DIFFS[selDiff].approach;
-  var p = 1 - (t - songTime) / ap;
-  return lerp(-34, judgeY(), p);
+/* 落下速度設定（starrhythm_speed に保存。譜面タイミング・判定は変えず、
+   ノーツが見えている時間＝アプローチ時間だけが変わる。マルチでは各自の設定で表示） */
+var SPEED_KEY = 'starrhythm_speed';
+var SPEEDS = [0.8, 1, 1.25, 1.5, 2];
+var speedMul = 1;
+try { var sv0 = parseFloat(localStorage.getItem(SPEED_KEY)); if (SPEEDS.indexOf(sv0) >= 0) speedMul = sv0; } catch (e) {}
+function approachSec() { return DIFFS[selDiff].approach / speedMul; }
+function setSpeed(v) {
+  if (SPEEDS.indexOf(v) < 0) return;
+  speedMul = v;
+  try { localStorage.setItem(SPEED_KEY, String(v)); } catch (e) {}
+  document.querySelectorAll('#speedSeg button').forEach(function (x) { x.classList.toggle('on', parseFloat(x.dataset.s) === v); });
 }
+/* 遠近感のある落下：奥（上部）では小さく・ゆっくり、手前（判定ライン）で大きく・速く。
+   透視投影的な補間（等速の奥行き移動を画面へ投影した形）にする。
+   判定は時刻ベースのままなので、タイミング自体は変わらない。 */
+var NOTE_TOP = -34, PERSP = 1.6;
+function depthK(t) {
+  var q = 1 - (t - songTime) / approachSec(); /* 画面進行度：0=出現位置（奥） → 1=判定ライン */
+  return Math.pow(clamp(q, 0, 1.15), PERSP);
+}
+function noteY(t) { return lerp(NOTE_TOP, judgeY(), depthK(t)); }
 
 /* 曲選択UI */
 function renderSongList() {
@@ -498,6 +522,10 @@ document.querySelectorAll('#diffSeg button').forEach(function (b) {
     document.querySelectorAll('#diffSeg button').forEach(function (x) { x.classList.remove('on'); });
     b.classList.add('on'); selDiff = b.dataset.d; renderSongList();
   });
+});
+document.querySelectorAll('#speedSeg button').forEach(function (b) {
+  b.classList.toggle('on', parseFloat(b.dataset.s) === speedMul);
+  b.addEventListener('click', function () { ensureAudio(); setSpeed(parseFloat(b.dataset.s)); blip(); });
 });
 document.querySelectorAll('#modeSeg button').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -671,7 +699,29 @@ function pressLane(lane) {
   if (nt.type === 'tap') { nt.state = 'done'; applyJudge(nt, res); }
   else { nt.state = 'holding'; nt.headRes = res; nt.unheld = 0; spawnSparks(lane, res); }
 }
-function releaseLane(lane) { /* ロングの離し検出は updateLongs 側で heldLane を見て行う */ }
+function worseJudge(a, b) { return JUDGE_FACTOR[a] <= JUDGE_FACTOR[b] ? a : b; }
+/* ロング終端のリリース判定：終端のタイミングで離すのが正解。
+   窓（タップ判定窓と同じ幅）の中で離せば、頭の判定と離し判定の悪い方で確定。
+   窓より前なら何もしない（猶予内の再押下で継続、超えたら updateLongs が切断）。
+   窓を過ぎていれば終端MISS。 */
+function releaseLane(lane) {
+  if (!playing) return;
+  if (heldLane[lane] > 0) return; /* まだ他の指/キーがそのレーンを押している */
+  var J = DIFFS[selDiff].judge;
+  for (var i = 0; i < chart.length; i++) {
+    var nt = chart[i];
+    if (nt.type !== 'long' || nt.state !== 'holding' || nt.lane !== lane) continue;
+    var tailT = nt.t + nt.lenSec;
+    if (songTime >= tailT - J.good && songTime <= tailT + J.good) {
+      var rel = judgeFor(songTime - tailT, selDiff) || 'GOOD';
+      nt.state = 'done';
+      applyJudge(nt, worseJudge(nt.headRes || 'GOOD', rel));
+    } else if (songTime > tailT + J.good) {
+      nt.state = 'broken';
+      applyJudge(nt, 'MISS');
+    }
+  }
+}
 function flickAttempt(dir, prefLane) {
   if (!playing || songTime < 0) return;
   var J = DIFFS[selDiff].judge;
@@ -702,12 +752,14 @@ function sweepMiss() {
 }
 function updateLongs(dtF) {
   if (!playing) return;
+  var J = DIFFS[selDiff].judge;
   for (var i = 0; i < chart.length; i++) {
     var nt = chart[i];
     if (nt.type !== 'long') continue;
     if (nt.state === 'holding') {
       var tailT = nt.t + nt.lenSec;
-      if (songTime >= tailT) { nt.state = 'done'; applyJudge(nt, nt.headRes || 'GOOD'); continue; }
+      /* 終端を過ぎても押し続けていると終端MISS（離すタイミングも判定する） */
+      if (songTime >= tailT + J.good) { nt.state = 'broken'; applyJudge(nt, 'MISS'); continue; }
       if (heldLane[nt.lane] > 0) {
         nt.unheld = 0;
         if (Math.random() < 0.5) { /* 保持中は判定ラインから火花 */
@@ -734,7 +786,7 @@ stageWrap.addEventListener('pointerdown', function (e) {
   e.preventDefault();
   var r = stageWrap.getBoundingClientRect();
   var x = e.clientX - r.left, y = e.clientY - r.top;
-  var lane = laneAtPoint(x, y);
+  var lane = laneFromX(x); /* レーンはパッド（判定ゾーン）の並びで決める */
   pointers[e.pointerId] = { lane: lane, x0: x, y0: y, flickDone: false };
   heldLane[lane]++;
   pressLane(lane);
@@ -989,12 +1041,12 @@ function drawField(t) {
   }
   /* 横の流れ線（スピード感） */
   if (playing && songTime >= 0) {
-    var ap = DIFFS[selDiff].approach;
+    var ap = approachSec();
     var seg = ap / 3;
     ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 1.2;
     for (var sIdx = 0; sIdx < 3; sIdx++) {
       var tt = Math.ceil(songTime / seg) * seg + sIdx * seg;
-      var yy = lerp(-34, jy, 1 - (tt - songTime) / ap);
+      var yy = noteY(tt);
       if (yy < topY || yy > jy) continue;
       var hw = halfWAt(yy);
       ctx.beginPath(); ctx.moveTo(cx - hw, yy); ctx.lineTo(cx + hw, yy); ctx.stroke();
@@ -1029,7 +1081,7 @@ function hexA(hex, a) {
 function drawNotes(t) {
   if (!playing && !chart.length) return;
   var jy = judgeY();
-  var ap = DIFFS[selDiff].approach;
+  var ap = approachSec();
   var i, nt, y;
   /* 同時押しの連結線 */
   ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3;
@@ -1084,13 +1136,45 @@ function drawNotes(t) {
     }
   }
 }
+/* ノーツの描画パラメータ（遠近スケール込み）。テストからも参照する単一の出所 */
+function noteVisual(nt, y) {
+  var yy = clamp(y, 0, judgeY());
+  var depth = clamp((y - NOTE_TOP) / Math.max(1, judgeY() - NOTE_TOP), 0, 1);
+  var scale = lerp(0.62, 1.05, depth); /* 奥では小さく、手前で大きく */
+  var isF = nt.type === 'flick';
+  if (isF) scale *= 1.3; /* フリックは一回り大きく */
+  return {
+    x: laneCenterX(nt.lane, yy), y: y, scale: scale, flick: isF,
+    w: laneWidthAt(yy) * 0.88 * scale,
+    h: 25 * scale * (isF ? 1.18 : 1),
+    color: isF ? FLICK_COL : LANE_COLORS[nt.lane]
+  };
+}
 function drawNote(nt, y, t) {
-  var scale = clamp(0.8 + 0.28 * ((y + 34) / Math.max(1, judgeY() + 34)), 0.8, 1.1);
-  var w = laneWidthAt(clamp(y, 0, judgeY())) * 0.88 * scale;
-  var h = 25 * scale;
-  var x = laneCenterX(nt.lane, clamp(y, 0, judgeY()));
-  var col = LANE_COLORS[nt.lane];
+  var v = noteVisual(nt, y);
+  var w = v.w, h = v.h, x = v.x;
+  var col = v.color;
   ctx.save();
+  if (v.flick) {
+    /* フリック：黄〜オレンジ＋強いグロー＋点滅リングで、タップ/ロングと一目で区別する */
+    var pulse = 0.72 + 0.28 * Math.sin(t * 10);
+    ctx.fillStyle = 'rgba(255,179,0,' + (0.50 * pulse) + ')';
+    roundRectPath(x - w / 2 - 9, y - h / 2 - 9, w + 18, h + 18, (h + 18) / 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,220,80,.55)';
+    roundRectPath(x - w / 2 - 4.5, y - h / 2 - 4.5, w + 9, h + 9, (h + 9) / 2); ctx.fill();
+    var fg = ctx.createLinearGradient(0, y - h / 2, 0, y + h / 2);
+    fg.addColorStop(0, '#fff6cf'); fg.addColorStop(0.35, '#ffd23f'); fg.addColorStop(1, '#ff8a00');
+    ctx.fillStyle = fg;
+    roundRectPath(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+    ctx.lineWidth = 2.8; ctx.strokeStyle = '#ffffff';
+    roundRectPath(x - w / 2, y - h / 2, w, h, h / 2); ctx.stroke();
+    ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(255,255,255,' + (0.45 + 0.55 * pulse) + ')';
+    var rp = 7 + 2 * pulse;
+    roundRectPath(x - w / 2 - rp, y - h / 2 - rp, w + rp * 2, h + rp * 2, (h + rp * 2) / 2); ctx.stroke();
+    drawFlickArrow(x, y, nt.dir, t, 1.75);
+    ctx.restore();
+    return;
+  }
   /* グロー */
   ctx.fillStyle = hexA(col, 0.4);
   roundRectPath(x - w / 2 - 4, y - h / 2 - 4, w + 8, h + 8, (h + 8) / 2); ctx.fill();
@@ -1106,21 +1190,30 @@ function drawNote(nt, y, t) {
   /* 中央の芯 */
   ctx.fillStyle = 'rgba(255,255,255,.85)';
   roundRectPath(x - w * 0.3, y - 3, w * 0.6, 6, 3); ctx.fill();
-  if (nt.type === 'flick') drawFlickArrow(x, y, nt.dir, t);
   ctx.restore();
 }
 function drawNoteCap(nt, y) {
   var w = laneWidthAt(clamp(y, 0, judgeY())) * 0.6;
   var x = laneCenterX(nt.lane, clamp(y, 0, judgeY()));
+  /* 終端が近づいたら大きく白く脈動して「ここで離す」の合図にする */
+  var dtTail = (nt.t + nt.lenSec) - songTime;
+  var near = playing ? clamp(1 - Math.abs(dtTail) / 0.6, 0, 1) : 0;
+  var sc = 1 + 0.38 * near * (0.72 + 0.28 * Math.sin(performance.now() / 55));
   ctx.save();
-  ctx.fillStyle = hexA(LANE_COLORS[nt.lane], 0.9);
-  roundRectPath(x - w / 2, y - 6, w, 12, 6); ctx.fill();
+  ctx.translate(x, y); ctx.scale(sc, sc);
+  if (near > 0.03) {
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.35 * near) + ')';
+    roundRectPath(-w / 2 - 5, -11, w + 10, 22, 11); ctx.fill();
+  }
+  ctx.fillStyle = near > 0.45 ? '#ffffff' : hexA(LANE_COLORS[nt.lane], 0.9);
+  roundRectPath(-w / 2, -6, w, 12, 6); ctx.fill();
   ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,.9)';
-  roundRectPath(x - w / 2, y - 6, w, 12, 6); ctx.stroke();
+  roundRectPath(-w / 2, -6, w, 12, 6); ctx.stroke();
   ctx.restore();
 }
-function drawFlickArrow(x, y, dir, t) {
-  var off = 3 + 2.2 * Math.sin(t * 9);
+function drawFlickArrow(x, y, dir, t, s) {
+  s = s || 1;
+  var off = (3 + 2.2 * Math.sin(t * 9)) * s;
   ctx.save();
   ctx.translate(x, y);
   if (dir === 'right') ctx.rotate(0);
@@ -1128,33 +1221,48 @@ function drawFlickArrow(x, y, dir, t) {
   else if (dir === 'left') ctx.rotate(Math.PI);
   else ctx.rotate(-Math.PI / 2);
   ctx.translate(off, 0);
-  ctx.fillStyle = '#fff';
-  ctx.strokeStyle = 'rgba(20,10,50,.55)'; ctx.lineWidth = 3;
+  ctx.scale(s, s);
+  /* 黄色い本体の上で映える濃色の太い矢印 */
+  ctx.fillStyle = '#2a1500';
+  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2.4;
   ctx.beginPath();
   ctx.moveTo(-7, -8); ctx.lineTo(5, 0); ctx.lineTo(-7, 8); ctx.lineTo(-7, 3.4); ctx.lineTo(-13, 3.4); ctx.lineTo(-13, -3.4); ctx.lineTo(-7, -3.4);
   ctx.closePath();
   ctx.stroke(); ctx.fill();
   ctx.restore();
 }
+/* 判定ゾーン＝画面下部のパッド。ここが入力の主役（ボタンとして大きく描く） */
+function padRect(lane) {
+  var top = judgeY() + 10;
+  var w = laneWidthAt(judgeY()) * 0.92;
+  var cx = laneCenterX(lane, judgeY());
+  return { x: cx - w / 2, y: top, w: w, h: Math.max(0, CH - 6 - top), cx: cx };
+}
+/* X座標→レーンは常にパッド（判定ライン）の並びで決める。押した場所とレーンが一致して直感的 */
+function laneFromX(x) {
+  var hw = halfWAt(judgeY());
+  return clamp(Math.floor((x - (CW / 2 - hw)) / (hw * 2 / 4)), 0, 3);
+}
 function drawPads() {
-  var jy = judgeY();
-  var padY = jy + 16, padH = CH - padY - 8;
-  if (padH < 24) return;
   for (var l = 0; l < 4; l++) {
-    var w = laneWidthAt(jy) * 0.88;
-    var x = laneCenterX(l, jy);
+    var r = padRect(l);
+    if (r.h < 20) return;
     var held = heldLane[l] > 0;
     ctx.save();
-    var g = ctx.createLinearGradient(0, padY, 0, padY + padH);
-    if (held || laneFlash[l] > 0.3) { g.addColorStop(0, hexA(LANE_COLORS[l], 0.75)); g.addColorStop(1, hexA(LANE_COLORS[l], 0.35)); }
-    else { g.addColorStop(0, 'rgba(255,255,255,.13)'); g.addColorStop(1, 'rgba(255,255,255,.05)'); }
+    ctx.translate(0, held ? 2 : 0); /* 押した瞬間に沈む */
+    var g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
+    if (held || laneFlash[l] > 0.3) { g.addColorStop(0, hexA(LANE_COLORS[l], 0.85)); g.addColorStop(1, hexA(LANE_COLORS[l], 0.40)); }
+    else { g.addColorStop(0, hexA(LANE_COLORS[l], 0.30)); g.addColorStop(1, hexA(LANE_COLORS[l], 0.12)); }
     ctx.fillStyle = g;
-    roundRectPath(x - w / 2, padY, w, padH, 12); ctx.fill();
-    ctx.lineWidth = 1.4; ctx.strokeStyle = hexA(LANE_COLORS[l], held ? 0.95 : 0.4);
-    roundRectPath(x - w / 2, padY, w, padH, 12); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
-    ctx.font = '900 13px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(LANE_KEYS[l].toUpperCase(), x, padY + padH / 2 + 5);
+    roundRectPath(r.x, r.y, r.w, r.h, 14); ctx.fill();
+    ctx.lineWidth = held ? 2.6 : 1.8; ctx.strokeStyle = hexA(LANE_COLORS[l], held ? 1 : 0.65);
+    roundRectPath(r.x, r.y, r.w, r.h, 14); ctx.stroke();
+    /* 上端ハイライトでボタンの立体感 */
+    ctx.fillStyle = 'rgba(255,255,255,' + (held ? 0.10 : 0.22) + ')';
+    roundRectPath(r.x + 3, r.y + 3, r.w - 6, 7, 3.5); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.font = '900 17px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(LANE_KEYS[l].toUpperCase(), r.cx, r.y + r.h / 2 + 6);
     ctx.restore();
   }
 }
@@ -1455,7 +1563,17 @@ window.__sr = {
     }
     return out;
   },
-  finishNow: function () { if (playing) { finishSong(); } }
+  finishNow: function () { if (playing) { finishSong(); } },
+  flickColor: FLICK_COL,
+  noteVisual: function (nt) { return noteVisual(nt, noteY(nt.t)); },
+  noteYAt: function (t) { return noteY(t); },
+  judgeYAt: function () { return judgeY(); },
+  padRect: function (lane) { return padRect(lane); },
+  laneFromX: function (x) { return laneFromX(x); },
+  noteState: function (i) { return chart[i] ? chart[i].state : null; },
+  getSpeed: function () { return speedMul; },
+  setSpeed: function (v) { setSpeed(v); },
+  approachSec: function () { return approachSec(); }
 };
 })();
 </script>
