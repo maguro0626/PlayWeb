@@ -634,6 +634,7 @@ let reconnecting = false;
 let pendingGarbage = 0;      /* 受け取り待ちのおじゃま行数 */
 let oppGrid = null, oppScore = 0, oppLines = 0;
 let connTimer = null, heartbeatTimer = null, guestRetryTimer = null;
+let hostDcTimer = null;      /* ホスト側: ゲスト切断から再接続を待つ上限 */
 oppGrid = emptyGrid();
 
 function peerAvailable(){ return typeof window.Peer !== 'undefined'; }
@@ -771,6 +772,7 @@ function handleOnlineData(msg){
     if(!isHost) return;
     const wasReconnect = battleStarted;
     reconnecting = false; netFrozen = false; hideNetBanner();
+    clearTimeout(hostDcTimer);
     setOnlineStatus(wasReconnect
       ? '再接続しました。対戦を最初からやり直します。'
       : '相手が参加しました！対戦開始！');
@@ -823,6 +825,17 @@ function onVsDisconnected(){
     stopDAS(); keys.down = false;
     showNetBanner('接続が切れました。再接続を試みています…（対戦は一時停止中。再接続できたら対戦を最初からやり直します）');
     if(!isHost) scheduleGuestReconnect();
+    else {
+      /* ホスト側にも上限を設ける: 60秒戻らなければ相手の退出として決着させる
+         （従来は無期限に固まったままだった） */
+      clearTimeout(hostDcTimer);
+      hostDcTimer = setTimeout(() => {
+        if(reconnecting && battleStarted && !vsFinished){
+          reconnecting = false; netFrozen = false; hideNetBanner();
+          vsWin('相手が退出しました');
+        }
+      }, 60000);
+    }
     return;
   }
   if(conn) setOnlineStatus('<span class="err">相手との接続が切れました。</span>');
@@ -873,6 +886,7 @@ function teardownVs(){
   reconnecting = false; netFrozen = false;
   stopHeartbeat();
   clearTimeout(guestRetryTimer);
+  clearTimeout(hostDcTimer);
   disarmConnTimer();
   try{ if(conn) conn.close(); }catch(e){}
   try{ if(peer) peer.destroy(); }catch(e){}

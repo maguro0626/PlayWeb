@@ -550,8 +550,14 @@
     /* ログイン時は Firestore 招待を優先（相手がオフラインでも次に開いた時に届く）。
        相手のアカウントが実在しない場合だけ従来の PeerJS 送信にフォールバックする。 */
     if (cloudActive() && window.PWAccount.sendInviteCloud) {
-      window.PWAccount.sendInviteCloud({ toUid: code, game: game, room: room }).then(function (ok) {
-        if (!ok && !sendRaw(code, { t: 'invite', game: game, room: room, from: myName() })) {
+      window.PWAccount.sendInviteCloud({ toUid: code, game: game, room: room }).then(function (res) {
+        if (res) {
+          /* ドキュメントIDが返ってきたら保持し、ピッカーから取り消せるようにする */
+          if (typeof res === 'string') {
+            sentCloudInvites[code] = res;
+            if (pickerOpen) { htmlCache.picker = null; renderPickerList(); }
+          }
+        } else if (!sendRaw(code, { t: 'invite', game: game, room: room, from: myName() })) {
           toast('招待を送れませんでした（相手との接続が切れています）', 'info');
         }
       }).catch(function () {});
@@ -609,12 +615,14 @@
         renderAll();
       },
       clearPresence: function () { cloudPresence = {}; renderAll(); },
-      /* クラウドから届いた招待（PeerJS 招待と同じ見た目・導線に合流させる） */
+      /* クラウドから届いた招待（PeerJS 招待と同じ見た目・導線に合流させる）。
+         戻り値: 受け付けた（表示済み・重複含む）ら true、不正な招待は false。
+         account.js は false の間は delivered にせず再配送を試みる */
       receiveInvite: function (inv) {
-        if (!inv || !GAMES[inv.game] || !ROOM_RE.test(inv.room || '')) return;
+        if (!inv || !GAMES[inv.game] || !ROOM_RE.test(inv.room || '')) return false;
         for (var i = 0; i < state.invites.length; i++) {
           var o = state.invites[i];
-          if (o.from === inv.from && o.game === inv.game && o.room === inv.room) return; /* 重複 */
+          if (o.from === inv.from && o.game === inv.game && o.room === inv.room) return true; /* 重複（表示済み） */
         }
         var entry = {
           from: inv.from, name: inv.name || displayName(inv.from), game: inv.game,
@@ -624,6 +632,7 @@
         state.invites = state.invites.slice(0, 5);
         showInviteToast(entry);
         renderAll();
+        return true;
       },
       /* フレンド一覧をクラウド同期結果で置き換える */
       setFriends: function (list) {
@@ -674,6 +683,9 @@
   var pickerOpen = false;
   var pickerInvited = {}; /* code -> 招待した時刻(ms)。「招待済み」表示は相手が参加するか
                              試合が終われば解除され、最大でも INVITED_TTL で失効する（再戦はいつでも可能） */
+  var sentCloudInvites = {}; /* code -> クラウド招待のドキュメントID（取り消し用）。
+                                PeerJS で送った招待はメッセージ自体を取り消せないため、
+                                取消ボタンを出すのはクラウド招待の時だけ */
   var INVITED_TTL = 90000;
   function invitedActive(code) {
     var ts = pickerInvited[code];
@@ -681,10 +693,28 @@
   }
   function markInvited(code) { pickerInvited[code] = Date.now(); }
   function clearInvited(code) {
-    if (code) delete pickerInvited[code];
-    else pickerInvited = {};
+    if (code) { delete pickerInvited[code]; delete sentCloudInvites[code]; }
+    else { pickerInvited = {}; sentCloudInvites = {}; }
     /* 開いたままのピッカーも即時更新する（閉じ忘れても「招待済み」で固まらない） */
     if (pickerOpen && els.pickerList) renderPickerList();
+  }
+  /* 送ったクラウド招待の取り消し: ドキュメントを削除し、「招待済み」表示も
+     解除して再招待できる状態に戻す。相手の画面に出ている分は相手側の
+     表示有効期限（10分）で自然に消える */
+  function withdrawInviteFlow(code, btn) {
+    var id = sentCloudInvites[code];
+    if (!id) { clearInvited(code); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '取り消し中…'; }
+    var done = function () {
+      delete sentCloudInvites[code];
+      clearInvited(code);
+      toast(displayName(code) + 'さんへの招待を取り消しました', 'info');
+      htmlCache.picker = null;
+      if (pickerOpen) renderPickerList();
+    };
+    if (window.PWAccount && window.PWAccount.withdrawInviteCloud) {
+      window.PWAccount.withdrawInviteCloud(id).then(done).catch(done);
+    } else done();
   }
   function buildPickerDom() {
     if (els.pickerOverlay) return;
@@ -753,12 +783,17 @@
         '<div class="pwf-fmeta"><div class="pwf-fname">' + esc(displayName(f.uid)) + '</div>' +
         '<div class="pwf-fstat' + (on ? ' on' : '') + '">' + esc(presenceText(f.uid)) + '</div></div>' +
         (invited
-          ? '<button class="pwf-btn" disabled>招待済み ✓</button>'
+          ? (sentCloudInvites[f.uid]
+              ? '<button class="pwf-btn" data-uninvite="' + f.uid + '">招待済み ✓（タップで取消）</button>'
+              : '<button class="pwf-btn" disabled>招待済み ✓</button>')
           : '<button class="pwf-btn pri" data-invite="' + f.uid + '"' + (canInvite ? '' : ' disabled') + '>' + (canInvite ? '招待する' : 'オフライン') + '</button>') +
         '</div>';
     }).join(''))) return; /* 内容が同じなら既存DOM・リスナーを維持 */
     els.pickerList.querySelectorAll('[data-invite]').forEach(function (btn) {
       btn.onclick = function () { inviteFriendFlow(btn.getAttribute('data-invite'), btn); };
+    });
+    els.pickerList.querySelectorAll('[data-uninvite]').forEach(function (btn) {
+      btn.onclick = function () { withdrawInviteFlow(btn.getAttribute('data-uninvite'), btn); };
     });
   }
   function inviteFriendFlow(code, btn) {
@@ -1187,6 +1222,24 @@
     if (Date.now() - (inv.ts || 0) > 25000) return; /* 古い招待は出さない */
     showInviteToastNow(inv);
   }
+  /* 届いた招待の表示有効期限。部屋は長くても数分で閉じられることが多く、
+     古い招待が一覧とバッジに残り続けると、押しても参加できない部屋へ
+     誘導してしまう。期限切れの招待は一覧から静かに落とす（クラウド側
+     ドキュメント自体の TTL=24h は account.js の INVITE_TTL_MS が担う）。
+     テスト用に window.PW_INVITE_TTL_MS で差し替え可能 */
+  function inviteDisplayTtlMs() {
+    return (typeof window.PW_INVITE_TTL_MS === 'number' && window.PW_INVITE_TTL_MS > 0)
+      ? window.PW_INVITE_TTL_MS : 600000;
+  }
+  function pruneInvites() {
+    if (!state.invites.length) return false;
+    var now = Date.now();
+    var kept = state.invites.filter(function (inv) { return now - (inv.ts || 0) < inviteDisplayTtlMs(); });
+    if (kept.length === state.invites.length) return false;
+    state.invites = kept;
+    return true;
+  }
+  setInterval(function () { if (pruneInvites()) renderAll(); }, 30000);
 
   /* スタイルとトースト置き場だけはゲート状態によらず用意する
      （ゲスト時の「ログインが必要です」案内にもトーストを使うため） */
@@ -1328,6 +1381,7 @@
   function updateBadge() {
     var b = document.getElementById('pwTabBadge');
     if (!b) return;
+    pruneInvites();
     var n = state.invites.length + friendReqList.length;
     b.style.display = n > 0 ? 'flex' : 'none';
     b.textContent = n > 99 ? '99+' : String(n);
@@ -1364,6 +1418,7 @@
   function renderInvites() {
     var box = $('pwfInvites');
     if (!box) return;
+    pruneInvites();
     if (!state.invites.length) { setHtmlCached(box, 'invites', ''); return; }
     if (!setHtmlCached(box, 'invites', '<div class="pwf-sec">届いている招待</div>' + state.invites.map(function (inv, i) {
       return '<div class="pwf-invite"><b>' + esc(inv.name) + '</b> さんから「' + esc(GAMES[inv.game].title) +

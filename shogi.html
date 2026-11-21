@@ -1597,6 +1597,21 @@ function hostPublishRematch(){
   PWMatch.publish(sgMatch.code,{state:serializeState(),turn:sgTurnUid(),lastAction:{t:'state'},round:sgRound,status:'playing',winner:null}).catch(()=>{});
 }
 function leaveOnline(manual){
+  /* 対局の途中で抜ける場合は、投了として相手へ通知しマッチを終局させる。
+     従来は無言で購読を外すだけで、相手は対局中表示のまま無期限に待ち続けていた
+     （投了ボタン経由の doResign と同じ通知を、モード切替・やめるボタン経由にも出す） */
+  if(mode==='online'&&onlinePhase==='playing'&&gameActive&&!gameResult&&sgMatch&&window.PWMatch){
+    PWMatch.sendMsg(sgMatch.code,{t:'resign'}).catch(()=>{});
+    if(sgMatch.data){
+      const d=sgMatch.data;
+      const oppUid=(sgUid()&&d.hostUid===sgUid())?d.guestUid:d.hostUid;
+      PWMatch.finish(sgMatch.code,oppUid||null).catch(()=>{});
+    }
+    if(!matchRecorded&&window.PWFriends&&PWFriends.recordMatch){
+      matchRecorded=true;
+      PWFriends.recordMatch('lose');
+    }
+  }
   detachShogiMatch();
   onlinePhase='idle';roomCode='';window.PW_ROOM_CODE='';
   if(mode==='online'){

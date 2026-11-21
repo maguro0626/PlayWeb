@@ -1027,6 +1027,27 @@ function endGame(){
   setTimeout(() => els.modal.classList.remove('hidden'), 700);
 }
 
+/* 相手の投了（対局途中の退出通知）で終局する */
+function endByResign(){
+  if (mode !== 'online' || gameOver) return;
+  gameOver = true;
+  onlineActive = false;
+  saveSolo();
+  const {b, w} = countDiscs(board);
+  if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('win');
+  if (window.PWMatch && fsMatch && fsMatch.data){
+    PWMatch.finish(fsMatch.code, fsUid() || null).catch(() => {});
+    window.PW_ROOM_CODE = '';
+    if (els.roomCodeText) els.roomCodeText.textContent = '';
+  }
+  render();
+  els.resultTitle.textContent = '相手が投了しました — あなたの勝ち！';
+  els.resultScore.textContent = `黒 ${b} — ${w} 白（あなた ${myColor === BLACK ? b : w} : 相手 ${myColor === BLACK ? w : b}）`;
+  els.resultRecord.textContent = 'オンライン対戦は通算成績に記録されません';
+  playWin();
+  setTimeout(() => els.modal.classList.remove('hidden'), 300);
+}
+
 function newGame(){
   gameSeq++;
   /* 対局開始のたびに保存済み成績を読み直し、ヘッダー表示へ反映する
@@ -1264,6 +1285,9 @@ function handleOnlineData(msg){
   else if (msg.t === 'rematch'){
     if (isHost) hostRematch('相手がもう一局を希望 — 新しい対局を開始しました');
   }
+  else if (msg.t === 'resign'){
+    endByResign();
+  }
 }
 
 /* ホストの再戦開始（round を進めて新しい局の state を配る） */
@@ -1456,6 +1480,18 @@ function tryResumeMatch(){
   }).catch(() => {});
 }
 function leaveOnline(){
+  /* 対局の途中で抜ける場合は、投了として相手へ通知しマッチを終局させる。
+     従来は無言で購読を外すだけで、相手は自分の手番でも相手の手番でも
+     対局中表示のまま無期限に待ち続けるしかなかった（将棋の投了通知と同型にする） */
+  if (mode === 'online' && onlineActive && !gameOver && fsMatch && window.PWMatch){
+    sendOnline({t: 'resign'});
+    if (fsMatch.data){
+      const d = fsMatch.data;
+      const oppUid = (fsUid() && d.hostUid === fsUid()) ? d.guestUid : d.hostUid;
+      PWMatch.finish(fsMatch.code, oppUid || null).catch(() => {});
+    }
+    if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('lose');
+  }
   teardownOnline();
   setOnlineStatus('オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを選ぶと、部屋を作って招待を送ります。参加は届いた招待からだけできます。');
   render();

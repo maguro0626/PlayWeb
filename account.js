@@ -97,7 +97,7 @@
      （ハートビートは30秒のまま。購読が即時化の本命で、間隔短縮は
      書き込み量と電池の無駄が大きい）。タブを隠す/閉じると即オフライン化。
      プロフィール: users/{uid} に iconId / iconColor / comment /
-     stats（ゲーム別戦績の集計）/ mainChar（リンクサーガの使用キャラ）を
+     stats（ゲーム別戦績の集計）/ mainChar（リンクドラムサーガの使用キャラ）を
      持たせ、ドロワーとフレンド一覧・プロフィール画面で表示する。
      フィードバック: feedback コレクションへ誰でも送信可（ゲストの
      不具合報告経路を塞がない）。管理者（ADMIN_UIDS）だけがドロワー内の
@@ -1433,18 +1433,24 @@
         }
         if (inv.status !== 'pending') return;
         if (seenInviteIds[d.id]) return;
-        seenInviteIds[d.id] = true;
         if (nowMs() - (inv.ts || 0) > INVITE_TTL_MS) {
+          seenInviteIds[d.id] = true;
           fb.db.doc('invites/' + d.id).set({ status: 'expired' }, { merge: true }).catch(function () {});
           return;
         }
         var api = pwf();
-        if (api && api._cloud) {
-          api._cloud.receiveInvite({
-            from: inv.fromUid, name: inv.fromName || '', game: inv.game,
-            room: inv.room, cloudId: d.id
-          });
+        if (!api || !api._cloud || typeof api._cloud.receiveInvite !== 'function') {
+          /* friends.js がまだ読み込まれていない: ここで delivered にして
+             しまうと招待が静かに消える。pending のまま残し、次回の
+             スナップショット（または次のセッション）で再配送する */
+          return;
         }
+        var accepted = api._cloud.receiveInvite({
+          from: inv.fromUid, name: inv.fromName || '', game: inv.game,
+          room: inv.room, cloudId: d.id
+        });
+        if (!accepted) return; /* 不正な招待（未知のゲーム等）は delivered にしない */
+        seenInviteIds[d.id] = true;
         fb.db.doc('invites/' + d.id).set({ status: 'delivered' }, { merge: true }).catch(function () {});
       });
       friendReqIn = newReqIn;
@@ -1460,7 +1466,7 @@
         toUid: opts.toUid,
         fromUid: me.uid, fromName: me.username,
         game: opts.game, room: opts.room, ts: nowMs(), status: 'pending'
-      }).then(function () { return true; });
+      }).then(function (ref) { return (ref && ref.id) ? ref.id : true; });
     }).catch(function () { return false; });
   }
   function consumeInvite(id) {
@@ -1470,6 +1476,15 @@
   function dismissInvite(id) {
     if (!fb || !id) return;
     fb.db.doc('invites/' + id).set({ status: 'dismissed' }, { merge: true }).catch(function () {});
+  }
+  /* 送信側の招待取り消し: 自分が送った招待ドキュメントを削除する
+     （ルール上、送信者も当事者として削除できる）。相手の画面に既に
+     表示されている分は、相手側の表示有効期限（friends.js 側で10分）
+     で自然に消える */
+  function withdrawInviteCloud(id) {
+    if (!fb || !id) return Promise.resolve(false);
+    return fb.db.doc('invites/' + id).delete()
+      .then(function () { return true; }).catch(function () { return false; });
   }
 
   /* ---------------- チャット（v55 で機能削除） ----------------
@@ -2043,7 +2058,8 @@
     reaction: 'はんしゃテスト', mash: 'れんだバトル', numguess: 'かずあて',
     janken: 'じゃんけんバトル', calc: 'けいさんダッシュ', memory: 'しんけいすいじゃく',
     mole: 'もぐらパニック', simon: 'いろメモリ', timing: 'タイミングストップ',
-    dice: 'ダイスレース'
+    dice: 'ダイスレース', taiko: 'リンクドラムサーガ', snake: 'スネークアリーナ',
+    starrhythm: 'スターリズム'
   };
   function pageTitle() {
     if (typeof window.PW_PAGE_TITLE === 'string' && window.PW_PAGE_TITLE) return window.PW_PAGE_TITLE;
@@ -2281,7 +2297,7 @@
         '<div class="pwa-user" style="margin:0">' + esc(me.username) + '</div>' +
         (myProfile.comment ? '<div class="pwa-prof-comment" style="margin-top:2px">' + esc(myProfile.comment) + '</div>' : '') +
         '</div></div>' +
-        (myChar ? '<div class="pwa-note">🎴 使用キャラ（スターリンクサーガ）: <b style="color:#fde68a">' + esc(myChar) + '</b></div>' : '') +
+        (myChar ? '<div class="pwa-note">🎴 使用キャラ（リンクドラムサーガ）: <b style="color:#fde68a">' + esc(myChar) + '</b></div>' : '') +
         '<button class="pwa-btn sub" id="pwaProfEditBtn" style="margin-top:8px">✏️ プロフィールを編集</button>' +
         '<div id="pwaProfEditor"></div>' +
         '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(myStats) +
@@ -2475,6 +2491,10 @@
     if (!input || !n) return;
     var name = input.value.trim();
     n.classList.remove('err');
+    /* 形式が違う名前は「見つかりませんでした」ではなく形式エラーを出す
+       （searchUser は形式不正も null を返すため、そのままだと誤解を招く） */
+    var v = validateUsername(name);
+    if (!v.ok) { n.textContent = v.error; n.classList.add('err'); return; }
     btn.disabled = true; n.textContent = '検索中…';
     renderSearchResult(null);
     searchUser(name).then(function (found) {
@@ -2628,7 +2648,7 @@
       '<div class="pwa-prof-meta"><div class="pwa-user" style="margin:0">' + esc(p.name || 'プレイヤー') + '</div>' +
       '<div class="pwa-note" style="margin:2px 0 0">' + esc(relLastSeenText(p)) + (playing ? '・' + esc(GAME_TITLES[p.game]) + 'でプレイ中' : '') + '</div></div></div>' +
       (p.comment ? '<div class="pwa-prof-comment">💬 ' + esc(p.comment) + '</div>' : '') +
-      (p.mainChar ? '<div class="pwa-note">🎴 使用キャラ（スターリンクサーガ）: <b style="color:#fde68a">' + esc(p.mainChar) + '</b></div>' : '') +
+      (p.mainChar ? '<div class="pwa-note">🎴 使用キャラ（リンクドラムサーガ）: <b style="color:#fde68a">' + esc(p.mainChar) + '</b></div>' : '') +
       '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(p.stats);
   }
 
@@ -2950,6 +2970,7 @@
     sendInviteCloud: sendInviteCloud,
     consumeInvite: consumeInvite,
     dismissInvite: dismissInvite,
+    withdrawInviteCloud: withdrawInviteCloud,
     /* v52〜 プロフィール */
     profileIcon: profileIconHTML,
     iconPresets: function () { return PROFILE_ICONS.slice(); },
