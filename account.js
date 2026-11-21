@@ -142,8 +142,8 @@
   var META_V2_KEY = 'pwacct_meta_v2';
   var SAVE_NS_PREFIX = 'pwsave:';   /* 旧方式の接頭辞（救済インポート専用） */
   var META_PREFIX = 'pwmeta:';      /* 旧方式の接頭辞（救済インポート専用） */
-  var PRESENCE_STALE_MS = 90000;   /* lastSeen がこれより古ければオフライン扱い */
-  var HEARTBEAT_MS = 30000;
+  var PRESENCE_STALE_MS = 300000;  /* lastSeen がこれより古ければオフライン扱い（ハートビート120秒間隔でも誤判定しないよう5分） */
+  var HEARTBEAT_MS = 120000;       /* 在席ハートビート間隔。Firebase書き込み削減のため120秒（旧30秒＝最大2,880回/日→約720回/日） */
   /* 管理者 uid のリスト（意見ボックスの表示・読み取りに使う）。
      ★管理者アカウントを作ったら、ここにその uid を入れること。
        uid の確認方法: (1) Firebase コンソール → Authentication → Users の
@@ -1690,6 +1690,10 @@
   }
   function heartbeat() {
     if (!cloudActive()) return;
+    /* 非表示タブでは書き込まない。隠れた直後は setOffline() が online:false を
+       書くのに、止まらないタイマーが online:true を書き戻し続ける穴があった。
+       表示に戻った時は visibilitychange 側の即時ハートビートで立て直す */
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     userDoc(me.uid).set({
       online: true, lastSeen: nowMs(), currentGame: MY_GAME,
       username: me.username, usernameLower: me.usernameLower

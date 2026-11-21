@@ -34,6 +34,18 @@
   #rankChip .rLbl { font-size:9px; font-weight:900; letter-spacing:.14em; color:#ffd76e; }
   #rankTrack { height:5px; border-radius:99px; background:rgba(0,0,0,.5); overflow:hidden; }
   #rankFill { height:100%; background:linear-gradient(90deg,#ffd76e,#ffb300); border-radius:99px; transition:width .3s; box-shadow:0 0 6px rgba(255,183,0,.8); }
+  /* 狭幅（390px級）では5チップが自然幅で収まらず文字がチップからはみ出すため、
+     少し詰めて収める。スタミナの回復カウントダウン文と残量バーは狭幅では隠し、
+     数値（現在/最大）だけ残す。広い画面では従来どおり全て表示 */
+  @media (max-width:430px){
+    #resBar{ gap:3px; }
+    .resChip{ padding:4px 4px; font-size:11px; gap:3px; }
+    .gemIc{ font-size:12px; }
+    #rankChip{ min-width:70px; padding:3px 6px 5px; }
+    #stamChip{ min-width:0; }
+    #stamTrack{ display:none; }
+    #stamTime{ display:none; }
+  }
 
   /* ── ホーム（全画面キャラ＋浮遊UI） ── */
   #favStage { position:relative; border-radius:20px; overflow:hidden; border:1.5px solid rgba(216,178,92,.75);
@@ -641,12 +653,12 @@
     .bc2-wname { line-height:1.1; }
     .bchip .bcArt { width:20px; height:20px; }
     .benchRow { min-height:24px; }
-    #btGuide { padding:1px 8px; }
-    #btCap { min-height:16px; padding-top:1px; padding-bottom:1px; }
+    #btGuide { padding:0px 8px; }
+    #btCap { min-height:13px; padding-top:1px; padding-bottom:1px; }
     #btMid { margin-top:2px; }
     #handRow { padding-top:2px; }
-    #btBtns { margin-top:3px; }
-    #btBtns .btn { padding-top:5px; padding-bottom:5px; }
+    #btBtns { margin-top:2px; }
+    #btBtns .btn { padding-top:3px; padding-bottom:3px; }
   }
 
   /* アリーナ/レイド */
@@ -722,6 +734,7 @@ html,body{overscroll-behavior:none;}
     <span class="resChip" id="stamChip"><span class="gemIc">⚡</span><span id="stamNum">100</span><span id="stamTrack"><span id="stamFill" style="width:100%"></span></span><span id="stamTime"></span></span>
     <span class="resChip"><span class="gemIc">💎</span><span id="gemNum">0</span><button class="plus" id="gemPlus">+</button></span>
     <span class="resChip"><span class="gemIc">🪙</span><span id="coinNum">0</span></span>
+    <span class="resChip"><span class="gemIc">🔷</span><span id="matNum">0</span></span>
   </div>
 
   <!-- ═══ ホーム ═══ -->
@@ -882,6 +895,7 @@ html,body{overscroll-behavior:none;}
   <button data-go="party"><span class="ic">🐾</span>編成</button>
   <button data-go="gacha"><span class="ic">🔮</span>召喚<span class="bdg hidden" id="gachaBdg">!</span></button>
   <button data-go="arena"><span class="ic">⚔️</span>対戦</button>
+  <button data-go="raid"><span class="ic">🐉</span>レイド</button>
 </nav>
 
 <!-- モーダル -->
@@ -1525,6 +1539,7 @@ function renderResBar(){
   $('#stamTime').textContent = S.stamina.cur >= staminaMax() ? 'MAX' : '回復まで ' + Math.max(1, Math.ceil((3*60*1000 - (Date.now() - S.stamina.ts)) / 1000)) + '秒';
   $('#gemNum').textContent = fmt(S.gems);
   $('#coinNum').textContent = fmt(S.coins);
+  $('#matNum').textContent = fmt(S.mats);
   $('#lbBdg').classList.toggle('hidden', !loginBonusState().claimable);
   $('#misBdg').classList.toggle('hidden', !missionClaimable());
   const gBdg = !(S.tutorial.step === 'gacha' && !S.tutorial.done);
@@ -1532,7 +1547,15 @@ function renderResBar(){
   const nb = $('#newsBdg'); if (nb) nb.classList.toggle('hidden', !!S.seenNews);
   const rf = $('#rankFill'); if (rf) rf.style.width = clamp(S.rankXp / (80 * S.rank) * 100, 0, 100) + '%';
 }
-setInterval(() => { if (S && curScr !== 'battle') renderResBar(); }, 5000);
+let stageDetailKey = null; /* 開いているステージ詳細のキー（スタミナ変化時に描き直すため） */
+setInterval(() => {
+  if (!S || curScr === 'battle') return;
+  const stamBefore = S.stamina.cur;
+  renderResBar();
+  /* 詳細を開いたまま回復を待っても「出発する」が有効化されない問題への対策：
+     スタミナが変わったら、開いているステージ詳細も描き直す */
+  if (stageDetailKey && S.stamina.cur !== stamBefore && $('#modalWrap').classList.contains('show')) confirmStage(stageDetailKey);
+}, 5000);
 
 /* ── ホーム ── */
 function renderHome(){
@@ -1626,6 +1649,7 @@ function confirmStage(key){
     (first ? '<div class="kvRow"><span>初回クリア報酬</span><span>💎 ' + D.gem + ' ／ 🪙 ' + (200 + st * 60) + ' ／ 🔷 ' + (8 + st) + '</span></div>' : '<div class="kvRow"><span>クリア報酬</span><span>🪙 ' + (200 + st * 60) + ' ／ 🔷 ' + (8 + st) + '</span></div>') +
     '<button class="btn big" id="mStartBattle" style="margin-top:12px"' + (S.stamina.cur < D.stam ? ' disabled' : '') + '>' + (S.stamina.cur < D.stam ? 'スタミナが足りない' : '出発する！') + '</button>' +
     '<button class="btn ghost big" id="mClose" style="margin-top:8px">やめる</button>');
+  stageDetailKey = key;
   $('#mClose').onclick = closeModal;
   const sb = $('#mStartBattle');
   if (sb) sb.onclick = () => { closeModal(); const tut = S.tutorial.step === 'battle' && !S.tutorial.done && ch === 1 && st === 1 && curDiff === 'N'; startStoryBattle(ch, st, curDiff, tut); };
@@ -1693,7 +1717,8 @@ function openCharDetail(id){
     '<div class="statBox"><div class="sv">' + fmt(st.atk) + '</div><div class="sk">攻撃</div></div>' +
     '<div class="statBox"><div class="sv">' + fmt(st.def) + '</div><div class="sk">防御</div></div></div>';
   html += '<div class="note" style="text-align:center">わざのダメージは今の攻撃力での固定値。弱点の属性で攻撃すると1.5倍（こうかばつぐん！）</div>';
-  if (o && !maxed) html += '<button class="btn big" id="mLevelUp" style="margin-top:12px">レベルアップ（🔷' + cost.mats + ' ＋ 🪙' + fmt(cost.coins) + '）</button>';
+  if (o && !maxed) html += '<button class="btn big" id="mLevelUp" style="margin-top:12px">レベルアップ（🔷' + cost.mats + ' ＋ 🪙' + fmt(cost.coins) + '）</button>' +
+    '<div class="note" style="text-align:center;margin-top:4px">所持：🔷 星の欠片 ' + fmt(S.mats) + ' ／ 🪙 ' + fmt(S.coins) + '</div>';
   if (o && maxed) html += '<div class="note" style="margin-top:10px;text-align:center">最大レベル到達！</div>';
   if (o) html += '<button class="btn ghost big" id="mSetFav" style="margin-top:8px">' + (S.fav === id ? 'ホーム表示中 ★' : 'ホームに表示する') + '</button>';
   html += '<button class="btn ghost big" id="mClose" style="margin-top:8px">閉じる</button>';
@@ -1702,7 +1727,8 @@ function openCharDetail(id){
   bindArtViewerLink(id);
   const lv = $('#mLevelUp');
   if (lv) lv.onclick = () => {
-    if (S.mats < cost.mats || S.coins < cost.coins) { toast('素材かコインが足りないよ'); return; }
+    if (S.mats < cost.mats) { toast('🔷星の欠片が足りないよ（必要 ' + cost.mats + ' / 所持 ' + fmt(S.mats) + '）'); return; }
+    if (S.coins < cost.coins) { toast('🪙コインが足りないよ（必要 ' + fmt(cost.coins) + ' / 所持 ' + fmt(S.coins) + '）'); return; }
     S.mats -= cost.mats; S.coins -= cost.coins; o.lv++; missionProg('lv1'); save(); sfx.heal();
     openCharDetail(id); if (curScr === 'party') renderParty(); renderResBar();
   };
@@ -1711,8 +1737,8 @@ function openCharDetail(id){
 }
 
 /* ── モーダル ── */
-function openModal(html){ $('#modalCard').innerHTML = html; $('#modalWrap').classList.add('show'); }
-function closeModal(){ $('#modalWrap').classList.remove('show'); }
+function openModal(html){ stageDetailKey = null; $('#modalCard').innerHTML = html; $('#modalWrap').classList.add('show'); }
+function closeModal(){ stageDetailKey = null; $('#modalWrap').classList.remove('show'); }
 $('#modalWrap').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 /* ════════════════ バトルエンジン ════════════════ */
 let B = null;
@@ -2908,7 +2934,7 @@ function renderShop(){
     '<div class="card" style="margin-top:10px"><div class="kvRow"><span>🔊 サウンド</span><span>' + (S.mute ? 'OFF' : 'ON') + '</span></div>' +
     '<button class="btn ghost big" id="shopMute" style="margin-top:8px">' + (S.mute ? 'サウンドをONにする' : 'サウンドをOFFにする') + '</button></div>';
   $('#shopStam').onclick = () => { if (S.gems < 50) { toast('ジェムが足りないよ'); return; } S.gems -= 50; S.stamina.cur = Math.min(staminaMax() + 60, S.stamina.cur + 60); save(); renderShop(); toast('スタミナが回復した！'); };
-  $('#shopMats').onclick = () => { if (S.coins < 1500) { toast('コインが足りないよ'); return; } S.coins -= 1500; S.mats += 50; save(); renderShop(); toast('星の欠片 ×50 を手に入れた'); };
+  $('#shopMats').onclick = () => { if (S.coins < 1500) { toast('🪙コインが足りないよ（必要 1,500 / 所持 ' + fmt(S.coins) + '）'); return; } S.coins -= 1500; S.mats += 50; save(); renderShop(); toast('星の欠片 ×50 を手に入れた'); };
   $('#shopCoins').onclick = () => { if (S.gems < 100) { toast('ジェムが足りないよ'); return; } S.gems -= 100; S.coins += 5000; save(); renderShop(); toast('コイン ×5,000 を手に入れた'); };
   $('#shopMute').onclick = () => { S.mute = !S.mute; save(); renderShop(); };
 }
@@ -3226,6 +3252,14 @@ async function startRaidBattle(){
         const dmg = B.raidDamage;
         const rs = raidState();
         rs.dmg += dmg; save();
+        /* 挑戦直後のレイド画面が古い貢献キャッシュで描画される表示ラグ対策：
+           自分の行は即時に新しい累計へ差し替え、キャッシュの TTL を切って
+           戻った先の renderRaid で再取得→再描画させる */
+        if (raidContribCache) {
+          const meRow = raidContribCache.find(x => x.me);
+          if (meRow) meRow.dmg = rs.dmg;
+          raidContribCache._ts = 0;
+        }
         writeRaidProfile();
         missionProg('battle1');
         const newTotal = total + dmg;

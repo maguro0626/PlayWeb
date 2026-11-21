@@ -411,7 +411,7 @@
       if (cur && cur.conn !== c && cur.open) {
         /* 既存接続が無音（相手の再起動などで死んでいる）なら差し替える。
            生きていれば開始側コードの小さい方を勝者にする */
-        var stale = cur.lastSeen && (Date.now() - cur.lastSeen > 45000);
+        var stale = cur.lastSeen && (Date.now() - cur.lastSeen > 150000); /* 間隔はクラウド側ハートビート（120秒）とタイマー抑制時の ping 遅延より長く取る */
         if (stale || initiator < cur.initiator) {
           try { cur.conn.close(); } catch (e) {}
         } else {
@@ -488,11 +488,12 @@
     else if (msg.t === 'bye') { clearInvited(code); setPresence(code, { online: false, game: null }); }
   }
   /* ハートビート＆再接続スイープ
-     無音で切断扱いにする閾値は 90 秒（クラウド在席の PRESENCE_STALE_MS と同値）。
+     無音で切断扱いにする閾値は 5 分（クラウド在席の PRESENCE_STALE_MS と同値）。
      以前は 40 秒で、バックグラウンドタブのタイマー抑制（Chrome の intensive
      throttling 等）で ping/pong が遅れるだけでオフライン表示に落ち、在席表示が
-     数分単位でフリッカーする原因になっていた。 */
-  var PRESENCE_DROP_MS = 90000;
+     数分単位でフリッカーする原因になっていた。クラウド側ハートビートが
+     120 秒間隔になったのに合わせ、90 秒から 5 分へ引き上げた。 */
+  var PRESENCE_DROP_MS = 300000;
   setInterval(function () {
     var now = Date.now();
     Object.keys(state.conns).forEach(function (code) {
