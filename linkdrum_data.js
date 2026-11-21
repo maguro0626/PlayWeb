@@ -33,4 +33,41 @@ window.LD_PORTRAIT = function (c, size){
     '<text x="60" y="122" font-size="13" text-anchor="middle">' + p.acc + '</text>' +
     '</svg>';
 }
+/* バトル用ミニキャラ（ちびキャラ）：全26体を pt（髪色/髪型/耳/目/衣装/アクセサリー）から
+   デフォルメ描画する。頭大きめ・体小さめで、小サイズでもキャラ判別できるようにする。
+   UR/SSR は pt がイラストの印象（髪色・目の色・モチーフ）を引き継いでいる。 */
+window.LD_MINI = function (c, size){
+  const p = c.pt;
+  const sz = size || 62;
+  const bangs = [
+    'M24 44 Q26 21 50 19 Q74 21 76 44 Q64 31 56 37 Q50 27 42 35 Q32 29 24 44 Z',
+    'M24 46 Q24 21 50 19 Q76 21 76 46 Q66 33 60 39 L56 29 L48 38 Q40 29 32 37 Q28 39 24 46 Z',
+    'M26 42 Q28 23 50 21 Q72 23 74 42 Q62 31 50 33 Q38 31 26 42 Z',
+    'M24 46 Q24 21 50 19 Q76 21 76 46 Q66 33 60 39 L56 29 L48 38 Q40 29 32 37 Q28 39 24 46 Z'][p.style] || '';
+  const backHair = p.style === 2
+    ? 'M24 68 Q19 22 50 20 Q81 22 76 68 L63 68 Q67 41 50 39 Q33 41 37 68 Z'
+    : 'M21 100 L24 42 Q26 20 50 20 Q74 20 76 42 L79 100 L65 100 Q69 48 50 44 Q31 48 35 100 Z';
+  const twin = p.style === 1 ? '<path d="M25 48 Q5 56 9 90 Q19 66 31 57 Z" fill="' + p.hair + '"/><path d="M75 48 Q95 56 91 90 Q81 66 69 57 Z" fill="' + p.hair + '"/>' : '';
+  const pony = p.style === 3 ? '<path d="M73 32 Q95 44 89 86 Q79 58 67 45 Z" fill="' + p.hair + '"/>' : '';
+  return '<svg viewBox="0 0 100 108" width="' + sz + '" height="' + Math.round(sz * 1.08) + '" xmlns="http://www.w3.org/2000/svg">' +
+    '<ellipse cx="50" cy="103" rx="24" ry="4" fill="rgba(0,0,0,0.28)"/>' +
+    '<path d="' + backHair + '" fill="' + p.hair + '"/>' + twin + pony +
+    '<path d="M30 31 L36 9 L49 24 Z" fill="' + p.ear + '"/><path d="M70 31 L64 9 L51 24 Z" fill="' + p.ear + '"/>' +
+    '<path d="M34.5 26 L37 15.5 L44.5 23 Z" fill="#ffb6c9"/><path d="M65.5 26 L63 15.5 L55.5 23 Z" fill="#ffb6c9"/>' +
+    '<path d="M32 108 Q34 81 50 79 Q66 81 68 108 Z" fill="' + p.out + '"/>' +
+    '<ellipse cx="30.5" cy="92" rx="5" ry="8.5" fill="' + p.out + '" transform="rotate(18 30.5 92)"/>' +
+    '<ellipse cx="69.5" cy="92" rx="5" ry="8.5" fill="' + p.out + '" transform="rotate(-18 69.5 92)"/>' +
+    '<path d="M42 81 L50 89.5 L58 81 L55.5 108 L44.5 108 Z" fill="#ffffff" opacity="0.35"/>' +
+    '<circle cx="50" cy="46" r="26" fill="#ffe3d0" stroke="rgba(90,45,25,0.28)" stroke-width="1"/>' +
+    '<path d="' + bangs + '" fill="' + p.hair + '"/>' +
+    '<path d="M35.5 42.5 Q41 39.5 46.5 42.5" stroke="#3a2c22" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
+    '<path d="M53.5 42.5 Q59 39.5 64.5 42.5" stroke="#3a2c22" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
+    '<ellipse cx="41" cy="49" rx="4.1" ry="6.2" fill="' + p.eye + '"/><ellipse cx="59" cy="49" rx="4.1" ry="6.2" fill="' + p.eye + '"/>' +
+    '<circle cx="42.6" cy="45.8" r="1.7" fill="#fff"/><circle cx="60.6" cy="45.8" r="1.7" fill="#fff"/>' +
+    '<circle cx="39.6" cy="52" r="0.95" fill="#fff" opacity="0.85"/><circle cx="57.6" cy="52" r="0.95" fill="#fff" opacity="0.85"/>' +
+    '<ellipse cx="32.5" cy="58" rx="4.6" ry="2.5" fill="#ffb6c9" opacity="0.8"/><ellipse cx="67.5" cy="58" rx="4.6" ry="2.5" fill="#ffb6c9" opacity="0.8"/>' +
+    '<path d="M46 59.5 Q50 63 54 59.5" stroke="#b06a4a" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+    '<text x="50" y="103.5" font-size="13" text-anchor="middle">' + p.acc + '</text>' +
+    '</svg>';
+}
 

@@ -168,32 +168,68 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 .miniBtn{background:rgba(255,255,255,.09);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:8px 11px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:42px;white-space:nowrap}
 .miniBtn:active{transform:scale(.95)}
 .miniBtn.off{opacity:.55}
-#battleHud{position:absolute;top:8px;left:8px;right:8px;z-index:3;background:rgba(12,5,12,.72);border:1.5px solid rgba(255,255,255,.22);border-radius:13px;padding:6px 10px;backdrop-filter:blur(2px);pointer-events:none}
-#battleHud .bhRow{display:flex;align-items:center;gap:8px}
-#bhFace{font-size:26px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+/* バトル帯：レーン上端より上の帯に収め、ノーツには一切被らない。自キャラ名札＋敵HP＋敵バッジ */
+#battleHud{position:absolute;top:6px;left:8px;right:8px;z-index:3;display:flex;align-items:center;gap:9px;background:linear-gradient(180deg,rgba(24,8,18,.88),rgba(12,5,12,.82));border:1.5px solid rgba(255,201,60,.45);border-radius:14px;padding:6px 9px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+#battleHud .bhChar{flex:none;width:74px;min-width:0}
+#bhCharName{font-size:12.5px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bhCharName small{display:block;font-size:10px;color:var(--txt);font-weight:800}
+#bhStatus{font-size:10.5px;font-weight:900;color:#7dd3fc;line-height:1.3;min-height:14px;white-space:nowrap;overflow:hidden}
 #battleHud .bhMain{flex:1;min-width:0}
-#bhName{font-size:12.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#bhName .bhFav{color:var(--gold);font-size:11px;margin-left:6px}
-#bhBarWrap{height:11px;background:rgba(255,255,255,.14);border-radius:99px;overflow:hidden;margin-top:3px;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
-#bhHp{height:100%;width:100%;background:linear-gradient(90deg,#f43f5e,#fb923c);border-radius:99px;transition:width .18s}
+#battleHud .bhTopRow{display:flex;align-items:baseline;gap:8px}
+#bhName{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+#bhName .bhEl{font-size:10.5px;color:var(--sub);font-weight:800}
+#bhMeta{font-size:11.5px;color:#ffd9a0;font-weight:900;white-space:nowrap}
+#bhBarWrap{height:14px;background:rgba(255,255,255,.16);border-radius:99px;overflow:hidden;margin-top:3px;box-shadow:inset 0 1px 3px rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25)}
+#bhHp{height:100%;width:100%;background:linear-gradient(90deg,#f43f5e,#fb923c,#facc15);border-radius:99px;transition:width .18s}
 #bhHp.low{background:linear-gradient(90deg,#dc2626,#f43f5e)}
-#bhMeta{font-size:10.5px;color:var(--sub);font-weight:800;white-space:nowrap}
-#bhMeta .sh{color:#7dd3fc}
+#bhSkill{font-size:12px;font-weight:900;color:#ffe98a;min-height:16px;line-height:16px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+#bhSkill.bad{color:#fda4af}
+#bhSkill.good{color:#7ef0b2}
+#bhSkill.soul{color:#ffb03a}
+.bhFoeWrap{flex:none;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.20),rgba(10,4,10,.55) 75%);border:2.5px solid #888;display:flex;align-items:center;justify-content:center;position:relative}
+#bhFace{font-size:33px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+.bhFoeWrap.dmg{animation:foeDmg .17s ease-out}
+@keyframes foeDmg{0%{transform:translateX(0)}30%{transform:translateX(3px) scale(.94);filter:brightness(2.1)}100%{transform:translateX(0)}}
+.bhFoeWrap.atk{animation:foeAtk .32s ease-out}
+@keyframes foeAtk{0%{transform:translateX(0) scale(1)}35%{transform:translateX(-13px) scale(1.14)}100%{transform:translateX(0) scale(1)}}
+.bhFoeWrap.down{transform:rotate(72deg) translateY(7px);opacity:.45;filter:grayscale(.6)}
+/* 自キャラのミニキャラ：大太鼓の左脇に立つ（タップは透過） */
+#miniStage{position:absolute;left:8px;bottom:6px;width:62px;height:68px;z-index:3;pointer-events:none}
+#miniStage .miniIn{animation:miniBob 1.7s ease-in-out infinite alternate;transform-origin:50% 100%}
+#miniStage .miniIn svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+@keyframes miniBob{from{transform:translateY(0)}to{transform:translateY(-3.5px)}}
+#miniStage.act-hit .miniIn{animation:miniHit .19s ease-out}
+@keyframes miniHit{0%{transform:translateY(0) scale(1)}40%{transform:translateY(-9px) scale(1.07)}100%{transform:translateY(0) scale(1)}}
+#miniStage.act-burst .miniIn{animation:miniBurst .56s cubic-bezier(.2,1.4,.4,1)}
+@keyframes miniBurst{0%{transform:translateY(0) rotate(0) scale(1)}35%{transform:translateY(-24px) rotate(-9deg) scale(1.22)}65%{transform:translateY(-16px) rotate(7deg) scale(1.15)}100%{transform:translateY(0) rotate(0) scale(1)}}
+#miniStage.act-hurt .miniIn{animation:miniHurt .32s ease-out}
+@keyframes miniHurt{0%{transform:translateX(0)}25%{transform:translateX(-6px) rotate(-6deg)}55%{transform:translateX(5px)}100%{transform:translateX(0)}}
 #dmgLayer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
 .dmgNum{position:absolute;font-weight:900;font-size:19px;color:#ffd964;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(255,160,40,.65);animation:dmgFloat .75s ease-out forwards;white-space:nowrap}
-.dmgNum.skill{font-size:26px;color:#fff2b0}
+.dmgNum.skill{font-size:27px;color:#fff2b0}
+.dmgNum.big{font-size:24px;color:#ffb03a}
+.dmgNum.k2{font-size:15px;color:#ffe9b0}
+.dmgNum.pair{font-size:20px;color:#7ef0b2}
 .dmgNum.gauge{font-size:14px;color:#7ef0b2}
+.dmgNum.hurt{font-size:16px;color:#fda4af;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(244,63,94,.6)}
+.dmgNum.guard{font-size:17px;color:#7dd3fc;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(56,189,248,.65)}
 @keyframes dmgFloat{0%{transform:translateY(4px) scale(.7);opacity:0}18%{opacity:1;transform:translateY(0) scale(1.12)}100%{transform:translateY(-34px) scale(1);opacity:0}}
-#cutin{position:absolute;inset:0;z-index:6;display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(100deg,rgba(20,6,16,.88) 30%,rgba(20,6,16,.35));opacity:0;pointer-events:none;transition:opacity .18s}
-#cutin.show{opacity:1}
-#cutin .ciFace{width:104px;height:118px;flex:none;border-radius:14px;overflow:hidden;border:2.5px solid var(--gold);box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 18px rgba(255,201,60,.45);background:#241a30}
-#cutin .ciFace svg{width:100%;height:100%;display:block}
-#cutin .ciFace img{width:100%;height:100%;object-fit:cover;display:block}
-#cutin.ur{background:linear-gradient(100deg,rgba(66,42,4,.92) 30%,rgba(66,42,4,.4))}
-#cutin .ciTx{min-width:0}
-#cutin .ciSkill{font-size:21px;font-weight:900;line-height:1.3;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.5),0 0 16px rgba(255,201,60,.55)}
-#cutin .ciName{font-size:13px;font-weight:900;color:var(--gold);margin-top:3px}
-#cutin .ciEff{font-size:12px;color:var(--txt);margin-top:4px;line-height:1.5;font-weight:700}
+/* キャラ詳細の全画面イラストビューア */
+#artViewer{position:fixed;inset:0;z-index:100005;background:rgba(4,2,6,.95);display:flex;align-items:center;justify-content:center;cursor:zoom-out}
+#artViewer #artViewBody{max-width:100vw;max-height:100vh;display:flex;align-items:center;justify-content:center}
+#artViewer #artViewBody img{max-width:100vw;max-height:100vh;object-fit:contain;display:block}
+#artViewer #artViewBody svg{width:min(88vw,420px);height:auto}
+#artViewer .avHint{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;font-size:12px;font-weight:800;color:rgba(255,255,255,.65);pointer-events:none}
+#charaDetail .cdFace{cursor:zoom-in}
+.cdZoomHint{font-size:10.5px;color:var(--gold);font-weight:800;margin-top:3px}
+/* デイリーミッション */
+#dailyBox{background:rgba(56,189,248,.10);border:1px solid rgba(125,211,252,.4);border-radius:13px;padding:9px 11px;margin-bottom:11px}
+#dailyBox .dbTtl{font-size:13px;font-weight:900;color:#bae6fd;margin-bottom:5px}
+#dailyBox .dbRow{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;line-height:1.65}
+#dailyBox .dbRow .dbProg{color:var(--sub);font-weight:800}
+#dailyBox .dbRow .dbGem{margin-left:auto;color:var(--gold);font-weight:900;white-space:nowrap}
+#dailyBox .dbRow.done{color:#7ef0b2}
+#dailyBox .dbRow.done .dbProg{color:#7ef0b2}
 .modal{position:fixed;inset:0;z-index:100000;background:rgba(8,3,8,.78);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:14px 10px calc(14px + env(safe-area-inset-bottom))}
 .modalCard{width:100%;max-width:460px;background:linear-gradient(180deg,#2b1220,#1c0b16);border:1.5px solid rgba(255,201,60,.4);border-radius:18px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.7)}
 .modalHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -259,8 +295,26 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #favChip .fcFace svg{width:28px;height:28px}
   .miniBtn{min-height:36px;padding:6px 8px;font-size:11.5px}
   .curBox{padding:6px 8px;font-size:12px}
-  #cutin .ciFace{width:78px;height:90px}
-  #cutin .ciSkill{font-size:17px}
+  #battleHud{gap:6px;padding:4px 7px;top:4px}
+  #battleHud .bhChar{width:60px}
+  #bhCharName{font-size:11px}
+  #bhName{font-size:12px}
+  #bhBarWrap{height:11px}
+  #bhSkill{font-size:11px;min-height:14px;line-height:14px}
+  .bhFoeWrap{width:42px;height:42px}
+  #bhFace{font-size:26px}
+  #miniStage{width:48px;height:53px;left:6px;bottom:4px}
+  #miniStage .miniIn svg{width:48px;height:52px}
+}
+@media (max-width:370px){
+  #charaBar{gap:5px}
+  #favChip{padding:2px 8px 2px 3px}
+  #favChip .fcTx{font-size:11px}
+  #favChip .fcTx small{font-size:9px}
+  .curBox{padding:7px 7px;font-size:12px}
+  .miniBtn{padding:7px 8px;font-size:11.5px}
+  #battleHud .bhChar{width:58px}
+  #bhMeta{font-size:10.5px}
 }
 </style>
 <style>
@@ -304,7 +358,7 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo" class="cb"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo" class="cb"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="battleHud" class="hidden"><div class="bhRow"><span id="bhFace">🫧</span><div class="bhMain"><div id="bhName"></div><div id="bhBarWrap"><div id="bhHp"></div></div></div><span id="bhMeta"></span></div></div><div id="dmgLayer"></div><div id="cutin" class="hidden"></div><div id="resultPanel" class="hidden"></div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="battleHud" class="hidden"><div class="bhChar"><div id="bhCharName"></div><div id="bhStatus"></div></div><div class="bhMain"><div class="bhTopRow"><span id="bhName"></span><span id="bhMeta"></span></div><div id="bhBarWrap"><div id="bhHp"></div></div><div id="bhSkill"></div></div><div class="bhFoeWrap" id="bhFoeWrap"><span id="bhFace">🫧</span></div></div><div id="miniStage" class="hidden"><div class="miniIn" id="miniIn"></div></div><div id="dmgLayer"></div><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
@@ -316,13 +370,15 @@ html,body{overscroll-behavior:none;}
 <div class="pityLine" id="pityLine"></div>
 <div id="gachaResults"></div>
 <div class="modalBtns"><button id="pull1Btn" class="btn">1回 💎300</button><button id="pull10Btn" class="btn blue">10連 💎3,000</button></div>
-<p class="note">確率：UR 0.05% / SSR 2% / SR 17.5% / R 80.45%　天井：SSR 90連・UR 1,000連（共通カウンタ）　10連はSR以上が1体確定。被りは限界突破（最大5凸）、上限到達後はコインに変換されます。💎は演奏や敵の撃破で貯まります。</p>
+<p class="note">確率：UR 0.05% / SSR 2% / SR 17.5% / R 80.45%　天井：SSR 90連・UR 1,000連（共通カウンタ）　10連はSR以上が1体確定。被りは限界突破（最大5凸）、上限到達後はコインに変換されます。💎は演奏クリア・敵の撃破・ランクボーナス・デイリーミッション（キャラ画面で確認）で貯まります。</p>
 </div></div>
 <div id="charaModal" class="modal hidden"><div class="modalCard">
 <div class="modalHead"><span class="mhTtl">🐱 キャラ</span><span class="curBox" id="charaCurBox"></span><button class="xBtn" id="charaClose">✕</button></div>
+<div id="dailyBox"></div>
 <div id="charaGrid"></div>
 <div id="charaDetail"></div>
 </div></div>
+<div id="artViewer" class="hidden"><div id="artViewBody"></div><div class="avHint">タップで閉じる</div></div>
 <div id="urFx" class="hidden"></div>
 <script src="linkdrum_data.js"></script>
 <script>
@@ -1432,7 +1488,10 @@ function applyJudge(nt, res) {
   } else {
     counts.bad++;
     var gd = gaugeDelta('bad', chart.length);
-    if (battleOnBad(gd)) {
+    var shielded = battleOnBad(gd);
+    /* フレーズ評価用：シールドで防いだミスは「可」相当、防げなかったミスは bad に数える */
+    if (battle && !battle.defeated) { if (shielded) battle.phrase.ok++; else battle.phrase.bad++; }
+    if (shielded) {
       /* シールドがコンボと魂ゲージを守った（battleOnBad 内で演出済み） */
     } else {
       combo = 0;
@@ -1573,6 +1632,7 @@ function draw() {
   drumPulse.katsu = Math.max(0, drumPulse.katsu - dt * 5);
   zoneFlash.don = Math.max(0, zoneFlash.don - dt * 4.2);
   zoneFlash.katsu = Math.max(0, zoneFlash.katsu - dt * 4.2);
+  battleTick();
   drawScene(now / 1000, dt);
 }
 /* 毎フレーム作り直すと重い定番グラデーションのキャッシュ（サイズ変更時に破棄） */
@@ -1614,6 +1674,13 @@ function getBgSprite(theme) {
 }
 function drawScene(t, dt) {
   var theme = curSong ? curSong.theme : 'wafu';
+  /* 敵の攻撃ギミック：短時間の画面シェイク（シーン全体をずらす） */
+  var shaking = false;
+  if (battleFx.shakeUntil > t) {
+    shaking = true;
+    ctx.save();
+    ctx.translate((Math.random() * 2 - 1) * battleFx.shakeMag, (Math.random() * 2 - 1) * battleFx.shakeMag * 0.7);
+  }
   var bgSp = getBgSprite(theme);
   if (bgSp) ctx.drawImage(bgSp, 0, 0, CW, CH);
   else {
@@ -1708,7 +1775,9 @@ function drawScene(t, dt) {
       var x = judgeX + (remain / APPROACH) * (CW - judgeX + 40);
       /* 同時打ちペアは上下にずらして両方見えるように描く（ドン=上、カツ=下） */
       var ny = nt.pair ? laneY + (nt.type === 'don' ? -11 : 11) : laneY;
-      drawNote(x, ny, nt);
+      /* 敵の攻撃ギミック：ノーツが一瞬ちらつく */
+      if (battleFx.flickerUntil > t) { ctx.save(); ctx.globalAlpha = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(t * 46 + i * 1.7)); drawNote(x, ny, nt); ctx.restore(); }
+      else drawNote(x, ny, nt);
     }
   }
   /* ヒットリング */
@@ -1757,6 +1826,36 @@ function drawScene(t, dt) {
     }
     ctx.restore();
   });
+  /* 敵の攻撃ギミック：レーンの一部（これから流れてくる区間）にインクがかかる。短時間で薄れる */
+  if (battleFx.inkUntil > t && battleFx.inkT0 > 0) {
+    var ikA = clamp(Math.min((t - battleFx.inkT0) / 0.25, (battleFx.inkUntil - t) / 0.45, 1), 0, 1) * 0.85;
+    if (ikA > 0.01) {
+      var ikCx = (battleFx.inkX0 + battleFx.inkX1) / 2, ikW = battleFx.inkX1 - battleFx.inkX0;
+      ctx.save();
+      roundRect(battleFx.inkX0, laneY - laneH / 2 + 3, ikW, laneH - 6, 14); ctx.clip();
+      var ig = ctx.createRadialGradient(ikCx, laneY, 6, ikCx, laneY, ikW * 0.62);
+      ig.addColorStop(0, 'rgba(12,5,20,' + ikA.toFixed(3) + ')');
+      ig.addColorStop(0.7, 'rgba(16,7,28,' + (ikA * 0.9).toFixed(3) + ')');
+      ig.addColorStop(1, 'rgba(16,7,28,0)');
+      ctx.fillStyle = ig;
+      ctx.fillRect(battleFx.inkX0 - 8, laneY - laneH / 2, ikW + 16, laneH);
+      /* 飛沫の丸み（大きさの違う円を重ねてインクの飛び散りに見せる） */
+      ctx.fillStyle = 'rgba(10,4,17,' + (ikA * 0.92).toFixed(3) + ')';
+      var splat = [[0.16, 0.50, 0.30], [0.38, 0.38, 0.40], [0.58, 0.55, 0.34], [0.78, 0.42, 0.38], [0.92, 0.52, 0.24]];
+      for (var isp = 0; isp < splat.length; isp++) {
+        ctx.beginPath();
+        ctx.ellipse(battleFx.inkX0 + ikW * splat[isp][0], laneY + (splat[isp][1] - 0.5) * laneH * 0.5, laneH * splat[isp][2] * 0.62, laneH * splat[isp][2] * 0.5, 0, 0, 6.29);
+        ctx.fill();
+      }
+      /* 垂れ */
+      ctx.fillStyle = 'rgba(10,4,17,' + (ikA * 0.75).toFixed(3) + ')';
+      for (var idr = 0; idr < 4; idr++) {
+        var dxp = battleFx.inkX0 + (idr + 0.5) * ikW / 4;
+        roundRect(dxp - 2, laneY - laneH / 2 + 4, 4, laneH * (0.38 + (idr % 2) * 0.2), 3); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
   /* 判定ポップ（バネ感のある拡大→上昇） */
   popups = popups.filter(function (p) { return now2() - p.t0 < 620; });
   popups.forEach(function (p) {
@@ -1823,6 +1922,7 @@ function drawScene(t, dt) {
     ctx.fillText('上のレーンを音符が流れてくるよ', CW / 2, laneY + laneH / 2 + 22);
     ctx.restore();
   }
+  if (shaking) ctx.restore();
 }
 function now2() { return performance.now(); }
 var bgFx = { fw: [], nextFw: 2.5 }; /* 和風テーマの花火（打ち上げ間隔と同時数を制限） */
@@ -2703,8 +2803,30 @@ function charById(id) { return CHAR_MAP[id] || null; }
 
 var charaCache = null;
 var charaStoredJson = null; /* 最後に読み書きした保存JSON（外部からの書き換え検出用） */
+function todayStr() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+/* デイリーミッション定義：kind は daily のカウンタ名、need 到達で gems を1日1回だけ付与 */
+var DAILY_MISSIONS = [
+  { id: 'play1', label: '今日の初演奏', kind: 'plays', need: 1, gems: 100 },
+  { id: 'play3', label: '3曲演奏する', kind: 'plays', need: 3, gems: 200 },
+  { id: 'def1', label: '敵を1体撃破する', kind: 'defeats', need: 1, gems: 150 }
+];
+function ensureDaily(cs) {
+  var t = todayStr();
+  if (!cs.daily || typeof cs.daily !== 'object' || cs.daily.day !== t) cs.daily = { day: t, plays: 0, defeats: 0, got: {} };
+  if (!cs.daily.got || typeof cs.daily.got !== 'object') cs.daily.got = {};
+  cs.daily.plays = cs.daily.plays | 0; cs.daily.defeats = cs.daily.defeats | 0;
+  return cs.daily;
+}
+function mergeDaily(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  if (a.day !== b.day) return a.day > b.day ? a : b;
+  var o = { day: a.day, plays: Math.max(a.plays | 0, b.plays | 0), defeats: Math.max(a.defeats | 0, b.defeats | 0), got: {} };
+  [a, b].forEach(function (d) { Object.keys(d.got || {}).forEach(function (k) { o.got[k] = 1; }); });
+  return o;
+}
 function charaDefault() {
-  var o = { v: 1, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, defeats: {} };
+  var o = { v: 1, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, defeats: {}, daily: { day: todayStr(), plays: 0, defeats: 0, got: {} } };
   LD.STARTERS.forEach(function (id) { o.owned[id] = { lv: 1, lb: 0, exp: 0 }; });
   o.fav = LD.STARTERS[0];
   return o;
@@ -2716,7 +2838,7 @@ function mergeChara(a, b) {
     ssrPity: Math.max(a.ssrPity | 0, b.ssrPity | 0), urPity: Math.max(a.urPity | 0, b.urPity | 0),
     totalPulls: Math.max(a.totalPulls | 0, b.totalPulls | 0),
     battleOn: (typeof b.battleOn === 'boolean') ? b.battleOn : (a.battleOn !== false),
-    defeats: {} };
+    defeats: {}, daily: mergeDaily(a.daily, b.daily) };
   [a, b].forEach(function (s) {
     Object.keys(s.defeats || {}).forEach(function (k) { o.defeats[k] = 1; });
     Object.keys(s.owned || {}).forEach(function (id) {
@@ -2747,6 +2869,7 @@ function loadChara() {
   s.ssrPity = s.ssrPity | 0; s.urPity = s.urPity | 0; s.totalPulls = s.totalPulls | 0;
   if (!s.defeats || typeof s.defeats !== 'object') s.defeats = {};
   if (typeof s.battleOn !== 'boolean') s.battleOn = true;
+  ensureDaily(s);
   if (charaCache) s = mergeChara(s, charaCache);
   charaCache = s;
   charaStoredJson = raw;
@@ -2945,8 +3068,37 @@ function openChara() {
   $('charaModal').classList.remove('hidden');
   renderCharaGrid(); renderCharaDetail();
 }
+function renderDaily() {
+  var el = $('dailyBox');
+  if (!el) return;
+  var cs = loadChara();
+  var d = ensureDaily(cs);
+  var html = '<div class="dbTtl">📅 デイリーミッション（毎日リセット）</div>';
+  DAILY_MISSIONS.forEach(function (m) {
+    var done = !!d.got[m.id];
+    var prog = Math.min(d[m.kind] || 0, m.need);
+    html += '<div class="dbRow' + (done ? ' done' : '') + '"><span>' + (done ? '✅' : '🎯') + ' ' + m.label + '</span><span class="dbProg">' + prog + '/' + m.need + '</span><span class="dbGem">💎+' + m.gems + '</span></div>';
+  });
+  el.innerHTML = html;
+}
+/* キャラ詳細の顔タップで全画面表示（イラスト持ちは原画、無しは大きなポートレート） */
+function openArtViewer(c) {
+  if (!c) return;
+  var body = $('artViewBody');
+  var v = $('artViewer');
+  if (!body || !v) return;
+  var show = function () {
+    var u = charHomeUrl(c) || charArtUrl(c);
+    body.innerHTML = u ? '<img src="' + u + '" alt="' + c.name + '">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 380) : '');
+    v.classList.remove('hidden');
+  };
+  if (c.art === 'card') { ensureArt(1); ensureArt(2, show); }
+  else if (c.art === 'bust') ensureArt(3, show);
+  show();
+}
 function renderCharaGrid() {
   var cs = loadChara();
+  renderDaily();
   $('charaCurBox').textContent = '💎 ' + cs.gems.toLocaleString() + '　🪙 ' + cs.coins.toLocaleString() + '　🔷 ' + cs.mats.toLocaleString();
   var sorted = LD.CHARS.slice().sort(function (a, b) { return (RAR_ORDER[b.rar] - RAR_ORDER[a.rar]) || (a.id < b.id ? -1 : 1); });
   var html = '';
@@ -3030,7 +3182,7 @@ function renderCharaDetail() {
   var st = charStats(c, o || { lv: 1, lb: 0 });
   var face = charHomeUrl(c) || charArtUrl(c);
   var faceH = face ? '<img src="' + face + '" alt="">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 92) : '');
-  var html = '<div class="cdTop"><div class="cdFace' + (isAwakened(c, o) ? ' awake' : '') + '">' + faceH + '</div><div style="flex:1;min-width:0">'
+  var html = '<div class="cdTop"><div><div class="cdFace' + (isAwakened(c, o) ? ' awake' : '') + '" id="cdFaceBtn" title="タップで全画面表示">' + faceH + '</div>' + (o ? '<div class="cdZoomHint">🔍 タップで全画面</div>' : '') + '</div><div style="flex:1;min-width:0">'
     + '<div class="cdNm">' + (o ? c.name : '？？？') + ' <span class="tag-' + c.rar + '" style="font-size:12px">' + c.rar + '</span></div>'
     + '<div class="cdSub">' + LD.EL[c.el].i + ' ' + LD.EL[c.el].n + '属性 ・ ' + c.roleName + (o ? ' ・ Lv' + o.lv + ' / ' + LD.MAXLV[c.rar] + (o.lb ? ' ・ ' + o.lb + '凸' : '') + (isAwakened(c, o) ? ' ・ ✨覚醒' : '') : ' ・ 未所持') + '</div>'
     + '<div class="cdStats">HP ' + st.hp.toLocaleString() + ' ・ こうげき ' + st.atk.toLocaleString() + ' ・ ぼうぎょ ' + st.def.toLocaleString() + '</div>';
@@ -3055,6 +3207,8 @@ function renderCharaDetail() {
   }
   html += '</div>';
   el.innerHTML = html;
+  var cf = $('cdFaceBtn');
+  if (cf) cf.addEventListener('click', function () { openArtViewer(c); });
   var fb = $('favSetBtn');
   if (fb) fb.addEventListener('click', function () { var s2 = loadChara(); s2.fav = c.id; storeChara(s2); renderCharaGrid(); renderCharaDetail(); renderCharaBar(); toast(c.name + ' を連れていきます'); });
   var lb = $('lvUpBtn');
@@ -3069,8 +3223,27 @@ function renderCharaDetail() {
 var battle = null;
 var charaRewardHtml = '';
 var BATTLE_PER_NOTE = { easy: 8.5, normal: 15, hard: 36, oni: 105 };
-var CLEAR_GEM = { easy: 20, normal: 30, hard: 45, oni: 60 };
-var DEFEAT_GEM = { easy: 30, normal: 50, hard: 80, oni: 120 };
+/* 経済（v97で増額）：クリア報酬／撃破報酬（与ダメ割合）／初撃破／ランク／フルコンボ */
+var CLEAR_GEM = { easy: 50, normal: 80, hard: 120, oni: 180 };
+var DEFEAT_GEM = { easy: 80, normal: 130, hard: 200, oni: 300 };
+var FIRST_DEFEAT_GEM = 250;
+var RANK_GEM = { S: 60, A: 30, B: 15 };
+var FC_GEM = 40;
+/* 敵の攻撃：フレーズ（36ノーツ）区切りで発生。基礎ダメージは魂ゲージ% */
+var PHRASE_NOTES = 36;
+var ATK_BASE = { easy: 5, normal: 7, hard: 9, oni: 12 };
+/* 敵攻撃ギミックの描画状態（drawScene が参照。時刻は performance.now()/1000 基準） */
+var battleFx = { shakeUntil: 0, shakeMag: 0, flickerUntil: 0, inkT0: 0, inkUntil: 0, inkX0: 0, inkX1: 0 };
+function resetBattleFx() { battleFx = { shakeUntil: 0, shakeMag: 0, flickerUntil: 0, inkT0: 0, inkUntil: 0, inkX0: 0, inkX1: 0 }; }
+/* CSSアニメを付け直して再生する小さなヘルパー */
+function pulse(el, cls, ms) {
+  if (!el) return;
+  if (el._pulseT) clearTimeout(el._pulseT);
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  el._pulseT = setTimeout(function () { el.classList.remove(cls); }, ms || 300);
+}
 function typeMult(aEl, dEl) {
   if ((aEl === 'fire' && dEl === 'wood') || (aEl === 'wood' && dEl === 'water') || (aEl === 'water' && dEl === 'fire')) return 1.5;
   if ((aEl === 'light' && dEl === 'dark') || (aEl === 'dark' && dEl === 'light')) return 1.5;
@@ -3087,10 +3260,17 @@ function foeFor(song, diff) {
   if (!pool.length) return null;
   return pool[hashStr(song.id + ':' + diff) % pool.length];
 }
+function buildAtkSchedule() {
+  var s = [];
+  if (!chart) return s;
+  for (var i = PHRASE_NOTES; i < chart.length - 4; i += PHRASE_NOTES) s.push(chart[i].t);
+  return s;
+}
 function battleStart() {
   charaRewardHtml = '';
   battle = null;
-  hideCutin();
+  resetBattleFx();
+  hideBattleMsg();
   if (!LD || mode !== 'solo' || !curSong) { renderBattleHud(); return; }
   var cs = loadChara();
   if (!cs.battleOn) { renderBattleHud(); return; }
@@ -3100,46 +3280,83 @@ function battleStart() {
   if (!foe) { renderBattleHud(); return; }
   var st = charStats(fav, cs.owned[fav.id]);
   var maxHp = Math.max(50, Math.round(chart.length * (BATTLE_PER_NOTE[selDiff] || 15) * foe.hp));
-  battle = { foe: foe, charId: fav.id, maxHp: maxHp, hp: maxHp, dealt: 0, defeated: false,
-    atk: st.atk, mods: passiveMods(fav), shield: 0, buffUntil: -1e9, vulnUntil: -1e9, nextBurst: 50 };
-  if (fav.art === 'card') ensureArt(1);
-  else if (fav.art === 'bust') ensureArt(3);
+  battle = { foe: foe, charId: fav.id, charLv: cs.owned[fav.id].lv || 1, maxHp: maxHp, hp: maxHp, dealt: 0, defeated: false,
+    atk: st.atk, mods: passiveMods(fav), shield: 0, buffUntil: -1e9, vulnUntil: -1e9, nextBurst: 50,
+    phrase: { good: 0, ok: 0, bad: 0 }, atkTimes: buildAtkSchedule(), atkIdx: 0, _chorus: false, _lastPulse: 0 };
+  /* バトル中の自キャラは全レア共通でミニキャラ（イラストは詳細の全画面表示専用） */
+  var miniEl = $('miniIn');
+  if (miniEl) miniEl.innerHTML = window.LD_MINI ? LD_MINI(fav, 62) : (window.LD_PORTRAIT ? LD_PORTRAIT(fav, 62) : '');
+  var fw = $('bhFoeWrap');
+  if (fw) fw.classList.remove('down');
   renderBattleHud();
 }
 function renderBattleHud() {
   var hud = $('battleHud');
   if (!hud) return;
-  if (!battle) { hud.classList.add('hidden'); return; }
+  var mst = $('miniStage');
+  if (!battle) { hud.classList.add('hidden'); if (mst) mst.classList.add('hidden'); return; }
   hud.classList.remove('hidden');
+  if (mst) mst.classList.remove('hidden');
   var fav = charById(battle.charId);
+  $('bhCharName').innerHTML = (fav ? fav.name : '') + '<small>Lv' + battle.charLv + (fav && battle.mods ? '' : '') + '</small>';
   $('bhFace').textContent = battle.foe.face;
-  $('bhName').innerHTML = battle.foe.name + '<span class="bhFav">⚔ ' + (fav ? fav.name : '') + '</span>';
+  var fw = $('bhFoeWrap');
+  if (fw) {
+    fw.style.borderColor = battle.foe.col;
+    fw.style.boxShadow = '0 0 13px ' + battle.foe.col + '77, inset 0 0 9px rgba(0,0,0,.45)';
+    fw.classList.toggle('down', !!battle.defeated);
+  }
+  $('bhName').innerHTML = battle.foe.name + ' <span class="bhEl">' + LD.EL[battle.foe.el].i + LD.EL[battle.foe.el].n + '</span>';
   var pct = clamp(battle.hp / battle.maxHp * 100, 0, 100);
   var hpEl = $('bhHp');
   hpEl.style.width = pct + '%';
   hpEl.classList.toggle('low', pct <= 30 && !battle.defeated);
-  var meta;
-  if (battle.defeated) meta = '👑 撃破！';
-  else {
-    meta = Math.max(0, Math.ceil(battle.hp)).toLocaleString() + ' / ' + battle.maxHp.toLocaleString();
-    if (battle.shield > 0) meta += ' <span class="sh">🛡×' + battle.shield + '</span>';
-    if (songTime < battle.buffUntil) meta += ' 🔥';
-    if (songTime < battle.vulnUntil) meta += ' 🎯';
-  }
-  $('bhMeta').innerHTML = meta;
+  $('bhMeta').textContent = battle.defeated ? '👑 撃破！' : (Math.max(0, Math.ceil(battle.hp)).toLocaleString() + ' / ' + battle.maxHp.toLocaleString());
+  var st = [];
+  if (battle.shield > 0) st.push('🛡×' + battle.shield);
+  if (songTime < battle.buffUntil) st.push('🔥バフ');
+  if (songTime < battle.vulnUntil) st.push('🎯弱点');
+  if (battle._chorus) st.push('🎵サビ 与ダメ+25%');
+  $('bhStatus').textContent = st.join(' ');
 }
-function spawnDmgNum(txt, cls) {
+/* バトル帯の中に技名・敵攻撃などを一時表示する（レーンには一切被らない） */
+var bhMsgTimer = null;
+function showBattleMsg(txt, cls) {
+  var el = $('bhSkill');
+  if (!el) return;
+  el.textContent = txt;
+  el.className = cls || '';
+  if (bhMsgTimer) clearTimeout(bhMsgTimer);
+  bhMsgTimer = setTimeout(hideBattleMsg, 1500);
+}
+function hideBattleMsg() {
+  if (bhMsgTimer) { clearTimeout(bhMsgTimer); bhMsgTimer = null; }
+  var el = $('bhSkill');
+  if (el) el.textContent = '';
+}
+function foeHitFx() {
+  if (!battle || battle.defeated) return;
+  var n = performance.now();
+  if (battle._lastPulse && n - battle._lastPulse < 110) return;
+  battle._lastPulse = n;
+  pulse($('bhFoeWrap'), 'dmg', 180);
+}
+function miniHitFx() { pulse($('miniStage'), 'act-hit', 200); }
+/* ダメージ数字：敵への攻撃は敵バッジ（右上）付近、自分の被ダメ/回復はミニキャラ（左下）付近に出す */
+function spawnDmgNum(txt, cls, pos) {
   try {
     var layer = $('dmgLayer');
     if (!layer) return;
-    while (layer.children && layer.children.length >= 10) layer.removeChild(layer.firstChild);
+    while (layer.children && layer.children.length >= 12) layer.removeChild(layer.firstChild);
     var s = document.createElement('span');
     s.className = 'dmgNum' + (cls ? ' ' + cls : '');
     s.textContent = txt;
-    s.style.left = (28 + Math.random() * 48) + '%';
-    s.style.top = (62 + Math.random() * 30) + 'px';
+    if (pos === 'me') { s.style.left = (2 + Math.random() * 9) + '%'; s.style.top = 'auto'; s.style.bottom = '88px'; }
+    else if (cls === 'skill' || cls === 'big') { s.style.left = (69 + Math.random() * 15) + '%'; s.style.top = (20 + Math.random() * 22) + 'px'; }
+    else { s.style.left = (73 + Math.random() * 15) + '%'; s.style.top = (12 + Math.random() * 28) + 'px'; }
+    if (cls === 'k2') s.style.animationDelay = '0.07s';
     layer.appendChild(s);
-    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 820);
+    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 900);
   } catch (e) {}
 }
 function battleDamage(mult, isSkill) {
@@ -3150,57 +3367,76 @@ function battleDamage(mult, isSkill) {
   if (fav) m *= typeMult(fav.el, battle.foe.el);
   if (songTime < battle.buffUntil) m *= 1.3;
   if (songTime < battle.vulnUntil) m *= 1.25;
+  /* 太鼓のゲーム性との連動：魂ゲージが高いほど攻撃が乗り、サビ区間は与ダメ+25% */
+  m *= 0.85 + 0.45 * clamp(gauge, 0, 100) / 100;
+  if (curSong && inChorus(curSong, songTime)) m *= 1.25;
   var dmg = Math.max(1, Math.round(battle.atk * m));
   battle.hp -= dmg; battle.dealt += dmg;
-  if (battle.hp <= 0) { battle.hp = 0; battle.defeated = true; spawnDmgNum('撃破！', 'skill'); }
+  if (battle.hp <= 0) { battle.hp = 0; battle.defeated = true; spawnDmgNum('撃破！', 'skill', 'foe'); }
   return dmg;
 }
+/* 叩くこと自体が戦闘アクションになる：
+   ドン＝単発の強い一撃／カツ＝2連続ヒット／大音符＝重撃（×1.5）／同時押しペア完遂＝合体攻撃 */
 function battleOnHit(nt, res) {
   if (!battle || battle.defeated) return;
-  var mult = (res === 'good' ? 0.10 : 0.05) * (nt.big ? 1.5 : 1);
-  var dmg = battleDamage(mult, false);
-  if (dmg > 0) spawnDmgNum(dmg.toLocaleString(), '');
+  if (res === 'good') battle.phrase.good++; else battle.phrase.ok++;
+  if (nt.type === 'katsu') {
+    var per = (res === 'good' ? 0.065 : 0.035) * (nt.big ? 1.5 : 1);
+    var d1 = battleDamage(per, false);
+    if (d1 > 0) { spawnDmgNum(d1.toLocaleString(), '', 'foe'); foeHitFx(); }
+    if (!battle.defeated) {
+      var d2 = battleDamage(per, false);
+      if (d2 > 0) spawnDmgNum(d2.toLocaleString(), 'k2', 'foe');
+    }
+  } else {
+    var mult = (res === 'good' ? 0.12 : 0.06) * (nt.big ? 1.5 : 1);
+    var dmg = battleDamage(mult, false);
+    if (dmg > 0) { spawnDmgNum(dmg.toLocaleString(), nt.big ? 'big' : '', 'foe'); foeHitFx(); }
+  }
+  if (nt.pair && !battle.defeated) {
+    var bonus = pairBonus(nt);
+    if (bonus > 0) spawnDmgNum('合体！ ' + bonus.toLocaleString(), 'pair', 'foe');
+  }
+  miniHitFx();
   if (!battle.defeated && combo >= battle.nextBurst) { battle.nextBurst += 50; fireBurst(); }
   renderBattleHud();
+}
+/* 同時押しペアの相方がすでに叩けていれば合体攻撃のボーナスダメージ */
+function pairBonus(nt) {
+  if (!chart) return 0;
+  for (var i = 0; i < chart.length; i++) {
+    var o = chart[i];
+    if (o !== nt && o.pair && Math.abs(o.t - nt.t) < 0.02 && o.judged === 1 && (o.res === 'good' || o.res === 'ok') && !o._pairDone) {
+      o._pairDone = 1;
+      return battleDamage(0.08, false);
+    }
+  }
+  return 0;
 }
 function fireBurst() {
   if (!battle) return;
   var fav = charById(battle.charId);
   if (!fav) return;
   var spec = burstSpec(fav);
+  /* 魂ゲージ70%以上でバーストが「魂解放」化して1.3倍 */
+  var soul = gauge >= 70;
+  if (soul) spec = { dmg: spec.dmg * 1.3, gauge: spec.gauge, shield: spec.shield, buff: spec.buff, vuln: spec.vuln };
   var dmg = battleDamage(spec.dmg, true);
-  if (dmg > 0) spawnDmgNum(dmg.toLocaleString(), 'skill');
+  if (dmg > 0) { spawnDmgNum(dmg.toLocaleString(), 'skill', 'foe'); foeHitFx(); }
   if (spec.gauge) {
     var g = Math.round(spec.gauge * (1 + battle.mods.heal / 100));
     gauge = clamp(gauge + g, 0, 100);
-    spawnDmgNum('魂 +' + g + '%', 'gauge');
+    spawnDmgNum('魂 +' + g + '%', 'gauge', 'me');
   }
   if (spec.shield) battle.shield = Math.min(2, battle.shield + spec.shield);
   if (spec.buff) battle.buffUntil = songTime + spec.buff;
   if (spec.vuln) battle.vulnUntil = songTime + spec.vuln;
-  showCutin(fav);
+  /* 技の表現はレーン脇のミニキャラのアクション＋バトル帯の技名表示のみ（譜面は覆わない） */
+  showBattleMsg((soul ? '🔥魂解放！ ' : '💥 ') + fav.burst.name, soul ? 'soul' : '');
+  pulse($('miniStage'), 'act-burst', 580);
   if (AC) { var t = AC.currentTime; toneAt(880, t, 0.12, 'triangle', 0.14); toneAt(1318, t + 0.07, 0.16, 'triangle', 0.12); }
   updateHUD(false);
   renderBattleHud();
-}
-var cutinTimer = null;
-function showCutin(c) {
-  var el = $('cutin');
-  if (!el) return;
-  var u = charArtUrl(c);
-  el.classList.toggle('ur', c.rar === 'UR');
-  el.innerHTML = '<div class="ciFace">' + (u ? '<img src="' + u + '" alt="">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 104) : '')) + '</div>'
-    + '<div class="ciTx"><div class="ciSkill">' + c.burst.name + '</div><div class="ciName">' + c.name + '（' + c.rar + '）</div><div class="ciEff">' + burstFxText(c) + '</div></div>';
-  el.classList.remove('hidden');
-  void el.offsetWidth;
-  el.classList.add('show');
-  if (cutinTimer) clearTimeout(cutinTimer);
-  cutinTimer = setTimeout(hideCutin, 1500);
-}
-function hideCutin() {
-  var el = $('cutin');
-  if (cutinTimer) { clearTimeout(cutinTimer); cutinTimer = null; }
-  if (el) { el.classList.remove('show'); el.classList.add('hidden'); }
 }
 function battleOnBad(gd) {
   if (!battle || battle.defeated || battle.shield <= 0) return false;
@@ -3215,10 +3451,58 @@ function battleMissMul() {
   if (!battle) return 1;
   return 1 - battle.mods.miss / 100;
 }
+/* ---------------- 敵の攻撃（フレーズ区切り） ----------------
+   フレーズ（36ノーツ）ごとに、その区間の演奏成績で判定する：
+   ミスなし＆良中心なら完全防御（GUARD、被ダメも妨害もなし）。
+   それ以外は魂ゲージを削り、成績が悪いほど譜面ギミック（シェイク／ちらつき／インク）が強くなる。
+   上手く叩くことがそのまま防御になる。バトルOFF・撃破後は発生しない。 */
+function resolveEnemyAttack() {
+  if (!battle || battle.defeated) return null;
+  var p = battle.phrase;
+  battle.phrase = { good: 0, ok: 0, bad: 0 };
+  var total = p.good + p.ok + p.bad;
+  if (!total) return null;
+  var score = (p.good + p.ok * 0.5) / total;
+  pulse($('bhFoeWrap'), 'atk', 340);
+  var nowS = performance.now() / 1000;
+  if (p.bad === 0 && score >= 0.75) {
+    spawnDmgNum('🛡 GUARD!', 'guard', 'me');
+    showBattleMsg('🛡 敵の攻撃を完全に防いだ！', 'good');
+    return { guard: true, score: score, loss: 0 };
+  }
+  var loss = Math.max(1, Math.round((ATK_BASE[selDiff] || 7) * (1.15 - score)));
+  gauge = clamp(gauge - loss, 0, 100);
+  spawnDmgNum('敵の攻撃 -' + loss + '%', 'hurt', 'me');
+  showBattleMsg('💥 ' + battle.foe.name + ' の攻撃！ 魂 -' + loss + '%', 'bad');
+  pulse($('miniStage'), 'act-hurt', 340);
+  battleFx.shakeUntil = nowS + 0.35;
+  battleFx.shakeMag = score >= 0.55 ? 3 : 5;
+  if (score < 0.55) {
+    if (selDiff === 'hard' || selDiff === 'oni') {
+      battleFx.inkT0 = nowS; battleFx.inkUntil = nowS + 2.2;
+      battleFx.inkX0 = CW * 0.44; battleFx.inkX1 = CW * 0.80;
+      battleFx.flickerUntil = nowS + 0.6;
+    } else {
+      battleFx.flickerUntil = nowS + 0.9;
+    }
+  }
+  updateHUD(false);
+  return { guard: false, score: score, loss: loss };
+}
+function battleTick() {
+  if (!battle || battle.defeated || !playing) return;
+  var inC = inChorus(curSong, songTime);
+  if (inC !== battle._chorus) { battle._chorus = inC; renderBattleHud(); }
+  if (battle.atkIdx < battle.atkTimes.length && songTime >= battle.atkTimes[battle.atkIdx]) {
+    battle.atkIdx++;
+    resolveEnemyAttack();
+  }
+}
 function battleClear() {
   battle = null;
   charaRewardHtml = '';
-  hideCutin();
+  resetBattleFx();
+  hideBattleMsg();
   var layer = $('dmgLayer');
   if (layer) { try { layer.innerHTML = ''; } catch (e) {} }
   renderBattleHud();
@@ -3236,8 +3520,19 @@ function charaOnFinish(res) {
   }
   var firstDefeat = defeated && !cs.defeats[key];
   if (defeated) cs.defeats[key] = 1;
-  var gems = (res.clear ? CLEAR_GEM[selDiff] : 0) + Math.round(DEFEAT_GEM[selDiff] * ratio) + (firstDefeat ? 100 : 0);
-  var coins = 80 + Math.floor(score / 500) + (defeated ? 150 : 0);
+  var rankGem = res.clear ? (RANK_GEM[res.rank] || 0) : 0;
+  var totalJudged = counts.good + counts.ok + counts.bad;
+  var fcGem = (res.clear && counts.bad === 0 && totalJudged > 0) ? FC_GEM : 0;
+  /* デイリーミッション：演奏回数と撃破を数え、達成したものを1日1回だけ付与 */
+  var daily = ensureDaily(cs);
+  daily.plays++;
+  if (defeated) daily.defeats++;
+  var dailyGems = 0, dailyMsgs = [];
+  DAILY_MISSIONS.forEach(function (m) {
+    if (!daily.got[m.id] && (daily[m.kind] || 0) >= m.need) { daily.got[m.id] = 1; dailyGems += m.gems; dailyMsgs.push(m.label + ' 💎+' + m.gems); }
+  });
+  var gems = (res.clear ? CLEAR_GEM[selDiff] : 0) + Math.round(DEFEAT_GEM[selDiff] * ratio) + (firstDefeat ? FIRST_DEFEAT_GEM : 0) + rankGem + fcGem + dailyGems;
+  var coins = 120 + Math.floor(score / 500) + (defeated ? 150 : 0);
   var mats = (res.clear ? 3 : 1) + (defeated ? 3 : 0);
   cs.gems += gems; cs.coins += coins; cs.mats += mats;
   var exp = 0, lvUps = 0, favName = '';
@@ -3250,8 +3545,13 @@ function charaOnFinish(res) {
   storeChara(cs);
   if (fav && cs.owned[fav.id]) { lvUps = tryLevelUps(fav.id); cs = loadChara(); }
   renderCharaBar();
+  var bonusMsgs = [];
+  if (rankGem) bonusMsgs.push('ランク' + res.rank + ' 💎+' + rankGem);
+  if (fcGem) bonusMsgs.push('フルコンボ 💎+' + fcGem);
   charaRewardHtml = '<div class="rwLine">💎+' + gems + '　🪙+' + coins + '　🔷+' + mats
-    + (battle ? (defeated ? '<br><span class="defeat">⚔ ' + foeName + ' を撃破！</span>' + (firstDefeat ? '（初撃破ボーナス 💎+100）' : '') : '<br>敵への与ダメージ ' + Math.round(ratio * 100) + '%') : '')
+    + (battle ? (defeated ? '<br><span class="defeat">⚔ ' + foeName + ' を撃破！</span>' + (firstDefeat ? '（初撃破ボーナス 💎+' + FIRST_DEFEAT_GEM + '）' : '') : '<br>敵への与ダメージ ' + Math.round(ratio * 100) + '%') : '')
+    + (bonusMsgs.length ? '<br>🏆 ' + bonusMsgs.join(' ・ ') : '')
+    + (dailyMsgs.length ? '<br>📅 デイリー達成：' + dailyMsgs.join(' ／ ') : '<br>📅 デイリー：演奏 ' + Math.min(daily.plays, 3) + '/3曲' + (daily.defeats ? ' ・ 撃破 ' + daily.defeats + '体' : ''))
     + (exp ? '<br>' + favName + ' EXP +' + exp : '')
     + (lvUps ? '<br>🎉 ' + favName + ' が Lv' + cs.owned[fav.id].lv + ' にアップ！' : '')
     + '</div>';
@@ -3362,6 +3662,7 @@ function stopPreview() {
   $('pull1Btn').addEventListener('click', function () { ensureAudio(); doGachaUi(1); });
   $('pull10Btn').addEventListener('click', function () { ensureAudio(); doGachaUi(10); });
   $('urFx').addEventListener('click', function () { this.classList.add('hidden'); });
+  $('artViewer').addEventListener('click', function () { this.classList.add('hidden'); });
   /* 選曲プレビュー：曲カードのタップ（既存ハンドラで selSong 更新済み）を受けて開始 */
   $('songList').addEventListener('click', function (e) {
     var b = e.target && e.target.closest ? e.target.closest('.songCard') : null;
@@ -3403,8 +3704,14 @@ window.__taiko = {
     expNeed: expNeed, levelCost: levelCost, tryLevelUps: tryLevelUps,
     rollRarity: rollRarity, pullOne: pullOne, doPulls: doPulls, grantChar: grantChar,
     foeFor: foeFor, burstSpec: burstSpec, passiveMods: passiveMods, typeMult: typeMult,
+    mini: function (c, size) { return window.LD_MINI ? LD_MINI(c, size) : null; },
+    econ: function () { return { CLEAR_GEM: CLEAR_GEM, DEFEAT_GEM: DEFEAT_GEM, FIRST_DEFEAT_GEM: FIRST_DEFEAT_GEM, RANK_GEM: RANK_GEM, FC_GEM: FC_GEM, DAILY_MISSIONS: DAILY_MISSIONS }; },
+    daily: function () { var cs = loadChara(); return cs ? ensureDaily(cs) : null; },
     battle: function () { return battle; },
+    battleFx: function () { return battleFx; },
     battleStart: battleStart, battleOnHit: battleOnHit, battleOnBad: battleOnBad, fireBurst: fireBurst,
+    battleTick: battleTick, resolveEnemyAttack: resolveEnemyAttack,
+    setGauge: function (v) { gauge = clamp(v, 0, 100); },
     setFav: function (id) { var cs = loadChara(); if (cs && cs.owned[id]) { cs.fav = id; storeChara(cs); } },
     setBattleOn: function (on) { var cs = loadChara(); if (cs) { cs.battleOn = !!on; storeChara(cs); } },
     rewardHtml: function () { return charaRewardHtml; },
