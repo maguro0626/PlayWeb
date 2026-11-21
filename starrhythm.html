@@ -181,7 +181,7 @@ html,body{overscroll-behavior:none;}
 </div>
 <div id="soloPane">
 <button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
-<p class="help" style="margin-top:8px">ノーツが下の<b style="color:#fff">パッド（判定ゾーン）</b>に届く瞬間にパッドをタップ！<b style="color:#ffd94d">ロング</b>は最後の瞬間にピタッと離す、<b style="color:#ffb300">フリック</b>は矢印の向きにシュッと弾こう。落下速度は上のボタンで変えられるよ。キーは D F J K（レーン）／ 矢印キー（フリック）。</p>
+<p class="help" style="margin-top:8px">ノーツが下の<b style="color:#fff">判定ライン（光るバー）</b>に届く瞬間にバーをタップ！<b style="color:#ffd94d">ロング</b>は最後の瞬間にピタッと離す、<b style="color:#ffb300">フリック</b>は矢印の向きにシュッと弾こう。落下速度は上のボタンで変えられるよ。キーは D F J K（レーン）／ 矢印キー（フリック）。</p>
 </div>
 <div id="onlinePane" class="hidden"><div class="card">
 <div class="netBtns"><button id="hostBtn" class="btn">部屋を作る</button></div>
@@ -221,7 +221,8 @@ var LANE_COLORS = ['#ff5d8f', '#3fd6ff', '#ffd94d', '#9d6bff'];
 var LANE_KEYS = ['d', 'f', 'j', 'k'];
 var FLICK_COL = '#ffb300'; /* フリック専用色（鮮やかな黄〜オレンジ系。レーン色と明確に区別する） */
 var LONG_STRIPE_PX = 34; /* ロングノーツ本体に流れる縞の周期(px) */
-var JUDGE_LINE_H = 5; /* 判定ライン（パッド上端）の描画太さ(px) */
+var JUDGE_LINE_H = 5; /* 判定ライン（バー上端）の描画太さ(px) */
+var JUDGE_BAR_H = 24; /* 判定バーの高さ(px)：レーン幅いっぱいの薄い1本の帯（ボタン風パッドではない） */
 var JUDGE_FONT_PX = 16; /* 判定ポップのフォントサイズ（小さく目立たなく） */
 var JUDGE_POP_MS = 380; /* 判定ポップの表示時間(ms) */
 
@@ -1446,7 +1447,7 @@ stageWrap.addEventListener('pointerdown', function (e) {
   e.preventDefault();
   var r = stageWrap.getBoundingClientRect();
   var x = e.clientX - r.left, y = e.clientY - r.top;
-  var lane = laneFromX(x); /* レーンはパッド（判定ゾーン）の並びで決める */
+  var lane = laneFromX(x); /* レーンは判定バーの並び（レーン列）で決める */
   pointers[e.pointerId] = { lane: lane, x0: x, y0: y, flickDone: false };
   heldLane[lane]++;
   pressLane(lane);
@@ -1818,17 +1819,18 @@ function drawJacketPanel(t) {
 }
 function drawField(t) {
   var topY = fieldTopY(), jy = judgeY();
-  var hwT = halfWAt(topY), hwB = halfWAt(jy + 30);
+  var botY = jy + JUDGE_BAR_H; /* レーン面は判定バーの下端で終わる */
+  var hwT = halfWAt(topY), hwB = halfWAt(botY);
   var cx = CW / 2;
   /* レーン面（台形） */
-  var lg = ctx.createLinearGradient(0, topY, 0, jy + 30);
+  var lg = ctx.createLinearGradient(0, topY, 0, botY);
   lg.addColorStop(0, 'rgba(16,10,40,.88)');
   lg.addColorStop(0.75, 'rgba(30,18,70,.82)');
   lg.addColorStop(1, 'rgba(52,30,110,.9)');
   ctx.fillStyle = lg;
   ctx.beginPath();
   ctx.moveTo(cx - hwT, topY); ctx.lineTo(cx + hwT, topY);
-  ctx.lineTo(cx + hwB, jy + 30); ctx.lineTo(cx - hwB, jy + 30);
+  ctx.lineTo(cx + hwB, botY); ctx.lineTo(cx - hwB, botY);
   ctx.closePath(); ctx.fill();
   /* レーンごとの色味とヒット時のフラッシュ */
   for (var l = 0; l < 4; l++) {
@@ -1836,7 +1838,7 @@ function drawField(t) {
     var x0b = cx + (l - 2) * (hwB * 2 / 4), x1b = cx + (l - 1) * (hwB * 2 / 4);
     ctx.fillStyle = hexA(LANE_COLORS[l], 0.055 + laneFlash[l] * 0.30);
     ctx.beginPath();
-    ctx.moveTo(x0t, topY); ctx.lineTo(x1t, topY); ctx.lineTo(x1b, jy + 30); ctx.lineTo(x0b, jy + 30);
+    ctx.moveTo(x0t, topY); ctx.lineTo(x1t, topY); ctx.lineTo(x1b, botY); ctx.lineTo(x0b, botY);
     ctx.closePath(); ctx.fill();
   }
   /* FEVER 時はレーン面全体が虹色に色づく */
@@ -1844,7 +1846,7 @@ function drawField(t) {
     ctx.fillStyle = 'hsla(' + ((t * 90) % 360) + ',95%,62%,.10)';
     ctx.beginPath();
     ctx.moveTo(cx - hwT, topY); ctx.lineTo(cx + hwT, topY);
-    ctx.lineTo(cx + hwB, jy + 30); ctx.lineTo(cx - hwB, jy + 30);
+    ctx.lineTo(cx + hwB, botY); ctx.lineTo(cx - hwB, botY);
     ctx.closePath(); ctx.fill();
   }
   /* 消失点のグロー（奥がほんのり光って奥行きを強調） */
@@ -1856,20 +1858,20 @@ function drawField(t) {
     var xt = cx + (d - 2) * (hwT * 2 / 4), xb = cx + (d - 2) * (hwB * 2 / 4);
     ctx.lineCap = 'round';
     ctx.strokeStyle = 'rgba(150,170,255,.20)'; ctx.lineWidth = 5.5;
-    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, jy + 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, botY); ctx.stroke();
     ctx.strokeStyle = 'rgba(225,232,255,.8)'; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, jy + 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, botY); ctx.stroke();
   });
   /* 仕切り線（グロー） */
   ctx.lineWidth = 1.6;
   for (var d = 0; d <= 4; d++) {
     var xt = cx + (d - 2) * (hwT * 2 / 4), xb = cx + (d - 2) * (hwB * 2 / 4);
-    var dg = ctx.createLinearGradient(0, topY, 0, jy + 30);
+    var dg = ctx.createLinearGradient(0, topY, 0, botY);
     dg.addColorStop(0, 'rgba(160,170,255,.06)');
     dg.addColorStop(0.8, 'rgba(190,200,255,.4)');
     dg.addColorStop(1, 'rgba(220,230,255,.75)');
     ctx.strokeStyle = dg;
-    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, jy + 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, botY); ctx.stroke();
   }
   /* 横の流れ線：透視に沿って奥から手前へ流れる光のライン（手前ほど明るく太く） */
   if (playing && songTime >= 0) {
@@ -1886,10 +1888,10 @@ function drawField(t) {
       ctx.beginPath(); ctx.moveTo(cx - hw, yy); ctx.lineTo(cx + hw, yy); ctx.stroke();
     }
   }
-  /* 判定バー＝パッド（同一要素）：パッドの描画は drawPads に一本化。
+  /* 判定バーはレーン幅いっぱいの1本の帯：描画は drawJudgeBar に一本化。
      ここでは後段（ダイヤ・光だまり）が使う pulse だけ用意する */
   var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
-  drawPads(t);
+  drawJudgeBar(t);
   /* 両端のダイヤ */
   [-1, 1].forEach(function (sgn) {
     var dx = cx + sgn * (hwB + 10);
@@ -2159,88 +2161,111 @@ function drawFlickArrow(x, y, dir, t, s) {
   ctx.stroke(); ctx.fill();
   ctx.restore();
 }
-/* 判定バーとタップパッドは同一要素：パッドの上端がそのまま判定ラインで、
-   ノーツはパッドの上端に重なった瞬間に判定される。形状の単一の出所はここ。
-   judgeBarSegs() は各レーンのパッド矩形そのものを返す（テストからも参照する） */
-function judgeBarSegs() {
+/* 判定バーはレーン幅いっぱいに横たわる「1本の薄い帯」：バーの上端がそのまま
+   判定ラインで、ノーツはバーの上端に重なった瞬間に判定される。
+   4つのボタン状パッドは存在しない。タップは「バーのそのレーン部分を触る」
+   イメージで、入力はレーン列（laneFromX）で受ける。形状の単一の出所はここ。
+   judgeBarRect() がバー全体の単一矩形、judgeBarSegs() はその区切りを返す
+   （テストからも参照する） */
+function judgeBarRect() {
   var jy = judgeY(), hw = halfWAt(jy), cx = CW / 2;
+  return { x: cx - hw, y: jy, w: hw * 2, h: JUDGE_BAR_H, cx: cx };
+}
+function judgeBarSegs() {
+  var bar = judgeBarRect();
   var segs = [];
   for (var l = 0; l < 4; l++) {
-    var x0 = cx + (l - 2) * (hw * 2 / 4), x1 = cx + (l - 1) * (hw * 2 / 4);
-    segs.push({ lane: l, x: x0, y: jy, w: x1 - x0, h: Math.max(0, CH - 6 - jy), cx: (x0 + x1) / 2 });
+    var x0 = bar.x + l * (bar.w / 4), x1 = bar.x + (l + 1) * (bar.w / 4);
+    segs.push({ lane: l, x: x0, y: bar.y, w: x1 - x0, h: bar.h, cx: (x0 + x1) / 2 });
   }
   return segs;
 }
-/* 判定ゾーン＝画面下部のパッド（判定バーと同一要素） */
+/* バーのレーン区切り（旧パッド矩形）：入力判定はレーン列で行い、これは表示用 */
 function padRect(lane) {
   var s = judgeBarSegs()[lane];
   return { x: s.x, y: s.y, w: s.w, h: s.h, cx: s.cx };
 }
-/* X座標→レーンは常にパッド（判定ライン）の並びで決める。押した場所とレーンが一致して直感的 */
+/* X座標→レーンは常に判定バーの並びで決める。バーの触った部分とレーンが一致して直感的 */
 function laneFromX(x) {
   var hw = halfWAt(judgeY());
   return clamp(Math.floor((x - (CW / 2 - hw)) / (hw * 2 / 4)), 0, 3);
 }
-function drawPads(t) {
-  /* 判定バー＝パッド（同一要素）：パッドの上端がそのまま判定ラインで、
-     別々に存在したバーのセグメントはこのパッドに統合された。
-     ヒット時の発光・押下時のグローもすべてこのパッドで表現する。
+function drawJudgeBar(t) {
+  /* 判定バー：レーン幅いっぱいに横たわる1本の薄い帯として描く。
+     ボタン風の箱・角丸・枠・影・押し込み表現は一切使わない。
+     ヒット／押下のフィードバックは「バーのそのレーン部分が発光する」形で表し、
+     レーンの光柱（drawFx）と合わせて表現する。
      キー文字（D/F/J/K）は表示しない（キーボード操作自体は従来どおり有効）。 */
-  var jy = judgeY(), hwB = halfWAt(jy), cx = CW / 2;
+  var bar = judgeBarRect();
+  var jy = bar.y, hwB = bar.w / 2, cx = bar.cx;
   var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
   var jg = ctx.createLinearGradient(cx - hwB, 0, cx + hwB, 0);
   jg.addColorStop(0, '#ff5d8f'); jg.addColorStop(0.5, '#c084fc'); jg.addColorStop(1, '#3fd6ff');
-  /* バー全体の下地グロー */
   ctx.save();
-  ctx.globalAlpha = 0.38 * pulse;
+  /* バー全体の下地グロー（平らな光のにじみ。浮き出た影ではない） */
+  ctx.globalAlpha = 0.30 * pulse;
   ctx.fillStyle = jg;
-  roundRectPath(cx - hwB - 5, jy - 4, hwB * 2 + 10, 20, 9); ctx.fill();
-  ctx.restore();
+  ctx.fillRect(bar.x - 4, bar.y - 3, bar.w + 8, bar.h + 6);
+  ctx.globalAlpha = 1;
+  /* バー本体：全体を1枚で塗る（レーンごとに分けない） */
+  var bg = ctx.createLinearGradient(0, bar.y, 0, bar.y + bar.h);
+  bg.addColorStop(0, 'rgba(26,18,58,.94)');
+  bg.addColorStop(0.5, 'rgba(16,10,40,.94)');
+  bg.addColorStop(1, 'rgba(9,6,26,.96)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
+  /* ネオンの色味を全体に薄く載せる */
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = jg;
+  ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
+  ctx.globalAlpha = 1;
+  /* サビの色づき（chorusMix）をバーにも反映 */
+  if (chorusMix > 0.01) {
+    ctx.fillStyle = 'rgba(255,150,80,' + (0.22 * chorusMix) + ')';
+    ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
+  }
+  /* FEVER 時はバー全体が虹色に色づく */
+  if (fever) {
+    ctx.fillStyle = 'hsla(' + ((t * 90) % 360) + ',95%,62%,.16)';
+    ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
+  }
+  /* ヒット／押下中：バーの該当レーン部分だけが発光する（沈み込み表現はしない） */
   var segs = judgeBarSegs();
   for (var l = 0; l < 4; l++) {
     var r = segs[l];
-    if (r.h < 20) return;
     var held = heldLane[l] > 0;
     var fl = laneFlash[l];
-    ctx.save();
-    /* 本体：判定ライン（上端）から画面下まで1枚のパッド */
-    var g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
-    if (held || fl > 0.3) {
-      g.addColorStop(0, hexA(LANE_COLORS[l], 0.85));
-      g.addColorStop(0.3, hexA(LANE_COLORS[l], 0.52));
-      g.addColorStop(1, hexA(LANE_COLORS[l], 0.28));
-    } else {
-      g.addColorStop(0, 'rgba(14,8,36,.82)');
-      g.addColorStop(0.3, hexA(LANE_COLORS[l], 0.30));
-      g.addColorStop(1, hexA(LANE_COLORS[l], 0.12));
+    if (held) {
+      ctx.fillStyle = hexA(LANE_COLORS[l], 0.34);
+      ctx.fillRect(r.x, r.y, r.w, r.h);
     }
-    ctx.fillStyle = g;
-    roundRectPath(r.x + 1, r.y, r.w - 2, r.h, 10); ctx.fill();
-    if (fl > 0.02) { /* ヒット時はパッド全体がレーン色に光る */
-      ctx.fillStyle = hexA(LANE_COLORS[l], fl * 0.45);
-      roundRectPath(r.x + 1, r.y, r.w - 2, r.h, 10); ctx.fill();
+    if (fl > 0.02) {
+      ctx.fillStyle = hexA(LANE_COLORS[l], fl * 0.5);
+      ctx.fillRect(r.x, r.y, r.w, r.h);
     }
-    if (held) { /* 押下中はパッド全体が光る */
-      ctx.fillStyle = hexA(LANE_COLORS[l], 0.22);
-      roundRectPath(r.x - 2, r.y - 2, r.w + 4, r.h + 4, 12); ctx.fill();
-    }
-    ctx.lineWidth = held ? 2.6 : 1.8;
-    ctx.strokeStyle = fever
-      ? 'hsla(' + (((t * 150 + l * 45) % 360) | 0) + ',100%,72%,' + (held ? 1 : 0.8 + 0.2 * pulse) + ')'
-      : hexA(LANE_COLORS[l], (held ? 1 : 0.55 + 0.45 * pulse) + fl * 0.4);
-    roundRectPath(r.x + 1, r.y, r.w - 2, r.h, 10); ctx.stroke();
-    /* 上端ハイライト（判定ラインの帯） */
-    ctx.fillStyle = 'rgba(255,255,255,' + (0.16 + 0.2 * pulse) + ')';
-    roundRectPath(r.x + 4, r.y + 2.5, r.w - 8, 3.4, 1.7); ctx.fill();
-    ctx.restore();
   }
-  /* 判定ライン：パッドの上端を横切る光の線（ここに重なった瞬間が判定） */
+  /* バーのレーン区切り線：境界にだけ入る、さりげない細い仕切り */
+  ctx.fillStyle = 'rgba(255,255,255,.30)';
+  for (var b = 1; b < 4; b++) {
+    var bx = bar.x + b * (bar.w / 4);
+    ctx.fillRect(bx - 0.75, bar.y + 3, 1.5, bar.h - 6);
+  }
+  /* バー全体のフレーム（1本の帯としての輪郭。FEVER 時は虹色に光る） */
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = fever
+    ? 'hsla(' + (((t * 150) % 360) | 0) + ',100%,72%,' + (0.85 + 0.15 * pulse) + ')'
+    : jg;
+  ctx.globalAlpha = fever ? 1 : 0.75 + 0.25 * pulse;
+  ctx.strokeRect(bar.x, bar.y, bar.w, bar.h);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  /* 判定ライン：バーの上端を横切る光の線（ここに重なった瞬間が判定） */
   drawJudgeLine(t, cx, hwB, jy, jg, pulse);
 }
 function drawJudgeLine(t, cx, hwB, jy, jg, pulse) {
   /* 判定ラインの強調描画：太く明るいライン＋グロー＋白い芯＋流れる輝き＋
      レーン境界マーカーで、背景や FEVER 演出の中でも一目で分かるようにする。
-     位置は従来どおりパッド上端（jy）そのもの＝判定タイミングは不変 */
+     位置は従来どおりバー上端（jy）そのもの＝判定タイミングは不変 */
   ctx.save();
   /* グロー（ぼかした太い光の下地） */
   ctx.globalAlpha = 0.45 + 0.20 * pulse;
@@ -2604,6 +2629,8 @@ window.__sr = {
   scheduleStep: scheduleStep,
   vocalCalls: function () { return vocalCalls; },
   judgeBar: function () { return judgeBarSegs(); },
+  judgeBarRect: function () { return judgeBarRect(); },
+  judgeBarH: function () { return JUDGE_BAR_H; },
   perspU: perspU,
   noteVisual: function (nt) { return noteVisual(nt, noteY(nt.t)); },
   noteYAt: function (t) { return noteY(t); },
