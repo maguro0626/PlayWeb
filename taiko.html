@@ -69,6 +69,9 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #songDetail .stars{font-size:10px;color:var(--gold);letter-spacing:.04em;flex:1;min-width:0;white-space:nowrap;overflow:hidden}
 #songDetail .dBest{font-size:11px;font-weight:900;color:var(--sub);white-space:nowrap}
 #songDetail .dBest .rk{display:inline-block;background:linear-gradient(180deg,#ffd964,#f5b921);color:#231600;border-radius:6px;padding:0 5px;margin-left:3px;font-size:11px}
+#songDetail .sdCredit{font-size:9.5px;color:rgba(255,255,255,.78);margin-top:5px;line-height:1.55;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow-wrap:anywhere}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);background:rgba(20,10,16,.93);color:var(--txt);border:1.5px solid var(--gold);border-radius:999px;padding:10px 20px;font-size:13.5px;font-weight:800;z-index:99;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:88vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (max-height:740px){
   .songCard{min-height:56px;padding:6px 10px 6px 8px}
   .songCard .jk{width:42px;height:42px;font-size:23px}
@@ -188,8 +191,9 @@ html,body{overscroll-behavior:none;}
 </div>
 <div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
-<p class="help footHelp">曲はすべて WebAudio 合成のオリジナル曲です。魂ゲージ70%以上でクリア！</p>
+<p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
+<div id="toast"></div>
 <script>
 /*__TAIKO_MAIN__*/
 (function () {
@@ -253,12 +257,52 @@ var SONGS = [
       B: { mel: '..8...7.6.5.....' + '..5.6.7...8.....' + '..9...8.7.6.5...' + '..3...2...1.....', bass: [2, 5, 1, 1] }
     },
     seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B']
+  },
+  /* ---------------- 実音源の曲（フリーBGM／Suno自作曲） ----------------
+     音声は audio/parts/<id>.pNN.js（AAC の base64 を分割したもの）を選曲時に
+     遅延読み込みし、連番順に結合して再生する。分割数は parts に持たせる。
+     mel/seq は持たず、bpm と offset（最初の拍の位置・秒）から拍グリッド譜面を生成する。
+     bpm/offset/duration/credit は audio_spec.json の計測値と一致させること。 */
+  {
+    id: 'amenoshita', title: 'Amenoshita2', emo: '⛩️', genre: '和風', cat: '和風', bpm: 142, theme: 'wafu',
+    real: true, duration: 202.4, offset: 0.087, beatsPerBar: 4, parts: 12,
+    credit: 'Music: "Amenoshita2" by PeriTune (https://peritune.com/) — CC BY 4.0'
+  },
+  {
+    id: 'volatile', title: 'Volatile Reaction', emo: '🔥', genre: 'ロック', cat: 'ロック', bpm: 155, theme: 'rock',
+    real: true, duration: 165.36, offset: 0.358, beatsPerBar: 7, parts: 10,
+    credit: '"Volatile Reaction" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/'
+  },
+  {
+    id: 'industrial', title: 'Industrial Revolution', emo: '🏭', genre: 'ロック', cat: 'ロック', bpm: 140, theme: 'rock',
+    real: true, duration: 145.71, offset: 0.401, beatsPerBar: 4, parts: 9,
+    credit: '"Industrial Revolution" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 3.0 License http://creativecommons.org/licenses/by/3.0/'
+  },
+  {
+    id: 'torikago', title: '犠牲', emo: '🕊️', genre: 'Suno', cat: 'Suno', bpm: 150, theme: 'rock',
+    real: true, suno: true, duration: 123.01, offset: 0.051, beatsPerBar: 4, parts: 7, credit: 'Suno'
+  },
+  {
+    id: 'sora', title: 'constipation', emo: '🎸', genre: 'Suno', cat: 'Suno', bpm: 97.8, theme: 'rock',
+    real: true, suno: true, duration: 116.41, offset: 0.15, beatsPerBar: 4, parts: 7, credit: 'Suno'
+  },
+  {
+    id: 'trick', title: 'トリックオアートリート', emo: '🎃', genre: 'Suno', cat: 'Suno', bpm: 88.2, theme: 'jazz',
+    real: true, suno: true, duration: 82.48, offset: 0.132, beatsPerBar: 4, parts: 5, credit: 'Suno'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
 
+/* 実音源曲の曲データ：16分音符グリッドを最初の拍（offset）から曲の終わりまで敷く */
+function realSongData(song) {
+  var stepDur = 60 / song.bpm / 4;
+  var totalSteps = Math.max(0, Math.floor((song.duration - song.offset) / stepDur));
+  return { stepDur: stepDur, totalSteps: totalSteps, duration: song.duration, melEvents: {}, melSteps: {}, bassByBar: [], bars: totalSteps / 16, real: true };
+}
+
 /* 曲の全ステップを展開し、メロディイベントと小節ごとのベース根音を求める */
 function buildSongData(song) {
+  if (song.real) return realSongData(song);
   var stepDur = 60 / song.bpm / 4;
   var melStr = '';
   var bassByBar = [];
@@ -290,7 +334,46 @@ var DIFFS = {
   /* おに：密度を大幅に上げ、同時打ち(pairProb)・長い連打(runLen)・アクセント大音符(bigAccentProb)を解禁し、判定窓も最も狭い */
   oni:    { label: 'おに',       grid: 1, pAccent: 0.97, pOff: 0.58, minGap: 1, bigProb: 0.30, good: 0.048, bad: 0.108, pairProb: 0.16, bigAccentProb: 0.12, runLen: 7 }
 };
+/* 実音源曲の譜面生成（決定的）：拍グリッド（offset + step×16分音符）に沿って
+   シンセ曲と同じ確率モデルで配置する。アクセント＝拍の頭、小節は beatsPerBar 拍。
+   最初の1小節は導入として空け、曲の最後の拍より後には置かない。 */
+function buildChartReal(song, diffKey) {
+  var P = DIFFS[diffKey];
+  var stepDur = 60 / song.bpm / 4;
+  var stepsPerBar = (song.beatsPerBar || 4) * 4;
+  var totalSteps = Math.max(0, Math.floor((song.duration - song.offset) / stepDur));
+  var rng = mulberry32(hashStr('taiko:' + song.id + ':' + diffKey));
+  var notes = [];
+  var lastStep = -9999;
+  for (var step = stepsPerBar; step <= totalSteps; step++) {
+    if (step % P.grid !== 0) continue;
+    if (step - lastStep < P.minGap) continue;
+    var t = song.offset + step * stepDur;
+    if (t > song.duration - 0.2) break; /* 最後の拍以降・終端ギリギリには置かない */
+    var barStart = step % stepsPerBar === 0;
+    var accent = barStart || step % 4 === 0;
+    var p = accent ? P.pAccent : P.pOff;
+    if (barStart) p = Math.max(p, 0.85);
+    if (rng() >= p) continue;
+    var r = rng();
+    var type = (step % 4 === 0) ? (r < 0.68 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
+    var n = notes.length, runLim = P.runLen || 3, run = 0;
+    while (run < runLim && run < n && notes[n - 1 - run].type === type) run++;
+    if (run >= runLim) type = (type === 'don') ? 'katsu' : 'don';
+    var big = P.bigProb > 0 && barStart && rng() < P.bigProb;
+    if (!big && P.bigAccentProb && accent && rng() < P.bigAccentProb) big = true;
+    var main = { step: step, t: t, type: type, big: big, judged: 0, res: null };
+    notes.push(main);
+    lastStep = step;
+    if (P.pairProb && accent && !big && rng() < P.pairProb) {
+      main.pair = 1;
+      notes.push({ step: step, t: t, type: type === 'don' ? 'katsu' : 'don', big: false, judged: 0, res: null, pair: 1 });
+    }
+  }
+  return notes;
+}
 function buildChart(song, diffKey) {
+  if (song.real) return buildChartReal(song, diffKey);
   var P = DIFFS[diffKey];
   var data = buildSongData(song);
   var rng = mulberry32(hashStr('taiko:' + song.id + ':' + diffKey));
@@ -412,6 +495,8 @@ function setMuted(m) {
   muted = m;
   try { localStorage.setItem('taiko_mute', m ? '1' : '0'); } catch (e) {}
   if (master) master.gain.value = m ? 0 : 0.9;
+  /* 実音源にもミュートを効かせる */
+  Object.keys(realAudio).forEach(function (k) { var r = realAudio[k]; if (r && r.el) r.el.muted = m; });
   var b = document.getElementById('muteBtn');
   if (b) b.textContent = m ? '🔇' : '🔊';
 }
@@ -426,24 +511,37 @@ function toneAt(freq, t, dur, type, vol, slideTo) {
   o.connect(g); g.connect(master);
   o.start(t); o.stop(t + dur + 0.05);
 }
-function noiseAt(t, dur, fType, freq, q, vol) {
+function noiseAt(t, dur, fType, freq, q, vol, atk) {
   if (!AC || !noiseBuf) return;
   var src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
   src.playbackRate.value = 0.7 + Math.random() * 0.6;
   var f = AC.createBiquadFilter(); f.type = fType; f.frequency.value = freq; f.Q.value = q;
   var g = AC.createGain();
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(vol, t + (atk || 0.004));
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   src.connect(f); f.connect(g); g.connect(master);
   src.start(t); src.stop(t + dur + 0.05);
 }
-function kickAt(t, vol) { toneAt(150, t, 0.13, 'sine', vol, 44); }
-function snareAt(t, vol) { noiseAt(t, 0.11, 'bandpass', 1800, 0.9, vol); toneAt(190, t, 0.07, 'triangle', vol * 0.5, 120); }
-function hatAt(t, vol, open) { noiseAt(t, open ? 0.14 : 0.035, 'highpass', 8200, 0.7, vol); }
-/* 太鼓の音（プレイヤーの打撃＆和風曲のドラム）: ドン=面（低く太く）/ カツ=縁（高く締まる） */
+/* 伴奏ドラムは打撃SE（ドン/カツ）と必ず別音色にする（実機FB：曲中の音と自分の打音が紛らわしい）。
+   キックはドンより短く・低く・打面スナップなし。スネアはカツのノイズ帯域2600Hzから
+   1オクターブ以上下げ、アタックを柔らかく長めにして「シャッ」と聞こえるようにする。
+   ハットもアタックを少し柔らかくし、クリックではなく「チッ」という粒に寄せる。 */
+function kickAt(t, vol) { toneAt(118, t, 0.10, 'sine', vol, 40); }
+function snareAt(t, vol) { noiseAt(t, 0.16, 'bandpass', 1050, 0.7, vol, 0.018); toneAt(165, t, 0.09, 'triangle', vol * 0.45, 105); }
+function hatAt(t, vol, open) { noiseAt(t, open ? 0.15 :  0.05, 'highpass', 7600, 0.7, vol, open ? 0.012 : 0.010); }
+/* 太鼓の音（プレイヤーの打撃専用。伴奏には使わない）: ドン=面（低く太く）/ カツ=縁（高く締まる） */
 function donAt(t, vol, big) { toneAt(big ? 128 : 168, t, big ? 0.34 : 0.24, 'sine', vol, big ? 46 : 57); noiseAt(t, 0.03, 'lowpass', 900, 0.6, vol * 0.35); }
 function katsuAt(t, vol, big) { toneAt(big ? 520 : 640, t, big ? 0.16 : 0.10, 'square', vol * 0.5, big ? 240 : 300); noiseAt(t, 0.05, 'bandpass', 2600, 1.2, vol * 0.7); }
+/* 和風曲の伴奏専用：大太鼓（ドンより低く長く、打面のスナップがない柔らかい胴鳴り）と
+   鈴（カツと無関係な高域の純音の重なり。拍子木や締太鼓のようなクリック系は使わない） */
+function oodaikoAt(t, vol) { toneAt(104, t, 0.40, 'sine', vol, 38); }
+function suzuAt(t, vol) {
+  toneAt(4720, t, 0.20, 'sine', vol * 0.36);
+  toneAt(6310, t, 0.15, 'sine', vol * 0.24);
+  toneAt(8450, t, 0.10, 'sine', vol * 0.14);
+  noiseAt(t, 0.12, 'highpass', 6800, 0.7, vol * 0.30, 0.02);
+}
 function playHit(type, big) { if (!AC) return; var t = AC.currentTime; if (type === 'don') donAt(t, big ? 0.95 : 0.8, big); else katsuAt(t, big ? 0.8 : 0.65, big); }
 
 /* ---------------- 歌声シンセ（フォルマント合成） ----------------
@@ -509,8 +607,8 @@ function scheduleStep(song, data, step, t) {
   }
   var fill = (bs >= 12) && ((bar + 1) % 4 === 0);
   if (song.theme === 'wafu') {
-    if (bs === 0 || bs === 8) donAt(t, 0.42, false);
-    if (bs === 4 || bs === 12) katsuAt(t, 0.30, false);
+    if (bs === 0 || bs === 8) oodaikoAt(t, 0.42);
+    if (bs === 4 || bs === 12) suzuAt(t, 0.30);
     if (bs % 4 === 2) hatAt(t, 0.05, false);
   } else if (song.theme === 'chip') {
     if (bs % 4 === 0) kickAt(t, 0.5);
@@ -537,6 +635,132 @@ function scheduleStep(song, data, step, t) {
   }
 }
 
+/* ---------------- 実音源（フリーBGM／Suno曲）の読み込みと再生 ----------------
+   音声は AAC の base64 を分割した audio/parts/<id>.pNN.js（NN は 00 からの連番、
+   各ファイルが window.PW_AUDIO_PARTS['<id>'][NN] に断片を設定する）として格納され、
+   選曲時に初めて全分割を並列で遅延読み込みし、連番順に結合して復元する。
+   base64 → Blob(audio/mp4) → ObjectURL → HTMLAudioElement で再生し、
+   演奏の時計は audio.currentTime を使う。
+   シンセ曲は従来どおり WebAudio スケジューラで、両者は startSong で分岐する。 */
+var realAudio = {}; /* id -> {state:'loading'|'ready'|'error', url, el} */
+var realPlayTimer = null;  /* カウントダウン後に再生を始めるタイマー */
+var realStartPerf = 0;     /* 再生開始予定の performance.now()（カウントダウン中の時計用） */
+var realStarted = false;   /* 実音源の再生が始まったか */
+var realFrozen = false;    /* 画面を離れて自動一時停止中か（時計を凍結する） */
+var pendingStart = false;  /* 読み込み完了後に自動で演奏開始するか */
+var toastTimer = null;
+function toast(msg) {
+  var el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+}
+function realState(song) { var r = realAudio[song.id]; return r ? r.state : 'none'; }
+/* 分割ファイルが全て揃っていれば、連番順に結合した base64 を返す（揃わなければ null） */
+function realJoinedBase64(song) {
+  var arr = window.PW_AUDIO_PARTS && window.PW_AUDIO_PARTS[song.id];
+  if (!arr || typeof song.parts !== 'number' || song.parts < 1) return null;
+  for (var i = 0; i < song.parts; i++) if (typeof arr[i] !== 'string') return null;
+  return arr.join('');
+}
+function ensureRealAudio(song) {
+  if (!song || !song.real) return true;
+  var r = realAudio[song.id];
+  if (r && r.state === 'ready') return true;
+  if (r && r.state === 'loading') return false;
+  r = realAudio[song.id] = { state: 'loading', url: null, el: null };
+  var done = function (ok, b64) {
+    if (ok) buildRealEl(song, r, b64);
+    else {
+      r.state = 'error';
+      pendingStart = false;
+      toast('音源の読み込みに失敗しました');
+      renderSongList();
+    }
+  };
+  var joined = realJoinedBase64(song);
+  if (joined !== null) { done(true, joined); return realState(song) === 'ready'; }
+  var total = (typeof song.parts === 'number' && song.parts > 0) ? song.parts : 0;
+  if (!total) { done(false); return false; }
+  var remain = total, failed = false, finished = false;
+  var onPart = function (ok) {
+    if (finished) return;
+    if (!ok) failed = true;
+    if (--remain > 0) return;
+    finished = true;
+    var b64 = failed ? null : realJoinedBase64(song);
+    done(b64 !== null, b64);
+  };
+  try {
+    for (var i = 0; i < total; i++) {
+      (function (idx) {
+        var sc = document.createElement('script');
+        sc.src = 'audio/parts/' + song.id + '.p' + ('0' + idx).slice(-2) + '.js';
+        sc.onload = function () { onPart(true); };
+        sc.onerror = function () { onPart(false); };
+        (document.head || document.body).appendChild(sc);
+      })(i);
+    }
+  } catch (e) { done(false); }
+  return false;
+}
+function buildRealEl(song, r, b64) {
+  try {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var url = URL.createObjectURL(new Blob([bytes], { type: 'audio/mp4' }));
+    var el = document.createElement('audio');
+    el.src = url;
+    el.preload = 'auto';
+    el.muted = muted;
+    r.url = url; r.el = el;
+    /* メタデータ（長さ）が確定して初めて ready とする */
+    var markReady = function () {
+      if (r.state === 'ready') return;
+      r.state = 'ready';
+      renderSongList();
+      if (pendingStart) { pendingStart = false; startSong(); }
+    };
+    el.addEventListener('loadedmetadata', markReady);
+    el.addEventListener('ended', function () { if (playing && curSong && curSong.id === song.id) finishSong(); });
+    el.addEventListener('error', function () {
+      if (r.state !== 'ready') {
+        r.state = 'error';
+        pendingStart = false;
+        toast('音源の読み込みに失敗しました');
+        renderSongList();
+      } else if (playing && curSong && curSong.id === song.id) { toast('音源を再生できませんでした'); stopSong(true); }
+    });
+    if (el.readyState >= 1) markReady();
+  } catch (e) {
+    r.state = 'error';
+    pendingStart = false;
+    toast('音源の読み込みに失敗しました');
+    renderSongList();
+  }
+}
+/* iOS Safari はタップの瞬間に play() しておかないと後の再生が拒否されるため、
+   開始タップの中で一度 play→pause して再生許可を得ておく */
+function primeRealEl(el) {
+  if (!el) return;
+  try {
+    var p = el.play();
+    if (p && p.then) p.then(function () { if (!realStarted) { try { el.pause(); el.currentTime = 0; } catch (e) {} } }, function () {});
+  } catch (e) {}
+}
+function stopRealAudio() {
+  if (realPlayTimer) { clearTimeout(realPlayTimer); realPlayTimer = null; }
+  pendingStart = false;
+  realStarted = false;
+  realFrozen = false;
+  if (curSong && curSong.real) {
+    var r = realAudio[curSong.id];
+    if (r && r.el) { try { r.el.pause(); } catch (e) {} }
+  }
+}
 /* ---------------- ゲーム状態 ---------------- */
 function $(id) { return document.getElementById(id); }
 var wrapEl = $('wrapEl'), cv = $('cv'), ctx = cv.getContext('2d');
@@ -565,7 +789,7 @@ function fitCanvas() {
 window.addEventListener('resize', fitCanvas);
 
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
-var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'] };
+var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'] };
 /* ジャケットアート：曲ごとのモチーフを Canvas で手続き生成する（dataURL化して使い回す。
    生成できない環境では null を返し、CSSグラデーションの従来表示にフォールバックする） */
 var jacketCache = {};
@@ -680,11 +904,11 @@ function renderSongList() {
     var nNotes = buildChart(s, selDiff).length;
     var cols = SONG_COLORS[s.id] || ['#888', '#444'];
     var art = jacketArt(s);
-    html += '<button class="songCard' + (s.id === selSong ? ' on' : '') + '" data-song="' + s.id + '" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + '"><span class="jk"' + (art ? ' style="background-image:url(' + art + ')"' : '') + '>' + s.emo + '</span><span class="grow"><span class="nm">' + s.title + '</span><div class="meta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ♪' + nNotes + '音</div><div class="stars">' + starStr(diffLevel(s, selDiff)) + '</div></span>' + (best === null ? '' : '<span class="bst">🏆 ' + best.toLocaleString() + '</span>') + '</button>';
+    html += '<button class="songCard' + (s.id === selSong ? ' on' : '') + '" data-song="' + s.id + '" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + '"><span class="jk"' + (art ? ' style="background-image:url(' + art + ')"' : '') + '>' + s.emo + '</span><span class="grow"><span class="nm">' + s.title + '</span><div class="meta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ♪' + nNotes + '音' + (s.real ? ' ・ 🎵実音源' : '') + '</div><div class="stars">' + starStr(diffLevel(s, selDiff)) + '</div></span>' + (best === null ? '' : '<span class="bst">🏆 ' + best.toLocaleString() + '</span>') + '</button>';
   });
   $('songList').innerHTML = html;
   document.querySelectorAll('.songCard').forEach(function (b) {
-    b.addEventListener('click', function () { ensureAudio(); selSong = b.dataset.song; renderSongList(); blip(); });
+    b.addEventListener('click', function () { ensureAudio(); selSong = b.dataset.song; var sg = songById(selSong); if (sg.real) ensureRealAudio(sg); renderSongList(); blip(); });
   });
   renderSongDetail();
 }
@@ -703,7 +927,13 @@ function renderSongDetail() {
   detEl.style.setProperty('--sc', cols[0]);
   detEl.style.setProperty('--sc2', cols[1]);
   var sdArt = jacketArt(s);
-  detEl.innerHTML = '<span class="sdTag">▶ 選択中</span><span class="sdJk" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + (sdArt ? ';background-image:url(' + sdArt + ')' : '') + '">' + s.emo + '</span><span class="sdMain"><div class="sdTtl">' + s.title + '</div><div class="sdMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒' + (s.vocal ? ' ・ 🎤歌声シンセ' : '') + '</div>' + rows + '</span>';
+  var realTag = '';
+  if (s.real) {
+    var rst = realState(s);
+    realTag = rst === 'ready' ? ' ・ 🎵実音源' : (rst === 'loading' ? ' ・ ⏳音源読み込み中…' : (rst === 'error' ? ' ・ ⚠音源の読込に失敗' : ' ・ 🎵実音源'));
+  }
+  var creditHtml = s.credit ? '<div class="sdCredit">' + (s.suno ? '🎵 Suno（自作曲）' : s.credit) + '</div>' : '';
+  detEl.innerHTML = '<span class="sdTag">▶ 選択中</span><span class="sdJk" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + (sdArt ? ';background-image:url(' + sdArt + ')' : '') + '">' + s.emo + '</span><span class="sdMain"><div class="sdTtl">' + s.title + '</div><div class="sdMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒' + (s.vocal ? ' ・ 🎤歌声シンセ' : '') + realTag + '</div>' + rows + creditHtml + '</span>';
   document.querySelectorAll('#songDetail .dRow').forEach(function (b) {
     b.addEventListener('click', function () { ensureAudio(); setDiff(b.dataset.d); blip(); });
   });
@@ -728,6 +958,18 @@ document.querySelectorAll('#modeSeg button').forEach(function (b) {
 });
 window.addEventListener('focus', renderSongList);
 document.addEventListener('visibilitychange', function () { if (!document.hidden) renderSongList(); });
+/* 画面を離れたら実音源を一時停止し、戻ったら再開する（時計も一緒に止まる） */
+document.addEventListener('visibilitychange', function () {
+  if (!curSong || !curSong.real || !playing) return;
+  var r = realAudio[curSong.id];
+  if (!r || !r.el) return;
+  if (document.hidden) {
+    if (realStarted && !r.el.paused) { try { r.el.pause(); } catch (e) {} realFrozen = true; }
+  } else if (realFrozen) {
+    realFrozen = false;
+    try { var p = r.el.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+  }
+});
 setTimeout(renderSongList, 2000); setTimeout(renderSongList, 5000);
 
 /* ---------------- 演奏の開始・終了 ---------------- */
@@ -735,6 +977,13 @@ function startSong() {
   ensureAudio();
   if (!AC) return;
   curSong = songById(selSong);
+  if (curSong.real && realState(curSong) !== 'ready') {
+    /* 実音源が未読込なら読み込み、完了後に自動で開始する（失敗時はトーストで知らせる） */
+    pendingStart = true;
+    ensureRealAudio(curSong);
+    if (realState(curSong) !== 'ready') { toast('音源を読み込んでいます…'); return; }
+    pendingStart = false;
+  }
   curData = buildSongData(curSong);
   chart = buildChart(curSong, selDiff);
   notePtr = 0;
@@ -751,10 +1000,32 @@ function startSong() {
   $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）';
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
-  startCtx = AC.currentTime + 3.2; /* 3秒カウントダウン */
-  nextStep = 0;
-  if (schedTimer) clearInterval(schedTimer);
-  schedTimer = setInterval(scheduleAhead, 25);
+  if (curSong.real) {
+    /* 実音源：カウントダウン後に HTMLAudio を再生し、時計は audio.currentTime に切り替える */
+    if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
+    var rr = realAudio[curSong.id];
+    realStarted = false;
+    realFrozen = false;
+    realStartPerf = performance.now() + 3200;
+    try { rr.el.currentTime = 0; } catch (e) {}
+    primeRealEl(rr.el);
+    if (realPlayTimer) clearTimeout(realPlayTimer);
+    realPlayTimer = setTimeout(function () {
+      realPlayTimer = null;
+      if (!playing || !curSong || !curSong.real) return;
+      realStarted = true;
+      var p = null;
+      try { p = rr.el.play(); } catch (e) {}
+      if (p && p.catch) p.catch(function () {
+        if (playing && curSong && curSong.real) { toast('再生を開始できませんでした。もう一度お試しください'); stopSong(true); }
+      });
+    }, 3200);
+  } else {
+    startCtx = AC.currentTime + 3.2; /* 3秒カウントダウン */
+    nextStep = 0;
+    if (schedTimer) clearInterval(schedTimer);
+    schedTimer = setInterval(scheduleAhead, 25);
+  }
   updateHUD(true);
 }
 function scheduleAhead() {
@@ -770,6 +1041,7 @@ function scheduleAhead() {
 }
 function stopSong(toMenu) {
   playing = false;
+  stopRealAudio();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   wrapEl.classList.remove('playing');
   $('quitBtn').classList.add('hidden');
@@ -786,6 +1058,7 @@ function finishSong() {
   if (!playing) return;
   /* レイアウト（.playing/.ingame）はリザルト表示中も維持し、「曲選択へ」で初めて戻す */
   playing = false;
+  stopRealAudio();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   $('quitBtn').classList.add('hidden');
   var res = makeResult(counts, gauge, chart.length);
@@ -986,7 +1259,17 @@ function draw() {
   var now = performance.now();
   var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
   if (!CW) fitCanvas();
-  if (playing && AC) {
+  if (playing && curSong && curSong.real) {
+    /* 実音源の時計：再生中は audio.currentTime、カウントダウン中は予定時刻からの経過、
+       自動一時停止中は凍結する */
+    var rel = realAudio[curSong.id];
+    if (realFrozen) { /* songTime は据え置き */ }
+    else if (realStarted && rel && rel.el) songTime = rel.el.currentTime;
+    else songTime = (performance.now() - realStartPerf) / 1000;
+    sweepMiss();
+    $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
+    if (songTime > curData.duration + 0.9) { finishSong(); }
+  } else if (playing && AC) {
     songTime = AC.currentTime - startCtx;
     sweepMiss();
     $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
@@ -2057,6 +2340,8 @@ function onNetData(m) {
   }
   if (m.t === 'start') {
     selSong = songById(m.song).id; selDiff = DIFFS[m.diff] ? m.diff : 'normal';
+    var sgs = songById(selSong);
+    if (sgs.real) ensureRealAudio(sgs); /* 実音源は先に読み込み始め、完了後に startSong が自動開始する */
     renderSongList();
     setOnlineStatus('対戦開始！');
     beginOnlineSong();
@@ -2098,9 +2383,12 @@ window.__taiko = {
   mulberry32: mulberry32, melodyVoice: melodyVoice, FORMANTS: FORMANTS, VOWELS: VOWELS,
   diffLevel: diffLevel, starStr: starStr, getRank: getRank, genreList: genreList,
   judgeGeom: function () { var lg = laneGeom(); return { r: JUDGE_R, noteR: NOTE_R, noteRBig: NOTE_R_BIG, x: lg.judgeX, y: lg.y, laneH: lg.h }; },
-  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre }; },
+  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre, real: curSong ? !!curSong.real : !!songById(selSong).real }; },
   bigDrum: function () { var bd = bigDrumGeom(); return { x: bd.x, y: bd.y, R: bd.R, top: bd.top }; },
   tapTypeAt: tapTypeAt,
+  realInfo: function (songId) { var s = songById(songId || selSong); if (!s.real) return null; var r = realAudio[s.id]; return { state: r ? r.state : 'none', duration: r && r.el ? r.el.duration : null, currentTime: r && r.el ? r.el.currentTime : null, muted: r && r.el ? !!r.el.muted : null }; },
+  seekReal: function (sec) { var r = curSong && realAudio[curSong.id]; if (r && r.el) { try { r.el.currentTime = sec; } catch (e) {} } },
+  selectSong: function (songId) { selSong = songById(songId).id; var sg = songById(selSong); if (sg.real) ensureRealAudio(sg); renderSongList(); },
   startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
   hit: hit,
   finishNow: function () { if (playing) { songTime = curData.duration + 1; finishSong(); } }

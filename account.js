@@ -2645,7 +2645,7 @@
     fbWrapEl.id = 'pwFbWrap';
     /* v92: 提供終了した6ゲームは対象ゲームの選択肢に出さない。
        GAME_TITLES 自体は過去の戦績・意見・在席表示のゲーム名表示に使うため残す */
-    var FB_REMOVED_GAMES = { crepe: 1, frostline: 1, gamedev: 1, numguess: 1, janken: 1, dice: 1 };
+    var FB_REMOVED_GAMES = { crepe: 1, frostline: 1, gamedev: 1, numguess: 1, janken: 1, dice: 1, mole: 1, simon: 1, memory: 1, calc: 1, reaction: 1, mash: 1, otome: 1 };
     var gameOpts = '<option value="">（ゲーム共通・その他）</option>' + Object.keys(GAME_TITLES).filter(function (g) { return g !== 'portal' && !FB_REMOVED_GAMES[g]; }).map(function (g) {
       return '<option value="' + g + '">' + esc(GAME_TITLES[g]) + '</option>';
     }).join('');

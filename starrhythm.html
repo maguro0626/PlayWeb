@@ -62,7 +62,10 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 #diffSeg button.on{background:linear-gradient(92deg,var(--gold),#ff9d5c);color:#2a1500;box-shadow:0 2px 10px rgba(255,201,60,.4)}
 #diffSeg button .lv{display:inline-block;margin-left:3px;padding:0 6px;border-radius:999px;background:rgba(0,0,0,.28);color:#ffd94d;font-size:10.5px;font-weight:900;vertical-align:1px}
 #diffSeg button.on .lv{background:rgba(42,21,0,.3);color:#2a1500}
-#songDetail{display:flex;gap:11px;align-items:center;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));border:2px solid rgba(255,201,60,.45);border-radius:16px;padding:10px 12px;box-shadow:0 6px 22px rgba(0,0,0,.35),0 0 28px rgba(255,93,143,.16),inset 0 1px 0 rgba(255,255,255,.14)}
+#songDetail{display:flex;flex-direction:column;gap:7px;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));border:2px solid rgba(255,201,60,.45);border-radius:16px;padding:10px 12px;box-shadow:0 6px 22px rgba(0,0,0,.35),0 0 28px rgba(255,93,143,.16),inset 0 1px 0 rgba(255,255,255,.14)}
+#songDetail .dRow{display:flex;gap:11px;align-items:center;width:100%}
+#songDetail .dCredit{font-size:9.5px;color:var(--sub);line-height:1.55;opacity:.9;border-top:1px solid rgba(255,255,255,.10);padding-top:6px;word-break:break-all}
+#audioToast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:60;background:rgba(10,6,28,.92);border:1px solid rgba(255,201,60,.6);color:var(--txt);font-size:13px;font-weight:800;padding:10px 18px;border-radius:999px;box-shadow:0 8px 26px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;max-width:92vw;text-overflow:ellipsis;overflow:hidden}
 #songDetail .jacketBig{width:74px;height:74px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;font-size:38px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),0 4px 12px rgba(0,0,0,.45)}
 #songDetail .jacketBig::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.45) 48%,transparent 62%);transform:translateX(-120%);animation:shine 3.6s ease-in-out infinite}
 #songDetail .dInfo{flex:1;min-width:0}
@@ -76,8 +79,9 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 #songDetail .bst .rk.fc{background:rgba(74,222,128,.14);border-color:rgba(74,222,128,.6);color:#4ade80}
 #songDetail .bst .rk.ap{background:rgba(255,93,143,.18);border-color:rgba(255,255,255,.7);color:#fff}
 #songDetail .bst .none{font-size:11px;color:var(--sub)}
-.songGrid{display:flex;gap:7px;margin-top:8px}
-.songTile{flex:1;min-width:0;background:rgba(255,255,255,.05);border:2px solid var(--line);border-radius:13px;padding:5px 4px 6px;color:var(--txt);cursor:pointer;font-family:inherit;transition:border-color .15s, box-shadow .15s}
+.songGrid{display:flex;gap:7px;margin-top:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.songGrid::-webkit-scrollbar{display:none}
+.songTile{flex:0 0 74px;min-width:0;background:rgba(255,255,255,.05);border:2px solid var(--line);border-radius:13px;padding:5px 4px 6px;color:var(--txt);cursor:pointer;font-family:inherit;transition:border-color .15s, box-shadow .15s}
 .songTile.on{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,201,60,.5),0 4px 16px rgba(255,201,60,.2)}
 .songTile .jacket{display:flex;height:52px;border-radius:9px;align-items:center;justify-content:center;font-size:27px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
 .songTile .tNm{display:block;font-size:9.5px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -135,6 +139,24 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 .wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane{display:none!important}
 .wrap.playing #footHelp{display:none} /* 演奏中はフッター説明を隠してステージを広く使う（特に低丈画面） */
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
+/* 低丈画面（〜740px）では選曲まわりを圧縮し、クレジット表示のある実音源曲でも
+   スタートボタンが画面内に収まるようにする */
+@media (max-height:740px){
+  .ttl{font-size:20px}
+  #modeSeg button{min-height:34px;padding:6px 6px}
+  #songDetail{padding:8px 10px;gap:5px}
+  #songDetail .jacketBig{width:54px;height:54px;font-size:28px}
+  #songDetail .dTitle{font-size:16px}
+  #songDetail .dDesc{display:none}
+  #songDetail .dCredit{font-size:9px;line-height:1.45;padding-top:5px}
+  .songGrid{margin-top:5px}
+  .songTile{padding:4px 3px 5px}
+  .songTile .jacket{height:36px;font-size:20px}
+  #diffSeg{margin-top:5px}
+  #diffSeg button{min-height:34px;padding:5px 4px}
+  #speedSeg{margin-top:5px}
+  #speedSeg button{min-height:30px}
+}
 </style>
 <style>
 /* バウンス抑止（麻雀方式：画面固定） */
@@ -173,7 +195,8 @@ html,body{overscroll-behavior:none;}
 </div>
 <div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
-<p class="help" id="footHelp">曲はすべて WebAudio 合成のオリジナル曲です。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
+<div id="audioToast" class="hidden"></div>
+<p class="help" id="footHelp">曲は WebAudio 合成のオリジナル曲＋実音源（🎵マークの曲）。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
 </div>
 <script>
 /*__SR_MAIN__*/
@@ -246,12 +269,51 @@ var SONGS = [
       B: { mel: '7...5...4...5...' + '8.7.5.4.5...3...' + '3...4...5...7...' + '5.4.3.1.2...1...', bass: [1, 5, 4, 1] }
     },
     seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
+  },
+  /* ---------------- 実音源曲（audio/parts/<id>.pNN.js の分割 AAC を選曲時に遅延読み込み） ----------------
+     bpm / offset（最初の拍の位置・秒）/ duration（秒）は実測値。譜面は拍グリッドから決定的に生成する。
+     parts は base64 分割ファイルの個数（push の1ファイル上限を避けるため分割している）。 */
+  {
+    id: 'cipher', audio: true, parts: 14, title: 'Cipher', emo: '🎧', genre: 'エレクトロ', bpm: 150, offset: 0.367, duration: 231.26, theme: 'electro', jk: 'jk-electro',
+    artist: 'Kevin MacLeod', desc: '疾走感のある本格エレクトロの実音源トラック。シンセの波に乗って叩き続けろ。', level: { easy: 3, normal: 6, hard: 9 }, jcol: ['#6366f1', '#22d3ee'],
+    credit: '"Cipher" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 3.0 License http://creativecommons.org/licenses/by/3.0/'
+  },
+  {
+    id: 'rapid3', audio: true, parts: 20, title: 'Rapid3', emo: '⚡', genre: 'ドラムンベース', bpm: 175, offset: 0.09, duration: 345.06, theme: 'electro', jk: 'jk-electro',
+    artist: 'PeriTune', desc: 'BPM175・5分超えの長編バトルチューン。スピードと集中力が試される最難関。', level: { easy: 4, normal: 7, hard: 10 }, jcol: ['#0ea5e9', '#a855f7'],
+    credit: 'Music: "Rapid3" by PeriTune (https://peritune.com/) — CC BY 4.0'
+  },
+  {
+    id: 'funshine', audio: true, parts: 10, title: 'Funshine', emo: '☀️', genre: 'ポップ', bpm: 96, offset: 0.283, duration: 165.07, theme: 'pop', jk: 'jk-pop',
+    artist: 'Kevin MacLeod', desc: '明るく軽快な実音源ポップ。ゆったりしたテンポで肩慣らしにぴったり。', level: { easy: 1, normal: 4, hard: 6 }, jcol: ['#fbbf24', '#fb7185'],
+    credit: '"Funshine" Kevin MacLeod (FreePD) — CC0 1.0 (Public Domain)'
+  },
+  {
+    id: 'kenka', audio: true, parts: 10, suno: true, title: '喧嘩', emo: '💢', genre: 'ボーカル', bpm: 92.2, offset: 0.387, duration: 162.36, theme: 'rock', jk: 'jk-rock',
+    artist: 'Suno', desc: '自作曲（Suno）。素直に謝ればよかった——喧嘩と仲直りを歌った一曲。', level: { easy: 2, normal: 5, hard: 7 }, jcol: ['#ef4444', '#f97316'],
+    credit: 'Suno（ユーザー自作曲）'
+  },
+  {
+    id: 'suiuta', audio: true, parts: 10, suno: true, title: 'すいちゃんのうた', emo: '🐱', genre: 'ボーカル', bpm: 108, offset: 0.485, duration: 168.6, theme: 'idol', jk: 'jk-idol',
+    artist: 'Suno', desc: '自作曲（Suno）。愛猫・翠ちゃんの歌。やさしいメロディに乗せて。', level: { easy: 2, normal: 4, hard: 7 }, jcol: ['#fda4af', '#fde68a'],
+    credit: 'Suno（ユーザー自作曲）'
+  },
+  {
+    id: 'nyaan', audio: true, parts: 7, suno: true, title: 'にゃーん', emo: '🐾', genre: 'ボーカルポップ', bpm: 148.2, offset: 0.207, duration: 109.96, theme: 'pop', jk: 'jk-pop',
+    artist: 'Suno', desc: '自作曲（Suno）。にゃーんと元気に駆け抜ける猫ポップ。', level: { easy: 3, normal: 6, hard: 8 }, jcol: ['#fb923c', '#f472b6'],
+    credit: 'Suno（ユーザー自作曲）'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
 
 /* 曲の全ステップを展開し、メロディイベントと小節ごとのベース根音を求める */
 function buildSongData(song) {
+  if (song.audio) {
+    /* 実音源：1拍=4ステップ（16分グリッド）。全拍数ぶんだけ生成し、最後の拍より先には置かない */
+    var aStepDur = 60 / song.bpm / 4;
+    var aBeats = Math.max(4, Math.floor((song.duration - song.offset) / (60 / song.bpm)));
+    return { stepDur: aStepDur, totalSteps: aBeats * 4, duration: song.duration, melEvents: {}, melSteps: {}, bassByBar: [], bars: aBeats / 4, audio: true, offset: song.offset };
+  }
   var stepDur = 60 / song.bpm / 4;
   var melStr = '';
   var bassByBar = [];
@@ -283,6 +345,7 @@ var DIFFS = {
 };
 var FLICK_DIRS = ['left', 'right', 'up', 'down'];
 function buildChart(song, diffKey) {
+  if (song.audio) return buildAudioChart(song, diffKey);
   var P = DIFFS[diffKey];
   var data = buildSongData(song);
   var rng = mulberry32(hashStr('sr:' + song.id + ':' + diffKey));
@@ -336,6 +399,79 @@ function buildChart(song, diffKey) {
   }
   notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   /* 同時押しグループ（同じ step に2つ以上）を線で結ぶために印付け */
+  var g = 0;
+  for (var i = 0; i < notes.length;) {
+    var j = i;
+    while (j + 1 < notes.length && notes[j + 1].step === notes[i].step) j++;
+    if (j > i) { for (var k = i; k <= j; k++) notes[k].group = g; g++; }
+    i = j + 1;
+  }
+  var counts = { tap: 0, long: 0, flick: 0 };
+  var totalWeight = 0;
+  notes.forEach(function (n) { counts[n.type]++; n.weight = n.type === 'long' ? 2 : 1; totalWeight += n.weight; });
+  return { notes: notes, counts: counts, totalWeight: Math.max(1, totalWeight), data: data };
+}
+/* 実音源曲の譜面生成（決定的）：拍グリッド（offset + step×stepDur）に、
+   シンセ曲と同じ難易度パラメータ（grid/密度/ロング/フリック/同時押し）で配置する。
+   メロディ情報がない代わりに、小節単位の緩急（波＋16小節ごとの小休止）で単調さを避ける */
+function buildAudioChart(song, diffKey) {
+  var P = DIFFS[diffKey];
+  var data = buildSongData(song);
+  var rng = mulberry32(hashStr('sr:' + song.id + ':' + diffKey));
+  var phase = (hashStr('srphase:' + song.id) % 628) / 100;
+  var notes = [];
+  var lastStep = -9999, prevLane = 1, sameLaneRun = 0;
+  function pickLaneAudio(accent) {
+    var lane;
+    if (accent && rng() < 0.38) {
+      lane = Math.floor(rng() * 4);
+    } else {
+      var mv = rng() < 0.32 ? 2 : 1;
+      lane = prevLane + (rng() < 0.5 ? -mv : mv);
+      if (lane < 0 || lane > 3) lane = prevLane - (lane - prevLane);
+    }
+    lane = clamp(lane, 0, 3);
+    if (lane === prevLane) { sameLaneRun++; if (sameLaneRun >= 2 && rng() < 0.75) { lane = clamp(lane + (lane >= 2 ? -1 : 1), 0, 3); sameLaneRun = 0; } }
+    else sameLaneRun = 0;
+    prevLane = lane;
+    return lane;
+  }
+  function mkNote(step, lane, type, lenSteps, dir) {
+    return { step: step, t: song.offset + step * data.stepDur, lane: lane, type: type, lenSteps: lenSteps, lenSec: lenSteps * data.stepDur, dir: dir, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 };
+  }
+  for (var step = 4; step < data.totalSteps - 4; step++) {
+    if (step % P.grid !== 0) continue;
+    if (step - lastStep < P.minGap) continue;
+    var bar = Math.floor(step / 16);
+    var accent = step % 4 === 0;
+    var barStart = step % 16 === 0;
+    var p = accent ? P.pAccent : P.pOff;
+    if (barStart) p = Math.max(p, 0.85);
+    var inten = 0.82 + 0.33 * Math.sin(bar * 0.55 + phase);
+    if (bar % 16 === 15) inten *= 0.38; /* 16小節ごとの小休止 */
+    p *= clamp(inten, 0.3, 1.15);
+    if (rng() >= p) continue;
+    var lane = pickLaneAudio(accent);
+    var type = 'tap', lenSteps = 0, dir = null;
+    if (accent && rng() < P.pLong) {
+      type = 'long';
+      var opts = [4, 6, 8, 8, 12];
+      lenSteps = opts[Math.floor(rng() * opts.length)];
+      if (step + lenSteps > data.totalSteps - 2) lenSteps = data.totalSteps - 2 - step;
+      if (lenSteps < 4) { type = 'tap'; lenSteps = 0; }
+    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick) {
+      type = 'flick';
+      var fr = rng();
+      dir = fr < 0.34 ? 'left' : (fr < 0.68 ? 'right' : (fr < 0.88 ? 'up' : 'down'));
+    }
+    notes.push(mkNote(step, lane, type, lenSteps, dir));
+    if (P.pChord > 0 && (barStart || (diffKey === 'hard' && step % 8 === 0)) && rng() < P.pChord) {
+      var lane2 = (lane + 1 + Math.floor(rng() * 3)) % 4;
+      notes.push(mkNote(step, lane2, 'tap', 0, null));
+    }
+    lastStep = (type === 'long') ? step + lenSteps : step;
+  }
+  notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   var g = 0;
   for (var i = 0; i < notes.length;) {
     var j = i;
@@ -438,6 +574,7 @@ function setMuted(m) {
   muted = m;
   try { localStorage.setItem('starrhythm_mute', m ? '1' : '0'); } catch (e) {}
   if (master) master.gain.value = m ? 0 : 0.9;
+  if (audioEl) audioEl.muted = m;
   var b = document.getElementById('muteBtn');
   if (b) b.textContent = m ? '🔇' : '🔊';
 }
@@ -466,8 +603,13 @@ function noiseAt(t, dur, fType, freq, q, vol) {
 }
 function kickAt(t, vol) { toneAt(150, t, 0.13, 'sine', vol, 44); }
 function snareAt(t, vol) { noiseAt(t, 0.11, 'bandpass', 1800, 0.9, vol); toneAt(190, t, 0.07, 'triangle', vol * 0.5, 120); }
-function hatAt(t, vol, open) { noiseAt(t, open ? 0.14 : 0.035, 'highpass', 8200, 0.7, vol); }
-function clapAt(t, vol) { noiseAt(t, 0.09, 'bandpass', 1200, 1.4, vol); noiseAt(t + 0.02, 0.12, 'bandpass', 1500, 1.2, vol * 0.7); }
+/* ハット：タップSEのクリック成分（ハイパス5000Hz・0.03秒の鋭いノイズ）と
+   聞き分けがつくよう、高域クリックではなく中域バンドパス＋長めの胴鳴りにする。
+   「カッ」ではなく「チッ／シッ」と伴奏側に聞こえる音色に統一（全曲共通の対策） */
+function hatAt(t, vol, open) { noiseAt(t, open ? 0.18 : 0.06, 'bandpass', open ? 3400 : 2800, 0.7, vol); }
+/* クラップ：乾いた破裂音は打撃音と紛らわしいので、帯域を下げて柔らかい
+   三角波の胴を足し、「パチッ」ではなく温かい「パン」に寄せる */
+function clapAt(t, vol) { noiseAt(t, 0.10, 'bandpass', 950, 1.2, vol); noiseAt(t + 0.02, 0.14, 'bandpass', 1250, 1.1, vol * 0.7); toneAt(240, t, 0.05, 'triangle', vol * 0.25); }
 /* レーンタップ音（レーンごとに音程が上がる） */
 function laneTapSound(lane) { if (!AC) return; var t = AC.currentTime; toneAt(540 + lane * 110, t, 0.09, 'sine', 0.10); noiseAt(t, 0.03, 'highpass', 5000, 0.7, 0.05); }
 function hitSound(res) { if (!AC) return; var t = AC.currentTime; if (res === 'PERFECT') { toneAt(1320, t, 0.1, 'sine', 0.10); toneAt(1980, t, 0.12, 'sine', 0.06); } else if (res === 'GREAT') toneAt(990, t, 0.09, 'sine', 0.08); else if (res === 'GOOD') toneAt(660, t, 0.08, 'sine', 0.06); }
@@ -537,7 +679,7 @@ function scheduleStep(song, data, step, t) {
     if (bs === 0 || bs === 8 || bs === 10) kickAt(t, 0.6);
     if (bs === 4 || bs === 12) snareAt(t, 0.4);
     if (bs % 2 === 0) hatAt(t, 0.12, bs === 14);
-    if (bs === 0 && bar % 4 === 0) noiseAt(t, 0.35, 'bandpass', 5200, 0.5, 0.09);
+    if (bs === 0 && bar % 4 === 0) noiseAt(t, 0.35, 'bandpass', 3300, 0.5, 0.09); /* クラッシュ：SEクリック帯域(5kHz〜)を避け鈍いシズルに */
   } else if (song.theme === 'idol') {
     /* リードは歌声シンセが担当 */
     if (ev) vocalAt(ev.midi, t, Math.min(ev.len * data.stepDur * 0.92, 1.6), 0.13, step);
@@ -572,6 +714,145 @@ function scheduleStep(song, data, step, t) {
     if (bs === 0 || bs === 8) kickAt(t, 0.34);
     if (bs % 4 === 2) hatAt(t, 0.05, false);
   }
+}
+
+/* ---------------- 実音源の読み込みと再生 ----------------
+   曲データは audio/parts/<id>.pNN.js（base64 AAC を分割したもの）を選曲時に初めて読み込み、
+   連番順に結合して復元し、Blob → ObjectURL → 共有の Audio 要素で再生する。演奏の時計は audio.currentTime。 */
+var audioEl = null;
+var audioURLs = {};     /* id -> ObjectURL（生成済みキャッシュ） */
+var audioLoading = {};  /* id -> [cb]（読み込み中） */
+var curAudioActive = false;  /* 現在の演奏が実音源かどうか */
+var audioStartedFlag = false; /* audio 要素が実際に鳴り始めたか */
+var audioEndedFlag = false;
+var audioPlayTimer = null;
+var audioNeedTap = false;    /* 自動再生ブロック時のタップ再試行フラグ */
+var audioPrimed = false;
+function ensureAudioEl() {
+  if (audioEl) return audioEl;
+  audioEl = document.createElement('audio');
+  audioEl.preload = 'auto';
+  audioEl.style.display = 'none';
+  if (document.body) document.body.appendChild(audioEl);
+  audioEl.addEventListener('playing', function () { audioStartedFlag = true; audioNeedTap = false; });
+  audioEl.addEventListener('ended', function () { audioEndedFlag = true; });
+  return audioEl;
+}
+function b64ToBlobURL(b64) {
+  var bin = atob(b64);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: 'audio/mp4' }));
+}
+/* 分割パートが全て揃っていれば連番順に結合した base64 を返し、無ければ null を返す */
+function assembledAudioB64(song) {
+  var parts = window.PW_AUDIO_PARTS && window.PW_AUDIO_PARTS[song.id];
+  if (!parts || !song.parts) return null;
+  var b64 = '';
+  for (var i = 0; i < song.parts; i++) {
+    if (typeof parts[i] !== 'string') return null;
+    b64 += parts[i];
+  }
+  return b64;
+}
+/* 結合済み base64 を ObjectURL 化してキャッシュする（成功したらパート文字列は解放する） */
+function cacheAudioURL(song, b64) {
+  audioURLs[song.id] = b64ToBlobURL(b64);
+  if (window.PW_AUDIO_PARTS) delete window.PW_AUDIO_PARTS[song.id];
+  return audioURLs[song.id];
+}
+function audioDataReady(song) { return !!audioURLs[song.id] || !!assembledAudioB64(song); }
+function loadAudioTrack(song, cb) {
+  if (audioURLs[song.id]) { cb(null, audioURLs[song.id]); return; }
+  var ready = assembledAudioB64(song);
+  if (ready !== null) {
+    try { cb(null, cacheAudioURL(song, ready)); } catch (e) { cb(e); }
+    return;
+  }
+  if (audioLoading[song.id]) { audioLoading[song.id].push(cb); return; }
+  audioLoading[song.id] = [cb];
+  var done = function (err, url) {
+    var cbs = audioLoading[song.id] || [];
+    delete audioLoading[song.id];
+    cbs.forEach(function (f) { f(err, url); });
+  };
+  var total = song.parts || 0;
+  if (!total) { done(new Error('no audio parts')); return; }
+  var remaining = total, failed = false;
+  for (var i = 0; i < total; i++) {
+    (function (idx) {
+      var sc = document.createElement('script');
+      sc.src = 'audio/parts/' + song.id + '.p' + (idx < 10 ? '0' : '') + idx + '.js';
+      sc.onload = function () {
+        if (failed) return;
+        remaining--;
+        if (remaining > 0) return;
+        var b64 = assembledAudioB64(song);
+        if (b64 === null) { done(new Error('no audio data')); return; }
+        try { done(null, cacheAudioURL(song, b64)); } catch (e) { done(e); }
+      };
+      sc.onerror = function () { if (!failed) { failed = true; done(new Error('load failed')); } };
+      document.head.appendChild(sc);
+    })(i);
+  }
+}
+/* トースト（読み込み中・失敗などの通知） */
+var toastTimer = null;
+function showToast(msg, ms) {
+  var el = $('audioToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.classList.add('hidden'); }, ms || 2600);
+}
+/* iOS 等の自動再生制限対策：ユーザー操作のタイミングで要素を一度鳴らして止め、
+   以後のプログラム再生を許可させる（音量0で実行するので聞こえない） */
+function primeAudioEl() {
+  if (playing || !audioEl || !audioEl.src || audioPrimed) return;
+  try {
+    audioEl.volume = 0;
+    var p = audioEl.play();
+    if (p && p.then) p.then(function () { try { audioEl.pause(); audioEl.currentTime = 0; } catch (e) {} audioEl.volume = 1; audioPrimed = true; }).catch(function () { audioEl.volume = 1; });
+    else { audioEl.pause(); audioEl.volume = 1; audioPrimed = true; }
+  } catch (e) { try { audioEl.volume = 1; } catch (e2) {} }
+}
+document.addEventListener('pointerdown', function () {
+  primeAudioEl();
+  if (audioNeedTap && playing && curAudioActive && audioEl) {
+    var p = audioEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+}, true);
+/* 実音源の再生セットアップ：カウントダウン終了（startCtx）に合わせて鳴らし始める */
+function setupAudioPlayback(song) {
+  var el = ensureAudioEl();
+  stopAudioEl();
+  curAudioActive = true;
+  audioEndedFlag = false;
+  audioStartedFlag = false;
+  el.src = audioURLs[song.id];
+  try { el.currentTime = 0; } catch (e) {}
+  el.muted = muted;
+  audioPrimed = false;
+  var delayMs = Math.max(0, (startCtx - AC.currentTime) * 1000);
+  audioPlayTimer = setTimeout(function () {
+    audioPlayTimer = null;
+    if (!playing || !curSong || curSong.id !== song.id) return;
+    if (!el.play) return;
+    var p = el.play();
+    if (p && p.catch) p.catch(function () {
+      audioNeedTap = true;
+      showToast('音が出ないときは画面をタップしてね', 3200);
+    });
+  }, delayMs);
+}
+function stopAudioEl() {
+  if (audioPlayTimer) { clearTimeout(audioPlayTimer); audioPlayTimer = null; }
+  if (audioEl) { try { audioEl.pause(); } catch (e) {} }
+  curAudioActive = false;
+  audioStartedFlag = false;
+  audioNeedTap = false;
 }
 
 /* ---------------- ゲーム状態 ---------------- */
@@ -659,15 +940,17 @@ function renderSongList() {
   var bst = best ? '<div class="bst"><div class="sc">' + best.s.toLocaleString() + '</div><span class="rk">' + best.r + 'ランク</span>'
       + (best.ap ? '<br><span class="rk ap">ALL PERFECT</span>' : (best.fc ? '<br><span class="rk fc">FULL COMBO</span>' : '')) + '</div>'
     : '<div class="bst"><span class="none">この難易度は<br>未プレイ</span></div>';
-  $('songDetail').innerHTML = '<div class="jacketBig ' + s.jk + '">' + s.emo + '</div>'
+  $('songDetail').innerHTML = '<div class="dRow"><div class="jacketBig ' + s.jk + '">' + s.emo + '</div>'
     + '<div class="dInfo"><div class="dTitle">' + s.title + '</div>'
     + '<div class="dArtist">♪ ' + s.artist + '</div>'
-    + '<div class="dMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ' + DIFFS[selDiff].label + ' Lv' + s.level[selDiff] + '</div>'
-    + '<div class="dDesc">' + s.desc + '</div></div>' + bst;
+    + '<div class="dMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ' + DIFFS[selDiff].label + ' Lv' + s.level[selDiff] + (s.audio ? ' ・ 🎵実音源' : '') + '</div>'
+    + '<div class="dDesc">' + s.desc + '</div></div>' + bst + '</div>'
+    + (s.audio ? '<div class="dCredit">' + (s.suno ? '🎤 自作曲（Suno）' : s.credit) + '</div>' : '');
+  if (s.audio) loadAudioTrack(s, function () {}); /* 選曲時点で先行読み込み（開始を速くする） */
   var html = '';
   SONGS.forEach(function (sg) {
     var b2 = getBest(sg.id, selDiff);
-    html += '<button class="songTile' + (sg.id === selSong ? ' on' : '') + '" data-song="' + sg.id + '"><span class="jacket ' + sg.jk + '">' + sg.emo + '</span><span class="tNm">' + sg.title + '</span><span class="tRk">' + (b2 ? b2.r + 'ランク' : '未プレイ') + '</span></button>';
+    html += '<button class="songTile' + (sg.id === selSong ? ' on' : '') + '" data-song="' + sg.id + '"><span class="jacket ' + sg.jk + '">' + sg.emo + '</span><span class="tNm">' + (sg.audio ? '🎵' : '') + sg.title + '</span><span class="tRk">' + (b2 ? b2.r + 'ランク' : '未プレイ') + '</span></button>';
   });
   $('songList').innerHTML = html;
   document.querySelectorAll('.songTile').forEach(function (b) {
@@ -705,10 +988,35 @@ document.addEventListener('visibilitychange', function () { if (!document.hidden
 setTimeout(renderSongList, 2000); setTimeout(renderSongList, 5000);
 
 /* ---------------- 演奏の開始・終了 ---------------- */
+var startPending = false;
+function setStartLoading(on) {
+  var b = $('startBtn');
+  if (b) { b.disabled = on; b.textContent = on ? '🎵 曲を読み込み中…' : '▶ 演奏スタート'; }
+  if (on) showToast('🎵 曲を読み込み中…', 4000);
+}
 function startSong() {
   ensureAudio();
   if (!AC) return;
-  curSong = songById(selSong);
+  var song = songById(selSong);
+  if (!song.audio) { beginPlay(song); return; }
+  if (audioDataReady(song)) {
+    loadAudioTrack(song, function () {}); /* ObjectURL 化まで済ませる（同期） */
+    beginPlay(song);
+    return;
+  }
+  if (startPending) return;
+  startPending = true;
+  setStartLoading(true);
+  var reqId = song.id;
+  loadAudioTrack(song, function (err) {
+    startPending = false;
+    setStartLoading(false);
+    if (err) { showToast('曲の読み込みに失敗しました。もう一度お試しください', 3200); return; }
+    if (selSong === reqId && !playing) beginPlay(songById(reqId));
+  });
+}
+function beginPlay(song) {
+  curSong = song;
   curBuilt = buildChart(curSong, selDiff);
   chart = curBuilt.notes;
   totalWeight = curBuilt.totalWeight;
@@ -728,11 +1036,12 @@ function startSong() {
   startCtx = AC.currentTime + 3.2; /* 3秒カウントダウン */
   nextStep = 0;
   if (schedTimer) clearInterval(schedTimer);
-  schedTimer = setInterval(scheduleAhead, 25);
+  if (song.audio) setupAudioPlayback(song); /* 実音源：カウントダウン後に Audio を再生 */
+  else schedTimer = setInterval(scheduleAhead, 25);
   updateHUD(true);
 }
 function scheduleAhead() {
-  if (!playing || !AC) return;
+  if (!playing || !AC || (curSong && curSong.audio)) return;
   var ahead = AC.currentTime + 0.15;
   while (true) {
     var st = startCtx + nextStep * curBuilt.data.stepDur;
@@ -744,6 +1053,7 @@ function scheduleAhead() {
 }
 function stopSong(toMenu) {
   playing = false;
+  stopAudioEl();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   wrapEl.classList.remove('playing');
   $('quitBtn').classList.add('hidden');
@@ -760,6 +1070,7 @@ function resetStage() {
 function finishSong() {
   if (!playing) return;
   playing = false;
+  stopAudioEl();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   $('quitBtn').classList.add('hidden');
   var totalScore = Math.floor(scoreF);
@@ -1040,7 +1351,14 @@ setMuted(muted);
 /* ---------------- ゲーム進行（フレーム単位） ---------------- */
 function stepGame(dtF) {
   if (!playing || !AC) return;
-  songTime = (timeOverride !== null) ? timeOverride : (AC.currentTime - startCtx);
+  if (timeOverride !== null) songTime = timeOverride;
+  else if (curAudioActive && audioEl) {
+    /* 実音源：時計は audio.currentTime。再生が始まるまではカウントダウン側で 0 に留める */
+    if (audioEndedFlag && curBuilt) songTime = curBuilt.data.duration + 1.0;
+    else if (audioStartedFlag) songTime = audioEl.currentTime;
+    else songTime = Math.min(AC.currentTime - startCtx, 0);
+  }
+  else songTime = AC.currentTime - startCtx;
   sweepMiss();
   updateLongs(dtF);
   updateFever();
@@ -1132,7 +1450,6 @@ function drawScene(t, dt) {
   drawJacketPanel(t);
   drawField(t);
   drawNotes(t);
-  drawPads(t);
   drawFx(t, dt);
   drawJudgePop(t);
   /* カウントダウン */
@@ -1399,37 +1716,10 @@ function drawField(t) {
       ctx.beginPath(); ctx.moveTo(cx - hw, yy); ctx.lineTo(cx + hw, yy); ctx.stroke();
     }
   }
-  /* 判定バー：レーン幅いっぱいの、レーンごとに区切られた光るセグメントバー。
-     各セグメントは対応レーンのヒットで光る（下のパッドと一体化した見た目） */
+  /* 判定バー＝パッド（同一要素）：パッドの描画は drawPads に一本化。
+     ここでは後段（ダイヤ・光だまり）が使う pulse だけ用意する */
   var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
-  var jg = ctx.createLinearGradient(cx - hwB, 0, cx + hwB, 0);
-  jg.addColorStop(0, '#ff5d8f'); jg.addColorStop(0.5, '#c084fc'); jg.addColorStop(1, '#3fd6ff');
-  var segs = judgeBarSegs();
-  ctx.save();
-  ctx.globalAlpha = 0.38 * pulse;
-  ctx.fillStyle = jg;
-  roundRectPath(cx - hwB - 5, jy - 13, hwB * 2 + 10, 26, 9); ctx.fill();
-  ctx.globalAlpha = 1;
-  segs.forEach(function (sg) {
-    var fl = laneFlash[sg.lane];
-    var held = heldLane[sg.lane] > 0;
-    ctx.fillStyle = 'rgba(12,7,32,.78)';
-    roundRectPath(sg.x + 1, sg.y, sg.w - 2, sg.h, 5); ctx.fill();
-    if (fl > 0.02 || held) {
-      ctx.fillStyle = hexA(LANE_COLORS[sg.lane], held ? 0.55 : fl * 0.8);
-      roundRectPath(sg.x + 1, sg.y, sg.w - 2, sg.h, 5); ctx.fill();
-    }
-    ctx.lineWidth = held ? 2.6 : 1.8;
-    ctx.strokeStyle = fever
-      ? 'hsla(' + (((t * 150 + sg.lane * 45) % 360) | 0) + ',100%,72%,' + (0.75 + 0.25 * pulse + fl * 0.3) + ')'
-      : hexA(LANE_COLORS[sg.lane], 0.55 + 0.45 * pulse + fl * 0.4);
-    roundRectPath(sg.x + 1, sg.y, sg.w - 2, sg.h, 5); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,' + (0.16 + 0.2 * pulse) + ')';
-    roundRectPath(sg.x + 4, sg.y + 2.5, sg.w - 8, 3.4, 1.7); ctx.fill();
-  });
-  ctx.lineWidth = 2.2; ctx.strokeStyle = jg;
-  roundRectPath(cx - hwB - 2, jy - 11, hwB * 2 + 4, 22, 7); ctx.stroke();
-  ctx.restore();
+  drawPads(t);
   /* 両端のダイヤ */
   [-1, 1].forEach(function (sgn) {
     var dx = cx + sgn * (hwB + 10);
@@ -1655,22 +1945,22 @@ function drawFlickArrow(x, y, dir, t, s) {
   ctx.stroke(); ctx.fill();
   ctx.restore();
 }
-/* 判定バーのセグメント配置（判定ライン上のレーン区切り）。テストからも参照する */
+/* 判定バーとタップパッドは同一要素：パッドの上端がそのまま判定ラインで、
+   ノーツはパッドの上端に重なった瞬間に判定される。形状の単一の出所はここ。
+   judgeBarSegs() は各レーンのパッド矩形そのものを返す（テストからも参照する） */
 function judgeBarSegs() {
-  var jy = judgeY(), hw = halfWAt(jy), cx = CW / 2, h = 20;
+  var jy = judgeY(), hw = halfWAt(jy), cx = CW / 2;
   var segs = [];
   for (var l = 0; l < 4; l++) {
     var x0 = cx + (l - 2) * (hw * 2 / 4), x1 = cx + (l - 1) * (hw * 2 / 4);
-    segs.push({ lane: l, x: x0, y: jy - h / 2, w: x1 - x0, h: h, cx: (x0 + x1) / 2 });
+    segs.push({ lane: l, x: x0, y: jy, w: x1 - x0, h: Math.max(0, CH - 6 - jy), cx: (x0 + x1) / 2 });
   }
   return segs;
 }
-/* 判定ゾーン＝画面下部のパッド。ここが入力の主役（ボタンとして大きく描く） */
+/* 判定ゾーン＝画面下部のパッド（判定バーと同一要素） */
 function padRect(lane) {
-  var top = judgeY() + 10;
-  var w = laneWidthAt(judgeY()) * 0.92;
-  var cx = laneCenterX(lane, judgeY());
-  return { x: cx - w / 2, y: top, w: w, h: Math.max(0, CH - 6 - top), cx: cx };
+  var s = judgeBarSegs()[lane];
+  return { x: s.x, y: s.y, w: s.w, h: s.h, cx: s.cx };
 }
 /* X座標→レーンは常にパッド（判定ライン）の並びで決める。押した場所とレーンが一致して直感的 */
 function laneFromX(x) {
@@ -1678,34 +1968,64 @@ function laneFromX(x) {
   return clamp(Math.floor((x - (CW / 2 - hw)) / (hw * 2 / 4)), 0, 3);
 }
 function drawPads(t) {
+  /* 判定バー＝パッド（同一要素）：パッドの上端がそのまま判定ラインで、
+     別々に存在したバーのセグメントはこのパッドに統合された。
+     ヒット時の発光・押下時のグローもすべてこのパッドで表現する。
+     キー文字（D/F/J/K）は表示しない（キーボード操作自体は従来どおり有効）。 */
+  var jy = judgeY(), hwB = halfWAt(jy), cx = CW / 2;
+  var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
+  var jg = ctx.createLinearGradient(cx - hwB, 0, cx + hwB, 0);
+  jg.addColorStop(0, '#ff5d8f'); jg.addColorStop(0.5, '#c084fc'); jg.addColorStop(1, '#3fd6ff');
+  /* バー全体の下地グロー */
+  ctx.save();
+  ctx.globalAlpha = 0.38 * pulse;
+  ctx.fillStyle = jg;
+  roundRectPath(cx - hwB - 5, jy - 4, hwB * 2 + 10, 20, 9); ctx.fill();
+  ctx.restore();
+  var segs = judgeBarSegs();
   for (var l = 0; l < 4; l++) {
-    var r = padRect(l);
+    var r = segs[l];
     if (r.h < 20) return;
     var held = heldLane[l] > 0;
+    var fl = laneFlash[l];
     ctx.save();
-    ctx.translate(0, held ? 2 : 0); /* 押した瞬間に沈む */
+    /* 本体：判定ライン（上端）から画面下まで1枚のパッド */
     var g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
-    if (held || laneFlash[l] > 0.3) { g.addColorStop(0, hexA(LANE_COLORS[l], 0.85)); g.addColorStop(1, hexA(LANE_COLORS[l], 0.40)); }
-    else { g.addColorStop(0, hexA(LANE_COLORS[l], 0.30)); g.addColorStop(1, hexA(LANE_COLORS[l], 0.12)); }
+    if (held || fl > 0.3) {
+      g.addColorStop(0, hexA(LANE_COLORS[l], 0.85));
+      g.addColorStop(0.3, hexA(LANE_COLORS[l], 0.52));
+      g.addColorStop(1, hexA(LANE_COLORS[l], 0.28));
+    } else {
+      g.addColorStop(0, 'rgba(14,8,36,.82)');
+      g.addColorStop(0.3, hexA(LANE_COLORS[l], 0.30));
+      g.addColorStop(1, hexA(LANE_COLORS[l], 0.12));
+    }
     ctx.fillStyle = g;
-    roundRectPath(r.x, r.y, r.w, r.h, 14); ctx.fill();
+    roundRectPath(r.x + 1, r.y, r.w - 2, r.h, 10); ctx.fill();
+    if (fl > 0.02) { /* ヒット時はパッド全体がレーン色に光る */
+      ctx.fillStyle = hexA(LANE_COLORS[l], fl * 0.45);
+      roundRectPath(r.x + 1, r.y, r.w - 2, r.h, 10); ctx.fill();
+    }
     if (held) { /* 押下中はパッド全体が光る */
       ctx.fillStyle = hexA(LANE_COLORS[l], 0.22);
-      roundRectPath(r.x - 3, r.y - 3, r.w + 6, r.h + 6, 17); ctx.fill();
+      roundRectPath(r.x - 2, r.y - 2, r.w + 4, r.h + 4, 12); ctx.fill();
     }
     ctx.lineWidth = held ? 2.6 : 1.8;
     ctx.strokeStyle = fever
-      ? 'hsla(' + (((t * 150 + l * 45) % 360) | 0) + ',100%,72%,' + (held ? 1 : 0.8) + ')'
-      : hexA(LANE_COLORS[l], held ? 1 : 0.65);
-    roundRectPath(r.x, r.y, r.w, r.h, 14); ctx.stroke();
-    /* 上端ハイライトでボタンの立体感 */
-    ctx.fillStyle = 'rgba(255,255,255,' + (held ? 0.10 : 0.22) + ')';
-    roundRectPath(r.x + 3, r.y + 3, r.w - 6, 7, 3.5); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.92)';
-    ctx.font = '900 17px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(LANE_KEYS[l].toUpperCase(), r.cx, r.y + r.h / 2 + 6);
+      ? 'hsla(' + (((t * 150 + l * 45) % 360) | 0) + ',100%,72%,' + (held ? 1 : 0.8 + 0.2 * pulse) + ')'
+      : hexA(LANE_COLORS[l], (held ? 1 : 0.55 + 0.45 * pulse) + fl * 0.4);
+    roundRectPath(r.x + 1, r.y, r.w - 2, r.h, 10); ctx.stroke();
+    /* 上端ハイライト（判定ラインの帯） */
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.16 + 0.2 * pulse) + ')';
+    roundRectPath(r.x + 4, r.y + 2.5, r.w - 8, 3.4, 1.7); ctx.fill();
     ctx.restore();
   }
+  /* 判定ライン：パッドの上端を横切る光の線（ここに重なった瞬間が判定） */
+  ctx.save();
+  ctx.fillStyle = jg;
+  ctx.globalAlpha = 0.85;
+  ctx.fillRect(cx - hwB - 2, jy - 1.4, hwB * 2 + 4, 2.8);
+  ctx.restore();
 }
 function drawFx(t, dt) {
   /* レーンの光の柱（ヒットした瞬間、判定ラインから上へ立ちのぼる） */
@@ -2058,7 +2378,12 @@ window.__sr = {
   noteState: function (i) { return chart[i] ? chart[i].state : null; },
   getSpeed: function () { return speedMul; },
   setSpeed: function (v) { setSpeed(v); },
-  approachSec: function () { return approachSec(); }
+  approachSec: function () { return approachSec(); },
+  audioInfo: function () { return { active: curAudioActive, started: audioStartedFlag, ended: audioEndedFlag, duration: (audioEl && isFinite(audioEl.duration)) ? audioEl.duration : null, currentTime: audioEl ? audioEl.currentTime : null, paused: audioEl ? audioEl.paused : null }; },
+  audioReady: function (id) { var s = songById(id); return s.audio ? audioDataReady(s) : null; },
+  audioEl: function () { return audioEl; },
+  padInfo: function (lane) { var p = padRect(lane), s = judgeBarSegs()[lane]; return { pad: p, seg: s, same: p.x === s.x && p.y === s.y && p.w === s.w && p.h === s.h, judgeY: judgeY() }; },
+  toastVisible: function () { var el = $('audioToast'); return !!el && !el.classList.contains('hidden'); }
 };
 })();
 </script>
