@@ -94,7 +94,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 }
 #hud{display:flex;flex-direction:column;gap:5px}
 .hudRow{display:flex;align-items:center;gap:10px;height:34px}
-#hudScore{font-size:25px;font-weight:900;letter-spacing:.02em;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+#hudScore{font-size:25px;font-weight:900;letter-spacing:.02em;line-height:1.12;text-shadow:0 2px 0 rgba(0,0,0,.4)}
 #hudScore::before{content:'SCORE ';font-size:10px;color:var(--sub);letter-spacing:.18em;vertical-align:3px}
 #hudCombo{font-size:14.5px;font-weight:900;color:#fff;background:linear-gradient(90deg,#f59e0b,#e63946);padding:3px 11px;border-radius:999px;box-shadow:0 2px 8px rgba(230,57,70,.45);white-space:nowrap;height:27px;min-width:108px;display:inline-flex;align-items:center;justify-content:center}
 /* コンボが無い時は場所を確保したまま透明にするだけ（display切替で画面を上下させない） */
@@ -104,8 +104,9 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 @keyframes hotPulse{from{filter:brightness(1)}to{filter:brightness(1.22)}}
 @keyframes cpop{0%{transform:scale(1.35)}100%{transform:scale(1)}}
 #hudSong{margin-left:auto;font-size:12px;color:var(--sub);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#gaugeWrap{position:relative;height:19px;background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:999px;overflow:hidden;box-shadow:inset 0 2px 5px rgba(0,0,0,.6)}
-#gaugeFill{height:100%;width:0%;background:repeating-linear-gradient(45deg,#f43f5e 0 14px,#fb7185 14px 28px);border-radius:999px;transition:width .15s;box-shadow:inset 0 2px 0 rgba(255,255,255,.4),inset 0 -3px 5px rgba(0,0,0,.25);animation:gaugeFlow .8s linear infinite}
+#gaugeWrap{position:relative;height:19px;margin-top:2px;background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:999px;overflow:hidden;box-shadow:inset 0 2px 5px rgba(0,0,0,.6)}
+/* 右端の角丸を小さくし、低%でも「浮いたピンクの楕円」に見えずバーの充填として読める形にする */
+#gaugeFill{height:100%;width:0%;background:repeating-linear-gradient(45deg,#f43f5e 0 14px,#fb7185 14px 28px);border-radius:99px 6px 6px 99px;transition:width .15s;box-shadow:inset 0 2px 0 rgba(255,255,255,.22),inset 0 -3px 5px rgba(0,0,0,.25);animation:gaugeFlow .8s linear infinite}
 @keyframes gaugeFlow{from{background-position:0 0}to{background-position:39.6px 0}}
 #gaugeWrap.clear{box-shadow:0 0 14px rgba(74,222,128,.75),inset 0 2px 5px rgba(0,0,0,.5)}
 #gaugeWrap.clear #gaugeFill{background:repeating-linear-gradient(45deg,#22c55e 0 14px,#4ade80 14px 28px)}
@@ -156,15 +157,20 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 .wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane,.wrap.playing .footHelp{display:none!important}
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
 /* ===== リンクドラムサーガ：キャラ/ガチャ/バトル ===== */
-#charaBar{display:flex;align-items:center;gap:7px;margin-bottom:9px}
-#favChip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,201,60,.55);border-radius:999px;padding:3px 12px 3px 4px;color:var(--txt);cursor:pointer;font-family:inherit;min-height:42px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+/* 2段組：1段目=fav+所持ジェム、2段目=ガチャ/キャラ/バトルの3ボタンを等分。
+   1列に並べると全チップ合計が画面幅を超え、右端のバトル切替が見切れるため */
+#charaBar{display:flex;flex-direction:column;gap:7px;margin-bottom:9px}
+#charaBar .cbRow{display:flex;align-items:center;gap:7px;min-width:0}
+#charaBar .cbBtns .miniBtn{flex:1 1 0;min-width:0}
+#favChip{display:flex;align-items:center;gap:7px;flex:1 1 auto;min-width:0;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,201,60,.55);border-radius:999px;padding:3px 12px 3px 4px;color:var(--txt);cursor:pointer;font-family:inherit;min-height:42px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #favChip:active{transform:scale(.96)}
 #favChip .fcFace{width:34px;height:34px;border-radius:50%;overflow:hidden;flex:none;background:#241a30;display:flex;align-items:center;justify-content:center}
 #favChip .fcFace svg{width:34px;height:34px;display:block}
 #favChip .fcFace img{width:100%;height:100%;object-fit:cover;display:block}
-#favChip .fcTx{font-size:12px;font-weight:900;line-height:1.25;text-align:left;white-space:nowrap}
-#favChip .fcTx small{display:block;font-size:10px;color:var(--gold);font-weight:800}
-.curBox{font-size:13px;font-weight:900;color:var(--gold);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:8px 10px;white-space:nowrap}
+#favChip .fcTx{font-size:12px;font-weight:900;line-height:1.25;text-align:left;white-space:nowrap;flex:1;min-width:0;overflow:hidden}
+#favName{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#favChip .fcTx small{display:block;font-size:10px;color:var(--gold);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.curBox{font-size:13px;font-weight:900;color:var(--gold);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:8px 10px;white-space:nowrap;flex:none}
 .miniBtn{background:rgba(255,255,255,.09);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:8px 11px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:42px;white-space:nowrap}
 .miniBtn:active{transform:scale(.95)}
 .miniBtn.off{opacity:.55}
@@ -205,15 +211,15 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #miniStage.act-hurt .miniIn{animation:miniHurt .32s ease-out}
 @keyframes miniHurt{0%{transform:translateX(0)}25%{transform:translateX(-6px) rotate(-6deg)}55%{transform:translateX(5px)}100%{transform:translateX(0)}}
 #dmgLayer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
-.dmgNum{position:absolute;font-weight:900;font-size:19px;color:#ffd964;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(255,160,40,.65);animation:dmgFloat .75s ease-out forwards;white-space:nowrap}
-.dmgNum.skill{font-size:27px;color:#fff2b0}
-.dmgNum.big{font-size:24px;color:#ffb03a}
-.dmgNum.k2{font-size:15px;color:#ffe9b0}
-.dmgNum.pair{font-size:20px;color:#7ef0b2}
-.dmgNum.gauge{font-size:14px;color:#7ef0b2}
-.dmgNum.hurt{font-size:16px;color:#fda4af;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(244,63,94,.6)}
-.dmgNum.guard{font-size:17px;color:#7dd3fc;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(56,189,248,.65)}
-@keyframes dmgFloat{0%{transform:translateY(4px) scale(.7);opacity:0}18%{opacity:1;transform:translateY(0) scale(1.12)}100%{transform:translateY(-34px) scale(1);opacity:0}}
+.dmgNum{position:absolute;font-weight:900;font-size:23px;color:#ffd964;text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 10px rgba(255,160,40,.65),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 -1px 0 rgba(0,0,0,.55);animation:dmgFloat .95s ease-out forwards;white-space:nowrap}
+.dmgNum.skill{font-size:33px;color:#fff2b0}
+.dmgNum.big{font-size:29px;color:#ffb03a}
+.dmgNum.k2{font-size:18px;color:#ffe9b0}
+.dmgNum.pair{font-size:25px;color:#7ef0b2}
+.dmgNum.gauge{font-size:17px;color:#7ef0b2}
+.dmgNum.hurt{font-size:20px;color:#fda4af;text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 10px rgba(244,63,94,.6),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 -1px 0 rgba(0,0,0,.55)}
+.dmgNum.guard{font-size:21px;color:#7dd3fc;text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 10px rgba(56,189,248,.65),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 -1px 0 rgba(0,0,0,.55)}
+@keyframes dmgFloat{0%{transform:translateY(6px) scale(.7);opacity:0}14%{opacity:1;transform:translateY(0) scale(1.14)}30%{transform:translateY(-6px) scale(1)}72%{opacity:1}100%{transform:translateY(-42px) scale(1);opacity:0}}
 /* キャラ詳細の全画面イラストビューア */
 #artViewer{position:fixed;inset:0;z-index:100005;background:rgba(4,2,6,.95);display:flex;align-items:center;justify-content:center;cursor:zoom-out}
 #artViewer #artViewBody{max-width:100vw;max-height:100vh;display:flex;align-items:center;justify-content:center}
@@ -290,6 +296,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #resultPanel .rwLine .defeat{color:#fda4af}
 @media (max-height:740px){
   #charaBar{gap:5px;margin-bottom:6px}
+  #charaBar .cbRow{gap:5px}
   #favChip{min-height:36px;padding:2px 9px 2px 3px}
   #favChip .fcFace{width:28px;height:28px}
   #favChip .fcFace svg{width:28px;height:28px}
@@ -334,11 +341,15 @@ html,body{overscroll-behavior:none;}
 </div>
 <div id="soloPane">
 <div id="charaBar">
+<div class="cbRow">
 <button id="favChip" title="連れていくキャラ"><span class="fcFace" id="favFace"></span><span class="fcTx"><span id="favName">キャラ</span><small id="favLv"></small></span></button>
 <span class="curBox">💎 <span id="gemNum">0</span></span>
+</div>
+<div class="cbRow cbBtns">
 <button id="gachaBtn" class="miniBtn">🎰 ガチャ</button>
 <button id="charaBtn" class="miniBtn">🐱 キャラ</button>
 <button id="battleTgl" class="miniBtn">⚔ ON</button>
+</div>
 </div>
 <button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
 <p class="help" style="margin-top:8px">音符が左端の金の枠に重なったら叩こう！<br>赤い音符＝<b style="color:#ff8a7a">ドン（下の大太鼓の中をタップ）</b>、青い音符＝<b style="color:#8ab6ff">カツ（大太鼓の外をタップ）</b>。キー F・J＝ドン / D・K＝カツ でも叩けます。</p>
@@ -2797,6 +2808,7 @@ $('vsStartBtn').addEventListener('click', function () { $('vsStartBtn').classLis
    ================================================================ */
 var LD = window.LD_DATA || null;
 var CHARA_KEY = 'taiko_chara_v1';
+var CHARA_VER = 2; /* v2: バトル設定の移行（battleToggled 導入） */
 var CHAR_MAP = {};
 if (LD) LD.CHARS.forEach(function (c) { CHAR_MAP[c.id] = c; });
 function charById(id) { return CHAR_MAP[id] || null; }
@@ -2826,18 +2838,19 @@ function mergeDaily(a, b) {
   return o;
 }
 function charaDefault() {
-  var o = { v: 1, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, defeats: {}, daily: { day: todayStr(), plays: 0, defeats: 0, got: {} } };
+  var o = { v: CHARA_VER, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, battleToggled: false, defeats: {}, daily: { day: todayStr(), plays: 0, defeats: 0, got: {} } };
   LD.STARTERS.forEach(function (id) { o.owned[id] = { lv: 1, lb: 0, exp: 0 }; });
   o.fav = LD.STARTERS[0];
   return o;
 }
 function mergeChara(a, b) {
-  var o = { v: 1,
+  var o = { v: Math.max(a.v | 0, b.v | 0) || CHARA_VER,
     gems: Math.max(a.gems | 0, b.gems | 0), coins: Math.max(a.coins | 0, b.coins | 0), mats: Math.max(a.mats | 0, b.mats | 0),
     owned: {}, fav: b.fav || a.fav,
     ssrPity: Math.max(a.ssrPity | 0, b.ssrPity | 0), urPity: Math.max(a.urPity | 0, b.urPity | 0),
     totalPulls: Math.max(a.totalPulls | 0, b.totalPulls | 0),
     battleOn: (typeof b.battleOn === 'boolean') ? b.battleOn : (a.battleOn !== false),
+    battleToggled: !!(a.battleToggled || b.battleToggled),
     defeats: {}, daily: mergeDaily(a.daily, b.daily) };
   [a, b].forEach(function (s) {
     Object.keys(s.defeats || {}).forEach(function (k) { o.defeats[k] = 1; });
@@ -2869,6 +2882,13 @@ function loadChara() {
   s.ssrPity = s.ssrPity | 0; s.urPity = s.urPity | 0; s.totalPulls = s.totalPulls | 0;
   if (!s.defeats || typeof s.defeats !== 'object') s.defeats = {};
   if (typeof s.battleOn !== 'boolean') s.battleOn = true;
+  /* v2 移行：キャラバーの見切れで切替ボタンが見えなかった期間に OFF になっていた人を救済する。
+     本人が明示的に切り替えた記録（battleToggled）がある場合だけ、その選択を尊重する。
+     v を上げるので移行は一度だけ。以後の保存にも v と battleToggled が残る */
+  if ((s.v | 0) < CHARA_VER) {
+    if (s.battleToggled !== true) s.battleOn = true;
+    s.v = CHARA_VER;
+  }
   ensureDaily(s);
   if (charaCache) s = mergeChara(s, charaCache);
   charaCache = s;
@@ -3351,12 +3371,32 @@ function spawnDmgNum(txt, cls, pos) {
     var s = document.createElement('span');
     s.className = 'dmgNum' + (cls ? ' ' + cls : '');
     s.textContent = txt;
-    if (pos === 'me') { s.style.left = (2 + Math.random() * 9) + '%'; s.style.top = 'auto'; s.style.bottom = '88px'; }
-    else if (cls === 'skill' || cls === 'big') { s.style.left = (69 + Math.random() * 15) + '%'; s.style.top = (20 + Math.random() * 22) + 'px'; }
-    else { s.style.left = (73 + Math.random() * 15) + '%'; s.style.top = (12 + Math.random() * 28) + 'px'; }
-    if (cls === 'k2') s.style.animationDelay = '0.07s';
     layer.appendChild(s);
-    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 900);
+    if (pos === 'me') { s.style.left = (2 + Math.random() * 9) + '%'; s.style.top = 'auto'; s.style.bottom = '88px'; }
+    else {
+      /* 敵バッジの実測位置を基準に、その真下へ出す（帯の上や右端ではみ出さないようクランプ）。
+         以前は % 指定で帯の上に重なり、右端では文字が欠けることがあった */
+      var lr = layer.getBoundingClientRect();
+      var fw = $('bhFoeWrap');
+      var placed = false;
+      if (fw && lr.width > 0) {
+        var fr = fw.getBoundingClientRect();
+        if (fr.width > 0) {
+          var w = s.offsetWidth || 48;
+          var cx = fr.left - lr.left + fr.width / 2;
+          var x = cx - w / 2 + (Math.random() * 26 - 13);
+          x = Math.max(2, Math.min(x, lr.width - w - 2));
+          var y = fr.bottom - lr.top + 4 + Math.random() * 14;
+          y = Math.max(2, Math.min(y, lr.height - 46));
+          s.style.left = x + 'px';
+          s.style.top = y + 'px';
+          placed = true;
+        }
+      }
+      if (!placed) { s.style.left = (62 + Math.random() * 12) + '%'; s.style.top = (78 + Math.random() * 20) + 'px'; }
+    }
+    if (cls === 'k2') s.style.animationDelay = '0.07s';
+    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 1150);
   } catch (e) {}
 }
 function battleDamage(mult, isSkill) {
@@ -3649,7 +3689,7 @@ function stopPreview() {
   $('charaBtn').addEventListener('click', function () { ensureAudio(); openChara(); });
   $('battleTgl').addEventListener('click', function () {
     var cs = loadChara();
-    cs.battleOn = !cs.battleOn; storeChara(cs); renderCharaBar();
+    cs.battleOn = !cs.battleOn; cs.battleToggled = true; storeChara(cs); renderCharaBar();
     toast(cs.battleOn ? '⚔ キャラバトル ON' : '⚔ キャラバトル OFF（通常演奏）');
   });
   $('gachaClose').addEventListener('click', closeGacha);
@@ -3713,7 +3753,7 @@ window.__taiko = {
     battleTick: battleTick, resolveEnemyAttack: resolveEnemyAttack,
     setGauge: function (v) { gauge = clamp(v, 0, 100); },
     setFav: function (id) { var cs = loadChara(); if (cs && cs.owned[id]) { cs.fav = id; storeChara(cs); } },
-    setBattleOn: function (on) { var cs = loadChara(); if (cs) { cs.battleOn = !!on; storeChara(cs); } },
+    setBattleOn: function (on) { var cs = loadChara(); if (cs) { cs.battleOn = !!on; cs.battleToggled = true; storeChara(cs); } },
     rewardHtml: function () { return charaRewardHtml; },
     openGacha: openGacha, closeGacha: closeGacha, doGachaUi: doGachaUi, openChara: openChara, showUrFx: showUrFx, renderCharaBar: renderCharaBar,
     reset: function () { charaCache = null; charaStoredJson = null; try { localStorage.removeItem(CHARA_KEY); } catch (e) {} return loadChara(); }
