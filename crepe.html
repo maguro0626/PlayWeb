@@ -222,6 +222,12 @@ html,body{overscroll-behavior:none;}
       <div class="price"><small>¥</small><span id="price">180</span></div>
       <div class="hint" id="countInfo" style="text-align:center">生地 ¥180</div>
     </div>
+    <!-- ベストスコア: オーバーレイ（startOv/vsOv等）の中ではなくサイド側に置く。
+         招待受付時のオーバーレイ表示切替（#vsBtn→vsOv表示など）に巻き込まれて消えないため -->
+    <div class="box" id="bestBox" style="display:none">
+      <h3>🏆 ベストスコア</h3>
+      <div class="price"><span id="bestScore">0</span><small> 点</small></div>
+    </div>
     <div class="box" id="judgeBox" style="display:none">
       <h3>🏆 審査結果</h3>
       <div id="judgeBody"></div>
@@ -1340,10 +1346,14 @@ function serve(){
   setPhase('serve');
   if(mode!=='vs') clearResume(); // 完成した1枚はギャラリーに残るので途中セーブは破棄
   const j = judge();
+  /* ベストは審査確定のこの時点で同期的に保存・表示する（従来は永続表示が
+     950ms遅延のギャラリー保存しかなく、終了直後にベスト表示が古いままだった） */
+  const isNewBest = recordBest(j.total);
   $('judgeBox').style.display = 'block';
   $('judgeBody').innerHTML =
     j.lines.map(l=>`<div class="judgeLine"><span>${l.k}</span><b>${l.v} 点</b></div>`).join('') +
     `<div class="judgeLine" style="border-bottom:none;font-size:15px"><span><b>総合</b></span><b>${j.total} 点</b></div>` +
+    (isNewBest ? `<p class="hint" style="margin-top:8px;color:#fdba74;font-weight:800">🎉 ベストスコア更新！</p>` : '') +
     `<p class="hint" style="margin-top:8px">${j.comment}</p>`;
   $('serveTitle').textContent = j.title;
   $('serveStars').textContent = '★'.repeat(j.stars) + '☆'.repeat(5-j.stars);
@@ -1427,6 +1437,36 @@ function renderGallery(){
   $('galleryBox').style.display = 'block';
   $('gallery').innerHTML = list.map(g=>`<figure><img src="${g.img}" alt=""><figcaption>${g.name}<br>${g.score}点<br><span style="white-space:nowrap">${g.date}</span></figcaption></figure>`).join('');
 }
+/* ================= ベストスコア（保存・表示） =================
+   保存先は localStorage 'crepe_best'。メモリにも保持し、保存・表示のたびに
+   保存済みの値と union（大きい方）を取る（他ミニゲームのベスト保存と同じ方式。
+   account.js のクラウドマージが後から書き戻しても小さい値で上書きしない）。
+   対象はソロ（free/order）のみ。対戦は vsBoard の合計表示が担うため記録しない。 */
+const BEST_KEY = 'crepe_best';
+function loadBest(){ try{ const v = parseInt(localStorage.getItem(BEST_KEY) || '', 10); return Number.isFinite(v) && v > 0 ? v : 0; }catch(e){ return 0; } }
+let bestMem = loadBest();
+function renderBest(){
+  const box = $('bestBox'); if(!box) return;
+  const b = Math.max(bestMem, loadBest());
+  bestMem = b;
+  if(!b){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  $('bestScore').textContent = b;
+}
+function recordBest(total){
+  if(mode === 'vs') { renderBest(); return false; }
+  total = total | 0;
+  const isNew = total > Math.max(bestMem, loadBest());
+  if(isNew){
+    bestMem = total;
+    try{ localStorage.setItem(BEST_KEY, String(total)); }catch(e){}
+  }
+  renderBest();
+  return isNew;
+}
+/* クラウドマージ等の後着書き戻しでも表示へ反映する（他ミニゲームと同じ保険） */
+window.addEventListener('focus', renderBest);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) renderBest(); });
 function resetAll(){
   items.slice().forEach(removeItem);
   strokes.slice().forEach(removeStroke);
@@ -1445,6 +1485,7 @@ function resetAll(){
   }
   $('judgeBox').style.display = 'none';
   $('serveOv').classList.add('hidden');
+  renderBest(); /* 画面遷移（開始/対戦開始/退出など）のたびにベスト表示を再描画し、遷移に巻き込まれて消えたままにしない */
   setPhase('batter');
   toast(mode==='free' ? '新しいクレープを作ろう！' : '注文をよく確認してね');
 }
@@ -2241,7 +2282,8 @@ try{
   $('startOv').classList.add('hidden');
 }
 phase = 'batter';
-renderSteps(); buildPanel(); updatePrice(); renderGallery(); updateMascot(); refreshResumeUI();
+renderSteps(); buildPanel(); updatePrice(); renderGallery(); renderBest(); updateMascot(); refreshResumeUI();
+setTimeout(renderBest, 2000); setTimeout(renderBest, 5000);
 if(GL_OK) requestAnimationFrame(animate);
 </script>
 <script>window.PW_GAME='crepe';window.PW_JOIN_CFG={openers:[{click:'#vsBtn'}],input:'#vsJoinCode',joinBtn:'#vsJoinBtn',hostBtn:'#vsHostBtn'};</script>

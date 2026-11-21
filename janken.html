@@ -73,6 +73,7 @@ html,body{overscroll-behavior:none;}
 <div id="onlineCodeWrap" class="hidden">ルームコード<span id="roomCodeText">------</span></div>
 <div id="onlineStatus"></div>
 <button class="btn subBtn hidden" id="leaveBtn" style="margin-top:10px">退出する</button>
+<button class="btn subBtn hidden" id="cancelWaitBtn" style="margin-top:8px">待機をキャンセルして1人用に戻る</button>
 </div></div>
 <div id="gameArea"><div class="card" style="display:flex;flex-direction:column;gap:12px">
 <div class="score"><div>あなた<span id="myScore">0</span></div><div style="font-size:14px;color:var(--sub);align-self:center">― 3本先取 ―</div><div><span id="oppLabel">CPU</span><span id="oppScore">0</span></div></div>
@@ -117,18 +118,19 @@ function showRound(){if(myHand===null||oppHand===null)return;const r=judge(myHan
 function finishGame(win){finished=true;playing=false;setHandsEnabled(false);if(mode==='solo'){if(win){save.wins++;streak++;if(streak>save.bestStreak)save.bestStreak=streak;}else{streak=0;}save.streak=streak;persist();$('gameMsg').textContent=win?'🏆 あなたの勝ち！（'+myScore+'-'+oppScore+'）':'CPUの勝ち…（'+myScore+'-'+oppScore+'）';}else{$('gameMsg').textContent=win?'🏆 あなたの勝ち！（'+myScore+'-'+oppScore+'）':'相手の勝ち…（'+myScore+'-'+oppScore+'）';$('rematchBtn').classList.remove('hidden');if(!recorded){recorded=true;if(window.PWFriends&&PWFriends.recordMatch)PWFriends.recordMatch(win?'win':'lose');}}if(win){tone(523,.15,'sine',.12);tone(659,.15,'sine',.12,.12);tone(784,.3,'sine',.12,.24);}}
 function startSolo(){myScore=0;oppScore=0;round=0;playing=true;finished=false;recorded=false;histArr=[];myHand=null;oppHand=null;$('hist').innerHTML='';$('vsResult').classList.add('hidden');$('vsIdle').classList.remove('hidden');$('rematchBtn').classList.add('hidden');$('oppLabel').textContent='CPU';$('oppVsLabel').textContent='CPU';renderScore();setHandsEnabled(true);$('gameMsg').textContent='手を選んでね';tone(523,.1,'sine',.1);}
 function resetOnlineGame(){myScore=0;oppScore=0;round=0;playing=false;finished=false;recorded=false;histArr=[];myHand=null;oppHand=null;waiting=false;$('hist').innerHTML='';$('vsResult').classList.add('hidden');$('vsIdle').classList.remove('hidden');$('rematchBtn').classList.add('hidden');$('oppLabel').textContent='相手';$('oppVsLabel').textContent='相手';renderScore();setHandsEnabled(false);if(mode==='online')$('gameMsg').textContent='接続を待っています…';}
-function startOnlineMatch(){resetOnlineGame();playing=true;$('gameMsg').textContent='対戦開始！手を選んでね';setHandsEnabled(true);tone(784,.15,'sine',.1);}
+function startOnlineMatch(){resetOnlineGame();playing=true;const cb=document.getElementById('cancelWaitBtn');if(cb)cb.classList.add('hidden');$('gameMsg').textContent='対戦開始！手を選んでね';setHandsEnabled(true);tone(784,.15,'sine',.1);}
 document.querySelectorAll('#modeSeg button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;const on=mode==='online';$('soloPane').classList.toggle('hidden',on);$('onlinePane').classList.toggle('hidden',!on);if(on){resetOnlineGame();}else{myScore=0;oppScore=0;renderScore();$('oppLabel').textContent='CPU';$('oppVsLabel').textContent='CPU';setHandsEnabled(false);$('gameMsg').textContent='スタートを押してね';$('vsResult').classList.add('hidden');$('vsIdle').classList.remove('hidden');$('rematchBtn').classList.add('hidden');}tone(660,.08,'sine',.08);});});
 $('soloStartBtn').addEventListener('click',startSolo);
 document.querySelectorAll('.handBtn').forEach(b=>{b.addEventListener('click',()=>{if(!playing||finished||waiting)return;const h=parseInt(b.dataset.h,10);clearSel();b.classList.add('sel');tone(550,.08,'sine',.09);if(mode==='solo'){myHand=h;oppHand=Math.floor(Math.random()*3);round++;showRound();if(!finished&&judge(h,oppHand)!==0){} }else{myHand=h;waiting=true;setHandsEnabled(false);$('gameMsg').textContent='相手の手を待っています…';sendNet({t:'hand',h:h});if(oppHand!==null){round++;showRound();}}});});
 $('rematchBtn').addEventListener('click',()=>{if(mode==='solo'){startSolo();return;}if(isHost){startOnlineMatch();sendNet({t:'start'});}else{sendNet({t:'rematch'});$('gameMsg').textContent='再戦を申し込みました…';}});
 function onNetData(m){if(!m||!m.t)return;if(m.t==='ping')return;
+if(m.t==='bye'){onNetDisconnected();return;}
 if(m.t==='hello'){setOnlineStatus('接続しました！対戦開始');startOnlineMatch();sendNet({t:'start'});return;}
 if(m.t==='start'){startOnlineMatch();return;}
 if(m.t==='hand'){oppHand=m.h;if(myHand!==null){round++;showRound();}else{$('gameMsg').textContent='相手が手を選びました。あなたの番です';}return;}
 if(m.t==='rematch'){if(isHost){startOnlineMatch();sendNet({t:'start'});}return;}
 }
-function onNetDisconnected(){setOnlineStatus('<span class="err">相手との接続が切れました。</span>');playing=false;setHandsEnabled(false);}
+function onNetDisconnected(){setOnlineStatus('<span class="err">相手との接続が切れました。</span>');playing=false;setHandsEnabled(false);const cb=document.getElementById('cancelWaitBtn');if(cb)cb.classList.add('hidden');}
 </script>
 <script>
 const PEER_PREFIX = 'playweb-jk-';
@@ -151,22 +153,27 @@ function disarmConnTimer(){ clearTimeout(connTimer); }
 function gateOk(){ if (window.PWFriends && PWFriends.gateState){ const g=PWFriends.gateState(); if (g==='guest'||g==='sdk-down'){ setOnlineStatus('<span class="err">オンライン対戦にはログインが必要です。</span>'); return false; } } return true; }
 function setupConn(c){ conn=c; c.on('data', onNetData); c.on('open', ()=>{ disarmConnTimer(); startHeartbeat(); }); c.on('close', ()=>{ if(conn===c) onNetDisconnected(); }); c.on('error', ()=>{ if(conn===c) onNetDisconnected(); }); }
 function teardownOnline(){ stopHeartbeat(); clearTimeout(connTimer); try{if(conn)conn.close();}catch(e){} try{if(peer)peer.destroy();}catch(e){} conn=null; peer=null; }
-function hostRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; teardownOnline(); isHost=true; roomCode=genRoomCode(); window.PW_ROOM_CODE=roomCode; resetOnlineGame(); setOnlineStatus('部屋を作成中…');
+function showCancelWait(show){ const b=document.getElementById('cancelWaitBtn'); if(b) b.classList.toggle('hidden',!show); }
+function switchToSoloAfterCancel(){ mode='solo'; document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m==='solo')); document.getElementById('soloPane').classList.remove('hidden'); document.getElementById('onlinePane').classList.add('hidden'); myScore=0; oppScore=0; playing=false; finished=false; waiting=false; myHand=null; oppHand=null; renderScore(); document.getElementById('oppLabel').textContent='CPU'; document.getElementById('oppVsLabel').textContent='CPU'; setHandsEnabled(false); document.getElementById('gameMsg').textContent='スタートを押してね'; document.getElementById('vsResult').classList.add('hidden'); document.getElementById('vsIdle').classList.remove('hidden'); document.getElementById('rematchBtn').classList.add('hidden'); }
+function cancelWaiting(){ try{ sendNet({t:'bye'}); }catch(e){} teardownOnline(); window.PW_ROOM_CODE=''; document.getElementById('onlineCodeWrap').classList.add('hidden'); document.getElementById('leaveBtn').classList.add('hidden'); showCancelWait(false); setOnlineStatus(''); switchToSoloAfterCancel(); }
+function hostRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; teardownOnline(); showCancelWait(true); isHost=true; roomCode=genRoomCode(); window.PW_ROOM_CODE=roomCode; resetOnlineGame(); setOnlineStatus('部屋を作成中…');
   try{ peer=new Peer(PEER_PREFIX+roomCode, PEER_OPTS); }catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   peer.on('open', ()=>{ document.getElementById('roomCodeText').textContent=roomCode; document.getElementById('onlineCodeWrap').classList.remove('hidden'); document.getElementById('leaveBtn').classList.remove('hidden'); setOnlineStatus('フレンドの参加を待っています…'); });
   peer.on('connection', c=>{ setupConn(c); armConnTimer('相手との接続を確立できませんでした。'); });
   peer.on('error', err=>{ if(err&&err.type==='unavailable-id') setOnlineStatus('<span class="err">コードが重複しました。もう一度押してください。</span>'); });
   peer.on('disconnected', ()=>{ try{peer.reconnect();}catch(e){} });
 }
-function joinRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; const code=(document.getElementById('joinCode').value||'').trim().toUpperCase(); if(code.length!==6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; } teardownOnline(); isHost=false; roomCode=code; resetOnlineGame(); setOnlineStatus('接続中…');
+function joinRoom(){ if(!peerAvailable()){ setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; } if(!gateOk()) return; const code=(document.getElementById('joinCode').value||'').trim().toUpperCase(); if(code.length!==6){ setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; } teardownOnline(); showCancelWait(true); isHost=false; roomCode=code; resetOnlineGame(); setOnlineStatus('接続中…');
   try{ peer=new Peer(undefined, PEER_OPTS); }catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
   peer.on('open', ()=>{ armConnTimer('接続を確立できませんでした。'); const c=peer.connect(PEER_PREFIX+code,{reliable:true}); setupConn(c); c.on('open', ()=>{ document.getElementById('leaveBtn').classList.remove('hidden'); sendNet({t:'hello'}); setOnlineStatus('接続しました！対戦開始を待っています…'); }); });
   peer.on('error', err=>{ if(err&&err.type==='peer-unavailable') setOnlineStatus('<span class="err">部屋が見つかりませんでした。</span>'); });
 }
-function leaveOnline(){ teardownOnline(); window.PW_ROOM_CODE=''; document.getElementById('onlineCodeWrap').classList.add('hidden'); document.getElementById('leaveBtn').classList.add('hidden'); setOnlineStatus(''); resetOnlineGame(); }
+function leaveOnline(){ try{ sendNet({t:'bye'}); }catch(e){} teardownOnline(); window.PW_ROOM_CODE=''; document.getElementById('onlineCodeWrap').classList.add('hidden'); document.getElementById('leaveBtn').classList.add('hidden'); showCancelWait(false); setOnlineStatus(''); resetOnlineGame(); }
 document.getElementById('hostBtn').addEventListener('click',hostRoom);
 document.getElementById('joinBtn').addEventListener('click',joinRoom);
 document.getElementById('leaveBtn').addEventListener('click',leaveOnline);
+document.getElementById('cancelWaitBtn').addEventListener('click',cancelWaiting);
+document.querySelectorAll('#modeSeg button').forEach(b=>{ if(b.dataset.m==='solo'){ b.addEventListener('click',()=>{ if(peer||conn){ try{ sendNet({t:'bye'}); }catch(e){} teardownOnline(); window.PW_ROOM_CODE=''; document.getElementById('onlineCodeWrap').classList.add('hidden'); document.getElementById('leaveBtn').classList.add('hidden'); showCancelWait(false); setOnlineStatus(''); } }); } });
 </script>
 <script>window.PW_GAME='janken';window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
 <script src="friends.js"></script>

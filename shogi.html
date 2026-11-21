@@ -647,6 +647,7 @@ try{const ss=localStorage.getItem(SHOGI_SIDE_KEY);if(ss==='sente'||ss==='gote'||
 let humanSide='player'; // CPU戦で人間が担当する側（'player'=先手 / 'npc'=後手）。ランダムは対局ごとに resetGame で決定
 function getCpuSide(){return humanSide==='player'?'npc':'player';}
 let npcTimer=null; // 予約済み CPU タイマー（二重予約防止）
+let gameGen=0; // 対局の世代。resetGame / undoMove のたびに増やし、非同期処理（CPU応答・着手アニメーション）が旧対局の手を新しい盤面へ適用しないよう照合する
 let moveCountPlayer=0,moveCountNpc=0;
 let kifuList=[],lastDest=null,lastMover=null,snapshots=[];
 let posHist=[]; // 局面履歴 {k:局面キー, c:その局面で手番側に王手がかかっているか}。posHist[i]=i手目終了後の局面（手番は i が偶数なら先手）。千日手判定とオンライン同期に使う
@@ -770,6 +771,17 @@ function clearCpuSave(){try{localStorage.removeItem(SHOGI_CPU_SAVE_KEY);}catch(e
 function saveCpuGame(){
   if(mode!=='cpu')return;
   if(!gameActive||!kifuList.length){clearCpuSave();return;}
+  /* 手番・手数と局面の整合チェック（途中保存が数手遅れる／巻き戻る真因対策）:
+     人間の着手は turn を相手に反転してから executeMove のアニメーション
+     （約530ms）を await するため、その間は「手番だけが進み、盤面・棋譜・
+     手数は着手前」という不整合な瞬間がある。この状態のまま beforeunload 等で
+     保存すると、復元時に着手前の局面から CPU が指し直し、指したはずの手が
+     消えてしまう。手番は棋譜の手数から一意に決まる（偶数手終了後=先手番、
+     奇数手終了後=後手番）ので、食い違う瞬間の保存は前回の正常な保存を
+     上書きせずに見送る。CPU の手も同様で、executeMove 内ではまだ手番が
+     反転していないため保存は見送られ、反転直後の doNPCTurn で保存される。 */
+  if(turn!==(kifuList.length%2===0?'player':'npc'))return;
+  if(moveCountPlayer+moveCountNpc!==kifuList.length)return;
   try{
     localStorage.setItem(SHOGI_CPU_SAVE_KEY,JSON.stringify({
       v:1,board:cloneBoard(board),
@@ -802,6 +814,14 @@ function loadCpuSave(){
   if(!Array.isArray(d.kifu)||!d.kifu.length)return null;
   if(d.turn!=='player'&&d.turn!=='npc')return null;
   if(!kingPos('player',d.board)||!kingPos('npc',d.board))return null;
+  /* 整合の修復: 旧保存には着手途中で手番だけ先行したものがあり得る。
+     手番と手数は棋譜の手数から一意に決まるので、食い違う場合はそちらを
+     正として直してから復元する（対局自体は捨てない） */
+  d.turn=d.kifu.length%2===0?'player':'npc';
+  if((d.moveCountPlayer|0)+(d.moveCountNpc|0)!==d.kifu.length){
+    d.moveCountPlayer=Math.ceil(d.kifu.length/2);
+    d.moveCountNpc=Math.floor(d.kifu.length/2);
+  }
   return d;
 }
 function restoreCpuSave(d){
@@ -814,8 +834,11 @@ function restoreCpuSave(d){
   lastDest=d.lastDest?[...d.lastDest]:null;
   lastMover=d.lastMover||null;
   bothCampPlies=d.bothCampPlies||0;
-  posHist=(Array.isArray(d.posHist)&&d.posHist.length)?d.posHist.map(e=>({k:e.k,c:!!e.c})):[posEntryFor(board,captured,turn)];
-  snapshots=(Array.isArray(d.snapshots)&&d.snapshots.length)?d.snapshots:[takeSnapshot()];
+  /* 局面履歴・待った用スナップショットは「手数+1」個で局面と対応する。
+     長さが合わない保存（旧形式・不整合保存）は対応がずれて待ったや千日手
+     判定が壊れるため、現在の局面から積み直す */
+  posHist=(Array.isArray(d.posHist)&&d.posHist.length===kifuList.length+1)?d.posHist.map(e=>({k:e.k,c:!!e.c})):[posEntryFor(board,captured,turn)];
+  snapshots=(Array.isArray(d.snapshots)&&d.snapshots.length===kifuList.length+1)?d.snapshots:[takeSnapshot()];
   humanSide=d.humanSide==='npc'?'npc':'player';
   if(d.difficulty==='easy'||d.difficulty==='medium'||d.difficulty==='hard')difficulty=d.difficulty;
   gameActive=true;gameResult=null;selected=null;validMoves=[];isAnimating=false;matchRecorded=false;
@@ -972,6 +995,7 @@ function kifuText(owner,type,promotedBefore,didPromote,tr,tc,isDrop){
 // INIT
 // ═══════════════════════════════════════════════════════════
 function resetGame(){
+  gameGen++;
   if(npcTimer){clearTimeout(npcTimer);npcTimer=null;}
   hideCpuThinking();
   /* CPU戦: 手番選択を解決する（ランダムは対局ごとに抽選） */
@@ -1853,10 +1877,12 @@ async function animateDropMove(type,owner,tr,tc){
 // ═══════════════════════════════════════════════════════════
 async function executeMove(fr,fc,tr,tc,promo){
   isAnimating=true;
+  const gen=gameGen;
   const mp=board[fr][fc], cap=board[tr][tc];
   const promotedBefore=mp.promoted;
   const didPromote=!promotedBefore&&(promo||mustPromote(mp.type,tr,mp.owner));
   await animatePieceMove(fr,fc,tr,tc,mp.type,mp.owner,promo||mp.promoted,!!cap,cap?.type,cap?.owner,cap?.promoted);
+  if(gen!==gameGen)return; /* アニメーション中に対局がリセットされたら、旧対局の手を新しい盤面へ適用しない */
   doMove(fr,fc,tr,tc,promo);
   if(mp.owner==='player')moveCountPlayer++;else moveCountNpc++;
   kifuList.push(kifuText(mp.owner,mp.type,promotedBefore,didPromote,tr,tc,false));
@@ -1872,11 +1898,18 @@ async function executeMove(fr,fc,tr,tc,promo){
   if(senM){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senM.loser?otherSide(senM.loser):null,'sennichite');return;}
   const jiM=checkJishogiStall();
   if(jiM){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(jiM.winner,'jishogi');return;}
+  /* 局面へ適用された手は、その場で保存を試みる（呼び出し側の後処理任せに
+     しない）。人間の手は手番反転済みで整合が取れているためここで保存され、
+     CPU の手は手番反転前で整合チェックにより見送られ、反転直後の
+     doNPCTurn の保存で確定する */
+  if(mode==='cpu')saveCpuGame();
   isAnimating=false;
 }
 async function executeDrop(type,owner,tr,tc){
   isAnimating=true;
+  const gen=gameGen;
   await animateDropMove(type,owner,tr,tc);
+  if(gen!==gameGen)return; /* executeMove と同じく、リセットを跨いだ打ち手は適用しない */
   doDrop(type,owner,tr,tc);
   if(owner==='player')moveCountPlayer++;else moveCountNpc++;
   kifuList.push(kifuText(owner,type,false,false,tr,tc,true));
@@ -1891,6 +1924,8 @@ async function executeDrop(type,owner,tr,tc){
   if(senD){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(senD.loser?otherSide(senD.loser):null,'sennichite');return;}
   const jiD=checkJishogiStall();
   if(jiD){gameActive=false;isAnimating=false;render();updateUI();await sleep(300);endGame(jiD.winner,'jishogi');return;}
+  /* executeMove と同じく、打ち手も適用された場面で保存を試みる */
+  if(mode==='cpu')saveCpuGame();
   isAnimating=false;
 }
 function highlightKing(o){
@@ -1909,14 +1944,18 @@ async function handleHumanMove(fr,fc,tr,tc){
   const must=mustPromote(piece.type,tr,side);
   if(canP&&!must){render();showPromoModal(fr,fc,tr,tc);return;}
   turn=otherSide(side);
+  const gen=gameGen;
   await executeMove(fr,fc,tr,tc,canP&&must);
+  if(gen!==gameGen)return; /* リセットを跨いだら旧対局の後処理（保存・CPU予約）をしない */
   afterHumanMove(side);
 }
 async function handleHumanDrop(type,owner,tr,tc){
   if(isAnimating||!gameActive||turn!==owner||!canControl(owner))return;
   selected=null;validMoves=[];turn=otherSide(owner);
   render();
+  const gen=gameGen;
   await executeDrop(type,owner,tr,tc);
+  if(gen!==gameGen)return;
   afterHumanMove(owner);
 }
 function scheduleNPC(){
@@ -1930,6 +1969,7 @@ function scheduleNPC(){
 }
 async function doNPCTurn(){
   const cpu=getCpuSide();
+  const gen=gameGen;
   /* 待った・最初から・モード切替で手番が戻った後に、予約済みタイマーが発火しても指さない */
   if(!gameActive||mode!=='cpu'||turn!==cpu)return;
   if(isAnimating)return; /* 実行中の CPU 手番との二重起動防止 */
@@ -1937,6 +1977,7 @@ async function doNPCTurn(){
   showCpuThinking();
   updateUI();
   await sleep(40); /* 「考え中」表示を画面に描画してから重い探索に入る */
+  if(gen!==gameGen)return; /* リセットを跨いだ旧対局の応答は指さない（新しい対局の状態には触らない） */
   if(!gameActive||mode!=='cpu'||turn!==cpu){isAnimating=false;hideCpuThinking();return;}
   /* 入玉宣言法: CPU も条件を満たせば手番の始めに宣言して終局する */
   if(canDeclare(cpu,board,captured)){
@@ -1951,7 +1992,11 @@ async function doNPCTurn(){
   /* 思考中表示は CPU の着手アニメーションが終わるまで維持する */
   if(move.type==='move')await executeMove(move.from[0],move.from[1],move.to[0],move.to[1],move.promote);
   else await executeDrop(move.piece,cpu,move.to[0],move.to[1]);
+  if(gen!==gameGen)return; /* 着手中にリセットされたら、手番戻し・保存など旧対局の後処理を新しい対局へ持ち込まない */
   hideCpuThinking();
+  /* CPU の応答が適用されたら、手番を人間に戻したこの時点で必ず保存する
+     （executeMove 内の保存は手番反転前で整合チェックにより見送られるため、
+     CPU の手の保存はここが担う）。これで再開時は CPU 応答済みの局面に戻る */
   if(gameActive){turn=humanSide;render();updateUI();updateTurnStatus();isAnimating=false;saveCpuGame();}
 }
 
@@ -1964,6 +2009,7 @@ function canUndo(){
 }
 function undoMove(){
   if(!canUndo())return;
+  gameGen++;
   if(npcTimer){clearTimeout(npcTimer);npcTimer=null;}
   hideCpuThinking();
   const ply=snapshots.length-1;
@@ -2139,7 +2185,9 @@ async function resolvePromo(promo,fr,fc,tr,tc){
   if(!piece)return;
   const side=piece.owner;
   turn=otherSide(side);
+  const gen=gameGen;
   await executeMove(fr,fc,tr,tc,promo);
+  if(gen!==gameGen)return;
   afterHumanMove(side);
 }
 
@@ -2546,6 +2594,12 @@ function changeSide(s){
 
 window.addEventListener('resize',()=>{render();renderHandMinis();});
 window.addEventListener('beforeunload',()=>{saveCpuGame();});
+/* モバイルでは beforeunload が発火しないままページが破棄されることがある
+   ため、確実な pagehide と「裏側に回った」タイミングでも保存する。
+   保存側に整合チェックがあるので、着手アニメーション中の不整合な
+   状態が書き込まれることはない */
+window.addEventListener('pagehide',()=>{saveCpuGame();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveCpuGame();});
 /* 初期化: 従来は window.onload のみで、外部リソース読込が遅い／終わらないと
    盤面がいつまでも表示されなかった。スクリプトは body 末尾にあるため即時実行し、
    load / pageshow は再描画だけ行う（対局の初期化は1回だけ）。 */

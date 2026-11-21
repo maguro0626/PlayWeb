@@ -445,6 +445,17 @@
   .pkc-lack { font-size:9.5px; color:#ff9d8a; font-weight:900; white-space:nowrap; }
   .pkc-waza.noUse { opacity:.62; }
   .pkc-used-tag { font-size:9.5px; color:#8a93d8; font-weight:900; white-space:nowrap; }
+  /* わざ行で名前が絞られて縦書き状に伸びるのを防ぐ（実測：圧縮時、味方バトル場の
+     わざ名が幅16px・高さ97pxまで潰れ、カードが膨らんでターン終了ボタンが画面外に
+     押し出されていた）。名前が最小幅を割る場合は「あと⚡／ダメージ」側を次行へ回し、
+     名前の表示幅を確保する。表示する情報自体は落とさない */
+  .pkc-lg .pkc-waza { flex-wrap:wrap; }
+  .pkc-lg .pkc-waza .pkc-wname { flex:1 1 56px; }
+  .bc2-waza { flex-wrap:wrap; }
+  .bc2-waza .bc2-wname { flex:1 1 44px; }
+  @media (max-height:740px) {
+    .bc2-waza .bc2-wname { flex-basis:30px; }
+  }
   /* HPバーの残像（ゴースト） */
   .pkc-hpbar { position:relative; }
   .pkc-hpbar .hpGhost { position:absolute; left:0; top:0; background:rgba(255,255,255,.78); transition:width .7s ease .3s; }
@@ -472,17 +483,19 @@
   #avArt svg { height:100%; max-height:88dvh; width:auto; max-width:96vw; }
   #avCap { padding:8px 14px calc(14px + env(safe-area-inset-bottom)); font-size:16.5px; font-weight:900; color:#fff; text-align:center; text-shadow:0 2px 6px #000; }
   #avHint { position:absolute; top:calc(10px + env(safe-area-inset-top)); right:14px; font-size:11px; color:#aeb6ff; font-weight:800; background:rgba(20,20,50,.7); padding:4px 10px; border-radius:99px; }
-  /* スマホ級の高さでは、バトル中はリソースバーとタブバーを畳んで戦闘に集中させる */
-  @media (max-height:900px) {
-    body[data-scr="battle"] #resBar { display:none; }
-    body[data-scr="battle"] #tabBar { display:none; }
-  }
+  /* バトル中はリソースバーとタブバーを畳んで戦闘に集中させる（画面の高さによらず常時）。
+     以前は max-height:900px のときだけだったため、900px超の端末では固定タブバーが
+     ターン終了などの操作ボタンに重なって半分隠れていた。タブバーが無い分、
+     #app の下余白（タブバー回避用の102px）もバトル中は詰める */
+  body[data-scr="battle"] #resBar { display:none; }
+  body[data-scr="battle"] #tabBar { display:none; }
+  body[data-scr="battle"] #app { padding-bottom:14px; }
   /* 中くらいの画面（844px級）ではバトルを少し圧縮して、手札とターン終了ボタンまで1画面に収める */
   @media (max-height:900px) and (min-height:741px) {
     #btField { padding:8px 8px 9px; }
     #btLog { display:none; }
     #btGuide { font-size:11px; padding:4px 8px; margin-bottom:4px; }
-    #btCap { font-size:10.5px; min-height:20px; padding:3px 8px; margin-top:4px; }
+    #btCap { font-size:10.5px; min-height:18px; padding:2px 8px; margin-top:4px; }
     .zoneRow { margin-top:4px; }
     .benchRow { min-height:34px; }
     .bchip .bcArt { width:30px; height:30px; }
@@ -523,17 +536,17 @@
     .activeWrap { margin-top:2px; }
     .pkc { padding:4px 6px 5px; }
     .pkc-hpbar { margin-top:3px; }
-    #allyActive .pkc-art { aspect-ratio:1/0.27; }
-    #foeActive .pkc-art { aspect-ratio:1/0.21; }
-    .bc2-art { aspect-ratio:1/0.20; }
-    .pkc-md .pkc-art { aspect-ratio:1/0.10; }
-    .bchip .bcArt { width:26px; height:26px; }
+    #allyActive .pkc-art { aspect-ratio:1/0.16; }
+    #foeActive .pkc-art { aspect-ratio:1/0.11; }
+    .bc2-art { aspect-ratio:1/0.09; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.07; }
+    .bchip .bcArt { width:24px; height:24px; }
     .pkc-waza .pkc-wname { line-height:1.15; }
     #allyActive .pkc-wname, #foeActive .pkc-wname { font-size:10.5px; }
     .bc2-wname { line-height:1.12; }
     #energyBox { padding:3px 9px; }
     #btBtns { margin-top:4px; }
-    #btBtns .btn { padding-top:7px; padding-bottom:7px; }
+    #btBtns .btn { padding-top:6px; padding-bottom:6px; }
   }
   /* 低い画面（667px級）ではバトルを強く圧縮して手札とターン終了ボタンまで収める */
   @media (max-height:740px) {
@@ -606,10 +619,10 @@
     .activeWrap { margin-top:1px; }
     #allyActive .pkc-lg { width:168px; }
     #allyActive .noActive { width:168px; }
-    #allyActive .pkc-art { aspect-ratio:1/0.16; }
+    #allyActive .pkc-art { aspect-ratio:1/0.08; }
     #foeActive .pkc-lg { width:160px; }
     #foeActive .noActive { width:160px; }
-    #foeActive .pkc-art { aspect-ratio:1/0.10; }
+    #foeActive .pkc-art { aspect-ratio:1/0.05; }
     .pkc { padding:3px 5px 4px; }
     .pkc-hpbar { margin-top:2px; }
     .pkc-sub { margin-top:0; }
@@ -621,9 +634,9 @@
     .pkc-md .pkc-waza .pkc-wname { font-size:9px; }
     .pkc-md .pkc-waza .pkc-cost { min-width:0; }
     .pkc-md .pkc-dmg { font-size:11px; }
-    .pkc-md .pkc-art { aspect-ratio:1/0.10; }
+    .pkc-md .pkc-art { aspect-ratio:1/0.06; }
     .pkc-md .pkc-name { line-height:1.1; }
-    .bc2-art { aspect-ratio:1/0.10; }
+    .bc2-art { aspect-ratio:1/0.05; }
     .bc2-waza { padding:0px 3px; }
     .bc2-wname { line-height:1.1; }
     .bchip .bcArt { width:20px; height:20px; }
@@ -791,10 +804,11 @@ html,body{overscroll-behavior:none;}
       <div class="gs" id="gbDesc"></div>
     </div>
     <div class="pityLine">
-      <div class="pc">SSR天井まで あと <b id="pitySsr">90</b> 連</div>
-      <div class="pc">UR天井まで あと <b id="pityUr">1000</b> 連</div>
-      <div class="pc">総召喚 <b id="pullTotal">0</b> 回</div>
+      <div class="pc">SSR天井まで あと <b id="pitySsr">90</b> 連<br><span class="note">前回SSRから <span id="pitySsrCnt">0</span> 連</span></div>
+      <div class="pc">UR天井まで あと <b id="pityUr">1000</b> 連<br><span class="note">前回URから <span id="pityUrCnt">0</span> 連</span></div>
+      <div class="pc">総召喚 <b id="pullTotal">0</b> 回<br><span class="note">チュートリアル分を含む</span></div>
     </div>
+    <p class="note" style="margin-top:5px">天井カウントはSSR／URが出るとリセットされるよ（総召喚は減らない累計）。だから「あと○連＋総召喚」が天井の数字と合わないことがあるよ。</p>
     <div class="gachaBtns">
       <button class="btn gold" id="btnPull1">1回召喚<br><span style="font-size:12px">💎 300</span></button>
       <button class="btn pink" id="btnPull10">10回召喚<br><span style="font-size:12px">💎 3,000 / SR以上1枚確定</span></button>
@@ -1196,14 +1210,25 @@ const STAGE_NAMES = [
 ];
 function stageName(ch, st){ const t = STAGE_NAMES[ch - 1] || STAGE_NAMES[0]; return t[st - 1] || STAGE_NAMES[0][st - 1] || ''; }
 function stageKey(ch, st){ return ch + '-' + st; }
+/* ストーリー敵の章別調整係数。ポケポケ式では「敵もバトル場の1体だけが攻撃する」ため、
+   v56（敵全員が毎ターン攻撃）より被ダメージが大きく減る。章が進むほど敵のHPと攻撃を
+   引き上げて歯ごたえを戻す（難易度倍率 DIFFS の考え方は維持）。
+   ※この係数は stageFoes の時点で織り込む（単一の真実）。以前は newBattle 側でだけ
+     stageFoes の結果に掛けていたため、ステージ詳細側の基礎値とバトルの実効値が
+     第2章・第3章でズレていた（例：2-1N ほのおトカゲ こうげき 基礎115 vs バトル161）。 */
+const STORY_FOE_SCALE = { 1: { hp: 1.0, atk: 1.0 }, 2: { hp: 1.25, atk: 1.4 }, 3: { hp: 1.6, atk: 2.0 } };
 function stageFoes(ch, st, diff){
   const C = CHAPTERS[ch - 1], D = DIFFS[diff];
   const scale = (1 + 0.15 * (st - 1)) * D.mult;
+  const sc = STORY_FOE_SCALE[ch] || { hp: 1, atk: 1 };
   const mk = (fid, bossScale) => {
     const f = FOES[fid];
+    /* 章スケールは基礎値を丸めた後に掛ける（旧 newBattle 側の二段丸めと同値にし、バトルの数値を変えない） */
+    const baseHp = Math.round(C.baseHp * f.hp * scale * (bossScale || 1));
+    const baseAtk = Math.round(C.baseAtk * f.atk * scale);
     return { foeId:fid, name:f.name, el:f.el, face:f.face, col:f.col, boss:!!f.boss,
-      maxHp: Math.round(C.baseHp * f.hp * scale * (bossScale || 1)),
-      atk: Math.round(C.baseAtk * f.atk * scale), def: Math.round(C.baseDef * f.def * (1 + 0.1 * (st - 1)) * (diff==='N'?1:diff==='H'?1.5:2.2)),
+      maxHp: Math.round(baseHp * sc.hp),
+      atk: Math.round(baseAtk * sc.atk), def: Math.round(C.baseDef * f.def * (1 + 0.1 * (st - 1)) * (diff==='N'?1:diff==='H'?1.5:2.2)),
       intents: f.intents };
   };
   if (st === 10) return [mk(C.boss), mk(C.pool[(st + ch) % C.pool.length], 0.55), mk(C.pool[(st + ch + 2) % C.pool.length], 0.55)];
@@ -1595,6 +1620,8 @@ function confirmStage(key){
     '<h3>' + ch + '-' + st + ' ' + esc(stageName(ch, st)) + '（' + D.n + '）</h3>' +
     '<div class="kvRow"><span>消費スタミナ</span><span>⚡ ' + D.stam + '（所持 ' + S.stamina.cur + '）</span></div>' +
     '<div class="kvRow"><span>敵編成</span><span>' + foes.map(f => f.face + esc(f.name) + ' <span class="elTag el-' + f.el + '">' + EL[f.el].i + EL[f.el].n + '</span>').join(' ') + '</span></div>' +
+    foes.map(f => '<div class="kvRow"><span>' + f.face + ' ' + esc(f.name) + '</span><span>HP ' + fmt(f.maxHp) + ' ／ こうげき ' + fmt(f.atk) + '</span></div>').join('') +
+    '<div class="note" style="margin-top:4px">敵のステータスはバトルでの実効値（章・難易度込み）だよ。敵の「こうげき」がこちらの弱点を突くと、受けるダメージは1.5倍になるよ。</div>' +
     '<div class="kvRow"><span>パーティ戦力</span><span>' + fmt(partyPower()) + '</span></div>' +
     (first ? '<div class="kvRow"><span>初回クリア報酬</span><span>💎 ' + D.gem + ' ／ 🪙 ' + (200 + st * 60) + ' ／ 🔷 ' + (8 + st) + '</span></div>' : '<div class="kvRow"><span>クリア報酬</span><span>🪙 ' + (200 + st * 60) + ' ／ 🔷 ' + (8 + st) + '</span></div>') +
     '<button class="btn big" id="mStartBattle" style="margin-top:12px"' + (S.stamina.cur < D.stam ? ' disabled' : '') + '>' + (S.stamina.cur < D.stam ? 'スタミナが足りない' : '出発する！') + '</button>' +
@@ -1707,10 +1734,7 @@ function mkFoeUnit(f){
     maxHp:f.maxHp, hp:f.maxHp, atk:f.atk, alive:true,
     waza:[{ n:'こうげき', cost:2, dmg:f.atk, all:false }], zone:'deck', energy:0 };
 }
-/* ストーリー敵の章別調整係数。ポケポケ式では「敵もバトル場の1体だけが攻撃する」ため、
-   v56（敵全員が毎ターン攻撃）より被ダメージが大きく減る。章が進むほど敵のHPと攻撃を
-   引き上げて歯ごたえを戻す（難易度倍率 DIFFS の考え方は維持）。 */
-const STORY_FOE_SCALE = { 1: { hp: 1.0, atk: 1.0 }, 2: { hp: 1.25, atk: 1.4 }, 3: { hp: 1.6, atk: 2.0 } };
+/* STORY_FOE_SCALE は stageFoes の直前で定義し、stageFoes が適用済みの実効値を返す */
 function newBattle(cfg){
   uidSeq = 1;
   const allies = cfg.allyIds.map(id => { const o = S.owned[id]; return mkCharUnit(id, 'ally', o ? o.lv : 1, o ? o.lb : 0); });
@@ -1718,13 +1742,9 @@ function newBattle(cfg){
   if (cfg.foeParty) {
     foes = cfg.foeParty.map(t => mkCharUnit(t.id, 'foe', t.lv, t.lb));
   } else {
-    let foeData = cfg.foes;
-    if (cfg.kind === 'story') {
-      const sc = STORY_FOE_SCALE[cfg.meta && cfg.meta.ch] || { hp: 1, atk: 1 };
-      if (sc.hp !== 1 || sc.atk !== 1) foeData = foeData.map(f => Object.assign({}, f, {
-        maxHp: Math.max(1, Math.round(f.maxHp * sc.hp)), atk: Math.max(1, Math.round(f.atk * sc.atk)) }));
-    }
-    foes = foeData.map(mkFoeUnit);
+    /* 章別調整係数は stageFoes の時点で織り込み済み。ここで再び掛けると二重適用に
+       なるため、cfg.foes（ストーリーは stageFoes の戻り値）をそのまま使う */
+    foes = cfg.foes.map(mkFoeUnit);
   }
   const dice = rollDice(); /* サイコロで先攻・後攻を決定（シャッフルより前に振る） */
   B = { kind:cfg.kind, allies, foes, turn:0, phase: FAST ? 'setup' : 'dice', over:false,
@@ -2829,6 +2849,8 @@ function renderGacha(){
   $('#pitySsr').textContent = Math.max(1, pityNow.SSR - S.gacha.ssrPity);
   $('#pityUr').textContent = Math.max(1, pityNow.UR - S.gacha.urPity);
   $('#pullTotal').textContent = S.gacha.total;
+  const psc = $('#pitySsrCnt'); if (psc) psc.textContent = S.gacha.ssrPity;
+  const puc = $('#pityUrCnt'); if (puc) puc.textContent = S.gacha.urPity;
   const tut = S.tutorial.step === 'gacha' && !S.tutorial.done;
   $('#btnPull10').innerHTML = tut ? '🎁 チュートリアル10連<br><span style="font-size:12px">無料！ SSR確定</span>' : '10回召喚<br><span style="font-size:12px">💎 3,000 / SR以上1枚確定</span>';
   $('#btnPull1').disabled = tut;
@@ -3326,7 +3348,7 @@ init();
 /* テスト用フック */
 window.__ls = {
   get S(){ return S; }, get B(){ return B; },
-  CHARS, CHAR_MAP, FOES, CHAPTERS, HOUSE_RIVALS, STAGE_NAMES, stageName,
+  CHARS, CHAR_MAP, FOES, CHAPTERS, HOUSE_RIVALS, STAGE_NAMES, stageName, STORY_FOE_SCALE,
   setRng(fn){ RNG = fn || Math.random; }, setFast(v){ FAST = !!v; },
   go, save, loadSave, charStats, partyPower, stageFoes, isAwakened,
   pullOne, doPulls, tutorialPull, claimLoginBonus, missionProg, rollRarity,

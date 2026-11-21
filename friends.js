@@ -785,6 +785,11 @@
       if (r) { finishInvite(code, r, btn); return; }
       if (Date.now() - t0 > 30000) {
         toast('部屋を作成できませんでした。通信環境を確認してもう一度お試しください', 'info');
+        /* ボタンは「部屋を作成中…」に書き換え済みで、内容が変わらないと
+           描画キャッシュ（setHtmlCached）が効いて元に戻らず、ボタンが
+           無効のまま固まって二度と招待できなくなる。キャッシュを破棄して
+           描き直し、再招待できる状態に戻す（閉じている時も次回開く際に効く） */
+        htmlCache.picker = null;
         if (pickerOpen) renderPickerList();
         return;
       }
@@ -799,6 +804,11 @@
     } else {
       toast('招待を送れませんでした（相手との接続が切れています）', 'info');
     }
+    /* 送信失敗時は「招待済み」状態が変わらず描画キャッシュが効いてしまう
+       ため、部屋作成中に無効化したボタンが「部屋を作成中…」のまま固まる。
+       キャッシュを破棄して描き直し、ボタンを復活させる（成功時は従来どおり
+       招待済み表示に切り替わる） */
+    htmlCache.picker = null;
     if (pickerOpen) renderPickerList();
   }
   /* PW_AUTO_HOST が無いゲームでは PW_JOIN_CFG から自動でホスト開始する */
@@ -1110,7 +1120,13 @@
     '.pwf-gb-note{flex-basis:100%;font-size:11.5px;color:#c3c8e8}',
     '.pwf-modal-overlay{position:fixed;inset:0;z-index:100005;background:rgba(3,4,12,.62);display:none;align-items:center;justify-content:center;padding:14px}',
     '.pwf-modal-overlay.show{display:flex}',
-    '.pwf-modal{background:#0d1020;width:min(400px,94vw);max-height:86vh;overflow-y:auto;border-radius:16px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);color:#eef0ff}',
+    '.pwf-modal{background:#0d1020;width:min(400px,94vw);max-width:100%;max-height:86vh;overflow-y:auto;border-radius:16px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);color:#eef0ff}',
+    /* 招待ピッカー等のモーダル内説明文が右端にはみ出さないためのガード:
+       モーダル幅はオーバーレイの余白内（max-width:100%）に必ず収め、
+       説明文（.pwf-note）は折り返し不能な並びでも強制的に折り返す。
+       見出しは縮小可能にして ✕ ボタンが押し出されないようにする */
+    '.pwf-modal .pwf-note{overflow-wrap:anywhere}',
+    '.pwf-modal .pwf-head>span{min-width:0}',
     'select.pwf-input{appearance:auto}'
   ].join('\n');
 
