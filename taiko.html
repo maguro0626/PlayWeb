@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>太鼓リズム | PlayWeb</title>
+<title>リンクドラムサーガ | PlayWeb</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -70,7 +70,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #songDetail .dBest{font-size:11px;font-weight:900;color:var(--sub);white-space:nowrap}
 #songDetail .dBest .rk{display:inline-block;background:linear-gradient(180deg,#ffd964,#f5b921);color:#231600;border-radius:6px;padding:0 5px;margin-left:3px;font-size:11px}
 #songDetail .sdCredit{font-size:9.5px;color:rgba(255,255,255,.78);margin-top:5px;line-height:1.55;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow-wrap:anywhere}
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);background:rgba(20,10,16,.93);color:var(--txt);border:1.5px solid var(--gold);border-radius:999px;padding:10px 20px;font-size:13.5px;font-weight:800;z-index:99;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:88vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);background:rgba(20,10,16,.93);color:var(--txt);border:1.5px solid var(--gold);border-radius:999px;padding:10px 20px;font-size:13.5px;font-weight:800;z-index:100002;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:88vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (max-height:740px){
   .songCard{min-height:56px;padding:6px 10px 6px 8px}
@@ -155,6 +155,113 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #quitBtn{flex:1}
 .wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane,.wrap.playing .footHelp{display:none!important}
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
+/* ===== リンクドラムサーガ：キャラ/ガチャ/バトル ===== */
+#charaBar{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+#favChip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,201,60,.55);border-radius:999px;padding:3px 12px 3px 4px;color:var(--txt);cursor:pointer;font-family:inherit;min-height:42px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#favChip:active{transform:scale(.96)}
+#favChip .fcFace{width:34px;height:34px;border-radius:50%;overflow:hidden;flex:none;background:#241a30;display:flex;align-items:center;justify-content:center}
+#favChip .fcFace svg{width:34px;height:34px;display:block}
+#favChip .fcFace img{width:100%;height:100%;object-fit:cover;display:block}
+#favChip .fcTx{font-size:12px;font-weight:900;line-height:1.25;text-align:left;white-space:nowrap}
+#favChip .fcTx small{display:block;font-size:10px;color:var(--gold);font-weight:800}
+.curBox{font-size:13px;font-weight:900;color:var(--gold);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:8px 10px;white-space:nowrap}
+.miniBtn{background:rgba(255,255,255,.09);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:8px 11px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:42px;white-space:nowrap}
+.miniBtn:active{transform:scale(.95)}
+.miniBtn.off{opacity:.55}
+#battleHud{position:absolute;top:8px;left:8px;right:8px;z-index:3;background:rgba(12,5,12,.72);border:1.5px solid rgba(255,255,255,.22);border-radius:13px;padding:6px 10px;backdrop-filter:blur(2px);pointer-events:none}
+#battleHud .bhRow{display:flex;align-items:center;gap:8px}
+#bhFace{font-size:26px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+#battleHud .bhMain{flex:1;min-width:0}
+#bhName{font-size:12.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bhName .bhFav{color:var(--gold);font-size:11px;margin-left:6px}
+#bhBarWrap{height:11px;background:rgba(255,255,255,.14);border-radius:99px;overflow:hidden;margin-top:3px;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+#bhHp{height:100%;width:100%;background:linear-gradient(90deg,#f43f5e,#fb923c);border-radius:99px;transition:width .18s}
+#bhHp.low{background:linear-gradient(90deg,#dc2626,#f43f5e)}
+#bhMeta{font-size:10.5px;color:var(--sub);font-weight:800;white-space:nowrap}
+#bhMeta .sh{color:#7dd3fc}
+#dmgLayer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+.dmgNum{position:absolute;font-weight:900;font-size:19px;color:#ffd964;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(255,160,40,.65);animation:dmgFloat .75s ease-out forwards;white-space:nowrap}
+.dmgNum.skill{font-size:26px;color:#fff2b0}
+.dmgNum.gauge{font-size:14px;color:#7ef0b2}
+@keyframes dmgFloat{0%{transform:translateY(4px) scale(.7);opacity:0}18%{opacity:1;transform:translateY(0) scale(1.12)}100%{transform:translateY(-34px) scale(1);opacity:0}}
+#cutin{position:absolute;inset:0;z-index:6;display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(100deg,rgba(20,6,16,.88) 30%,rgba(20,6,16,.35));opacity:0;pointer-events:none;transition:opacity .18s}
+#cutin.show{opacity:1}
+#cutin .ciFace{width:104px;height:118px;flex:none;border-radius:14px;overflow:hidden;border:2.5px solid var(--gold);box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 18px rgba(255,201,60,.45);background:#241a30}
+#cutin .ciFace svg{width:100%;height:100%;display:block}
+#cutin .ciFace img{width:100%;height:100%;object-fit:cover;display:block}
+#cutin.ur{background:linear-gradient(100deg,rgba(66,42,4,.92) 30%,rgba(66,42,4,.4))}
+#cutin .ciTx{min-width:0}
+#cutin .ciSkill{font-size:21px;font-weight:900;line-height:1.3;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.5),0 0 16px rgba(255,201,60,.55)}
+#cutin .ciName{font-size:13px;font-weight:900;color:var(--gold);margin-top:3px}
+#cutin .ciEff{font-size:12px;color:var(--txt);margin-top:4px;line-height:1.5;font-weight:700}
+.modal{position:fixed;inset:0;z-index:100000;background:rgba(8,3,8,.78);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:14px 10px calc(14px + env(safe-area-inset-bottom))}
+.modalCard{width:100%;max-width:460px;background:linear-gradient(180deg,#2b1220,#1c0b16);border:1.5px solid rgba(255,201,60,.4);border-radius:18px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.7)}
+.modalHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.modalHead .mhTtl{font-size:17px;font-weight:900;flex:1;white-space:nowrap;min-width:0}
+.modalHead .curBox{white-space:nowrap}
+.xBtn{background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--txt);border-radius:50%;width:36px;height:36px;font-size:15px;cursor:pointer;flex:none}
+.bannerTabs{display:flex;gap:6px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:3px}
+.bannerTabs button{flex:1;border:none;background:transparent;color:var(--sub);padding:8px 4px;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;min-height:38px}
+.bannerTabs button.on{background:linear-gradient(180deg,#b06ee8,#7c3aed);color:#fff}
+.pityLine{font-size:12px;color:var(--sub);font-weight:800;text-align:center;margin:9px 0 4px;line-height:1.7}
+.pityLine b{color:var(--gold)}
+.pullGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0}
+.pullCell{border-radius:11px;padding:5px 2px 6px;text-align:center;background:rgba(255,255,255,.06);border:1.5px solid var(--line);animation:rankIn .35s backwards}
+.pullCell .pcFace{width:44px;height:44px;margin:0 auto;border-radius:9px;overflow:hidden;background:#241a30}
+.pullCell .pcFace svg{width:100%;height:100%;display:block}
+.pullCell .pcFace img{width:100%;height:100%;object-fit:cover;display:block}
+.pullCell .pcNm{font-size:9.5px;font-weight:900;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pullCell .pcTag{font-size:8.5px;font-weight:900}
+.rar-UR{border-color:#ffd964!important;box-shadow:0 0 12px rgba(255,201,60,.55)}
+.rar-SSR{border-color:#c084fc!important}
+.rar-SR{border-color:#7dd3fc!important}
+.tag-UR{color:#ffd964}.tag-SSR{color:#e9b8ff}.tag-SR{color:#a5e3ff}.tag-R{color:#cdb49b}
+.modalBtns{display:flex;gap:8px;margin-top:10px}
+.note{font-size:11px;color:var(--sub);line-height:1.7;margin-top:8px}
+#charaGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.chCell{border-radius:12px;padding:6px 2px 7px;text-align:center;background:rgba(255,255,255,.05);border:1.5px solid var(--line);cursor:pointer;font-family:inherit;color:var(--txt)}
+.chCell:active{transform:scale(.96)}
+.chCell.sel{border-color:var(--gold);box-shadow:0 0 10px rgba(255,201,60,.4)}
+.chCell .ccFace{width:52px;height:52px;margin:0 auto;border-radius:10px;overflow:hidden;background:#241a30}
+.chCell .ccFace svg{width:100%;height:100%;display:block}
+.chCell .ccFace img{width:100%;height:100%;object-fit:cover;display:block}
+.chCell.unowned .ccFace{filter:brightness(.12) saturate(.4)}
+.chCell .ccNm{font-size:10.5px;font-weight:900;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chCell .ccLv{font-size:9.5px;color:var(--gold);font-weight:800}
+#charaDetail{margin-top:11px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:11px}
+#charaDetail .cdTop{display:flex;gap:11px}
+#charaDetail .cdFace{width:92px;height:104px;flex:none;border-radius:12px;overflow:hidden;background:#241a30;border:2px solid rgba(255,255,255,.2)}
+#charaDetail .cdFace svg{width:100%;height:100%;display:block}
+#charaDetail .cdFace img{width:100%;height:100%;object-fit:cover;display:block}
+#charaDetail .cdNm{font-size:16.5px;font-weight:900}
+#charaDetail .cdSub{font-size:11.5px;color:var(--sub);font-weight:800;margin-top:1px}
+#charaDetail .cdStats{font-size:12px;line-height:1.75;margin-top:4px;font-weight:700}
+.expBar{height:9px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden;margin:5px 0 3px}
+.expBar i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#818cf8)}
+#charaDetail .cdSkill{font-size:12px;line-height:1.8;margin-top:7px;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px}
+#charaDetail .cdSkill b{color:var(--gold)}
+#charaDetail .cdFlavor{font-size:11.5px;color:var(--sub);line-height:1.7;margin-top:7px;font-style:italic}
+#urFx{position:fixed;inset:0;z-index:100001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(ellipse at 50% 42%,rgba(120,72,0,.94),rgba(30,16,0,.97) 78%);text-align:center;padding:20px}
+#urFx .rays{position:absolute;inset:-48%;background:repeating-conic-gradient(from 0deg,rgba(255,215,110,.16) 0 9deg,transparent 9deg 22deg);animation:raysSpin 14s linear infinite;pointer-events:none}
+#urFx .urFace{width:min(62vw,250px);aspect-ratio:0.88;border-radius:18px;overflow:hidden;border:3.5px solid #ffd964;box-shadow:0 0 44px rgba(255,201,60,.8);animation:rankIn .55s cubic-bezier(.2,1.6,.4,1);background:#241a30;position:relative;z-index:1}
+#urFx .urFace svg{width:100%;height:100%;display:block}
+#urFx .urFace img{width:100%;height:100%;object-fit:cover;display:block}
+#urFx .urTtl{font-size:27px;font-weight:900;color:#ffe98a;text-shadow:0 3px 0 rgba(0,0,0,.5),0 0 26px rgba(255,201,60,.8);position:relative;z-index:1}
+#urFx .urSub{font-size:13.5px;font-weight:900;color:#fff;position:relative;z-index:1}
+#charaDetail .cdFace.awake{border-color:#ffd964;box-shadow:0 0 16px rgba(255,201,60,.75)}
+.chCell .ccFace,.chCell .ccNm,.chCell .ccLv{display:block}
+#resultPanel .rwLine{font-size:13.5px;font-weight:900;color:var(--gold);line-height:1.7}
+#resultPanel .rwLine .defeat{color:#fda4af}
+@media (max-height:740px){
+  #charaBar{gap:5px;margin-bottom:6px}
+  #favChip{min-height:36px;padding:2px 9px 2px 3px}
+  #favChip .fcFace{width:28px;height:28px}
+  #favChip .fcFace svg{width:28px;height:28px}
+  .miniBtn{min-height:36px;padding:6px 8px;font-size:11.5px}
+  .curBox{padding:6px 8px;font-size:12px}
+  #cutin .ciFace{width:78px;height:90px}
+  #cutin .ciSkill{font-size:17px}
+}
 </style>
 <style>
 /* バウンス抑止（麻雀方式：画面固定） */
@@ -164,7 +271,7 @@ html,body{overscroll-behavior:none;}
 </head>
 <body>
 <div class="wrap" id="wrapEl">
-<div class="ttl">🥁 太鼓<span>リズム</span></div>
+<div class="ttl">🥁 リンクドラム<span>サーガ</span></div>
 <div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
 <div id="songArea">
 <div id="genreTabs"></div>
@@ -172,6 +279,13 @@ html,body{overscroll-behavior:none;}
 <div id="songDetail"></div>
 </div>
 <div id="soloPane">
+<div id="charaBar">
+<button id="favChip" title="連れていくキャラ"><span class="fcFace" id="favFace"></span><span class="fcTx"><span id="favName">キャラ</span><small id="favLv"></small></span></button>
+<span class="curBox">💎 <span id="gemNum">0</span></span>
+<button id="gachaBtn" class="miniBtn">🎰 ガチャ</button>
+<button id="charaBtn" class="miniBtn">🐱 キャラ</button>
+<button id="battleTgl" class="miniBtn">⚔ ON</button>
+</div>
 <button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
 <p class="help" style="margin-top:8px">音符が左端の金の枠に重なったら叩こう！<br>赤い音符＝<b style="color:#ff8a7a">ドン（下の大太鼓の中をタップ）</b>、青い音符＝<b style="color:#8ab6ff">カツ（大太鼓の外をタップ）</b>。キー F・J＝ドン / D・K＝カツ でも叩けます。</p>
 </div>
@@ -190,11 +304,27 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo" class="cb"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo" class="cb"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="battleHud" class="hidden"><div class="bhRow"><span id="bhFace">🫧</span><div class="bhMain"><div id="bhName"></div><div id="bhBarWrap"><div id="bhHp"></div></div></div><span id="bhMeta"></span></div></div><div id="dmgLayer"></div><div id="cutin" class="hidden"></div><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
 <div id="toast"></div>
+<div id="gachaModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">🎰 召喚ガチャ</span><span class="curBox">💎 <span id="gachaGemNum">0</span></span><button class="xBtn" id="gachaClose">✕</button></div>
+<div class="bannerTabs"><button data-b="normal" class="on">通常召喚</button><button data-b="pickup">⭐ ピックアップ</button></div>
+<p class="note" style="text-align:center">ピックアップ対象：UR アストライア / SSR ブレイズ<br>（UR・SSRが出たとき50%の確率でピックアップキャラになります）</p>
+<div class="pityLine" id="pityLine"></div>
+<div id="gachaResults"></div>
+<div class="modalBtns"><button id="pull1Btn" class="btn">1回 💎300</button><button id="pull10Btn" class="btn blue">10連 💎3,000</button></div>
+<p class="note">確率：UR 0.05% / SSR 2% / SR 17.5% / R 80.45%　天井：SSR 90連・UR 1,000連（共通カウンタ）　10連はSR以上が1体確定。被りは限界突破（最大5凸）、上限到達後はコインに変換されます。💎は演奏や敵の撃破で貯まります。</p>
+</div></div>
+<div id="charaModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">🐱 キャラ</span><span class="curBox" id="charaCurBox"></span><button class="xBtn" id="charaClose">✕</button></div>
+<div id="charaGrid"></div>
+<div id="charaDetail"></div>
+</div></div>
+<div id="urFx" class="hidden"></div>
+<script src="linkdrum_data.js"></script>
 <script>
 /*__TAIKO_MAIN__*/
 (function () {
@@ -1123,6 +1253,7 @@ setTimeout(renderSongList, 2000); setTimeout(renderSongList, 5000);
 function startSong() {
   ensureAudio();
   if (!AC) return;
+  stopPreview();
   curSong = songById(selSong);
   if (curSong.real && realState(curSong) !== 'ready') {
     /* 実音源が未読込なら読み込み、完了後に自動で開始する（失敗時はトーストで知らせる） */
@@ -1174,6 +1305,7 @@ function startSong() {
     schedTimer = setInterval(scheduleAhead, 25);
   }
   updateHUD(true);
+  battleStart();
 }
 function scheduleAhead() {
   if (!playing || !AC) return;
@@ -1195,6 +1327,7 @@ function stopSong(toMenu) {
   if (toMenu) { wrapEl.classList.remove('ingame'); $('resultPanel').classList.add('hidden'); resetStage(); }
 }
 function resetStage() {
+  battleClear();
   chart = []; popups = []; score = 0; combo = 0; gauge = 0;
   counts = { good: 0, ok: 0, bad: 0 };
   $('hudSong').textContent = '';
@@ -1217,6 +1350,7 @@ function finishSong() {
     if (rankVal(res.rank) > rankVal(s.rank[bk])) s.rank[bk] = res.rank;
     storeSave(s); }
   renderSongList();
+  if (mode === 'solo') charaOnFinish(res);
   if (mode === 'online') { finishOnline(res, totalScore, isBest); return; }
   showResult(res, totalScore, isBest, null);
 }
@@ -1240,6 +1374,7 @@ function showResult(res, totalScore, isBest, vsInfo) {
     + '<div class="accLine">正確さ ' + Math.round(res.acc * 100) + '% ・ 魂ゲージ ' + Math.round(gauge) + '%</div>'
     + '<div class="rdetail">良 ' + counts.good + ' ・ 可 ' + counts.ok + ' ・ 不可 ' + counts.bad + '<br>最大コンボ ' + maxCombo
     + (isBest ? '<br><span style="color:var(--gold);font-weight:900">🎉 ベスト更新！</span>' : '') + '</div>';
+  if (charaRewardHtml) html += charaRewardHtml;
   if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
   html += '<div class="rbtns"><button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
   p.innerHTML = html;
@@ -1293,10 +1428,17 @@ function applyJudge(nt, res) {
     gauge = clamp(gauge + gaugeDelta(res, chart.length), 0, 100);
     spawnPopup(nt, res);
     spawnHitFx(nt);
+    battleOnHit(nt, res);
   } else {
-    combo = 0; counts.bad++;
-    gauge = clamp(gauge + gaugeDelta('bad', chart.length), 0, 100);
-    spawnPopup(nt, 'bad');
+    counts.bad++;
+    var gd = gaugeDelta('bad', chart.length);
+    if (battleOnBad(gd)) {
+      /* シールドがコンボと魂ゲージを守った（battleOnBad 内で演出済み） */
+    } else {
+      combo = 0;
+      gauge = clamp(gauge + gd * battleMissMul(), 0, 100);
+      spawnPopup(nt, 'bad');
+    }
   }
   updateHUD(false);
   sendProg();
@@ -2547,6 +2689,692 @@ $('joinBtn').addEventListener('click', joinRoom);
 $('leaveBtn').addEventListener('click', leaveOnline);
 $('vsStartBtn').addEventListener('click', function () { $('vsStartBtn').classList.add('hidden'); hostStartMatch(); });
 
+/* ================================================================
+   リンクドラムサーガ：キャラ／ガチャ／育成／キャラバトル／選曲プレビュー
+   キャラデータは linkdrum_data.js（window.LD_DATA / LD_PORTRAIT）、
+   イラストは linkdrum_art1〜3.js（window.LD_ART）を必要時に遅延読み込みする。
+   セーブは新規キー taiko_chara_v1（フィールド名 owned / fav はリンクサーガ互換）。
+   ================================================================ */
+var LD = window.LD_DATA || null;
+var CHARA_KEY = 'taiko_chara_v1';
+var CHAR_MAP = {};
+if (LD) LD.CHARS.forEach(function (c) { CHAR_MAP[c.id] = c; });
+function charById(id) { return CHAR_MAP[id] || null; }
+
+var charaCache = null;
+var charaStoredJson = null; /* 最後に読み書きした保存JSON（外部からの書き換え検出用） */
+function charaDefault() {
+  var o = { v: 1, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, defeats: {} };
+  LD.STARTERS.forEach(function (id) { o.owned[id] = { lv: 1, lb: 0, exp: 0 }; });
+  o.fav = LD.STARTERS[0];
+  return o;
+}
+function mergeChara(a, b) {
+  var o = { v: 1,
+    gems: Math.max(a.gems | 0, b.gems | 0), coins: Math.max(a.coins | 0, b.coins | 0), mats: Math.max(a.mats | 0, b.mats | 0),
+    owned: {}, fav: b.fav || a.fav,
+    ssrPity: Math.max(a.ssrPity | 0, b.ssrPity | 0), urPity: Math.max(a.urPity | 0, b.urPity | 0),
+    totalPulls: Math.max(a.totalPulls | 0, b.totalPulls | 0),
+    battleOn: (typeof b.battleOn === 'boolean') ? b.battleOn : (a.battleOn !== false),
+    defeats: {} };
+  [a, b].forEach(function (s) {
+    Object.keys(s.defeats || {}).forEach(function (k) { o.defeats[k] = 1; });
+    Object.keys(s.owned || {}).forEach(function (id) {
+      var x = s.owned[id] || {};
+      var cur = o.owned[id];
+      if (!cur) o.owned[id] = { lv: x.lv | 0 || 1, lb: x.lb | 0, exp: x.exp | 0 };
+      else { cur.lv = Math.max(cur.lv, x.lv | 0); cur.lb = Math.max(cur.lb, x.lb | 0); cur.exp = Math.max(cur.exp, x.exp | 0); }
+    });
+  });
+  return o;
+}
+function loadChara() {
+  if (!LD) return null;
+  var raw = null;
+  try { raw = localStorage.getItem(CHARA_KEY); } catch (e) {}
+  /* 自分の読み書きと一致している間はキャッシュが正（消費やカウンタ減少を巻き戻さない）。
+     クラウド同期などで外部から書き換えられた時だけ、進捗を失わないよう union マージする。 */
+  if (charaCache && raw === charaStoredJson) return charaCache;
+  var s = null;
+  try { s = raw ? JSON.parse(raw) : null; } catch (e) {}
+  if (!s || typeof s !== 'object' || !s.owned || typeof s.owned !== 'object') {
+    if (charaCache) return charaCache;
+    charaCache = charaDefault();
+    storeChara(charaCache);
+    return charaCache;
+  }
+  s.gems = s.gems | 0; s.coins = s.coins | 0; s.mats = s.mats | 0;
+  s.ssrPity = s.ssrPity | 0; s.urPity = s.urPity | 0; s.totalPulls = s.totalPulls | 0;
+  if (!s.defeats || typeof s.defeats !== 'object') s.defeats = {};
+  if (typeof s.battleOn !== 'boolean') s.battleOn = true;
+  if (charaCache) s = mergeChara(s, charaCache);
+  charaCache = s;
+  charaStoredJson = raw;
+  return s;
+}
+function storeChara(cs) {
+  charaCache = cs;
+  try { var j = JSON.stringify(cs); localStorage.setItem(CHARA_KEY, j); charaStoredJson = j; } catch (e) {}
+}
+
+/* ---------------- 育成計算 ---------------- */
+function isAwakened(c, o) { return !!c && c.rar === 'UR' && !!o && o.lb >= 5; }
+function charStats(c, o) {
+  var lv = o ? (o.lv | 0 || 1) : 1, lb = o ? (o.lb | 0) : 0;
+  var mul = (1 + 0.085 * (lv - 1)) * (1 + 0.08 * lb) * (isAwakened(c, o) ? 1.15 : 1);
+  return { hp: Math.round(c.base.hp * mul), atk: Math.round(c.base.atk * mul), def: Math.round(c.base.def * mul) };
+}
+function expNeed(lv) { return 20 + lv * 6; }
+function levelCost(lv) { return { mats: 5 + lv * 2, coins: 200 + lv * 80 }; }
+function tryLevelUps(id) {
+  if (!LD) return 0;
+  var cs = loadChara();
+  var o = cs.owned[id]; if (!o) return 0;
+  var c = charById(id); if (!c) return 0;
+  var max = LD.MAXLV[c.rar], gained = 0;
+  while (o.lv < max) {
+    var need = expNeed(o.lv), cost = levelCost(o.lv);
+    if (o.exp < need || cs.mats < cost.mats || cs.coins < cost.coins) break;
+    o.exp -= need; cs.mats -= cost.mats; cs.coins -= cost.coins; o.lv++; gained++;
+  }
+  if (gained) storeChara(cs);
+  return gained;
+}
+
+/* ---------------- ガチャ（リンクサーガ仕様を踏襲） ---------------- */
+var RAR_ORDER = { R: 1, SR: 2, SSR: 3, UR: 4 };
+function rollRarity(rng) {
+  var r = rng() * 100, R = LD.RATES;
+  if (r < R.UR) return 'UR';
+  if (r < R.UR + R.SSR) return 'SSR';
+  if (r < R.UR + R.SSR + R.SR) return 'SR';
+  return 'R';
+}
+function pickFromRarity(rar, banner, rng) {
+  var pool = LD.CHARS.filter(function (c) { return c.rar === rar; });
+  if (banner === 'pickup') {
+    var feat = rar === 'UR' ? LD.PICKUP.UR : (rar === 'SSR' ? LD.PICKUP.SSR : null);
+    if (feat && pool.some(function (c) { return c.id === feat; }) && rng() < 0.5) return charById(feat);
+  }
+  return pool[Math.floor(rng() * pool.length)];
+}
+function grantChar(ch) {
+  var cs = loadChara();
+  var res = { char: ch, isNew: false, lbUp: false, refund: 0, becameAwake: false };
+  if (!cs.owned[ch.id]) { cs.owned[ch.id] = { lv: 1, lb: 0, exp: 0 }; res.isNew = true; }
+  else if (cs.owned[ch.id].lb < 5) { cs.owned[ch.id].lb++; res.lbUp = true; res.becameAwake = isAwakened(ch, cs.owned[ch.id]); }
+  else { res.refund = LD.REFUND[ch.rar]; cs.coins += res.refund; }
+  return res;
+}
+function pullOne(banner, opts, rng) {
+  opts = opts || {};
+  var cs = loadChara();
+  var rar;
+  if (cs.urPity >= LD.PITY.UR - 1) rar = 'UR';
+  else {
+    rar = rollRarity(rng);
+    if (rar !== 'UR' && rar !== 'SSR' && cs.ssrPity >= LD.PITY.SSR - 1) rar = 'SSR';
+  }
+  if (opts.minRarity && RAR_ORDER[rar] < RAR_ORDER[opts.minRarity]) rar = opts.minRarity;
+  var ch = pickFromRarity(rar, banner, rng);
+  if (ch.rar === 'UR') { cs.urPity = 0; cs.ssrPity = 0; }
+  else if (ch.rar === 'SSR') { cs.urPity++; cs.ssrPity = 0; }
+  else { cs.urPity++; cs.ssrPity++; }
+  cs.totalPulls++;
+  return grantChar(ch);
+}
+function doPulls(n, banner, rng) {
+  rng = rng || Math.random;
+  var results = [], hasSR = false;
+  for (var i = 0; i < n; i++) {
+    var opts = (n === 10 && i === 9 && !hasSR) ? { minRarity: 'SR' } : {};
+    var r = pullOne(banner, opts, rng);
+    if (RAR_ORDER[r.char.rar] >= RAR_ORDER.SR) hasSR = true;
+    results.push(r);
+  }
+  storeChara(loadChara());
+  return results;
+}
+
+/* ---------------- イラスト遅延読み込みと顔表示 ---------------- */
+var artState = {}, artCbs = {};
+function ensureArt(n, cb) {
+  if (window.LD_ART && artState[n] === 'done') { if (cb) cb(); return; }
+  if (artState[n] === 'loading') { if (cb) (artCbs[n] = artCbs[n] || []).push(cb); return; }
+  artState[n] = 'loading'; artCbs[n] = cb ? [cb] : [];
+  var sc = document.createElement('script');
+  sc.src = 'linkdrum_art' + n + '.js';
+  sc.onload = function () { artState[n] = 'done'; var cbs = artCbs[n] || []; artCbs[n] = []; cbs.forEach(function (f) { f(); }); };
+  sc.onerror = function () { artState[n] = 'error'; var cbs = artCbs[n] || []; artCbs[n] = []; cbs.forEach(function (f) { f(); }); };
+  try { (document.head || document.body).appendChild(sc); }
+  catch (e) { artState[n] = 'error'; var cbs2 = artCbs[n] || []; artCbs[n] = []; cbs2.forEach(function (f) { f(); }); }
+}
+function charArtUrl(c) {
+  if (!window.LD_ART || !c) return null;
+  if (c.art === 'card') return window.LD_ART[c.id + '_card'] || null;
+  if (c.art === 'bust') return window.LD_ART[c.id] || null;
+  return null;
+}
+function charHomeUrl(c) {
+  if (!window.LD_ART || !c) return null;
+  return window.LD_ART[c.id + '_home'] || null;
+}
+function faceHtml(c, size) {
+  var u = charArtUrl(c);
+  if (u) return '<img src="' + u + '" alt="">';
+  return window.LD_PORTRAIT ? LD_PORTRAIT(c, size || 52) : '';
+}
+
+/* ---------------- 選曲画面のキャラバー ---------------- */
+function renderCharaBar() {
+  if (!LD) return;
+  var cs = loadChara();
+  var fav = charById(cs.fav);
+  if (!fav || !cs.owned[fav.id]) {
+    fav = null;
+    for (var i = 0; i < LD.CHARS.length; i++) if (cs.owned[LD.CHARS[i].id]) { fav = LD.CHARS[i]; break; }
+    if (!fav) fav = LD.CHARS[0];
+  }
+  $('favFace').innerHTML = faceHtml(fav, 34);
+  var o = cs.owned[fav.id];
+  $('favName').textContent = fav.name;
+  $('favLv').textContent = o ? ('Lv' + o.lv + (o.lb ? ' ・ ' + o.lb + '凸' : '') + (isAwakened(fav, o) ? ' ・ ✨覚醒' : '')) : '';
+  $('gemNum').textContent = cs.gems.toLocaleString();
+  var tgl = $('battleTgl');
+  tgl.textContent = cs.battleOn ? '⚔ ON' : '⚔ OFF';
+  tgl.classList.toggle('off', !cs.battleOn);
+}
+
+/* ---------------- ガチャ画面 ---------------- */
+var gachaBanner = 'normal';
+function openGacha() {
+  if (!LD) return;
+  stopPreview();
+  ensureArt(1); ensureArt(2); ensureArt(3);
+  $('gachaModal').classList.remove('hidden');
+  renderGacha();
+}
+function closeGacha() { $('gachaModal').classList.add('hidden'); }
+function renderGacha() {
+  var cs = loadChara();
+  $('gachaGemNum').textContent = cs.gems.toLocaleString();
+  $('pityLine').innerHTML = 'SSRまで あと <b>' + Math.max(1, LD.PITY.SSR - cs.ssrPity) + '</b> 連 ・ URまで あと <b>' + Math.max(1, LD.PITY.UR - cs.urPity) + '</b> 連 ・ 累計 <b>' + cs.totalPulls + '</b> 連';
+  document.querySelectorAll('#gachaModal .bannerTabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.b === gachaBanner); });
+  $('pull1Btn').disabled = cs.gems < LD.COST1;
+  $('pull10Btn').disabled = cs.gems < LD.COST10;
+}
+function doGachaUi(n) {
+  var cs = loadChara();
+  var cost = n === 10 ? LD.COST10 : LD.COST1;
+  if (cs.gems < cost) { toast('💎が足りません（あと ' + (cost - cs.gems) + ' 個）'); return; }
+  cs.gems -= cost; storeChara(cs);
+  var results = doPulls(n, gachaBanner);
+  renderGachaResults(results);
+  renderGacha(); renderCharaBar();
+  var ur = null;
+  results.forEach(function (r) { if (r.char.rar === 'UR' && !ur) ur = r; });
+  if (ur) showUrFx(ur.char);
+}
+function renderGachaResults(results) {
+  var html = '<div class="pullGrid">';
+  results.forEach(function (r, i) {
+    var c = r.char;
+    html += '<div class="pullCell rar-' + c.rar + '" style="animation-delay:' + (i * 0.07).toFixed(2) + 's"><div class="pcFace">' + faceHtml(c, 44) + '</div><div class="pcNm">' + c.name + '</div><div class="pcTag tag-' + c.rar + '">' + c.rar + (r.isNew ? ' NEW!' : (r.lbUp ? ' 凸UP' : (r.refund ? ' 🪙+' + r.refund : ''))) + '</div></div>';
+  });
+  html += '</div>';
+  $('gachaResults').innerHTML = html;
+}
+function fillUrFx(c) {
+  var u = charHomeUrl(c) || charArtUrl(c);
+  $('urFx').innerHTML = '<div class="rays"></div><div class="urTtl">✨ UR 獲得！ ✨</div><div class="urFace">' + (u ? '<img src="' + u + '" alt="">' : faceHtml(c, 200)) + '</div><div class="urSub">' + c.name + '（' + LD.EL[c.el].n + '属性・' + c.roleName + '）</div><div class="note" style="color:#ffe9a8;position:relative;z-index:1">タップで閉じる</div>';
+}
+function showUrFx(c) {
+  fillUrFx(c);
+  ensureArt(2, function () { if (!$('urFx').classList.contains('hidden')) fillUrFx(c); });
+  $('urFx').classList.remove('hidden');
+}
+
+/* ---------------- コレクション画面 ---------------- */
+var selCharId = null;
+function openChara() {
+  if (!LD) return;
+  stopPreview();
+  ensureArt(1, function () { renderCharaGrid(); renderCharaDetail(); });
+  ensureArt(3, function () { renderCharaGrid(); renderCharaDetail(); });
+  if (!selCharId || !charById(selCharId)) selCharId = loadChara().fav;
+  $('charaModal').classList.remove('hidden');
+  renderCharaGrid(); renderCharaDetail();
+}
+function renderCharaGrid() {
+  var cs = loadChara();
+  $('charaCurBox').textContent = '💎 ' + cs.gems.toLocaleString() + '　🪙 ' + cs.coins.toLocaleString() + '　🔷 ' + cs.mats.toLocaleString();
+  var sorted = LD.CHARS.slice().sort(function (a, b) { return (RAR_ORDER[b.rar] - RAR_ORDER[a.rar]) || (a.id < b.id ? -1 : 1); });
+  var html = '';
+  sorted.forEach(function (c) {
+    var o = cs.owned[c.id];
+    html += '<button class="chCell rar-' + c.rar + (o ? '' : ' unowned') + (c.id === selCharId ? ' sel' : '') + '" data-ch="' + c.id + '"><span class="ccFace">' + faceHtml(c, 52) + '</span><span class="ccNm">' + (o ? c.name : '？？？') + '</span><span class="ccLv">' + (o ? ('Lv' + o.lv + (o.lb ? ' ' + o.lb + '凸' : '') + (cs.fav === c.id ? ' ⭐' : '')) : '未所持') + '</span></button>';
+  });
+  $('charaGrid').innerHTML = html;
+  document.querySelectorAll('#charaGrid .chCell').forEach(function (b) {
+    b.addEventListener('click', function () { selCharId = b.dataset.ch; renderCharaGrid(); renderCharaDetail(); blip(); });
+  });
+}
+/* バースト（必殺技）のリズムゲーム読み替え：50コンボで発動する効果の内訳 */
+function burstSpec(c) {
+  var b = c.burst || {};
+  var spec = { dmg: 2.0, gauge: 0, shield: 0, buff: 0, vuln: 0 };
+  var p = (typeof b.power === 'number') ? b.power : 2;
+  switch (b.kind) {
+    case 'dmg': spec.dmg = p; break;
+    case 'dmgAll':
+      spec.dmg = p;
+      if (b.x === 'defDownAll' || b.x === 'atkDownAll') spec.vuln = 20;
+      if (b.x === 'burnAll') spec.dmg = p * 1.3;
+      break;
+    case 'heal': case 'healAll':
+      spec.dmg = p * 0.45; spec.gauge = Math.round(6 + p * 2);
+      if (b.x === 'cleanseShieldAll' || b.x === 'shieldAll') spec.shield = 1;
+      break;
+    case 'shield': case 'shieldAll':
+      spec.dmg = p * 0.55; spec.shield = 1;
+      if (b.x === 'defUpAll') spec.buff = 15;
+      break;
+    case 'buffAtk':
+      spec.dmg = 1.0; spec.buff = 20;
+      if (b.x === 'gaugeAll') spec.gauge = 8;
+      break;
+    case 'debuffDef': case 'debuffAtk':
+      spec.dmg = 1.2; spec.vuln = 20;
+      break;
+    default: spec.dmg = p;
+  }
+  return spec;
+}
+function burstFxText(c) {
+  var cs = loadChara();
+  var o = cs.owned[c.id];
+  var atk = charStats(c, o || { lv: 1, lb: 0 }).atk;
+  var s = burstSpec(c);
+  var parts = ['敵に ' + Math.round(atk * s.dmg).toLocaleString() + ' ダメージ（こうげき×' + s.dmg.toFixed(1) + '）'];
+  if (s.gauge) parts.push('魂ゲージ +' + s.gauge + '%');
+  if (s.shield) parts.push('シールド獲得（ミス1回を無効化）');
+  if (s.buff) parts.push(s.buff + '秒間 与ダメージ+30%');
+  if (s.vuln) parts.push(s.vuln + '秒間 敵の被ダメージ+25%');
+  return parts.join(' ・ ');
+}
+function passiveMods(c) {
+  var p = (c && c.passive) || {};
+  var m = { dmg: 0, miss: 0, skill: 0, heal: 0 };
+  if (p.type === 'atkAll' || p.type === 'front' || p.type === 'elAtk') m.dmg = p.value || 0;
+  else if (p.type === 'defAll' || p.type === 'hpAll') m.miss = p.value || 0;
+  else if (p.type === 'healUp') m.heal = p.value || 0;
+  else if (p.type === 'gauge' || p.type === 'chainDmg') m.skill = p.value || 0;
+  return m;
+}
+function passiveFxText(c) {
+  var p = c.passive || {};
+  switch (p.type) {
+    case 'atkAll': case 'front': case 'elAtk': return '与ダメージ +' + p.value + '%';
+    case 'defAll': case 'hpAll': return 'ミス時の魂ゲージ減少 -' + p.value + '%';
+    case 'healUp': return 'バーストの回復効果 +' + p.value + '%';
+    case 'gauge': case 'chainDmg': return 'バーストのダメージ +' + p.value + '%';
+    default: return p.name || '';
+  }
+}
+function renderCharaDetail() {
+  var el = $('charaDetail');
+  var c = charById(selCharId);
+  if (!c) { el.innerHTML = ''; return; }
+  var cs = loadChara();
+  var o = cs.owned[c.id];
+  var st = charStats(c, o || { lv: 1, lb: 0 });
+  var face = charHomeUrl(c) || charArtUrl(c);
+  var faceH = face ? '<img src="' + face + '" alt="">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 92) : '');
+  var html = '<div class="cdTop"><div class="cdFace' + (isAwakened(c, o) ? ' awake' : '') + '">' + faceH + '</div><div style="flex:1;min-width:0">'
+    + '<div class="cdNm">' + (o ? c.name : '？？？') + ' <span class="tag-' + c.rar + '" style="font-size:12px">' + c.rar + '</span></div>'
+    + '<div class="cdSub">' + LD.EL[c.el].i + ' ' + LD.EL[c.el].n + '属性 ・ ' + c.roleName + (o ? ' ・ Lv' + o.lv + ' / ' + LD.MAXLV[c.rar] + (o.lb ? ' ・ ' + o.lb + '凸' : '') + (isAwakened(c, o) ? ' ・ ✨覚醒' : '') : ' ・ 未所持') + '</div>'
+    + '<div class="cdStats">HP ' + st.hp.toLocaleString() + ' ・ こうげき ' + st.atk.toLocaleString() + ' ・ ぼうぎょ ' + st.def.toLocaleString() + '</div>';
+  if (o) {
+    var maxed = o.lv >= LD.MAXLV[c.rar];
+    html += '<div class="expBar"><i style="width:' + (maxed ? 100 : clamp(o.exp / expNeed(o.lv) * 100, 0, 100)) + '%"></i></div>'
+      + '<div class="cdSub">' + (maxed ? 'Lv MAX' : ('EXP ' + o.exp + ' / ' + expNeed(o.lv) + '　レベルアップ費用：🔷' + levelCost(o.lv).mats + ' 🪙' + levelCost(o.lv).coins)) + '</div>';
+  }
+  html += '</div></div>';
+  html += '<div class="cdSkill">'
+    + '<div>⚔ わざ1「' + c.waza[0].n + '」こうげき ×' + c.waza[0].mult + '</div>'
+    + '<div>⚔ わざ2「' + c.waza[1].n + '」こうげき ×' + c.waza[1].mult + (c.waza[1].all ? '（全体）' : '') + '</div>'
+    + '<div>💥 バースト「' + c.burst.name + '」<br><b>演奏中 50コンボごとに発動：</b>' + burstFxText(c) + '</div>'
+    + '<div>✨ パッシブ「' + c.passive.name + '」：' + passiveFxText(c) + '</div>'
+    + '</div>';
+  if (o) html += '<div class="cdFlavor">「' + c.voice[Math.floor(Math.random() * c.voice.length)] + '」<br>' + c.flavor + '</div>';
+  html += '<div class="modalBtns">';
+  if (o) {
+    html += '<button class="btn" id="favSetBtn"' + (cs.fav === c.id ? ' disabled' : '') + '>' + (cs.fav === c.id ? '⭐ 連れていき中' : '⭐ 連れていく') + '</button>';
+    var canLv = o.lv < LD.MAXLV[c.rar] && o.exp >= expNeed(o.lv) && cs.mats >= levelCost(o.lv).mats && cs.coins >= levelCost(o.lv).coins;
+    html += '<button class="btn blue" id="lvUpBtn"' + (canLv ? '' : ' disabled') + '>⬆ レベルアップ</button>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+  var fb = $('favSetBtn');
+  if (fb) fb.addEventListener('click', function () { var s2 = loadChara(); s2.fav = c.id; storeChara(s2); renderCharaGrid(); renderCharaDetail(); renderCharaBar(); toast(c.name + ' を連れていきます'); });
+  var lb = $('lvUpBtn');
+  if (lb) lb.addEventListener('click', function () { var g = tryLevelUps(c.id); if (g > 0) toast(c.name + ' が ' + g + ' レベルアップ！ 現在 Lv' + loadChara().owned[c.id].lv); renderCharaGrid(); renderCharaDetail(); });
+}
+
+/* ---------------- キャラバトル（ソロ専用） ----------------
+   敵は曲×難易度で決定的に選定。敵HPは「譜面ノーツ数 × 難易度係数 × 敵HP倍率」。
+   係数は想定キャラの育成段階に合わせた調整値：
+   easy=スターターR Lv1（こうげき約100）、normal=R Lv10〜／SR素、
+   hard=SSR Lv40〜／SR最大、oni=UR育成済み、を撃破ラインの目安にしている。 */
+var battle = null;
+var charaRewardHtml = '';
+var BATTLE_PER_NOTE = { easy: 8.5, normal: 15, hard: 36, oni: 105 };
+var CLEAR_GEM = { easy: 20, normal: 30, hard: 45, oni: 60 };
+var DEFEAT_GEM = { easy: 30, normal: 50, hard: 80, oni: 120 };
+function typeMult(aEl, dEl) {
+  if ((aEl === 'fire' && dEl === 'wood') || (aEl === 'wood' && dEl === 'water') || (aEl === 'water' && dEl === 'fire')) return 1.5;
+  if ((aEl === 'light' && dEl === 'dark') || (aEl === 'dark' && dEl === 'light')) return 1.5;
+  return 1;
+}
+function foePoolFor(diff) {
+  if (!LD) return [];
+  if (diff === 'oni') return LD.FOES;
+  if (diff === 'hard') return LD.FOES.filter(function (f) { return !f.boss; });
+  return LD.FOES.filter(function (f) { return !f.boss && f.id !== 'golem'; });
+}
+function foeFor(song, diff) {
+  var pool = foePoolFor(diff);
+  if (!pool.length) return null;
+  return pool[hashStr(song.id + ':' + diff) % pool.length];
+}
+function battleStart() {
+  charaRewardHtml = '';
+  battle = null;
+  hideCutin();
+  if (!LD || mode !== 'solo' || !curSong) { renderBattleHud(); return; }
+  var cs = loadChara();
+  if (!cs.battleOn) { renderBattleHud(); return; }
+  var fav = charById(cs.fav);
+  if (!fav || !cs.owned[fav.id]) { renderBattleHud(); return; }
+  var foe = foeFor(curSong, selDiff);
+  if (!foe) { renderBattleHud(); return; }
+  var st = charStats(fav, cs.owned[fav.id]);
+  var maxHp = Math.max(50, Math.round(chart.length * (BATTLE_PER_NOTE[selDiff] || 15) * foe.hp));
+  battle = { foe: foe, charId: fav.id, maxHp: maxHp, hp: maxHp, dealt: 0, defeated: false,
+    atk: st.atk, mods: passiveMods(fav), shield: 0, buffUntil: -1e9, vulnUntil: -1e9, nextBurst: 50 };
+  if (fav.art === 'card') ensureArt(1);
+  else if (fav.art === 'bust') ensureArt(3);
+  renderBattleHud();
+}
+function renderBattleHud() {
+  var hud = $('battleHud');
+  if (!hud) return;
+  if (!battle) { hud.classList.add('hidden'); return; }
+  hud.classList.remove('hidden');
+  var fav = charById(battle.charId);
+  $('bhFace').textContent = battle.foe.face;
+  $('bhName').innerHTML = battle.foe.name + '<span class="bhFav">⚔ ' + (fav ? fav.name : '') + '</span>';
+  var pct = clamp(battle.hp / battle.maxHp * 100, 0, 100);
+  var hpEl = $('bhHp');
+  hpEl.style.width = pct + '%';
+  hpEl.classList.toggle('low', pct <= 30 && !battle.defeated);
+  var meta;
+  if (battle.defeated) meta = '👑 撃破！';
+  else {
+    meta = Math.max(0, Math.ceil(battle.hp)).toLocaleString() + ' / ' + battle.maxHp.toLocaleString();
+    if (battle.shield > 0) meta += ' <span class="sh">🛡×' + battle.shield + '</span>';
+    if (songTime < battle.buffUntil) meta += ' 🔥';
+    if (songTime < battle.vulnUntil) meta += ' 🎯';
+  }
+  $('bhMeta').innerHTML = meta;
+}
+function spawnDmgNum(txt, cls) {
+  try {
+    var layer = $('dmgLayer');
+    if (!layer) return;
+    while (layer.children && layer.children.length >= 10) layer.removeChild(layer.firstChild);
+    var s = document.createElement('span');
+    s.className = 'dmgNum' + (cls ? ' ' + cls : '');
+    s.textContent = txt;
+    s.style.left = (28 + Math.random() * 48) + '%';
+    s.style.top = (62 + Math.random() * 30) + 'px';
+    layer.appendChild(s);
+    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 820);
+  } catch (e) {}
+}
+function battleDamage(mult, isSkill) {
+  if (!battle || battle.defeated) return 0;
+  var fav = charById(battle.charId);
+  var m = mult * (1 + battle.mods.dmg / 100);
+  if (isSkill) m *= (1 + battle.mods.skill / 100);
+  if (fav) m *= typeMult(fav.el, battle.foe.el);
+  if (songTime < battle.buffUntil) m *= 1.3;
+  if (songTime < battle.vulnUntil) m *= 1.25;
+  var dmg = Math.max(1, Math.round(battle.atk * m));
+  battle.hp -= dmg; battle.dealt += dmg;
+  if (battle.hp <= 0) { battle.hp = 0; battle.defeated = true; spawnDmgNum('撃破！', 'skill'); }
+  return dmg;
+}
+function battleOnHit(nt, res) {
+  if (!battle || battle.defeated) return;
+  var mult = (res === 'good' ? 0.10 : 0.05) * (nt.big ? 1.5 : 1);
+  var dmg = battleDamage(mult, false);
+  if (dmg > 0) spawnDmgNum(dmg.toLocaleString(), '');
+  if (!battle.defeated && combo >= battle.nextBurst) { battle.nextBurst += 50; fireBurst(); }
+  renderBattleHud();
+}
+function fireBurst() {
+  if (!battle) return;
+  var fav = charById(battle.charId);
+  if (!fav) return;
+  var spec = burstSpec(fav);
+  var dmg = battleDamage(spec.dmg, true);
+  if (dmg > 0) spawnDmgNum(dmg.toLocaleString(), 'skill');
+  if (spec.gauge) {
+    var g = Math.round(spec.gauge * (1 + battle.mods.heal / 100));
+    gauge = clamp(gauge + g, 0, 100);
+    spawnDmgNum('魂 +' + g + '%', 'gauge');
+  }
+  if (spec.shield) battle.shield = Math.min(2, battle.shield + spec.shield);
+  if (spec.buff) battle.buffUntil = songTime + spec.buff;
+  if (spec.vuln) battle.vulnUntil = songTime + spec.vuln;
+  showCutin(fav);
+  if (AC) { var t = AC.currentTime; toneAt(880, t, 0.12, 'triangle', 0.14); toneAt(1318, t + 0.07, 0.16, 'triangle', 0.12); }
+  updateHUD(false);
+  renderBattleHud();
+}
+var cutinTimer = null;
+function showCutin(c) {
+  var el = $('cutin');
+  if (!el) return;
+  var u = charArtUrl(c);
+  el.classList.toggle('ur', c.rar === 'UR');
+  el.innerHTML = '<div class="ciFace">' + (u ? '<img src="' + u + '" alt="">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 104) : '')) + '</div>'
+    + '<div class="ciTx"><div class="ciSkill">' + c.burst.name + '</div><div class="ciName">' + c.name + '（' + c.rar + '）</div><div class="ciEff">' + burstFxText(c) + '</div></div>';
+  el.classList.remove('hidden');
+  void el.offsetWidth;
+  el.classList.add('show');
+  if (cutinTimer) clearTimeout(cutinTimer);
+  cutinTimer = setTimeout(hideCutin, 1500);
+}
+function hideCutin() {
+  var el = $('cutin');
+  if (cutinTimer) { clearTimeout(cutinTimer); cutinTimer = null; }
+  if (el) { el.classList.remove('show'); el.classList.add('hidden'); }
+}
+function battleOnBad(gd) {
+  if (!battle || battle.defeated || battle.shield <= 0) return false;
+  battle.shield--;
+  var lg = laneGeom();
+  popups.push({ y: lg.y - lg.h / 2 - 8, txt: '🛡ガード', col: '#7dd3fc', t0: performance.now(), big: false, res: 'ok' });
+  if (popups.length > 8) popups.shift();
+  renderBattleHud();
+  return true;
+}
+function battleMissMul() {
+  if (!battle) return 1;
+  return 1 - battle.mods.miss / 100;
+}
+function battleClear() {
+  battle = null;
+  charaRewardHtml = '';
+  hideCutin();
+  var layer = $('dmgLayer');
+  if (layer) { try { layer.innerHTML = ''; } catch (e) {} }
+  renderBattleHud();
+}
+/* 演奏終了時の報酬（ソロのみ・finishSong から呼ばれる） */
+function charaOnFinish(res) {
+  charaRewardHtml = '';
+  if (!LD) return;
+  var cs = loadChara();
+  var key = selSong + ':' + selDiff;
+  var ratio = 0, defeated = false, foeName = '';
+  if (battle) {
+    ratio = battle.maxHp > 0 ? clamp(battle.dealt / battle.maxHp, 0, 1) : 0;
+    defeated = battle.defeated; foeName = battle.foe.name;
+  }
+  var firstDefeat = defeated && !cs.defeats[key];
+  if (defeated) cs.defeats[key] = 1;
+  var gems = (res.clear ? CLEAR_GEM[selDiff] : 0) + Math.round(DEFEAT_GEM[selDiff] * ratio) + (firstDefeat ? 100 : 0);
+  var coins = 80 + Math.floor(score / 500) + (defeated ? 150 : 0);
+  var mats = (res.clear ? 3 : 1) + (defeated ? 3 : 0);
+  cs.gems += gems; cs.coins += coins; cs.mats += mats;
+  var exp = 0, lvUps = 0, favName = '';
+  var fav = charById(cs.fav);
+  if (fav && cs.owned[fav.id]) {
+    exp = counts.good + counts.ok + (res.clear ? 30 : 0) + (defeated ? 50 : 0);
+    cs.owned[fav.id].exp += exp;
+    favName = fav.name;
+  }
+  storeChara(cs);
+  if (fav && cs.owned[fav.id]) { lvUps = tryLevelUps(fav.id); cs = loadChara(); }
+  renderCharaBar();
+  charaRewardHtml = '<div class="rwLine">💎+' + gems + '　🪙+' + coins + '　🔷+' + mats
+    + (battle ? (defeated ? '<br><span class="defeat">⚔ ' + foeName + ' を撃破！</span>' + (firstDefeat ? '（初撃破ボーナス 💎+100）' : '') : '<br>敵への与ダメージ ' + Math.round(ratio * 100) + '%') : '')
+    + (exp ? '<br>' + favName + ' EXP +' + exp : '')
+    + (lvUps ? '<br>🎉 ' + favName + ' が Lv' + cs.owned[fav.id].lv + ' にアップ！' : '')
+    + '</div>';
+}
+
+/* ---------------- 選曲プレビュー（サビ再生） ----------------
+   曲カードを選んだタップの流れの中で開始する（iOS の自動再生制限に配慮）。
+   実音源：実音声をサビ開始へシークし、区間内をループ再生（音量60%）。
+   シンセ：スケジューラをサビ開始ステップから回し、最長15秒で停止（master を60%に）。
+   演奏開始・モード切替・モーダル表示・画面を離れた時点で必ず止める。 */
+var preview = null;
+function chorusSeg(song) {
+  if (!song || !song.chorus || !song.chorus.length) return null;
+  var bestSeg = null;
+  song.chorus.forEach(function (sg) { if (!bestSeg || (sg[1] - sg[0]) > (bestSeg[1] - bestSeg[0])) bestSeg = sg; });
+  return bestSeg;
+}
+function startPreview(song) {
+  if (playing || !song || !AC) return;
+  if (preview && preview.song === song && !preview.waiting) return;
+  stopPreview();
+  var seg = chorusSeg(song);
+  if (!seg) return;
+  if (song.real) {
+    preview = { song: song, kind: 'real', seg: seg, waiting: true, timer: null };
+    if (realState(song) !== 'ready') {
+      ensureRealAudio(song);
+      var waitTimer = setInterval(function () {
+        if (!preview || preview.song !== song || playing || selSong !== song.id) { clearInterval(waitTimer); return; }
+        if (realState(song) === 'ready') { clearInterval(waitTimer); preview.waiting = false; beginRealPreview(song, seg); }
+        else if (realState(song) === 'error') stopPreview();
+      }, 250);
+      preview.timer = waitTimer;
+      return;
+    }
+    preview.waiting = false;
+    beginRealPreview(song, seg);
+  } else {
+    var data = buildSongData(song);
+    var startStep = Math.floor(seg[0] / data.stepDur);
+    var startPos = startStep * data.stepDur;
+    var endPos = Math.min(seg[1], startPos + 15);
+    preview = { song: song, kind: 'synth', seg: [startPos, endPos], data: data, nextStep: startStep, startCtx: AC.currentTime + 0.08 - startPos, schedTimer: null };
+    if (master) master.gain.value = muted ? 0 : 0.54;
+    preview.schedTimer = setInterval(previewSched, 25);
+  }
+}
+function beginRealPreview(song, seg) {
+  var r = realAudio[song.id];
+  if (!r || !r.el) { preview = null; return; }
+  var el = r.el;
+  el.volume = 0.6;
+  try { el.currentTime = seg[0]; } catch (e) {}
+  var p = null;
+  try { p = el.play(); } catch (e) {}
+  if (p && p.catch) p.catch(function () {});
+  var loopTimer = setInterval(function () {
+    if (!preview || preview.song !== song || preview.kind !== 'real') { clearInterval(loopTimer); return; }
+    if (playing) { stopPreview(); return; }
+    try { if (el.currentTime >= seg[1] - 0.08 || el.ended) el.currentTime = seg[0]; } catch (e) {}
+  }, 200);
+  if (preview) preview.timer = loopTimer;
+}
+function previewSched() {
+  if (!preview || preview.kind !== 'synth' || !AC) return;
+  var ahead = AC.currentTime + 0.15;
+  while (true) {
+    var pos = preview.nextStep * preview.data.stepDur;
+    if (pos >= preview.seg[1]) { stopPreview(); return; }
+    var st = preview.startCtx + pos;
+    if (st > ahead) break;
+    if (preview.nextStep < preview.data.totalSteps) scheduleStep(preview.song, preview.data, preview.nextStep, Math.max(st, AC.currentTime - 0.05));
+    preview.nextStep++;
+  }
+}
+function stopPreview() {
+  if (!preview) return;
+  var pv = preview; preview = null;
+  if (pv.timer) clearInterval(pv.timer);
+  if (pv.schedTimer) clearInterval(pv.schedTimer);
+  if (pv.kind === 'real') {
+    var r = realAudio[pv.song.id];
+    if (r && r.el) { try { r.el.pause(); } catch (e) {} try { r.el.volume = 1; } catch (e) {} }
+  }
+  if (pv.kind === 'synth' && master) master.gain.value = muted ? 0 : 0.9;
+}
+
+/* ---------------- キャラまわりの初期化 ---------------- */
+(function initCharaUi() {
+  if (!LD) return;
+  loadChara();
+  renderCharaBar();
+  $('favChip').addEventListener('click', function () { ensureAudio(); openChara(); });
+  $('gachaBtn').addEventListener('click', function () { ensureAudio(); openGacha(); });
+  $('charaBtn').addEventListener('click', function () { ensureAudio(); openChara(); });
+  $('battleTgl').addEventListener('click', function () {
+    var cs = loadChara();
+    cs.battleOn = !cs.battleOn; storeChara(cs); renderCharaBar();
+    toast(cs.battleOn ? '⚔ キャラバトル ON' : '⚔ キャラバトル OFF（通常演奏）');
+  });
+  $('gachaClose').addEventListener('click', closeGacha);
+  $('charaClose').addEventListener('click', function () { $('charaModal').classList.add('hidden'); });
+  $('gachaModal').addEventListener('click', function (e) { if (e.target === this) closeGacha(); });
+  $('charaModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+  document.querySelectorAll('#gachaModal .bannerTabs button').forEach(function (b) {
+    b.addEventListener('click', function () { gachaBanner = b.dataset.b; renderGacha(); blip(); });
+  });
+  $('pull1Btn').addEventListener('click', function () { ensureAudio(); doGachaUi(1); });
+  $('pull10Btn').addEventListener('click', function () { ensureAudio(); doGachaUi(10); });
+  $('urFx').addEventListener('click', function () { this.classList.add('hidden'); });
+  /* 選曲プレビュー：曲カードのタップ（既存ハンドラで selSong 更新済み）を受けて開始 */
+  $('songList').addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('.songCard') : null;
+    if (!b) return;
+    startPreview(songById(b.dataset.song));
+  });
+  document.querySelectorAll('#modeSeg button').forEach(function (b) {
+    b.addEventListener('click', function () { stopPreview(); });
+  });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) stopPreview(); });
+  window.addEventListener('focus', function () { loadChara(); renderCharaBar(); });
+})();
+
 /* テスト用フック */
 window.__taiko = {
   SONGS: SONGS, DIFFS: DIFFS, buildSongData: buildSongData, buildChart: buildChart,
@@ -2567,7 +3395,26 @@ window.__taiko = {
   previewSeSet: previewSeSet,
   startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
   hit: hit,
-  finishNow: function () { if (playing) { songTime = curData.duration + 1; finishSong(); } }
+  finishNow: function () { if (playing) { songTime = curData.duration + 1; finishSong(); } },
+  chara: {
+    data: function () { return LD; },
+    save: loadChara, store: storeChara,
+    charById: charById, charStats: charStats, isAwakened: isAwakened,
+    expNeed: expNeed, levelCost: levelCost, tryLevelUps: tryLevelUps,
+    rollRarity: rollRarity, pullOne: pullOne, doPulls: doPulls, grantChar: grantChar,
+    foeFor: foeFor, burstSpec: burstSpec, passiveMods: passiveMods, typeMult: typeMult,
+    battle: function () { return battle; },
+    battleStart: battleStart, battleOnHit: battleOnHit, battleOnBad: battleOnBad, fireBurst: fireBurst,
+    setFav: function (id) { var cs = loadChara(); if (cs && cs.owned[id]) { cs.fav = id; storeChara(cs); } },
+    setBattleOn: function (on) { var cs = loadChara(); if (cs) { cs.battleOn = !!on; storeChara(cs); } },
+    rewardHtml: function () { return charaRewardHtml; },
+    openGacha: openGacha, closeGacha: closeGacha, doGachaUi: doGachaUi, openChara: openChara, showUrFx: showUrFx, renderCharaBar: renderCharaBar,
+    reset: function () { charaCache = null; charaStoredJson = null; try { localStorage.removeItem(CHARA_KEY); } catch (e) {} return loadChara(); }
+  },
+  previewState: function () { return preview ? { active: true, song: preview.song.id, kind: preview.kind, seg: preview.seg, waiting: !!preview.waiting } : { active: false }; },
+  startPreview: startPreview,
+  stopPreview: stopPreview,
+  chorusSeg: chorusSeg
 };
 })();
 </script>

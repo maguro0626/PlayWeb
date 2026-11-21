@@ -94,6 +94,8 @@
 /* バウンス抑止（麻雀方式：画面固定） */
 html,body{overscroll-behavior:none;}
 .overlay{overscroll-behavior:none;}
+/* モード選択は内容が画面高を超えるため中央寄せだとタイトルが上に切れて見えなくなる。先頭寄せにしてスクロールで全表示する */
+#modeOv{justify-content:flex-start;}
 </style>
 </head>
 <body>
@@ -607,7 +609,10 @@ function render(now){
     const grd = b.kind === 'row'
       ? ctx.createLinearGradient(boardX, 0, boardX + boardPx, 0)
       : ctx.createLinearGradient(0, boardY, 0, boardY + boardPx);
-    const pos = t;
+    /* rAFのタイムスタンプは performance.now() より最大100ms以上遅れることがあり、
+       ビーム生成直後のフレームでは t が負になる。addColorStop は範囲外で例外を吐き、
+       例外が loop を抜けると描画ループが死んで画面が固まるためクランプする */
+    const pos = Math.max(0, Math.min(1, t));
     grd.addColorStop(Math.max(0, pos - 0.25), 'rgba(255,255,255,0)');
     grd.addColorStop(pos, 'rgba(255,255,255,0.95)');
     grd.addColorStop(Math.min(1, pos + 0.25), 'rgba(255,255,255,0)');
@@ -620,7 +625,8 @@ function render(now){
   /* 拡散リング */
   rings = rings.filter(r => now - r.t0 < 480);
   for(const r of rings){
-    const t = (now - r.t0) / 480;
+    /* ビームと同じく t が負になり得る（半径が負で arc が例外→描画ループ死）。[0,1] にクランプ */
+    const t = Math.max(0, Math.min(1, (now - r.t0) / 480));
     ctx.save();
     ctx.globalAlpha = (1 - t) * 0.75;
     ctx.strokeStyle = r.color; ctx.lineWidth = 3.5 * (1 - t) + 0.5;
@@ -1584,7 +1590,8 @@ setTimeout(()=>{ refreshBest(); tryLateRestore(); lateRestoreArmed = false; }, 7
 resize();
 startEndless(true, true);
 openModeSelect();
-function loop(now){ render(now); requestAnimationFrame(loop); }
+/* render の例外で描画ループが死なないよう、次フレームの予約は必ず行う */
+function loop(now){ try{ render(now); }catch(e){ console.error(e); } requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
 </script>
 <script>window.PW_GAME='blockblast';window.PW_JOIN_CFG={openers:[{click:'#onlineBtn'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>

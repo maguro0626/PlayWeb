@@ -485,11 +485,12 @@
     } catch (e) {}
     return out;
   }
-  /* リンクサーガ（linksaga）の使用キャラ名をセーブから読む。
-     セーブ形式: { fav: キャラid, party: [id...], owned: {id: {lv, lb}} }
+  /* リンクドラムサーガ（taiko）の使用キャラ名をセーブから読む。
+     セーブ形式: { owned: {...}, fav: キャラid }（taiko_chara_v1）
      優先順: お気に入り(fav) → 編成の先頭 → 最もレベルの高い所持キャラ。
      名前が引けない id（未登録のもの）は表示しない（空文字を返す）。
-     ※ id→名前の対応は linksaga のロスター全26体分（v54 で SR/R を含め完成） */
+     セーブが無いユーザーでは空文字を返すだけで壊れない。
+     ※ id→名前の対応は旧リンクサーガから流用したロスター全26体分 */
   var LS_CHAR_NAMES = {
     astraia: 'アストライア', velzelia: 'ヴェルゼリア', seiren: 'セイレーン',
     blaze: 'ブレイズ', gracia: 'グラキエス', terra: 'テラ', solaris: 'ソラリス', nox: 'ノクス',
@@ -500,7 +501,7 @@
   };
   function readMainChar() {
     try {
-      var s = JSON.parse(localStorage.getItem('linksaga_save_v1') || 'null');
+      var s = JSON.parse(localStorage.getItem('taiko_chara_v1') || 'null');
       if (!s || typeof s !== 'object') return '';
       var id = '';
       if (typeof s.fav === 'string' && s.fav) id = s.fav;
@@ -2645,7 +2646,7 @@
     fbWrapEl.id = 'pwFbWrap';
     /* v92: 提供終了した6ゲームは対象ゲームの選択肢に出さない。
        GAME_TITLES 自体は過去の戦績・意見・在席表示のゲーム名表示に使うため残す */
-    var FB_REMOVED_GAMES = { crepe: 1, frostline: 1, gamedev: 1, numguess: 1, janken: 1, dice: 1, mole: 1, simon: 1, memory: 1, calc: 1, reaction: 1, mash: 1, otome: 1 };
+    var FB_REMOVED_GAMES = { crepe: 1, frostline: 1, gamedev: 1, numguess: 1, janken: 1, dice: 1, mole: 1, simon: 1, memory: 1, calc: 1, reaction: 1, mash: 1, otome: 1, linksaga: 1, timing: 1 };
     var gameOpts = '<option value="">（ゲーム共通・その他）</option>' + Object.keys(GAME_TITLES).filter(function (g) { return g !== 'portal' && !FB_REMOVED_GAMES[g]; }).map(function (g) {
       return '<option value="' + g + '">' + esc(GAME_TITLES[g]) + '</option>';
     }).join('');

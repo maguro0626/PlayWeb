@@ -75,13 +75,11 @@
     jump:       { title: 'ジャンプラン',           file: 'jump.html' },
     caring:     { title: '育成ゲーム',             file: 'caring.html', coop: true },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
-    linksaga:   { title: 'スターリンクサーガ',     file: 'linksaga.html', coop: false, noInvite: true },
-    timing:     { title: 'タイミングストップ',     file: 'timing.html' },
-    taiko:      { title: '太鼓リズム',             file: 'taiko.html' },
+    taiko:      { title: 'リンクドラムサーガ',     file: 'taiko.html' },
     snake:      { title: 'スネークアリーナ',       file: 'snake.html' },
     starrhythm: { title: 'スターリズム',           file: 'starrhythm.html' }
   };
-  var GAME_ORDER = ['tetris','suica','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','rpg','linksaga','timing','taiko','snake','starrhythm'];
+  var GAME_ORDER = ['tetris','suica','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','rpg','taiko','snake','starrhythm'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
