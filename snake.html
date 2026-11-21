@@ -192,6 +192,8 @@ const PATH_STEP = 4;             /* 経路点の間隔(px) */
 const BASE_SPEED = 168, BOOST_SPEED = 305;
 const BOOST_DRAIN = 3.2;         /* ブースト中の質量減少/秒 */
 const GRID_CELL = 90;
+const WIG_K = Math.PI * 2 / 130;   /* うねりの波数（波長130px） */
+const NECK_SEGS = 3;               /* 当たり判定から外す首元のセグメント数 */
 
 /* ── サウンド（WebAudio合成・最小） ── */
 let AC = null, muted = false;
@@ -264,7 +266,7 @@ function mkSnake(name, hue, pattern, opts) {
   const s = {
     id: S ? S.nextId++ : ++snakeSeq, name, hue, pattern: pattern || 0,
     isPlayer: !!opts.isPlayer, isGuest: !!opts.isGuest, ai: opts.ai || null,
-    x, y, ang, targetAng: ang, boost: false, boostHeld: false,
+    x, y, px: x, py: y, wigDist: 0, ang, targetAng: ang, boost: false, boostHeld: false,
     mass, maxMass: mass, kills: 0, alive: true, deadAt: 0,
     radius: radiusFor(mass), path: [], lenPx: 0, samples: [],
     bornAt: S ? S.time : 0, aiT: Math.random() * 0.2, dropT: 0, nameW: 0,
@@ -311,19 +313,35 @@ function spawnNPC(w) {
 }
 function computeSamples(s) {
   const step = Math.max(6, s.radius * 0.55);
-  const out = [];
   const p = s.path;
-  if (!p.length) { s.samples = out; return; }
-  out.push(p[0]);
-  let acc = 0, px = p[0].x, py = p[0].y;
+  if (!p.length) { s.samples = []; return; }
+  /* 経路を等間隔にサンプルし、各点の頭からの弧長 d を持たせる */
+  const raw = [{ x: p[0].x, y: p[0].y, d: 0 }];
+  let acc = 0, dist = 0, px = p[0].x, py = p[0].y;
   for (let i = 1; i < p.length; i++) {
-    const dx = p[i].x - px, dy = p[i].y - py, d = Math.hypot(dx, dy);
-    acc += d;
-    if (acc >= step) { out.push(p[i]); acc = 0; }
+    const dx = p[i].x - px, dy = p[i].y - py, dd = Math.hypot(dx, dy);
+    acc += dd; dist += dd;
+    if (acc >= step) { raw.push({ x: p[i].x, y: p[i].y, d: dist }); acc = 0; }
     px = p[i].x; py = p[i].y;
   }
-  if (out[out.length - 1] !== p[p.length - 1]) out.push(p[p.length - 1]);
-  s.samples = out;
+  const tail = p[p.length - 1];
+  if (raw[raw.length - 1].x !== tail.x || raw[raw.length - 1].y !== tail.y) raw.push({ x: tail.x, y: tail.y, d: dist });
+  /* クネクネ（うねり）：進行方向に垂直な正弦波オフセットを体に沿って加える。
+     位相は「頭が進んだ距離」で流れるので、波が頭から尾へ伝わって見える。
+     頭（先頭）は正確な位置のまま、首元ではフェードインさせて折れ曲がりを防ぐ。
+     samples は描画・当たり判定・スナップショットの共通データなので、
+     ここで加えると見た目と判定が一致し、NPC・ゲスト表示にも同じうねりが出る。 */
+  const amp = Math.min(10, Math.max(2.2, s.radius * 0.38)) * (s.boost ? 1.3 : 1);
+  const phase = (s.wigDist || 0) * WIG_K;
+  s.samples = raw.map((q, i) => {
+    if (i === 0) return { x: q.x, y: q.y };
+    const a = raw[Math.max(0, i - 1)], b = raw[Math.min(raw.length - 1, i + 1)];
+    let vx = b.x - a.x, vy = b.y - a.y;
+    const vl = Math.hypot(vx, vy) || 1; vx /= vl; vy /= vl;
+    const fade = Math.min(1, q.d / 34);
+    const off = Math.sin(q.d * WIG_K - phase) * amp * fade;
+    return { x: q.x - vy * off, y: q.y + vx * off };
+  });
 }
 /* 経路を targetLen(px) に切り詰める */
 function trimPath(s) {
@@ -356,9 +374,11 @@ function moveSnake(s, dt, w) {
   const boosting = s.boostHeld && s.mass > START_MASS + 2;
   s.boost = boosting;
   const spd = boosting ? BOOST_SPEED : BASE_SPEED;
+  s.px = s.x; s.py = s.y;   /* 掃引判定用：このステップで動く前の頭位置 */
   const nx = s.x + Math.cos(s.ang) * spd * dt;
   const ny = s.y + Math.sin(s.ang) * spd * dt;
   s.x = nx; s.y = ny;
+  s.wigDist = (s.wigDist || 0) + Math.hypot(nx - s.px, ny - s.py);
   const head = s.path[0];
   const hd = Math.hypot(nx - head.x, ny - head.y);
   if (hd >= PATH_STEP) {
@@ -416,6 +436,50 @@ function gridNear(g, x, y, rad) {
   return out;
 }
 
+/* ── 線分ベースの当たり判定用ユーティリティ ──
+   体は「点の列」ではなく samples を結んだポリライン（線分列）として扱う。
+   点だけだと大きなヘビ（サンプル間隔が最大16px超）で判定が粗くなり、
+   頭が点と点の間をすり抜けたり、逆に当たって見えない所で死んだりする。 */
+function ptSegDist(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const l2 = dx * dx + dy * dy;
+  let t = l2 ? ((px - x1) * dx + (py - y1) * dy) / l2 : 0;
+  t = clamp(t, 0, 1);
+  return Math.hypot(px - (x1 + dx * t), py - (y1 + dy * t));
+}
+function segSegDist(x1, y1, x2, y2, x3, y3, x4, y4) {
+  const o1 = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+  const o2 = (x2 - x1) * (y4 - y1) - (y2 - y1) * (x4 - x1);
+  const o3 = (x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3);
+  const o4 = (x4 - x3) * (y2 - y3) - (y4 - y3) * (x2 - x3);
+  if (o1 !== 0 && o2 !== 0 && o3 !== 0 && o4 !== 0 &&
+      (o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)) return 0;   /* 交差 */
+  return Math.min(
+    ptSegDist(x1, y1, x3, y3, x4, y4), ptSegDist(x2, y2, x3, y3, x4, y4),
+    ptSegDist(x3, y3, x1, y1, x2, y2), ptSegDist(x4, y4, x1, y1, x2, y2));
+}
+/* 体の線分グリッド：samples の連続2点を線分として、両端と中点のセルへ登録する
+   （線分長はセル90pxより十分短いので、この3点で近傍検索に必ず引っかかる）。
+   首元 NECK_SEGS 本の線分は頭同士の判定に任せて除外する
+   （相手の頭のすぐ横をかすめただけで「体に当たった」ことになる理不尽を防ぐ）。 */
+function buildSegmentGrid(w) {
+  const g = new Map();
+  for (const s of w.snakes) {
+    if (!s.alive) continue;
+    const sm = s.samples;
+    for (let i = NECK_SEGS; i < sm.length - 1; i++) {
+      const a = sm[i], b = sm[i + 1];
+      const e = { x1: a.x, y1: a.y, x2: b.x, y2: b.y, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, r: s.radius, owner: s };
+      const keys = [gridKey(a.x, a.y), gridKey(b.x, b.y), gridKey(e.x, e.y)];
+      for (const k of keys) {
+        let arr = g.get(k); if (!arr) { arr = []; g.set(k, arr); }
+        if (arr[arr.length - 1] !== e && !arr.includes(e)) arr.push(e);
+      }
+    }
+  }
+  return g;
+}
+
 /* ── 死亡とオーブ化 ── */
 const killEvents = [];   /* {killer, victim} 描画側のフィード/ネット通知用 */
 function killSnake(w, s, killer) {
@@ -432,31 +496,40 @@ function killSnake(w, s, killer) {
   if (s.isPlayer || s.isGuest) onHumanDeath(s, killer);
 }
 
-/* ── 衝突判定 ── */
-function checkCollisions(w, grid) {
+/* ── 衝突判定 ──
+   仕様：自分の頭が「他者の体の側面」に触れたら自分が死ぬ（相手の体は致死）。
+   頭同士は小さい方が死ぬ（同格は両方）。壁は頭の縁が境界線に達したら死ぬ。
+   体側は samples のポリラインへの最短距離で判定し、閾値は描画サイズ
+   （体の太さ＝半径、頭の大きさ＝半径×約0.8まで当たれば接触）に合わせる。
+   頭側は「前ステップ位置→現在位置」の線分で掃引するので、
+   ブースト中の高速移動でも体をすり抜けない。 */
+function checkCollisions(w) {
   const alive = w.snakes.filter(s => s.alive);
-  /* 頭同士：小さい方が負け */
+  /* 頭同士：小さい方が負け（同格は両方） */
   for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {
     const a = alive[i], b = alive[j];
     if (!a.alive || !b.alive) continue;
     const d = Math.hypot(a.x - b.x, a.y - b.y);
-    if (d < (a.radius + b.radius) * 0.55) {
+    if (d < (a.radius + b.radius) * 0.75) {
       if (Math.abs(a.mass - b.mass) < Math.max(a.mass, b.mass) * 0.08) { killSnake(w, a, b); killSnake(w, b, a); }
       else if (a.mass < b.mass) killSnake(w, a, b);
       else killSnake(w, b, a);
     }
   }
+  const segGrid = buildSegmentGrid(w);
   for (const s of alive) {
     if (!s.alive) continue;
-    /* 壁 */
-    if (Math.hypot(s.x, s.y) > WORLD_R - s.radius * 0.4) { killSnake(w, s, null); continue; }
-    /* 他人の体 */
-    const near = gridNear(grid, s.x, s.y, s.radius + GRID_CELL * 0.6);
-    for (const p of near) {
-      if (p.owner === s) continue;
-      const dx = s.x - p.x, dy = s.y - p.y;
-      const rr = p.r * 0.88 + s.radius * 0.3;
-      if (dx * dx + dy * dy < rr * rr) { killSnake(w, s, p.owner); break; }
+    /* 壁：描画される境界線（半径 WORLD_R）に頭の縁が達したらアウト */
+    if (Math.hypot(s.x, s.y) > WORLD_R - s.radius * 0.9) { killSnake(w, s, null); continue; }
+    /* 他人の体：頭の移動線分と体の線分の最短距離で判定 */
+    const hx0 = s.px !== undefined ? s.px : s.x, hy0 = s.py !== undefined ? s.py : s.y;
+    const cand = new Set();
+    for (const e of gridNear(segGrid, s.x, s.y, s.radius + 46)) cand.add(e);
+    for (const e of gridNear(segGrid, hx0, hy0, s.radius + 46)) cand.add(e);
+    for (const e of cand) {
+      if (e.owner === s) continue;
+      const rr = e.r + s.radius * 0.8;
+      if (segSegDist(hx0, hy0, s.x, s.y, e.x1, e.y1, e.x2, e.y2) < rr) { killSnake(w, s, e.owner); break; }
     }
   }
 }
@@ -573,7 +646,7 @@ function stepWorld(w, dt) {
     }
     moveSnake(s, dt, w);
   }
-  checkCollisions(w, grid);
+  checkCollisions(w);
   const orbGrid2 = buildOrbGrid(w);
   for (const s of w.snakes) if (s.alive) eatOrbs(w, s, orbGrid2);
   if (w.orbs.some(o => o.dead)) w.orbs = w.orbs.filter(o => !o.dead);
@@ -688,22 +761,30 @@ function drawSnake(s) {
     ctx.fillText(s.name, hx, hy - r - 9);
   }
 }
-function render() {
+function render(dt) {
   const w = viewWorld();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#070b16';
   ctx.fillRect(0, 0, viewW, viewH);
   if (!w) return;
-  /* カメラ */
+  /* カメラ：進行方向へ少し先読みした点を、フレームレート非依存の
+     指数平滑で追う（従来の毎フレーム×0.12は表示Hzで効きが変わり、
+     常に頭の後ろを引っ張る形になって操作の遅れに見えていた）。
+     スポーン直後など大きく離れている時はスナップして迷子にならない。 */
+  const cdt = clamp(dt || 0.016, 0.001, 0.06);
   const target = playerSnake && playerSnake.alive ? playerSnake : (mode === 'title' ? null : playerSnake);
   if (target) {
-    cam.x += (target.x - cam.x) * 0.12; cam.y += (target.y - cam.y) * 0.12;
+    const look = Math.min(115, 44 + target.radius * 1.7);
+    const tx = target.x + Math.cos(target.ang) * look, ty = target.y + Math.sin(target.ang) * look;
+    if (Math.hypot(target.x - cam.x, target.y - cam.y) > 700) { cam.x = target.x; cam.y = target.y; }
+    const kp = 1 - Math.exp(-cdt * 9);
+    cam.x += (tx - cam.x) * kp; cam.y += (ty - cam.y) * kp;
     const zt = clamp(1.04 - (target.radius - 10) * 0.017, 0.5, 1.04);
-    cam.zoom += (zt - cam.zoom) * 0.05;
+    cam.zoom += (zt - cam.zoom) * (1 - Math.exp(-cdt * 3.5));
   } else {
     const t = performance.now() * 0.00003;
     cam.x = Math.cos(t) * 1500; cam.y = Math.sin(t * 1.3) * 1500;
-    cam.zoom += (0.42 - cam.zoom) * 0.03;
+    cam.zoom += (0.42 - cam.zoom) * (1 - Math.exp(-cdt * 2));
   }
   const z = cam.zoom;
   ctx.save();
@@ -779,9 +860,16 @@ const pointer = { x: 0, y: 0, seen: false, touchDown: false };
 let keyBoost = false, btnBoost = false, keyAng = null;
 function localTargetAngle() {
   if (keyAng !== null) return keyAng;
-  if (!pointer.seen) return playerSnake ? playerSnake.ang : 0;
-  const dx = pointer.x - viewW / 2, dy = pointer.y - viewH / 2;
-  if (dx * dx + dy * dy < 28 * 28) return playerSnake ? playerSnake.ang : 0;
+  if (!pointer.seen || !playerSnake) return playerSnake ? playerSnake.ang : 0;
+  /* 方向は「画面中心」ではなく「自分の頭の画面上の位置」から測る。
+     カメラは追随に遅れが出るため、中心基準だと頭が中心からずれた分だけ
+     指した方向と進む方向が食い違い、もっさり・曖昧な操作感になっていた。
+     頭基準ならカメラの遅れに引きずられず、指の方向へ正確に向く。
+     デッドゾーンも頭の周りに取るので、指を頭の上に置いても暴れない。 */
+  const hx = viewW / 2 + (playerSnake.x - cam.x) * cam.zoom;
+  const hy = viewH / 2 + (playerSnake.y - cam.y) * cam.zoom;
+  const dx = pointer.x - hx, dy = pointer.y - hy;
+  if (dx * dx + dy * dy < 26 * 26) return playerSnake.ang;
   return Math.atan2(dy, dx);
 }
 function localBoost() { return keyBoost || btnBoost || mouseBoost; }
@@ -954,7 +1042,7 @@ function frame(now) {
       netHook('guestFrame', dt);
     }
   }
-  render();
+  render(dt);
   hudT -= dt;
   if (hudT <= 0) { hudT = 0.18; if (mode !== 'title') updateHUD(); }
 }
@@ -1002,6 +1090,7 @@ window.__snake = {
   startSolo, startDemoWorld, quitToTitle, respawnLocal, newWorld, populateNPCs,
   mkSnake, spawnNPC, stepWorld, killSnake, rankingOf, rankOf, radiusFor, pathLenFor,
   moveSnake, eatOrbs, buildBodyGrid, buildOrbGrid, aiThink, checkCollisions,
+  buildSegmentGrid, segSegDist, ptSegDist, computeSamples,
   setPlayer: s => { playerSnake = s; }, setGuestView: g => { guestView = g; },
   setMode: m => { mode = m; },
   WORLD_R, NPC_TARGET, START_MASS, AMBIENT_ORBS, ORB_CAP,

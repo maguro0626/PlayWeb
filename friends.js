@@ -91,9 +91,10 @@
     timing:     { title: 'タイミングストップ',     file: 'timing.html' },
     dice:       { title: 'ダイスレース',           file: 'dice.html' },
     taiko:      { title: '太鼓リズム',             file: 'taiko.html' },
-    snake:      { title: 'スネークアリーナ',       file: 'snake.html' }
+    snake:      { title: 'スネークアリーナ',       file: 'snake.html' },
+    starrhythm: { title: 'スターリズム',           file: 'starrhythm.html' }
   };
-  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','linksaga','reaction','mash','numguess','janken','calc','memory','mole','simon','timing','dice','taiko','snake'];
+  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','linksaga','reaction','mash','numguess','janken','calc','memory','mole','simon','timing','dice','taiko','snake','starrhythm'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },

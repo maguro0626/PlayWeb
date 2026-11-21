@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>スターリズム | PlayWeb</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#0a0618;--accent:#ff5d8f;--accent2:#7c5cff;--cyan:#3fd6ff;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.14);--txt:#fdfaff;--sub:#b9aede;--gold:#ffc93c;--perfect:#ffd94d;--great:#ff7ac1;--good:#4ade80;--miss:#8f8fa8}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030f 100%);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh}
+.wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;height:calc(100dvh - 46px);overflow:hidden}
+.ttl{font-size:25px;font-weight:900;text-align:center;letter-spacing:.06em;background:linear-gradient(92deg,#ffd94d 0%,#ff5d8f 38%,#7c5cff 72%,#3fd6ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 10px rgba(255,93,143,.45))}
+.ttl small{display:block;font-size:10.5px;letter-spacing:.34em;-webkit-text-fill-color:var(--sub);font-weight:800;margin-top:1px}
+#modeSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+#modeSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:9px 6px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;min-height:40px}
+#modeSeg button.on{background:linear-gradient(92deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 2px 12px rgba(255,93,143,.5)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.hidden{display:none!important}
+.btn{background:linear-gradient(92deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;flex:1;min-height:48px;box-shadow:0 4px 16px rgba(255,93,143,.35)}
+.btn.blue{background:linear-gradient(92deg,#2563eb,#06b6d4);box-shadow:0 4px 16px rgba(59,130,246,.35)}
+.btn.sub{background:rgba(255,255,255,.1);color:var(--txt);border:1px solid var(--line);box-shadow:none}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.netBtns{display:flex;gap:8px;margin-bottom:10px}
+.joinRow{display:flex;gap:8px}
+.joinRow input{flex:1;min-width:0;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:11px;font-size:16px;text-transform:uppercase;text-align:center;letter-spacing:.15em;font-family:inherit;min-height:48px}
+#onlineStatus{font-size:13px;color:var(--sub);min-height:20px;margin-top:10px;line-height:1.6;text-align:center}
+#onlineStatus .err{color:#f87171;font-weight:700}
+#onlineCodeWrap{text-align:center;margin-top:10px;font-size:14px}
+#roomCodeText{font-size:26px;font-weight:900;letter-spacing:.3em;color:var(--gold)}
+.help{font-size:11.5px;color:var(--sub);line-height:1.75;text-align:center}
+.songList{display:flex;flex-direction:column;gap:8px}
+.songCard{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:2px solid var(--line);border-radius:16px;padding:8px 12px 8px 8px;color:var(--txt);cursor:pointer;font-family:inherit;min-height:72px;position:relative;overflow:hidden;transition:border-color .15s, box-shadow .15s}
+.songCard.on{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,201,60,.5),0 6px 22px rgba(255,201,60,.22)}
+.songCard .jacket{width:56px;height:56px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:31px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),0 4px 10px rgba(0,0,0,.4)}
+.songCard .jacket::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.45) 48%,transparent 62%);transform:translateX(-120%);animation:shine 3.6s ease-in-out infinite}
+@keyframes shine{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(130%)}}
+.jk-pop{background:linear-gradient(135deg,#ff5d8f,#ffb3d9 45%,#7dd3fc)}
+.jk-rock{background:linear-gradient(135deg,#f43f5e,#f59e0b 55%,#1f2937)}
+.jk-electro{background:linear-gradient(135deg,#6366f1,#a855f7 50%,#22d3ee)}
+.songCard .grow{flex:1;min-width:0}
+.songCard .nm{font-size:16.5px;font-weight:900;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songCard .meta{font-size:11.5px;color:var(--sub);margin-top:2px}
+.songCard .bst{text-align:right;flex:none}
+.songCard .bst .sc{font-size:13px;color:var(--gold);font-weight:900;white-space:nowrap}
+.songCard .bst .rk{display:inline-block;margin-top:2px;font-size:11px;font-weight:900;padding:1px 8px;border-radius:999px;background:rgba(255,201,60,.16);border:1px solid rgba(255,201,60,.55);color:var(--gold)}
+.songCard .bst .none{font-size:11px;color:var(--sub)}
+#diffSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:8px}
+#diffSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:8px 4px;border-radius:999px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:40px}
+#diffSeg button.on{background:linear-gradient(92deg,var(--gold),#ff9d5c);color:#2a1500;box-shadow:0 2px 10px rgba(255,201,60,.4)}
+#hud{display:flex;flex-direction:column;gap:5px}
+.hudRow{display:flex;align-items:baseline;gap:12px}
+#hudScore{font-size:22px;font-weight:900;letter-spacing:.03em;text-shadow:0 2px 12px rgba(124,92,255,.55)}
+#hudCombo{font-size:15px;font-weight:900;color:var(--gold);min-width:92px}
+#hudCombo.pop{animation:cpop .18s ease-out}
+@keyframes cpop{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+#hudSong{margin-left:auto;font-size:12px;color:var(--sub);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#gaugeWrap{position:relative;height:14px;background:rgba(255,255,255,.09);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+#gaugeFill{height:100%;width:20%;background:linear-gradient(90deg,#3fd6ff,#7c5cff,#ff5d8f);border-radius:999px;transition:width .15s}
+#gaugeWrap.fever #gaugeFill{background:linear-gradient(90deg,#ff5d5d,#ffb84d,#f9ff4d,#4dff88,#4dd2ff,#b84dff,#ff5d5d);background-size:200% 100%;animation:feverSlide 1.1s linear infinite}
+@keyframes feverSlide{0%{background-position:0% 0}100%{background-position:200% 0}}
+#gaugeMark{position:absolute;top:-1px;bottom:-1px;left:70%;width:2px;background:#fff;opacity:.85}
+#gaugeLbl{font-size:11px;color:var(--sub);display:flex;justify-content:space-between}
+#gaugeLbl .fv{color:var(--gold);font-weight:900;letter-spacing:.14em}
+#progWrap{height:5px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
+#progFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--accent))}
+#vsRow{display:flex;gap:8px}
+.scoreBox{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 10px;text-align:center;font-size:12px;color:var(--sub)}
+.scoreBox b{display:block;font-size:17px;color:var(--txt)}
+.scoreBox .mini{height:6px;background:rgba(255,255,255,.1);border-radius:99px;margin-top:4px;overflow:hidden}
+.scoreBox .mini i{display:block;height:100%;background:#4ade80;width:0%}
+#stageWrap{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:2px solid rgba(160,140,255,.35);box-shadow:0 0 34px rgba(124,92,255,.28),inset 0 0 60px rgba(60,30,140,.35);background:#0a0618;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#resultPanel{position:absolute;inset:0;background:rgba(6,3,18,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;z-index:5;overflow:hidden}
+#resultPanel .rank{font-size:60px;font-weight:900;line-height:1;background:linear-gradient(92deg,#ffd94d,#ff5d8f,#7c5cff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 14px rgba(255,93,143,.5))}
+#resultPanel .rank.ss{background:linear-gradient(92deg,#ff5d5d,#ffb84d,#f9ff4d,#4dff88,#4dd2ff,#b84dff,#ff5d5d);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;animation:feverSlide 1.6s linear infinite}
+#resultPanel .stamp{font-size:15px;font-weight:900;padding:3px 15px;border-radius:999px;border:2px solid}
+#resultPanel .stamp.ok{color:#4ade80;border-color:#4ade80}
+#resultPanel .stamp.ng{color:#f87171;border-color:#f87171}
+#resultPanel .stamp.fc{color:var(--gold);border-color:var(--gold)}
+#resultPanel .stamp.ap{color:#fff;border-color:#fff;background:linear-gradient(92deg,rgba(255,93,143,.5),rgba(124,92,255,.5))}
+#resultPanel .rscore{font-size:25px;font-weight:900}
+#resultPanel .rdetail{font-size:13.5px;color:var(--sub);line-height:1.8}
+#resultPanel .rdetail .pj{color:var(--perfect);font-weight:900}
+#resultPanel .rdetail .gj{color:var(--great);font-weight:900}
+#resultPanel .rdetail .oj{color:var(--good);font-weight:900}
+#resultPanel .rdetail .mj{color:var(--miss);font-weight:900}
+#resultPanel .rbtns{display:flex;gap:8px;margin-top:6px;width:100%;max-width:320px}
+#ctrlRow{display:flex;gap:8px;align-items:center}
+.iconBtn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--txt);border-radius:12px;min-width:48px;min-height:44px;font-size:19px;cursor:pointer;font-family:inherit}
+#quitBtn{flex:1}
+.wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane{display:none!important}
+.wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
+</style>
+<style>
+/* バウンス抑止（麻雀方式：画面固定） */
+html,body{overscroll-behavior:none;}
+#onlinePane{overscroll-behavior:none;}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrapEl">
+<div class="ttl">✦ スターリズム ✦<small>STAR RHYTHM</small></div>
+<div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
+<div id="songArea">
+<div class="songList" id="songList"></div>
+<div id="diffSeg"><button data-d="easy">かんたん</button><button data-d="normal" class="on">ふつう</button><button data-d="hard">むずかしい</button></div>
+</div>
+<div id="soloPane">
+<button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
+<p class="help" style="margin-top:8px">ノーツが下の判定ラインに重なる瞬間にレーンをタップ！<b style="color:#ffd94d">ロング</b>は押しっぱなし、<b style="color:#3fd6ff">フリック</b>は矢印の向きにシュッと弾こう。キーは D F J K（レーン）／ 矢印キー（フリック）。</p>
+</div>
+<div id="onlinePane" class="hidden"><div class="card">
+<div class="netBtns"><button id="hostBtn" class="btn">部屋を作る</button></div>
+<div class="joinRow"><input id="joinCode" maxlength="6" placeholder="コード6文字"><button id="joinBtn" class="btn blue">参加する</button></div>
+<div id="onlineCodeWrap" class="hidden">ルームコード<br><span id="roomCodeText">------</span></div>
+<div id="onlineStatus"></div>
+<button id="vsStartBtn" class="btn hidden" style="width:100%;margin-top:8px">🎤 対戦スタート（ホスト）</button>
+<button id="leaveBtn" class="btn sub hidden" style="width:100%;margin-top:8px">退出する</button>
+</div></div>
+<div id="hud">
+<div class="hudRow"><span id="hudScore">0</span><span id="hudCombo"></span><span id="hudSong"></span></div>
+<div id="gaugeWrap"><div id="gaugeFill"></div><div id="gaugeMark"></div></div>
+<div id="gaugeLbl"><span>クリアゲージ（70%でクリア）</span><span class="fv hidden" id="feverLbl">🔥 FEVER!</span><span id="gaugePct">20%</span></div>
+<div id="progWrap"><div id="progFill"></div></div>
+<div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
+</div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
+<div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
+<p class="help">曲はすべて WebAudio 合成のオリジナル曲です。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
+</div>
+<script>
+/*__SR_MAIN__*/
+(function () {
+'use strict';
+/* ================================================================
+   スターリズム — 4レーン落下式リズムゲーム（WebAudio合成のオリジナル曲）
+   譜面は曲データから決定的に生成する（同じ曲・同じ難易度＝同じ譜面）。
+   ================================================================ */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, k) { return a + (b - a) * k; }
+
+var LANE_COLORS = ['#ff5d8f', '#3fd6ff', '#ffd94d', '#9d6bff'];
+var LANE_KEYS = ['d', 'f', 'j', 'k'];
+
+/* ---------------- 曲データ ----------------
+   mel は 1フレーズ=4小節×16ステップ=64文字。'.'=休符、'1'〜'9'=スケールの度数。
+   bass は小節ごとのベース度数（4つ）。seq はフレーズの並び。 */
+var SONGS = [
+  {
+    id: 'starlight', title: 'キラキラ☆スターライト', emo: '🌟', genre: 'キラキラポップ', bpm: 132, wave: 'square', theme: 'pop', jk: 'jk-pop',
+    scale: [60, 62, 64, 65, 67, 69, 71, 72, 74],
+    phrases: {
+      A: { mel: '5...5...6...5...' + '8...7.6.5...3...' + '5.5.6.5.3.3.2.2.' + '3.3.4.3.2.1.2...', bass: [1, 6, 4, 5] },
+      B: { mel: '8.8.9.8.6...5...' + '6.6.7.6.5...4...' + '5...6...7...8...' + '7.6.5.4.3...2...', bass: [1, 4, 5, 1] }
+    },
+    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A']
+  },
+  {
+    id: 'runline', title: '疾走ライン', emo: '🎸', genre: '疾走ロック', bpm: 156, wave: 'sawtooth', theme: 'rock', jk: 'jk-rock', dens: 0.9,
+    scale: [64, 66, 67, 69, 71, 72, 74, 76, 78],
+    phrases: {
+      A: { mel: '1.1.1.1.3.2.1.1.' + '1.1...1.4.3.2...' + '4.4.4.4.6.5.4.4.' + '5.4.3.2.1...2...', bass: [1, 1, 6, 7] },
+      B: { mel: '8.7.6.5.6.7.8.7.' + '6.5.4.3.4.5.6...' + '8...8...7.6.5...' + '4.3.2.1.2...3...', bass: [6, 4, 1, 5] }
+    },
+    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
+  },
+  {
+    id: 'electrica', title: '夢幻エレクトリカ', emo: '🔮', genre: '幻想エレクトロ', bpm: 118, wave: 'sine', theme: 'electro', jk: 'jk-electro', dens: 1.35,
+    scale: [57, 59, 60, 62, 64, 65, 67, 69, 71],
+    phrases: {
+      A: { mel: '5...3...1...3...' + '4...3...2...1...' + '5...6...8...6...' + '5...3...2.......', bass: [1, 6, 4, 5] },
+      B: { mel: '8.7.6.5.6.7.8...' + '9.8.7.6.5.6.7...' + '6...5...4...3...' + '2...1...2.......', bass: [1, 4, 5, 1] }
+    },
+    seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
+  }
+];
+function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
+
+/* 曲の全ステップを展開し、メロディイベントと小節ごとのベース根音を求める */
+function buildSongData(song) {
+  var stepDur = 60 / song.bpm / 4;
+  var melStr = '';
+  var bassByBar = [];
+  song.seq.forEach(function (pk) {
+    var ph = song.phrases[pk];
+    melStr += ph.mel;
+    for (var b = 0; b < 4; b++) bassByBar.push(song.scale[ph.bass[b] - 1] - 12);
+  });
+  var totalSteps = melStr.length;
+  var melEvents = {}; /* step -> {midi, len} */
+  var melSteps = {};
+  var cur = -1, curStart = -1;
+  for (var s = 0; s <= totalSteps; s++) {
+    var ch = s < totalSteps ? melStr.charAt(s) : '.';
+    var deg = (ch >= '1' && ch <= '9') ? (ch.charCodeAt(0) - 48) : 0;
+    if (deg > 0) {
+      if (cur > 0) melEvents[curStart] = { midi: song.scale[cur - 1], len: s - curStart };
+      cur = deg; curStart = s; melSteps[s] = true;
+    }
+  }
+  return { stepDur: stepDur, totalSteps: totalSteps, duration: totalSteps * stepDur, melEvents: melEvents, melSteps: melSteps, bassByBar: bassByBar, bars: totalSteps / 16 };
+}
+
+/* ---------------- 難易度と譜面生成（決定的） ---------------- */
+var DIFFS = {
+  easy:   { label: 'かんたん',   grid: 4, pAccent: 0.90, pOff: 0.50, minGap: 4, pLong: 0.14, pFlick: 0,    pChord: 0,    judge: { p: 0.055, g: 0.105, good: 0.165 }, approach: 1.9 },
+  normal: { label: 'ふつう',     grid: 2, pAccent: 0.85, pOff: 0.22, minGap: 2, pLong: 0.20, pFlick: 0.10, pChord: 0.28, judge: { p: 0.045, g: 0.090, good: 0.145 }, approach: 1.6 },
+  hard:   { label: 'むずかしい', grid: 1, pAccent: 0.88, pOff: 0.30, minGap: 1, pLong: 0.26, pFlick: 0.18, pChord: 0.42, judge: { p: 0.038, g: 0.078, good: 0.125 }, approach: 1.35 }
+};
+var FLICK_DIRS = ['left', 'right', 'up', 'down'];
+function buildChart(song, diffKey) {
+  var P = DIFFS[diffKey];
+  var data = buildSongData(song);
+  var rng = mulberry32(hashStr('sr:' + song.id + ':' + diffKey));
+  var notes = [];
+  var lastStep = -9999, prevLane = 1, sameLaneRun = 0;
+  function pickLane(step, accent) {
+    var lane;
+    var ev = data.melEvents[step];
+    if (accent && ev) {
+      var deg = song.scale.indexOf(ev.midi) + 1; /* 1..9 */
+      lane = Math.round((deg - 1) / 8 * 3 + (rng() * 1.1 - 0.55));
+    } else {
+      var mv = rng() < 0.32 ? 2 : 1;
+      lane = prevLane + (rng() < 0.5 ? -mv : mv);
+      if (lane < 0 || lane > 3) lane = prevLane - (lane - prevLane);
+    }
+    lane = clamp(lane, 0, 3);
+    if (lane === prevLane) { sameLaneRun++; if (sameLaneRun >= 2 && rng() < 0.75) { lane = clamp(lane + (lane >= 2 ? -1 : 1), 0, 3); sameLaneRun = 0; } }
+    else sameLaneRun = 0;
+    prevLane = lane;
+    return lane;
+  }
+  for (var step = 16; step < data.totalSteps - 8; step++) {
+    if (step % P.grid !== 0) continue;
+    if (step - lastStep < P.minGap) continue;
+    var accent = !!data.melSteps[step];
+    var barStart = step % 16 === 0;
+    var p = accent ? P.pAccent : P.pOff;
+    if (barStart) p = Math.max(p, 0.85);
+    p *= (song.dens || 1);
+    if (rng() >= p) continue;
+    var lane = pickLane(step, accent);
+    var type = 'tap', lenSteps = 0, dir = null;
+    var ev2 = data.melEvents[step];
+    if (accent && ev2 && ev2.len >= 4 && rng() < P.pLong) {
+      type = 'long';
+      lenSteps = clamp(Math.round(ev2.len / 2) * 2, 4, 12);
+      if (step + lenSteps > data.totalSteps - 4) lenSteps = data.totalSteps - 4 - step;
+    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick) {
+      type = 'flick';
+      var fr = rng();
+      dir = fr < 0.34 ? 'left' : (fr < 0.68 ? 'right' : (fr < 0.88 ? 'up' : 'down'));
+    }
+    notes.push({ step: step, t: step * data.stepDur, lane: lane, type: type, lenSteps: lenSteps, lenSec: lenSteps * data.stepDur, dir: dir, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 });
+    /* 同時押し（小節頭などに和音ノーツを追加） */
+    if (P.pChord > 0 && (barStart || (diffKey === 'hard' && step % 8 === 0)) && rng() < P.pChord) {
+      var lane2 = (lane + 1 + Math.floor(rng() * 3)) % 4;
+      notes.push({ step: step, t: step * data.stepDur, lane: lane2, type: 'tap', lenSteps: 0, lenSec: 0, dir: null, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 });
+    }
+    lastStep = (type === 'long') ? step + lenSteps : step;
+  }
+  notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
+  /* 同時押しグループ（同じ step に2つ以上）を線で結ぶために印付け */
+  var g = 0;
+  for (var i = 0; i < notes.length;) {
+    var j = i;
+    while (j + 1 < notes.length && notes[j + 1].step === notes[i].step) j++;
+    if (j > i) { for (var k = i; k <= j; k++) notes[k].group = g; g++; }
+    i = j + 1;
+  }
+  var counts = { tap: 0, long: 0, flick: 0 };
+  var totalWeight = 0;
+  notes.forEach(function (n) { counts[n.type]++; n.weight = n.type === 'long' ? 2 : 1; totalWeight += n.weight; });
+  return { notes: notes, counts: counts, totalWeight: Math.max(1, totalWeight), data: data };
+}
+/* 判定：dt秒ずれ → 'PERFECT'|'GREAT'|'GOOD'|null */
+function judgeFor(dt, diffKey) {
+  var J = DIFFS[diffKey].judge;
+  var a = Math.abs(dt);
+  if (a <= J.p) return 'PERFECT';
+  if (a <= J.g) return 'GREAT';
+  if (a <= J.good) return 'GOOD';
+  return null;
+}
+var JUDGE_FACTOR = { PERFECT: 1, GREAT: 0.7, GOOD: 0.4, MISS: 0 };
+var CLEAR_LINE = 70, FEVER_ON = 80, FEVER_OFF = 55;
+function gaugeDelta(res, totalNotes) {
+  var n = Math.max(1, totalNotes);
+  if (res === 'PERFECT') return 150 / n;
+  if (res === 'GREAT') return 105 / n;
+  if (res === 'GOOD') return 45 / n;
+  return -6;
+}
+function makeResult(counts, gauge, acc) {
+  var clear = gauge >= CLEAR_LINE;
+  var rank = acc >= 0.97 ? 'SS' : (acc >= 0.93 ? 'S' : (acc >= 0.87 ? 'A' : (acc >= 0.78 ? 'B' : (acc >= 0.65 ? 'C' : 'D'))));
+  if (!clear && (rank === 'SS' || rank === 'S' || rank === 'A')) rank = 'B';
+  var fc = counts.miss === 0 && (counts.perfect + counts.great + counts.good) > 0;
+  var ap = fc && counts.great === 0 && counts.good === 0;
+  return { acc: acc, clear: clear, rank: rank, fullCombo: fc, allPerfect: ap };
+}
+
+/* ---------------- セーブ（ベスト記録） ----------------
+   account.js のクラウドマージが読み込み後に localStorage へ書き戻すため、
+   読み込み時に1回だけ読む方式では後着した良い記録を取りこぼす。
+   太鼓と同じく、メモリ保持＋union（大きい方）＋再描画フックで対策する。 */
+var SAVE_KEY = 'starrhythm_best_v1';
+var saveCache = null;
+function loadSave() {
+  var s = {};
+  try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') || {}; } catch (e) {}
+  if (!s.best || typeof s.best !== 'object') s.best = {};
+  if (saveCache && saveCache.best) {
+    Object.keys(saveCache.best).forEach(function (k) {
+      var a = saveCache.best[k], b = s.best[k];
+      if (a && typeof a.s === 'number' && (!b || typeof b.s !== 'number' || a.s > b.s)) s.best[k] = a;
+    });
+  }
+  saveCache = { best: Object.assign({}, s.best) };
+  return s;
+}
+function storeSave(o) {
+  var cur = loadSave();
+  Object.keys(cur.best).forEach(function (k) {
+    var a = cur.best[k], b = o.best[k];
+    if (a && typeof a.s === 'number' && (!b || typeof b.s !== 'number' || a.s > b.s)) o.best[k] = a;
+  });
+  saveCache = { best: Object.assign({}, o.best) };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(o)); } catch (e) {}
+}
+function bestKey(songId, diff) { return songId + ':' + diff; }
+function getBest(songId, diff) { var s = loadSave(); var v = s.best[bestKey(songId, diff)]; return (v && typeof v.s === 'number') ? v : null; }
+
+/* ---------------- オーディオ（全て合成） ---------------- */
+var AC = null, master = null, noiseBuf = null;
+var muted = false;
+try { muted = localStorage.getItem('starrhythm_mute') === '1'; } catch (e) {}
+function ensureAudio() {
+  try {
+    if (!AC) {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain();
+      master.gain.value = muted ? 0 : 0.9;
+      master.connect(AC.destination);
+      noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+      var d = noiseBuf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (AC.state === 'suspended') AC.resume();
+  } catch (e) {}
+}
+function setMuted(m) {
+  muted = m;
+  try { localStorage.setItem('starrhythm_mute', m ? '1' : '0'); } catch (e) {}
+  if (master) master.gain.value = m ? 0 : 0.9;
+  var b = document.getElementById('muteBtn');
+  if (b) b.textContent = m ? '🔇' : '🔊';
+}
+function toneAt(freq, t, dur, type, vol, slideTo) {
+  if (!AC) return;
+  var o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function noiseAt(t, dur, fType, freq, q, vol) {
+  if (!AC || !noiseBuf) return;
+  var src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  src.playbackRate.value = 0.7 + Math.random() * 0.6;
+  var f = AC.createBiquadFilter(); f.type = fType; f.frequency.value = freq; f.Q.value = q;
+  var g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(master);
+  src.start(t); src.stop(t + dur + 0.05);
+}
+function kickAt(t, vol) { toneAt(150, t, 0.13, 'sine', vol, 44); }
+function snareAt(t, vol) { noiseAt(t, 0.11, 'bandpass', 1800, 0.9, vol); toneAt(190, t, 0.07, 'triangle', vol * 0.5, 120); }
+function hatAt(t, vol, open) { noiseAt(t, open ? 0.14 : 0.035, 'highpass', 8200, 0.7, vol); }
+function clapAt(t, vol) { noiseAt(t, 0.09, 'bandpass', 1200, 1.4, vol); noiseAt(t + 0.02, 0.12, 'bandpass', 1500, 1.2, vol * 0.7); }
+/* レーンタップ音（レーンごとに音程が上がる） */
+function laneTapSound(lane) { if (!AC) return; var t = AC.currentTime; toneAt(540 + lane * 110, t, 0.09, 'sine', 0.10); noiseAt(t, 0.03, 'highpass', 5000, 0.7, 0.05); }
+function hitSound(res) { if (!AC) return; var t = AC.currentTime; if (res === 'PERFECT') { toneAt(1320, t, 0.1, 'sine', 0.10); toneAt(1980, t, 0.12, 'sine', 0.06); } else if (res === 'GREAT') toneAt(990, t, 0.09, 'sine', 0.08); else if (res === 'GOOD') toneAt(660, t, 0.08, 'sine', 0.06); }
+function flickSound() { if (!AC) return; var t = AC.currentTime; noiseAt(t, 0.13, 'bandpass', 900, 1.0, 0.16); toneAt(300, t, 0.13, 'sawtooth', 0.05, 1400); }
+
+/* 曲の1ステップ分をスケジュールする */
+function scheduleStep(song, data, step, t) {
+  var ev = data.melEvents[step];
+  var bar = Math.floor(step / 16), bs = step % 16;
+  var root = data.bassByBar[bar];
+  if (song.theme === 'pop') {
+    if (ev) toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 0.9, 1.4), 'square', 0.11);
+    if (bs % 2 === 0) toneAt(midiHz(song.scale[4] + 12 + [0, 4, 7, 12][(step >> 1) % 4]), t, data.stepDur * 1.4, 'sine', 0.045);
+    if (root && bs % 4 === 0) toneAt(midiHz(root), t, data.stepDur * 3.2, 'triangle', 0.24);
+    if (bs === 0 || bs === 8) kickAt(t, 0.42);
+    if (bs === 4 || bs === 12) clapAt(t, 0.20);
+    if (bs % 2 === 0) hatAt(t, 0.07, false);
+  } else if (song.theme === 'rock') {
+    if (ev) toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 0.92, 1.4), 'sawtooth', 0.13);
+    if (root && bs % 2 === 0) toneAt(midiHz(root), t, data.stepDur * 1.8, 'triangle', 0.26);
+    if (bs === 0 || bs === 8 || bs === 10) kickAt(t, 0.6);
+    if (bs === 4 || bs === 12) snareAt(t, 0.4);
+    if (bs % 2 === 0) hatAt(t, 0.12, bs === 14);
+    if (bs === 0 && bar % 4 === 0) noiseAt(t, 0.35, 'bandpass', 5200, 0.5, 0.09);
+  } else { /* electro */
+    if (ev) toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 1.5, 2.2), 'sine', 0.16);
+    if (bs === 0 && root) { /* パッド：根音＋3度＋5度を長く */
+      var base = song.scale.indexOf(root + 12);
+      [0, 2, 4].forEach(function (off) { var idx = clamp((base < 0 ? 0 : base) + off, 0, song.scale.length - 1); toneAt(midiHz(song.scale[idx] + 12), t, data.stepDur * 15, 'triangle', 0.035); });
+      toneAt(midiHz(root), t, data.stepDur * 8, 'sine', 0.20);
+    }
+    var arpSeq = [0, 2, 4, 7, 4, 2];
+    toneAt(midiHz(song.scale[2] + 24 + arpSeq[step % 6]), t, data.stepDur * 0.9, 'sine', 0.028);
+    if (bs === 0 || bs === 8) kickAt(t, 0.34);
+    if (bs % 4 === 2) hatAt(t, 0.05, false);
+  }
+}
+
+/* ---------------- ゲーム状態 ---------------- */
+function $(id) { return document.getElementById(id); }
+var wrapEl = $('wrapEl'), cv = $('cv'), ctx = cv.getContext('2d');
+var mode = 'solo';
+var selSong = 'starlight', selDiff = 'normal';
+var playing = false, songTime = 0, startCtx = 0, schedTimer = null, nextStep = 0;
+var timeOverride = null; /* テスト用：songTime を手動で進める */
+var curSong = null, curBuilt = null, chart = [], totalWeight = 1;
+var scoreF = 0, combo = 0, maxCombo = 0, gauge = 20, fever = false;
+var counts = { perfect: 0, great: 0, good: 0, miss: 0 };
+var accSum = 0; /* Σ(weight × factor) */
+var heldLane = [0, 0, 0, 0]; /* レーンごとの押下数（タッチ＋キー合算） */
+var keyHeld = {};
+var laneFlash = [0, 0, 0, 0];
+var sparks = [], rings = [], bgParts = [];
+var judgePop = null, milestone = null;
+var CW = 0, CH = 0, DPR = 1;
+
+function fitCanvas() {
+  var r = $('stageWrap').getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  CW = Math.max(280, r.width); CH = Math.max(160, r.height);
+  cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', fitCanvas);
+
+/* ---------------- レーン形状 ---------------- */
+function judgeY() { return CH * 0.80; }
+function fieldTopY() { return 10; }
+function halfWAt(y) {
+  var k = clamp((y - fieldTopY()) / Math.max(1, judgeY() - fieldTopY()), 0, 1);
+  return lerp(CW * 0.335, CW * 0.475, k);
+}
+function laneCenterX(lane, y) { var hw = halfWAt(y); return CW / 2 + (lane - 1.5) * (hw * 2 / 4); }
+function laneWidthAt(y) { return halfWAt(y) * 2 / 4; }
+function laneAtPoint(x, y) {
+  var hw = halfWAt(y);
+  var left = CW / 2 - hw;
+  var l = Math.floor((x - left) / (hw * 2 / 4));
+  return clamp(l, 0, 3);
+}
+function noteY(t) {
+  var ap = DIFFS[selDiff].approach;
+  var p = 1 - (t - songTime) / ap;
+  return lerp(-34, judgeY(), p);
+}
+
+/* 曲選択UI */
+function renderSongList() {
+  var html = '';
+  SONGS.forEach(function (s) {
+    var d = buildSongData(s);
+    var best = getBest(s.id, selDiff);
+    var bst = best ? '<div class="bst"><div class="sc">' + best.s.toLocaleString() + '</div><span class="rk">' + best.r + 'ランク</span></div>'
+                   : '<div class="bst"><span class="none">未プレイ</span></div>';
+    html += '<button class="songCard' + (s.id === selSong ? ' on' : '') + '" data-song="' + s.id + '"><span class="jacket ' + s.jk + '">' + s.emo + '</span><span class="grow"><span class="nm">' + s.title + '</span><div class="meta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒</div></span>' + bst + '</button>';
+  });
+  $('songList').innerHTML = html;
+  document.querySelectorAll('.songCard').forEach(function (b) {
+    b.addEventListener('click', function () { ensureAudio(); selSong = b.dataset.song; renderSongList(); blip(); });
+  });
+}
+function blip() { if (!AC) return; toneAt(660, AC.currentTime, 0.07, 'sine', 0.08); }
+document.querySelectorAll('#diffSeg button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('#diffSeg button').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on'); selDiff = b.dataset.d; renderSongList();
+  });
+});
+document.querySelectorAll('#modeSeg button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('#modeSeg button').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on'); mode = b.dataset.m;
+    $('soloPane').classList.toggle('hidden', mode !== 'solo');
+    $('onlinePane').classList.toggle('hidden', mode !== 'online');
+    if (playing) stopSong(true);
+    wrapEl.classList.remove('ingame');
+    $('resultPanel').classList.add('hidden');
+    resetStage();
+  });
+});
+window.addEventListener('focus', renderSongList);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) renderSongList(); });
+setTimeout(renderSongList, 2000); setTimeout(renderSongList, 5000);
+
+/* ---------------- 演奏の開始・終了 ---------------- */
+function startSong() {
+  ensureAudio();
+  if (!AC) return;
+  curSong = songById(selSong);
+  curBuilt = buildChart(curSong, selDiff);
+  chart = curBuilt.notes;
+  totalWeight = curBuilt.totalWeight;
+  scoreF = 0; combo = 0; maxCombo = 0; gauge = 20; fever = false; accSum = 0;
+  counts = { perfect: 0, great: 0, good: 0, miss: 0 };
+  heldLane = [0, 0, 0, 0]; keyHeld = {};
+  laneFlash = [0, 0, 0, 0]; sparks = []; rings = []; judgePop = null; milestone = null;
+  bgParts = initBg(curSong.theme);
+  playing = true;
+  wrapEl.classList.add('playing');
+  wrapEl.classList.add('ingame');
+  $('resultPanel').classList.add('hidden');
+  $('quitBtn').classList.remove('hidden');
+  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）';
+  if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
+  fitCanvas();
+  startCtx = AC.currentTime + 3.2; /* 3秒カウントダウン */
+  nextStep = 0;
+  if (schedTimer) clearInterval(schedTimer);
+  schedTimer = setInterval(scheduleAhead, 25);
+  updateHUD(true);
+}
+function scheduleAhead() {
+  if (!playing || !AC) return;
+  var ahead = AC.currentTime + 0.15;
+  while (true) {
+    var st = startCtx + nextStep * curBuilt.data.stepDur;
+    if (st > ahead) break;
+    if (nextStep < curBuilt.data.totalSteps) scheduleStep(curSong, curBuilt.data, nextStep, Math.max(st, AC.currentTime - 0.05));
+    nextStep++;
+    if (nextStep > curBuilt.data.totalSteps + 32) { clearInterval(schedTimer); schedTimer = null; break; }
+  }
+}
+function stopSong(toMenu) {
+  playing = false;
+  if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
+  wrapEl.classList.remove('playing');
+  $('quitBtn').classList.add('hidden');
+  if (toMenu) { wrapEl.classList.remove('ingame'); $('resultPanel').classList.add('hidden'); resetStage(); }
+}
+function resetStage() {
+  chart = []; scoreF = 0; combo = 0; gauge = 20; fever = false;
+  counts = { perfect: 0, great: 0, good: 0, miss: 0 };
+  judgePop = null; milestone = null; sparks = []; rings = [];
+  $('hudSong').textContent = '';
+  $('vsRow').classList.add('hidden');
+  updateHUD(true);
+}
+function finishSong() {
+  if (!playing) return;
+  playing = false;
+  if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
+  $('quitBtn').classList.add('hidden');
+  var totalScore = Math.floor(scoreF);
+  var res = makeResult(counts, gauge, accSum / totalWeight);
+  var prevBest = getBest(selSong, selDiff);
+  var isBest = !prevBest || totalScore > prevBest.s;
+  if (isBest) { var s = loadSave(); s.best[bestKey(selSong, selDiff)] = { s: totalScore, r: res.rank }; storeSave(s); }
+  renderSongList();
+  if (mode === 'online') { finishOnline(res, totalScore, isBest); return; }
+  showResult(res, totalScore, isBest, null);
+}
+function showResult(res, totalScore, isBest, vsInfo) {
+  var p = $('resultPanel');
+  var html = '';
+  if (res.allPerfect) html += '<div class="stamp ap">👑 ALL PERFECT!!</div>';
+  else if (res.fullCombo) html += '<div class="stamp fc">✨ FULL COMBO!</div>';
+  html += '<div class="stamp ' + (res.clear ? 'ok' : 'ng') + '">' + (res.clear ? '🎉 クリア！' : '失敗…') + '</div>'
+    + '<div class="rank' + (res.rank === 'SS' ? ' ss' : '') + '">' + res.rank + '</div>'
+    + '<div class="rscore">' + totalScore.toLocaleString() + ' 点</div>'
+    + '<div class="rdetail"><span class="pj">PERFECT ' + counts.perfect + '</span> ・ <span class="gj">GREAT ' + counts.great + '</span> ・ <span class="oj">GOOD ' + counts.good + '</span> ・ <span class="mj">MISS ' + counts.miss + '</span><br>最大コンボ ' + maxCombo + ' ・ ゲージ ' + Math.round(gauge) + '%'
+    + (isBest ? '<br><span style="color:var(--gold);font-weight:900">🎉 ベスト更新！</span>' : '') + '</div>';
+  if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
+  html += '<div class="rbtns"><button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
+  p.innerHTML = html;
+  p.classList.remove('hidden');
+  $('resRetry').addEventListener('click', function () {
+    p.classList.add('hidden');
+    if (mode === 'online') { requestRematch(); } else { startSong(); }
+  });
+  $('resBack').addEventListener('click', function () {
+    p.classList.add('hidden');
+    if (mode === 'online') leaveOnline();
+    wrapEl.classList.remove('playing');
+    wrapEl.classList.remove('ingame');
+    resetStage();
+  });
+}
+
+/* ---------------- 判定の適用 ---------------- */
+function applyJudge(nt, res) {
+  nt.res = res;
+  var key = res === 'PERFECT' ? 'perfect' : (res === 'GREAT' ? 'great' : (res === 'GOOD' ? 'good' : 'miss'));
+  counts[key]++;
+  accSum += nt.weight * JUDGE_FACTOR[res];
+  if (res === 'MISS') {
+    combo = 0;
+  } else {
+    combo++; if (combo > maxCombo) maxCombo = combo;
+    var feverMult = fever ? 1.1 : 1;
+    scoreF += (1000000 / totalWeight) * nt.weight * JUDGE_FACTOR[res] * feverMult;
+    if (combo > 0 && combo % 50 === 0) milestone = { n: combo, t0: performance.now() };
+    hitSound(res);
+  }
+  gauge = clamp(gauge + gaugeDelta(res, chart.length), 0, 100);
+  judgePop = { res: res, t0: performance.now(), lane: nt.lane };
+  laneFlash[nt.lane] = 1;
+  if (res !== 'MISS') spawnSparks(nt.lane, res);
+  updateHUD(false);
+  sendProg();
+}
+function spawnSparks(lane, res) {
+  var x = laneCenterX(lane, judgeY()), y = judgeY();
+  var n = res === 'PERFECT' ? 14 : 9;
+  for (var i = 0; i < n; i++) {
+    var a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+    var sp = 90 + Math.random() * 260;
+    sparks.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.45 + Math.random() * 0.3, col: LANE_COLORS[lane], size: 1.6 + Math.random() * 2.2 });
+  }
+  if (sparks.length > 240) sparks.splice(0, sparks.length - 240);
+  rings.push({ x: x, y: y, r: 8, life: 0, col: LANE_COLORS[lane] });
+  if (rings.length > 12) rings.shift();
+}
+
+/* ---------------- 入力と判定 ---------------- */
+function nearestInLane(lane, types) {
+  var J = DIFFS[selDiff].judge;
+  var best = null, bestAbs = Infinity;
+  for (var i = 0; i < chart.length; i++) {
+    var nt = chart[i];
+    if (nt.t - songTime > J.good) break;
+    if (nt.state !== 'wait' || nt.lane !== lane) continue;
+    if (types.indexOf(nt.type) < 0) continue;
+    var a = Math.abs(nt.t - songTime);
+    if (a <= J.good && a < bestAbs) { best = nt; bestAbs = a; }
+  }
+  return best;
+}
+function pressLane(lane) {
+  laneFlash[lane] = Math.max(laneFlash[lane], 0.55);
+  if (!playing) return;
+  ensureAudio();
+  laneTapSound(lane);
+  if (songTime < 0) return;
+  var nt = nearestInLane(lane, ['tap', 'long']);
+  if (!nt) return;
+  var res = judgeFor(nt.t - songTime, selDiff);
+  if (!res) return;
+  if (nt.type === 'tap') { nt.state = 'done'; applyJudge(nt, res); }
+  else { nt.state = 'holding'; nt.headRes = res; nt.unheld = 0; spawnSparks(lane, res); }
+}
+function releaseLane(lane) { /* ロングの離し検出は updateLongs 側で heldLane を見て行う */ }
+function flickAttempt(dir, prefLane) {
+  if (!playing || songTime < 0) return;
+  var J = DIFFS[selDiff].judge;
+  var best = null, bestAbs = Infinity;
+  for (var i = 0; i < chart.length; i++) {
+    var nt = chart[i];
+    if (nt.t - songTime > J.good) break;
+    if (nt.state !== 'wait' || nt.type !== 'flick' || nt.dir !== dir) continue;
+    var a = Math.abs(nt.t - songTime);
+    if (prefLane !== null && prefLane !== undefined && nt.lane !== prefLane) a += 0.001; /* 同方向なら自レーン優先 */
+    if (Math.abs(nt.t - songTime) <= J.good && a < bestAbs) { best = nt; bestAbs = a; }
+  }
+  if (!best) return;
+  var res = judgeFor(best.t - songTime, selDiff);
+  if (!res) return;
+  best.state = 'done';
+  flickSound();
+  applyJudge(best, res);
+}
+function sweepMiss() {
+  if (!playing || songTime < 0) return;
+  var J = DIFFS[selDiff].judge;
+  for (var i = 0; i < chart.length; i++) {
+    var nt = chart[i];
+    if (nt.t - songTime > J.good) break;
+    if (nt.state === 'wait' && songTime - nt.t > J.good) { nt.state = 'missed'; applyJudge(nt, 'MISS'); }
+  }
+}
+function updateLongs(dtF) {
+  if (!playing) return;
+  for (var i = 0; i < chart.length; i++) {
+    var nt = chart[i];
+    if (nt.type !== 'long') continue;
+    if (nt.state === 'holding') {
+      var tailT = nt.t + nt.lenSec;
+      if (songTime >= tailT) { nt.state = 'done'; applyJudge(nt, nt.headRes || 'GOOD'); continue; }
+      if (heldLane[nt.lane] > 0) {
+        nt.unheld = 0;
+        if (Math.random() < 0.5) { /* 保持中は判定ラインから火花 */
+          var x = laneCenterX(nt.lane, judgeY());
+          sparks.push({ x: x + (Math.random() - 0.5) * 16, y: judgeY(), vx: (Math.random() - 0.5) * 60, vy: -120 - Math.random() * 120, life: 0, max: 0.35, col: LANE_COLORS[nt.lane], size: 1.8 });
+          if (sparks.length > 240) sparks.splice(0, sparks.length - 240);
+        }
+      } else {
+        nt.unheld += dtF;
+        if (nt.unheld > 0.12) { nt.state = 'broken'; applyJudge(nt, 'MISS'); }
+      }
+    }
+  }
+}
+function updateFever() {
+  if (!fever && gauge >= FEVER_ON) { fever = true; milestone = { n: 'FEVER', t0: performance.now() }; }
+  else if (fever && gauge < FEVER_OFF) fever = false;
+}
+
+/* ポインター入力（タッチ／マウス共通） */
+var pointers = {};
+var stageWrap = $('stageWrap');
+stageWrap.addEventListener('pointerdown', function (e) {
+  e.preventDefault();
+  var r = stageWrap.getBoundingClientRect();
+  var x = e.clientX - r.left, y = e.clientY - r.top;
+  var lane = laneAtPoint(x, y);
+  pointers[e.pointerId] = { lane: lane, x0: x, y0: y, flickDone: false };
+  heldLane[lane]++;
+  pressLane(lane);
+});
+stageWrap.addEventListener('pointermove', function (e) {
+  var pt = pointers[e.pointerId];
+  if (!pt || pt.flickDone) return;
+  var r = stageWrap.getBoundingClientRect();
+  var dx = (e.clientX - r.left) - pt.x0, dy = (e.clientY - r.top) - pt.y0;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
+  var dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  pt.flickDone = true;
+  flickAttempt(dir, pt.lane);
+});
+function pointerEnd(e) {
+  var pt = pointers[e.pointerId];
+  if (!pt) return;
+  heldLane[pt.lane] = Math.max(0, heldLane[pt.lane] - 1);
+  releaseLane(pt.lane);
+  delete pointers[e.pointerId];
+}
+stageWrap.addEventListener('pointerup', pointerEnd);
+stageWrap.addEventListener('pointercancel', pointerEnd);
+document.addEventListener('keydown', function (e) {
+  var tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  var k = (e.key || '').toLowerCase();
+  var li = LANE_KEYS.indexOf(k);
+  if (li >= 0) {
+    if (!e.repeat && !keyHeld[k]) { keyHeld[k] = true; heldLane[li]++; pressLane(li); }
+    return;
+  }
+  if (k.indexOf('arrow') === 0) {
+    e.preventDefault();
+    if (!e.repeat) flickAttempt(k.replace('arrow', ''), null);
+  }
+});
+document.addEventListener('keyup', function (e) {
+  var k = (e.key || '').toLowerCase();
+  var li = LANE_KEYS.indexOf(k);
+  if (li >= 0 && keyHeld[k]) { keyHeld[k] = false; heldLane[li] = Math.max(0, heldLane[li] - 1); releaseLane(li); }
+});
+$('startBtn').addEventListener('click', function () { startSong(); });
+$('quitBtn').addEventListener('click', function () {
+  if (mode === 'online') { sendNet({ t: 'leave' }); }
+  stopSong(true);
+  if (mode === 'online') { opp.fin = null; oppLeft = true; }
+});
+$('muteBtn').addEventListener('click', function () { ensureAudio(); setMuted(!muted); });
+setMuted(muted);
+
+/* ---------------- ゲーム進行（フレーム単位） ---------------- */
+function stepGame(dtF) {
+  if (!playing || !AC) return;
+  songTime = (timeOverride !== null) ? timeOverride : (AC.currentTime - startCtx);
+  sweepMiss();
+  updateLongs(dtF);
+  updateFever();
+  var pf = $('progFill');
+  if (pf && curBuilt) pf.style.width = clamp(songTime / curBuilt.data.duration * 100, 0, 100) + '%';
+  if (curBuilt && songTime > curBuilt.data.duration + 0.9) finishSong();
+}
+
+/* ---------------- HUD ---------------- */
+var lastHud = {};
+function updateHUD(force) {
+  var sc = String(Math.floor(scoreF)), cb = combo >= 2 ? combo + ' コンボ' : '', gp = Math.round(gauge) + '%';
+  if (force || lastHud.sc !== sc) { $('hudScore').textContent = sc.replace(/\B(?=(\d{3})+(?!\d))/g, ','); lastHud.sc = sc; }
+  if (force || lastHud.cb !== cb) {
+    var el = $('hudCombo'); el.textContent = cb; lastHud.cb = cb;
+    if (cb) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  }
+  if (force || lastHud.gp !== gp || lastHud.fv !== fever) {
+    $('gaugeFill').style.width = gauge + '%';
+    $('gaugePct').textContent = gp;
+    $('gaugeWrap').classList.toggle('fever', fever);
+    $('feverLbl').classList.toggle('hidden', !fever);
+    lastHud.gp = gp; lastHud.fv = fever;
+  }
+  if (mode === 'online') {
+    $('vsMeScore').textContent = Math.floor(scoreF).toLocaleString();
+    $('vsMeCombo').textContent = combo >= 2 ? combo + 'コンボ' : '';
+    $('vsMeGauge').style.width = gauge + '%';
+  }
+}
+
+/* ---------------- 描画（Canvas） ---------------- */
+function initBg(theme) {
+  var arr = [];
+  for (var i = 0; i < 46; i++) arr.push({ x: Math.random(), y: Math.random(), s: 0.4 + Math.random() * 1.1, ph: Math.random() * 6.28, sp: 0.008 + Math.random() * 0.03, glyph: Math.random() < 0.22 });
+  return arr;
+}
+var lastFrame = performance.now();
+function draw() {
+  requestAnimationFrame(draw);
+  var now = performance.now();
+  var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+  if (!CW) fitCanvas();
+  stepGame(dt);
+  for (var l = 0; l < 4; l++) laneFlash[l] = Math.max(0, laneFlash[l] - dt * 4.5);
+  drawScene(now / 1000, dt);
+}
+function roundRectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawScene(t, dt) {
+  var theme = curSong ? curSong.theme : 'pop';
+  /* 背景グラデーション */
+  var g = ctx.createLinearGradient(0, 0, 0, CH);
+  if (theme === 'rock') { g.addColorStop(0, '#160409'); g.addColorStop(0.6, '#24060f'); g.addColorStop(1, '#38040d'); }
+  else if (theme === 'electro') { g.addColorStop(0, '#070420'); g.addColorStop(0.6, '#120a38'); g.addColorStop(1, '#1d0b4a'); }
+  else { g.addColorStop(0, '#150a33'); g.addColorStop(0.6, '#241055'); g.addColorStop(1, '#3a1160'); }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+  drawBackdrop(theme, t, dt);
+  /* ビートに合わせた奥のグロー */
+  if (playing && curSong) {
+    var beat = 60 / curSong.bpm;
+    var bp = 1 - ((songTime % beat) / beat);
+    if (songTime >= 0) {
+      var rg = ctx.createRadialGradient(CW / 2, judgeY(), 10, CW / 2, judgeY(), CW * 0.75);
+      var col = fever ? '255,120,80' : '150,110,255';
+      rg.addColorStop(0, 'rgba(' + col + ',' + (0.20 * bp + (fever ? 0.12 : 0)) + ')');
+      rg.addColorStop(1, 'rgba(' + col + ',0)');
+      ctx.fillStyle = rg; ctx.fillRect(0, 0, CW, CH);
+    }
+  }
+  drawField(t);
+  drawNotes(t);
+  drawPads();
+  drawFx(t, dt);
+  drawJudgePop(t);
+  /* カウントダウン */
+  if (playing && songTime < 0) {
+    var n = Math.ceil(-songTime);
+    var frac = 1 - ((-songTime) % 1);
+    ctx.save();
+    ctx.globalAlpha = clamp(frac * 1.6, 0, 1);
+    ctx.font = '900 ' + Math.round(74 * (0.8 + 0.3 * frac)) + 'px sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(0,0,0,.6)';
+    ctx.strokeText(String(n), CW / 2, CH / 2 + 24);
+    ctx.fillStyle = '#ffd94d'; ctx.fillText(String(n), CW / 2, CH / 2 + 24);
+    ctx.restore();
+  }
+  if (!playing && !chart.length) {
+    ctx.save();
+    ctx.font = '900 20px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(253,250,255,.9)';
+    ctx.fillText('曲を選んで演奏スタート！', CW / 2, CH * 0.44);
+    ctx.font = '600 13px sans-serif'; ctx.fillStyle = 'rgba(253,250,255,.55)';
+    ctx.fillText('落ちてくるノーツを判定ラインで叩こう', CW / 2, CH * 0.44 + 24);
+    ctx.restore();
+  }
+}
+function drawBackdrop(theme, t, dt) {
+  if (!bgParts.length) bgParts = initBg(theme);
+  var i, q;
+  if (theme === 'rock') {
+    for (i = 0; i < 3; i++) { /* スポットライト */
+      var bx = CW * (0.22 + i * 0.28), sway = Math.sin(t * 0.6 + i * 2.1) * 0.35;
+      var grad = ctx.createLinearGradient(bx, 0, bx + sway * 120, CH);
+      grad.addColorStop(0, 'rgba(255,120,80,.16)'); grad.addColorStop(1, 'rgba(255,120,80,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.moveTo(bx - 7, 0); ctx.lineTo(bx + 7, 0); ctx.lineTo(bx + sway * 120 + 46, CH); ctx.lineTo(bx + sway * 120 - 46, CH); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,170,80,.85)';
+    bgParts.forEach(function (p) {
+      p.y -= p.sp * dt * 14; p.x += Math.sin(t * 2 + p.ph) * 0.0004;
+      if (p.y < -0.03) { p.y = 1.03; p.x = Math.random(); }
+      ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, 1.9 * p.s, 0, 6.29); ctx.fill();
+    });
+  } else if (theme === 'electro') {
+    /* 地平線グリッド */
+    ctx.strokeStyle = 'rgba(90,200,255,.14)'; ctx.lineWidth = 1;
+    var hz = judgeY() + 26;
+    for (i = 0; i < 6; i++) { var gy = hz + i * i * 3.2; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(CW, gy); ctx.stroke(); }
+    for (i = -6; i <= 6; i++) { ctx.beginPath(); ctx.moveTo(CW / 2 + i * 16, hz); ctx.lineTo(CW / 2 + i * 74, CH); ctx.stroke(); }
+    bgParts.forEach(function (p) {
+      p.y -= p.sp * dt * 5;
+      if (p.y < -0.03) { p.y = 1.03; p.x = Math.random(); }
+      var tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.4 + p.ph));
+      ctx.globalAlpha = tw * 0.8;
+      ctx.fillStyle = '#a5f3fc';
+      ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, 1.8 * p.s, 0, 6.29); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+  } else { /* pop：星屑と音符が舞う */
+    bgParts.forEach(function (p) {
+      p.y -= p.sp * dt * 6; p.x += Math.sin(t * 0.8 + p.ph) * 0.00035;
+      if (p.y < -0.04) { p.y = 1.04; p.x = Math.random(); }
+      var tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.8 + p.ph));
+      if (p.glyph) {
+        ctx.globalAlpha = tw * 0.5;
+        ctx.fillStyle = '#ffd9ec';
+        ctx.font = Math.round(15 * p.s + 6) + 'px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('♪', p.x * CW, p.y * CH);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.globalAlpha = tw;
+        ctx.fillStyle = '#fff';
+        var r = 1.7 * p.s;
+        ctx.beginPath();
+        ctx.moveTo(p.x * CW, p.y * CH - r * 2);
+        ctx.quadraticCurveTo(p.x * CW, p.y * CH, p.x * CW + r * 2, p.y * CH);
+        ctx.quadraticCurveTo(p.x * CW, p.y * CH, p.x * CW, p.y * CH + r * 2);
+        ctx.quadraticCurveTo(p.x * CW, p.y * CH, p.x * CW - r * 2, p.y * CH);
+        ctx.quadraticCurveTo(p.x * CW, p.y * CH, p.x * CW, p.y * CH - r * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    });
+  }
+}
+function drawField(t) {
+  var topY = fieldTopY(), jy = judgeY();
+  var hwT = halfWAt(topY), hwB = halfWAt(jy + 30);
+  var cx = CW / 2;
+  /* レーン面（台形） */
+  var lg = ctx.createLinearGradient(0, topY, 0, jy + 30);
+  lg.addColorStop(0, 'rgba(16,10,40,.88)');
+  lg.addColorStop(0.75, 'rgba(30,18,70,.82)');
+  lg.addColorStop(1, 'rgba(52,30,110,.9)');
+  ctx.fillStyle = lg;
+  ctx.beginPath();
+  ctx.moveTo(cx - hwT, topY); ctx.lineTo(cx + hwT, topY);
+  ctx.lineTo(cx + hwB, jy + 30); ctx.lineTo(cx - hwB, jy + 30);
+  ctx.closePath(); ctx.fill();
+  /* レーンごとの色味とヒット時のフラッシュ */
+  for (var l = 0; l < 4; l++) {
+    var x0t = cx + (l - 2) * (hwT * 2 / 4), x1t = cx + (l - 1) * (hwT * 2 / 4);
+    var x0b = cx + (l - 2) * (hwB * 2 / 4), x1b = cx + (l - 1) * (hwB * 2 / 4);
+    ctx.fillStyle = hexA(LANE_COLORS[l], 0.055 + laneFlash[l] * 0.30);
+    ctx.beginPath();
+    ctx.moveTo(x0t, topY); ctx.lineTo(x1t, topY); ctx.lineTo(x1b, jy + 30); ctx.lineTo(x0b, jy + 30);
+    ctx.closePath(); ctx.fill();
+  }
+  /* 仕切り線（グロー） */
+  ctx.lineWidth = 1.6;
+  for (var d = 0; d <= 4; d++) {
+    var xt = cx + (d - 2) * (hwT * 2 / 4), xb = cx + (d - 2) * (hwB * 2 / 4);
+    var dg = ctx.createLinearGradient(0, topY, 0, jy + 30);
+    dg.addColorStop(0, 'rgba(160,170,255,.06)');
+    dg.addColorStop(0.8, 'rgba(190,200,255,.4)');
+    dg.addColorStop(1, 'rgba(220,230,255,.75)');
+    ctx.strokeStyle = dg;
+    ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, jy + 30); ctx.stroke();
+  }
+  /* 横の流れ線（スピード感） */
+  if (playing && songTime >= 0) {
+    var ap = DIFFS[selDiff].approach;
+    var seg = ap / 3;
+    ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 1.2;
+    for (var sIdx = 0; sIdx < 3; sIdx++) {
+      var tt = Math.ceil(songTime / seg) * seg + sIdx * seg;
+      var yy = lerp(-34, jy, 1 - (tt - songTime) / ap);
+      if (yy < topY || yy > jy) continue;
+      var hw = halfWAt(yy);
+      ctx.beginPath(); ctx.moveTo(cx - hw, yy); ctx.lineTo(cx + hw, yy); ctx.stroke();
+    }
+  }
+  /* 判定ライン（脈動グロー） */
+  var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
+  var jg = ctx.createLinearGradient(cx - hwB, 0, cx + hwB, 0);
+  jg.addColorStop(0, '#ff5d8f'); jg.addColorStop(0.5, '#c084fc'); jg.addColorStop(1, '#3fd6ff');
+  ctx.save();
+  ctx.globalAlpha = 0.35 * pulse;
+  ctx.fillStyle = jg;
+  roundRectPath(cx - hwB - 4, jy - 6, hwB * 2 + 8, 12, 6); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = jg;
+  roundRectPath(cx - hwB - 2, jy - 2.5, hwB * 2 + 4, 5, 2.5); ctx.fill();
+  ctx.restore();
+  /* 両端のダイヤ */
+  [-1, 1].forEach(function (sgn) {
+    var dx = cx + sgn * (hwB + 10);
+    ctx.save();
+    ctx.translate(dx, jy); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = 'rgba(255,217,77,' + (0.55 + 0.45 * pulse) + ')';
+    ctx.fillRect(-4.5, -4.5, 9, 9);
+    ctx.restore();
+  });
+}
+function hexA(hex, a) {
+  var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+function drawNotes(t) {
+  if (!playing && !chart.length) return;
+  var jy = judgeY();
+  var ap = DIFFS[selDiff].approach;
+  var i, nt, y;
+  /* 同時押しの連結線 */
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3;
+  for (i = 0; i < chart.length; i++) {
+    nt = chart[i];
+    if (nt.group < 0 || nt.state === 'done' || nt.state === 'missed' || nt.state === 'broken') continue;
+    if (nt.t - songTime > ap) break;
+    if (i + 1 < chart.length && chart[i + 1].group === nt.group && chart[i + 1].step === nt.step) {
+      var y1 = noteY(nt.t);
+      if (y1 < -40 || y1 > jy + 44) continue;
+      ctx.beginPath();
+      ctx.moveTo(laneCenterX(nt.lane, y1), y1);
+      ctx.lineTo(laneCenterX(chart[i + 1].lane, y1), y1);
+      ctx.stroke();
+    }
+  }
+  /* ロングのボディ（ノーツ本体より先に描く） */
+  for (i = 0; i < chart.length; i++) {
+    nt = chart[i];
+    if (nt.type !== 'long') continue;
+    if (nt.state === 'done' || nt.state === 'missed' || nt.state === 'broken') continue;
+    if (nt.t - songTime > ap) break;
+    var headY = nt.state === 'holding' ? jy : noteY(nt.t);
+    var tailY = noteY(nt.t + nt.lenSec);
+    if (tailY < -50) continue;
+    var cxL = laneCenterX(nt.lane, clamp(headY, 0, jy));
+    var lw = laneWidthAt(clamp(headY, 0, jy)) * 0.6;
+    var top = Math.min(headY, tailY), bot = Math.max(headY, tailY);
+    var bg2 = ctx.createLinearGradient(0, top, 0, bot);
+    var holding = nt.state === 'holding';
+    bg2.addColorStop(0, hexA(LANE_COLORS[nt.lane], holding ? 0.95 : 0.55));
+    bg2.addColorStop(1, hexA(LANE_COLORS[nt.lane], holding ? 0.75 : 0.35));
+    ctx.fillStyle = bg2;
+    roundRectPath(cxL - lw / 2, top, lw, Math.max(6, bot - top), lw / 2); ctx.fill();
+    if (holding) {
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      roundRectPath(cxL - 2.5, top, 5, Math.max(6, bot - top), 2.5); ctx.fill();
+    }
+  }
+  /* ノーツ本体 */
+  for (i = 0; i < chart.length; i++) {
+    nt = chart[i];
+    if (nt.state === 'done' || nt.state === 'missed' || nt.state === 'broken') continue;
+    if (nt.t - songTime > ap) break;
+    y = noteY(nt.t);
+    if (y < -44) continue;
+    if (nt.type === 'long' && nt.state === 'holding') continue; /* 保持中は頭を表示しない */
+    drawNote(nt, y, t);
+    if (nt.type === 'long') { /* 終端キャップ */
+      var ty = noteY(nt.t + nt.lenSec);
+      if (ty > -44) drawNoteCap(nt, ty);
+    }
+  }
+}
+function drawNote(nt, y, t) {
+  var scale = clamp(0.8 + 0.28 * ((y + 34) / Math.max(1, judgeY() + 34)), 0.8, 1.1);
+  var w = laneWidthAt(clamp(y, 0, judgeY())) * 0.88 * scale;
+  var h = 25 * scale;
+  var x = laneCenterX(nt.lane, clamp(y, 0, judgeY()));
+  var col = LANE_COLORS[nt.lane];
+  ctx.save();
+  /* グロー */
+  ctx.fillStyle = hexA(col, 0.4);
+  roundRectPath(x - w / 2 - 4, y - h / 2 - 4, w + 8, h + 8, (h + 8) / 2); ctx.fill();
+  /* 本体グラデーション */
+  var g = ctx.createLinearGradient(0, y - h / 2, 0, y + h / 2);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.28, col);
+  g.addColorStop(1, col);
+  ctx.fillStyle = g;
+  roundRectPath(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+  ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  roundRectPath(x - w / 2, y - h / 2, w, h, h / 2); ctx.stroke();
+  /* 中央の芯 */
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  roundRectPath(x - w * 0.3, y - 3, w * 0.6, 6, 3); ctx.fill();
+  if (nt.type === 'flick') drawFlickArrow(x, y, nt.dir, t);
+  ctx.restore();
+}
+function drawNoteCap(nt, y) {
+  var w = laneWidthAt(clamp(y, 0, judgeY())) * 0.6;
+  var x = laneCenterX(nt.lane, clamp(y, 0, judgeY()));
+  ctx.save();
+  ctx.fillStyle = hexA(LANE_COLORS[nt.lane], 0.9);
+  roundRectPath(x - w / 2, y - 6, w, 12, 6); ctx.fill();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  roundRectPath(x - w / 2, y - 6, w, 12, 6); ctx.stroke();
+  ctx.restore();
+}
+function drawFlickArrow(x, y, dir, t) {
+  var off = 3 + 2.2 * Math.sin(t * 9);
+  ctx.save();
+  ctx.translate(x, y);
+  if (dir === 'right') ctx.rotate(0);
+  else if (dir === 'down') ctx.rotate(Math.PI / 2);
+  else if (dir === 'left') ctx.rotate(Math.PI);
+  else ctx.rotate(-Math.PI / 2);
+  ctx.translate(off, 0);
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(20,10,50,.55)'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-7, -8); ctx.lineTo(5, 0); ctx.lineTo(-7, 8); ctx.lineTo(-7, 3.4); ctx.lineTo(-13, 3.4); ctx.lineTo(-13, -3.4); ctx.lineTo(-7, -3.4);
+  ctx.closePath();
+  ctx.stroke(); ctx.fill();
+  ctx.restore();
+}
+function drawPads() {
+  var jy = judgeY();
+  var padY = jy + 16, padH = CH - padY - 8;
+  if (padH < 24) return;
+  for (var l = 0; l < 4; l++) {
+    var w = laneWidthAt(jy) * 0.88;
+    var x = laneCenterX(l, jy);
+    var held = heldLane[l] > 0;
+    ctx.save();
+    var g = ctx.createLinearGradient(0, padY, 0, padY + padH);
+    if (held || laneFlash[l] > 0.3) { g.addColorStop(0, hexA(LANE_COLORS[l], 0.75)); g.addColorStop(1, hexA(LANE_COLORS[l], 0.35)); }
+    else { g.addColorStop(0, 'rgba(255,255,255,.13)'); g.addColorStop(1, 'rgba(255,255,255,.05)'); }
+    ctx.fillStyle = g;
+    roundRectPath(x - w / 2, padY, w, padH, 12); ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = hexA(LANE_COLORS[l], held ? 0.95 : 0.4);
+    roundRectPath(x - w / 2, padY, w, padH, 12); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.font = '900 13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(LANE_KEYS[l].toUpperCase(), x, padY + padH / 2 + 5);
+    ctx.restore();
+  }
+}
+function drawFx(t, dt) {
+  /* リング */
+  rings = rings.filter(function (r) { return r.life < 0.32; });
+  rings.forEach(function (r) {
+    r.life += dt; r.r += dt * 190;
+    ctx.save();
+    ctx.globalAlpha = 1 - r.life / 0.32;
+    ctx.strokeStyle = r.col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.42, 0, 0, 6.29); ctx.stroke();
+    ctx.restore();
+  });
+  /* 火花 */
+  sparks = sparks.filter(function (s) { return s.life < s.max; });
+  sparks.forEach(function (s) {
+    s.life += dt;
+    s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 340 * dt;
+    ctx.save();
+    ctx.globalAlpha = 1 - s.life / s.max;
+    ctx.fillStyle = s.col;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, 6.29); ctx.fill();
+    ctx.restore();
+  });
+  /* FEVER の枠グロー */
+  if (fever) {
+    ctx.save();
+    ctx.strokeStyle = 'hsla(' + ((t * 160) % 360) + ',100%,65%,.8)';
+    ctx.lineWidth = 3;
+    roundRectPath(2, 2, CW - 4, CH - 4, 16); ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawJudgePop(t) {
+  /* コンボ（右上に大きく） */
+  if (playing && combo >= 2) {
+    ctx.save();
+    ctx.textAlign = 'right';
+    ctx.font = '900 30px sans-serif';
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(10,4,30,.65)';
+    ctx.strokeText(String(combo), CW - 16, 44);
+    ctx.fillStyle = fever ? '#ffd94d' : '#fff';
+    ctx.fillText(String(combo), CW - 16, 44);
+    ctx.font = '800 11px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.fillText('COMBO', CW - 16, 60);
+    ctx.restore();
+  }
+  /* 節目・FEVER のセンターフラッシュ */
+  if (milestone) {
+    var mk = (performance.now() - milestone.t0) / 780;
+    if (mk >= 1) milestone = null;
+    else {
+      ctx.save();
+      ctx.globalAlpha = mk < 0.15 ? mk / 0.15 : (1 - (mk - 0.15) / 0.85);
+      var ms = 1 + 0.5 * (1 - mk);
+      ctx.translate(CW / 2, CH * 0.34); ctx.scale(ms, ms);
+      ctx.font = '900 34px sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(10,4,30,.7)';
+      var txt = milestone.n === 'FEVER' ? '🔥 FEVER!!' : milestone.n + ' COMBO!';
+      ctx.strokeText(txt, 0, 0);
+      ctx.fillStyle = milestone.n === 'FEVER' ? '#ffb84d' : '#ffd94d';
+      ctx.fillText(txt, 0, 0);
+      ctx.restore();
+    }
+  }
+  /* 判定ポップ */
+  if (!judgePop) return;
+  var k = (performance.now() - judgePop.t0) / 550;
+  if (k >= 1) { judgePop = null; return; }
+  var res = judgePop.res;
+  var scale = 1 + 0.55 * Math.exp(-k * 9);
+  ctx.save();
+  ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+  ctx.translate(CW / 2, judgeY() - 108); ctx.scale(scale, scale);
+  ctx.font = '900 31px sans-serif'; ctx.textAlign = 'center';
+  ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(10,4,30,.7)';
+  ctx.strokeText(res, 0, 0);
+  if (res === 'PERFECT') {
+    var pg = ctx.createLinearGradient(-70, 0, 70, 0);
+    pg.addColorStop(0, '#ffd94d'); pg.addColorStop(0.5, '#fff3b0'); pg.addColorStop(1, '#ff9d5c');
+    ctx.fillStyle = pg;
+  } else if (res === 'GREAT') ctx.fillStyle = '#ff7ac1';
+  else if (res === 'GOOD') ctx.fillStyle = '#4ade80';
+  else ctx.fillStyle = '#8f8fa8';
+  ctx.fillText(res, 0, 0);
+  ctx.restore();
+}
+fitCanvas();
+renderSongList();
+requestAnimationFrame(draw);
+
+/* ---------------- オンライン対戦（PeerJS・フレンド招待制は friends.js が担う） ---------------- */
+var PEER_PREFIX = 'playweb-sr-';
+var PEER_OPTS = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }, { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }, { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }] } };
+var peer = null, conn = null, isHost = false, roomCode = '', heartbeatTimer = null, connTimer = null;
+var opp = { score: 0, combo: 0, gauge: 0, fin: null };
+var oppLeft = false, recorded = false, progTimer = null;
+function genRoomCode() { var C = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; var s = ''; for (var i = 0; i < 6; i++) s += C.charAt(Math.floor(Math.random() * C.length)); return s; }
+function peerAvailable() { return typeof window.Peer !== 'undefined'; }
+function sendNet(o) { if (conn && conn.open) { try { conn.send(o); } catch (e) {} } }
+function setOnlineStatus(html) { var el = $('onlineStatus'); if (el) el.innerHTML = html; }
+function startHeartbeat() { stopHeartbeat(); heartbeatTimer = setInterval(function () { sendNet({ t: 'ping' }); }, 8000); }
+function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
+function armConnTimer(msg) { clearTimeout(connTimer); connTimer = setTimeout(function () { if (!conn || !conn.open) setOnlineStatus('<span class="err">' + msg + '</span>'); }, 25000); }
+function disarmConnTimer() { clearTimeout(connTimer); }
+function gateOk() {
+  if (window.PWFriends && PWFriends.gateState) {
+    var g = PWFriends.gateState();
+    if (g === 'guest' || g === 'sdk-down') { setOnlineStatus('<span class="err">オンライン対戦にはログインが必要です。</span>'); return false; }
+  }
+  return true;
+}
+function setupConn(c) {
+  conn = c;
+  c.on('data', onNetData);
+  c.on('open', function () { disarmConnTimer(); startHeartbeat(); });
+  c.on('close', function () { if (conn === c) onNetDisconnected(); });
+  c.on('error', function () { if (conn === c) onNetDisconnected(); });
+}
+function teardownOnline() {
+  stopHeartbeat(); clearTimeout(connTimer);
+  if (progTimer) { clearInterval(progTimer); progTimer = null; }
+  try { if (conn) conn.close(); } catch (e) {}
+  try { if (peer) peer.destroy(); } catch (e) {}
+  conn = null; peer = null;
+}
+function resetVs() {
+  opp = { score: 0, combo: 0, gauge: 0, fin: null };
+  oppLeft = false; recorded = false;
+  $('vsOppScore').textContent = '0'; $('vsOppCombo').textContent = ''; $('vsOppGauge').style.width = '0%';
+  $('vsMeScore').textContent = '0'; $('vsMeCombo').textContent = ''; $('vsMeGauge').style.width = '0%';
+}
+function hostRoom() {
+  if (!peerAvailable()) { setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; }
+  if (!gateOk()) return;
+  teardownOnline(); isHost = true; roomCode = genRoomCode();
+  window.PW_ROOM_CODE = roomCode;
+  setOnlineStatus('部屋を作成中…');
+  try { peer = new Peer(PEER_PREFIX + roomCode, PEER_OPTS); } catch (e) { setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', function () {
+    $('roomCodeText').textContent = roomCode;
+    $('onlineCodeWrap').classList.remove('hidden');
+    $('leaveBtn').classList.remove('hidden');
+    setOnlineStatus('フレンドの参加を待っています…');
+  });
+  peer.on('connection', function (c) { setupConn(c); armConnTimer('相手との接続を確立できませんでした。'); });
+  peer.on('error', function (err) { if (err && err.type === 'unavailable-id') setOnlineStatus('<span class="err">コードが重複しました。もう一度押してください。</span>'); });
+  peer.on('disconnected', function () { try { peer.reconnect(); } catch (e) {} });
+}
+function joinRoom() {
+  if (!peerAvailable()) { setOnlineStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; }
+  if (!gateOk()) return;
+  var code = ($('joinCode').value || '').trim().toUpperCase();
+  if (code.length !== 6) { setOnlineStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
+  teardownOnline(); isHost = false; roomCode = code;
+  setOnlineStatus('接続中…');
+  try { peer = new Peer(undefined, PEER_OPTS); } catch (e) { setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  peer.on('open', function () {
+    armConnTimer('接続を確立できませんでした。');
+    var c = peer.connect(PEER_PREFIX + code, { reliable: true });
+    setupConn(c);
+    c.on('open', function () {
+      $('leaveBtn').classList.remove('hidden');
+      sendNet({ t: 'hello' });
+      setOnlineStatus('接続しました。ホストの開始を待っています…');
+    });
+  });
+  peer.on('error', function (err) { if (err && err.type === 'peer-unavailable') setOnlineStatus('<span class="err">部屋が見つかりませんでした。</span>'); });
+}
+function leaveOnline() {
+  sendNet({ t: 'leave' });
+  teardownOnline();
+  window.PW_ROOM_CODE = '';
+  $('onlineCodeWrap').classList.add('hidden');
+  $('leaveBtn').classList.add('hidden');
+  $('vsStartBtn').classList.add('hidden');
+  setOnlineStatus('');
+  if (playing) stopSong(true);
+  resetStage();
+}
+function hostStartMatch() {
+  resetVs();
+  sendNet({ t: 'start', song: selSong, diff: selDiff });
+  setOnlineStatus('対戦開始！');
+  beginOnlineSong();
+}
+function beginOnlineSong() {
+  startSong();
+  if (progTimer) clearInterval(progTimer);
+  progTimer = setInterval(sendProg, 600);
+}
+function sendProg() {
+  if (mode !== 'online' || !conn) return;
+  sendNet({ t: 'prog', score: Math.floor(scoreF), combo: combo, gauge: Math.round(gauge), done: playing ? 0 : 1 });
+}
+function finishOnline(res, totalScore, isBest) {
+  if (progTimer) { clearInterval(progTimer); progTimer = null; }
+  var myFin = { score: totalScore, perfect: counts.perfect, great: counts.great, good: counts.good, miss: counts.miss, maxCombo: maxCombo, gauge: Math.round(gauge) };
+  sendNet({ t: 'fin', fin: myFin });
+  if (opp.fin || oppLeft) showVsResult(res, myFin, isBest);
+  else {
+    var p = $('resultPanel');
+    p.innerHTML = '<div class="rdetail" style="font-size:16px">あなたのスコア <b style="color:var(--txt)">' + totalScore.toLocaleString() + '</b><br>相手の終了を待っています…</div>';
+    p.classList.remove('hidden');
+    pendingVs = { res: res, myFin: myFin, isBest: isBest };
+  }
+}
+var pendingVs = null;
+function showVsResult(res, myFin, isBest) {
+  pendingVs = null;
+  var o = opp.fin;
+  var verdict, result;
+  if (oppLeft || !o) { verdict = '🏆 あなたの勝ち！（相手が退出）'; result = 'win'; }
+  else if (myFin.score > o.score) { verdict = '🏆 あなたの勝ち！'; result = 'win'; }
+  else if (myFin.score < o.score) { verdict = '相手の勝ち…'; result = 'lose'; }
+  else if (maxCombo > o.maxCombo) { verdict = '🏆 あなたの勝ち！（コンボ差）'; result = 'win'; }
+  else if (maxCombo < o.maxCombo) { verdict = '相手の勝ち…（コンボ差）'; result = 'lose'; }
+  else { verdict = '引き分け'; result = 'draw'; }
+  var vsInfo = verdict + '<br>あなた ' + myFin.score.toLocaleString() + ' 点 vs 相手 ' + (o ? o.score.toLocaleString() : '-') + ' 点';
+  showResult(res, myFin.score, !!isBest, vsInfo);
+  if (!recorded) {
+    recorded = true;
+    if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(result);
+  }
+}
+function requestRematch() {
+  if (isHost) { hostStartMatch(); }
+  else { sendNet({ t: 'rematch' }); setOnlineStatus('再戦をリクエストしました…'); }
+}
+function onNetData(m) {
+  if (!m || m.t === 'ping') return;
+  if (m.t === 'hello') {
+    if (isHost) {
+      $('vsStartBtn').classList.remove('hidden');
+      setOnlineStatus('フレンドが参加しました！「対戦スタート」を押してください。');
+    }
+    return;
+  }
+  if (m.t === 'start') {
+    selSong = songById(m.song).id; selDiff = DIFFS[m.diff] ? m.diff : 'normal';
+    document.querySelectorAll('#diffSeg button').forEach(function (x) { x.classList.toggle('on', x.dataset.d === selDiff); });
+    renderSongList();
+    setOnlineStatus('対戦開始！');
+    beginOnlineSong();
+    return;
+  }
+  if (m.t === 'prog') {
+    opp.score = m.score; opp.combo = m.combo; opp.gauge = m.gauge;
+    $('vsOppScore').textContent = Number(m.score).toLocaleString();
+    $('vsOppCombo').textContent = m.combo >= 2 ? m.combo + 'コンボ' : '';
+    $('vsOppGauge').style.width = m.gauge + '%';
+    return;
+  }
+  if (m.t === 'fin') {
+    opp.fin = m.fin;
+    if (pendingVs) showVsResult(pendingVs.res, pendingVs.myFin, pendingVs.isBest);
+    return;
+  }
+  if (m.t === 'rematch') { if (isHost) hostStartMatch(); return; }
+  if (m.t === 'leave') { onOppLeft(); return; }
+}
+function onOppLeft() {
+  oppLeft = true;
+  setOnlineStatus('<span class="err">相手が退出しました。</span>');
+  if (pendingVs) showVsResult(pendingVs.res, pendingVs.myFin, pendingVs.isBest);
+}
+function onNetDisconnected() {
+  setOnlineStatus('<span class="err">接続が切れました。</span>');
+  if (playing || pendingVs) onOppLeft();
+}
+$('hostBtn').addEventListener('click', hostRoom);
+$('joinBtn').addEventListener('click', joinRoom);
+$('leaveBtn').addEventListener('click', leaveOnline);
+$('vsStartBtn').addEventListener('click', function () { $('vsStartBtn').classList.add('hidden'); hostStartMatch(); });
+
+/* テスト用フック */
+window.__sr = {
+  SONGS: SONGS, DIFFS: DIFFS, buildSongData: buildSongData, buildChart: buildChart,
+  judgeFor: judgeFor, gaugeDelta: gaugeDelta, makeResult: makeResult, JUDGE_FACTOR: JUDGE_FACTOR,
+  mulberry32: mulberry32,
+  state: function () { return { playing: playing, songTime: songTime, score: Math.floor(scoreF), combo: combo, maxCombo: maxCombo, gauge: gauge, fever: fever, counts: counts, chartLen: chart.length, held: heldLane.slice() }; },
+  startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
+  pressLane: function (lane) { heldLane[lane]++; pressLane(lane); },
+  releaseLane: function (lane) { heldLane[lane] = Math.max(0, heldLane[lane] - 1); releaseLane(lane); },
+  flick: function (dir) { flickAttempt(dir, null); },
+  setTime: function (t) { timeOverride = t; },
+  clearTime: function () { timeOverride = null; },
+  step: function (dtF) { stepGame(dtF || 1 / 60); },
+  upcoming: function (within) {
+    var out = [];
+    for (var i = 0; i < chart.length; i++) {
+      var nt = chart[i];
+      if (nt.state !== 'wait') continue;
+      if (nt.t - songTime > within) break;
+      out.push({ i: i, t: nt.t, lane: nt.lane, type: nt.type, dir: nt.dir, lenSec: nt.lenSec });
+    }
+    return out;
+  },
+  finishNow: function () { if (playing) { finishSong(); } }
+};
+})();
+</script>
+<script>window.PW_GAME='starrhythm';window.PW_JOIN_CFG={openers:[{click:'button[data-m="online"]'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script src="friends.js"></script>
+</body>
+</html>
