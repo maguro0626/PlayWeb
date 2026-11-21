@@ -151,6 +151,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #resultPanel .rbtns{display:flex;gap:8px;margin-top:6px;width:100%;max-width:320px}
 #ctrlRow{display:flex;gap:8px;align-items:center}
 .iconBtn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--txt);border-radius:12px;min-width:48px;min-height:44px;font-size:19px;cursor:pointer;font-family:inherit}
+#seSetSel{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--txt);border-radius:12px;min-height:44px;padding:0 6px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;max-width:132px}
 #quitBtn{flex:1}
 .wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane,.wrap.playing .footHelp{display:none!important}
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
@@ -190,7 +191,7 @@ html,body{overscroll-behavior:none;}
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo" class="cb"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo" class="cb"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
 <div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
-<div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
+<div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
 <div id="toast"></div>
@@ -209,7 +210,9 @@ function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
 /* ---------------- 曲データ ----------------
    mel は 1フレーズ=4小節×16ステップ=64文字。'.'=休符、'1'〜'9'=スケールの度数。
-   bassRoots は小節ごとのベース度数（4つ）。seq はフレーズの並び。 */
+   bassRoots は小節ごとのベース度数（4つ）。seq はフレーズの並び。
+   chorus はサビ区間（秒）。シンセ曲はフレーズの平均度数が高い方（B）の出現区間を
+   サビ相当とし、演奏中の見た目の変化だけに使う（シンセ曲の譜面は従来どおり不変）。 */
 var SONGS = [
   {
     id: 'matsuri', title: 'まつり太鼓', emo: '🏮', genre: '和風・まつり', cat: '和風', bpm: 112, wave: 'triangle', theme: 'wafu',
@@ -218,7 +221,8 @@ var SONGS = [
       A: { mel: '6...6...5.4.5...' + '3...3...2.1.2...' + '4...4...5.6.5.4.' + '3..2.3..1.......', bass: [1, 3, 2, 1] },
       B: { mel: '6...7.6.5...4...' + '5...6.5.4...3...' + '4.4.5.5.6...5...' + '6.......6.......', bass: [1, 4, 5, 1] }
     },
-    seq: ['A', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
+    seq: ['A', 'A', 'B', 'A', 'B', 'B', 'A', 'B'],
+    chorus: [[17.14,25.71],[34.29,51.43],[60,68.57]]
   },
   {
     id: 'chip', title: 'チップチューン・ダッシュ', emo: '👾', genre: 'チップチューン', cat: 'ゲーム', bpm: 140, wave: 'square', theme: 'chip', dens: 0.82,
@@ -227,7 +231,8 @@ var SONGS = [
       A: { mel: '5.5.6.5.3.3.2.2.' + '3.3.4.3.2.1.2...' + '5.5.6.5.8.8.7.6.' + '5.3.2.1.2.......', bass: [1, 6, 4, 5] },
       B: { mel: '8.7.6.5.6.7.8...' + '9.8.7.6.5.6.7...' + '8.7.6.5.4.3.2.3.' + '1...5...1.......', bass: [1, 4, 5, 1] }
     },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
+    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B'],
+    chorus: [[13.71,20.57],[27.43,34.29],[41.14,54.86],[61.71,68.57]]
   },
   {
     id: 'rock', title: 'ロックン太鼓', emo: '🎸', genre: 'ロック', cat: 'ロック', bpm: 128, wave: 'sawtooth', theme: 'rock',
@@ -236,7 +241,8 @@ var SONGS = [
       A: { mel: '1.1...1.1.1...1.' + '1.1...1.3.2.1...' + '4.4...4.4.4...4.' + '5.4.3.2.1.......', bass: [1, 1, 6, 7] },
       B: { mel: '8...7.6.5...4...' + '3.4.5...6...5...' + '4.5.6.6.7...6...' + '8.......8.......', bass: [6, 4, 1, 5] }
     },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A']
+    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A'],
+    chorus: [[15,22.5],[30,37.5],[45,60]]
   },
   {
     /* アイドルポップ：メロディは歌声シンセ（vocal）が「ラララ」と歌う */
@@ -246,7 +252,8 @@ var SONGS = [
       A: { mel: '5.5.6.5.3.3.5...' + '3.3.2.2.1.2.3...' + '5.5.6.5.8.8.7.6.' + '5.3.2.1.2.......', bass: [1, 6, 4, 5] },
       B: { mel: '8.8.7.6.5.6.8...' + '9.9.8.7.6.......' + '8.8.7.6.5.6.5.3.' + '5.6.5...3.......', bass: [1, 5, 6, 4] }
     },
-    seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
+    seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B'],
+    chorus: [[7.27,14.55],[21.82,29.09],[36.36,50.91],[58.18,65.45]]
   },
   {
     /* ジャズ：裏拍に乗るシンコペーションのメロディと I-IV-ii-V の循環 */
@@ -256,39 +263,54 @@ var SONGS = [
       A: { mel: '..3...5...4.3...' + '..2...3...1.....' + '..5...6...5.4.3.' + '..2...1.........', bass: [1, 4, 2, 5] },
       B: { mel: '..8...7.6.5.....' + '..5.6.7...8.....' + '..9...8.7.6.5...' + '..3...2...1.....', bass: [2, 5, 1, 1] }
     },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B']
+    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B'],
+    chorus: [[16,24],[32,40],[48,64]]
   },
   /* ---------------- 実音源の曲（フリーBGM／Suno自作曲） ----------------
      音声は audio/parts/<id>.pNN.js（AAC の base64 を分割したもの）を選曲時に
      遅延読み込みし、連番順に結合して再生する。分割数は parts に持たせる。
      mel/seq は持たず、bpm と offset（最初の拍の位置・秒）から拍グリッド譜面を生成する。
-     bpm/offset/duration/credit は audio_spec.json の計測値と一致させること。 */
+     bpm/offset/duration/credit は audio_spec.json の計測値と一致させること。
+     chorus（サビ区間・秒）と steps（16分ステップごとのオンセット強度 0〜9）は
+     music_map.json の解析値と一致させること。譜面は steps 駆動で生成する。 */
   {
     id: 'amenoshita', title: 'Amenoshita2', emo: '⛩️', genre: '和風', cat: '和風', bpm: 142, theme: 'wafu',
     real: true, duration: 202.4, offset: 0.087, beatsPerBar: 4, parts: 12,
+    chorus: [[0.09,10.23],[47.41,55.86],[69.38,77.83],[87.97,103.19],[142.06,150.51],[164.03,172.48],[182.62,194.45]],
+    steps: '00006560000000060066600000850000006005600060000060000070000000000000667070807500000080600000000060006000407443006350640000540040600050506074506070605000005400506000640000740000605050400064000054004070505560005000660000600000600060004064430064405440405400405400605060746060608060000050045065005000006005006450540000540000550000707006640000067000007000000000606060707070706070000070050060507070607080806000008070000000440000004400000000006060006050507060850550845040706060006000000000008000000000007000700000705060806060555064405070606060607070506000760000000033340005040040004045005040400000505540404060005050600000000000000000000000000003604050705560405650606060056050066070000000000000606067706070707070707060606070000070607080707080907000000000000000600050004050004040504004004004004030400440500400600070007000000075506006505005007650500060000000700007000000000000607000007060007060505650605060606065556060605060607000000000000070805060755000656065055060506060607070807075000000707000000000600060004073440074406330005400406400505050646060707054000060400050406400005000006060504000600000540000705065600040007070000000006000600040644000644064004054044050006050607460607070500000500050640050000064040070406400005400405500007070005500500070000000000060006070707070807060700000740540705060706060708000000000700000000400000004000000600070600070506070508005508050007060660065000000500080000000000070000660007000007000600550745050806076600060705080706600000000400300464000400043440050005000404055005000600000607000700000000000000000000000006040506055604055606050500564505660707000000000007060067070700080706060006060700000706070807060708070000000000000006005500500400440404040040030340040034005405000005000700070000000605060065050050075006000600006008000800000007000000070556080500060606056006060606060605660605000707070800000000000007050507460006560660050605050606070706075640000004000000000000000000000000000000000000000',
     credit: 'Music: "Amenoshita2" by PeriTune (https://peritune.com/) — CC BY 4.0'
   },
   {
     id: 'volatile', title: 'Volatile Reaction', emo: '🔥', genre: 'ロック', cat: 'ロック', bpm: 155, theme: 'rock',
     real: true, duration: 165.36, offset: 0.358, beatsPerBar: 7, parts: 10,
+    chorus: [[30.16,57.26],[130.42,157.52]],
+    steps: '03003100003011210203210221001102030210111110001301003020022032200220222011130102302220123202002101121121023250203020522000030030122202032300400063030222012200303003403063305340202020210230200273005030520300300030203203009300540050500050000530030430500064005040004000400043030040005000530000530063000440007540500054000005004000050000600000000000005000040004000060500000540000400060005004000500500050000044000500600050805005007000006000050000000676005000644000600005008000556000600075000085005000076006700080007500006000060080060070007500700000700065006005606000060060000070000600700000700000003000003043300022040240200330200233020020040202004322300032022200320200200422000204203040422022022202002042220230302203003222200032220020043202003000300004030000203300304030002240204000502022003002023004200200403202020433000003020000040000004000300072203200702200206320000040003000503000005302002072000302400220005220000203000030502000006002300063200002530000206030000072005002600000000100001100100000000000000230030003000000000000000000000067500000500020220220103030024220402052300240022240427002420063038340007202302040022070237000622022422032403230036320430050403030203320324020400243005030024000320020205063005000520000522032004200004000223040000032203220320000733003004200204200600032400073004000600000730353004000038003743070003050006000740040540005006303006030500053000075405000503000403040004000056000000050000060004000405060700060006000007000400050505060006000500000604050007005505500050050500060000500600000700006000600006500060050506060005000650000740040006060007000800070000065006000705050500080006500008500700060605070006600700060700060006000008500000000000000000000000000000000000000000000000000000000',
     credit: '"Volatile Reaction" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/'
   },
   {
     id: 'industrial', title: 'Industrial Revolution', emo: '🏭', genre: 'ロック', cat: 'ロック', bpm: 140, theme: 'rock',
     real: true, duration: 145.71, offset: 0.401, beatsPerBar: 4, parts: 9,
+    chorus: [[27.83,56.97],[99.83,123.83]],
+    steps: '0001000000004220000032200000322000002220000022200002200000003220000022202200320000003220000022200000332000003220000022200000322100004000500000004000300050000030400030004330200042000200304033003000320054300300300002204030320030003300405000005000040050500000500008009000700000006400600060005040600040006040400056404040540050006000504074303000540040306440400053004050500000006440005050005000700060006000600060006000660060006600500050005000550000006500500066006000005000007600000050006000750000600000500060000050760000008600006000004000330002003200400022110000220032002101010032203100220002303300320033200000320032002200000030004300330002003220430040005500040040003030000033004000000000033400300004000400300030000303044000003000332000202200420022220000220042004220000040204000433040005030000040000000200000004200000032200000530000002000020230202000210000004320000020002000520000002110000043200000220002003022200042000000300000003202000030000000555600007870000006000000000030003300000022000200300020003200000050300000650050006000000070708800006000008000000050400000750000006000000066000000600000006600000060000000800000006000000077600000060000000600000060000000500000004030000032000000100000000101100010000111110010010010101100000000110100001101000000000000000000000000000000003000632000505000700076550000000000100000000000000000000000000000000000000000000000000',
     credit: '"Industrial Revolution" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 3.0 License http://creativecommons.org/licenses/by/3.0/'
   },
   {
     id: 'torikago', title: '犠牲', emo: '🕊️', genre: 'Suno', cat: 'Suno', bpm: 150, theme: 'rock',
-    real: true, suno: true, duration: 123.01, offset: 0.051, beatsPerBar: 4, parts: 7, credit: 'Suno'
+    real: true, suno: true, duration: 123.01, offset: 0.051, beatsPerBar: 4, parts: 7, credit: 'Suno',
+    chorus: [[65.65,75.25],[81.65,121.65]],
+    steps: '053500020200200202020002020203020202020202200202000202020203030500040004000303040005000400040405445400004035040506000050505050500004640050000040603040006004004050405000600304305000440060030060605040005000000060405000604000307000530060403030704030008043004040440000650400004040040050043000060004000603300305400400074000000500040006000004060304000600030405000500050000000400070006005504060404000400040003000400030000000500043004000400040004000400030004055400040004000405040303050404050004000400030400003400040430050700450004000004040004000500000406050600000605060605060056050003020006000600000006000000050040050500050006040000050400050805050507054000050000550700440006000500060040000600000405004400060005550506000605000406060000000500000406050004050000000600000506000005070000000740000505050050070000000605004006000000064006000650060606000500050050050600040006044000050440000604400006500500070055000500000006006500050004000804400006000000500050046000000070000505605504000000505070405030500430405000600005504040500050005000500050005000000050404000500080044040604090005050706050507070806050607060600070500550700060007000044070005000700405507000504070050500506500006050060070005040700007408000705070056000006000000000000000111000000000'
   },
   {
     id: 'sora', title: 'constipation', emo: '🎸', genre: 'Suno', cat: 'Suno', bpm: 97.8, theme: 'rock',
-    real: true, suno: true, duration: 116.41, offset: 0.15, beatsPerBar: 4, parts: 7, credit: 'Suno'
+    real: true, suno: true, duration: 116.41, offset: 0.15, beatsPerBar: 4, parts: 7, credit: 'Suno',
+    chorus: [[41.87,63.95],[86.04,108.13]],
+    steps: '655445000005004440454045340633445005400404040004400440440605050540040005440500460003500353406003530083436340604445346304605064044080507077504034530364056350705464045306606073405444650470506505500050505050003053403050334004505030340540354036503403500434330304330455654060050550056064004004500050566054004060006000555040000040000050005050766006044405460055505400546085505004640555407406506050400000300040303000404040405005566060005050600665046450505074006050644074005504550064005460547457705000705060057050505060505005505460005540640055606445405060500400500053004004504040006000540050004004550040004040400464005044654040005500400644504005565060006000504040505000005060005050004000004000500040006450504464005404554050005040640054605054556000000006590000000000000'
   },
   {
     id: 'trick', title: 'トリックオアートリート', emo: '🎃', genre: 'Suno', cat: 'Suno', bpm: 88.2, theme: 'jazz',
-    real: true, suno: true, duration: 82.48, offset: 0.132, beatsPerBar: 4, parts: 5, credit: 'Suno'
+    real: true, suno: true, duration: 82.48, offset: 0.132, beatsPerBar: 4, parts: 5, credit: 'Suno',
+    chorus: [[51.83,76.32]],
+    steps: '04747070505000000303030000500400040554500060003040500500505040404050400090600445544440405670750650058050645055056500507055607565660050567560504054505600606000046000560470500000540450405060564455066565656050705500806565506500670545065570070050600545507045056500700070605500955076055500550576055005706055007650650576005505660575706050550567006400505070065470805070707505900550055580560660667060605050000000000070507005550560806550500075046064606005060500000000000560656505506740000000000'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
@@ -334,9 +356,37 @@ var DIFFS = {
   /* おに：密度を大幅に上げ、同時打ち(pairProb)・長い連打(runLen)・アクセント大音符(bigAccentProb)を解禁し、判定窓も最も狭い */
   oni:    { label: 'おに',       grid: 1, pAccent: 0.97, pOff: 0.58, minGap: 1, bigProb: 0.30, good: 0.048, bad: 0.108, pairProb: 0.16, bigAccentProb: 0.12, runLen: 7 }
 };
-/* 実音源曲の譜面生成（決定的）：拍グリッド（offset + step×16分音符）に沿って
-   シンセ曲と同じ確率モデルで配置する。アクセント＝拍の頭、小節は beatsPerBar 拍。
-   最初の1小節は導入として空け、曲の最後の拍より後には置かない。 */
+/* ---------------- サビ区間とオンセット ----------------
+   chorus は全曲が持つサビ区間（秒）の配列。実音源は音量エネルギーの解析、
+   シンセ曲はフレーズ構造から特定したもの。譜面生成と演奏中の見た目で共用する。 */
+function inChorus(song, t) {
+  var c = song.chorus;
+  if (!c) return false;
+  for (var i = 0; i < c.length; i++) { if (t >= c[i][0] && t < c[i][1]) return true; }
+  return false;
+}
+/* 実音源曲のオンセット強度（0〜9）：steps の step 番目の文字。範囲外は 0 */
+function onsetStr(song, step) {
+  var s = song.steps;
+  if (!s || step < 0 || step >= s.length) return 0;
+  var v = s.charCodeAt(step) - 48;
+  return (v >= 0 && v <= 9) ? v : 0;
+}
+/* オンセット強度→配置確率（難易度別、添字が強度 0〜9）。強度 0 は常に 0＝置かない */
+var ONSET_P = {
+  easy:   [0, 0, 0, 0, 0.55, 0.70, 0.85, 0.95, 0.98, 1.00],
+  normal: [0, 0.10, 0.14, 0.18, 0.45, 0.60, 0.75, 0.90, 0.97, 1.00],
+  hard:   [0, 0.22, 0.28, 0.34, 0.55, 0.70, 0.85, 0.95, 0.99, 1.00],
+  oni:    [0, 0.38, 0.44, 0.50, 0.68, 0.80, 0.90, 0.98, 1.00, 1.00]
+};
+/* サビ区間の確率倍率（難易度別）。最低難易度では上げ幅を小さくする */
+var CHORUS_MUL = { easy: 1.15, normal: 1.30, hard: 1.45, oni: 1.55 };
+/* 実音源曲の譜面生成（決定的・オンセット駆動）：実際に音が鳴っているステップ
+   （steps の強度）に優先して置き、弱いステップは高難易度の埋め草程度、
+   強度 0 には原則置かない。サビ区間は強度を +1 段引き上げ＋確率倍率で少し
+   難しくし、大音符・同時打ち・連打も寄せる。例外はサビ内の拍位置フィル
+   （hard/おに のみ低確率）だけ。最初の1小節は導入として空け、曲の最後の
+   拍より後には置かない。シード固定のためマルチ対戦でも両端末で同じ譜面になる。 */
 function buildChartReal(song, diffKey) {
   var P = DIFFS[diffKey];
   var stepDur = 60 / song.bpm / 4;
@@ -350,22 +400,40 @@ function buildChartReal(song, diffKey) {
     if (step - lastStep < P.minGap) continue;
     var t = song.offset + step * stepDur;
     if (t > song.duration - 0.2) break; /* 最後の拍以降・終端ギリギリには置かない */
-    var barStart = step % stepsPerBar === 0;
-    var accent = barStart || step % 4 === 0;
-    var p = accent ? P.pAccent : P.pOff;
-    if (barStart) p = Math.max(p, 0.85);
+    var str = onsetStr(song, step);
+    var ch = inChorus(song, t);
+    var p;
+    if (str <= 0) {
+      /* 強度 0 には置かない。唯一の例外：サビ内の拍位置フィル（hard/おに のみ） */
+      p = (ch && step % 4 === 0) ? (diffKey === 'oni' ? 0.30 : (diffKey === 'hard' ? 0.22 : 0)) : 0;
+    } else {
+      var effStr = ch ? Math.min(9, str + 1) : str; /* サビは強度を1段引き上げて読む */
+      p = ONSET_P[diffKey][effStr];
+      if (ch) p = Math.min(0.995, p * CHORUS_MUL[diffKey]);
+    }
     if (rng() >= p) continue;
+    var barStart = step % stepsPerBar === 0;
+    var accent = str >= 6; /* 強いオンセット＝アクセント */
     var r = rng();
-    var type = (step % 4 === 0) ? (r < 0.68 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
+    var type = (str >= 5) ? (r < 0.62 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
     var n = notes.length, runLim = P.runLen || 3, run = 0;
     while (run < runLim && run < n && notes[n - 1 - run].type === type) run++;
     if (run >= runLim) type = (type === 'don') ? 'katsu' : 'don';
-    var big = P.bigProb > 0 && barStart && rng() < P.bigProb;
-    if (!big && P.bigAccentProb && accent && rng() < P.bigAccentProb) big = true;
+    else if (ch && n > 0 && rng() < 0.30) {
+      /* サビは連打寄せ：直前と同じ種別を、連続上限の範囲で維持しやすくする */
+      var pt = notes[n - 1].type, pr = 0;
+      while (pr < runLim && pr < n && notes[n - 1 - pr].type === pt) pr++;
+      if (pr < runLim) type = pt;
+    }
+    /* 大音符は小節頭のみ（おには強いオンセットにも）。強いステップ・サビで確率を上げる */
+    var big = false;
+    if (P.bigProb > 0 && barStart) big = rng() < P.bigProb * (str >= 7 ? 1.8 : 0.7) * (ch ? 1.3 : 1);
+    if (!big && P.bigAccentProb && accent) big = rng() < P.bigAccentProb * (ch ? 1.3 : 1);
     var main = { step: step, t: t, type: type, big: big, judged: 0, res: null };
     notes.push(main);
     lastStep = step;
-    if (P.pairProb && accent && !big && rng() < P.pairProb) {
+    /* おに：同時打ち（サビでは確率を上げる） */
+    if (P.pairProb && accent && !big && rng() < P.pairProb * (ch ? 2.0 : 1)) {
       main.pair = 1;
       notes.push({ step: step, t: t, type: type === 'don' ? 'katsu' : 'don', big: false, judged: 0, res: null, pair: 1 });
     }
@@ -530,9 +598,87 @@ function noiseAt(t, dur, fType, freq, q, vol, atk) {
 function kickAt(t, vol) { toneAt(118, t, 0.10, 'sine', vol, 40); }
 function snareAt(t, vol) { noiseAt(t, 0.16, 'bandpass', 1050, 0.7, vol, 0.018); toneAt(165, t, 0.09, 'triangle', vol * 0.45, 105); }
 function hatAt(t, vol, open) { noiseAt(t, open ? 0.15 :  0.05, 'highpass', 7600, 0.7, vol, open ? 0.012 : 0.010); }
-/* 太鼓の音（プレイヤーの打撃専用。伴奏には使わない）: ドン=面（低く太く）/ カツ=縁（高く締まる） */
-function donAt(t, vol, big) { toneAt(big ? 128 : 168, t, big ? 0.34 : 0.24, 'sine', vol, big ? 46 : 57); noiseAt(t, 0.03, 'lowpass', 900, 0.6, vol * 0.35); }
-function katsuAt(t, vol, big) { toneAt(big ? 520 : 640, t, big ? 0.16 : 0.10, 'square', vol * 0.5, big ? 240 : 300); noiseAt(t, 0.05, 'bandpass', 2600, 1.2, vol * 0.7); }
+/* 太鼓の音（プレイヤーの打撃専用。伴奏には使わない）: ドン=面（低く太く）/ カツ=縁（高く締まる）
+   音色セットを5種から選べる（設定は端末に保存）。どのセットも「鋭いアタック＋短い減衰」で
+   打った音だと分かる形にし、伴奏側の音（キック=短く低いサイン、スネア=1050Hz帯で
+   アタックの柔らかいノイズ、大太鼓=スナップなしの長い胴鳴り、鈴=高域の純音）とは
+   帯域・減衰・アタックのどれかで必ず聞き分けられるように設計している。 */
+/* -- 標準：従来の太鼓の音 -- */
+function donStd(t, vol, big) { toneAt(big ? 128 : 168, t, big ? 0.34 : 0.24, 'sine', vol, big ? 46 : 57); noiseAt(t, 0.03, 'lowpass', 900, 0.6, vol * 0.35); }
+function katsuStd(t, vol, big) { toneAt(big ? 520 : 640, t, big ? 0.16 : 0.10, 'square', vol * 0.5, big ? 240 : 300); noiseAt(t, 0.05, 'bandpass', 2600, 1.2, vol * 0.7); }
+/* -- 木の音：木魚の胴鳴り＋拍子木の乾いたクリック -- */
+function donWood(t, vol, big) {
+  toneAt(big ? 280 : 340, t, big ? 0.14 : 0.10, 'triangle', vol * 0.9, big ? 150 : 190);
+  toneAt(big ? 540 : 660, t, 0.05, 'sine', vol * 0.32);
+  noiseAt(t, 0.03, 'bandpass', 1900, 5, vol * 0.8);
+}
+function katsuWood(t, vol, big) {
+  noiseAt(t, 0.022, 'bandpass', 3400, 7, vol);
+  toneAt(big ? 980 : 1150, t, 0.04, 'triangle', vol * 0.45, big ? 700 : 820);
+}
+/* -- 電子音：シンセパーカッション。速いピッチドロップ＋金属的なピング -- */
+function donElec(t, vol, big) {
+  toneAt(big ? 180 : 240, t, big ? 0.24 : 0.16, 'sine', vol, big ? 44 : 52);
+  noiseAt(t, 0.018, 'highpass', 4200, 0.7, vol * 0.45);
+}
+function katsuElec(t, vol, big) {
+  toneAt(big ? 980 : 1240, t, big ? 0.10 : 0.07, 'square', vol * 0.32, big ? 620 : 780);
+  noiseAt(t, 0.03, 'bandpass', 5200, 2, vol * 0.55);
+}
+/* -- 軽い音：高めで短く、小気味よいポップな打音 -- */
+function donLight(t, vol, big) {
+  toneAt(big ? 220 : 262, t, big ? 0.20 : 0.13, 'sine', vol * 0.85, big ? 118 : 148);
+  toneAt(big ? 440 : 524, t, 0.06, 'triangle', vol * 0.28);
+}
+function katsuLight(t, vol, big) {
+  toneAt(big ? 880 : 1046, t, big ? 0.08 : 0.06, 'triangle', vol * 0.5, big ? 660 : 784);
+  noiseAt(t, 0.02, 'highpass', 6000, 0.7, vol * 0.3);
+}
+/* -- 重い音：低く長く、ドスッと沈む打音 -- */
+function donHeavy(t, vol, big) {
+  toneAt(big ? 96 : 120, t, big ? 0.42 : 0.32, 'sine', vol, big ? 30 : 36);
+  toneAt(big ? 62 : 74, t, big ? 0.34 : 0.26, 'triangle', vol * 0.38, 32);
+  noiseAt(t, 0.045, 'lowpass', 600, 0.6, vol * 0.55);
+}
+function katsuHeavy(t, vol, big) {
+  toneAt(big ? 330 : 392, t, big ? 0.15 : 0.11, 'square', vol * 0.48, big ? 175 : 215);
+  noiseAt(t, 0.06, 'bandpass', 1500, 1.4, vol * 0.7);
+}
+var SE_SETS = [
+  { id: 'standard', label: '標準' },
+  { id: 'wood', label: '木の音' },
+  { id: 'elec', label: '電子音' },
+  { id: 'light', label: '軽い音' },
+  { id: 'heavy', label: '重い音' }
+];
+var SE_IMPL = {
+  standard: { don: donStd, katsu: katsuStd },
+  wood: { don: donWood, katsu: katsuWood },
+  elec: { don: donElec, katsu: katsuElec },
+  light: { don: donLight, katsu: katsuLight },
+  heavy: { don: donHeavy, katsu: katsuHeavy }
+};
+var SE_SET_KEY = 'taiko_se_set';
+var seSet = 'standard';
+try { var savedSeSet = localStorage.getItem(SE_SET_KEY); if (savedSeSet && SE_IMPL[savedSeSet]) seSet = savedSeSet; } catch (e) {}
+function setSeSet(id) {
+  if (!SE_IMPL[id]) return false;
+  seSet = id;
+  try { localStorage.setItem(SE_SET_KEY, id); } catch (e) {}
+  try { var sel = document.getElementById('seSetSel'); if (sel) sel.value = id; } catch (e) {}
+  return true;
+}
+/* セット切り替え時の試聴：ドン→カツを続けて1回ずつ鳴らす */
+function previewSeSet() {
+  ensureAudio();
+  if (!AC) return;
+  var t = AC.currentTime;
+  donAt(t, 0.8, false);
+  katsuAt(t + 0.22, 0.65, false);
+}
+/* 打撃SEの入口：選択中のセットへ振り分ける（伴奏からは呼ばない） */
+function donAt(t, vol, big) { SE_IMPL[seSet].don(t, vol, big); }
+function katsuAt(t, vol, big) { SE_IMPL[seSet].katsu(t, vol, big); }
 /* 和風曲の伴奏専用：大太鼓（ドンより低く長く、打面のスナップがない柔らかい胴鳴り）と
    鈴（カツと無関係な高域の純音の重なり。拍子木や締太鼓のようなクリック系は使わない） */
 function oodaikoAt(t, vol) { toneAt(104, t, 0.40, 'sine', vol, 38); }
@@ -767,6 +913,7 @@ var wrapEl = $('wrapEl'), cv = $('cv'), ctx = cv.getContext('2d');
 var mode = 'solo';
 var selSong = 'matsuri', selDiff = 'normal';
 var playing = false, songTime = 0, startCtx = 0, schedTimer = null, nextStep = 0;
+var chorusMix = 0; /* サビ演出の混ざり具合（0〜1、区間の出入りでなめらかに遷移） */
 var curSong = null, curData = null, chart = [], notePtr = 0;
 var score = 0, combo = 0, maxCombo = 0, gauge = 0, counts = { good: 0, ok: 0, bad: 0 };
 var popups = [], drumPulse = { don: 0, katsu: 0 }, particles = [];
@@ -1223,6 +1370,11 @@ $('quitBtn').addEventListener('click', function () {
 });
 $('muteBtn').addEventListener('click', function () { ensureAudio(); setMuted(!muted); });
 setMuted(muted);
+var seSelEl = $('seSetSel');
+if (seSelEl) {
+  seSelEl.value = seSet;
+  seSelEl.addEventListener('change', function () { if (setSeSet(seSelEl.value)) previewSeSet(); });
+}
 
 /* ---------------- HUD ---------------- */
 var lastHud = {};
@@ -1332,6 +1484,16 @@ function drawScene(t, dt) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
   }
   drawBackdrop(theme, t, dt);
+  /* サビ区間は背景を暖色に寄せて少し明るくする（大きな文字表示は入れない） */
+  var chorusTarget = (playing && curSong && inChorus(curSong, songTime)) ? 1 : 0;
+  chorusMix += clamp(chorusTarget - chorusMix, -dt * 2.2, dt * 2.2);
+  if (chorusMix > 0.01) {
+    var cg = ctx.createLinearGradient(0, 0, 0, CH);
+    cg.addColorStop(0, 'rgba(255,116,32,' + (0.13 * chorusMix).toFixed(3) + ')');
+    cg.addColorStop(1, 'rgba(255,64,24,' + (0.06 * chorusMix).toFixed(3) + ')');
+    ctx.fillStyle = cg;
+    ctx.fillRect(0, 0, CW, CH);
+  }
   drawBigDrum(t);
   var lg = laneGeom(), laneY = lg.y, laneH = lg.h, judgeX = lg.judgeX;
   /* ── ノーツレーン帯（金属＋革の質感で浮かせる） ── */
@@ -1382,6 +1544,15 @@ function drawScene(t, dt) {
   ctx.moveTo(judgeX - 6, laneY - laneH / 2 - 1); ctx.lineTo(judgeX + 6, laneY - laneH / 2 - 1); ctx.lineTo(judgeX, laneY - laneH / 2 + 8); ctx.closePath();
   ctx.fillStyle = '#ffc93c'; ctx.fill();
   ctx.restore();
+  if (chorusMix > 0.01) {
+    /* サビ中はレーン内側に暖色のグローを重ね、枠を明るい金にして盛り上がりを示す */
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,166,48,' + (0.13 * chorusMix).toFixed(3) + ')';
+    roundRect(4, laneY - laneH / 2, CW - 8, laneH, 16); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,196,84,' + (0.65 * chorusMix).toFixed(3) + ')'; ctx.lineWidth = 2.5;
+    roundRect(4, laneY - laneH / 2, CW - 8, laneH, 16); ctx.stroke();
+    ctx.restore();
+  }
   /* 判定太鼓は音符より先に描く（音符が太鼓の縁や装飾に隠れないように） */
   drawDrum(judgeX, laneY, laneH);
   /* 流れる音符（常に太鼓より手前に描く） */
@@ -2382,13 +2553,18 @@ window.__taiko = {
   judgeFor: judgeFor, scoreFor: scoreFor, gaugeDelta: gaugeDelta, makeResult: makeResult,
   mulberry32: mulberry32, melodyVoice: melodyVoice, FORMANTS: FORMANTS, VOWELS: VOWELS,
   diffLevel: diffLevel, starStr: starStr, getRank: getRank, genreList: genreList,
+  inChorus: inChorus, onsetStr: onsetStr, chorusMix: function () { return chorusMix; },
   judgeGeom: function () { var lg = laneGeom(); return { r: JUDGE_R, noteR: NOTE_R, noteRBig: NOTE_R_BIG, x: lg.judgeX, y: lg.y, laneH: lg.h }; },
-  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre, real: curSong ? !!curSong.real : !!songById(selSong).real }; },
+  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre, real: curSong ? !!curSong.real : !!songById(selSong).real, chorus: (playing && curSong) ? inChorus(curSong, songTime) : false }; },
   bigDrum: function () { var bd = bigDrumGeom(); return { x: bd.x, y: bd.y, R: bd.R, top: bd.top }; },
   tapTypeAt: tapTypeAt,
   realInfo: function (songId) { var s = songById(songId || selSong); if (!s.real) return null; var r = realAudio[s.id]; return { state: r ? r.state : 'none', duration: r && r.el ? r.el.duration : null, currentTime: r && r.el ? r.el.currentTime : null, muted: r && r.el ? !!r.el.muted : null }; },
   seekReal: function (sec) { var r = curSong && realAudio[curSong.id]; if (r && r.el) { try { r.el.currentTime = sec; } catch (e) {} } },
   selectSong: function (songId) { selSong = songById(songId).id; var sg = songById(selSong); if (sg.real) ensureRealAudio(sg); renderSongList(); },
+  SE_SETS: SE_SETS,
+  seSet: function () { return seSet; },
+  setSeSet: setSeSet,
+  previewSeSet: previewSeSet,
   startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
   hit: hit,
   finishNow: function () { if (playing) { songTime = curData.duration + 1; finishSong(); } }

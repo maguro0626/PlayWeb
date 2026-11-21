@@ -9,8 +9,9 @@
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--bg:#0a0618;--accent:#ff5d8f;--accent2:#7c5cff;--cyan:#3fd6ff;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.14);--txt:#fdfaff;--sub:#b9aede;--gold:#ffc93c;--perfect:#ffd94d;--great:#ff7ac1;--good:#4ade80;--miss:#8f8fa8}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030f 100%);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030f 100%);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
 .wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;height:calc(100dvh - 46px);overflow:hidden}
 .ttl{font-size:25px;font-weight:900;text-align:center;letter-spacing:.06em;background:linear-gradient(92deg,#ffd94d 0%,#ff5d8f 38%,#7c5cff 72%,#3fd6ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 10px rgba(255,93,143,.45))}
 .ttl small{display:block;font-size:10.5px;letter-spacing:.34em;-webkit-text-fill-color:var(--sub);font-weight:800;margin-top:1px}
@@ -86,10 +87,13 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 .songTile .jacket{display:flex;height:52px;border-radius:9px;align-items:center;justify-content:center;font-size:27px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
 .songTile .tNm{display:block;font-size:9.5px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .songTile .tRk{display:block;font-size:9.5px;color:var(--gold);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:13px}
-#speedSeg{display:flex;align-items:center;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:8px}
-#speedSeg .segLbl{font-size:11px;color:var(--sub);font-weight:800;padding:0 4px 0 9px;white-space:nowrap}
-#speedSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:6px 2px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:34px}
+#speedSeg,#seSeg{display:flex;align-items:center;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:8px}
+#speedSeg .segLbl,#seSeg .segLbl{font-size:11px;color:var(--sub);font-weight:800;padding:0 4px 0 9px;white-space:nowrap}
+#speedSeg button,#seSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:6px 2px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:34px}
 #speedSeg button.on{background:linear-gradient(92deg,var(--cyan),#2563eb);color:#fff;box-shadow:0 2px 10px rgba(63,214,255,.4)}
+#seSeg button.on{background:linear-gradient(92deg,#ff9d5c,var(--accent));color:#fff;box-shadow:0 2px 10px rgba(255,93,143,.4)}
+#seSeg button{font-size:11px;padding:6px 0;white-space:nowrap}
+#seSeg .segLbl{padding:0 2px 0 7px}
 #hud{display:flex;flex-direction:column;gap:5px}
 .hudRow{display:flex;align-items:baseline;gap:12px}
 #hudScore{font-size:22px;font-weight:900;letter-spacing:.03em;text-shadow:0 2px 12px rgba(124,92,255,.55)}
@@ -111,8 +115,8 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
 .scoreBox b{display:block;font-size:17px;color:var(--txt)}
 .scoreBox .mini{height:6px;background:rgba(255,255,255,.1);border-radius:99px;margin-top:4px;overflow:hidden}
 .scoreBox .mini i{display:block;height:100%;background:#4ade80;width:0%}
-#stageWrap{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:2px solid rgba(160,140,255,.35);box-shadow:0 0 34px rgba(124,92,255,.28),inset 0 0 60px rgba(60,30,140,.35);background:#0a0618;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
-#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#stageWrap{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:2px solid rgba(160,140,255,.35);box-shadow:0 0 34px rgba(124,92,255,.28),inset 0 0 60px rgba(60,30,140,.35);background:#0a0618;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #resultPanel{position:absolute;inset:0;background:rgba(6,3,18,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;z-index:5;overflow:hidden}
 #resultPanel .rank{font-size:60px;font-weight:900;line-height:1;background:linear-gradient(92deg,#ffd94d,#ff5d8f,#7c5cff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 14px rgba(255,93,143,.5));animation:rankPop .55s cubic-bezier(.2,1.5,.35,1) both}
 @keyframes rankPop{0%{transform:scale(.25) rotate(-6deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
@@ -154,8 +158,8 @@ body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030
   .songTile .jacket{height:36px;font-size:20px}
   #diffSeg{margin-top:5px}
   #diffSeg button{min-height:34px;padding:5px 4px}
-  #speedSeg{margin-top:5px}
-  #speedSeg button{min-height:30px}
+  #speedSeg,#seSeg{margin-top:5px}
+  #speedSeg button,#seSeg button{min-height:30px}
 }
 </style>
 <style>
@@ -173,6 +177,7 @@ html,body{overscroll-behavior:none;}
 <div class="songGrid" id="songList"></div>
 <div id="diffSeg"><button data-d="easy">かんたん</button><button data-d="normal" class="on">ふつう</button><button data-d="hard">むずかしい</button></div>
 <div id="speedSeg"><span class="segLbl">落下速度</span><button data-s="0.8">×0.8</button><button data-s="1" class="on">×1.0</button><button data-s="1.25">×1.25</button><button data-s="1.5">×1.5</button><button data-s="2">×2.0</button></div>
+<div id="seSeg"><span class="segLbl">タップ音</span><button data-se="classic" class="on">クラシック</button><button data-se="blip">ブリップ</button><button data-se="wood">ウッド</button><button data-se="bell">ベル</button><button data-se="pop">ポップ</button></div>
 </div>
 <div id="soloPane">
 <button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
@@ -215,6 +220,10 @@ function lerp(a, b, k) { return a + (b - a) * k; }
 var LANE_COLORS = ['#ff5d8f', '#3fd6ff', '#ffd94d', '#9d6bff'];
 var LANE_KEYS = ['d', 'f', 'j', 'k'];
 var FLICK_COL = '#ffb300'; /* フリック専用色（鮮やかな黄〜オレンジ系。レーン色と明確に区別する） */
+var LONG_STRIPE_PX = 34; /* ロングノーツ本体に流れる縞の周期(px) */
+var JUDGE_LINE_H = 5; /* 判定ライン（パッド上端）の描画太さ(px) */
+var JUDGE_FONT_PX = 16; /* 判定ポップのフォントサイズ（小さく目立たなく） */
+var JUDGE_POP_MS = 380; /* 判定ポップの表示時間(ms) */
 
 /* ---------------- 曲データ ----------------
    mel は 1フレーズ=4小節×16ステップ=64文字。'.'=休符、'1'〜'9'=スケールの度数。
@@ -276,32 +285,84 @@ var SONGS = [
   {
     id: 'cipher', audio: true, parts: 14, title: 'Cipher', emo: '🎧', genre: 'エレクトロ', bpm: 150, offset: 0.367, duration: 231.26, theme: 'electro', jk: 'jk-electro',
     artist: 'Kevin MacLeod', desc: '疾走感のある本格エレクトロの実音源トラック。シンセの波に乗って叩き続けろ。', level: { easy: 3, normal: 6, hard: 9 }, jcol: ['#6366f1', '#22d3ee'],
-    credit: '"Cipher" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 3.0 License http://creativecommons.org/licenses/by/3.0/'
+    credit: '"Cipher" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 3.0 License http://creativecommons.org/licenses/by/3.0/',
+    chorus: [[30.77,38.77],[43.57,51.57],[56.37,96.37],[133.17,139.57],[145.97,176.37]],
+    steps: '0000100110001001000100011001000110010001100100010001000110000000100010011000100100010001100100010001100110010001000100000000000000002001100120011001200110011001000110011101100100011001110010011000201100011001100020011001100100011001101010002001200110' +
+      '0020010000502020027100200410012002500220025202520260012002200252004002000533022002600020042002200260022002520053026001200230024302500200045020100160012004200220026002200240025202600220022001500250020004520220015000200430022001500220033402530250023002' +
+      '2002420250020005120110026100100410022002600120024202520250022002300242024002000522222002600020032001200271022003530053026001200220024302500200053202200150012003300220026002200242024202600130023002430250020005402020026001200310022002600220024302530150' +
+      '0220022002420250020004220010016001000420022002610220025102530160022002200252024003000623022001600100042002300260012002530040026001100220025202500200052300200151020004100230016002200243025302600220022001410250020004220010026001000320023002500220027200' +
+      '0001100100011001210100021101300100001001000110011001100100011001100010000000000010001000000010011000100100011001100110010001100110011001000100011000100100002001100010010001100110011001000110011001100100010001100010001000100110001001000110011001100100' +
+      '0110011001100100010000000010000000620220026101100420022002610120025202500260023001300250025002000533222002610120043102100260020002420052026001200220024202500200052202200150022004300220026002200242025002610120022001400250020004422220026101200330022001' +
+      '5102200233025202600120022005520250024008330030005000000522004300510220006200530050000008330052004002200063004000500000063200520061000005420042006100200630004200500220006330330040000003400052005002200053004200600020034200410020090006600033004000000042' +
+      '0042005002000683000000000000001000200100011001100100001000000100011001000100010001100000000000000000000000000010011000100100010001100100010001000110010001000100011000100110011000100010010001000110010001000100011001000100010001100000001000100110001001' +
+      '0001000110010001000100011001000100010000000030000000201011101000100020000000100000001000000010001000100010001001000010000001100010001000000010000000100000011000100020000000100000001000000000000000000000000000000000000000000000000000000000000000000000' +
+      '000000000000000000000000000000000000000000000000000000000000'
   },
   {
     id: 'rapid3', audio: true, parts: 20, title: 'Rapid3', emo: '⚡', genre: 'ドラムンベース', bpm: 175, offset: 0.09, duration: 345.06, theme: 'electro', jk: 'jk-electro',
     artist: 'PeriTune', desc: 'BPM175・5分超えの長編バトルチューン。スピードと集中力が試される最難関。', level: { easy: 4, normal: 7, hard: 10 }, jcol: ['#0ea5e9', '#a855f7'],
-    credit: 'Music: "Rapid3" by PeriTune (https://peritune.com/) — CC BY 4.0'
+    credit: 'Music: "Rapid3" by PeriTune (https://peritune.com/) — CC BY 4.0',
+    chorus: [[17.92,23.4],[53.58,79.63],[124.89,149.58],[187.98,193.46],[203.06,208.55],[223.63,249.69],[294.95,319.63]],
+    steps: '0000000093000040004030004030000330403030533000300040503060402030305060404030024000605330603000303060302070300240206040005060400000400000500000000050600040006000045060007000505044606040504060006450600050005005046050005040600000606000604060000060600040' +
+      '5060544050700550005000405040404040500003505000700050504460503050305000045060005000600000507040600060005050604040406040005070007060405000506000600050000050500040005000045060008000505404505030604060004050700050005004505060005040500000705000604050300050' +
+      '6000505050600400605050005000006060405040500004506000740050400450404050305000045050000000503000505040500060045060504040406060005060007050007000600000700060000050006000600000000050400000600000000050005004500050065000000064000060000400405000054040400050' +
+      '0400500500600060600000000000005000500040600004000500500405040050005000005040604050006050500000504000505050500060404050500050005040500060506000005040000005500000004000304000300000303030304000304040403040405040404440404064005000006060005040500050606000' +
+      '7000606040505000503050005050600000005004006050004040600000506000600050400060603050505050046060045000500040506030404050004060600060005004446070404050500004405000400040000040504050005004046050405000506040605000707400400004500060005000006060005040500004' +
+      '5050008000645040506030500060005040050040005004045050005000600000506000600050300050500050405065045060004000600000507030404060004050500070405004444060304030500004405040000050030050600450004000504040045040500400507000906060600000600060006000000050500070' +
+      '5005000000000000504050505004005050500000005000005060000040006000506000405050400040500040704050000050000000006000500000000060000500000400000004407000000040700060505000000000400040400050500050005004404040405000000400505050050050040400005000006050006050' +
+      '4060406040406050505030705000708040604060504060705050004040005050405000500440405050600040400040500060505000005050006000005000006000404000004040405000004060000050000050404050005050500000500000500040504000504040404000046000006000507000500440500050000040' +
+      '0040400050300030305203205230003000600430503230303050604040002050006042305030023002503020623002420050403050504000005050006000500000607000400060000450700070005460447070004040600050506000500050040050600050006000005060007040500000606000605060550450600050' +
+      '0050004050503050405000045060006040605040606030503060004050600040006000005060406000500044504040500050500060600080604040006050008000505005606000404050000450600070006050406060305040600040400600500050040040504040005000406050005000500000606000505050540550' +
+      '6050500050004060600050405000406060007440500444605000403050004450500000006000005040306000500444505000400060600060600080005070000000006000600000500060006050000000500040405000000500500050505000000050000000550000540005004060005050405000000400505000500060' +
+      '6000000000000050005000505040000005055000050000500040500060005050500050505050004040005050505000604040505000500050405000605006004050500050505000000040000040003030303040303040300040404050404040405050400040500000004050500050005000405070006000546040506000' +
+      '5030600044607000400060050060500050406000006060005040603000605000404070604050054050005000405050404040500004506040600050044460500050505000044050005000400040505040400060040460504050406060406060007070404000405000600000000050500040405000044006008000506040' +
+      '5050305000500050506040500050044060600050406000005060006040504000606000504050755050604050005000405050304040500004506000600050044050500050305000044050045000500000506004500050004040500450506005005070007050507000000000500050005000505000700000000500000000' +
+      '6000505000055006000000000000000050600040500060005060000505044000405000400600500055500000050050005000500000600005000000000000040060000050006000505050000000000000404000505040600050004050400040404005500050505000504050005050000050500050504060005050405050' +
+      '5050306050007070407040605004607040500040500060504060406040004060405000505000505000504050500040054070005040000060000040000040400040000000500000500040500000504050405000005000406000406050005040404040004060000060004070005050405040300000000000000000000000' +
+      '0000000000000000000000000'
   },
   {
     id: 'funshine', audio: true, parts: 10, title: 'Funshine', emo: '☀️', genre: 'ポップ', bpm: 96, offset: 0.283, duration: 165.07, theme: 'pop', jk: 'jk-pop',
     artist: 'Kevin MacLeod', desc: '明るく軽快な実音源ポップ。ゆったりしたテンポで肩慣らしにぴったり。', level: { easy: 1, normal: 4, hard: 6 }, jcol: ['#fbbf24', '#fb7185'],
-    credit: '"Funshine" Kevin MacLeod (FreePD) — CC0 1.0 (Public Domain)'
+    credit: '"Funshine" Kevin MacLeod (FreePD) — CC0 1.0 (Public Domain)',
+    chorus: [[37.78,60.28],[77.78,100.28],[137.78,155.28]],
+    steps: '6040404052308050605053305240606060525330405060504040405040405050605243405050626070435330603060505040606050406330603045305030536070434440503090605240434050406060605040404030604050404050504050607042444040507250704043405030606050426060604073306030552053' +
+      '4053405030404042309230623050305040602060305230503070405040404060405240603350404050633060307040603060505020505040306030703056205040507070405430523070505250444062406070605254405040604050404050505050506052435050506250704354306030605050426070505063306030' +
+      '4520503053606042444042409050525040435340706060405340403060505040404040405060704343534050726070305343603060605062506050506330603056205030535041204030422090305230402040303040412040104120513040304050504042406220403040405030503050205030404040304050404051' +
+      '2061204620406242706052504052307060625050305240606060525040404060505040405050405050705253505050625070435040603060605042607050506430603055205030536070434040404090505250434053406060605043404030604050304040505050607052435240507250604053435030606040536070' +
+      '5050633060305630607200000000000000000000000000000000000'
   },
   {
     id: 'kenka', audio: true, parts: 10, suno: true, title: '喧嘩', emo: '💢', genre: 'ボーカル', bpm: 92.2, offset: 0.387, duration: 162.36, theme: 'rock', jk: 'jk-rock',
     artist: 'Suno', desc: '自作曲（Suno）。素直に謝ればよかった——喧嘩と仲直りを歌った一曲。', level: { easy: 2, normal: 5, hard: 7 }, jcol: ['#ef4444', '#f97316'],
-    credit: 'Suno（ユーザー自作曲）'
+    credit: 'Suno（ユーザー自作曲）',
+    chorus: [[62.86,99.3],[122.73,135.74]],
+    steps: '1011011111110101101201101012011111111101211100111101210012212112110015334302202323222542052422324300232432031303040420030403322235520743408005003540330353503703350343336350353336043302435046304603424023033203220243024323334554305053430344034303405054' +
+      '0345035404633043034403430450504504450044434070440465035407334044055404633450404343433243438043550643642054546343446503530364703433650565547450543064046435655064236505603054035403430454336444564060505304560493068050850465047504546075036304640460506304' +
+      '6640764454505404560066557470750454546545746064046544804460506506546444506450530454034304605064046504640562506403560464045250630364335373434000004002000341402310242001422050001041100011212000102210012032322020600250004032042305020443400303025003040425' +
+      '060433405333333403355454496860070707404650463056060660665046504744065037503640550707604660570664030002025110104304022060051012110400403203113023040142344456770607064046403730360406405650464058360640565045204506007036600223000011000000000000000000'
   },
   {
     id: 'suiuta', audio: true, parts: 10, suno: true, title: 'すいちゃんのうた', emo: '🐱', genre: 'ボーカル', bpm: 108, offset: 0.485, duration: 168.6, theme: 'idol', jk: 'jk-idol',
     artist: 'Suno', desc: '自作曲（Suno）。愛猫・翠ちゃんの歌。やさしいメロディに乗せて。', level: { easy: 2, normal: 4, hard: 7 }, jcol: ['#fda4af', '#fde68a'],
-    credit: 'Suno（ユーザー自作曲）'
+    credit: 'Suno（ユーザー自作曲）',
+    chorus: [[42.71,64.93],[98.26,107.15],[118.26,151.6]],
+    steps: '2002220022112201200110021100000013032010222120004040202060044000000040303040503040305030304040303030603040304040403050500030330040204020304060304022520332506200400050234060504050207025226062005030502230505000402060303053400240005042224260024020502450' +
+      '5054335022500052005000403050404350402030222050000060345030606030223200640043005030503040303220304040304330323040404000503050034040400042004303303040304330403040304030530340023040603043302203500053304030403040404030303060304040500040305033404040304050' +
+      '4050044050505000602222429023623030302240502252227000324060225103600320403440430052002042500042206023324050026020702020425022420072233040632240205020304050004200602222306020423030222000110330204000600040300000300330303000400050004040400030305003334050' +
+      '0030434040000043304032504032405320403060232240502042224033304080214000822403506340503060303252503072006022424042005320503023334020303033432020320093034003403050304330333030404030434330304040500030004003304040304303620330204330432033203330400343333200' +
+      '3040603040303230400343435333023050430240204300324000400030003000203040303040404030405030304020207050202042000000000020001000100000001000400010000000300050001010103050511000000000000111100000000000000000000000000'
   },
   {
     id: 'nyaan', audio: true, parts: 7, suno: true, title: 'にゃーん', emo: '🐾', genre: 'ボーカルポップ', bpm: 148.2, offset: 0.207, duration: 109.96, theme: 'pop', jk: 'jk-pop',
     artist: 'Suno', desc: '自作曲（Suno）。にゃーんと元気に駆け抜ける猫ポップ。', level: { easy: 3, normal: 6, hard: 8 }, jcol: ['#fb923c', '#f472b6'],
-    credit: 'Suno（ユーザー自作曲）'
+    credit: 'Suno（ユーザー自作曲）',
+    chorus: [[60.13,66.6],[71.46,107.09]],
+    steps: '1200005004800445625000300024005655050305023302356407030040240450003430405020334204304003400224223024040236000645305703040700238043823360005000425230405023503060033034060405200707034405040520050435333500406000407243406020403250437330603050005005354403' +
+      '0426003503054304333504040553350404040044704503604030500340440550304063004034353340300400370430250504350334054075060406003503644305000600007004600350445044600373407030603360507340600340303633335505033500470304630604040046034445070407033625450567004050' +
+      '0063633640603050045040553040408003438500605003600660530350400060000604603505043700450405040603450005050304060005000503060306000600040005000500050304040400364044505905808048600060406045605070054050633363507053504463404660605340435044544370506030740063' +
+      '4050445043834053308033500053336430303600707060754560546003530353605040404353034350505050436334456080305040730453405050607050404640504050447403635040405043834474335060006060405050506040006305059008400600383056033803070337440555384306050745373608050703' +
+      '5904652709030503083436440704250306050006050405000606044508040500040550551322070000000'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
@@ -344,10 +405,48 @@ var DIFFS = {
   hard:   { label: 'むずかしい', grid: 1, pAccent: 0.88, pOff: 0.30, minGap: 1, pLong: 0.26, pFlick: 0.18, pChord: 0.42, judge: { p: 0.038, g: 0.078, good: 0.125 }, approach: 1.35 }
 };
 var FLICK_DIRS = ['left', 'right', 'up', 'down'];
+/* ---------------- サビ区間とオンセット ----------------
+   実音源曲：解析データ（music_map）の chorus（秒）/ steps（16分ステップごとの
+   オンセット強度 0-9）を曲定義に埋め込み済み。
+   シンセ曲：フレーズ構成からサビ相当区間を導出する（Bフレーズ＝高音域で
+   メロディが密になるサビ相当部。連続する B は1区間にまとめる）。 */
+var CHORUS_MUL = { easy: 1.12, normal: 1.22, hard: 1.28 }; /* サビの密度倍率（最低難易度は上げ幅を小さく） */
+function chorusRangesSec(song, data) {
+  if (song.audio) return song.chorus || [];
+  var out = [];
+  song.seq.forEach(function (pk, i) {
+    if (pk !== 'B') return;
+    var s0 = i * 64 * data.stepDur, s1 = (i + 1) * 64 * data.stepDur;
+    if (out.length && Math.abs(out[out.length - 1][1] - s0) < 1e-6) out[out.length - 1][1] = s1;
+    else out.push([s0, s1]);
+  });
+  return out;
+}
+function inChorusRanges(ranges, tSec) {
+  for (var i = 0; i < ranges.length; i++) if (tSec >= ranges[i][0] && tSec < ranges[i][1]) return true;
+  return false;
+}
+function onsetAt(song, step) {
+  if (!song.steps || step < 0 || step >= song.steps.length) return 0;
+  return song.steps.charCodeAt(step) - 48;
+}
+/* オンセット強度→配置確率（[強7-9, 強5-6, 中3-4, 弱1-2]。強度0には原則置かない。
+   弱い音は高難易度の埋め草程度に留める） */
+var ONSET_P = {
+  easy:   [0.95, 0.75, 0.35, 0],
+  normal: [0.97, 0.85, 0.55, 0.12],
+  hard:   [0.99, 0.92, 0.70, 0.30]
+};
+function onsetProb(diffKey, s) {
+  if (s <= 0) return 0;
+  var t = ONSET_P[diffKey];
+  return s >= 7 ? t[0] : (s >= 5 ? t[1] : (s >= 3 ? t[2] : t[3]));
+}
 function buildChart(song, diffKey) {
   if (song.audio) return buildAudioChart(song, diffKey);
   var P = DIFFS[diffKey];
   var data = buildSongData(song);
+  var chRanges = chorusRangesSec(song, data);
   var rng = mulberry32(hashStr('sr:' + song.id + ':' + diffKey));
   var notes = [];
   var lastStep = -9999, prevLane = 1, sameLaneRun = 0;
@@ -373,25 +472,32 @@ function buildChart(song, diffKey) {
     if (step - lastStep < P.minGap) continue;
     var accent = !!data.melSteps[step];
     var barStart = step % 16 === 0;
-    var p = accent ? P.pAccent : P.pOff;
+    var ch = inChorusRanges(chRanges, step * data.stepDur);
+    /* 主旋律のリズムを主軸にする：メロディのあるステップはほぼ置き、
+       メロディの無いステップは控えめな埋め草に留める */
+    var p = accent ? Math.min(0.97, P.pAccent + 0.08) : P.pOff * 0.55;
     if (barStart) p = Math.max(p, 0.85);
     p *= (song.dens || 1);
+    if (ch) p *= CHORUS_MUL[diffKey]; /* サビは少し難しく */
     if (rng() >= p) continue;
     var lane = pickLane(step, accent);
     var type = 'tap', lenSteps = 0, dir = null;
     var ev2 = data.melEvents[step];
-    if (accent && ev2 && ev2.len >= 4 && rng() < P.pLong) {
+    if (accent && ev2 && ev2.len >= 4 && rng() < P.pLong * (ch ? 1.3 : 1)) {
       type = 'long';
       lenSteps = clamp(Math.round(ev2.len / 2) * 2, 4, 12);
       if (step + lenSteps > data.totalSteps - 4) lenSteps = data.totalSteps - 4 - step;
-    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick) {
+    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick * (ch ? 1.4 : 1)) {
       type = 'flick';
       var fr = rng();
       dir = fr < 0.34 ? 'left' : (fr < 0.68 ? 'right' : (fr < 0.88 ? 'up' : 'down'));
     }
     notes.push({ step: step, t: step * data.stepDur, lane: lane, type: type, lenSteps: lenSteps, lenSec: lenSteps * data.stepDur, dir: dir, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 });
-    /* 同時押し（小節頭などに和音ノーツを追加） */
-    if (P.pChord > 0 && (barStart || (diffKey === 'hard' && step % 8 === 0)) && rng() < P.pChord) {
+    /* 同時押し（小節頭などに和音ノーツを追加。サビでは拍ステップにも付く。
+       ロングの頭には付けない＝保持しながら別レーンを叩く要求を避ける。
+       easy は通常同時押しなしだが、サビの小節頭だけ稀に付ける） */
+    var chordP2 = ch ? (diffKey === 'easy' ? 0.18 : Math.min(1, P.pChord * 1.5)) : P.pChord;
+    if (type !== 'long' && chordP2 > 0 && (barStart || (diffKey === 'hard' && step % 8 === 0) || (ch && step % 4 === 0)) && rng() < chordP2) {
       var lane2 = (lane + 1 + Math.floor(rng() * 3)) % 4;
       notes.push({ step: step, t: step * data.stepDur, lane: lane2, type: 'tap', lenSteps: 0, lenSec: 0, dir: null, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 });
     }
@@ -411,14 +517,15 @@ function buildChart(song, diffKey) {
   notes.forEach(function (n) { counts[n.type]++; n.weight = n.type === 'long' ? 2 : 1; totalWeight += n.weight; });
   return { notes: notes, counts: counts, totalWeight: Math.max(1, totalWeight), data: data };
 }
-/* 実音源曲の譜面生成（決定的）：拍グリッド（offset + step×stepDur）に、
-   シンセ曲と同じ難易度パラメータ（grid/密度/ロング/フリック/同時押し）で配置する。
-   メロディ情報がない代わりに、小節単位の緩急（波＋16小節ごとの小休止）で単調さを避ける */
+/* 実音源曲の譜面生成（決定的）：解析データのオンセット強度に駆動されて配置する。
+   強いオンセットに優先して置き、弱いステップは高難易度の埋め草程度、強度0には置かない。
+   ロングは強いオンセットで始まり、次の強いオンセットか小節境界で終わる。
+   サビ区間は密度が上がり、同時押し/フリック/ロングの比率も少し上がる */
 function buildAudioChart(song, diffKey) {
   var P = DIFFS[diffKey];
   var data = buildSongData(song);
   var rng = mulberry32(hashStr('sr:' + song.id + ':' + diffKey));
-  var phase = (hashStr('srphase:' + song.id) % 628) / 100;
+  var chRanges = song.chorus || [];
   var notes = [];
   var lastStep = -9999, prevLane = 1, sameLaneRun = 0;
   function pickLaneAudio(accent) {
@@ -442,30 +549,37 @@ function buildAudioChart(song, diffKey) {
   for (var step = 4; step < data.totalSteps - 4; step++) {
     if (step % P.grid !== 0) continue;
     if (step - lastStep < P.minGap) continue;
-    var bar = Math.floor(step / 16);
-    var accent = step % 4 === 0;
-    var barStart = step % 16 === 0;
-    var p = accent ? P.pAccent : P.pOff;
-    if (barStart) p = Math.max(p, 0.85);
-    var inten = 0.82 + 0.33 * Math.sin(bar * 0.55 + phase);
-    if (bar % 16 === 15) inten *= 0.38; /* 16小節ごとの小休止 */
-    p *= clamp(inten, 0.3, 1.15);
+    var str = onsetAt(song, step);
+    var ch = inChorusRanges(chRanges, song.offset + step * data.stepDur);
+    var p = onsetProb(diffKey, str);
+    if (step % 16 === 0 && str >= 5) p = Math.max(p, 0.9); /* 小節頭の強い音は逃さない */
+    if (ch) p *= CHORUS_MUL[diffKey]; /* サビは少し難しく */
+    if (p > 1) p = 1;
     if (rng() >= p) continue;
+    var accent = step % 4 === 0;
     var lane = pickLaneAudio(accent);
     var type = 'tap', lenSteps = 0, dir = null;
-    if (accent && rng() < P.pLong) {
+    if (accent && str >= 6 && rng() < P.pLong * (ch ? 1.3 : 1)) {
       type = 'long';
-      var opts = [4, 6, 8, 8, 12];
-      lenSteps = opts[Math.floor(rng() * opts.length)];
+      /* 終端は「次の強いオンセット」か「小節境界」の早い方に合わせる */
+      lenSteps = 0;
+      for (var j = step + 4; j <= step + 16; j += 2) {
+        if (onsetAt(song, j) >= 6 || j % 16 === 0) { lenSteps = j - step; break; }
+      }
+      if (!lenSteps) lenSteps = 8;
       if (step + lenSteps > data.totalSteps - 2) lenSteps = data.totalSteps - 2 - step;
       if (lenSteps < 4) { type = 'tap'; lenSteps = 0; }
-    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick) {
+    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick * (ch ? 1.4 : 1)) {
       type = 'flick';
       var fr = rng();
       dir = fr < 0.34 ? 'left' : (fr < 0.68 ? 'right' : (fr < 0.88 ? 'up' : 'down'));
     }
     notes.push(mkNote(step, lane, type, lenSteps, dir));
-    if (P.pChord > 0 && (barStart || (diffKey === 'hard' && step % 8 === 0)) && rng() < P.pChord) {
+    /* 同時押し（ロングの頭には付けない。サビでは拍ステップにも付けて密度を上げる。
+       easy は通常同時押しなしだが、サビの小節頭だけ稀に付けて「サビは少し特別」にする） */
+    var chordStep = (step % 16 === 0) || (diffKey === 'hard' && step % 8 === 0) || (ch && step % 4 === 0);
+    var chordP = ch ? (diffKey === 'easy' ? 0.18 : Math.min(1, P.pChord * 1.5)) : P.pChord;
+    if (type !== 'long' && chordP > 0 && chordStep && rng() < chordP) {
       var lane2 = (lane + 1 + Math.floor(rng() * 3)) % 4;
       notes.push(mkNote(step, lane2, 'tap', 0, null));
     }
@@ -610,8 +724,36 @@ function hatAt(t, vol, open) { noiseAt(t, open ? 0.18 : 0.06, 'bandpass', open ?
 /* クラップ：乾いた破裂音は打撃音と紛らわしいので、帯域を下げて柔らかい
    三角波の胴を足し、「パチッ」ではなく温かい「パン」に寄せる */
 function clapAt(t, vol) { noiseAt(t, 0.10, 'bandpass', 950, 1.2, vol); noiseAt(t + 0.02, 0.14, 'bandpass', 1250, 1.1, vol * 0.7); toneAt(240, t, 0.05, 'triangle', vol * 0.25); }
-/* レーンタップ音（レーンごとに音程が上がる） */
-function laneTapSound(lane) { if (!AC) return; var t = AC.currentTime; toneAt(540 + lane * 110, t, 0.09, 'sine', 0.10); noiseAt(t, 0.03, 'highpass', 5000, 0.7, 0.05); }
+/* タップ音（判定SE）：5種類から選べる（starrhythm_tapse に保存）。
+   全て WebAudio 合成で、伴奏の楽器（キック=下降サイン150→44Hz / スネア=BP1800 /
+   ハット=BP2800・3400 / クラップ=BP950・1250 / メロディ=スケール音の持続音）と
+   帯域・減衰・波形・ピッチ変化の向きをずらし、伴奏とも互いとも聞き分けられる設計。
+   どの種類でもレーンごとに音程が上がり、押したレーンが耳でも分かる */
+var TAP_SE_KEY = 'starrhythm_tapse';
+var TAP_SES = [
+  { id: 'classic', name: 'クラシック' }, /* 従来音：サイン 540〜870Hz＋HP5000のクリック */
+  { id: 'blip', name: 'ブリップ' },     /* 矩形波の短い下降チャープ 920〜1430Hz・55ms */
+  { id: 'wood', name: 'ウッド' },       /* 木質ノック：サインの速い減衰 830〜1040Hz・50ms */
+  { id: 'bell', name: 'ベル' },         /* ベル：基音＋非整数倍音（×2.76）の長い余韻 */
+  { id: 'pop', name: 'ポップ' }         /* 泡ポップ：サインの上昇スライド 290→640Hz〜 */
+];
+var tapSe = 'classic';
+try { var tse0 = localStorage.getItem(TAP_SE_KEY); if (TAP_SES.some(function (s) { return s.id === tse0; })) tapSe = tse0; } catch (e) {}
+function setTapSe(id) {
+  if (!TAP_SES.some(function (s) { return s.id === id; })) return;
+  tapSe = id;
+  try { localStorage.setItem(TAP_SE_KEY, id); } catch (e) {}
+  document.querySelectorAll('#seSeg button').forEach(function (x) { x.classList.toggle('on', x.dataset.se === id); });
+}
+function laneTapSound(lane) {
+  if (!AC) return;
+  var t = AC.currentTime;
+  if (tapSe === 'blip') { var bf = 920 + lane * 170; toneAt(bf, t, 0.055, 'square', 0.055, bf * 0.62); }
+  else if (tapSe === 'wood') { toneAt(830 + lane * 70, t, 0.05, 'sine', 0.17); noiseAt(t, 0.018, 'bandpass', 1500, 1.5, 0.035); }
+  else if (tapSe === 'bell') { var ef = 1240 + lane * 150; toneAt(ef, t, 0.30, 'sine', 0.085); toneAt(ef * 2.76, t, 0.13, 'sine', 0.032); }
+  else if (tapSe === 'pop') { toneAt(290 + lane * 35, t, 0.085, 'sine', 0.15, 640 + lane * 70); }
+  else { toneAt(540 + lane * 110, t, 0.09, 'sine', 0.10); noiseAt(t, 0.03, 'highpass', 5000, 0.7, 0.05); }
+}
 function hitSound(res) { if (!AC) return; var t = AC.currentTime; if (res === 'PERFECT') { toneAt(1320, t, 0.1, 'sine', 0.10); toneAt(1980, t, 0.12, 'sine', 0.06); } else if (res === 'GREAT') toneAt(990, t, 0.09, 'sine', 0.08); else if (res === 'GOOD') toneAt(660, t, 0.08, 'sine', 0.06); }
 function flickSound() { if (!AC) return; var t = AC.currentTime; noiseAt(t, 0.13, 'bandpass', 900, 1.0, 0.16); toneAt(300, t, 0.13, 'sawtooth', 0.05, 1400); }
 
@@ -971,6 +1113,10 @@ document.querySelectorAll('#speedSeg button').forEach(function (b) {
   b.classList.toggle('on', parseFloat(b.dataset.s) === speedMul);
   b.addEventListener('click', function () { ensureAudio(); setSpeed(parseFloat(b.dataset.s)); blip(); });
 });
+document.querySelectorAll('#seSeg button').forEach(function (b) {
+  b.classList.toggle('on', b.dataset.se === tapSe);
+  b.addEventListener('click', function () { ensureAudio(); setTapSe(b.dataset.se); laneTapSound(1); /* 試聴 */ });
+});
 document.querySelectorAll('#modeSeg button').forEach(function (b) {
   b.addEventListener('click', function () {
     document.querySelectorAll('#modeSeg button').forEach(function (x) { x.classList.remove('on'); });
@@ -1290,6 +1436,10 @@ function updateFever() {
 }
 
 /* ポインター入力（タッチ／マウス共通） */
+/* 長押しコールアウト／コンテキストメニューを抑止する（iOS でロングノーツ保持中に
+   「コピー」等のポップアップが出て演奏の邪魔にならないように。CSS の
+   -webkit-touch-callout:none / user-select:none と対で効かせる） */
+document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 var pointers = {};
 var stageWrap = $('stageWrap');
 stageWrap.addEventListener('pointerdown', function (e) {
@@ -1426,6 +1576,15 @@ function roundRectPath(x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
+/* サビ区間の見た目：背景を温かい金〜桃色に寄せて「サビに入った」と分かるようにする。
+   大きな文字表示はしない。FEVER（スコア連動の虹色）とは別系統の穏やかな色づきにし、
+   区間境界では chorusMix が滑らかに追従して切り替わる */
+var chorusMix = 0, chorusCacheSong = null, chorusCacheRanges = [];
+function chorusActiveNow() {
+  if (!curSong) return false;
+  if (chorusCacheSong !== curSong) { chorusCacheSong = curSong; chorusCacheRanges = chorusRangesSec(curSong, buildSongData(curSong)); }
+  return inChorusRanges(chorusCacheRanges, songTime);
+}
 function drawScene(t, dt) {
   var theme = curSong ? curSong.theme : 'pop';
   /* 背景グラデーション */
@@ -1435,6 +1594,17 @@ function drawScene(t, dt) {
   else { g.addColorStop(0, '#150a33'); g.addColorStop(0.6, '#241055'); g.addColorStop(1, '#3a1160'); }
   ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
   drawBackdrop(theme, t, dt);
+  /* サビの色づき（背景の上に薄く重ねる。ノーツやレーンの視認性は保つ） */
+  var cTgt = (playing && chorusActiveNow()) ? 1 : 0;
+  chorusMix += (cTgt - chorusMix) * Math.min(1, (dt || 0.016) * 2.5);
+  if (Math.abs(cTgt - chorusMix) < 0.02) chorusMix = cTgt;
+  if (chorusMix > 0.01) {
+    var cg2 = ctx.createLinearGradient(0, 0, 0, CH);
+    cg2.addColorStop(0, 'rgba(255,166,66,' + (0.13 * chorusMix) + ')');
+    cg2.addColorStop(0.55, 'rgba(255,93,143,' + (0.06 * chorusMix) + ')');
+    cg2.addColorStop(1, 'rgba(255,166,66,' + (0.09 * chorusMix) + ')');
+    ctx.fillStyle = cg2; ctx.fillRect(0, 0, CW, CH);
+  }
   /* ビートに合わせた奥のグロー */
   if (playing && curSong) {
     var beat = 60 / curSong.bpm;
@@ -1792,18 +1962,48 @@ function drawNotes(t) {
       pts.push({ y: yy2, cx: laneCenterX(nt.lane, cy2), hw: laneWidthAt(cy2) * 0.30 });
     }
     var pu = 0.88 + 0.12 * Math.sin(t * 5.2 + nt.step * 0.7); /* ロングの脈動 */
+    /* 本体の輪郭パス（塗り・縞のクリップ・縁取りで共用する） */
+    function traceBody() {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].cx - pts[0].hw, pts[0].y);
+      for (var li2 = 1; li2 < pts.length; li2++) ctx.lineTo(pts[li2].cx - pts[li2].hw, pts[li2].y);
+      for (var ri2 = pts.length - 1; ri2 >= 0; ri2--) ctx.lineTo(pts[ri2].cx + pts[ri2].hw, pts[ri2].y);
+      ctx.closePath();
+    }
+    /* 本体：背景に埋もれないよう不透明度と明るさを底上げ */
     var bg2 = ctx.createLinearGradient(0, top, 0, bot);
-    bg2.addColorStop(0, hexA(LANE_COLORS[nt.lane], (holding ? 0.95 : 0.55) * pu + 0.08));
-    bg2.addColorStop(1, hexA(LANE_COLORS[nt.lane], (holding ? 0.75 : 0.35) * pu + 0.05));
+    bg2.addColorStop(0, hexA(LANE_COLORS[nt.lane], (holding ? 0.98 : 0.80) * pu + 0.06));
+    bg2.addColorStop(1, hexA(LANE_COLORS[nt.lane], (holding ? 0.88 : 0.58) * pu + 0.04));
     ctx.fillStyle = bg2;
+    traceBody(); ctx.fill();
+    /* 流れる縞：エネルギーが手前（下）へ流れるアニメーションで、
+       「押さえ続ける帯」だと流れで分かるようにする */
+    var minCx = 1e9, maxCx = -1e9, maxHw = 0;
+    for (var pi2 = 0; pi2 < pts.length; pi2++) {
+      if (pts[pi2].cx < minCx) minCx = pts[pi2].cx;
+      if (pts[pi2].cx > maxCx) maxCx = pts[pi2].cx;
+      if (pts[pi2].hw > maxHw) maxHw = pts[pi2].hw;
+    }
+    ctx.save();
+    traceBody(); ctx.clip();
+    var flowOff = (t * 175) % LONG_STRIPE_PX;
+    ctx.fillStyle = 'rgba(255,255,255,' + (holding ? 0.30 : 0.20) + ')';
+    for (var fy = top - LONG_STRIPE_PX + flowOff; fy < bot; fy += LONG_STRIPE_PX) {
+      ctx.fillRect(minCx - maxHw - 2, fy, (maxCx - minCx) + maxHw * 2 + 4, 7);
+    }
+    ctx.restore();
+    /* 中心の明るい芯（帯の中心線に沿って引く） */
+    ctx.strokeStyle = 'rgba(255,255,255,' + (holding ? 0.35 : 0.18) + ')';
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(pts[0].cx - pts[0].hw, pts[0].y);
-    for (var li2 = 1; li2 < pts.length; li2++) ctx.lineTo(pts[li2].cx - pts[li2].hw, pts[li2].y);
-    for (var ri2 = pts.length - 1; ri2 >= 0; ri2--) ctx.lineTo(pts[ri2].cx + pts[ri2].hw, pts[ri2].y);
-    ctx.closePath(); ctx.fill();
-    /* 縁のグロー（帯の輪郭を光らせる） */
-    ctx.strokeStyle = hexA(LANE_COLORS[nt.lane], holding ? 0.65 : 0.38);
-    ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.moveTo(pts[0].cx, pts[0].y);
+    for (var ki2 = 1; ki2 < pts.length; ki2++) ctx.lineTo(pts[ki2].cx, pts[ki2].y);
+    ctx.stroke();
+    /* 縁のライン：太く強く（レーン色＋白の二重） */
+    ctx.strokeStyle = hexA(LANE_COLORS[nt.lane], holding ? 0.95 : 0.80);
+    ctx.lineWidth = 2.4; traceBody(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,' + (holding ? 0.55 : 0.30) + ')';
+    ctx.lineWidth = 1; traceBody(); ctx.stroke();
     if (holding) {
       ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 4;
       ctx.beginPath();
@@ -1819,6 +2019,10 @@ function drawNotes(t) {
     if (nt.t - songTime > ap) break;
     y = noteY(nt.t);
     if (y < -44) continue;
+    if (nt.type === 'long') { /* 終端キャップは保持中も含め常時見えるように先に描く */
+      var ty = noteY(nt.t + nt.lenSec);
+      if (ty > -44) drawNoteCap(nt, ty);
+    }
     if (nt.type === 'long' && nt.state === 'holding') continue; /* 保持中は頭を表示しない */
     /* 残像（トレイル）：少し前の位置に薄いゴーストを2枚 */
     if (playing && y > 6) {
@@ -1834,10 +2038,6 @@ function drawNotes(t) {
       }
     }
     drawNote(nt, y, t);
-    if (nt.type === 'long') { /* 終端キャップ */
-      var ty = noteY(nt.t + nt.lenSec);
-      if (ty > -44) drawNoteCap(nt, ty);
-    }
   }
 }
 /* ノーツの描画パラメータ（遠近スケール込み）。テストからも参照する単一の出所。
@@ -1907,22 +2107,36 @@ function drawNote(nt, y, t) {
   ctx.restore();
 }
 function drawNoteCap(nt, y) {
-  var w = laneWidthAt(clamp(y, 0, judgeY())) * 0.6;
-  var x = laneCenterX(nt.lane, clamp(y, 0, judgeY()));
-  /* 終端が近づいたら大きく白く脈動して「ここで離す」の合図にする */
+  /* 終端マーカー：ヘッド（横長の錠剤型ノーツ）と混同しないよう、丸いリング＋
+     中央のエンドバー（太い横線）で「ここで終わる／離す」を一目で示す */
+  var yy = clamp(y, 0, judgeY());
+  var w = laneWidthAt(yy);
+  var x = laneCenterX(nt.lane, yy);
+  var col = LANE_COLORS[nt.lane];
+  /* 終端が近づいたら大きく脈動して「ここで離す」の合図にする */
   var dtTail = (nt.t + nt.lenSec) - songTime;
   var near = playing ? clamp(1 - Math.abs(dtTail) / 0.6, 0, 1) : 0;
   var sc = 1 + 0.38 * near * (0.72 + 0.28 * Math.sin(performance.now() / 55));
+  var r = Math.max(6.5, w * 0.17);
   ctx.save();
   ctx.translate(x, y); ctx.scale(sc, sc);
-  if (near > 0.03) {
-    ctx.fillStyle = 'rgba(255,255,255,' + (0.35 * near) + ')';
-    roundRectPath(-w / 2 - 5, -11, w + 10, 22, 11); ctx.fill();
-  }
-  ctx.fillStyle = near > 0.45 ? '#ffffff' : hexA(LANE_COLORS[nt.lane], 0.9);
-  roundRectPath(-w / 2, -6, w, 12, 6); ctx.fill();
-  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,.9)';
-  roundRectPath(-w / 2, -6, w, 12, 6); ctx.stroke();
+  /* 外側のグロー（近づくほど白く強く） */
+  ctx.fillStyle = near > 0.03 ? 'rgba(255,255,255,' + (0.30 * near + 0.10) + ')' : hexA(col, 0.22);
+  ctx.beginPath(); ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2); ctx.fill();
+  /* 本体：レーン色の円盤 */
+  var cg = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.2, 0, 0, r);
+  cg.addColorStop(0, '#ffffff');
+  cg.addColorStop(0.35, col);
+  cg.addColorStop(1, col);
+  ctx.fillStyle = near > 0.45 ? '#ffffff' : cg;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  /* 白いリング（終端の輪郭） */
+  ctx.lineWidth = Math.max(2.4, r * 0.24);
+  ctx.strokeStyle = near > 0.45 ? '#ffd94d' : 'rgba(255,255,255,.95)';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+  /* エンドバー：中央の太い横線＝「ここが最後」の印 */
+  ctx.fillStyle = near > 0.45 ? col : 'rgba(255,255,255,.95)';
+  roundRectPath(-r * 0.62, -r * 0.17, r * 1.24, r * 0.34, r * 0.17); ctx.fill();
   ctx.restore();
 }
 function drawFlickArrow(x, y, dir, t, s) {
@@ -2021,10 +2235,42 @@ function drawPads(t) {
     ctx.restore();
   }
   /* 判定ライン：パッドの上端を横切る光の線（ここに重なった瞬間が判定） */
+  drawJudgeLine(t, cx, hwB, jy, jg, pulse);
+}
+function drawJudgeLine(t, cx, hwB, jy, jg, pulse) {
+  /* 判定ラインの強調描画：太く明るいライン＋グロー＋白い芯＋流れる輝き＋
+     レーン境界マーカーで、背景や FEVER 演出の中でも一目で分かるようにする。
+     位置は従来どおりパッド上端（jy）そのもの＝判定タイミングは不変 */
   ctx.save();
+  /* グロー（ぼかした太い光の下地） */
+  ctx.globalAlpha = 0.45 + 0.20 * pulse;
   ctx.fillStyle = jg;
-  ctx.globalAlpha = 0.85;
-  ctx.fillRect(cx - hwB - 2, jy - 1.4, hwB * 2 + 4, 2.8);
+  ctx.fillRect(cx - hwB - 3, jy - 5, hwB * 2 + 6, 10);
+  /* 本体ライン（太さ JUDGE_LINE_H px） */
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = jg;
+  ctx.fillRect(cx - hwB - 2, jy - JUDGE_LINE_H / 2, hwB * 2 + 4, JUDGE_LINE_H);
+  /* 中心の白い芯 */
+  ctx.fillStyle = 'rgba(255,255,255,.95)';
+  ctx.fillRect(cx - hwB - 2, jy - 0.8, hwB * 2 + 4, 1.6);
+  /* 流れる輝き（ライン上を光が走る） */
+  var shimX = cx - hwB - 60 + ((t * 300) % (hwB * 2 + 120));
+  var shimG = ctx.createLinearGradient(shimX - 60, 0, shimX + 60, 0);
+  shimG.addColorStop(0, 'rgba(255,255,255,0)');
+  shimG.addColorStop(0.5, 'rgba(255,255,255,.8)');
+  shimG.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shimG;
+  ctx.fillRect(shimX - 60, jy - JUDGE_LINE_H / 2, 120, JUDGE_LINE_H);
+  /* レーン境界マーカー（区切り位置を示す白い三角） */
+  ctx.fillStyle = '#ffffff';
+  for (var b = 0; b <= 4; b++) {
+    var bx = cx + (b - 2) * (hwB * 2 / 4);
+    ctx.beginPath();
+    ctx.moveTo(bx, jy - 10);
+    ctx.lineTo(bx - 4.5, jy - JUDGE_LINE_H / 2 - 0.5);
+    ctx.lineTo(bx + 4.5, jy - JUDGE_LINE_H / 2 - 0.5);
+    ctx.closePath(); ctx.fill();
+  }
   ctx.restore();
 }
 function drawFx(t, dt) {
@@ -2119,36 +2365,25 @@ function drawJudgePop(t) {
       ctx.restore();
     }
   }
-  /* 判定ポップ */
+  /* 判定ポップ：ノーツの視認を妨げないよう小さく・短く・装飾控えめに。
+     種類の判別は色＋太字で保つ（PERFECT=金 / GREAT=桃 / GOOD=緑 / MISS=灰） */
   if (!judgePop) return;
-  var k = (performance.now() - judgePop.t0) / 550;
+  var k = (performance.now() - judgePop.t0) / JUDGE_POP_MS;
   if (k >= 1) { judgePop = null; return; }
   var res = judgePop.res;
-  var scale = 1 + 0.55 * Math.exp(-k * 9);
+  var scale = 1 + 0.22 * Math.exp(-k * 9);
   ctx.save();
-  ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-  ctx.translate(CW / 2, judgeY() - 108); ctx.scale(scale, scale);
-  ctx.font = '900 31px sans-serif'; ctx.textAlign = 'center';
-  ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(10,4,30,.7)';
+  ctx.globalAlpha = k < 0.65 ? 0.92 : 0.92 * (1 - (k - 0.65) / 0.35);
+  ctx.translate(CW / 2, judgeY() - 96); ctx.scale(scale, scale);
+  ctx.font = '900 ' + JUDGE_FONT_PX + 'px sans-serif'; ctx.textAlign = 'center';
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,4,30,.7)';
   ctx.strokeText(res, 0, 0);
   if (res === 'PERFECT') {
-    /* 金〜虹のシマー＋強いグロー＋周囲にキラキラ */
-    ctx.shadowColor = 'rgba(255,205,60,.95)'; ctx.shadowBlur = 17;
-    var pg = ctx.createLinearGradient(-70, 0, 70, 0);
-    var hue = (performance.now() / 9) % 360;
-    pg.addColorStop(0, '#ffd94d'); pg.addColorStop(0.5, '#fff3b0'); pg.addColorStop(1, '#ff9d5c');
-    ctx.fillStyle = pg;
+    ctx.shadowColor = 'rgba(255,205,60,.8)'; ctx.shadowBlur = 5;
+    ctx.fillStyle = '#ffd94d';
     ctx.fillText(res, 0, 0);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255,240,180,.95)';
-    for (var si = 0; si < 6; si++) {
-      var sa = si * 1.047 + performance.now() / 260;
-      var sx = Math.cos(sa) * (74 + 7 * Math.sin(performance.now() / 170 + si));
-      var sy = Math.sin(sa) * 17 - 9;
-      starPath(sx, sy, 4.6 + 1.6 * Math.sin(performance.now() / 130 + si * 2), sa);
-      ctx.fill();
-    }
-  } else if (res === 'GREAT') { ctx.shadowColor = 'rgba(255,122,193,.8)'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff7ac1'; ctx.fillText(res, 0, 0); ctx.shadowBlur = 0; }
+  } else if (res === 'GREAT') { ctx.shadowColor = 'rgba(255,122,193,.6)'; ctx.shadowBlur = 3; ctx.fillStyle = '#ff7ac1'; ctx.fillText(res, 0, 0); ctx.shadowBlur = 0; }
   else if (res === 'GOOD') { ctx.fillStyle = '#4ade80'; ctx.fillText(res, 0, 0); }
   else { ctx.fillStyle = '#8f8fa8'; ctx.fillText(res, 0, 0); }
   ctx.restore();
@@ -2378,6 +2613,16 @@ window.__sr = {
   noteState: function (i) { return chart[i] ? chart[i].state : null; },
   getSpeed: function () { return speedMul; },
   setSpeed: function (v) { setSpeed(v); },
+  getTapSe: function () { return tapSe; },
+  tapSound: function (lane) { laneTapSound(lane); },
+  setTapSe: function (id) { setTapSe(id); },
+  tapSes: function () { return TAP_SES.map(function (s) { return s.id; }); },
+  judgeFontPx: function () { return JUDGE_FONT_PX; },
+  judgePopMs: function () { return JUDGE_POP_MS; },
+  chorusOf: function (id) { var s = songById(id); return chorusRangesSec(s, buildSongData(s)); },
+  onsetAt: function (id, step) { return onsetAt(songById(id), step); },
+  chorusMul: function () { return CHORUS_MUL; },
+  chorusMixNow: function () { return chorusMix; },
   approachSec: function () { return approachSec(); },
   audioInfo: function () { return { active: curAudioActive, started: audioStartedFlag, ended: audioEndedFlag, duration: (audioEl && isFinite(audioEl.duration)) ? audioEl.duration : null, currentTime: audioEl ? audioEl.currentTime : null, paused: audioEl ? audioEl.paused : null }; },
   audioReady: function (id) { var s = songById(id); return s.audio ? audioDataReady(s) : null; },
