@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>スネークアリーナ | PlayWeb</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#070b16; }
+  body { font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; color:#eafff2;
+         touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+  #cv { position:fixed; inset:0; display:block; }
+  /* ── HUD ── */
+  #hud { position:fixed; top:var(--pw-header-h,46px); left:0; right:0; z-index:20; pointer-events:none; display:none; }
+  #myStats { position:absolute; top:6px; left:8px; display:flex; flex-direction:column; gap:5px; align-items:flex-start; }
+  .chip { background:rgba(8,26,20,.78); border:1px solid rgba(110,255,180,.35); border-radius:999px; padding:4px 11px;
+          font-size:13.5px; font-weight:800; letter-spacing:.02em; backdrop-filter:blur(3px); white-space:nowrap; }
+  .chip b { color:#8dffbe; }
+  #killFeed { font-size:12px; font-weight:700; color:#ffe1a1; text-shadow:0 1px 4px #000; opacity:0; transition:opacity .4s; max-width:62vw; }
+  #rankPanel { position:absolute; top:6px; right:8px; width:158px; background:rgba(6,18,16,.72); border:1px solid rgba(110,255,180,.28);
+               border-radius:12px; padding:7px 9px; backdrop-filter:blur(3px); font-size:11.5px; line-height:1.5; }
+  #rankPanel .rt { font-size:12px; font-weight:900; color:#8dffbe; letter-spacing:.06em; margin-bottom:2px; }
+  #rankPanel .row { display:flex; gap:5px; white-space:nowrap; overflow:hidden; }
+  #rankPanel .row .no { flex:0 0 17px; color:#9fd8bb; font-weight:800; }
+  #rankPanel .row .nm { flex:1; overflow:hidden; text-overflow:ellipsis; }
+  #rankPanel .row .ms { font-weight:800; color:#eafff2; }
+  #rankPanel .row.me { color:#ffe97a; font-weight:900; }
+  #rankPanel .row.me .no, #rankPanel .row.me .ms { color:#ffe97a; }
+  #netStatus { position:fixed; top:calc(120px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:21;
+               font-size:12.5px; font-weight:700; color:#ffd9a1; text-shadow:0 1px 4px #000; pointer-events:none; text-align:center; width:94vw; }
+  #boostBtn { position:fixed; right:16px; bottom:calc(22px + env(safe-area-inset-bottom)); z-index:22; width:88px; height:88px; border-radius:50%;
+              border:2px solid rgba(160,255,205,.55); background:radial-gradient(circle at 35% 30%, rgba(90,255,170,.5), rgba(10,80,50,.72));
+              color:#eafff2; font-size:15px; font-weight:900; font-family:inherit; display:none; align-items:center; justify-content:center;
+              box-shadow:0 6px 18px rgba(0,0,0,.5); touch-action:none; }
+  #boostBtn.on { background:radial-gradient(circle at 35% 30%, rgba(190,255,220,.85), rgba(20,140,80,.85)); transform:scale(.94); }
+  #boostBtn small { display:block; font-size:10px; font-weight:700; opacity:.85; }
+  #pauseBtn { position:fixed; left:8px; bottom:calc(146px + env(safe-area-inset-bottom)); z-index:22; width:44px; height:44px; border-radius:50%;
+              border:1px solid rgba(140,220,180,.4); background:rgba(8,26,20,.72); color:#c9ffe0; font-size:17px; display:none; font-family:inherit; }
+  /* ── 画面（タイトル等） ── */
+  .scr { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:18px;
+         background:radial-gradient(ellipse at 50% 30%, rgba(16,84,54,.88), rgba(3,10,8,.96)); overflow-y:auto; }
+  .scr.show { display:flex; }
+  .card { width:min(430px,94vw); background:rgba(8,26,20,.93); border:1px solid rgba(110,255,180,.35); border-radius:20px;
+          padding:24px 20px; box-shadow:0 18px 50px rgba(0,0,0,.55); text-align:center; max-height:92vh; overflow-y:auto; }
+  .gameTitle { font-size:36px; font-weight:900; letter-spacing:.05em; color:#eafff2;
+               text-shadow:0 0 18px rgba(80,255,160,.6), 0 3px 0 #0d5c36; }
+  .gameSub { font-size:13px; color:#a9e8c8; margin:6px 0 4px; line-height:1.65; }
+  .bigBtn { display:block; width:100%; margin:10px 0 0; padding:14px; border:none; border-radius:13px; cursor:pointer;
+            font-size:16.5px; font-weight:900; font-family:inherit; color:#fff; background:linear-gradient(90deg,#17a35c,#3ed97e);
+            box-shadow:0 5px 0 #0d6e3c; }
+  .bigBtn:active { transform:translateY(2px); box-shadow:0 3px 0 #0d6e3c; }
+  .bigBtn:disabled { opacity:.4; box-shadow:none; }
+  .subBtn { display:block; width:100%; margin:9px 0 0; padding:12px; border-radius:12px; cursor:pointer; font-family:inherit;
+            font-size:14.5px; font-weight:800; color:#dcffea; background:rgba(70,220,150,.14); border:1px solid rgba(120,255,185,.4); }
+  .subBtn:active { transform:translateY(1px); }
+  .rowBtns { display:flex; gap:9px; } .rowBtns > * { flex:1; }
+  .note { font-size:12px; color:#8fd8ae; line-height:1.7; margin-top:12px; text-align:left; }
+  .note.center { text-align:center; }
+  .err { color:#ff9d8f; }
+  .ok { color:#9fe8b1; }
+  #roomCodeWrap { display:none; margin:12px 0 2px; }
+  #roomCodeText { font-size:31px; font-weight:900; letter-spacing:.32em; color:#ffe9a8; text-shadow:0 0 14px rgba(255,190,60,.5); }
+  .codeInput { width:130px; padding:11px; font-size:19px; font-weight:900; letter-spacing:.24em; text-align:center; text-transform:uppercase;
+               border-radius:11px; border:1px solid rgba(120,255,185,.5); background:rgba(255,255,255,.07); color:#fff; font-family:inherit; }
+  #lobbyStatus { font-size:13px; line-height:1.7; color:#d2ffe4; margin-top:12px; min-height:22px; }
+  .statGrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 4px; }
+  .statBox { background:rgba(70,220,150,.1); border:1px solid rgba(120,255,185,.25); border-radius:12px; padding:9px 6px; }
+  .statBox .v { font-size:21px; font-weight:900; color:#8dffbe; }
+  .statBox .k { font-size:11px; color:#a9e8c8; font-weight:700; margin-top:1px; }
+  #newBest { display:none; font-size:15px; font-weight:900; color:#ffe97a; text-shadow:0 0 12px rgba(255,210,60,.6); margin-top:8px; }
+  #muteBtn { float:right; border:none; background:none; font-size:19px; cursor:pointer; }
+  @media (max-width:430px) { #rankPanel { width:138px; font-size:10.5px; } .gameTitle { font-size:31px; } }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div id="myStats">
+    <span class="chip">🐍 長さ <b id="stLen">10</b>　💀 <b id="stKill">0</b>　🏆 <b id="stRank">-</b>位</span>
+    <div id="killFeed"></div>
+  </div>
+  <div id="rankPanel"><div class="rt">🏆 ランキング</div><div id="rankList"></div></div>
+</div>
+<div id="netStatus"></div>
+<button id="boostBtn">🚀<br><small>ブースト</small></button>
+<button id="pauseBtn">⏸</button>
+
+<!-- タイトル -->
+<div class="scr show" id="titleScr">
+  <div class="card">
+    <button id="muteBtn">🔊</button>
+    <div style="font-size:42px">🐍</div>
+    <div class="gameTitle">スネークアリーナ</div>
+    <div class="gameSub">広大なアリーナにヘビが蔓延る、生存競争バトル！<br>オーブを食べて長く太く育ち、ライバルの体に頭をぶつけさせて倒そう。<br>自分の頭が他のヘビの体や壁に触れるとアウトだよ。</div>
+    <button class="bigBtn" id="soloBtn">▶ ソロプレイ</button>
+    <button class="subBtn" id="mpBtn">🤝 フレンドと対戦</button>
+    <button class="subBtn" id="helpBtn">📖 あそびかた</button>
+    <div class="note center" id="bestBox"></div>
+    <div class="note">🌟 大きなオーブは倒れたヘビの残骸。囲い込むように追い込むと大物も仕留められる。<br>🚀 ブースト中は長さを少しずつ落として加速するよ。</div>
+  </div>
+</div>
+
+<!-- ロビー -->
+<div class="scr" id="lobbyScr">
+  <div class="card">
+    <div style="font-size:21px;font-weight:900">🤝 フレンドと対戦</div>
+    <div class="gameSub">ホストがアリーナを管理し、ゲストは自分のヘビで参加します。<br>同じアリーナでNPCヘビたちと一緒に戦うよ。死んでもその場でリスポーンできる。</div>
+    <div id="roomCodeWrap">部屋コード<div id="roomCodeText">------</div></div>
+    <button class="bigBtn" id="hostBtn">🏠 部屋を作る</button>
+    <button class="bigBtn" id="startBtn" style="display:none">🐍 対戦スタート</button>
+    <div style="margin:14px 0 4px;font-size:13px;color:#a9e8c8;font-weight:800">コードで参加する</div>
+    <div class="rowBtns" style="align-items:center">
+      <input class="codeInput" id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
+      <button class="subBtn" id="joinBtn" style="margin:0">参加する</button>
+    </div>
+    <div id="lobbyStatus"></div>
+    <button class="subBtn" id="lobbyBack">← もどる</button>
+  </div>
+</div>
+
+<!-- ヘルプ -->
+<div class="scr" id="helpScr">
+  <div class="card" style="text-align:left">
+    <div style="font-size:20px;font-weight:900;text-align:center">📖 あそびかた</div>
+    <div class="note" style="font-size:13px;color:#d2ffe4">
+      ・画面をドラッグ（マウスは移動）すると、指の方向へヘビの頭が向かいます。<br>
+      ・🚀ブーストボタン（またはマウスクリック長押し／スペースキー）を押している間は加速しますが、長さが少しずつ減ってオーブを落とします。<br>
+      ・光るオーブを食べると長くなります。大きなオーブほどたくさん伸びます。<br>
+      ・頭が他のヘビの体やアリーナの壁（赤い境界）に触れると死んでしまい、体はオーブの列に変わります。自分の体は触れても大丈夫。<br>
+      ・小さいヘビの進路をふさいだり、大きなヘビを囲い込むと仕留められます。倒すとキル数が増えます。<br>
+      ・アリーナにはNPCヘビが常時20体以上這っています。中には大きく育った大物や、襲ってくる好戦的な個体も。<br>
+      ・右上のランキングはアリーナ全体のトップ10。左下のミニマップで大物の位置が分かります。<br>
+      ・ソロは死んだらゲームオーバー。フレンド対戦では死んでもリスポーンして戦い続けられます。<br>
+      ・ベスト記録（最大の長さ）はこの端末に保存されます。
+    </div>
+    <button class="subBtn" id="helpBack">← もどる</button>
+  </div>
+</div>
+
+<!-- ポーズ -->
+<div class="scr" id="pauseScr">
+  <div class="card">
+    <div style="font-size:21px;font-weight:900">⏸ ポーズ</div>
+    <button class="bigBtn" id="resumeBtn">▶ つづける</button>
+    <button class="subBtn" id="pauseMuteBtn">🔊 サウンド ON/OFF</button>
+    <button class="subBtn" id="quitBtn">🏳 タイトルへ</button>
+  </div>
+</div>
+
+<!-- ゲームオーバー -->
+<div class="scr" id="overScr">
+  <div class="card">
+    <div style="font-size:42px">💀</div>
+    <div style="font-size:24px;font-weight:900;margin-top:4px">やられた…！</div>
+    <div class="gameSub" id="overSub"></div>
+    <div id="newBest">🎉 ベスト更新！</div>
+    <div class="statGrid">
+      <div class="statBox"><div class="v" id="ovLen">0</div><div class="k">最大の長さ</div></div>
+      <div class="statBox"><div class="v" id="ovRank">-</div><div class="k">最終順位</div></div>
+      <div class="statBox"><div class="v" id="ovKill">0</div><div class="k">キル数</div></div>
+      <div class="statBox"><div class="v" id="ovTime">0:00</div><div class="k">生存時間</div></div>
+    </div>
+    <button class="bigBtn" id="retryBtn">🔄 もう一度</button>
+    <button class="subBtn" id="overTitleBtn">タイトルへ</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════ スネークアリーナ（slither風ヘビ対戦） ═══════════════
+   広大な円形アリーナで NPC ヘビが蔓延る中、オーブを食べて育ち、
+   頭を他人の体にぶつけないよう生き残る。マルチは別スクリプトの
+   ホスト権威型（PeerJS）がこのシミュレーションを駆動する。 */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const TAU = Math.PI * 2;
+function angDiff(a, b) { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; }
+function rand(a, b) { return a + Math.random() * (b - a); }
+function shade(hue, sat, li) { return 'hsl(' + hue + ',' + sat + '%,' + li + '%)'; }
+
+/* ── 定数 ── */
+const WORLD_R = 3000;            /* アリーナ半径 */
+const NPC_TARGET = 24;           /* 常駐NPC数 */
+const AMBIENT_ORBS = 650;        /* 常駐する小オーブ数 */
+const ORB_CAP = 1750;            /* オーブ総数上限 */
+const START_MASS = 10;
+const PATH_STEP = 4;             /* 経路点の間隔(px) */
+const BASE_SPEED = 168, BOOST_SPEED = 305;
+const BOOST_DRAIN = 3.2;         /* ブースト中の質量減少/秒 */
+const GRID_CELL = 90;
+
+/* ── サウンド（WebAudio合成・最小） ── */
+let AC = null, muted = false;
+try { muted = localStorage.getItem('snake_mute_v1') === '1'; } catch (e) {}
+function initAudio() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
+}
+function beep(freq, dur, type, vol, slide) {
+  if (!AC || muted) return;
+  try {
+    const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+    g.gain.setValueAtTime(vol || 0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const sfx = {
+  eat: () => beep(520 + Math.random() * 160, 0.07, 'sine', 0.05, 240),
+  bigEat: () => beep(340, 0.13, 'triangle', 0.09, 320),
+  kill: () => { beep(700, 0.12, 'square', 0.06, 300); setTimeout(() => beep(980, 0.16, 'square', 0.06, 200), 70); },
+  die: () => beep(300, 0.5, 'sawtooth', 0.09, -220),
+  click: () => beep(660, 0.05, 'sine', 0.05),
+  spawn: () => beep(440, 0.1, 'triangle', 0.06, 220),
+};
+
+/* ── ベスト記録 ── */
+const BEST_KEY = 'snake_best_v1';
+function loadBest() { try { return JSON.parse(localStorage.getItem(BEST_KEY) || 'null') || { best: 0, kills: 0, time: 0 }; } catch (e) { return { best: 0, kills: 0, time: 0 }; } }
+function saveBest(b) { try { localStorage.setItem(BEST_KEY, JSON.stringify(b)); } catch (e) {} }
+
+/* ── NPC の名前・見た目 ── */
+const NPC_NAMES = ['ニョロ太', 'スリリン', 'うねうね丸', 'クネ子', 'ノロノロ', 'シュルル', 'ピカニョロ', 'もじもじ', 'グネグネ', 'はやぶさ丸', 'ドスコイ', 'ねじれ姫', 'スネークン', 'うにょうにょ', 'カーブ王', 'つるつる', 'マキマキ', 'よじよじ', 'ヌルヌル', 'ガブリン', 'しゅるり', 'ポコ太', 'うねりん', 'キロロ', 'ズルズル', 'まがりん', 'ホソミ', 'デカ丸', 'ちびにょろ', 'オボロ'];
+const NPC_HUES = [8, 28, 48, 75, 95, 130, 160, 185, 205, 225, 250, 275, 300, 325, 345];
+
+/* ── ワールド状態 ── */
+let S = null;          /* { seed, time, snakes:[], orbs:[], nextId, startedAt, over } */
+let mode = 'title';    /* title | solo | host | guest */
+let paused = false;
+let feedTimer = 0;
+
+function mkOrb(x, y, v, hue) {
+  return { x, y, v, r: v >= 3 ? rand(7.5, 10.5) : rand(3.4, 5.4), hue: hue !== undefined ? hue : (Math.random() * 360) | 0, ph: Math.random() * TAU };
+}
+function scatterOrbs(n, list) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, d = Math.sqrt(Math.random()) * (WORLD_R - 90);
+    list.push(mkOrb(Math.cos(a) * d, Math.sin(a) * d, 1));
+  }
+}
+function newWorld(seed) {
+  const w = { seed: seed || 1, time: 0, snakes: [], orbs: [], nextId: 1, startedAt: Date.now(), over: false, tick: 0 };
+  scatterOrbs(AMBIENT_ORBS, w.orbs);
+  return w;
+}
+
+/* ── ヘビ ── */
+let snakeSeq = 0;
+function radiusFor(mass) { return Math.min(30, 7 + Math.sqrt(Math.max(1, mass)) * 1.15); }
+function pathLenFor(mass) { return 95 + mass * 9; }
+function turnRateFor(s) { return clamp(4.4 - s.radius * 0.055, 2.2, 4.4); }
+function mkSnake(name, hue, pattern, opts) {
+  opts = opts || {};
+  const mass = opts.mass || START_MASS;
+  const a = Math.random() * TAU;
+  const d = opts.d !== undefined ? opts.d : rand(500, WORLD_R * 0.72);
+  const x = Math.cos(a) * d, y = Math.sin(a) * d;
+  const ang = Math.random() * TAU;
+  const s = {
+    id: S ? S.nextId++ : ++snakeSeq, name, hue, pattern: pattern || 0,
+    isPlayer: !!opts.isPlayer, isGuest: !!opts.isGuest, ai: opts.ai || null,
+    x, y, ang, targetAng: ang, boost: false, boostHeld: false,
+    mass, maxMass: mass, kills: 0, alive: true, deadAt: 0,
+    radius: radiusFor(mass), path: [], lenPx: 0, samples: [],
+    bornAt: S ? S.time : 0, aiT: Math.random() * 0.2, dropT: 0, nameW: 0,
+  };
+  /* 初期経路：頭から後方へ一直線 */
+  initPath(s);
+  return s;
+}
+function initPath(s) {
+  s.path = [];
+  const L = pathLenFor(s.mass);
+  const n = Math.max(3, Math.round(L / PATH_STEP));
+  for (let i = 0; i <= n; i++) s.path.push({ x: s.x - Math.cos(s.ang) * i * PATH_STEP, y: s.y - Math.sin(s.ang) * i * PATH_STEP });
+  s.lenPx = L;
+  computeSamples(s);
+}
+/* 他のヘビから離れた位置に置き直す（スポーン直後の即死防止）。向きは中心寄り */
+function placeSnakeAt(s, w, minD, maxD) {
+  for (let tries = 0; tries < 10; tries++) {
+    const a = Math.random() * TAU, d = rand(minD, maxD);
+    const x = Math.cos(a) * d, y = Math.sin(a) * d;
+    let ok = true;
+    for (const o of w.snakes) { if (o !== s && o.alive && Math.hypot(o.x - x, o.y - y) < 300) { ok = false; break; } }
+    s.x = x; s.y = y;
+    s.ang = Math.atan2(-y, -x) + rand(-0.7, 0.7);
+    s.targetAng = s.ang;
+    initPath(s);
+    if (ok) break;
+  }
+}
+function spawnNPC(w) {
+  const r = Math.random();
+  let mass;
+  if (r < 0.55) mass = rand(10, 45); else if (r < 0.82) mass = rand(45, 130); else if (r < 0.95) mass = rand(130, 300); else mass = rand(300, 520);
+  const hue = NPC_HUES[(Math.random() * NPC_HUES.length) | 0];
+  const s = mkSnake(NPC_NAMES[(Math.random() * NPC_NAMES.length) | 0], hue, (Math.random() * 3) | 0, {
+    mass, d: rand(900, WORLD_R * 0.9),
+    ai: { aggro: Math.random(), think: rand(0, 0.15), wx: 0, wy: 0, wanderPh: Math.random() * TAU },
+  });
+  s.id = w.nextId++;
+  /* 生まれた直後に壁や他のヘビへ突っ込まないよう、安全な位置に置く */
+  placeSnakeAt(s, w, 900, WORLD_R * 0.9);
+  return s;
+}
+function computeSamples(s) {
+  const step = Math.max(6, s.radius * 0.55);
+  const out = [];
+  const p = s.path;
+  if (!p.length) { s.samples = out; return; }
+  out.push(p[0]);
+  let acc = 0, px = p[0].x, py = p[0].y;
+  for (let i = 1; i < p.length; i++) {
+    const dx = p[i].x - px, dy = p[i].y - py, d = Math.hypot(dx, dy);
+    acc += d;
+    if (acc >= step) { out.push(p[i]); acc = 0; }
+    px = p[i].x; py = p[i].y;
+  }
+  if (out[out.length - 1] !== p[p.length - 1]) out.push(p[p.length - 1]);
+  s.samples = out;
+}
+/* 経路を targetLen(px) に切り詰める */
+function trimPath(s) {
+  const target = pathLenFor(s.mass);
+  let total = 0;
+  const p = s.path;
+  for (let i = 1; i < p.length; i++) {
+    const d = Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y);
+    if (total + d > target) {
+      const rest = target - total;
+      if (rest > 0.5 && d > 0) {
+        const t = rest / d;
+        p[i] = { x: p[i - 1].x + (p[i].x - p[i - 1].x) * t, y: p[i - 1].y + (p[i].y - p[i - 1].y) * t };
+        p.length = i + 1;
+      } else p.length = i;
+      s.lenPx = target;
+      return;
+    }
+    total += d;
+  }
+  s.lenPx = total;
+}
+/* 頭を1ステップ進める（向き・速度・ブースト減耗を含む） */
+function moveSnake(s, dt, w) {
+  const world = w || S;
+  const maxTurn = turnRateFor(s) * dt;
+  let da = angDiff(s.targetAng, s.ang);
+  da = clamp(da, -maxTurn, maxTurn);
+  s.ang += da;
+  const boosting = s.boostHeld && s.mass > START_MASS + 2;
+  s.boost = boosting;
+  const spd = boosting ? BOOST_SPEED : BASE_SPEED;
+  const nx = s.x + Math.cos(s.ang) * spd * dt;
+  const ny = s.y + Math.sin(s.ang) * spd * dt;
+  s.x = nx; s.y = ny;
+  const head = s.path[0];
+  const hd = Math.hypot(nx - head.x, ny - head.y);
+  if (hd >= PATH_STEP) {
+    s.path.unshift({ x: nx, y: ny });
+    s.lenPx += hd;
+  } else if (s.path.length) {
+    s.path[0] = { x: nx, y: ny };
+  }
+  if (boosting) {
+    s.mass = Math.max(START_MASS, s.mass - BOOST_DRAIN * dt);
+    s.dropT += dt;
+    if (s.dropT > 0.22) {
+      s.dropT = 0;
+      const tail = s.path[s.path.length - 1];
+      if (tail && world && world.orbs.length < ORB_CAP) world.orbs.push(mkOrb(tail.x + rand(-6, 6), tail.y + rand(-6, 6), 1, s.hue));
+    }
+  }
+  s.radius = radiusFor(s.mass);
+  trimPath(s);
+  computeSamples(s);
+}
+
+/* ── 空間分割グリッド ── */
+function gridKey(x, y) { return ((x / GRID_CELL) | 0) + ':' + ((y / GRID_CELL) | 0); }
+function buildBodyGrid(w) {
+  const g = new Map();
+  for (const s of w.snakes) {
+    if (!s.alive) continue;
+    for (let i = 1; i < s.samples.length; i++) {
+      const p = s.samples[i];
+      const k = gridKey(p.x, p.y);
+      let arr = g.get(k); if (!arr) { arr = []; g.set(k, arr); }
+      arr.push({ x: p.x, y: p.y, r: s.radius, owner: s });
+    }
+  }
+  return g;
+}
+function buildOrbGrid(w) {
+  const g = new Map();
+  for (const o of w.orbs) {
+    const k = gridKey(o.x, o.y);
+    let arr = g.get(k); if (!arr) { arr = []; g.set(k, arr); }
+    arr.push(o);
+  }
+  return g;
+}
+function gridNear(g, x, y, rad) {
+  const out = [];
+  const c = GRID_CELL;
+  const x0 = ((x - rad) / c) | 0, x1 = ((x + rad) / c) | 0, y0 = ((y - rad) / c) | 0, y1 = ((y + rad) / c) | 0;
+  for (let ix = x0; ix <= x1; ix++) for (let iy = y0; iy <= y1; iy++) {
+    const arr = g.get(ix + ':' + iy);
+    if (arr) for (const e of arr) out.push(e);
+  }
+  return out;
+}
+
+/* ── 死亡とオーブ化 ── */
+const killEvents = [];   /* {killer, victim} 描画側のフィード/ネット通知用 */
+function killSnake(w, s, killer) {
+  if (!s.alive) return;
+  s.alive = false; s.deadAt = w.time;
+  if (killer && killer !== s && killer.alive) killer.kills++;
+  killEvents.push({ killer: killer ? killer.name : null, victim: s.name, victimSnake: s, killerSnake: killer || null });
+  const per = clamp(Math.round(s.mass / Math.max(6, s.samples.length) * 2), 1, 6);
+  for (let i = 0; i < s.samples.length; i += 1) {
+    const p = s.samples[i];
+    if (w.orbs.length >= ORB_CAP + 400) break;
+    w.orbs.push(mkOrb(p.x + rand(-9, 9), p.y + rand(-9, 9), per, s.hue));
+  }
+  if (s.isPlayer || s.isGuest) onHumanDeath(s, killer);
+}
+
+/* ── 衝突判定 ── */
+function checkCollisions(w, grid) {
+  const alive = w.snakes.filter(s => s.alive);
+  /* 頭同士：小さい方が負け */
+  for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {
+    const a = alive[i], b = alive[j];
+    if (!a.alive || !b.alive) continue;
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (d < (a.radius + b.radius) * 0.55) {
+      if (Math.abs(a.mass - b.mass) < Math.max(a.mass, b.mass) * 0.08) { killSnake(w, a, b); killSnake(w, b, a); }
+      else if (a.mass < b.mass) killSnake(w, a, b);
+      else killSnake(w, b, a);
+    }
+  }
+  for (const s of alive) {
+    if (!s.alive) continue;
+    /* 壁 */
+    if (Math.hypot(s.x, s.y) > WORLD_R - s.radius * 0.4) { killSnake(w, s, null); continue; }
+    /* 他人の体 */
+    const near = gridNear(grid, s.x, s.y, s.radius + GRID_CELL * 0.6);
+    for (const p of near) {
+      if (p.owner === s) continue;
+      const dx = s.x - p.x, dy = s.y - p.y;
+      const rr = p.r * 0.88 + s.radius * 0.3;
+      if (dx * dx + dy * dy < rr * rr) { killSnake(w, s, p.owner); break; }
+    }
+  }
+}
+
+/* ── オーブを食べる ── */
+function eatOrbs(w, s, orbGrid) {
+  const reach = s.radius + 14;
+  const near = gridNear(orbGrid, s.x, s.y, reach + GRID_CELL * 0.5);
+  for (const o of near) {
+    if (o.dead) continue;
+    const dx = s.x - o.x, dy = s.y - o.y, rr = s.radius * 0.9 + o.r + 3;
+    if (dx * dx + dy * dy < rr * rr) {
+      o.dead = true;
+      s.mass += o.v;
+      if (s.mass > s.maxMass) s.maxMass = s.mass;
+      if (s.isPlayer) { if (o.v >= 3) sfx.bigEat(); else if (Math.random() < 0.4) sfx.eat(); }
+    }
+  }
+}
+
+/* ── NPC AI ── */
+function aiThink(w, s, grid, orbGrid) {
+  const ai = s.ai; if (!ai) return;
+  const R = s.radius;
+  /* 危険回避：前方3方向をプローブ */
+  const look = 120 + R * 2.4;
+  let bestAng = s.ang, bestScore = -1e9;
+  for (const off of [-0.85, -0.45, 0, 0.45, 0.85]) {
+    const a = s.ang + off;
+    const px = s.x + Math.cos(a) * look, py = s.y + Math.sin(a) * look;
+    let score = 10 - Math.abs(off) * 6;
+    if (Math.hypot(px, py) > WORLD_R - 130) score -= 60;
+    const near = gridNear(grid, px, py, R * 1.7);
+    for (const p of near) {
+      if (p.owner === s) continue;
+      const d = Math.hypot(px - p.x, py - p.y);
+      if (d < R * 1.7 + p.r * 0.6) score -= 46;
+    }
+    if (score > bestScore) { bestScore = score; bestAng = a; }
+  }
+  if (bestScore < -12) { s.targetAng = bestAng; s.boostHeld = s.mass > 30 && bestScore < -30; return; }
+  /* 大きな敵が近い→逃げる */
+  let flee = null, fleeD = 300 + R * 3;
+  for (const o of w.snakes) {
+    if (o === s || !o.alive || o.mass < s.mass * 1.25) continue;
+    const d = Math.hypot(o.x - s.x, o.y - s.y);
+    if (d < fleeD) { fleeD = d; flee = o; }
+  }
+  if (flee) {
+    s.targetAng = Math.atan2(s.y - flee.y, s.x - flee.x);
+    s.boostHeld = s.mass > 16 && fleeD < 170;
+    return;
+  }
+  /* 好戦的：小さいヘビの進路をふさぐ */
+  if (ai.aggro > 0.55 && s.mass > 26) {
+    let prey = null, preyD = 760;
+    for (const o of w.snakes) {
+      if (o === s || !o.alive || o.mass > s.mass * 0.8) continue;
+      const d = Math.hypot(o.x - s.x, o.y - s.y);
+      if (d < preyD) { preyD = d; prey = o; }
+    }
+    if (prey) {
+      const tx = prey.x + Math.cos(prey.ang) * (prey.radius * 4.5 + 90);
+      const ty = prey.y + Math.sin(prey.ang) * (prey.radius * 4.5 + 90);
+      s.targetAng = Math.atan2(ty - s.y, tx - s.x);
+      s.boostHeld = preyD < 330 && s.mass > 40;
+      return;
+    }
+  }
+  /* 餌：近い小オーブ or 遠くの大オーブ */
+  let food = null, foodScore = 1e18;
+  const nearOrbs = gridNear(orbGrid, s.x, s.y, 620);
+  for (const o of nearOrbs) {
+    if (o.dead) continue;
+    const d = Math.hypot(o.x - s.x, o.y - s.y);
+    const sc = d - o.v * 130;
+    if (sc < foodScore) { foodScore = sc; food = o; }
+  }
+  if (food) {
+    s.targetAng = Math.atan2(food.y - s.y, food.x - s.x);
+    s.boostHeld = false;
+    return;
+  }
+  /* さまよう：中心寄りに漂う */
+  ai.wanderPh += 0.35;
+  const dc = Math.hypot(s.x, s.y);
+  const toC = Math.atan2(-s.y, -s.x);
+  const bias = dc > WORLD_R * 0.66 ? 0.75 : 0.22;
+  s.targetAng = s.ang + angDiff(toC, s.ang) * bias + Math.sin(ai.wanderPh) * 0.25;
+  s.boostHeld = false;
+}
+
+/* ── ランキング ── */
+function rankingOf(w) {
+  return w.snakes.filter(s => s.alive).slice().sort((a, b) => b.mass - a.mass);
+}
+function rankOf(w, s) {
+  const r = rankingOf(w);
+  const i = r.indexOf(s);
+  return i < 0 ? r.length + 1 : i + 1;
+}
+
+/* ── ワールドのシミュレーション（ソロ/ホスト共通） ── */
+let npcRespawnT = 0;
+function stepWorld(w, dt) {
+  w.time += dt; w.tick++;
+  const grid = buildBodyGrid(w);
+  const orbGrid = buildOrbGrid(w);
+  for (const s of w.snakes) {
+    if (!s.alive) continue;
+    if (s.ai) {
+      s.aiT -= dt;
+      if (s.aiT <= 0) { s.aiT = 0.13 + Math.random() * 0.06; aiThink(w, s, grid, orbGrid); }
+    }
+    moveSnake(s, dt, w);
+  }
+  checkCollisions(w, grid);
+  const orbGrid2 = buildOrbGrid(w);
+  for (const s of w.snakes) if (s.alive) eatOrbs(w, s, orbGrid2);
+  if (w.orbs.some(o => o.dead)) w.orbs = w.orbs.filter(o => !o.dead);
+  /* 小オーブの自然補充 */
+  const small = w.orbs.length;
+  if (small < AMBIENT_ORBS) scatterOrbs(Math.min(AMBIENT_ORBS - small, 3), w.orbs);
+  /* NPCの補充（不足が大きい時は2体ずつ出して常駐数を保つ） */
+  const npcCount = w.snakes.filter(s => s.alive && s.ai).length;
+  npcRespawnT -= dt;
+  if (npcCount < NPC_TARGET && npcRespawnT <= 0) {
+    npcRespawnT = 0.5;
+    w.snakes.push(spawnNPC(w));
+    if (NPC_TARGET - npcCount >= 5) w.snakes.push(spawnNPC(w));
+  }
+  /* 死んだヘビを配列から除く（人間の死体は結果表示用に少し残す） */
+  w.snakes = w.snakes.filter(s => s.alive || w.time - s.deadAt < 0.1);
+}
+function populateNPCs(w, n) { for (let i = 0; i < (n || NPC_TARGET); i++) w.snakes.push(spawnNPC(w)); }
+
+/* ═══════════════ 描画 ═══════════════ */
+const cv = $('cv'), ctx = cv.getContext('2d');
+let viewW = 0, viewH = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  viewW = window.innerWidth; viewH = window.innerHeight;
+  cv.width = Math.round(viewW * DPR); cv.height = Math.round(viewH * DPR);
+  cv.style.width = viewW + 'px'; cv.style.height = viewH + 'px';
+}
+window.addEventListener('resize', resize); resize();
+
+/* オーブのグロー用スプライト */
+const orbSprites = {};
+function orbSprite(hue, big) {
+  const key = ((hue / 30) | 0) + ':' + (big ? 1 : 0);
+  if (orbSprites[key]) return orbSprites[key];
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+  const col = 'hsl(' + (((hue / 30) | 0) * 30) + ',100%,';
+  grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.25, col + '72%,0.95)');
+  grad.addColorStop(0.6, col + '55%,0.5)');
+  grad.addColorStop(1, col + '55%,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  orbSprites[key] = c; return c;
+}
+const cam = { x: 0, y: 0, zoom: 0.55 };
+let playerSnake = null;      /* 自分のヘビ（S内 or ゲストビュー内） */
+let guestView = null;        /* ゲスト時の描画状態（ネット側が作る） */
+
+function viewWorld() { return mode === 'guest' ? guestView : S; }
+function drawSnake(s) {
+  const pts = s.samples;
+  if (!pts || pts.length < 2 || !s.alive) return;
+  const hue = s.hue, r = s.radius;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const passes = [
+    { w: r * 2 + 5, col: shade(hue, 55, 24), alpha: 0.9 },
+    { w: r * 2, col: shade(hue, 72, 50), alpha: 1 },
+    { w: r * 1.55, col: shade(hue, 78, 58), alpha: 0.85 },
+  ];
+  for (const ps of passes) {
+    ctx.globalAlpha = ps.alpha; ctx.strokeStyle = ps.col; ctx.lineWidth = ps.w;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i].x + pts[i + 1].x) / 2, my = (pts[i].y + pts[i + 1].y) / 2;
+      ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+    }
+    ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  /* 模様 */
+  if (s.pattern === 1) {
+    ctx.fillStyle = shade(hue, 85, 72);
+    for (let i = 2; i < pts.length; i += 3) { ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, r * 0.52, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  } else if (s.pattern === 2) {
+    ctx.fillStyle = shade(hue, 90, 80);
+    for (let i = 2; i < pts.length; i += 2) { ctx.globalAlpha = 0.65; ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, r * 0.3, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  /* 頭と目 */
+  const hx = pts[0].x, hy = pts[0].y, a = s.ang;
+  ctx.fillStyle = shade(hue, 72, 54);
+  ctx.beginPath(); ctx.arc(hx, hy, r * 1.04, 0, TAU); ctx.fill();
+  const ex = Math.cos(a + Math.PI / 2), ey = Math.sin(a + Math.PI / 2);
+  const fx = Math.cos(a), fy = Math.sin(a);
+  for (const sgn of [-1, 1]) {
+    const cxp = hx + ex * r * 0.48 * sgn + fx * r * 0.34, cyp = hy + ey * r * 0.48 * sgn + fy * r * 0.34;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cxp, cyp, r * 0.3, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#101418'; ctx.beginPath(); ctx.arc(cxp + fx * r * 0.13, cyp + fy * r * 0.13, r * 0.16, 0, TAU); ctx.fill();
+  }
+  if (s.boost) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2.5;
+    for (const sgn of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(hx - fx * r * 1.1 + ex * r * 0.5 * sgn, hy - fy * r * 1.1 + ey * r * 0.5 * sgn);
+      ctx.lineTo(hx - fx * r * 2.1 + ex * r * 0.5 * sgn, hy - fy * r * 2.1 + ey * r * 0.5 * sgn);
+      ctx.stroke();
+    }
+  }
+  /* 名前 */
+  const showName = s.isPlayer || s.isGuest || s.mass >= 60;
+  if (showName) {
+    ctx.font = '900 ' + Math.round(13.5 / cam.zoom + 4) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillText(s.name, hx + 1.5, hy - r - 9 + 1.5);
+    ctx.fillStyle = s.isPlayer ? '#ffe97a' : s.isGuest ? '#aee6ff' : 'rgba(255,255,255,0.88)';
+    ctx.fillText(s.name, hx, hy - r - 9);
+  }
+}
+function render() {
+  const w = viewWorld();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#070b16';
+  ctx.fillRect(0, 0, viewW, viewH);
+  if (!w) return;
+  /* カメラ */
+  const target = playerSnake && playerSnake.alive ? playerSnake : (mode === 'title' ? null : playerSnake);
+  if (target) {
+    cam.x += (target.x - cam.x) * 0.12; cam.y += (target.y - cam.y) * 0.12;
+    const zt = clamp(1.04 - (target.radius - 10) * 0.017, 0.5, 1.04);
+    cam.zoom += (zt - cam.zoom) * 0.05;
+  } else {
+    const t = performance.now() * 0.00003;
+    cam.x = Math.cos(t) * 1500; cam.y = Math.sin(t * 1.3) * 1500;
+    cam.zoom += (0.42 - cam.zoom) * 0.03;
+  }
+  const z = cam.zoom;
+  ctx.save();
+  ctx.translate(viewW / 2, viewH / 2); ctx.scale(z, z); ctx.translate(-cam.x, -cam.y);
+  const vx0 = cam.x - viewW / 2 / z - 60, vx1 = cam.x + viewW / 2 / z + 60;
+  const vy0 = cam.y - viewH / 2 / z - 60, vy1 = cam.y + viewH / 2 / z + 60;
+  /* 外側（危険エリア） */
+  ctx.beginPath();
+  ctx.rect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+  ctx.arc(0, 0, WORLD_R, 0, TAU, true);
+  ctx.fillStyle = 'rgba(140,12,30,0.28)'; ctx.fill('evenodd');
+  /* グリッド */
+  ctx.strokeStyle = 'rgba(120,255,180,0.055)'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (let gx = Math.floor(vx0 / 120) * 120; gx <= vx1; gx += 120) { ctx.moveTo(gx, vy0); ctx.lineTo(gx, vy1); }
+  for (let gy = Math.floor(vy0 / 120) * 120; gy <= vy1; gy += 120) { ctx.moveTo(vx0, gy); ctx.lineTo(vx1, gy); }
+  ctx.stroke();
+  /* 境界 */
+  ctx.beginPath(); ctx.arc(0, 0, WORLD_R, 0, TAU);
+  ctx.strokeStyle = 'rgba(255,60,85,0.16)'; ctx.lineWidth = 30; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, WORLD_R, 0, TAU);
+  ctx.strokeStyle = 'rgba(255,95,115,0.95)'; ctx.lineWidth = 4; ctx.stroke();
+  /* オーブ */
+  const now = performance.now() / 1000;
+  for (const o of w.orbs) {
+    if (o.x < vx0 || o.x > vx1 || o.y < vy0 || o.y > vy1) continue;
+    const big = o.v >= 3;
+    const pulse = 1 + Math.sin(now * 3 + o.ph) * 0.13;
+    const rr = o.r * (big ? 3.1 : 2.6) * pulse;
+    ctx.drawImage(orbSprite(o.hue, big), o.x - rr, o.y - rr, rr * 2, rr * 2);
+  }
+  /* ヘビ（小さい順に描いて大物を上へ） */
+  const sorted = w.snakes.filter(s => s.alive).slice().sort((a, b) => a.mass - b.mass);
+  for (const s of sorted) {
+    const h = s.samples[0];
+    if (!h) continue;
+    if (h.x < vx0 - 300 || h.x > vx1 + 300 || h.y < vy0 - 300 || h.y > vy1 + 300) {
+      /* 頭が遠くても体が画面内かもしれないので末尾も見る */
+      const t = s.samples[s.samples.length - 1];
+      if (!t || t.x < vx0 - 300 || t.x > vx1 + 300 || t.y < vy0 - 300 || t.y > vy1 + 300) continue;
+    }
+    drawSnake(s);
+  }
+  ctx.restore();
+  drawMinimap(w);
+}
+function drawMinimap(w) {
+  const R = 52, cx = R + 12, cy = viewH - R - 12 - (window.innerHeight - viewH);
+  const my = viewH - R - 14;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, my, R, 0, TAU);
+  ctx.fillStyle = 'rgba(6,18,16,0.72)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,95,115,0.6)'; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.clip();
+  const sc = R / WORLD_R;
+  const rank = rankingOf(w).slice(0, 9);
+  for (const s of rank) {
+    if (s === playerSnake) continue;
+    ctx.fillStyle = shade(s.hue, 80, 62);
+    ctx.beginPath(); ctx.arc(cx + s.x * sc, my + s.y * sc, clamp(1.6 + s.radius * 0.06, 2, 4.2), 0, TAU); ctx.fill();
+  }
+  if (playerSnake && playerSnake.alive) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(cx + playerSnake.x * sc, my + playerSnake.y * sc, 3.4, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#ffe97a'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(cx + playerSnake.x * sc, my + playerSnake.y * sc, 5.4, 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ═══════════════ 入力 ═══════════════ */
+const pointer = { x: 0, y: 0, seen: false, touchDown: false };
+let keyBoost = false, btnBoost = false, keyAng = null;
+function localTargetAngle() {
+  if (keyAng !== null) return keyAng;
+  if (!pointer.seen) return playerSnake ? playerSnake.ang : 0;
+  const dx = pointer.x - viewW / 2, dy = pointer.y - viewH / 2;
+  if (dx * dx + dy * dy < 28 * 28) return playerSnake ? playerSnake.ang : 0;
+  return Math.atan2(dy, dx);
+}
+function localBoost() { return keyBoost || btnBoost || mouseBoost; }
+let mouseBoost = false;
+window.addEventListener('pointermove', e => {
+  pointer.x = e.clientX; pointer.y = e.clientY; pointer.seen = true;
+  if (e.pointerType !== 'mouse') keyAng = null;
+  if (e.pointerType === 'mouse') keyAng = null;
+});
+window.addEventListener('pointerdown', e => {
+  initAudio();
+  if (e.target && (e.target.id === 'boostBtn' || e.target.id === 'pauseBtn')) return;
+  if (e.target && e.target.closest && e.target.closest('.scr')) return;
+  pointer.x = e.clientX; pointer.y = e.clientY; pointer.seen = true; keyAng = null;
+  if (e.pointerType === 'mouse') mouseBoost = true; else pointer.touchDown = true;
+});
+window.addEventListener('pointerup', e => {
+  if (e.pointerType === 'mouse') mouseBoost = false; else pointer.touchDown = false;
+});
+window.addEventListener('pointercancel', () => { mouseBoost = false; pointer.touchDown = false; });
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === ' ' || k === 'Shift') { keyBoost = true; initAudio(); e.preventDefault(); }
+  const dirs = { ArrowUp: -Math.PI / 2, ArrowDown: Math.PI / 2, ArrowLeft: Math.PI, ArrowRight: 0, w: -Math.PI / 2, s: Math.PI / 2, a: Math.PI, d: 0 };
+  if (k in dirs) { keyAng = dirs[k]; e.preventDefault(); }
+  if ((k === 'p' || k === 'P' || k === 'Escape') && mode === 'solo') togglePause();
+});
+window.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Shift') keyBoost = false; });
+$('boostBtn').addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); btnBoost = true; $('boostBtn').classList.add('on'); });
+const endBoost = () => { btnBoost = false; $('boostBtn').classList.remove('on'); };
+$('boostBtn').addEventListener('pointerup', endBoost);
+$('boostBtn').addEventListener('pointercancel', endBoost);
+$('boostBtn').addEventListener('pointerleave', endBoost);
+
+/* ═══════════════ HUD ═══════════════ */
+const hudCache = {};
+function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+let rankHtmlCache = '';
+function updateHUD() {
+  const w = viewWorld();
+  if (!w || !playerSnake) return;
+  setText('stLen', '' + Math.floor(playerSnake.maxMass));
+  setText('stKill', '' + playerSnake.kills);
+  let rank, top;
+  if (mode === 'guest' && guestView) { rank = guestView.myRank || '-'; top = (guestView.topList || []).map(t => ({ name: t.n, mass: t.m, id: t.i })); }
+  else { const r = rankingOf(S); rank = playerSnake.alive ? (r.indexOf(playerSnake) + 1 || S.snakes.length) : '-'; top = r.slice(0, 10); }
+  setText('stRank', '' + rank);
+  const html = top.map((s, i) => '<div class="row' + (s === playerSnake || (mode === 'guest' && s.id === guestView.myId) ? ' me' : '') + '"><span class="no">' + (i + 1) + '</span><span class="nm">' + s.name + '</span><span class="ms">' + Math.floor(s.mass) + '</span></div>').join('');
+  if (html !== rankHtmlCache) { rankHtmlCache = html; $('rankList').innerHTML = html; }
+}
+function showFeed(txt) {
+  const f = $('killFeed');
+  f.textContent = txt; f.style.opacity = 1;
+  clearTimeout(feedTimer);
+  feedTimer = setTimeout(() => { f.style.opacity = 0; }, 3400);
+}
+function drainKillEvents() {
+  while (killEvents.length) {
+    const ev = killEvents.shift();
+    if (mode === 'guest') continue;
+    if (ev.killer && ev.victim) showFeed('💀 ' + ev.killer + ' が ' + ev.victim + ' を倒した！');
+    if (ev.victimSnake === playerSnake) sfx.die();
+    else if (ev.killerSnake === playerSnake) sfx.kill();
+    netHook('onKillEvent', ev);
+  }
+}
+
+/* ═══════════════ 進行管理 ═══════════════ */
+function netHook(name, a, b) { const h = window.PW_SNAKE_NET; if (h && typeof h[name] === 'function') { try { h[name](a, b); } catch (e) {} } }
+function showScr(id) {
+  document.querySelectorAll('.scr').forEach(el => el.classList.toggle('show', el.id === id));
+}
+function myName() {
+  try { if (window.PWFriends && PWFriends.profile) { const p = PWFriends.profile(); if (p && p.name) return p.name; } } catch (e) {}
+  return 'あなた';
+}
+function fmtTime(sec) { const m = Math.floor(sec / 60), s2 = Math.floor(sec % 60); return m + ':' + (s2 < 10 ? '0' : '') + s2; }
+function startSolo() {
+  initAudio(); sfx.spawn();
+  S = newWorld((Math.random() * 1e9) | 0);
+  populateNPCs(S);
+  playerSnake = mkSnake(myName(), 145, 0, { isPlayer: true, d: rand(200, 800) });
+  placeSnakeAt(playerSnake, S, 200, 800);
+  S.snakes.push(playerSnake);
+  mode = 'solo'; paused = false;
+  showScr(null);
+  $('hud').style.display = 'block'; $('boostBtn').style.display = 'flex'; $('pauseBtn').style.display = 'block';
+  $('pauseBtn').textContent = '⏸';
+}
+function startDemoWorld() {
+  S = newWorld((Math.random() * 1e9) | 0);
+  populateNPCs(S);
+  playerSnake = null;
+}
+function onHumanDeath(s, killer) {
+  /* ホスト/ソロ：人間のヘビが死んだ */
+  s.finalRank = 1 + S.snakes.filter(o => o !== s && o.alive && o.mass > s.mass).length;
+  s.surviveSec = S.time - s.bornAt;
+  if (s.isPlayer) {
+    if (mode === 'solo' || mode === 'host') showGameOver(s);
+  } else if (s.isGuest) {
+    netHook('onGuestDeath', s, killer);
+  }
+}
+function showGameOver(s) {
+  const best = loadBest();
+  const isNew = Math.floor(s.maxMass) > best.best;
+  if (isNew) { best.best = Math.floor(s.maxMass); }
+  if (s.kills > best.kills) best.kills = s.kills;
+  if (s.surviveSec > best.time) best.time = Math.floor(s.surviveSec);
+  saveBest(best);
+  $('ovLen').textContent = Math.floor(s.maxMass);
+  $('ovRank').textContent = (s.finalRank || '-') + '位';
+  $('ovKill').textContent = s.kills;
+  $('ovTime').textContent = fmtTime(s.surviveSec || 0);
+  $('newBest').style.display = isNew ? 'block' : 'none';
+  $('overSub').textContent = mode === 'solo' ? 'アリーナの猛者たちに敗れた…' : '対戦は続いているよ。「もう一度」ですぐ復活できる！';
+  $('retryBtn').textContent = mode === 'solo' ? '🔄 もう一度' : '🔄 リスポーンする';
+  showScr('overScr');
+  $('boostBtn').style.display = 'none';
+}
+function respawnLocal() {
+  /* マルチ（ホスト）で自分のヘビを作り直す */
+  if (!S) return null;
+  playerSnake = mkSnake(myName(), 145, 0, { isPlayer: true, d: rand(200, 800) });
+  placeSnakeAt(playerSnake, S, 200, 800);
+  S.snakes.push(playerSnake);
+  showScr(null);
+  $('boostBtn').style.display = 'flex';
+  sfx.spawn();
+  return playerSnake;
+}
+function quitToTitle() {
+  netHook('onQuitToTitle');
+  mode = 'title'; paused = false;
+  startDemoWorld();
+  showScr('titleScr');
+  $('hud').style.display = 'none'; $('boostBtn').style.display = 'none'; $('pauseBtn').style.display = 'none';
+  $('netStatus').textContent = '';
+  refreshBestBox();
+}
+function refreshBestBox() {
+  const b = loadBest();
+  $('bestBox').textContent = b.best > 0 ? '🏆 ベスト記録： 最大の長さ ' + b.best + ' ／ キル ' + b.kills + ' ／ 生存 ' + fmtTime(b.time) : '';
+}
+function togglePause() {
+  if (mode !== 'solo') return;
+  paused = !paused;
+  if (paused) showScr('pauseScr'); else showScr(null);
+}
+
+/* ═══════════════ メインループ ═══════════════ */
+let lastT = performance.now(), hudT = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = (now - lastT) / 1000; lastT = now;
+  if (dt > 0.06) dt = 0.06;
+  if (!paused) {
+    if (mode === 'solo' || mode === 'host' || mode === 'title') {
+      if (S) {
+        if ((mode === 'solo' || mode === 'host') && playerSnake && playerSnake.alive) {
+          playerSnake.targetAng = localTargetAngle();
+          playerSnake.boostHeld = localBoost();
+        }
+        let rest = dt;
+        while (rest > 0) { const step = Math.min(rest, 1 / 60); stepWorld(S, step); rest -= step; }
+        drainKillEvents();
+      }
+    } else if (mode === 'guest') {
+      netHook('guestFrame', dt);
+    }
+  }
+  render();
+  hudT -= dt;
+  if (hudT <= 0) { hudT = 0.18; if (mode !== 'title') updateHUD(); }
+}
+requestAnimationFrame(frame);
+startDemoWorld();
+refreshBestBox();
+
+/* ═══════════════ UI配線 ═══════════════ */
+function setMuteBtn() { $('muteBtn').textContent = muted ? '🔇' : '🔊'; $('pauseMuteBtn').textContent = muted ? '🔇 サウンド OFF' : '🔊 サウンド ON'; }
+setMuteBtn();
+$('muteBtn').onclick = () => { initAudio(); muted = !muted; try { localStorage.setItem('snake_mute_v1', muted ? '1' : '0'); } catch (e) {} setMuteBtn(); };
+$('pauseMuteBtn').onclick = () => { initAudio(); muted = !muted; try { localStorage.setItem('snake_mute_v1', muted ? '1' : '0'); } catch (e) {} setMuteBtn(); };
+$('soloBtn').onclick = () => { sfx.click(); startSolo(); };
+$('helpBtn').onclick = () => { sfx.click(); showScr('helpScr'); };
+$('helpBack').onclick = () => { sfx.click(); showScr('titleScr'); };
+$('mpBtn').onclick = () => { initAudio(); sfx.click(); showScr('lobbyScr'); };
+$('pauseBtn').onclick = () => {
+  if (mode === 'solo') togglePause();
+  else if (mode === 'host' || mode === 'guest') { if (confirmQuit()) quitToTitle(); }
+};
+let quitArm = 0;
+function confirmQuit() {
+  const now = Date.now();
+  if (now - quitArm < 3000) return true;
+  quitArm = now;
+  $('netStatus').textContent = '⚠ もう一度 ⏸ を押すと対戦をやめてタイトルに戻ります';
+  setTimeout(() => { if (Date.now() - quitArm >= 3000) $('netStatus').textContent = ''; }, 3100);
+  return false;
+}
+$('resumeBtn').onclick = () => { sfx.click(); togglePause(); };
+$('quitBtn').onclick = () => { sfx.click(); paused = false; quitToTitle(); };
+$('retryBtn').onclick = () => {
+  sfx.click();
+  if (mode === 'solo') startSolo();
+  else if (mode === 'host') respawnLocal();
+  else if (mode === 'guest') netHook('onRespawnRequest');
+};
+$('overTitleBtn').onclick = () => { sfx.click(); quitToTitle(); };
+$('lobbyBack').onclick = () => { sfx.click(); netHook('onLobbyBack'); showScr('titleScr'); };
+
+/* テスト用フック */
+window.__snake = {
+  get S() { return S; }, get mode() { return mode; }, get player() { return playerSnake; },
+  get guestView() { return guestView; },
+  startSolo, startDemoWorld, quitToTitle, respawnLocal, newWorld, populateNPCs,
+  mkSnake, spawnNPC, stepWorld, killSnake, rankingOf, rankOf, radiusFor, pathLenFor,
+  moveSnake, eatOrbs, buildBodyGrid, buildOrbGrid, aiThink, checkCollisions,
+  setPlayer: s => { playerSnake = s; }, setGuestView: g => { guestView = g; },
+  setMode: m => { mode = m; },
+  WORLD_R, NPC_TARGET, START_MASS, AMBIENT_ORBS, ORB_CAP,
+  loadBest, saveBest, BEST_KEY,
+};
+</script>
+
+<script>
+/* ═══════════════ フレンド対戦（PeerJS・ホスト権威） ═══════════════
+   ホストが全シミュレーション（NPC含む）を実行し、約9Hzでスナップショットを配信。
+   ゲストは入力（向き・ブースト）だけを送る。ゲストが切断したらそのヘビはNPC化し、
+   ホストが抜けたら対戦終了。死んでもリスポーンして戦い続けられる。 */
+const NET = { role: null, peer: null, conn: null, code: null, active: false, inGame: false, guestReady: false,
+              heartbeatTimer: null, connTimer: null, retryTimer: null, snapTimer: null, inputTimer: null,
+              reconnecting: false, retryCount: 0, guestName: 'ゲスト', guestSnake: null, myId: 0, hostId: 0, recorded: false };
+const PEER_PREFIX = 'playweb-sk-';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+] } };
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function genRoomCode() { let c = ''; for (let i = 0; i < 6; i++) c += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0]; return c; }
+function peerAvailable() { return typeof window.Peer !== 'undefined'; }
+function setLobbyStatus(html) { $('lobbyStatus').innerHTML = html; }
+function sendNet(obj) { if (NET.conn && NET.conn.open) { try { NET.conn.send(obj); } catch (e) {} } }
+function startHeartbeat() { stopHeartbeat(); NET.heartbeatTimer = setInterval(() => sendNet({ t: 'ping' }), 8000); }
+function stopHeartbeat() { if (NET.heartbeatTimer) clearInterval(NET.heartbeatTimer); NET.heartbeatTimer = null; }
+function armConnTimer(msg) { disarmConnTimer(); NET.connTimer = setTimeout(() => { if (!NET.active) setLobbyStatus('<span class="err">' + msg + '</span>'); }, 25000); }
+function disarmConnTimer() { if (NET.connTimer) clearTimeout(NET.connTimer); NET.connTimer = null; }
+function cleanupNet() {
+  stopHeartbeat(); disarmConnTimer();
+  if (NET.retryTimer) { clearTimeout(NET.retryTimer); NET.retryTimer = null; }
+  if (NET.snapTimer) { clearInterval(NET.snapTimer); NET.snapTimer = null; }
+  if (NET.inputTimer) { clearInterval(NET.inputTimer); NET.inputTimer = null; }
+  if (NET.conn) { try { NET.conn.close(); } catch (e) {} NET.conn = null; }
+  if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
+  NET.role = null; NET.active = false; NET.inGame = false; NET.guestReady = false;
+  NET.reconnecting = false; NET.guestSnake = null; NET.recorded = false;
+  window.PW_ROOM_CODE = undefined;
+}
+function setupConn(c) {
+  const stale = NET.conn;
+  if (stale && stale !== c) { try { stale.close(); } catch (e) {} }
+  NET.conn = c;
+  c.on('data', msg => { if (NET.conn !== c) return; handleNetData(msg); });
+  c.on('open', () => { if (NET.conn !== c) return; disarmConnTimer(); });
+  c.on('close', () => { if (NET.conn !== c) return; onConnClose(); });
+  c.on('error', () => {});
+}
+function onConnClose() {
+  stopHeartbeat();
+  if (NET.role === 'host') {
+    if (NET.inGame && NET.guestSnake && NET.guestSnake.alive && !NET.guestSnake.ai) {
+      NET.guestSnake.ai = { aggro: 0.3, think: 0, wx: 0, wy: 0, wanderPh: Math.random() * 6.28 };
+      NET.guestSnake.isGuest = false;
+      $('netStatus').textContent = '⚠ 相方が切断しました。そのヘビはNPCとして動き続けます（再接続で復帰できます）';
+      setTimeout(() => { $('netStatus').textContent = ''; }, 5000);
+    } else {
+      NET.guestReady = false;
+      $('startBtn').style.display = 'none';
+      setLobbyStatus('相手が切断しました。参加を待っています…');
+    }
+  } else if (NET.role === 'guest') {
+    if (NET.inGame) {
+      $('netStatus').textContent = '⚠ 接続が切れました。再接続しています…';
+      scheduleGuestReconnect();
+    } else setLobbyStatus('<span class="err">ホストとの接続が切れました。</span>');
+  }
+}
+function hostCreateRoom() {
+  if (!peerAvailable()) { setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  cleanupNet();
+  NET.role = 'host';
+  NET.code = genRoomCode();
+  try { NET.peer = new Peer(PEER_PREFIX + NET.code, PEER_OPTS); }
+  catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
+  NET.peer.on('open', () => {
+    window.PW_ROOM_CODE = NET.code;
+    $('roomCodeText').textContent = NET.code;
+    $('roomCodeWrap').style.display = 'block';
+    setLobbyStatus('フレンドの参加を待っています…招待したフレンドが参加すると、ここに表示されます。');
+  });
+  NET.peer.on('connection', c => {
+    setupConn(c);
+    if (!NET.active) armConnTimer('相手との接続を確立できませんでした。相手にもう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  NET.peer.on('error', err => {
+    if (err && err.type === 'unavailable-id') { try { NET.peer.destroy(); } catch (e) {} hostCreateRoom(); }
+  });
+}
+function guestJoin(code) {
+  code = (code || '').trim().toUpperCase();
+  if (code.length !== 6) { setLobbyStatus('<span class="err">6文字のコードを入力してください。</span>'); return; }
+  if (!peerAvailable()) { setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。通信環境を確認してください。</span>'); return; }
+  cleanupNet();
+  NET.role = 'guest'; NET.code = code;
+  try { NET.peer = new Peer(undefined, PEER_OPTS); }
+  catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
+  NET.peer.on('open', () => {
+    const c = NET.peer.connect(PEER_PREFIX + code, { reliable: true });
+    setupConn(c);
+    c.on('open', () => { NET.active = true; sendNet({ t: 'hello', name: myName() }); startHeartbeat(); setLobbyStatus('<span class="ok">接続しました！ホストが「対戦スタート」を押すのを待っています…</span>'); });
+    armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
+  });
+  NET.peer.on('error', err => {
+    if (err && err.type === 'peer-unavailable' && !NET.inGame) setLobbyStatus('<span class="err">そのコードの部屋が見つかりませんでした。コードを確認してください。</span>');
+  });
+  setLobbyStatus('接続しています…');
+}
+function scheduleGuestReconnect() {
+  if (NET.retryTimer) clearTimeout(NET.retryTimer);
+  NET.reconnecting = true; NET.retryCount = 0;
+  const attempt = () => {
+    if (NET.role !== 'guest' || !NET.reconnecting) return;
+    NET.retryCount++;
+    if (NET.retryCount > 8) { NET.reconnecting = false; guestHostGone(); return; }
+    NET.retryTimer = setTimeout(attempt, 4000);
+    try {
+      if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} }
+      NET.peer = new Peer(undefined, PEER_OPTS);
+      NET.peer.on('open', () => {
+        const c = NET.peer.connect(PEER_PREFIX + NET.code, { reliable: true });
+        setupConn(c);
+        c.on('open', () => { NET.reconnecting = false; NET.active = true; sendNet({ t: 'hello', name: myName() }); startHeartbeat(); $('netStatus').textContent = ''; });
+      });
+      NET.peer.on('error', err => { if (err && err.type === 'peer-unavailable') { NET.reconnecting = false; guestHostGone(); } });
+    } catch (e) {}
+  };
+  NET.retryTimer = setTimeout(attempt, 1500);
+}
+function guestHostGone() {
+  recordMyMatch();
+  cleanupNet();
+  quitToTitle();
+  showFeed('⚠ ホストとの接続が切れました（対戦は終了しました）');
+}
+function recordMyMatch() {
+  if (NET.recorded || !NET.inGame) return;
+  NET.recorded = true;
+  let rank = 99;
+  if (NET.role === 'host' && playerSnake) rank = playerSnake.alive ? rankOf(S, playerSnake) : (playerSnake.finalRank || 99);
+  if (NET.role === 'guest' && guestView) rank = guestView.myRank || 99;
+  try { if (window.PWFriends) PWFriends.recordMatch(rank === 1 ? 'win' : 'lose', {}); } catch (e) {}
+}
+function enterMatchUI() {
+  showScr(null);
+  $('hud').style.display = 'block'; $('boostBtn').style.display = 'flex'; $('pauseBtn').style.display = 'block';
+  $('pauseBtn').textContent = '⏸';
+}
+function startMatch() {
+  initAudio(); sfx.spawn();
+  S = newWorld((Math.random() * 1e9) | 0);
+  populateNPCs(S);
+  playerSnake = mkSnake(myName(), 145, 0, { isPlayer: true, d: rand(200, 800) });
+  placeSnakeAt(playerSnake, S, 200, 800);
+  S.snakes.push(playerSnake);
+  const gs = mkSnake(NET.guestName || 'ゲスト', 205, 1, { isGuest: true, d: rand(900, 1500) });
+  placeSnakeAt(gs, S, 900, 1600);
+  S.snakes.push(gs);
+  NET.guestSnake = gs;
+  mode = 'host'; paused = false;
+  NET.inGame = true; NET.recorded = false;
+  sendNet({ t: 'start', seed: S.seed, yourId: gs.id, hostId: playerSnake.id });
+  sendNet(buildSnapshot());
+  if (NET.snapTimer) clearInterval(NET.snapTimer);
+  NET.snapTimer = setInterval(() => { if (NET.inGame && S) sendNet(buildSnapshot()); }, 110);
+  enterMatchUI();
+  showFeed('🐍 対戦スタート！');
+}
+function buildSnapshot() {
+  const g = NET.guestSnake;
+  const sn = [];
+  for (const s of S.snakes) {
+    if (!s.alive) continue;
+    const pts = s.samples;
+    const step = Math.max(1, Math.ceil(pts.length / 200));
+    const arr = [];
+    for (let i = 0; i < pts.length; i += step) { arr.push(Math.round(pts[i].x), Math.round(pts[i].y)); }
+    if (pts.length > 1 && step > 1) { const l = pts[pts.length - 1]; arr.push(Math.round(l.x), Math.round(l.y)); }
+    sn.push({ i: s.id, n: s.name, c: s.hue, p: s.pattern, m: Math.round(s.mass), mm: Math.round(s.maxMass), k: s.kills, a: Math.round(s.ang * 100) / 100, b: s.boost ? 1 : 0, h: s.isPlayer ? 1 : 0, pts: arr });
+  }
+  const or = [];
+  if (g) {
+    for (const o of S.orbs) {
+      const dx = o.x - g.x, dy = o.y - g.y;
+      if (dx * dx + dy * dy < 1500 * 1500 || o.v >= 3) { or.push(Math.round(o.x), Math.round(o.y), o.v, o.hue); if (or.length >= 5600) break; }
+    }
+  }
+  const rank = rankingOf(S);
+  return { t: 'state', tick: S.tick, sn, or,
+    top: rank.slice(0, 10).map(s => ({ i: s.id, n: s.name, m: Math.round(s.mass) })),
+    you: g ? { rank: g.alive ? rank.indexOf(g) + 1 : 0, dead: g.alive ? 0 : 1 } : null };
+}
+function buildInputMsg() {
+  return { t: 'input', ang: Math.round(localTargetAngle() * 1000) / 1000, boost: localBoost() ? 1 : 0 };
+}
+function handleNetData(msg) {
+  if (!msg || !msg.t || msg.t === 'ping') return;
+  if (NET.role === 'host') hostOnData(msg);
+  else if (NET.role === 'guest') guestOnData(msg);
+}
+function hostOnData(msg) {
+  if (msg.t === 'hello') {
+    NET.guestName = (msg.name || 'ゲスト').slice(0, 16);
+    NET.guestReady = true; NET.active = true;
+    startHeartbeat();
+    if (NET.inGame && S) {
+      /* 再接続：NPC化していたゲストヘビの操作を取り戻す */
+      let gs = NET.guestSnake;
+      if (!gs || !S.snakes.includes(gs)) {
+        gs = mkSnake(NET.guestName, 205, 1, { isGuest: true, d: rand(900, 1500) });
+        placeSnakeAt(gs, S, 900, 1600);
+        S.snakes.push(gs); NET.guestSnake = gs;
+      }
+      gs.ai = null; gs.isGuest = true; gs.name = NET.guestName;
+      $('netStatus').textContent = '';
+      sendNet({ t: 'start', seed: S.seed, yourId: gs.id, hostId: playerSnake ? playerSnake.id : 0 });
+      sendNet(buildSnapshot());
+    } else {
+      $('startBtn').style.display = 'block';
+      setLobbyStatus('<span class="ok">' + NET.guestName + ' さんが接続しました！「対戦スタート」で開始できます。</span>');
+    }
+  } else if (msg.t === 'input') {
+    const gs = NET.guestSnake;
+    if (gs && gs.alive && !gs.ai) { gs.targetAng = +msg.ang || 0; gs.boostHeld = !!msg.boost; }
+  } else if (msg.t === 'respawn') {
+    if (!NET.inGame || !S) return;
+    const old = NET.guestSnake;
+    const gs = mkSnake(NET.guestName || 'ゲスト', 205, 1, { isGuest: true, d: rand(900, 1500) });
+    placeSnakeAt(gs, S, 900, 1600);
+    if (old) { gs.kills = old.kills; gs.maxMass = old.maxMass; }
+    S.snakes.push(gs);
+    NET.guestSnake = gs;
+    sendNet({ t: 'respawned', yourId: gs.id });
+    sendNet(buildSnapshot());
+  }
+}
+function guestOnData(msg) {
+  if (msg.t === 'start') {
+    NET.myId = msg.yourId; NET.hostId = msg.hostId;
+    if (!NET.inGame) {
+      NET.inGame = true; NET.recorded = false;
+      guestView = { snakes: [], orbs: [], topList: [], myRank: '-', myId: NET.myId, time: 0 };
+      playerSnake = null;
+      mode = 'guest'; paused = false;
+      if (NET.inputTimer) clearInterval(NET.inputTimer);
+      NET.inputTimer = setInterval(() => { if (NET.inGame) sendNet(buildInputMsg()); }, 90);
+      enterMatchUI();
+      showFeed('🐍 対戦スタート！');
+    } else {
+      guestView = guestView || { snakes: [], orbs: [], topList: [], myRank: '-', myId: NET.myId, time: 0 };
+      guestView.myId = NET.myId;
+    }
+  } else if (msg.t === 'state') {
+    if (NET.inGame) applySnapshot(msg);
+  } else if (msg.t === 'over') {
+    showGameOver({ maxMass: msg.maxMass || 10, kills: msg.kills || 0, surviveSec: msg.time || 0, finalRank: msg.rank || 0 });
+  } else if (msg.t === 'respawned') {
+    NET.myId = msg.yourId;
+    if (guestView) guestView.myId = NET.myId;
+    playerSnake = null;
+    showScr(null);
+    $('boostBtn').style.display = 'flex';
+    sfx.spawn();
+  } else if (msg.t === 'feed') {
+    showFeed('💀 ' + msg.k + ' が ' + msg.v + ' を倒した！');
+  } else if (msg.t === 'end') {
+    guestHostGone();
+  }
+}
+function applySnapshot(msg) {
+  if (!guestView) guestView = { snakes: [], orbs: [], topList: [], myRank: '-', myId: NET.myId, time: 0 };
+  const byId = new Map();
+  for (const s of guestView.snakes) byId.set(s.id, s);
+  const next = [];
+  for (const q of msg.sn) {
+    let s = byId.get(q.i);
+    if (!s) s = { id: q.i, disp: null, tgt: [], samples: [] };
+    s.name = q.n; s.hue = q.c; s.pattern = q.p; s.mass = q.m; s.maxMass = q.mm != null ? q.mm : q.m; s.kills = q.k; s.ang = q.a; s.boost = !!q.b;
+    s.alive = true; s.radius = radiusFor(q.m);
+    s.isPlayer = q.i === NET.myId; s.isGuest = !!q.h;
+    const tgt = [];
+    for (let i = 0; i + 1 < q.pts.length; i += 2) tgt.push({ x: q.pts[i], y: q.pts[i + 1] });
+    s.tgt = tgt;
+    if (!s.disp || Math.abs(s.disp.length - tgt.length) > 8 || !s.disp.length) s.disp = tgt.map(p => ({ x: p.x, y: p.y }));
+    s.samples = s.disp;
+    if (tgt.length) { s.x = tgt[0].x; s.y = tgt[0].y; }
+    next.push(s);
+  }
+  guestView.snakes = next;
+  const orbs = [];
+  for (let i = 0; i + 3 < msg.or.length; i += 4) {
+    const v = msg.or[i + 2];
+    orbs.push({ x: msg.or[i], y: msg.or[i + 1], v, hue: msg.or[i + 3], r: v >= 3 ? 9 : 4.4, ph: ((msg.or[i] * 13 + msg.or[i + 1] * 7) % 628) / 100 });
+  }
+  guestView.orbs = orbs;
+  guestView.topList = msg.top || [];
+  guestView.myRank = msg.you && msg.you.rank ? msg.you.rank : '-';
+  guestView.myId = NET.myId;
+  const me = next.find(s => s.id === NET.myId);
+  if (me) playerSnake = me;
+}
+function guestSmooth(dt) {
+  if (!guestView) return;
+  const f = Math.min(1, dt * 10);
+  for (const s of guestView.snakes) {
+    if (!s.disp || !s.tgt) continue;
+    const n = Math.min(s.disp.length, s.tgt.length);
+    for (let i = 0; i < n; i++) {
+      s.disp[i].x += (s.tgt[i].x - s.disp[i].x) * f;
+      s.disp[i].y += (s.tgt[i].y - s.disp[i].y) * f;
+    }
+    if (s.disp.length) { s.x = s.disp[0].x; s.y = s.disp[0].y; }
+  }
+}
+
+/* メイン側からのフック */
+window.PW_SNAKE_NET = {
+  onGuestDeath(s) {
+    if (NET.role === 'host' && NET.inGame) {
+      sendNet({ t: 'over', maxMass: Math.floor(s.maxMass), rank: s.finalRank || 0, kills: s.kills, time: Math.floor(s.surviveSec || 0) });
+    }
+  },
+  onKillEvent(ev) {
+    if (NET.role === 'host' && NET.inGame && ev.killer && ev.victim) sendNet({ t: 'feed', k: ev.killer, v: ev.victim });
+  },
+  onQuitToTitle() {
+    if (!NET.role) return;
+    if (NET.role === 'host' && NET.inGame) sendNet({ t: 'end' });
+    recordMyMatch();
+    cleanupNet();
+    $('roomCodeWrap').style.display = 'none';
+    $('startBtn').style.display = 'none';
+    setLobbyStatus('');
+  },
+  onLobbyBack() {
+    cleanupNet();
+    $('roomCodeWrap').style.display = 'none';
+    $('startBtn').style.display = 'none';
+    setLobbyStatus('');
+  },
+  onRespawnRequest() { if (NET.role === 'guest' && NET.inGame) sendNet({ t: 'respawn' }); },
+  guestFrame(dt) { guestSmooth(dt); },
+};
+$('hostBtn').onclick = () => { initAudio(); hostCreateRoom(); };
+$('joinBtn').onclick = () => { initAudio(); guestJoin($('joinCode').value); };
+$('startBtn').onclick = () => { initAudio(); if (NET.role === 'host' && NET.guestReady) startMatch(); };
+/* テスト用フック */
+window.__snakeNet = { NET, hostCreateRoom, guestJoin, startMatch, buildSnapshot, applySnapshot, cleanupNet };
+</script>
+<script>window.PW_GAME='snake';window.PW_JOIN_CFG={openers:[{click:'#mpBtn'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script src="friends.js"></script>
+</body>
+</html>
