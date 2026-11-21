@@ -62,9 +62,7 @@
     portal:     { title: 'ポータル',               file: 'index.html' },
     tetris:     { title: 'テトリス',               file: 'tetris.html' },
     suica:      { title: 'スイカゲーム',           file: 'suica.html' },
-    crepe:      { title: 'クレープ工房',           file: 'crepe.html' },
     survivors:  { title: 'まじょねこサバイバーズ', file: 'survivors.html', coop: true },
-    frostline:  { title: 'フロストライン',         file: 'frostline.html', coop: true },
     blockblast: { title: 'ブロックブラスト',       file: 'blockblast.html' },
     minesweeper:{ title: 'マインスイーパ',         file: 'minesweeper.html' },
     reversi:    { title: 'オセロ',                 file: 'reversi.html' },
@@ -76,25 +74,21 @@
     blockzushi: { title: 'ブロック崩し',           file: 'blockzushi.html' },
     jump:       { title: 'ジャンプラン',           file: 'jump.html' },
     caring:     { title: '育成ゲーム',             file: 'caring.html', coop: true },
-    gamedev:    { title: 'ゲーム工房物語',         file: 'gamedev.html' },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
     otome:      { title: '乙女ゲーム',             file: 'otome.html', coop: true },
     linksaga:   { title: 'スターリンクサーガ',     file: 'linksaga.html', coop: false, noInvite: true },
     reaction:   { title: 'はんしゃテスト',         file: 'reaction.html' },
     mash:       { title: 'れんだバトル',           file: 'mash.html' },
-    numguess:   { title: 'かずあて',               file: 'numguess.html' },
-    janken:     { title: 'じゃんけんバトル',       file: 'janken.html' },
     calc:       { title: 'けいさんダッシュ',       file: 'calc.html' },
     memory:     { title: 'しんけいすいじゃく',     file: 'memory.html' },
     mole:       { title: 'もぐらパニック',         file: 'mole.html' },
     simon:      { title: 'いろメモリ',             file: 'simon.html' },
     timing:     { title: 'タイミングストップ',     file: 'timing.html' },
-    dice:       { title: 'ダイスレース',           file: 'dice.html' },
     taiko:      { title: '太鼓リズム',             file: 'taiko.html' },
     snake:      { title: 'スネークアリーナ',       file: 'snake.html' },
     starrhythm: { title: 'スターリズム',           file: 'starrhythm.html' }
   };
-  var GAME_ORDER = ['tetris','suica','crepe','survivors','frostline','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','gamedev','rpg','otome','linksaga','reaction','mash','numguess','janken','calc','memory','mole','simon','timing','dice','taiko','snake','starrhythm'];
+  var GAME_ORDER = ['tetris','suica','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','rpg','otome','linksaga','reaction','mash','calc','memory','mole','simon','timing','taiko','snake','starrhythm'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
