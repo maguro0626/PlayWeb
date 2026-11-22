@@ -471,7 +471,7 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="pttl">⏸ ポーズ中</div><button class="btn" id="pauseResumeBtn">▶ 再開</button><button class="btn blue" id="pauseRestartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div><div id="quitModal" class="hidden"><div class="qmCard"><div class="qmTitle" id="quitModalTitle">本当にやめますか？</div><div class="qmBtns"><button class="btn sub" id="quitModalYes" type="button">やめる</button><button class="btn" id="quitModalNo" type="button">続ける</button></div></div></div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="pttl">⏸ ポーズ中</div><button class="btn" id="pauseResumeBtn">▶ 再開</button><button class="btn blue" id="pauseRestartBtn">🔁 リスタート</button><button class="btn blue hidden" id="pauseTestTopBtn">⏮ 初めからやり直し</button><button class="btn blue hidden" id="pauseTestStartBtn">⏪ テスト開始地点からやり直し</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div><div id="quitModal" class="hidden"><div class="qmCard"><div class="qmTitle" id="quitModalTitle">本当にやめますか？</div><div class="qmBtns"><button class="btn sub" id="quitModalYes" type="button">やめる</button><button class="btn" id="quitModalNo" type="button">続ける</button></div></div></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="pauseBtn" class="iconBtn hidden" title="ポーズ">⏸</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <div id="stampModal" class="modalWrap hidden"><div class="modalCard"><h3>📖 スタンプ帳</h3><div id="stampList"></div><div class="calibBtns"><button id="stampCloseBtn" class="btn sub">閉じる</button></div></div></div>
 <div id="statsModal" class="modalWrap hidden"><div class="modalCard"><h3>📊 記録</h3><div id="statsBody"></div><div class="calibBtns"><button id="statsCloseBtn" class="btn sub">閉じる</button></div></div></div>
@@ -496,7 +496,7 @@ html,body{overscroll-behavior:none;}
 <div class="edPickRow"><select id="srEdSongSel" aria-label="曲を選ぶ"></select><select id="srEdDiffSel" aria-label="難易度を選ぶ"></select></div>
 <div class="edInfo" id="srEdInfo"></div>
 <div id="srEdStageWrap"><div id="srEdStageInner"><canvas id="srEdCanvas"></canvas></div></div>
-<div class="edPlayRow"><button id="srEdPlayBtn" class="btn">▶ 再生</button><button id="srEdTestBtn" class="btn">🎮 テストプレイ</button><button id="srEdFollowBtn" class="btn sub" type="button">🎯 追従中</button><button id="srEdUndoBtn" class="btn sub">↩️ もどる</button><button id="srEdRedoBtn" class="btn sub">↪️ すすむ</button></div>
+<div class="edPlayRow"><button id="srEdPlayBtn" class="btn">▶ 再生</button><button id="srEdTestBtn" class="btn">🎮 テストプレイ</button><button id="srEdHomeBtn" class="btn sub" type="button">⏮ はじめへ</button><button id="srEdFollowBtn" class="btn sub" type="button">🎯 追従中</button><button id="srEdUndoBtn" class="btn sub">↩️ もどる</button><button id="srEdRedoBtn" class="btn sub">↪️ すすむ</button></div>
 <div class="edPalette"><button class="edMode on" data-mode="add" type="button">✏️ 追加</button><button class="edMode" data-mode="select" type="button">👆 選択</button><button class="edMode" data-mode="erase" type="button">🧽 消しゴム</button></div>
 <div class="edPalette"><button class="edPal on" data-tool="tap" type="button">● タップ</button><button class="edPal" data-tool="long" type="button">━ ロング</button><button class="edPal" data-tool="flick" type="button">≫ フリック</button></div>
 <div class="edCtlRow"><span class="edCtlLbl">マスの細かさ</span><button class="edSnap on" data-snap="1" type="button">16分</button><button class="edSnap" data-snap="0.5" type="button">32分</button><span class="edCtlLbl">ズーム</span><button id="srEdZoomOut" type="button">－</button><span id="srEdZoomVal">10</span><button id="srEdZoomIn" type="button">＋</button></div>
@@ -1903,6 +1903,7 @@ var accSum = 0; /* Σ(weight × factor) */
 var practiceOn = false, autoOn = false; /* 選曲画面のトグル（練習／オートプレイ） */
 var curPlayOpts = { practice: false, auto: false, test: false, custom: false }; /* 演奏開始時点のスナップショット */
 var playStartOffset = 0; /* 練習モードの開始位置（秒）。通常は 0 */
+var startOffsetOverride = null; /* テストプレイ専用のやり直しが指定する開始位置（秒）。beginPlay で消費して null に戻す */
 var paused = false, pauseStartCtx = 0, audioPendingStart = false; /* ポーズ管理（対戦中はポーズ不可：pauseBtn を出さない） */
 var prevBestScore = null; /* NEW RECORD の差分表示用 */
 var songFilter = 'all'; /* 選曲の絞り込みチップ */
@@ -2363,6 +2364,8 @@ $('quitModalNo').addEventListener('click', function () {
 $('pauseBtn').addEventListener('click', function () { pauseGame(); });
 $('pauseResumeBtn').addEventListener('click', function () { resumeGame(); });
 $('pauseRestartBtn').addEventListener('click', function () { restartSong(); });
+$('pauseTestTopBtn').addEventListener('click', function () { restartSongWithOffset(0); });
+$('pauseTestStartBtn').addEventListener('click', function () { restartSongWithOffset((typeof edTestData !== 'undefined' && edTestData) ? edTestData.startPos : 0); });
 $('pauseQuitBtn').addEventListener('click', function () { showQuitConfirm(true); });
 $('stampBtn').addEventListener('click', function () {
   var st = loadStamps();
@@ -2470,7 +2473,11 @@ function beginPlay(song) {
   var customPlay = !testReq && mode === 'solo' && chartSrcFor(song.id, selDiff) === 'custom' && !!customEntry(song.id, selDiff);
   /* 演奏オプションの確定：対戦中は練習/オート/ポーズを使わない（通常プレイ固定） */
   curPlayOpts = { practice: mode === 'solo' && practiceOn && !testReq, auto: mode === 'solo' && autoOn && !testReq, test: !!testReq, custom: customPlay };
-  playStartOffset = testReq ? testReq.startPos : (curPlayOpts.practice ? practiceStartSec(song) : 0);
+  /* テストプレイ専用のやり直し（restartSongWithOffset）が開始位置を指定していたらそれを使う。
+     それ以外は従来通り：テスト開始地点（testReq.startPos）／練習位置／0 */
+  playStartOffset = (testReq && startOffsetOverride != null) ? startOffsetOverride
+    : (testReq ? testReq.startPos : (curPlayOpts.practice ? practiceStartSec(song) : 0));
+  startOffsetOverride = null; /* 使い切り（次の通常開始へ持ち越さない） */
   paused = false; audioPendingStart = false;
   judgeLog = [];
   prevBestScore = null;
@@ -2512,6 +2519,7 @@ function scheduleAhead() {
 function stopSong(toMenu) {
   playing = false;
   paused = false; audioPendingStart = false;
+  startOffsetOverride = null; /* やり直し指定の持ち越し防止（restartSongWithOffset は stopSong の後に指定する） */
   $('pausePanel').classList.add('hidden');
   hideQuitConfirm();
   $('pauseBtn').classList.add('hidden');
@@ -2529,6 +2537,10 @@ function pauseGame() {
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; } /* シンセの先行スケジュールを止める */
   if (audioPlayTimer) { clearTimeout(audioPlayTimer); audioPlayTimer = null; audioPendingStart = true; } /* カウントダウン中の実音源は再開時に鳴らす */
   else if (curAudioActive && audioEl) { try { audioEl.pause(); } catch (e) {} }
+  /* テストプレイ中だけ、専用のやり直し2項目（初めから／テスト開始地点から）を出す。通常演奏・対戦では出さない */
+  var isTestPlay = !!(curPlayOpts && curPlayOpts.test);
+  $('pauseTestTopBtn').classList.toggle('hidden', !isTestPlay);
+  $('pauseTestStartBtn').classList.toggle('hidden', !isTestPlay);
   $('pausePanel').classList.remove('hidden');
 }
 function resumeGame() {
@@ -2554,6 +2566,19 @@ function restartSong() {
   paused = false;
   stopSong(true);
   startSong(); /* 同曲・同難易度をカウントダウンから即再開 */
+}
+/* テストプレイ専用のやり直し：開始位置（秒）を指定して即再開する。
+   0 ＝「⏮ 初めから」、edTestData.startPos ＝「⏪ テスト開始地点から」。
+   テスト譜面（edTestData）とセッション（edSession）は保持され、記録も残らない（curPlayOpts.test のまま）。
+   ポーズメニューとリザルトの両方から使う */
+function restartSongWithOffset(offsetSec) {
+  if (mode !== 'solo' || !curPlayOpts.test) return;
+  $('pausePanel').classList.add('hidden');
+  $('resultPanel').classList.add('hidden');
+  paused = false;
+  stopSong(true);
+  startOffsetOverride = offsetSec; /* stopSong で消えた後に指定し、beginPlay が消費する */
+  startSong();
 }
 function resetStage() {
   chart = []; scoreF = 0; combo = 0; gauge = 20; fever = false;
@@ -2656,7 +2681,7 @@ function showResult(res, totalScore, isBest, vsInfo) {
   else if (curPlayOpts.practice) html += '<div class="rdetail" style="font-weight:900;color:var(--cyan)">📝 練習モード（記録は残りません）</div>';
   else if (curPlayOpts.custom) html += '<div class="rdetail" style="font-weight:900;color:var(--cyan)">🛠 カスタム譜面のため記録は残りません</div>';
   if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
-  html += '<div class="rbtns">' + (typeof edSession !== 'undefined' && edSession ? '<button class="btn" id="resEdBack">🛠 エディタに戻る</button>' : '') + '<button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
+  html += '<div class="rbtns">' + (typeof edSession !== 'undefined' && edSession ? '<button class="btn" id="resEdBack">🛠 エディタに戻る</button><button class="btn blue" id="resTestTop">⏮ 初めから</button>' : '') + '<button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
   p.innerHTML = html;
   p.classList.remove('hidden');
   spawnResultFx(res);
@@ -2666,6 +2691,10 @@ function showResult(res, totalScore, isBest, vsInfo) {
     wrapEl.classList.remove('ingame');
     resetStage();
     returnToEditor();
+  });
+  if (typeof edSession !== 'undefined' && edSession && $('resTestTop')) $('resTestTop').addEventListener('click', function () {
+    p.classList.add('hidden');
+    restartSongWithOffset(0); /* テストプレイ専用：初めからやり直し（「もう一度」はテスト開始地点から） */
   });
   $('resRetry').addEventListener('click', function () {
     p.classList.add('hidden');
@@ -2695,7 +2724,6 @@ function applyJudge(nt, res) {
     comboT0 = performance.now();
     var feverMult = fever ? 1.1 : 1;
     scoreF += (1000000 / totalWeight) * nt.weight * JUDGE_FACTOR[res] * feverMult;
-    if (combo > 0 && combo % 50 === 0) milestone = { n: combo, t0: performance.now() };
     hitSound(res);
   }
   gauge = clamp(gauge + gaugeDelta(res, chart.length), 0, 100);
@@ -3896,7 +3924,7 @@ function drawJudgePop(t) {
     ctx.fillText('COMBO', 0, 15);
     ctx.restore();
   }
-  /* 節目・FEVER のセンターフラッシュ */
+  /* FEVER 開始のセンターフラッシュ（コンボ節目の「○○ COMBO!」表示は本人の指示で廃止済み） */
   if (milestone) {
     var mk = (performance.now() - milestone.t0) / 780;
     if (mk >= 1) milestone = null;
@@ -3907,10 +3935,9 @@ function drawJudgePop(t) {
       ctx.translate(CW / 2, CH * 0.34); ctx.scale(ms, ms);
       ctx.font = '900 34px sans-serif'; ctx.textAlign = 'center';
       ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(10,4,30,.7)';
-      var txt = milestone.n === 'FEVER' ? '🔥 FEVER!!' : milestone.n + ' COMBO!';
-      ctx.strokeText(txt, 0, 0);
-      ctx.fillStyle = milestone.n === 'FEVER' ? '#ffb84d' : '#ffd94d';
-      ctx.fillText(txt, 0, 0);
+      ctx.strokeText('🔥 FEVER!!', 0, 0);
+      ctx.fillStyle = '#ffb84d';
+      ctx.fillText('🔥 FEVER!!', 0, 0);
       ctx.restore();
     }
   }
@@ -4275,10 +4302,9 @@ refreshEditorGate();
    ノーツは [step, lane, type, len] の配列で保持する（len は long のみ）。 */
 var ed = null; /* {songId, diff, notes, tool, snap, cellH, undo:[], redo:[], sel:{step,lane}|null, longDraft:{step,lane,end}|null, dirty} */
 var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, selfScroll: false, sfxList: null, sfxIdx: 0, sfxCount: 0, startScrollTop: null };
-var edGeom = { laneW: 80, left0: 30, W: 360 };
+var edGeom = { laneW: 80, left0: 52, W: 360 };
 var ED_ZOOMS = [6, 10, 16, 24, 36];
-var ED_RULER_W = 30; /* 左端の小節番号・オンセット表示の帯 */
-var ED_SCROLL_W = 44; /* 右端のスライド専用ストリップの幅（ここはノーツ操作にならずスクロールだけできる） */
+var ED_RULER_W = 52; /* 左端のスライド専用スペース：指で掴んで上下に動かすと譜面がスクロールする（ノーツ操作にはならない）。小節番号・オンセット表示もここに併記する */
 var ED_PAD = 15; /* 譜面の上下の余白(px) */
 /* 譜面全体の content 高さ */
 function edContentH() { return edTotalSteps() * ed.cellH + ED_PAD * 2; }
@@ -4315,8 +4341,8 @@ function edZoomTo(newCellH) {
   }
   edRender();
 }
-/* x 座標がスライド専用領域（左ルーラー／右ストリップ）かどうか */
-function edIsScrollArea(x) { return x < ED_RULER_W || x >= edGeom.W - ED_SCROLL_W; }
+/* x 座標がスライド専用領域（左端のスライドスペース）かどうか */
+function edIsScrollArea(x) { return x < ED_RULER_W; }
 /* 譜面の先頭（ステップ0側＝画面の下）までスクロールする */
 function edScrollToStart() {
   var w = $('srEdStageWrap');
@@ -4425,7 +4451,7 @@ function edRender() {
   var x = cv.getContext('2d');
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
   edGeom.W = W;
-  edGeom.laneW = (W - ED_RULER_W - ED_SCROLL_W) / 4;
+  edGeom.laneW = (W - ED_RULER_W) / 4;
   edGeom.left0 = ED_RULER_W;
   var laneW = edGeom.laneW, left0 = edGeom.left0;
   /* content Y（ステップ境界線）。ステップが大きいほど上＝Y は小さい */
@@ -4459,10 +4485,37 @@ function edRender() {
     x.fillStyle = 'rgba(0,0,0,.45)';
     x.fillRect(left0, 0, W - left0, Math.min(yEnd, H));
   }
-  /* 左端の帯：小節番号と、実音源のオンセットの強さ（音がある場所の目安） */
-  x.fillStyle = 'rgba(255,255,255,.05)';
+  /* 左端のスライド専用スペース：レーンとは違う地色にして「ここは掴んで
+     上下にスライドする場所」と一目で分かるようにする。金色のサムが
+     「今どの辺を見ているか」を示す。小節番号とオンセット表示もここに併記 */
+  x.fillStyle = '#20164e';
   x.fillRect(0, 0, ED_RULER_W, H);
-  x.strokeStyle = 'rgba(255,255,255,.18)';
+  {
+    var sH = edContentH();
+    var sTrackH = Math.max(1, H - 8);
+    var sThumbH = Math.min(sTrackH, Math.max(30, H * H / sH));
+    var sMaxOff = Math.max(1, sH - H);
+    var sThumbY = 4 + clamp(off / sMaxOff, 0, 1) * Math.max(0, sTrackH - sThumbH);
+    x.fillStyle = 'rgba(255,201,60,.20)';
+    rr(3, sThumbY, ED_RULER_W - 6, sThumbH, 6); x.fill();
+    x.strokeStyle = 'rgba(255,201,60,.45)';
+    rr(3, sThumbY, ED_RULER_W - 6, sThumbH, 6); x.stroke();
+  }
+  x.fillStyle = 'rgba(255,255,255,.5)';
+  x.font = 'bold 13px sans-serif';
+  x.fillText('↕', ED_RULER_W / 2 - 6, 18);
+  x.fillText('↕', ED_RULER_W / 2 - 6, H - 8);
+  if (H >= 180) {
+    x.save();
+    x.translate(ED_RULER_W / 2 + 4, H / 2);
+    x.rotate(-Math.PI / 2);
+    x.fillStyle = 'rgba(255,255,255,.34)';
+    x.font = 'bold 11px sans-serif';
+    x.textAlign = 'center';
+    x.fillText('スライド', 0, 0);
+    x.restore();
+  }
+  x.strokeStyle = 'rgba(255,255,255,.30)';
   x.beginPath(); x.moveTo(ED_RULER_W, 0); x.lineTo(ED_RULER_W, H); x.stroke();
   if (song.audio) {
     x.fillStyle = 'rgba(255,255,255,.35)';
@@ -4580,28 +4633,6 @@ function edRender() {
       x.strokeStyle = '#ffc93c'; x.lineWidth = 2.5;
       x.beginPath(); x.moveTo(left0, py); x.lineTo(W, py); x.stroke();
     }
-  }
-  /* 右端のスライド専用ストリップ：ここをドラッグしてもノーツ操作にはならず
-     スクロールだけできる。サムの位置と大きさで「今どの辺を見ているか」と
-     「どこからどこまで動かせるか」も分かる。下端まで来たら譜面の先頭 */
-  {
-    var sx = W - ED_SCROLL_W;
-    x.fillStyle = '#171236';
-    x.fillRect(sx, 0, ED_SCROLL_W, H);
-    x.strokeStyle = 'rgba(255,255,255,.18)';
-    x.beginPath(); x.moveTo(sx + .5, 0); x.lineTo(sx + .5, H); x.stroke();
-    var cH = edContentH();
-    var trackH = Math.max(1, H - 12);
-    var thumbH = Math.min(trackH, Math.max(26, H * H / cH));
-    var maxOff = Math.max(1, cH - H);
-    var thumbY = 6 + clamp(off / maxOff, 0, 1) * Math.max(0, trackH - thumbH);
-    x.fillStyle = 'rgba(255,255,255,.10)';
-    rr(sx + ED_SCROLL_W / 2 - 3, 6, 6, trackH, 3); x.fill();
-    x.fillStyle = 'rgba(255,201,60,.75)';
-    rr(sx + ED_SCROLL_W / 2 - 8, thumbY, 16, thumbH, 8); x.fill();
-    x.fillStyle = 'rgba(20,12,40,.85)';
-    x.font = 'bold 12px sans-serif';
-    x.fillText('↕', sx + ED_SCROLL_W / 2 - 5, thumbY + thumbH / 2 + 4);
   }
   var srcLbl = customEntry(ed.songId, ed.diff) ? 'カスタム譜面を編集中' : (officialEntry(ed.songId, ed.diff) ? '承認譜面をもとに編集' : '公式譜面をもとに編集');
   var hint = '';
@@ -4725,7 +4756,7 @@ function edPointerPos(e) {
   var contentY = (e.clientY - r.top) + wrap.scrollTop;
   var x = e.clientX - r.left;
   var lane = clamp(Math.floor((x - edGeom.left0) / edGeom.laneW), 0, 3);
-  return { rawStep: edRawStepFromContentY(contentY), lane: lane, ruler: x < ED_RULER_W, strip: x >= edGeom.W - ED_SCROLL_W, y: e.clientY - r.top };
+  return { rawStep: edRawStepFromContentY(contentY), lane: lane, ruler: x < ED_RULER_W, slide: x < ED_RULER_W, y: e.clientY - r.top };
 }
 function edSnapStep(raw) {
   var s = Math.round(raw / ed.snap) * ed.snap;
@@ -4748,8 +4779,8 @@ function edCanvasDown(e) {
   e.preventDefault();
   var wrap0 = $('srEdStageWrap');
   var pos = edPointerPos(e);
-  if (pos.ruler || pos.strip) {
-    /* スライド専用領域（左ルーラー／右ストリップ）：どのモードでもノーツ操作にせず、
+  if (pos.ruler) {
+    /* スライド専用領域（左端のスライドスペース）：どのモードでもノーツ操作にせず、
        スクロールだけ受け付ける（スライドしようとしてノーツに触れる事故を防ぐ） */
     edScrollDrag = { y: e.clientY, st: wrap0.scrollTop };
     /* スライド操作はユーザーの意思：再生中でも追従を切る */
@@ -5203,6 +5234,7 @@ $('srEdUndoBtn').addEventListener('click', edUndo);
 $('srEdRedoBtn').addEventListener('click', edRedo);
 $('srEdPlayBtn').addEventListener('click', function () { if (edPlay.playing) edStopPlayback(true); else edPlayStart(); });
 $('srEdTestBtn').addEventListener('click', edTestPlay);
+$('srEdHomeBtn').addEventListener('click', function () { edScrollToStart(); }); /* 譜面の先頭（下端）へ一発ジャンプ */
 $('srEdSaveBtn').addEventListener('click', edSave);
 $('srEdUploadBtn').addEventListener('click', function () {
   if (!ed) return;
@@ -5340,6 +5372,9 @@ window.__sr = {
   pause: function () { pauseGame(); },
   resume: function () { resumeGame(); },
   restart: function () { restartSong(); },
+  restartTestTop: function () { restartSongWithOffset(0); },
+  restartTestStart: function () { restartSongWithOffset((typeof edTestData !== 'undefined' && edTestData) ? edTestData.startPos : 0); },
+  pauseTestBtns: function () { return { top: !$('pauseTestTopBtn').classList.contains('hidden'), start: !$('pauseTestStartBtn').classList.contains('hidden') }; },
   isPaused: function () { return paused; },
   practiceStartSec: function (id) { return practiceStartSec(songById(id)); },
   getBest: function (id, diff) { return getBest(id, diff); },
@@ -5408,9 +5443,10 @@ window.__sr = {
     centerStep: function () { return ed ? edCenterStep() : null; },
     zoomIn: function () { if (!ed) return; var i = ED_ZOOMS.indexOf(ed.cellH); if (i < ED_ZOOMS.length - 1) edZoomTo(ED_ZOOMS[i + 1]); },
     zoomOut: function () { if (!ed) return; var i = ED_ZOOMS.indexOf(ed.cellH); if (i > 0) edZoomTo(ED_ZOOMS[i - 1]); },
-    stripInfo: function () { return { stripW: ED_SCROLL_W, rulerW: ED_RULER_W, geomW: edGeom.W, laneW: ed ? edGeom.laneW : null, left0: edGeom.left0 }; },
+    slideInfo: function () { return { slideW: ED_RULER_W, rulerW: ED_RULER_W, geomW: edGeom.W, laneW: ed ? edGeom.laneW : null, left0: edGeom.left0 }; },
     isScrollX: function (x) { return edIsScrollArea(x); },
     testPlay: edTestPlay, playStart: edPlayStart, playStop: function () { edStopPlayback(true); }, /* 停止ボタンと同じ（開始フレームへ戻る） */
+    jumpToStart: function () { if (ed) edScrollToStart(); },
     playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, sfxCount: edPlay.sfxCount }; }
   },
   official: {

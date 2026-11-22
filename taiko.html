@@ -41,7 +41,7 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 #songDetail .sdMascot{flex:none;align-self:flex-end;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;width:52px;text-align:center}
 #songDetail .sdMascot:active{transform:scale(.93)}
 #songDetail .sdMascotLbl{display:block;font-size:9.5px;font-weight:900;color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.6);margin-top:1px}
-#mascotStage{position:absolute;left:6px;bottom:6px;width:52px;z-index:3;pointer-events:none;display:none;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
+#mascotStage{position:absolute;left:6px;bottom:6px;width:52px;z-index:3;pointer-events:none;display:none;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5));transform-origin:50% 100%}
 .wrap.ingame #mascotStage{display:block}
 .mascotPrev{text-align:center;margin-bottom:8px}
 .mascotSlotLbl{font-size:13px;font-weight:900;margin:10px 0 5px;color:var(--gold)}
@@ -151,9 +151,12 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 /* スライドできる範囲の可視化：トラック全体＝譜面全体、サム＝今見えている範囲。
    iOS ではネイティブのスクロールバーが見えないため、これで位置を伝える */
 #edScrollBar{flex:none;display:flex;align-items:center;gap:8px}
-#edScrollTrack{position:relative;flex:1;height:34px;border-radius:999px;background:rgba(255,255,255,.10);border:1.5px solid var(--line);touch-action:none;cursor:pointer}
+#edJumpTopBtn{flex:none;border:1.5px solid var(--line);background:rgba(255,255,255,.08);color:var(--txt);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:34px;white-space:nowrap}
+#edJumpTopBtn:active{transform:scale(.96)}
+#edScrollTrack{position:relative;flex:1;height:40px;border-radius:999px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.14) 0 9px,rgba(255,255,255,.05) 9px 18px);border:1.5px solid var(--line);touch-action:none;cursor:grab;box-shadow:inset 0 2px 6px rgba(0,0,0,.35)}
 #edScrollThumb{position:absolute;top:1px;bottom:1px;left:0;width:100%;border-radius:999px;background:linear-gradient(180deg,#ffd968,#f5a623);box-shadow:0 0 8px rgba(255,201,60,.45);min-width:26px;pointer-events:none}
 .edScEnd{position:absolute;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:900;color:rgba(255,255,255,.6);pointer-events:none;z-index:2;white-space:nowrap}
+.edScMid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:900;letter-spacing:.14em;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.75);pointer-events:none;z-index:2;white-space:nowrap}
 .edScEnd.L{left:7px}
 .edScEnd.R{right:7px}
 #edScrollPos{flex:none;font-size:11px;font-weight:800;color:var(--sub);min-width:104px;text-align:right;white-space:nowrap}
@@ -451,6 +454,8 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 .newRec{font-size:19px;font-weight:900;color:#231600;background:linear-gradient(92deg,#ffe98a,#ffc93c 45%,#ff9d2e);padding:6px 18px;border-radius:999px;box-shadow:0 0 22px rgba(255,201,60,.7);animation:rankIn .5s .1s cubic-bezier(.2,1.6,.4,1) backwards}
 #pausePanel{position:absolute;inset:0;background:rgba(10,4,8,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:6;padding:16px}
 #pausePanel .ppTtl{font-size:24px;font-weight:900}
+#tpRestartRow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#tpRestartRow .btn{flex:1;min-width:150px}
 #autoBadge{position:absolute;top:8px;right:8px;z-index:4;background:rgba(0,0,0,.65);border:1.5px solid #7dd3fc;color:#bae6fd;font-size:12px;font-weight:900;border-radius:999px;padding:5px 12px;pointer-events:none}
 .wrap:not(.ingame) #pauseBtn{display:none}
 .btn:active,.miniBtn2:active,.iconBtn:active{transform:translateY(2px) scale(.97)}
@@ -504,7 +509,7 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo" class="cb"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo" class="cb"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="mascotStage"></div><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="ppTtl">⏸ ポーズ中</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="resumeBtn">再開</button><button class="btn blue" id="restartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div></div><div id="autoBadge" class="hidden">🤖 オートプレイ中</div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="mascotStage"></div><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="ppTtl">⏸ ポーズ中</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="resumeBtn">再開</button><button class="btn blue" id="restartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div><div id="tpRestartRow" class="hidden"><button class="btn" id="tpRestartTopBtn">⏮ 初めからやり直し</button><button class="btn" id="tpRestartStartBtn">⏪ テスト開始地点からやり直し</button></div></div><div id="autoBadge" class="hidden">🤖 オートプレイ中</div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="pauseBtn" class="iconBtn" title="ポーズ（対戦中は不可）">⏸</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
@@ -521,7 +526,7 @@ html,body{overscroll-behavior:none;}
 <div class="edPickRow"><select id="edSongSel" aria-label="曲を選ぶ"></select><select id="edDiffSel" aria-label="難易度を選ぶ"></select></div>
 <div class="edInfo" id="edInfo"></div>
 <div id="edStageOuter"><div id="edStageWrap"><div id="edStageInner"><canvas id="edCanvas"></canvas></div></div><button id="edFollowBtn" class="hidden on" type="button">🎯 追従中</button></div>
-<div id="edScrollBar"><div id="edScrollTrack"><span class="edScEnd L">◀ はじめ</span><div id="edScrollThumb"></div><span class="edScEnd R">おわり ▶</span></div><div id="edScrollPos"></div></div>
+<div id="edScrollBar"><button id="edJumpTopBtn" type="button">⏮ はじめへ</button><div id="edScrollTrack" role="slider" aria-label="譜面のスライド"><span class="edScEnd L">◀ はじめ</span><div id="edScrollThumb"></div><span class="edScMid">↔ スライド</span><span class="edScEnd R">おわり ▶</span></div><div id="edScrollPos"></div></div>
 <div class="edPlayRow"><button id="edPlayBtn" class="btn blue">▶ ここから再生</button><button id="edTestBtn" class="btn">🎮 テストプレイ</button><button id="edUndoBtn" class="btn sub">↩️ もどる</button><button id="edRedoBtn" class="btn sub">↪️ すすむ</button></div>
 <div class="edPalette"><button class="edPal on" data-tool="don" type="button">🔴 ドン<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="katsu" type="button">🔵 カツ<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="select" type="button">👆 えらぶ<span class="edPalSub">選択・移動</span></button><button class="edPal" data-tool="erase" type="button">🧽 消しゴム<span class="edPalSub">消す</span></button></div>
 <div class="edCtlRow"><span class="edCtlLbl">マスの細かさ</span><button class="edSnap on" data-snap="1" type="button">16分</button><button class="edSnap" data-snap="0.5" type="button">32分</button><span class="edCtlLbl">ズーム</span><button id="edZoomOut" type="button">－</button><span id="edZoomVal">16</span><button id="edZoomIn" type="button">＋</button></div>
@@ -1799,7 +1804,8 @@ var CUSTOM_CHARTS_KEY = 'taiko_custom_charts_v1';
 var OFFICIAL_CACHE_KEY = 'taiko_official_cache_v1';
 var chartSrcSel = {}; /* {songId__diff: 'official'|'custom'} 画面上の選択（保存しない） */
 var officialMap = null; /* {key: {notes, fromName, approvedAt}} / null=未取得 */
-var edTestData = null; /* {notes, startPos} テストプレイ中の譜面。リスタートでも差し替わらないよう消費せず、テストセッション中（edSession がある間）は保持し、セッション終了時に edSession と一緒に破棄する */
+var edTestData = null; /* {notes, startPos} テストプレイ中の譜面。リスタートでも差し替わらないよう消費せず、テストセッション中（edSession がある間）は保持し、セッション終了時に edSession と一緒に破棄する。startPos はテストプレイ開始時にエディタで見ていた位置（＝テスト開始地点、秒） */
+var testRestartPos = null; /* テストプレイ専用やり直し（初めから／開始地点から）で次回 startSong にだけ使う開始位置（秒）。playStartPos を決めた時点で消費して null に戻す */
 var testPlayActive = false;
 var customPlayActive = false; /* v122: カスタム譜面で演奏中（公式記録にしない） */
 var resultFromTest = false; /* v122: 直前のリザルトがエディタのテストプレイか */
@@ -2642,6 +2648,16 @@ $('edIoCopyBtn').addEventListener('click', function () {
     track.addEventListener('pointercancel', function () { scrubbing = false; });
   }
 })();
+/* 譜面の先頭（初め位置）へ一発でスクロール移動する。スクラブと同じく、
+   プレビュー再生中なら自動追従は切っておく（追従に引き戻されないため） */
+function edJumpToTop() {
+  if (!ed) return;
+  var w = $('edStageWrap');
+  if (w) w.scrollLeft = 0;
+  if (edPlay.playing) edPlay.follow = false;
+  edRender();
+}
+$('edJumpTopBtn').addEventListener('click', edJumpToTop);
 $('edFollowBtn').addEventListener('click', function () {
   if (!ed || !edPlay.playing) return;
   edPlay.follow = true;
@@ -2776,7 +2792,11 @@ function startSong() {
   curApproach = (DIFFS[selDiff] && DIFFS[selDiff].approach) || APPROACH;
   /* 練習モード（ソロのみ）：最初のサビ開始秒（無ければ曲の30%）から開始し、
      それより前のノーツは判定済み扱いで読み飛ばす */
-  playStartPos = et120 ? et120.startPos : (isPracticePlay() ? practiceStartPos(curSong) : 0);
+  /* テストプレイ専用のやり直しが指定されていれば、その開始位置を最優先する
+     （初めから＝0／テスト開始地点から＝edTestData.startPos）。ここで消費するので、
+     実音源の読み込み待ちで startSong が呼ばれ直しても上書き指定は保持される */
+  playStartPos = et120 ? (testRestartPos != null ? testRestartPos : et120.startPos) : (isPracticePlay() ? practiceStartPos(curSong) : 0);
+  testRestartPos = null;
   notePtr = 0;
   if (playStartPos > 0) {
     while (notePtr < chart.length && chart[notePtr].t < playStartPos) { chart[notePtr].judged = 2; notePtr++; }
@@ -2787,6 +2807,7 @@ function startSong() {
   lastHitType = null;
   vocalHits = 0;
   popups = []; hitFx = []; bursts = []; drumWaves = []; comboShown = 0; particles = initParticles(curSong.theme);
+  mascotHopT = mascotSadT = mascotJoyT = -1e9; /* マスコットのリアクション状態も曲ごとにリセット */
   playing = true;
   wrapEl.classList.add('playing');
   wrapEl.classList.add('ingame');
@@ -2935,12 +2956,18 @@ function showResult(res, totalScore, isBest, vsInfo) {
   html += histHtml();
   if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
   html += '<div class="rbtns"><button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
-  if (resultFromTest) html += '<div class="rbtns"><button class="btn blue" id="resEdBack" style="flex:1">🛠 エディタに戻る</button></div>';
+  if (resultFromTest) html += '<div class="rbtns"><button class="btn" id="resRetryTop">⏮ 初めから</button><button class="btn blue" id="resEdBack" style="flex:1">🛠 エディタに戻る</button></div>';
   p.innerHTML = html;
   p.classList.remove('hidden');
   $('resRetry').addEventListener('click', function () {
     p.classList.add('hidden');
     if (mode === 'online') { requestRematch(); } else { startSong(); }
+  });
+  /* テストプレイのリザルト専用：「もう一度」はテスト開始地点から、「⏮ 初めから」は曲の先頭から */
+  var rtp = $('resRetryTop');
+  if (rtp) rtp.addEventListener('click', function () {
+    p.classList.add('hidden');
+    restartTestFromTop();
   });
   var eb = $('resEdBack');
   if (eb) eb.addEventListener('click', function () { returnToEditor(); });
@@ -3124,11 +3151,15 @@ function applyJudge(nt, res) {
     gauge = clamp(gauge + gaugeDelta(res, chart.length), 0, 100);
     spawnPopup(nt, res);
     spawnHitFx(nt);
+    /* マスコット「にゃん太」のリアクション（updateMascotAnim が拾う） */
+    mascotHopT = performance.now();
+    if (combo > 0 && combo % 50 === 0) mascotJoyT = mascotHopT; /* 50コンボごとの喜びモーション */
   } else {
     counts.bad++;
     combo = 0;
     gauge = clamp(gauge + gaugeDelta('bad', chart.length), 0, 100);
     spawnPopup(nt, 'bad');
+    mascotSadT = performance.now(); /* ミスでは小さくしょんぼり揺れる */
   }
   updateHUD(false);
   sendProg();
@@ -3300,6 +3331,7 @@ function draw() {
   drumPulse.katsu = Math.max(0, drumPulse.katsu - dt * 5);
   zoneFlash.don = Math.max(0, zoneFlash.don - dt * 4.2);
   zoneFlash.katsu = Math.max(0, zoneFlash.katsu - dt * 4.2);
+  updateMascotAnim(now);
   drawScene(now / 1000, dt);
 }
 
@@ -4678,6 +4710,9 @@ function setPaused(on) {
   paused = on;
   var pp = $('pausePanel');
   if (pp) pp.classList.toggle('hidden', !paused);
+  /* テストプレイ専用のやり直し行は、テストプレイ中のポーズでだけ出す */
+  var tpr = $('tpRestartRow');
+  if (tpr) tpr.classList.toggle('hidden', !(paused && testPlayActive));
   if (paused) {
     pausedSongTime = songTime;
     if (curSong && curSong.real) {
@@ -4704,6 +4739,21 @@ function restartSong() {
   if (pp) pp.classList.add('hidden');
   stopSong(false);
   startSong(); /* 同曲・同難易度をカウントダウンから即再開 */
+}
+/* テストプレイ専用のやり直し（ポーズメニュー／リザルトからのみ呼ぶ）。
+   「初めから」は開始位置 0、「テスト開始地点から」はテストプレイ開始時に
+   edTestData.startPos へ記録した地点を使う。どちらも edTestData／edSession は
+   保持したまま startSong し直すので、テスト譜面は維持され、記録も残らず、
+   「やめる」からエディタへ戻れる（v124 のセッション保持仕様は壊さない） */
+function restartTestFromTop() {
+  if (!testPlayActive || !edTestData) return;
+  testRestartPos = 0;
+  restartSong();
+}
+function restartTestFromStartPoint() {
+  if (!testPlayActive || !edTestData) return;
+  testRestartPos = edTestData.startPos;
+  restartSong();
 }
 /* ---------------- 「やめる」確認（v122 追加指示） ----------------
    演奏中の「やめる」（ポーズメニューの「やめる」も）は誤タップ防止のため、
@@ -5004,6 +5054,52 @@ function mascotSVG(size) {
   return '<svg viewBox="0 0 100 102" width="' + s + '" height="' + Math.round(s * 1.02) + '" role="img" aria-label="マスコット にゃん太">' + g + '</svg>';
 }
 function renderMascotStage() { var el = $('mascotStage'); if (el) el.innerHTML = mascotSVG(52); }
+/* ---------------- マスコット「にゃん太」の演奏中アニメーション ----------------
+   既存の rAF ループ（draw）から毎フレーム呼ばれ、#mascotStage の transform を
+   書き換えるだけ（追加のタイマー／rAF は作らない。文字列が変わった時だけ書く）。
+   拍のバウンスは曲の時計 songTime から位相を取るので、実音源／シンセ共通で
+   BPM に同期し、ポーズ中は songTime が凍結するため一緒に止まる。
+   着せ替えは内側の SVG（mascotSVG が wear を反映）なので、transform は着せ替え
+   状態にそのまま追随する。 */
+var mascotHopT = -1e9, mascotSadT = -1e9, mascotJoyT = -1e9; /* リアクション発生時刻（performance.now 基準） */
+var mascotLastTf = '', mascotStageElCache = null;
+function updateMascotAnim(now, tSong) {
+  if (!mascotStageElCache) mascotStageElCache = $('mascotStage');
+  var el = mascotStageElCache;
+  if (!el) return;
+  var st = (typeof tSong === 'number') ? tSong : songTime;
+  var tf = '';
+  if (playing && curData && st >= 0) {
+    /* 拍（4ステップ）ごとのバウンス＋左右交互の足踏み傾け */
+    var stepF = (st - (curSong && curSong.real ? (curSong.offset || 0) : 0)) / curData.stepDur;
+    if (stepF < 0) stepF = 0;
+    var beatF = stepF / 4, ph = beatF - Math.floor(beatF);
+    var bounce = Math.sin(ph * Math.PI);
+    var ty = -3.5 * bounce;
+    var rot = (Math.floor(beatF) % 2 ? -1 : 1) * 2.4 * bounce;
+    var sc = 1, tx = 0;
+    /* ノーツを叩いた直後のはね（180ms で減衰） */
+    var hk = 1 - (now - mascotHopT) / 180;
+    if (hk > 0) { ty -= 7 * hk * hk; sc += 0.05 * hk; }
+    /* ミスのしょんぼり揺れ（260ms で減衰） */
+    var sk = 1 - (now - mascotSadT) / 260;
+    if (sk > 0) { tx += Math.sin((now - mascotSadT) / 28) * 1.8 * sk; rot -= 3 * sk; }
+    /* 50コンボごとの喜び（620ms：大きくはねて左右に揺れる） */
+    var jk = (now - mascotJoyT) / 620;
+    if (jk >= 0 && jk < 1) {
+      var js = Math.sin(jk * Math.PI);
+      ty -= 10 * js;
+      rot += Math.sin(jk * Math.PI * 4) * 5 * (1 - jk);
+      sc += 0.09 * js;
+    }
+    tf = 'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) rotate(' + rot.toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
+  } else if (wrapEl.classList.contains('ingame')) {
+    /* カウントダウン／リザルト等の待機中は小さくゆらゆら */
+    var sw = Math.sin(now / 620);
+    tf = 'translateY(' + (-1.2 * Math.abs(sw)).toFixed(1) + 'px) rotate(' + (1.6 * sw).toFixed(1) + 'deg)';
+  }
+  if (tf !== mascotLastTf) { mascotLastTf = tf; el.style.transform = tf; }
+}
 function mascotDetailHtml() {
   return '<button type="button" class="sdMascot" id="sdMascotBtn" aria-label="にゃん太の着せ替え">' + mascotSVG(46) + '<span class="sdMascotLbl">👗 着せ替え</span></button>';
 }
@@ -5076,6 +5172,10 @@ function renderMascotModal() {
   if (rs) rs.addEventListener('click', function () { setPaused(false); });
   var rt = $('restartBtn');
   if (rt) rt.addEventListener('click', function () { restartSong(); });
+  var tpt = $('tpRestartTopBtn');
+  if (tpt) tpt.addEventListener('click', function () { restartTestFromTop(); });
+  var tps = $('tpRestartStartBtn');
+  if (tps) tps.addEventListener('click', function () { restartTestFromStartPoint(); });
   var pq = $('pauseQuitBtn');
   if (pq) pq.addEventListener('click', function () { openQuitConfirm(); }); /* v122: ポーズの「やめる」も確認を挟む */
   renderRatingBar();
@@ -5231,6 +5331,8 @@ window.__taiko = {
     moveNote: function (from, to) { if (!ed) return false; var i = edNoteIdxNear(from); if (i < 0) return false; edPushUndo(); ed.notes[i][0] = to; edSortNotes(); edRender(); return true; },
     save: edSave, upload: edUpload, undo: edUndo, redo: edRedo,
     testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
+    jumpTop: edJumpToTop,
+    testData: function () { return edTestData ? { startPos: edTestData.startPos, notes: edTestData.notes.map(function (p) { return [+p[0], p[1]]; }) } : null; },
     setZoom: edSetZoom, isSlideZone: edIsSlideZone,
     playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu, startSL: edPlay.startSL }; },
     session: function () { return edSession ? { song: edSession.songId, diff: edSession.diff, notes: edSession.notes.length, scrollLeft: edSession.scrollLeft, dirty: edSession.dirty } : null; },
@@ -5251,10 +5353,15 @@ window.__taiko = {
   dan: { ladder: DAN_LADDER, info: danInfo, counts: danCounts, condText: danCondText },
   mascot: {
     items: MASCOT_ITEMS.map(function (it) { return { slot: it.slot, id: it.id, name: it.name, condText: it.condText }; }),
-    state: loadMascot, svg: mascotSVG, check: checkMascotUnlocks, wear: mascotWear, ctx: mascotCondCtx
+    state: loadMascot, svg: mascotSVG, check: checkMascotUnlocks, wear: mascotWear, ctx: mascotCondCtx,
+    animAt: function (tSong, nowMs) { updateMascotAnim(nowMs == null ? performance.now() : nowMs, tSong); return mascotLastTf; },
+    animState: function () { return { tf: mascotLastTf, hopT: mascotHopT, sadT: mascotSadT, joyT: mascotJoyT }; }
   },
+  setSongTime: function (t) { songTime = t; },
+  sweepMiss: sweepMiss,
   customPlay: function () { return customPlayActive; },
   testPlay: function () { return testPlayActive; },
+  tpRestart: { top: restartTestFromTop, startPoint: restartTestFromStartPoint },
   chartSteps: function () { return chart.map(function (n) { return [n.step, n.type]; }); },
   quitConfirm: { isOpen: function () { return quitConfirmOpen; }, open: openQuitConfirm, close: closeQuitConfirm }
 };
