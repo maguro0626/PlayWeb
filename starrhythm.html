@@ -69,7 +69,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #songDetail{display:flex;flex-direction:column;gap:5px;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));border:2px solid rgba(255,201,60,.45);border-radius:16px;padding:8px 12px;box-shadow:0 6px 22px rgba(0,0,0,.35),0 0 28px rgba(255,93,143,.16),inset 0 1px 0 rgba(255,255,255,.14)}
 #songDetail .dRow{display:flex;gap:11px;align-items:center;width:100%}
 #songDetail .dCredit{font-size:9.5px;color:var(--sub);line-height:1.55;opacity:.9;border-top:1px solid rgba(255,255,255,.10);padding-top:6px;word-break:break-all}
-#audioToast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:60;background:rgba(10,6,28,.92);border:1px solid rgba(255,201,60,.6);color:var(--txt);font-size:13px;font-weight:800;padding:10px 18px;border-radius:999px;box-shadow:0 8px 26px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;max-width:92vw;text-overflow:ellipsis;overflow:hidden}
+#audioToast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:90010;background:rgba(10,6,28,.92);border:1px solid rgba(255,201,60,.6);color:var(--txt);font-size:13px;font-weight:800;padding:10px 18px;border-radius:999px;box-shadow:0 8px 26px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;max-width:92vw;text-overflow:ellipsis;overflow:hidden}
 #dlModal{position:fixed;inset:0;z-index:200;background:rgba(6,3,18,.82);display:flex;align-items:center;justify-content:center;padding:18px}
 .dlCard{background:#17102e;border:1px solid var(--line);border-radius:18px;padding:20px 18px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.55);text-align:center}
 .dlTtl{font-size:17px;font-weight:900;margin-bottom:8px}
@@ -308,7 +308,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #quitModal .qmTitle{font-size:19px;font-weight:900;margin-bottom:14px;line-height:1.5}
 #quitModal .qmBtns{display:flex;gap:9px}
 #quitModal .qmBtns .btn{flex:1;min-width:0;min-height:48px}
-#srEdUploadModal{position:absolute;inset:0;background:rgba(6,3,18,.78);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px}
+#srEdUploadModal{position:fixed;inset:0;background:rgba(6,3,18,.78);display:flex;align-items:center;justify-content:center;z-index:90002;padding:16px}
 #srEdUploadModal .edUpCard{background:#1d1438;border:1.5px solid var(--line);border-radius:18px;padding:20px 18px;max-width:320px;width:100%;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.5)}
 #srEdUploadModal .edUpTtl{font-size:19px;font-weight:900;margin-bottom:10px}
 #srEdUploadModal .edUpBody{font-size:14px;line-height:1.7;margin:0 0 16px;white-space:pre-line}
@@ -374,7 +374,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #srEditorPanel .edPickRow{display:flex;gap:6px;flex:none}
 #srEditorPanel .edPickRow select{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1.5px solid var(--line);border-radius:11px;color:var(--txt);padding:6px 8px;font-size:13.5px;font-weight:800;font-family:inherit;min-height:36px}
 #srEditorPanel .edInfo{flex:none;font-size:11.5px;color:var(--sub);font-weight:800;min-height:15px;line-height:1.4}
-#srEdStageWrap{flex:1 1 auto;min-height:120px;overflow-x:hidden;overflow-y:auto;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
+#srEdStageWrap{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
 #srEdStageInner{position:relative;width:100%}
 #srEdCanvas{position:sticky;top:0;display:block;touch-action:none}
 #srEditorPanel .edPlayRow{display:flex;gap:5px;flex:none;flex-wrap:nowrap}
@@ -389,7 +389,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 /* 背の低い画面では各行をさらに詰めて、タイムラインと全ボタンが収まるようにする */
 @media (max-height:640px){
   #srEditorPanel{gap:4px;padding-top:6px;padding-bottom:6px}
-  #srEdStageWrap{min-height:64px}
+  #srEdStageWrap{min-height:0}
   #srEditorPanel .edPal{min-height:32px}
   #srEditorPanel .edMode{min-height:28px}
   #srEditorPanel .edPlayRow .btn{min-height:34px;font-size:11px}
@@ -5008,6 +5008,7 @@ function edRevert() {
   if (!edRevertArmed) {
     edRevertArmed = true;
     btn.textContent = '⚠ 本当にカスタムを消しますか？（もう一度タップで実行）';
+    showToast('⚠ もう一度「公式に戻す」を押すと、カスタムを消して公式譜面に戻します', 3200);
     setTimeout(function () { edRevertArmed = false; btn.textContent = '公式に戻す'; }, 3500);
     return;
   }
