@@ -148,6 +148,15 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 #edStageWrap{flex:1 1 auto;min-width:0;min-height:0;overflow-x:auto;overflow-y:hidden;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
 #edFollowBtn{position:absolute;top:6px;right:6px;z-index:6;border:1.5px solid var(--line);background:rgba(20,10,16,.88);color:var(--txt);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:32px}
 #edFollowBtn.on{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 10px rgba(255,201,60,.35)}
+/* スライドできる範囲の可視化：トラック全体＝譜面全体、サム＝今見えている範囲。
+   iOS ではネイティブのスクロールバーが見えないため、これで位置を伝える */
+#edScrollBar{flex:none;display:flex;align-items:center;gap:8px}
+#edScrollTrack{position:relative;flex:1;height:17px;border-radius:999px;background:rgba(255,255,255,.10);border:1.5px solid var(--line);touch-action:none;cursor:pointer}
+#edScrollThumb{position:absolute;top:1px;bottom:1px;left:0;width:100%;border-radius:999px;background:linear-gradient(180deg,#ffd968,#f5a623);box-shadow:0 0 8px rgba(255,201,60,.45);min-width:26px;pointer-events:none}
+.edScEnd{position:absolute;top:50%;transform:translateY(-50%);font-size:9px;font-weight:900;color:rgba(255,255,255,.6);pointer-events:none;z-index:2;white-space:nowrap}
+.edScEnd.L{left:7px}
+.edScEnd.R{right:7px}
+#edScrollPos{flex:none;font-size:11px;font-weight:800;color:var(--sub);min-width:104px;text-align:right;white-space:nowrap}
 /* キャンバスは表示幅だけを描き、スクロール量ぶんずらして描画する（長曲×ズーム大でも
    キャンバス幅の上限に当たらないようにするため、内側スペーサでスクロール幅を作る） */
 #edStageInner{position:relative;height:100%}
@@ -512,6 +521,7 @@ html,body{overscroll-behavior:none;}
 <div class="edPickRow"><select id="edSongSel" aria-label="曲を選ぶ"></select><select id="edDiffSel" aria-label="難易度を選ぶ"></select></div>
 <div class="edInfo" id="edInfo"></div>
 <div id="edStageOuter"><div id="edStageWrap"><div id="edStageInner"><canvas id="edCanvas"></canvas></div></div><button id="edFollowBtn" class="hidden on" type="button">🎯 追従中</button></div>
+<div id="edScrollBar"><div id="edScrollTrack"><span class="edScEnd L">◀ はじめ</span><div id="edScrollThumb"></div><span class="edScEnd R">おわり ▶</span></div><div id="edScrollPos"></div></div>
 <div class="edPlayRow"><button id="edPlayBtn" class="btn blue">▶ ここから再生</button><button id="edTestBtn" class="btn">🎮 テストプレイ</button><button id="edUndoBtn" class="btn sub">↩️ もどる</button><button id="edRedoBtn" class="btn sub">↪️ すすむ</button></div>
 <div class="edPalette"><button class="edPal on" data-tool="don" type="button">🔴 ドン<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="katsu" type="button">🔵 カツ<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="select" type="button">👆 えらぶ<span class="edPalSub">選択・移動</span></button><button class="edPal" data-tool="erase" type="button">🧽 消しゴム<span class="edPalSub">消す</span></button></div>
 <div class="edCtlRow"><span class="edCtlLbl">マスの細かさ</span><button class="edSnap on" data-snap="1" type="button">16分</button><button class="edSnap" data-snap="0.5" type="button">32分</button><span class="edCtlLbl">ズーム</span><button id="edZoomOut" type="button">－</button><span id="edZoomVal">16</span><button id="edZoomIn" type="button">＋</button></div>
@@ -1789,7 +1799,7 @@ var CUSTOM_CHARTS_KEY = 'taiko_custom_charts_v1';
 var OFFICIAL_CACHE_KEY = 'taiko_official_cache_v1';
 var chartSrcSel = {}; /* {songId__diff: 'official'|'custom'} 画面上の選択（保存しない） */
 var officialMap = null; /* {key: {notes, fromName, approvedAt}} / null=未取得 */
-var editorTest = null; /* {notes, startPos} 次の startSong で消費されるテストプレイ */
+var edTestData = null; /* {notes, startPos} テストプレイ中の譜面。リスタートでも差し替わらないよう消費せず、テストセッション中（edSession がある間）は保持し、セッション終了時に edSession と一緒に破棄する */
 var testPlayActive = false;
 var customPlayActive = false; /* v122: カスタム譜面で演奏中（公式記録にしない） */
 var resultFromTest = false; /* v122: 直前のリザルトがエディタのテストプレイか */
@@ -1967,6 +1977,7 @@ function returnToEditor() {
   if (!edSession) return;
   var s = edSession;
   edSession = null;
+  edTestData = null;
   resultFromTest = false;
   stopSong(false);
   var p = $('resultPanel');
@@ -2024,6 +2035,19 @@ function edRender() {
     x.beginPath(); x.moveTo(gx, laneY - laneH / 2); x.lineTo(gx, laneY + laneH / 2); x.stroke();
     if (i % 16 === 0) { x.fillStyle = 'rgba(255,255,255,.45)'; x.font = '9px sans-serif'; x.fillText(String(i / 4 + 1), gx + 2, laneY - laneH / 2 - 5); }
   }
+  /* スライド範囲の端マーカー：譜面の「はじめ」と「おわり」の位置を明示する
+     （ラベルは小節番号と重ならないようレーンの下側に出す） */
+  var xStartM = -off, xEndM = total * ed.cellW - off;
+  if (xStartM >= -40 && xStartM <= W + 40) {
+    x.strokeStyle = '#4ade80'; x.lineWidth = 2.5;
+    x.beginPath(); x.moveTo(xStartM + 1, laneY - laneH / 2); x.lineTo(xStartM + 1, laneY + laneH / 2); x.stroke();
+    x.fillStyle = '#4ade80'; x.font = '900 9px sans-serif'; x.fillText('▶ はじめ', xStartM + 4, laneY + laneH / 2 + 11);
+  }
+  if (xEndM >= -40 && xEndM <= W + 40) {
+    x.strokeStyle = '#ff8a5c'; x.lineWidth = 2.5;
+    x.beginPath(); x.moveTo(xEndM - 1, laneY - laneH / 2); x.lineTo(xEndM - 1, laneY + laneH / 2); x.stroke();
+    x.fillStyle = '#ff8a5c'; x.font = '900 9px sans-serif'; x.fillText('おわり ◀', xEndM - 36, laneY + laneH / 2 + 11);
+  }
   var R = Math.min(17, Math.max(8, ed.cellW * 0.44));
   ed.notes.forEach(function (p) {
     if (p[0] < st0 - 1 || p[0] > st1 + 1) return;
@@ -2053,6 +2077,22 @@ function edRender() {
     fb.classList.toggle('on', !!edPlay.follow);
     fb.textContent = edPlay.follow ? '🎯 追従中' : '🎯 追従する';
   }
+  edUpdateScrollBar();
+}
+/* スライドできる範囲の可視化：#edScrollTrack 全体を譜面全体に見立て、
+   サムの位置と幅で「今どの辺を・どれだけの範囲で見ているか」を示す。
+   あわせて現在位置を小節数でも表示する（16ステップ＝1小節） */
+function edUpdateScrollBar() {
+  var wrap = $('edStageWrap'), thumb = $('edScrollThumb'), pos = $('edScrollPos');
+  if (!wrap || !thumb || !pos) return;
+  var sw = wrap.scrollWidth, cw = wrap.clientWidth, sl = wrap.scrollLeft;
+  var max = Math.max(0, sw - cw);
+  thumb.style.width = (sw > 0 ? Math.max(4, cw / sw * 100) : 100) + '%';
+  thumb.style.left = (sw > 0 ? sl / sw * 100 : 0) + '%';
+  if (!ed) { pos.textContent = ''; return; }
+  var totalBars = Math.max(1, Math.ceil(edTotalSteps() / 16));
+  var curBar = Math.min(totalBars, Math.floor((sl / Math.max(1, ed.cellW)) / 16) + 1);
+  pos.textContent = max <= 0 ? '全' + totalBars + '小節（全部見えています）' : curBar + ' / ' + totalBars + ' 小節あたり';
 }
 function edPushUndo() {
   ed.undo.push(JSON.stringify(ed.notes));
@@ -2333,7 +2373,7 @@ function edTestPlay() {
   var song = edSong(), d = edData();
   var wrap = $('edStageWrap');
   var startStep = Math.max(0, Math.floor(wrap.scrollLeft / ed.cellW));
-  editorTest = {
+  edTestData = {
     notes: ed.notes.map(function (p) { return [+p[0], p[1]]; }),
     startPos: startStep * d.stepDur + (song.real ? song.offset : 0)
   };
@@ -2550,6 +2590,30 @@ $('edIoCopyBtn').addEventListener('click', function () {
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { wrap.scrollLeft += e.deltaY; e.preventDefault(); }
   }, { passive: false });
   window.addEventListener('resize', function () { if (ed) edRender(); });
+  /* スクロールバーのトラックをタップ／ドラッグすると、その位置へ移動できる
+     （バーを触る＝スライド範囲そのものを触る、という分かりやすさのため） */
+  var track = $('edScrollTrack');
+  if (track) {
+    var scrubbing = false;
+    var scrubTo = function (clientX) {
+      var r = track.getBoundingClientRect();
+      if (r.width <= 0) return;
+      var ratio = (clientX - r.left) / r.width;
+      var max = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+      wrap.scrollLeft = Math.min(max, Math.max(0, ratio * wrap.scrollWidth - wrap.clientWidth / 2));
+      if (edPlay.playing) edPlay.follow = false;
+    };
+    track.addEventListener('pointerdown', function (e) {
+      if (!ed) return;
+      scrubbing = true;
+      try { track.setPointerCapture(e.pointerId); } catch (err) {}
+      scrubTo(e.clientX);
+      e.preventDefault();
+    });
+    track.addEventListener('pointermove', function (e) { if (scrubbing) scrubTo(e.clientX); });
+    track.addEventListener('pointerup', function () { scrubbing = false; });
+    track.addEventListener('pointercancel', function () { scrubbing = false; });
+  }
 })();
 $('edFollowBtn').addEventListener('click', function () {
   if (!ed || !edPlay.playing) return;
@@ -2669,9 +2733,10 @@ function startSong() {
   }
   curData = buildSongData(curSong);
   /* v120: 譜面の解決順 = テストプレイ（エディタ） > カスタム（ソロ＆選択時） >
-     承認譜面（official_charts） > 自動生成。対戦は常に公式側 */
-  var et120 = editorTest;
-  editorTest = null;
+     承認譜面（official_charts） > 自動生成。対戦は常に公式側。
+     テスト譜面は消費しない：ポーズのリスタートやリザルトの「もう一度」でも
+     同じテスト譜面で始まり、テストセッションが終わるまで保持される */
+  var et120 = (edSession && edTestData && selSong === edSession.songId && selDiff === edSession.diff) ? edTestData : null;
   testPlayActive = !!et120;
   testSePtr = 0; /* 改善1: テストプレイのSE発音ポインタとカウンタを初期化 */
   edSeCount = { don: 0, katsu: 0 };
@@ -2763,7 +2828,7 @@ function stopSong(toMenu) {
   customPlayActive = false;
   quitConfirmOpen = false;
   var qm0 = $('quitModal'); if (qm0) qm0.classList.add('hidden');
-  if (toMenu) edSession = null; /* 選曲へ戻る通常導線ではエディタ復帰セッションを破棄する */
+  if (toMenu) { edSession = null; edTestData = null; } /* 選曲へ戻る通常導線ではエディタ復帰セッションとテスト譜面を破棄する */
   var pp8 = $('pausePanel'); if (pp8) pp8.classList.add('hidden');
   var ab8 = $('autoBadge'); if (ab8) ab8.classList.add('hidden');
   stopRealAudio();
@@ -2854,7 +2919,7 @@ function showResult(res, totalScore, isBest, vsInfo) {
   if (eb) eb.addEventListener('click', function () { returnToEditor(); });
   $('resBack').addEventListener('click', function () {
     p.classList.add('hidden');
-    edSession = null; resultFromTest = false;
+    edSession = null; edTestData = null; resultFromTest = false;
     if (mode === 'online') leaveOnline();
     wrapEl.classList.remove('playing');
     wrapEl.classList.remove('ingame');
@@ -5141,6 +5206,7 @@ window.__taiko = {
     testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
     playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu }; },
     session: function () { return edSession ? { song: edSession.songId, diff: edSession.diff, notes: edSession.notes.length, scrollLeft: edSession.scrollLeft, dirty: edSession.dirty } : null; },
+    scrollInfo: function () { var w = $('edStageWrap'), t = $('edScrollThumb'), pe = $('edScrollPos'); return { scrollLeft: w ? w.scrollLeft : 0, max: w ? Math.max(0, w.scrollWidth - w.clientWidth) : 0, thumbLeft: t ? t.style.left : '', thumbWidth: t ? t.style.width : '', posText: pe ? pe.textContent : '' }; },
     back: returnToEditor,
     requestClose: requestCloseEditor
   },
@@ -5160,6 +5226,8 @@ window.__taiko = {
     state: loadMascot, svg: mascotSVG, check: checkMascotUnlocks, wear: mascotWear, ctx: mascotCondCtx
   },
   customPlay: function () { return customPlayActive; },
+  testPlay: function () { return testPlayActive; },
+  chartSteps: function () { return chart.map(function (n) { return [n.step, n.type]; }); },
   quitConfirm: { isOpen: function () { return quitConfirmOpen; }, open: openQuitConfirm, close: closeQuitConfirm }
 };
 })();
