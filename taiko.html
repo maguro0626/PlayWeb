@@ -1141,8 +1141,9 @@ function setMuted(m) {
   muted = m;
   try { localStorage.setItem('taiko_mute', m ? '1' : '0'); } catch (e) {}
   if (master) master.gain.value = m ? 0 : 0.9;
-  /* 実音源にもミュートを効かせる */
-  Object.keys(realAudio).forEach(function (k) { var r = realAudio[k]; if (r && r.el) r.el.muted = m; });
+  /* 実音源にもミュートを効かせる。ただし待機ゲート中の曲要素は、全体の
+     ミュート解除で待機中の消音まで解けてしまわないよう、消音を再固定する */
+  Object.keys(realAudio).forEach(function (k) { var r = realAudio[k]; if (r && r.el) { if (r.el === songGateEl) silenceRealEl(r.el); else r.el.muted = m; } });
   var b = document.getElementById('muteBtn');
   if (b) b.textContent = m ? '🔇' : '🔊';
 }
@@ -1557,51 +1558,98 @@ function initAudioDl() {
 }
 /* iOS Safari はタップの瞬間に play() しておかないと後の再生が拒否されるため、
    開始タップの中で一度 play→pause して再生許可を得ておく。
-   【2026-11-23 根本修正】v111 では「プライム中は volume=0」にして、play() の
-   Promise 解決が遅れても聞こえないようにしたが、本人の iPhone では今も
-   カウントダウン中に曲が流れることがあった。真因は iOS Safari が
-   HTMLMediaElement.volume を無視すること（iOS では音量は端末ボタンでしか
-   変わらず、volume=0 を書いても 1 のまま鳴る）。そこでプライム中は
-   muted=true（こちらは iOS でも実際に効く）にして音の出口を断つ。
-   あわせて、古いプライムの settle が後発プライムの消音を先に解除して
-   しまう世代またぎの競合も、世代番号（primeGen）で無効化して塞ぐ。
-   muted／volume の復帰は「最新プライムの settle（本再生前のみ）」
-   「本再生開始（fireRealStart）」「停止（stopRealAudio）」の3箇所だけ。
-   これで待機中に曲の音が鳴る経路は構造的に無くなる。本再生側でも開始
-   直前に開始位置へ戻すため、プライムで進んだ再生位置が残ることもない */
-var primeGen = 0;
+   【2026-11-23 再発対応・多層化】v111 は「プライム中 volume=0」、v129 は
+   「プライム中 muted=true＋Promise settle で pause＆消音復帰」にしたが、
+   本人の iPhone では実音源曲（特に冒頭から音量の大きい Suno 曲）で今も
+   カウントダウン中に曲が聞こえた。v129 の設計の弱点は2つ：
+   (a) 消音が muted プロパティ1本頼みで、効きが端末側の解釈に左右される。
+   (b) pause が play() の Promise 解決待ちで、解決が遅れた分だけ要素が
+       「再生中」のまま残る。さらに settle は待機の途中で消音を先に戻して
+       いたため、その後の待機時間は「止まっているから無音」だけが頼りだった。
+   そこで今回は「待機中、曲要素は可聴状態になり得ない」ことを多層で保証する：
+   1. 待機ゲート：startSong が実音源を開始する瞬間から fireRealStart が
+      開けるまでの間、曲要素を silenceRealEl で無音に固定する。消音は
+      muted プロパティ＋defaultMuted＋muted 属性＋volume=0 の4点同時で、
+      どれか1つの解釈が端末で外れても他が効く。
+   2. 待機中は要素を再生状態に置かない：プライムは play() の直後に同じ
+      同期処理の中で pause() する（Promise の解決を待たない）。再生許可の
+      取得（iOS の unlock）とデコーダの温め（開始位置へのシークは一時
+      停止したまま行う）だけが目的で、待機区間に「再生中」の時間を作らない。
+   3. 見張りタイマー：待機中は 100ms ごとにゲート対象を再消音し、万一
+      何らかの経路で再生状態になっていたら即 pause し直す。
+   4. ゲートを開けるのは fireRealStart だけ（停止時は stopRealAudio が
+      ゲートを畳んで通常状態へ戻す）。全体ミュート切替（setMuted）も
+      ゲート対象には消音を再適用し、待機中の解除を許さない。
+   開始ボイスと打撃 SE は WebAudio（master）側の音なので、このゲートの
+   影響を受けず待機中も鳴ってよい（止めるのは曲だけ）。 */
+var songGateEl = null;      /* 待機ゲートで無音に固定している曲要素 */
+var songGateTimer = null;   /* 待機中の見張りタイマー */
+var songGateGen = 0;        /* ゲートの世代（古い見張りの無効化用） */
+function silenceRealEl(el) {
+  if (!el) return;
+  try {
+    el.volume = 0;
+    el.muted = true;
+    el.defaultMuted = true;
+    if (el.setAttribute) el.setAttribute('muted', '');
+  } catch (e) {}
+}
+function unsilenceRealEl(el) {
+  if (!el) return;
+  try {
+    if (el.removeAttribute) el.removeAttribute('muted');
+    el.defaultMuted = false;
+    el.muted = muted;
+    el.volume = 1;
+  } catch (e) {}
+}
+function gateRealEl(el) {
+  ungateRealEl(); /* 前のゲート（見張り）があれば畳んでから張り直す */
+  if (!el) return;
+  songGateEl = el;
+  var g = ++songGateGen;
+  silenceRealEl(el);
+  var iv = setInterval(function () {
+    if (g !== songGateGen || songGateEl !== el) { clearInterval(iv); if (songGateTimer === iv) songGateTimer = null; return; }
+    silenceRealEl(el); /* 消音を毎回かけ直す（外部から戻されていても再固定） */
+    if (!realStarted && !el.paused) { try { el.pause(); } catch (e) {} } /* 待機中に再生状態なら即止める */
+  }, 100);
+  songGateTimer = iv;
+}
+function ungateRealEl() {
+  if (songGateTimer) { clearInterval(songGateTimer); songGateTimer = null; }
+  songGateEl = null;
+  songGateGen++;
+}
+/* 再生許可（unlock）と温めのためのプライム。無音固定した要素を play() し、
+   Promise の解決を待たず同じ同期処理で即 pause() するので、待機区間に
+   「再生中」の時間そのものを作らない。消音の解除は一切しない（ゲート側の
+   仕事）。旧実装の settle（待機途中で消音を戻す処理）は廃止した */
 function primeRealEl(el) {
   if (!el) return;
-  var g = ++primeGen;
-  try { el.volume = 0; el.muted = true; } catch (e) {}
-  var settled = false;
-  var settle = function () {
-    if (settled) return; settled = true;
-    if (g !== primeGen) return; /* 後発のプライム／本再生が引き継いだ：触らない */
-    if (!realStarted) {
-      try { el.pause(); el.currentTime = 0; } catch (e) {}
-      try { el.muted = muted; el.volume = 1; } catch (e) {}
-    }
-  };
+  silenceRealEl(el);
   try {
     var p = el.play();
-    if (p && p.then) p.then(settle, settle);
-    else settle();
-  } catch (e) { settle(); }
+    if (p && p.catch) p.catch(function () {});
+  } catch (e) {}
+  try { el.pause(); } catch (e) {}
 }
 function stopRealAudio() {
   if (realPlayTimer) { clearTimeout(realPlayTimer); realPlayTimer = null; }
   pendingStart = false;
   realStarted = false;
   realFrozen = false;
-  primeGen++; /* 保留中のプライム settle を無効化する */
+  var els = [];
+  if (songGateEl) els.push(songGateEl);
+  ungateRealEl(); /* 待機ゲートを畳む（見張り停止＋世代無効化） */
   if (curSong && curSong.real) {
     var r = realAudio[curSong.id];
-    if (r && r.el) {
-      try { r.el.pause(); } catch (e) {}
-      try { r.el.muted = muted; r.el.volume = 1; } catch (e) {} /* プライムの消音を残さない */
-    }
+    if (r && r.el && els.indexOf(r.el) < 0) els.push(r.el);
   }
+  els.forEach(function (el) {
+    try { el.pause(); } catch (e) {}
+    unsilenceRealEl(el); /* ゲートの消音を残さない（通常状態へ戻す） */
+  });
 }
 /* ---------------- 演奏開始ボイス（本人の声「始まるぞ」） ----------------
    演奏開始の合図として、カウントダウン待機の開始時点で一度鳴らす。
@@ -3065,6 +3113,11 @@ function startSong() {
     realStarted = false;
     realFrozen = false;
     realStartPerf = performance.now() + 3200;
+    /* 待機ゲート：この瞬間から本再生開始まで、曲要素を無音に固定する。
+       プレビュー等の残響が万一残っていても、ゲート＋即 pause で入口で止め、
+       開始位置へのシークは一時停止したまま行う（デコーダの温めを兼ねる） */
+    gateRealEl(rr.el);
+    try { rr.el.pause(); } catch (e) {}
     try { rr.el.currentTime = playStartPos; } catch (e) {}
     primeRealEl(rr.el);
     if (realPlayTimer) clearTimeout(realPlayTimer);
@@ -3087,11 +3140,12 @@ function fireRealStart() {
   var rr = realAudio[curSong.id];
   if (!rr || !rr.el) return;
   realStarted = true;
-  primeGen++; /* 保留中のプライム settle を無効化する（消音の復帰はここでのみ行う） */
-  /* カウントダウン終了の瞬間に開始位置で始まることを保証する：
-     プライム等で再生位置が進んでいても開始位置へ戻し、プライムで消音した
-     muted／音量もここで必ず戻してから再生する */
-  try { rr.el.muted = muted; rr.el.volume = 1; rr.el.currentTime = playStartPos; } catch (e) {}
+  /* 待機ゲートを開けるのはここだけ：開始位置へ戻し、無音固定を解除して
+     から再生する（シーク→解除→再生の順で、最初の音が開始位置になる）。
+     プライム等で再生位置が進んでいても開始位置から始まる */
+  ungateRealEl();
+  try { rr.el.currentTime = playStartPos; } catch (e) {}
+  unsilenceRealEl(rr.el);
   var p = null;
   try { p = rr.el.play(); } catch (e) {}
   if (p && p.catch) p.catch(function () {
@@ -5519,6 +5573,9 @@ function startPreview(song) {
 function beginRealPreview(song, seg) {
   var r = realAudio[song.id];
   if (!r || !r.el) { preview = null; return; }
+  /* 待機ゲート中の曲要素はプレビューでも鳴らさない（通常は演奏開始時点で
+     プレビューが止まるため到達しないが、競合時の最後の砦として明示する） */
+  if (songGateEl && r.el === songGateEl) { preview = null; return; }
   var el = r.el;
   el.volume = 0.6;
   try { el.currentTime = seg[0]; } catch (e) {}
@@ -5598,7 +5655,7 @@ window.__taiko = {
   previewState: function () { return preview ? { active: true, song: preview.song.id, kind: preview.kind, seg: preview.seg, waiting: !!preview.waiting } : { active: false }; },
   startVoice: function () { return { state: startVoiceState, bufReady: !!startVoiceBuf, plays: startVoicePlays }; },
   comboVoice: function () { return { state: comboVoiceState, readyKeys: Object.keys(comboVoiceBuf), plays: comboVoicePlays }; },
-  primeGen: function () { return primeGen; },
+  songGate: function () { return { active: !!songGateEl, gen: songGateGen, watching: !!songGateTimer }; },
   stage: { size: function () { return { CW: CW, CH: CH, pinned: stagePinned }; }, fit: fitCanvas, lock: lockStageSize, unlock: unlockStageSize, stopToMenu: function () { stopSong(true); } },
   startPreview: startPreview,
   stopPreview: stopPreview,
