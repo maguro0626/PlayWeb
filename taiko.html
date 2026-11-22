@@ -13,7 +13,7 @@
 /* v120: ページ全体はスクロールさせない（麻雀方式の一画面固定）。body を dvh の
    フレックス列にし、アカウントヘッダー／フレンドバー等の実寸を差し引いた残りを
    .wrap が受け取る。スクロールは曲一覧などの内部領域だけ。 */
-body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-user-select:none;user-select:none}
+body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 /* 長押しコールアウト／テキスト選択の抑止（スターリズム v94 と同趣旨）。
    ただし入力欄（対戦コード入力・エディタの書き出し/読み込み欄）だけは
    選択・貼り付け・コールアウトを通常通りに戻す */
@@ -49,6 +49,7 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 .mascotChip{border:1.5px solid var(--line);background:rgba(255,255,255,.06);color:var(--txt);border-radius:999px;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:36px}
 .mascotChip.on{background:linear-gradient(180deg,#ffd964,#f5b921);color:#231600;border-color:rgba(255,255,255,.6)}
 .mascotChip.locked{opacity:.55;cursor:default;font-weight:800}
+.mascotChip .skinDot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:6px;vertical-align:-2px;border:1.5px solid rgba(0,0,0,.35)}
 #modeSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
 #modeSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:9px 6px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;min-height:40px}
 #modeSeg button.on{background:linear-gradient(180deg,#f4525f,#d92c3c);color:#fff;box-shadow:0 2px 8px rgba(230,57,70,.45)}
@@ -1133,6 +1134,8 @@ function ensureAudio() {
     }
     if (AC.state === 'suspended') AC.resume();
   } catch (e) {}
+  if (startVoiceAb && !startVoiceBuf) decodeStartVoice(); /* 開始ボイスのデコード再試行 */
+  if (Object.keys(comboVoiceAb).length && !comboVoiceAllReady()) decodeComboVoices(); /* 節目ボイスのデコード再試行 */
 }
 function setMuted(m) {
   muted = m;
@@ -1554,19 +1557,31 @@ function initAudioDl() {
 }
 /* iOS Safari はタップの瞬間に play() しておかないと後の再生が拒否されるため、
    開始タップの中で一度 play→pause して再生許可を得ておく。
-   ただし pause は play() の Promise 解決後にしか走らず、解決が遅れた分だけ
-   カウントダウン中に音楽が鳴ってしまう不具合があった。そこでプライム中は
-   音量を 0 に落として「解決がどれだけ遅れても絶対に聞こえない」ようにし、
-   解決時（または本再生開始時）に必ず音量を戻す。本再生側でも開始直前に
-   currentTime=0 へ戻すため、プライムで進んだ再生位置が残ることもない */
+   【2026-11-23 根本修正】v111 では「プライム中は volume=0」にして、play() の
+   Promise 解決が遅れても聞こえないようにしたが、本人の iPhone では今も
+   カウントダウン中に曲が流れることがあった。真因は iOS Safari が
+   HTMLMediaElement.volume を無視すること（iOS では音量は端末ボタンでしか
+   変わらず、volume=0 を書いても 1 のまま鳴る）。そこでプライム中は
+   muted=true（こちらは iOS でも実際に効く）にして音の出口を断つ。
+   あわせて、古いプライムの settle が後発プライムの消音を先に解除して
+   しまう世代またぎの競合も、世代番号（primeGen）で無効化して塞ぐ。
+   muted／volume の復帰は「最新プライムの settle（本再生前のみ）」
+   「本再生開始（fireRealStart）」「停止（stopRealAudio）」の3箇所だけ。
+   これで待機中に曲の音が鳴る経路は構造的に無くなる。本再生側でも開始
+   直前に開始位置へ戻すため、プライムで進んだ再生位置が残ることもない */
+var primeGen = 0;
 function primeRealEl(el) {
   if (!el) return;
-  try { el.volume = 0; } catch (e) {}
+  var g = ++primeGen;
+  try { el.volume = 0; el.muted = true; } catch (e) {}
   var settled = false;
   var settle = function () {
     if (settled) return; settled = true;
-    if (!realStarted) { try { el.pause(); el.currentTime = 0; } catch (e) {} }
-    try { el.volume = 1; } catch (e) {}
+    if (g !== primeGen) return; /* 後発のプライム／本再生が引き継いだ：触らない */
+    if (!realStarted) {
+      try { el.pause(); el.currentTime = 0; } catch (e) {}
+      try { el.muted = muted; el.volume = 1; } catch (e) {}
+    }
   };
   try {
     var p = el.play();
@@ -1579,10 +1594,195 @@ function stopRealAudio() {
   pendingStart = false;
   realStarted = false;
   realFrozen = false;
+  primeGen++; /* 保留中のプライム settle を無効化する */
   if (curSong && curSong.real) {
     var r = realAudio[curSong.id];
-    if (r && r.el) { try { r.el.pause(); } catch (e) {} }
+    if (r && r.el) {
+      try { r.el.pause(); } catch (e) {}
+      try { r.el.muted = muted; r.el.volume = 1; } catch (e) {} /* プライムの消音を残さない */
+    }
   }
+}
+/* ---------------- 演奏開始ボイス（本人の声「始まるぞ」） ----------------
+   演奏開始の合図として、カウントダウン待機の開始時点で一度鳴らす。
+   音源は本人がアップロードした短い AAC（2.4秒）を base64 化した
+   audio/voice_start.js（window.PW_VOICE_START）を遅延ロードし、WebAudio の
+   master 経由（＝打撃 SE と同じ音量経路で、ミュートもそのまま効く）で再生
+   する。曲音源ではないので AUDIO_REV の対象にはしない（更新チェックと
+   一括ダウンロードは曲パートだけを見るため、悪影響はない）。 */
+var startVoiceAb = null;      /* デコード前の ArrayBuffer */
+var startVoiceBuf = null;     /* デコード済み AudioBuffer */
+var startVoiceState = 'none'; /* none|loading|ready|error */
+var startVoiceSrc = null;     /* 再生中の BufferSource（停止用） */
+var startVoicePlays = 0;      /* 実際に鳴らした回数（検証用） */
+var startVoiceWanted = 0;     /* 鳴らしたい開始回のトークン（ロード完了後の遅延再生の照合用） */
+var startVoiceWaiters = [];
+function flushStartVoiceWaiters(ok) {
+  var ws = startVoiceWaiters; startVoiceWaiters = [];
+  ws.forEach(function (f) { try { f(ok); } catch (e) {} });
+}
+function buildStartVoiceAb() {
+  try {
+    var bin = atob(window.PW_VOICE_START);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    startVoiceAb = bytes.buffer;
+  } catch (e) { startVoiceState = 'error'; }
+}
+var startVoiceDecoding = false;
+function decodeStartVoice() {
+  if (startVoiceBuf || startVoiceDecoding) return;
+  if (!startVoiceAb || !AC) return; /* AC ができたら ensureAudio 側から再試行される */
+  startVoiceDecoding = true;
+  try {
+    var p = AC.decodeAudioData(startVoiceAb.slice(0));
+    if (p && p.then) p.then(function (buf) {
+      startVoiceDecoding = false;
+      startVoiceBuf = buf; startVoiceState = 'ready';
+      flushStartVoiceWaiters(true);
+    }, function () { startVoiceDecoding = false; startVoiceState = 'error'; flushStartVoiceWaiters(false); });
+    else startVoiceDecoding = false;
+  } catch (e) { startVoiceDecoding = false; startVoiceState = 'error'; flushStartVoiceWaiters(false); }
+}
+function ensureStartVoice(done) {
+  if (startVoiceBuf) { if (done) done(true); return; }
+  if (startVoiceState === 'error') { if (done) done(false); return; }
+  if (done) startVoiceWaiters.push(done);
+  if (startVoiceAb) { decodeStartVoice(); return; }
+  if (window.PW_VOICE_START) { buildStartVoiceAb(); decodeStartVoice(); return; }
+  if (startVoiceState === 'loading' || startVoiceState === 'error') return;
+  startVoiceState = 'loading';
+  try {
+    var sc = document.createElement('script');
+    sc.src = 'audio/voice_start.js';
+    sc.onload = function () {
+      if (window.PW_VOICE_START) { buildStartVoiceAb(); decodeStartVoice(); }
+      else { startVoiceState = 'error'; flushStartVoiceWaiters(false); }
+    };
+    sc.onerror = function () { startVoiceState = 'error'; flushStartVoiceWaiters(false); };
+    (document.head || document.body).appendChild(sc);
+  } catch (e) { startVoiceState = 'error'; flushStartVoiceWaiters(false); }
+}
+function playStartVoice() {
+  var token = ++startVoiceWanted;
+  var fire = function (immediate) {
+    if (token !== startVoiceWanted || !playing) return; /* 別の開始に移った／既に止めた */
+    if (!immediate && !(songTime < countdownEndPos())) return; /* 遅れて届いた分は待機中だけ鳴らす */
+    if (!startVoiceBuf || !AC || !master) return;
+    try {
+      stopStartVoice();
+      var src = AC.createBufferSource();
+      src.buffer = startVoiceBuf;
+      src.connect(master);
+      src.start();
+      startVoiceSrc = src;
+      startVoicePlays++;
+    } catch (e) {}
+  };
+  if (startVoiceBuf) fire(true);
+  else ensureStartVoice(function (ok) { if (ok) fire(false); });
+}
+function stopStartVoice() {
+  startVoiceWanted++; /* 保留中の遅延再生を無効化する */
+  if (startVoiceSrc) { try { startVoiceSrc.stop(); } catch (e) {} startVoiceSrc = null; }
+}
+/* ---------------- コンボ節目ボイス（本人の声） ----------------
+   50/100/200/300/500/1000 コンボ到達時とフルコンボ達成時に、本人の短い
+   掛け声を曲に重ねて鳴らす（曲の再生には一切干渉しない）。音源は
+   audio/voice_combo.js（window.PW_VOICE_COMBO = {c50,c100,c200,c300,
+   c500,c1000,fc} の base64 AAC）を遅延ロードし、開始ボイスと同じく
+   WebAudio の master 経由（＝SE と同じ音量経路）で再生する。曲音源では
+   ないので AUDIO_REV の対象外。
+   節目ボイスは applyJudge でコンボが節目ちょうどに到達した瞬間に1回
+   だけ鳴る（コンボは1ずつ増えるので二重発火しない）。ミスでコンボが
+   途切れた後に同じ節目へ再到達したら、その時も鳴る。 */
+var COMBO_VOICE_AT = { 50: 'c50', 100: 'c100', 200: 'c200', 300: 'c300', 500: 'c500', 1000: 'c1000' };
+var comboVoiceAb = {};     /* key -> ArrayBuffer（デコード前） */
+var comboVoiceBuf = {};    /* key -> AudioBuffer（デコード済み） */
+var comboVoiceState = 'none'; /* none|loading|ready|error */
+var comboVoiceSrc = null;  /* 再生中の節目ボイス（次の節目で止める） */
+var comboVoicePlays = {};  /* key -> 鳴らした回数（検証用） */
+var comboVoiceWaiters = [];
+function flushComboVoiceWaiters(ok) {
+  var ws = comboVoiceWaiters; comboVoiceWaiters = [];
+  ws.forEach(function (f) { try { f(ok); } catch (e) {} });
+}
+function comboVoiceAllReady() {
+  return ['c50', 'c100', 'c200', 'c300', 'c500', 'c1000', 'fc'].every(function (k) { return !!comboVoiceBuf[k]; });
+}
+function buildComboVoiceAb() {
+  try {
+    var pack = window.PW_VOICE_COMBO || {};
+    Object.keys(pack).forEach(function (k) {
+      var bin = atob(pack[k]);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      comboVoiceAb[k] = bytes.buffer;
+    });
+  } catch (e) { comboVoiceState = 'error'; }
+}
+var comboVoiceDecoding = false;
+function decodeComboVoices() {
+  if (comboVoiceDecoding || !AC) return;
+  var keys = Object.keys(comboVoiceAb).filter(function (k) { return !comboVoiceBuf[k]; });
+  if (!keys.length) {
+    if (Object.keys(comboVoiceAb).length) { comboVoiceState = 'ready'; flushComboVoiceWaiters(true); }
+    return;
+  }
+  comboVoiceDecoding = true;
+  var remain = keys.length, failed = false;
+  var step = function () {
+    if (--remain > 0) return;
+    comboVoiceDecoding = false;
+    if (!failed && comboVoiceAllReady()) { comboVoiceState = 'ready'; flushComboVoiceWaiters(true); }
+    else if (failed) { comboVoiceState = 'error'; flushComboVoiceWaiters(false); }
+  };
+  keys.forEach(function (k) {
+    try {
+      var p = AC.decodeAudioData(comboVoiceAb[k].slice(0));
+      if (p && p.then) p.then(function (buf) { comboVoiceBuf[k] = buf; step(); }, function () { failed = true; step(); });
+      else step();
+    } catch (e) { failed = true; step(); }
+  });
+}
+function ensureComboVoices(done) {
+  if (comboVoiceAllReady()) { if (done) done(true); return; }
+  if (comboVoiceState === 'error') { if (done) done(false); return; }
+  if (done) comboVoiceWaiters.push(done);
+  if (Object.keys(comboVoiceAb).length) { decodeComboVoices(); return; }
+  if (window.PW_VOICE_COMBO) { buildComboVoiceAb(); decodeComboVoices(); return; }
+  if (comboVoiceState === 'loading') return;
+  comboVoiceState = 'loading';
+  try {
+    var sc = document.createElement('script');
+    sc.src = 'audio/voice_combo.js';
+    sc.onload = function () {
+      if (window.PW_VOICE_COMBO) { buildComboVoiceAb(); decodeComboVoices(); }
+      else { comboVoiceState = 'error'; flushComboVoiceWaiters(false); }
+    };
+    sc.onerror = function () { comboVoiceState = 'error'; flushComboVoiceWaiters(false); };
+    (document.head || document.body).appendChild(sc);
+  } catch (e) { comboVoiceState = 'error'; flushComboVoiceWaiters(false); }
+}
+/* 節目ボイスを1回鳴らす。needPlaying=true（コンボ節目）は演奏中だけ鳴らし、
+   false（フルコンボ）は結果表示のタイミングで鳴らす */
+function playComboVoice(key, needPlaying) {
+  var fire = function () {
+    if (needPlaying && !playing) return;
+    var buf = comboVoiceBuf[key];
+    if (!buf || !AC || !master) return;
+    try {
+      if (comboVoiceSrc) { try { comboVoiceSrc.stop(); } catch (e) {} comboVoiceSrc = null; }
+      var src = AC.createBufferSource();
+      src.buffer = buf;
+      src.connect(master);
+      src.start();
+      comboVoiceSrc = src;
+      comboVoicePlays[key] = (comboVoicePlays[key] || 0) + 1;
+    } catch (e) {}
+  };
+  if (comboVoiceBuf[key]) fire();
+  else ensureComboVoices(function (ok) { if (ok) fire(); });
 }
 /* ---------------- ゲーム状態 ---------------- */
 function $(id) { return document.getElementById(id); }
@@ -1602,7 +1802,33 @@ var CW = 0, CH = 0, DPR = 1;
 var APPROACH = 1.9; /* 音符が見えてから判定までの秒数（既定値） */
 var curApproach = APPROACH; /* 演奏中の難易度別アプローチ（startSong で DIFFS から設定） */
 
+/* 演奏中ステージ寸法の固定（2026-11-23 実機報告「プレイ途中で画面が急に小さくなり、バグる」対策）:
+   iPhone Safari はアドレスバー／下部バーの出入りで 100dvh が変わり、flex:1 の
+   ステージが縮んで resize が発火する。ここで無条件に再計測すると CW/CH が変わり、
+   レーン・判定・ノーツの座標系が曲の途中で丸ごとずれて崩れる。
+   対策は2段構え: (1) 演奏中（ingame）はステージの高さを px で固定し、dvh 変動の
+   影響そのものを断つ。(2) fitCanvas は ingame 中、高さだけの変動（＝バーの出入り）
+   では再計算しない。幅が大きく変わった場合（回転など）だけ再計測して固定し直す。 */
+var stagePinned = false;
+function lockStageSize() {
+  var sw = $('stageWrap');
+  if (!sw || !CH) return;
+  var h = sw.getBoundingClientRect().height;
+  if (h > 0) { sw.style.flex = 'none'; sw.style.height = h + 'px'; stagePinned = true; }
+}
+function unlockStageSize() {
+  var sw = $('stageWrap');
+  if (sw) { sw.style.flex = ''; sw.style.height = ''; }
+  stagePinned = false;
+}
 function fitCanvas() {
+  var ingameNow = wrapEl.classList.contains('ingame');
+  if (ingameNow && stagePinned) {
+    var rw = $('stageWrap').getBoundingClientRect().width;
+    if (Math.abs(rw - CW) < 60) return; /* バーの出入り等の高さ変動では寸法を変えない */
+    unlockStageSize(); /* 回転など幅の大きな変化だけ、再計測して固定し直す */
+  }
+  if (!ingameNow) unlockStageSize();
   var r = $('stageWrap').getBoundingClientRect();
   DPR = Math.min(2, window.devicePixelRatio || 1);
   CW = Math.max(280, r.width); CH = Math.max(160, r.height);
@@ -1610,8 +1836,13 @@ function fitCanvas() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   gradCache = {};
   bgSpriteCache = {};
+  if (ingameNow) lockStageSize();
 }
 window.addEventListener('resize', fitCanvas);
+window.addEventListener('orientationchange', function () {
+  /* 回転直後は rect がまだ古いことがあるため、少し待ってから固定をやり直す */
+  setTimeout(function () { unlockStageSize(); fitCanvas(); }, 80);
+});
 
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
 var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'], lovezaru: ['#ff5d8f', '#6d1030'], obari: ['#ff7ab8', '#7a1040'] };
@@ -2825,6 +3056,7 @@ function startSong() {
   $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (isPracticePlay() ? ' ・練習' : '') + (isAutoPlay() ? ' ・🤖オート' : '') + (testPlayActive ? ' ・🧪テストプレイ' : '') + (customPlayActive ? ' ・🎨カスタム譜面' : '');
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
+  playStartVoice(); /* 開始ボイス：カウントダウン待機の開始時点で鳴らす（曲本体は待機が終わるまで鳴らない） */
   if (curSong.real) {
     /* 実音源：カウントダウン後に HTMLAudio を再生し、時計は audio.currentTime に切り替える。
        練習モードでは開始位置へシークしてから再生する */
@@ -2855,10 +3087,11 @@ function fireRealStart() {
   var rr = realAudio[curSong.id];
   if (!rr || !rr.el) return;
   realStarted = true;
+  primeGen++; /* 保留中のプライム settle を無効化する（消音の復帰はここでのみ行う） */
   /* カウントダウン終了の瞬間に開始位置で始まることを保証する：
-     プライム等で再生位置が進んでいても開始位置へ戻し、プライムで 0 にした
-     音量もここで必ず戻してから再生する */
-  try { rr.el.volume = 1; rr.el.currentTime = playStartPos; } catch (e) {}
+     プライム等で再生位置が進んでいても開始位置へ戻し、プライムで消音した
+     muted／音量もここで必ず戻してから再生する */
+  try { rr.el.muted = muted; rr.el.volume = 1; rr.el.currentTime = playStartPos; } catch (e) {}
   var p = null;
   try { p = rr.el.play(); } catch (e) {}
   if (p && p.catch) p.catch(function () {
@@ -2886,11 +3119,12 @@ function stopSong(toMenu) {
   if (toMenu) { edSession = null; edTestData = null; } /* 選曲へ戻る通常導線ではエディタ復帰セッションとテスト譜面を破棄する */
   var pp8 = $('pausePanel'); if (pp8) pp8.classList.add('hidden');
   var ab8 = $('autoBadge'); if (ab8) ab8.classList.add('hidden');
+  stopStartVoice(); /* 開始ボイスが鳴っていれば一緒に止める */
   stopRealAudio();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   wrapEl.classList.remove('playing');
   $('quitBtn').classList.add('hidden');
-  if (toMenu) { wrapEl.classList.remove('ingame'); $('resultPanel').classList.add('hidden'); resetStage(); }
+  if (toMenu) { wrapEl.classList.remove('ingame'); unlockStageSize(); $('resultPanel').classList.add('hidden'); resetStage(); }
 }
 function resetStage() {
   chart = []; popups = []; score = 0; combo = 0; gauge = 0;
@@ -2966,6 +3200,7 @@ function showResult(res, totalScore, isBest, vsInfo) {
   if (resultFromTest) html += '<div class="rbtns"><button class="btn" id="resRetryTop">⏮ 初めから</button><button class="btn blue" id="resEdBack" style="flex:1">🛠 エディタに戻る</button></div>';
   p.innerHTML = html;
   p.classList.remove('hidden');
+  if (counts.bad === 0 && totalJudged > 0) playComboVoice('fc', false); /* フルコンボボイスは大表示と同時に鳴らす */
   $('resRetry').addEventListener('click', function () {
     p.classList.add('hidden');
     if (mode === 'online') { requestRematch(); } else { startSong(); }
@@ -3161,6 +3396,8 @@ function applyJudge(nt, res) {
     /* マスコット「にゃん太」のリアクション（updateMascotAnim が拾う） */
     mascotHopT = performance.now();
     if (combo > 0 && combo % 50 === 0) mascotJoyT = mascotHopT; /* 50コンボごとの喜びモーション */
+    var cvKey = COMBO_VOICE_AT[combo];
+    if (cvKey) playComboVoice(cvKey, true); /* コンボ節目ボイス（節目ちょうどに到達した時だけ1回） */
   } else {
     counts.bad++;
     combo = 0;
@@ -3562,22 +3799,12 @@ function drawScene(t, dt) {
       bursts.push({ x: cx - 26 + Math.random() * 30, y: cy - 8, vx: (Math.random() - 0.5) * 16, vy: -36 - Math.random() * 30, t0: nowMs, life: 560 + Math.random() * 200, col: '#ffb03a', r: 1.5 + Math.random() * 1.6, ang: -1.57, star: false });
     }
   } else if (comboShown !== 0) { comboShown = 0; }
-  /* カウントダウン */
+  /* カウントダウン待機中（本人の指示で 3・2・1 の数字表示は廃止。
+     内部の待機時間は従来どおり維持され、songTime が countdownEndPos() に
+     達するまでは曲もノーツも始まらない。ここでは案内文だけを残す） */
   if (playing && songTime < countdownEndPos()) {
-    var remainCd = countdownEndPos() - songTime;
-    var n = Math.ceil(remainCd);
-    var frac = 1 - (remainCd - (n - 1));
-    var cbd = bigDrumGeom(), cr = Math.min(46, cbd.R * 0.52);
     ctx.save();
-    ctx.beginPath(); ctx.arc(cbd.x, cbd.y, cr, 0, 6.29);
-    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(cbd.x, cbd.y, cr, -1.57, -1.57 + frac * 6.283);
-    ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = 5; ctx.stroke();
-    ctx.font = '900 ' + Math.round(cr * 1.15) + 'px sans-serif'; ctx.textAlign = 'center';
-    ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0,0,0,.6)';
-    ctx.strokeText(String(n), cbd.x, cbd.y + cr * 0.4);
-    ctx.fillStyle = '#ffc93c'; ctx.fillText(String(n), cbd.x, cbd.y + cr * 0.4);
-    ctx.font = '800 13px sans-serif'; ctx.fillStyle = 'rgba(255,247,234,.9)';
+    ctx.font = '800 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,247,234,.9)';
     ctx.fillText('音符が金の枠に重なったら叩こう！', CW / 2, laneY + laneH / 2 + 17);
     ctx.restore();
   }
@@ -4178,8 +4405,8 @@ function drawBigDrum(t) {
     ctx.fillStyle = 'rgba(96,165,255,' + (zoneFlash.katsu * 0.30).toFixed(3) + ')';
     ctx.fillRect(0, bd.top, CW, CH - bd.top);
   }
-  /* 太鼓本体（面=ドン。カウントダウン中は数字を優先してラベルを隠す） */
-  drawDrumBody(bd.x, bd.y, bd.R, (playing && songTime < 0) ? null : 'ドン', false);
+  /* 太鼓本体（面=ドン。カウントダウン数字表示の廃止に伴い、待機中もラベルは常時出す） */
+  drawDrumBody(bd.x, bd.y, bd.R, 'ドン', false);
   /* 叩いた時の波紋（面から広がる輪＋外周の衝撃波） */
   var wNow = performance.now();
   drumWaves = drumWaves.filter(function (w) { return wNow - w.t0 < 520; });
@@ -4935,7 +5162,8 @@ function renderDanModal() {
 /* ---------------- v122: マスコット「にゃん太」＋着せ替え ----------------
    バチを持った猫マスコットを SVG で手続き描画する（外部画像なし）。
    着せ替えアイテムは条件クリアで解放され、保存は同期セーブの素キー
-   taiko_mascot_v1 = {unlocked:[...], wear:{hat, body, acc}} */
+   taiko_mascot_v1 = {unlocked:[...], wear:{hat, body, acc}, skin:'cream'}
+   （skin は肌の色。解放条件なしでいつでも変更できる） */
 var MASCOT_KEY = 'taiko_mascot_v1';
 function anyDiffCleared(songId) { return DIFF_KEYS.some(function (d) { return hasCleared(songId, d); }); }
 function mascotCondCtx() {
@@ -4965,6 +5193,37 @@ var MASCOT_ITEMS = [
   { slot: 'acc', id: 'glasses', name: '🕶 サングラス', condText: 'ランクSを1回取る', test: function (c) { return c.sRank >= 1; } }
 ];
 var MASCOT_SLOTS = [['hat', '🧢 かぶりもの'], ['body', '👕 ふく'], ['acc', '✨ アクセサリ']];
+/* 肌の色（体毛色）：着せ替えアイテムの解放条件とは切り離し、最初から全色に
+   変更できる（本人の指定）。fur=体毛色、line=輪郭色、ear=耳の内側・ほっぺ、
+   eye=目と口の色（暗い体毛色では目が埋もれないよう琥珀色にする）。
+   保存は taiko_mascot_v1 の skin フィールド（旧セーブには無いので既定色） */
+var MASCOT_SKINS = [
+  { id: 'cream', name: 'クリーム', fur: '#fff6e8', line: '#d9b98c', ear: '#ffb3c1', eye: '#33302b' },
+  { id: 'white', name: 'しろ', fur: '#ffffff', line: '#c9ced8', ear: '#ffb3c1', eye: '#33302b' },
+  { id: 'orange', name: 'みかん', fur: '#f7b26a', line: '#d18a3e', ear: '#ffb3c1', eye: '#33302b' },
+  { id: 'brown', name: 'ちゃいろ', fur: '#b07a4a', line: '#7d5230', ear: '#ffb3c1', eye: '#33302b' },
+  { id: 'gray', name: 'グレー', fur: '#a8adb8', line: '#747a88', ear: '#ffb3c1', eye: '#33302b' },
+  { id: 'black', name: 'くろ', fur: '#454052', line: '#232030', ear: '#c98bb0', eye: '#ffc93c' },
+  { id: 'pink', name: 'ピンク', fur: '#ffd3e0', line: '#e79fb8', ear: '#ff9fb8', eye: '#33302b' },
+  { id: 'blue', name: 'みずいろ', fur: '#bfe0f5', line: '#7fb2d9', ear: '#ffb3c1', eye: '#33302b' }
+];
+function mascotSkin() {
+  var id = loadMascot().skin;
+  /* 起動直後は MASCOT_SKINS の代入より先に mascotSVG が呼ばれることがある
+     （選曲リストの初期描画）ため、未初期化時は既定色を返す */
+  if (typeof MASCOT_SKINS === 'undefined') return { id: 'cream', name: 'クリーム', fur: '#fff6e8', line: '#d9b98c', ear: '#ffb3c1', eye: '#33302b' };
+  for (var i = 0; i < MASCOT_SKINS.length; i++) if (MASCOT_SKINS[i].id === id) return MASCOT_SKINS[i];
+  return MASCOT_SKINS[0];
+}
+function mascotSetSkin(id) {
+  var ok = MASCOT_SKINS.some(function (sk) { return sk.id === id; });
+  if (!ok) return false;
+  var m = loadMascot();
+  m.skin = id;
+  saveMascot(m);
+  renderMascotStage();
+  return true;
+}
 function loadMascot() {
   var m = loadJsonKey(MASCOT_KEY, {});
   if (!Array.isArray(m.unlocked)) m.unlocked = [];
@@ -4996,7 +5255,8 @@ function mascotWear(slot, id) {
 function mascotSVG(size) {
   var w = loadMascot().wear || {};
   var s = size || 52;
-  var cream = '#fff6e8', line = '#d9b98c', pink = '#ffb3c1';
+  var sk = mascotSkin();
+  var cream = sk.fur, line = sk.line, pink = sk.ear, eye = sk.eye;
   var g = '';
   g += '<path d="M76 84 q18 -2 15 -20" fill="none" stroke="' + cream + '" stroke-width="7" stroke-linecap="round"/>';
   g += '<line x1="25" y1="66" x2="9" y2="42" stroke="#c98d4e" stroke-width="4.5" stroke-linecap="round"/><circle cx="9" cy="42" r="3.4" fill="#e2543e"/>';
@@ -5032,11 +5292,11 @@ function mascotSVG(size) {
     g += '<path d="M46 33 h8" stroke="#1f2430" stroke-width="2.6"/>';
     g += '<path d="M31.5 31.5 h6 M56.5 31.5 h6" stroke="rgba(255,255,255,.5)" stroke-width="1.6"/>';
   } else {
-    g += '<circle cx="41" cy="35" r="2.7" fill="#33302b"/><circle cx="59" cy="35" r="2.7" fill="#33302b"/>';
+    g += '<circle cx="41" cy="35" r="2.7" fill="' + eye + '"/><circle cx="59" cy="35" r="2.7" fill="' + eye + '"/>';
     g += '<circle cx="41.9" cy="34.1" r="0.9" fill="#ffffff"/><circle cx="59.9" cy="34.1" r="0.9" fill="#ffffff"/>';
   }
   g += '<ellipse cx="50" cy="41.5" rx="2.5" ry="1.8" fill="#f27d93"/>';
-  g += '<path d="M50 43.4 q-2.6 3 -5.6 1.2 M50 43.4 q2.6 3 5.6 1.2" fill="none" stroke="#33302b" stroke-width="1.5" stroke-linecap="round"/>';
+  g += '<path d="M50 43.4 q-2.6 3 -5.6 1.2 M50 43.4 q2.6 3 5.6 1.2" fill="none" stroke="' + eye + '" stroke-width="1.5" stroke-linecap="round"/>';
   g += '<path d="M28 40 l-9 -1.6 M29 45 l-9 1.8 M72 40 l9 -1.6 M71 45 l9 1.8" stroke="' + line + '" stroke-width="1.3" stroke-linecap="round"/>';
   if (w.hat === 'cap') {
     g += '<path d="M28.5 27 a21.5 21.5 0 0 1 43 0 z" fill="#e63946"/>';
@@ -5115,6 +5375,12 @@ function renderMascotModal() {
   if (!el) return;
   var m = loadMascot();
   var html = '<div class="mascotPrev">' + mascotSVG(118) + '<div class="note">太鼓マスコット「にゃん太」。条件をクリアすると着せ替えアイテムが増えます</div></div>';
+  var curSkin = mascotSkin();
+  html += '<div class="mascotSlotLbl">🎨 はだのいろ（いつでも変更できます）</div><div class="mascotChips">';
+  MASCOT_SKINS.forEach(function (sk) {
+    html += '<button type="button" class="mascotChip skinChip' + (curSkin.id === sk.id ? ' on' : '') + '" data-skin="' + sk.id + '"><span class="skinDot" style="background:' + sk.fur + '"></span>' + sk.name + '</button>';
+  });
+  html += '</div>';
   MASCOT_SLOTS.forEach(function (sl) {
     html += '<div class="mascotSlotLbl">' + sl[1] + '</div><div class="mascotChips">';
     html += '<button type="button" class="mascotChip' + (!m.wear[sl[0]] ? ' on' : '') + '" data-slot="' + sl[0] + '" data-item="">なし</button>';
@@ -5129,9 +5395,16 @@ function renderMascotModal() {
     html += '</div>';
   });
   el.innerHTML = html;
-  el.querySelectorAll('button.mascotChip').forEach(function (b) {
+  el.querySelectorAll('button.mascotChip[data-slot]').forEach(function (b) {
     b.addEventListener('click', function () {
       mascotWear(b.dataset.slot, b.dataset.item || null);
+      renderMascotModal();
+      renderSongList();
+    });
+  });
+  el.querySelectorAll('button.mascotChip[data-skin]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      mascotSetSkin(b.dataset.skin);
       renderMascotModal();
       renderSongList();
     });
@@ -5285,6 +5558,10 @@ function stopPreview() {
 
 /* 起動時：楽曲データの更新チェック（更新がある時だけポップアップ） */
 initAudioDl();
+/* 開始ボイスの音源だけ先読みしておく（デコードは AC ができた時に行う） */
+ensureStartVoice();
+/* コンボ節目ボイスのパックも先読みしておく */
+ensureComboVoices();
 
 /* テスト用フック */
 window.__taiko = {
@@ -5319,6 +5596,10 @@ window.__taiko = {
     setFilter: function (f) { selFilter = f; renderSongList(); }, filter: function () { return selFilter; }
   },
   previewState: function () { return preview ? { active: true, song: preview.song.id, kind: preview.kind, seg: preview.seg, waiting: !!preview.waiting } : { active: false }; },
+  startVoice: function () { return { state: startVoiceState, bufReady: !!startVoiceBuf, plays: startVoicePlays }; },
+  comboVoice: function () { return { state: comboVoiceState, readyKeys: Object.keys(comboVoiceBuf), plays: comboVoicePlays }; },
+  primeGen: function () { return primeGen; },
+  stage: { size: function () { return { CW: CW, CH: CH, pinned: stagePinned }; }, fit: fitCanvas, lock: lockStageSize, unlock: unlockStageSize, stopToMenu: function () { stopSong(true); } },
   startPreview: startPreview,
   stopPreview: stopPreview,
   chorusSeg: chorusSeg,
@@ -5364,6 +5645,7 @@ window.__taiko = {
   dan: { ladder: DAN_LADDER, info: danInfo, counts: danCounts, condText: danCondText },
   mascot: {
     items: MASCOT_ITEMS.map(function (it) { return { slot: it.slot, id: it.id, name: it.name, condText: it.condText }; }),
+    skins: MASCOT_SKINS, skin: mascotSkin, setSkin: mascotSetSkin,
     state: loadMascot, svg: mascotSVG, check: checkMascotUnlocks, wear: mascotWear, ctx: mascotCondCtx,
     animAt: function (tSong, nowMs) { updateMascotAnim(nowMs == null ? performance.now() : nowMs, tSong); return mascotLastTf; },
     animState: function () { return { tf: mascotLastTf, hopT: mascotHopT, sadT: mascotSadT, joyT: mascotJoyT }; }
