@@ -173,6 +173,11 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
 /* MELDS */
 .melds-row{display:flex;align-items:flex-end;gap:5px;flex-wrap:nowrap;}
 .meld-group{display:flex;align-items:flex-end;gap:1px;padding:2px;border-radius:6px;background:rgba(0,0,0,0.22);}
+/* 両サイド（西・東）の晒し牌: 座席エリアは幅56pxしかなく、3枚を横並びに
+   すると1組で約63pxになり画面端からはみ出して切れていた。サイドでは
+   各組を縦積みにし、組同士は最大2列で折り返して全て画面内に収める */
+#melds-w,#melds-e{flex-direction:row;flex-wrap:wrap;justify-content:center;align-content:center;gap:3px;width:100%;}
+#melds-w .meld-group,#melds-e .meld-group{flex-direction:column;align-items:center;}
 .mtile{border-radius:12%/10%;
   box-shadow:inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -2px 2px rgba(160,120,50,0.22),
   0 2px 0 #c2691d, 0 3px 5px rgba(0,0,0,0.35);}
@@ -392,7 +397,7 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
       <div id="area-west">
         <div id="panel-w"></div>
         <div id="hand-w" class="cpu-hand vert"></div>
-        <div id="melds-w" class="melds-row" style="flex-direction:column;align-items:center;"></div>
+        <div id="melds-w" class="melds-row"></div>
       </div>
 
       <!-- CENTER -->
@@ -414,7 +419,7 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
       <!-- EAST -->
       <div id="area-east">
         <div id="panel-e"></div>
-        <div id="melds-e" class="melds-row" style="flex-direction:column;align-items:center;"></div>
+        <div id="melds-e" class="melds-row"></div>
         <div id="hand-e" class="cpu-hand vert"></div>
       </div>
     </div>
@@ -1458,6 +1463,34 @@ function startRiichi(){
   _riichiCandidates = cands.map(t => t.id);
   showToast('リーチ！\n捨て牌を選んでください');
   renderHandSouth();
+  showRiichiCancelBar();
+}
+
+/* リーチ宣言中はアクションバーを「リーチをやめる」だけにして、
+   宣言を取り消して通常の打牌に戻れるようにする（以前は一度押すと
+   取り消す手段がなく、候補牌以外すべて却下され続けた） */
+function showRiichiCancelBar(){
+  const bar = document.getElementById('self-action');
+  if (!bar) return;
+  bar.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.className = 'act-btn';
+  btn.textContent = 'リーチをやめる';
+  btn.onclick = () => { snd.call(); cancelRiichi(); };
+  bar.appendChild(btn);
+  bar.classList.add('show');
+}
+function cancelRiichi(){
+  _riichiMode = false; _riichiCandidates = [];
+  if (typeof NET !== 'undefined' && NET.mode === 'guest'){
+    NET.riichiPending = false;
+    if (NET.turnOptions) netShowSelfActions(NET.turnOptions);
+    else hideSelfActions();
+  } else {
+    refreshSelfActions();
+  }
+  renderHandSouth(); renderWaits();
+  showToast('リーチを取り消しました');
 }
 
 /* 他家の捨て牌へのアクション（ロン/ポン/チー/カン） */
@@ -1846,6 +1879,12 @@ function renderAll(){
   if ((typeof NET === 'undefined' || NET.mode !== 'guest')
       && G.phase === 'discard' && G.current === HUMAN && !G.animating && !G.gameOver && !_riichiMode)
     refreshSelfActions();
+  /* リーチ宣言中に何らかの再描画でバーが消えていたら、取り消しボタンを出し直す
+     （取り消し手段ごと消えると、候補牌以外が却下され続けて詰むため） */
+  if (_riichiMode && G.phase === 'discard' && G.current === HUMAN && !G.gameOver){
+    const bar = document.getElementById('self-action');
+    if (bar && !bar.classList.contains('show')) showRiichiCancelBar();
+  }
   if (NET.mode === 'host') netScheduleBroadcast();
 }
 function renderInfoBar(){
@@ -2012,7 +2051,7 @@ function renderHandSouth(){
 function renderWaits(){
   const bar = document.getElementById('waits-bar');
   if (!G || G.gameOver){ bar.classList.remove('show'); return; }
-  if (_riichiMode){ bar.innerHTML = '🀫 リーチ宣言中 — テンパイする牌を選んでください'; bar.classList.add('show'); return; }
+  if (_riichiMode){ bar.innerHTML = '🀫 リーチ宣言中 — テンパイする牌を選んでください（やめる時は「リーチをやめる」ボタン）'; bar.classList.add('show'); return; }
   const hand = G.hands[HUMAN];
   if (hand.length === 13){
     const waits = getTenpaiCached(hand, G.melds[HUMAN]);
@@ -2996,10 +3035,17 @@ function netShowSelfActions(opts){
   const btns = [];
   if (opts.tsumo) btns.push({ label: 'ツモ', cls: 'btn-tsumo', fn: () => { netSendToHost({ t: 'act', kind: 'tsumo' }); netGuestEndTurnUI(); } });
   if (opts.riichi) btns.push({ label: 'リーチ', cls: 'btn-riichi', fn: () => {
+    /* 候補牌を先に確定させる。ホスト判定と手元の局面がずれて候補が
+       0枚だと、宣言モードに入ったまま全ての牌が却下され、取り消しも
+       できず進行不能になっていたため、候補が無い場合は宣言モードに
+       入らず通常打牌のままにする */
+    const cands = netRiichiCandidates();
+    if (!cands.length){ showToast('テンパイしていません'); return; }
     NET.riichiPending = true; _riichiMode = true;
-    _riichiCandidates = netRiichiCandidates();
+    _riichiCandidates = cands;
     showToast('リーチ！\n捨て牌を選んでください');
     renderHandSouth(); renderWaits();
+    showRiichiCancelBar();
   } });
   (opts.kans || []).forEach(k => btns.push({
     label: 'カン（' + tileName({ suit: k.suit, num: k.num }) + '）', cls: 'btn-kan',

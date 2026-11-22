@@ -571,6 +571,7 @@ html,body{overscroll-behavior:none;}
     <div id="dlg-name" class="text-center font-black text-xs text-gray-400 mb-2 uppercase tracking-widest"></div>
     <div id="dlg-msg" class="text-center text-sm font-bold leading-relaxed text-gray-800 mb-5"></div>
     <button id="dlg-btn" onclick="closeDlg()" class="w-full py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm bbtn">バトル開始！</button>
+    <button id="dlg-cancel" onclick="cancelDlg()" class="w-full py-3 bg-gray-100 text-gray-600 rounded-2xl font-bold text-sm bbtn mt-2 hidden">やめる（閉じる）</button>
   </div>
 </div>
 <div id="ov-detail" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-40 px-4">
@@ -2552,12 +2553,17 @@ function buyItem(id,def){
 }
 function closeShop(){document.getElementById('ov-shop').classList.add('hidden');document.getElementById('ov-shop').classList.remove('flex')}
 // DIALOG
+/* 挑戦系ダイアログ（バトル開始！/挑戦する！）は「やめる」で閉じられるようにする。
+   以前はボタン1つだけで、押すと必ずバトルが始まり、見送る手段がなかった。 */
+let dlgCancelable=false;
 function showDialog(emoji,name,msg,btnLabel,cb){
   dlgCb=cb;
+  dlgCancelable=!!cb&&(btnLabel==='バトル開始！'||btnLabel==='挑戦する！');
   document.getElementById('dlg-emoji').textContent=emoji;
   document.getElementById('dlg-name').textContent=name;
   document.getElementById('dlg-msg').textContent=msg;
   document.getElementById('dlg-btn').textContent=btnLabel||'OK';
+  document.getElementById('dlg-cancel').classList.toggle('hidden',!dlgCancelable);
   if(!cb){document.getElementById('dlg-btn').onclick=()=>{document.getElementById('ov-dlg').classList.add('hidden');document.getElementById('ov-dlg').classList.remove('flex')}}
   else{document.getElementById('dlg-btn').onclick=closeDlg}
   document.getElementById('ov-dlg').classList.remove('hidden');document.getElementById('ov-dlg').classList.add('flex');
@@ -2566,6 +2572,18 @@ function closeDlg(){
   document.getElementById('ov-dlg').classList.add('hidden');document.getElementById('ov-dlg').classList.remove('flex');
   if(dlgCb){const f=dlgCb;dlgCb=null;f()}
 }
+/* バトルを見送って閉じる（コールバックは実行しない） */
+function cancelDlg(){
+  if(!dlgCancelable)return;
+  dlgCb=null;dlgCancelable=false;
+  document.getElementById('ov-dlg').classList.add('hidden');document.getElementById('ov-dlg').classList.remove('flex');
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')cancelDlg();
+});
+document.getElementById('ov-dlg').addEventListener('click',e=>{
+  if(e.target===e.currentTarget)cancelDlg();
+});
 // UTILS
 let msgTimer=null,msgFull='';
 function setMsg(t){

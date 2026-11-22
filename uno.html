@@ -1246,7 +1246,9 @@ function scheduleNPCChallengePlayer(){
   for(let i=1;i<G.numPlayers;i++){
     if(!G.players[i].isNPC||G.players[i].out)continue;
     if(Math.random()<prob){
-      const delay=1000+Math.random()*2200;
+      /* 宣言の受付時間は最低でも約3.5秒を確保する。以前は最短1秒で指摘が入り、
+         通常の操作速度では宣言が間に合わずペナルティばかり発生していた */
+      const delay=3500+Math.random()*2500;
       const npcRef=G.players[i];
       addTimer(()=>{
         if(G.pUnoWindow&&!G.pUnoDeclared&&G.phase==='playing'){
@@ -1255,6 +1257,7 @@ function scheduleNPCChallengePlayer(){
           renderHand();updatePCount();updateActionBar();
           Snd.bad();
           showNPCChallengesPlayer(npcRef);
+          showToast('UNO宣言を忘れた！ペナルティで2枚引いた','📣');
         }
       },delay);
     }
@@ -1589,6 +1592,15 @@ function updatePCount(){
   if(el.textContent!==old){el.classList.remove('score-pop');void el.offsetWidth;el.classList.add('score-pop');}
   const sc=document.getElementById('p-score');
   if(sc)sc.textContent=(G.scores?G.scores[0]:0)+'点';
+  /* UNOバッジは手札枚数の変化に連動させる。宣言後にドロー2/ワイルド4等で
+     2枚以上に戻っても、次のカードを出すまでバッジが残り続けていたため、
+     手札が変わるたびにここで表示を同期する（1枚でなくなったら宣言状態も解除） */
+  if(n!==1){G.pUnoDeclared=false;G.pUnoWindow=false;}
+  const badge=document.getElementById('p-uno-badge');
+  if(badge){
+    if(G.pUnoDeclared&&n===1&&G.phase==='playing')badge.classList.remove('hidden');
+    else badge.classList.add('hidden');
+  }
 }
 
 function updateActionBar(){
@@ -1637,17 +1649,21 @@ function flyElement(html,fromRect,toRect,dur=300){
   const el=wrap.firstChild;
   if(!el||!fromRect||!toRect)return;
   el.classList.add('fly-card');
+  /* サイズは出発地点のカード寸法で固定し、到着は「中心を合わせる」だけにする。
+     以前は width/height を到着矩形（手札エリア全体など）まで遷移させていたため、
+     配札中にカードが横に引き伸ばされて表示されていた */
+  const w=fromRect.width,h=fromRect.height;
   el.style.left=fromRect.left+'px';
   el.style.top=fromRect.top+'px';
-  el.style.width=fromRect.width+'px';
-  el.style.height=fromRect.height+'px';
+  el.style.width=w+'px';
+  el.style.height=h+'px';
   el.style.margin='0';
   document.body.appendChild(el);
+  const destLeft=toRect.left+toRect.width/2-w/2;
+  const destTop=toRect.top+toRect.height/2-h/2;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    el.style.left=toRect.left+'px';
-    el.style.top=toRect.top+'px';
-    el.style.width=toRect.width+'px';
-    el.style.height=toRect.height+'px';
+    el.style.left=destLeft+'px';
+    el.style.top=destTop+'px';
   }));
   setTimeout(()=>el.remove(),dur+90);
 }

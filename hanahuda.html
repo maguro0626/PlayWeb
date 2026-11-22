@@ -135,9 +135,21 @@
       radial-gradient(ellipse at 50% 40%, rgba(240,201,79,.05), transparent 70%),
       rgba(6,14,9,.45);
     border:1px solid rgba(212,175,55,.22); border-radius:16px;
-    align-content:start; overflow-y:auto; height:100%; scrollbar-width:none;
+    align-content:start; overflow-y:auto; height:100%;
+    scrollbar-width:thin; scrollbar-color:rgba(240,201,79,.55) rgba(0,0,0,.25);
   }
-  #field-cards::-webkit-scrollbar{display:none}
+  /* スクロールバーは細く常時見える形にして「まだ下にある」ことを伝える
+     （以前はバーを消していたため、場が9枚以上で3段目が見えないことに気づけなかった） */
+  #field-cards::-webkit-scrollbar{width:5px}
+  #field-cards::-webkit-scrollbar-thumb{background:rgba(240,201,79,.55); border-radius:3px}
+  #field-cards::-webkit-scrollbar-track{background:rgba(0,0,0,.25); border-radius:3px}
+  #field-more{
+    position:absolute; left:50%; bottom:5px; transform:translateX(-50%); z-index:30;
+    background:rgba(0,0,0,.72); color:var(--gold-hi); font-size:10px; font-weight:900;
+    letter-spacing:.12em; padding:3px 12px; border-radius:999px; pointer-events:none;
+    border:1px solid rgba(240,201,79,.45); display:none;
+  }
+  #field-wrap.has-more #field-more{display:block}
   .field-slot{aspect-ratio:13/19; display:flex; align-items:flex-start; justify-content:center}
   .field-slot .hana-card{width:100%}
   #drawn-area{
@@ -409,6 +421,7 @@ html,body{overscroll-behavior:none;}
       </div>
       <div id="field-wrap">
         <div id="field-cards"></div>
+        <div id="field-more">▼ まだ下に札があります</div>
         <div id="drawn-area" class="hidden"><div class="lb">めくり札</div><div id="drawn-card"></div></div>
       </div>
     </section>
@@ -699,8 +712,10 @@ function svgCard(card,extraCls=''){
     const rc=card.rt===BL?'#2273d8':card.rt===PO?'#e0233f':'#d8352f';
     ribbon=`<rect x="7" y="55.5" width="38" height="6.5" rx="2.6" fill="${rc}" opacity="0.94"/>
       <rect x="7" y="55.5" width="38" height="2.2" rx="1.1" fill="rgba(255,255,255,0.28)"/>`;
-    if(card.rt===PO) ribbon+=`<text x="26" y="60.6" text-anchor="middle" font-size="4.6" fill="rgba(255,255,255,0.95)" font-weight="bold" font-family="serif">みよし野</text>`;
-    if(card.rt===BL) ribbon+=`<text x="26" y="60.6" text-anchor="middle" font-size="4.4" fill="rgba(255,255,255,0.9)" font-weight="bold" font-family="serif">あかよろし</text>`;
+    /* 銘は実物の花札どおり：赤短は松・梅が「あかよろし」、桜が「みよし野」。
+       青短は実物でも無地で文字は入らない（以前は全赤短に「みよし野」、
+       青短に「あかよろし」と誤った銘が描かれていた） */
+    if(card.rt===PO) ribbon+=`<text x="26" y="60.6" text-anchor="middle" font-size="${card.m===3?4.6:4.4}" fill="rgba(255,255,255,0.95)" font-weight="bold" font-family="serif">${card.m===3?'みよし野':'あかよろし'}</text>`;
   }
 
   const uid='c'+card.id+'_'+Math.random().toString(36).slice(2,7);
@@ -1132,7 +1147,9 @@ function startMatch(){
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('result-overlay').classList.add('hidden');
   sfx.agari();
-  startRound();
+  /* 局の途中経過（手札・場・取り札まで）が保存されていれば、その局面から復元する */
+  if(soloMatch && hnSaved && hnSaved.mid){ restoreHanaMidState(); }
+  else startRound();
 }
 
 async function startRound(){
@@ -1148,14 +1165,10 @@ async function startRound(){
   lastCapIds=[];
   dealAnim=true;
   hideDecision();hideNextBtn();showCpuThinking(false);hideDrawn();
-  /* ソロ対戦の途中経過を局の開始時点で保存する（累計スコア＋局数）。
-     局の途中の手札・場・山札までは保存しないため、リロードした場合は
-     この局の最初から、累計は前局までの確定値で再開する。 */
-  if(typeof NET==='undefined' || NET.mode==='solo'){
-    hnSaved={totalP,totalCPU,roundNum,matchLen};
-    try{ localStorage.setItem(HN_MATCH_KEY, JSON.stringify(hnSaved)); }catch(e){}
-  }
   const first = (roundNum%2===1) ? 'player' : 'cpu'; // 局ごとに親（先手）が交代
+  /* 配札直後の状態を復元点として保存する（以降は手番が移るたびに
+     saveHanaMidState が最新の局面で上書きする） */
+  saveHanaMidState(first);
   turn=first;
   render();
   netBroadcastState();
@@ -1242,6 +1255,12 @@ function renderField(){
     slot.appendChild(cd);
     el.appendChild(slot);
   });
+  /* 場の札が表示領域に収まりきらない時は「まだ下にある」印を出す */
+  const wrap=document.getElementById('field-wrap');
+  if(wrap){
+    const more=el.scrollHeight>el.clientHeight+2 && el.scrollTop+el.clientHeight<el.scrollHeight-4;
+    wrap.classList.toggle('has-more',more);
+  }
   const hint=document.getElementById('field-hint');
   if(phase==='p-hand'&&selCard){
     const n=field.filter(f=>f.m===selCard.m).length;
@@ -1250,6 +1269,14 @@ function renderField(){
     hint.innerText='合わせる札を選んでください';
   }else hint.innerText='';
 }
+/* 一番下までスクロールしたら「まだ下に札があります」印を消す */
+document.getElementById('field-cards').addEventListener('scroll',()=>{
+  const el=document.getElementById('field-cards');
+  const wrap=document.getElementById('field-wrap');
+  if(!el||!wrap)return;
+  const more=el.scrollHeight>el.clientHeight+2 && el.scrollTop+el.clientHeight<el.scrollHeight-4;
+  wrap.classList.toggle('has-more',more);
+});
 
 function renderPlayerHand(){
   const el=document.getElementById('player-hand');
@@ -1571,6 +1598,9 @@ async function nextTurn(who){
      進行不能になる（旧条件のバグ）。 */
   if(playerHand.length===0&&cpuHand.length===0){await checkRoundEnd();return;}
   turn=who==='player'?'cpu':'player';
+  /* 手番が移った時点が安定した復元点（片方の1手が完全に終わった状態）。
+     ここで局の途中経過を保存し、リロードしても局面から再開できるようにする */
+  saveHanaMidState(turn);
   renderScores();
   if(turn==='cpu'){
     if(typeof NET!=='undefined' && NET.mode==='host' && !NET.cpuTakeover){
@@ -2422,13 +2452,73 @@ function saveHanaSettings(){
   try{ localStorage.setItem(HN_SETTINGS_KEY, JSON.stringify({difficulty:difficulty, matchLen:matchLen, sound:soundOn})); }catch(e){}
 }
 /* ── ソロ対戦の途中経過の保存（hanahuda_match 素キー） ──
-   保存するのは累計スコア・現在の局・対戦の長さだけ。局の開始時点
-   （startRound）で書き、全試合終了（showMatchResult）で消す。
-   手札・場・山札・役の進行といった局内状態は保存しない（非同期の
-   手番処理やこいこい待ちと結びついており、安全な復元が難しいため）。
-   そのため再開は「その局の最初から」になる。 */
+   累計スコア・現在の局・対戦の長さに加え、局の途中経過（手札・場・
+   山札・取り札・こいこい回数・成立済み役）もカードID列で保存する。
+   書き込みは「片方の1手が完全に終わり、手番が移った時点」
+   （nextTurn の入口と startRound の配札直後）だけに限定する。この
+   時点では非同期処理・こいこい待ち・めくり選択待ちが一切残って
+   いないため、安全に復元できる。再開時はその局面からそのまま
+   続けられる。全試合終了（showMatchResult）で消す。 */
 const HN_MATCH_KEY='hanahuda_match';
 let hnSaved=null;
+function validHanaMid(m){
+  if(!m||typeof m!=='object')return false;
+  const zones=['ph','ch','fd','dk','pc','cc'];
+  const seen=new Set();
+  for(const z of zones){
+    if(!Array.isArray(m[z]))return false;
+    for(const id of m[z]){
+      if(!Number.isInteger(id)||id<0||id>47||seen.has(id))return false;
+      seen.add(id);
+    }
+  }
+  if(seen.size!==48)return false; /* 全48枚がどこかのゾーンにちょうど1回ずつあること */
+  if(m.ph.length>8||m.ch.length>8)return false;
+  if(!Array.isArray(m.py)||!Array.isArray(m.cy))return false;
+  if(m.turn!=='player'&&m.turn!=='cpu')return false;
+  return true;
+}
+function saveHanaMidState(next){
+  if(typeof NET!=='undefined' && NET.mode!=='solo')return;
+  if(!matchStarted)return;
+  const ids=a=>a.map(c=>c.id);
+  hnSaved={ totalP, totalCPU, roundNum, matchLen,
+    mid:{ ph:ids(playerHand), ch:ids(cpuHand), fd:ids(field), dk:ids(deck),
+          pc:ids(playerCap), cc:ids(cpuCap),
+          koiP:koiP|0, koiCPU:koiCPU|0,
+          py:prevYakuP.map(y=>y.id), cy:prevYakuCPU.map(y=>y.id),
+          turn: next } };
+  try{ localStorage.setItem(HN_MATCH_KEY, JSON.stringify(hnSaved)); }catch(e){}
+}
+async function restoreHanaMidState(){
+  const mid=hnSaved.mid;
+  const byId=id=>DECK_DATA[id];
+  playerHand=mid.ph.map(byId); cpuHand=mid.ch.map(byId);
+  field=mid.fd.map(byId); deck=mid.dk.map(byId);
+  playerCap=mid.pc.map(byId); cpuCap=mid.cc.map(byId);
+  koiP=mid.koiP|0; koiCPU=mid.koiCPU|0;
+  prevYakuP=mid.py.map(id=>YAKUS.find(y=>y.id===id)).filter(Boolean);
+  prevYakuCPU=mid.cy.map(id=>YAKUS.find(y=>y.id===id)).filter(Boolean);
+  selCard=null;fieldOpts=null;drawPend=null;lastCapIds=[];dealAnim=false;drawnCardId=null;
+  hideDecision();hideNextBtn();showCpuThinking(false);hideDrawn();
+  turn=mid.turn;
+  render();
+  netBroadcastState();
+  showToast(`第${roundNum}局の途中から再開しました`);
+  if(mid.turn==='player'){
+    phase='p-hand';busy=false;
+    setStat('あなたの番です ― 手札からカードを選んでください');
+    render();
+  }else{
+    phase='cpu';busy=true;
+    setStat(oppName()+'の番です');
+    render();
+    showCpuThinking(true);
+    await sleep(1100);
+    showCpuThinking(false);
+    await cpuTurn();
+  }
+}
 (function loadHanaMatch(){
   try{
     const s=JSON.parse(localStorage.getItem(HN_MATCH_KEY)||'null');
@@ -2436,6 +2526,7 @@ let hnSaved=null;
        Number.isFinite(s.totalP) && Number.isFinite(s.totalCPU) &&
        s.roundNum>=1 && s.roundNum<=s.matchLen){
       hnSaved={totalP:s.totalP|0, totalCPU:s.totalCPU|0, roundNum:s.roundNum|0, matchLen:s.matchLen|0};
+      if(validHanaMid(s.mid)) hnSaved.mid=s.mid;
     }
   }catch(e){}
 })();
@@ -2444,7 +2535,7 @@ function refreshHnResumeUI(){
   const nb=document.getElementById('btn-start-new');
   if(!b||!nb) return;
   if(hnSaved && hnSaved.matchLen===matchLen){
-    b.textContent=`続きから対戦（第${hnSaved.roundNum}局・累計 ${hnSaved.totalP}―${hnSaved.totalCPU}）`;
+    b.textContent=`続きから対戦（第${hnSaved.roundNum}局・累計 ${hnSaved.totalP}―${hnSaved.totalCPU}）`+(hnSaved.mid?'・局の途中から':'');
     nb.classList.remove('hidden');
   }else{
     b.textContent='対戦をはじめる';

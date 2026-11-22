@@ -451,7 +451,8 @@
       var room = (typeof msg.room === 'string') ? msg.room.toUpperCase() : '';
       if (!g || !ROOM_RE.test(room)) return;
       state.invites.unshift({ from: code, name: displayName(code), game: g, room: room, ts: Date.now() });
-      state.invites = state.invites.slice(0, 5);
+      state.invites = state.invites.slice(0, INVITE_LIST_MAX);
+      saveInvites();
       showInviteToast(state.invites[0]);
       renderAll();
     }
@@ -629,7 +630,8 @@
           room: inv.room, ts: Date.now(), cloudId: inv.cloudId || null
         };
         state.invites.unshift(entry);
-        state.invites = state.invites.slice(0, 5);
+        state.invites = state.invites.slice(0, INVITE_LIST_MAX);
+        saveInvites();
         showInviteToast(entry);
         renderAll();
         return true;
@@ -1137,7 +1139,7 @@
     '.pwf-invite b{color:#fde68a}',
     '.pwf-games{display:grid;grid-template-columns:1fr 1fr;gap:8px}',
     '.pwf-game{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#eef0ff;border-radius:11px;padding:11px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}',
-    '.pwf-toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:100006;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(94vw,430px)}',
+    '.pwf-toasts{position:fixed;left:50%;top:calc(var(--pw-header-h,46px) + 10px);transform:translateX(-50%);z-index:100006;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(94vw,430px)}',
     '.pwf-toast{pointer-events:auto;background:#14532d;color:#fff;font-size:13.5px;font-weight:700;padding:11px 16px;border-radius:13px;box-shadow:0 12px 30px rgba(0,0,0,.45);display:flex;gap:10px;align-items:center;max-width:100%}',
     '.pwf-toast.info{background:#1e293b}',
     '.pwf-toast .pwf-btn{padding:6px 12px}',
@@ -1204,15 +1206,19 @@
     if (inv.cloudId && window.PWAccount && window.PWAccount.consumeInvite) {
       try { window.PWAccount.consumeInvite(inv.cloudId); } catch (e) {}
     }
+    /* 参加する招待は控えからも消す（遷移先で復元されて残り続けないように） */
+    var ix = state.invites.indexOf(inv);
+    if (ix >= 0) { state.invites.splice(ix, 1); saveInvites(); }
     try {
       sessionStorage.setItem('pw_join_ctx', JSON.stringify({ game: inv.game, room: inv.room, from: inv.from, ts: Date.now() }));
     } catch (e) {}
     location.href = GAMES[inv.game].file + '?join=' + inv.room + '&from=' + inv.from;
   }
   /* ドロワーが開いている間に届いた招待トーストは保留し、閉じた時に出す。
-     .pwf-toasts は画面下部中央に固定されるため、開いているドロワー下部の
-     招待欄（「参加する」ボタン）と重なってタップを妨げ得るのが理由。
-     ドロワー表示中は、招待欄とアカウントタブのバッジで招待に気づける。 */
+     開いているドロワー内の招待欄（「参加する」ボタン）と重なってタップを
+     妨げ得るのが理由。ドロワー表示中は、招待欄とアカウントタブのバッジで
+     招待に気づける。なお .pwf-toasts の表示位置は画面上部（ヘッダー直下）で、
+     カードゲームの手札や各ゲームの操作ボタンが集まる画面下部には重ならない。 */
   var pendingInviteToast = null;
   function showInviteToast(inv) {
     if (state.panelOpen) { pendingInviteToast = inv; return; }
@@ -1232,6 +1238,9 @@
     if (Date.now() - (inv.ts || 0) > 25000) return; /* 古い招待は出さない */
     showInviteToastNow(inv);
   }
+  /* 届いた招待の保持件数（以前は5件で、6件目が届くと一番古い招待が
+     即座に押し出されていた） */
+  var INVITE_LIST_MAX = 10;
   /* 届いた招待の表示有効期限。部屋は長くても数分で閉じられることが多く、
      古い招待が一覧とバッジに残り続けると、押しても参加できない部屋へ
      誘導してしまう。期限切れの招待は一覧から静かに落とす（クラウド側
@@ -1247,9 +1256,55 @@
     var kept = state.invites.filter(function (inv) { return now - (inv.ts || 0) < inviteDisplayTtlMs(); });
     if (kept.length === state.invites.length) return false;
     state.invites = kept;
+    saveInvites();
     return true;
   }
   setInterval(function () { if (pruneInvites()) renderAll(); }, 30000);
+
+  /* 届いた招待は sessionStorage にも控え、同じタブ内でのページ移動や
+     リロード（アプリ更新時の自動リロード含む）をまたいでも表示期限内は
+     復元できるようにする。以前はメモリ上だけに保持していたため、別ページへ
+     移動しただけで招待が消え、クラウド側は delivered 済みで再配送もされず
+     「数分で消えて参加できない」状態になっていた。控えは自分の uid に
+     紐づけ、別アカウントの招待が混ざらないようにする。タブを閉じれば
+     sessionStorage ごと消える（セッションをまたいだ再表示はしない）。 */
+  var INVITES_SS_KEY = 'pwf_invites_v1';
+  function saveInvites() {
+    try {
+      var uid = myUid();
+      if (!uid) return;
+      sessionStorage.setItem(INVITES_SS_KEY, JSON.stringify({ uid: uid, invites: state.invites.slice(0, INVITE_LIST_MAX) }));
+    } catch (e) {}
+  }
+  var invitesRestored = false;
+  function restoreInvites() {
+    if (invitesRestored) return;
+    var uid = myUid();
+    if (!uid) return; /* uid が確定してから復元する（applyGate の member 遷移で呼ばれる） */
+    invitesRestored = true;
+    try {
+      var raw = sessionStorage.getItem(INVITES_SS_KEY);
+      if (!raw) return;
+      var data = JSON.parse(raw);
+      if (!data || data.uid !== uid || !Array.isArray(data.invites)) return;
+      var now = Date.now();
+      data.invites.forEach(function (inv) {
+        if (!inv || !GAMES[inv.game] || !ROOM_RE.test(inv.room || '')) return;
+        if (now - (inv.ts || 0) >= inviteDisplayTtlMs()) return; /* 期限切れは復元しない */
+        for (var i = 0; i < state.invites.length; i++) {
+          var o = state.invites[i];
+          if (o.from === inv.from && o.game === inv.game && o.room === inv.room) return; /* 重複 */
+        }
+        state.invites.push({
+          from: inv.from, name: inv.name || displayName(inv.from), game: inv.game,
+          room: inv.room, ts: inv.ts || now, cloudId: inv.cloudId || null
+        });
+      });
+      state.invites.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      state.invites = state.invites.slice(0, INVITE_LIST_MAX);
+      renderAll();
+    } catch (e) {}
+  }
 
   /* スタイルとトースト置き場だけはゲート状態によらず用意する
      （ゲスト時の「ログインが必要です」案内にもトーストを使うため） */
@@ -1449,6 +1504,7 @@
           try { window.PWAccount.dismissInvite(inv.cloudId); } catch (e) {}
         }
         state.invites.splice(Number(btn.getAttribute('data-inv-del')), 1);
+        saveInvites();
         renderAll();
       };
     });
@@ -1755,6 +1811,7 @@
   function applyGate(state) {
     gateState = state || 'guest';
     if (gateState === 'member') {
+      restoreInvites(); /* 前ページで届いた招待の控えを復元（uid 確定後） */
       if (!fullInitDone) {
         fullInitDone = true;
         buildUI();

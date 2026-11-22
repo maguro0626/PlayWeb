@@ -1731,6 +1731,9 @@ function endMinigame() {
   G.totalHappy += gained;
   document.getElementById('mg-result').textContent = mgScore >= 4 ? '最高！🏆' : mgScore >= 2 ? 'よくできた！😄' : 'がんばれ！💪';
   document.getElementById('mg-score-text').textContent = `結果: ごきげん +${gained}`;
+  /* 結果表示と同時にごきげんハートも更新する（以前はモーダルを閉じる
+     1.1秒後の updateUI までハート表示が古いままだった） */
+  updateUI();
   if (mgScore >= 4) SFX.evo(); else if (mgScore >= 2) SFX.happy();
   withActor(mgActor, () => logEvent('🎮', `あそんだ（${mgScore}/5 ヒット）`));
   if (netMode === 'host') noteFx('play');
