@@ -96,12 +96,13 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .songTile .jacket{display:flex;height:52px;border-radius:9px;align-items:center;justify-content:center;font-size:27px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
 .songTile .tNm{display:block;font-size:9.5px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .songTile .tRk{display:block;font-size:9.5px;color:var(--gold);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:13px}
-#speedSeg,#seSeg,#seVolSeg,#sizeSeg,#offsetSeg{display:flex;align-items:center;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:5px}
-#speedSeg .segLbl,#seSeg .segLbl,#seVolSeg .segLbl,#sizeSeg .segLbl,#offsetSeg .segLbl{font-size:11px;color:var(--sub);font-weight:800;padding:0 4px 0 9px;white-space:nowrap}
-#speedSeg button,#seSeg button,#seVolSeg button,#sizeSeg button,#offsetSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:6px 2px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:32px}
+#speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{display:flex;align-items:center;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:5px}
+#speedSeg .segLbl,#seSeg .segLbl,#seVolSeg .segLbl,#musicVolSeg .segLbl,#sizeSeg .segLbl,#offsetSeg .segLbl{font-size:11px;color:var(--sub);font-weight:800;padding:0 4px 0 9px;white-space:nowrap}
+#speedSeg button,#seSeg button,#sizeSeg button,#offsetSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:6px 2px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:32px}
 #speedSeg button.on{background:linear-gradient(92deg,var(--cyan),#2563eb);color:#fff;box-shadow:0 2px 10px rgba(63,214,255,.4)}
 #seSeg button.on{background:linear-gradient(92deg,#ff9d5c,var(--accent));color:#fff;box-shadow:0 2px 10px rgba(255,93,143,.4)}
-#seVolSeg button.on{background:linear-gradient(92deg,#ffb84d,#ff7ac1);color:#fff;box-shadow:0 2px 10px rgba(255,150,80,.4)}
+#musicVolSeg input[type=range],#seVolSeg input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:30px;cursor:pointer}
+.volVal{font-size:11.5px;color:var(--txt);font-weight:800;min-width:42px;text-align:right;padding-right:7px;white-space:nowrap}
 #sizeSeg button.on{background:linear-gradient(92deg,#9d6bff,#2563eb);color:#fff;box-shadow:0 2px 10px rgba(157,107,255,.4)}
 #offsetSeg button:active{background:rgba(255,255,255,.14);color:#fff}
 #offsetVal{flex:1.2;text-align:center;font-size:12.5px;font-weight:900;color:var(--txt);white-space:nowrap;cursor:pointer;padding:6px 0}
@@ -158,6 +159,16 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
 /* 低丈画面（〜740px）では選曲まわりを圧縮し、クレジット表示のある実音源曲でも
    スタートボタンが画面内に収まるようにする */
+/* 中丈画面（〜900px: 844px級）では設定行を少し詰め、音量スライダー2本が
+   増えてもスタートボタンが画面内に収まるようにする（≤740px の圧縮より手前に置き、
+   短い画面ではそちらの強い圧縮が優先される） */
+@media (max-height:900px){
+  #speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{margin-top:2px;padding:2px}
+  #speedSeg button,#seSeg button,#sizeSeg button,#offsetSeg button{min-height:27px;padding:4px 2px}
+  #musicVolSeg input[type=range],#seVolSeg input[type=range]{height:26px}
+  #diffSeg button{min-height:32px}
+  #offsetVal{padding:4px 0}
+}
 @media (max-height:740px){
   .wrap{gap:6px}
   .ttl{font-size:18px}
@@ -173,13 +184,15 @@ input,textarea{-webkit-user-select:text;user-select:text}
   .songTile .jacket{height:30px;font-size:18px}
   #diffSeg{margin-top:5px}
   #diffSeg button{min-height:30px;padding:5px 4px}
-  #speedSeg,#seSeg,#seVolSeg,#sizeSeg,#offsetSeg{margin-top:1px;padding:2px}
-  #speedSeg button,#seSeg button,#seVolSeg button,#sizeSeg button,#offsetSeg button{min-height:24px;padding:4px 2px}
-  /* 設定行が1行増えた分（効果音量）を、短い画面では一覧と詳細側で吸収して
+  #speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{margin-top:1px;padding:1px}
+  #speedSeg button,#seSeg button,#sizeSeg button,#offsetSeg button{min-height:22px;padding:3px 2px}
+  #musicVolSeg input[type=range],#seVolSeg input[type=range]{height:22px}
+  #offsetVal{padding:3px 0}
+  /* 設定行が増えた分（音量スライダー2本）を、短い画面では一覧と詳細側で吸収して
      スタートボタンを画面内に収める（一覧はスクロールできるので高さを譲る） */
-  .songGrid{max-height:160px}
+  .songGrid{max-height:118px}
   .songTile .jacket{height:24px;font-size:15px}
-  #diffSeg button{min-height:26px}
+  #diffSeg button{min-height:24px;padding:3px 4px}
   #songDetail .jacketBig{width:38px;height:38px;font-size:19px}
 }
 /* 極低丈画面（〜600px: iPhone SE 1世代 568px等）では説明文を畳み、操作系を全て画面内に収める
@@ -212,7 +225,8 @@ html,body{overscroll-behavior:none;}
 <div id="diffSeg"><button data-d="easy">かんたん</button><button data-d="normal" class="on">ふつう</button><button data-d="hard">むずかしい</button></div>
 <div id="speedSeg"><span class="segLbl">落下速度</span><button data-s="0.8">×0.8</button><button data-s="1" class="on">×1.0</button><button data-s="1.25">×1.25</button><button data-s="1.5">×1.5</button><button data-s="2">×2.0</button></div>
 <div id="seSeg"><span class="segLbl">タップ音</span><button data-se="classic" class="on">クラシック</button><button data-se="blip">ブリップ</button><button data-se="wood">ウッド</button><button data-se="bell">ベル</button><button data-se="pop">ポップ</button></div>
-<div id="seVolSeg"><span class="segLbl">効果音量</span><button data-sv="0.55">小</button><button data-sv="1" class="on">中</button><button data-sv="1.5">大</button></div>
+<div id="musicVolSeg"><span class="segLbl">曲の音量</span><input type="range" id="musicVolRange" min="0" max="100" step="1" value="100"><span class="volVal" id="musicVolVal">100%</span></div>
+<div id="seVolSeg"><span class="segLbl">効果音の音量</span><input type="range" id="seVolRange" min="0" max="200" step="5" value="140"><span class="volVal" id="seVolVal">140%</span></div>
 <div id="sizeSeg"><span class="segLbl">ノーツ大きさ</span><button data-ns="0.85">×0.85</button><button data-ns="1" class="on">×1.0</button><button data-ns="1.15">×1.15</button><button data-ns="1.3">×1.3</button></div>
 <div id="offsetSeg"><span class="segLbl">判定調整</span><button data-off="-25">−25</button><button data-off="-5">−5</button><span id="offsetVal" title="タップで 0 に戻す">±0ms</span><button data-off="5">＋5</button><button data-off="25">＋25</button></div>
 </div>
@@ -263,7 +277,7 @@ function lerp(a, b, k) { return a + (b - a) * k; }
 
 var LANE_COLORS = ['#ff5d8f', '#3fd6ff', '#ffd94d', '#9d6bff'];
 var LANE_KEYS = ['d', 'f', 'j', 'k'];
-var FLICK_COL = '#2ee6a8'; /* フリック専用色（ミントグリーンのネオン。レーン色＝桃/水色/黄/紫とは別系統だが、同じネオンの世界観に馴染む色にする。フリックは下地の円盤を持たず矢印単体で描く） */
+var FLICK_COL = '#ff4d6d'; /* フリック専用色（ローズレッド。プロセカのピンク／ガルパの赤系フリックの作法に倣った専用色で、レーン色＝桃/水色/黄/紫とは別系統。フリックは専用色の本体＋大きなシェブロン（山形の矢印）で描く） */
 var LONG_STRIPE_PX = 34; /* ロングノーツ本体に流れる縞の周期(px) */
 var JUDGE_LINE_H = 7; /* 判定ライン（バー上端）の描画太さ(px)。「どこで叩くか」が
    一目で分かるよう太くし、白い芯と暗い下地でコントラストを確保する */
@@ -619,6 +633,49 @@ function capSimultaneous(notes) {
   }
   return out;
 }
+/* ロングノーツの占有ルール（本人の確定仕様。同時押し上限2の数え方の徹底）：
+   1) 同じレーンで、ロングの持続区間（頭より後・ケツより前）の途中に他のノーツが
+      挟まってはならない（保持中の指と正面衝突するため）。他レーンの途中ノーツは
+      可（複合パターンは維持する）。ロング同士が同一レーンで重なる場合も後発を落とす。
+   2) ロングは開始ステップだけでなく終了ステップでも1枠を占有する。各ステップで
+      「そのステップに始まるノーツ数＋そのステップで終わるロング数」が上限2を
+      超えないよう、開始側を優先度（ロング＞フリック＞タップ）で間引く
+      （ロングのケツ＋他2つ＝実質3つ同時、は禁止）。 */
+function enforceLongRules(notes) {
+  var longs = [];
+  notes.forEach(function (n) { if (n.type === 'long') longs.push(n); });
+  if (!longs.length) return notes;
+  var kept = notes.filter(function (n) {
+    for (var i = 0; i < longs.length; i++) {
+      var L = longs[i];
+      if (L === n || L.lane !== n.lane) continue;
+      if (n.type === 'long') {
+        if (n.step > L.step && n.step < L.step + L.lenSteps && L.step < n.step + n.lenSteps) return false;
+      } else if (n.step > L.step && n.step < L.step + L.lenSteps) return false;
+    }
+    return true;
+  });
+  var endsAt = {};
+  kept.forEach(function (n) { if (n.type === 'long') { var e = n.step + n.lenSteps; endsAt[e] = (endsAt[e] || 0) + 1; } });
+  var pri = { long: 0, flick: 1, tap: 2 };
+  var sorted = kept.slice().sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
+  var out = [], i = 0;
+  while (i < sorted.length) {
+    var j = i;
+    while (j + 1 < sorted.length && sorted[j + 1].step === sorted[i].step) j++;
+    var grp = sorted.slice(i, j + 1);
+    var allow = 2 - (endsAt[sorted[i].step] || 0);
+    if (allow < 0) allow = 0;
+    if (grp.length > allow) {
+      grp.sort(function (a, b) { return (pri[a.type] - pri[b.type]) || (a.lane - b.lane); });
+      grp = grp.slice(0, allow);
+      grp.sort(function (a, b) { return a.lane - b.lane; });
+    }
+    for (var k = 0; k < grp.length; k++) out.push(grp[k]);
+    i = j + 1;
+  }
+  return out;
+}
 function buildChart(song, diffKey) {
   if (song.audio) return buildAudioChart(song, diffKey);
   var P = DIFFS[diffKey];
@@ -682,6 +739,7 @@ function buildChart(song, diffKey) {
   }
   notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   notes = capSimultaneous(notes); /* 同時押しは最大2つまで */
+  notes = enforceLongRules(notes); /* ロングの同一レーン区間と開始/終了ステップの占有を上限内に */
   /* 同時押しグループ（同じ step に2つ以上）を線で結ぶために印付け */
   var g = 0;
   for (var i = 0; i < notes.length;) {
@@ -793,6 +851,50 @@ function buildAudioChart(song, diffKey) {
   }
   notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   notes = capSimultaneous(notes); /* 同時押しは最大2つまで */
+  var beforeRules = notes;
+  notes = enforceLongRules(notes); /* ロングの同一レーン区間と開始/終了ステップの占有を上限内に */
+  /* 占有ルールで間引いた分は、近くの空きステップ（強いオンセット優先）に単発タップで
+     補い、密度（特にロングが集まるサビ）を落とさない。補う先でも占有ルール
+     （開始＋終了 ≤ 2）と同一レーン区間ルールを守る。乱数は使わず決定的に選ぶ */
+  (function () {
+    if (beforeRules.length === notes.length) return;
+    var removed = beforeRules.filter(function (n) { return notes.indexOf(n) < 0; });
+    if (!removed.length) return;
+    var startsAt = {}, endsAt = {}, occupied = {}, longsByLane = { 0: [], 1: [], 2: [], 3: [] };
+    notes.forEach(function (n) {
+      startsAt[n.step] = (startsAt[n.step] || 0) + 1;
+      occupied[n.step + ':' + n.lane] = true;
+      if (n.type === 'long') { var e = n.step + n.lenSteps; endsAt[e] = (endsAt[e] || 0) + 1; longsByLane[n.lane].push(n); }
+    });
+    removed.sort(function (a, b) { return a.step - b.step; });
+    removed.forEach(function (rm) {
+      var best = null;
+      for (var d = 0; d <= 10 && !best; d++) {
+        var cand = [];
+        [rm.step - d, rm.step + d].forEach(function (s) {
+          if (s < 4 || s >= data.totalSteps - 4) return;
+          var on = onsetAt(song, s);
+          if (on < 3) return;
+          if ((startsAt[s] || 0) + (endsAt[s] || 0) >= 2) return;
+          for (var lane = 0; lane < 4; lane++) {
+            if (occupied[s + ':' + lane]) continue;
+            var inside = false;
+            for (var q = 0; q < longsByLane[lane].length; q++) { var L = longsByLane[lane][q]; if (s > L.step && s < L.step + L.lenSteps) { inside = true; break; } }
+            if (inside) continue;
+            cand.push({ s: s, lane: lane, on: on });
+          }
+        });
+        if (cand.length) { cand.sort(function (a, b) { return (b.on - a.on) || (a.s - b.s) || (a.lane - b.lane); }); best = cand[0]; }
+      }
+      if (best) {
+        var nn = mkNote(best.s, best.lane, 'tap', 0, null);
+        notes.push(nn);
+        startsAt[best.s] = (startsAt[best.s] || 0) + 1;
+        occupied[best.s + ':' + best.lane] = true;
+      }
+    });
+    notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
+  })();
   var g = 0;
   for (var i = 0; i < notes.length;) {
     var j = i;
@@ -874,7 +976,7 @@ function bestKey(songId, diff) { return songId + ':' + diff; }
 function getBest(songId, diff) { var s = loadSave(); var v = s.best[bestKey(songId, diff)]; return (v && typeof v.s === 'number') ? v : null; }
 
 /* ---------------- オーディオ（全て合成） ---------------- */
-var AC = null, master = null, noiseBuf = null;
+var AC = null, master = null, seBus = null, noiseBuf = null;
 var muted = false;
 try { muted = localStorage.getItem('starrhythm_mute') === '1'; } catch (e) {}
 function ensureAudio() {
@@ -882,8 +984,18 @@ function ensureAudio() {
     if (!AC) {
       AC = new (window.AudioContext || window.webkitAudioContext)();
       master = AC.createGain();
-      master.gain.value = muted ? 0 : 0.9;
       master.connect(AC.destination);
+      applyMasterGain();
+      /* 効果音専用バス：曲（master）とは独立に音量を決められるようにし、
+         コンプレッサーで大音量時のクリッピング／歪みを抑える */
+      seBus = AC.createGain();
+      seBus.gain.value = 1;
+      var seComp = null;
+      try { seComp = AC.createDynamicsCompressor(); } catch (e2) {}
+      if (seComp) {
+        seComp.threshold.value = -14; seComp.ratio.value = 12; seComp.attack.value = 0.002; seComp.release.value = 0.12;
+        seBus.connect(seComp); seComp.connect(AC.destination);
+      } else seBus.connect(AC.destination);
       noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
       var d = noiseBuf.getChannelData(0);
       for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -894,12 +1006,12 @@ function ensureAudio() {
 function setMuted(m) {
   muted = m;
   try { localStorage.setItem('starrhythm_mute', m ? '1' : '0'); } catch (e) {}
-  if (master) master.gain.value = m ? 0 : ((typeof preview !== 'undefined' && preview && preview.kind === 'synth') ? 0.9 * 0.6 : 0.9); /* シンセプレビュー中は控えめな音量を保つ */
+  applyMasterGain(); /* ミュート／曲音量／シンセプレビュー中の控えめ音量をまとめて反映 */
   if (audioEl) audioEl.muted = m;
   var b = document.getElementById('muteBtn');
   if (b) b.textContent = m ? '🔇' : '🔊';
 }
-function toneAt(freq, t, dur, type, vol, slideTo) {
+function toneAt(freq, t, dur, type, vol, slideTo, dest) {
   if (!AC) return;
   var o = AC.createOscillator(), g = AC.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t);
@@ -907,10 +1019,10 @@ function toneAt(freq, t, dur, type, vol, slideTo) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(master);
+  o.connect(g); g.connect(dest || master);
   o.start(t); o.stop(t + dur + 0.05);
 }
-function noiseAt(t, dur, fType, freq, q, vol) {
+function noiseAt(t, dur, fType, freq, q, vol, dest) {
   if (!AC || !noiseBuf) return;
   var src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
   src.playbackRate.value = 0.7 + Math.random() * 0.6;
@@ -919,7 +1031,7 @@ function noiseAt(t, dur, fType, freq, q, vol) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  src.connect(f); f.connect(g); g.connect(master);
+  src.connect(f); f.connect(g); g.connect(dest || master);
   src.start(t); src.stop(t + dur + 0.05);
 }
 function kickAt(t, vol) { toneAt(150, t, 0.13, 'sine', vol, 44); }
@@ -952,32 +1064,68 @@ function setTapSe(id) {
   try { localStorage.setItem(TAP_SE_KEY, id); } catch (e) {}
   document.querySelectorAll('#seSeg button').forEach(function (x) { x.classList.toggle('on', x.dataset.se === id); });
 }
-/* SE音量（starrhythm_sevol に保存：小 0.55 / 中 1.0 / 大 1.5）。
-   実音源曲は audio 要素が音量1.0で鳴るため、従来のSEゲイン（最大0.10程度）では
-   曲に埋もれて「押した手応え」が耳で得られなかった。基礎ゲインを引き上げた
-   うえで、端末や好みに合わせて調整できるようにする */
-var SE_VOL_KEY = 'starrhythm_sevol';
-var SE_VOLS = [0.55, 1, 1.5];
-var seVol = 1;
-try { var svv0 = parseFloat(localStorage.getItem(SE_VOL_KEY)); if (SE_VOLS.indexOf(svv0) >= 0) seVol = svv0; } catch (e) {}
-function setSeVol(v) {
-  if (SE_VOLS.indexOf(v) < 0) return;
-  seVol = v;
-  try { localStorage.setItem(SE_VOL_KEY, String(v)); } catch (e) {}
-  document.querySelectorAll('#seVolSeg button').forEach(function (x) { x.classList.toggle('on', parseFloat(x.dataset.sv) === v); });
+/* 音量設定（選曲画面のスライダーで調整し、その場で試聴できる）：
+   ・曲の音量 starrhythm_musicvol = 0〜100%（デフォルト100%）。シンセ曲は master
+     ゲイン、実音源曲は audio 要素の volume に効く。サビプレビューにも即反映される。
+   ・効果音の音量 starrhythm_sevol_pct = 0〜200%（デフォルト140%）。SEは専用バス
+     （seBus、コンプレッサー経由）を通すため、曲とは独立に大きくできる。
+     旧3段階設定（starrhythm_sevol：0.55/1/1.5）は初回のみ 90%/140%/190% へ引き継ぐ。
+   実音源曲は audio 要素が鳴るため、従来のSEゲインでは曲に埋もれて「押した
+   手応え」が耳で得られなかった。基礎ゲインもさらに引き上げ、曲をはっきり
+   上回って聞こえる水準にする（最大200%でもコンプレッサーで歪みを抑える） */
+var SE_VOL_KEY = 'starrhythm_sevol'; /* 旧キー（移行用） */
+var SE_PCT_KEY = 'starrhythm_sevol_pct';
+var MUSIC_VOL_KEY = 'starrhythm_musicvol';
+var sePct = 140;
+try {
+  var sp0 = parseInt(localStorage.getItem(SE_PCT_KEY), 10);
+  if (!(sp0 >= 0 && sp0 <= 200)) {
+    var oldSv = parseFloat(localStorage.getItem(SE_VOL_KEY));
+    sp0 = oldSv === 0.55 ? 90 : oldSv === 1.5 ? 190 : 140;
+  }
+  sePct = sp0;
+} catch (e) {}
+var musicVolPct = 100;
+try { var mv0 = parseInt(localStorage.getItem(MUSIC_VOL_KEY), 10); if (mv0 >= 0 && mv0 <= 100) musicVolPct = mv0; } catch (e) {}
+function musicVol() { return musicVolPct / 100; }
+function applyMasterGain() {
+  if (!master) return;
+  var pv = (typeof preview !== 'undefined' && preview && preview.kind === 'synth') ? PREVIEW_VOL : 1;
+  master.gain.value = muted ? 0 : 0.9 * musicVol() * pv;
 }
-function seV(vol) { return vol * seVol; }
+function applyMusicVol() {
+  applyMasterGain();
+  if (audioEl) { try { audioEl.volume = (typeof preview !== 'undefined' && preview && preview.kind === 'audio') ? musicVol() * PREVIEW_VOL : musicVol(); } catch (e) {} }
+}
+function setSeVolPct(p) {
+  p = Math.round(+p);
+  if (!(p >= 0)) p = 0;
+  if (p > 200) p = 200;
+  sePct = p;
+  try { localStorage.setItem(SE_PCT_KEY, String(p)); } catch (e) {}
+  syncVolUI();
+}
+function setMusicVolPct(p) {
+  p = Math.round(+p);
+  if (!(p >= 0)) p = 0;
+  if (p > 100) p = 100;
+  musicVolPct = p;
+  try { localStorage.setItem(MUSIC_VOL_KEY, String(p)); } catch (e) {}
+  applyMusicVol();
+  syncVolUI();
+}
+function seV(vol) { return vol * sePct / 100; }
 function laneTapSound(lane) {
   if (!AC) return;
   var t = AC.currentTime;
-  if (tapSe === 'blip') { var bf = 920 + lane * 170; toneAt(bf, t, 0.055, 'square', seV(0.095), bf * 0.62); }
-  else if (tapSe === 'wood') { toneAt(830 + lane * 70, t, 0.05, 'sine', seV(0.24)); noiseAt(t, 0.018, 'bandpass', 1500, 1.5, seV(0.05)); }
-  else if (tapSe === 'bell') { var ef = 1240 + lane * 150; toneAt(ef, t, 0.30, 'sine', seV(0.13)); toneAt(ef * 2.76, t, 0.13, 'sine', seV(0.05)); }
-  else if (tapSe === 'pop') { toneAt(290 + lane * 35, t, 0.085, 'sine', seV(0.22), 640 + lane * 70); }
-  else { toneAt(540 + lane * 110, t, 0.09, 'sine', seV(0.17)); noiseAt(t, 0.03, 'highpass', 5000, 0.7, seV(0.085)); }
+  if (tapSe === 'blip') { var bf = 920 + lane * 170; toneAt(bf, t, 0.055, 'square', seV(0.125), bf * 0.62, seBus); }
+  else if (tapSe === 'wood') { toneAt(830 + lane * 70, t, 0.05, 'sine', seV(0.27), null, seBus); noiseAt(t, 0.018, 'bandpass', 1500, 1.5, seV(0.065), seBus); }
+  else if (tapSe === 'bell') { var ef = 1240 + lane * 150; toneAt(ef, t, 0.30, 'sine', seV(0.155), null, seBus); toneAt(ef * 2.76, t, 0.13, 'sine', seV(0.06), null, seBus); }
+  else if (tapSe === 'pop') { toneAt(290 + lane * 35, t, 0.085, 'sine', seV(0.26), 640 + lane * 70, seBus); }
+  else { toneAt(540 + lane * 110, t, 0.09, 'sine', seV(0.20), null, seBus); noiseAt(t, 0.03, 'highpass', 5000, 0.7, seV(0.105), seBus); }
 }
-function hitSound(res) { if (!AC) return; var t = AC.currentTime; if (res === 'PERFECT') { toneAt(1320, t, 0.1, 'sine', seV(0.15)); toneAt(1980, t, 0.12, 'sine', seV(0.09)); } else if (res === 'GREAT') toneAt(990, t, 0.09, 'sine', seV(0.12)); else if (res === 'GOOD') toneAt(660, t, 0.08, 'sine', seV(0.09)); }
-function flickSound() { if (!AC) return; var t = AC.currentTime; noiseAt(t, 0.13, 'bandpass', 900, 1.0, seV(0.22)); toneAt(300, t, 0.13, 'sawtooth', seV(0.07), 1400); }
+function hitSound(res) { if (!AC) return; var t = AC.currentTime; if (res === 'PERFECT') { toneAt(1320, t, 0.1, 'sine', seV(0.18), null, seBus); toneAt(1980, t, 0.12, 'sine', seV(0.105), null, seBus); } else if (res === 'GREAT') toneAt(990, t, 0.09, 'sine', seV(0.145), null, seBus); else if (res === 'GOOD') toneAt(660, t, 0.08, 'sine', seV(0.11), null, seBus); }
+function flickSound() { if (!AC) return; var t = AC.currentTime; noiseAt(t, 0.13, 'bandpass', 900, 1.0, seV(0.27), seBus); toneAt(300, t, 0.13, 'sawtooth', seV(0.085), 1400, seBus); }
 
 /* ---------------- 歌声シンセ（アイドル曲のリード） ----------------
    鋸波を母音フォルマントのバンドパス3本に通し、ビブラートと
@@ -1238,9 +1386,9 @@ function primeAudioEl() {
   try {
     audioEl.volume = 0;
     var p = audioEl.play();
-    if (p && p.then) p.then(function () { try { audioEl.pause(); audioEl.currentTime = 0; } catch (e) {} audioEl.volume = 1; audioPrimed = true; }).catch(function () { audioEl.volume = 1; });
-    else { audioEl.pause(); audioEl.volume = 1; audioPrimed = true; }
-  } catch (e) { try { audioEl.volume = 1; } catch (e2) {} }
+    if (p && p.then) p.then(function () { try { audioEl.pause(); audioEl.currentTime = 0; } catch (e) {} audioEl.volume = musicVol(); audioPrimed = true; }).catch(function () { audioEl.volume = musicVol(); });
+    else { audioEl.pause(); audioEl.volume = musicVol(); audioPrimed = true; }
+  } catch (e) { try { audioEl.volume = musicVol(); } catch (e2) {} }
 }
 document.addEventListener('pointerdown', function () {
   primeAudioEl();
@@ -1317,7 +1465,7 @@ function startPreview(song) {
       var el = ensureAudioEl();
       el.src = audioURLs[song.id];
       el.muted = muted;
-      el.volume = PREVIEW_VOL;
+      el.volume = musicVol() * PREVIEW_VOL;
       try { el.currentTime = preview.start + 0.02; } catch (e) {}
       var p = null;
       try { p = el.play(); } catch (e) {}
@@ -1339,7 +1487,7 @@ function startPreview(song) {
   var endStep = Math.min(Math.floor(r.end / data.stepDur), startStep + Math.floor(15 / data.stepDur)); /* 最大15秒 */
   if (endStep <= startStep) return;
   preview = { songId: song.id, kind: 'synth', start: r.start, end: endStep * data.stepDur, timer: null, step: startStep, nextTime: AC.currentTime + 0.08, data: data, song: song };
-  if (master) master.gain.value = muted ? 0 : 0.9 * PREVIEW_VOL; /* プレビュー中は全体を控えめに */
+  applyMasterGain(); /* プレビュー中は全体を控えめに（曲音量も反映） */
   preview.timer = setInterval(function () {
     if (!preview || preview.kind !== 'synth' || !AC) return;
     var ahead = AC.currentTime + 0.15;
@@ -1356,9 +1504,9 @@ function stopPreview() {
   if (preview.timer) { clearInterval(preview.timer); preview.timer = null; }
   if (preview.kind === 'audio' && audioEl) {
     try { audioEl.pause(); } catch (e) {}
-    try { audioEl.volume = 1; } catch (e) {} /* 本編再生用に音量を戻す */
+    try { audioEl.volume = musicVol(); } catch (e) {} /* 本編再生用に音量を戻す */
   }
-  if (preview.kind === 'synth' && master) master.gain.value = muted ? 0 : 0.9;
+  if (preview.kind === 'synth') applyMasterGain();
   preview = null;
   previewNeedTap = false;
 }
@@ -1520,7 +1668,7 @@ function renderSongList() {
     b.innerHTML = DIFFS[b.dataset.d].label + ' <span class="lv">Lv' + s.level[b.dataset.d] + '</span>';
   });
 }
-function blip() { if (!AC) return; toneAt(660, AC.currentTime, 0.07, 'sine', 0.08); }
+function blip() { if (!AC) return; toneAt(660, AC.currentTime, 0.07, 'sine', seV(0.12), null, seBus); }
 document.querySelectorAll('#diffSeg button').forEach(function (b) {
   b.addEventListener('click', function () {
     document.querySelectorAll('#diffSeg button').forEach(function (x) { x.classList.remove('on'); });
@@ -1535,10 +1683,28 @@ document.querySelectorAll('#seSeg button').forEach(function (b) {
   b.classList.toggle('on', b.dataset.se === tapSe);
   b.addEventListener('click', function () { ensureAudio(); setTapSe(b.dataset.se); laneTapSound(1); /* 試聴 */ });
 });
-document.querySelectorAll('#seVolSeg button').forEach(function (b) {
-  b.classList.toggle('on', parseFloat(b.dataset.sv) === seVol);
-  b.addEventListener('click', function () { ensureAudio(); setSeVol(parseFloat(b.dataset.sv)); laneTapSound(1); /* 試聴 */ });
+/* 音量スライダー（曲の音量／効果音の音量）：動かしたその場で反映・試聴できる */
+var mvRange = $('musicVolRange'), svRange = $('seVolRange');
+function syncVolUI() {
+  if (mvRange) { mvRange.value = musicVolPct; var mvEl = $('musicVolVal'); if (mvEl) mvEl.textContent = musicVolPct + '%'; }
+  if (svRange) { svRange.value = sePct; var svEl = $('seVolVal'); if (svEl) svEl.textContent = sePct + '%'; }
+}
+if (mvRange) mvRange.addEventListener('input', function () {
+  ensureAudio();
+  setMusicVolPct(parseInt(mvRange.value, 10) || 0); /* 再生中のサビプレビューにも即反映される */
+  if (!preview && !playing) { var s = songById(selSong); if (s) startPreview(s); /* 鳴っていなければテスト再生を始める */ }
 });
+var lastSeTestAt = 0;
+if (svRange) {
+  svRange.addEventListener('input', function () {
+    ensureAudio();
+    setSeVolPct(parseInt(svRange.value, 10) || 0);
+    var now = performance.now();
+    if (now - lastSeTestAt > 110) { lastSeTestAt = now; laneTapSound(1); /* ドラッグ中も間引いて試聴 */ }
+  });
+  svRange.addEventListener('change', function () { laneTapSound(1); /* 離したタイミングでも試聴 */ });
+}
+syncVolUI();
 document.querySelectorAll('#sizeSeg button').forEach(function (b) {
   b.classList.toggle('on', parseFloat(b.dataset.ns) === noteSize);
   b.addEventListener('click', function () { ensureAudio(); setNoteSize(parseFloat(b.dataset.ns)); blip(); });
@@ -1799,7 +1965,9 @@ function worseJudge(a, b) { return JUDGE_FACTOR[a] <= JUDGE_FACTOR[b] ? a : b; }
 /* ロング終端のリリース判定：終端のタイミングで離すのが正解。
    窓（タップ判定窓と同じ幅）の中で離せば、頭の判定と離し判定の悪い方で確定。
    窓より前なら何もしない（猶予内の再押下で継続、超えたら updateLongs が切断）。
-   窓を過ぎていれば終端MISS。 */
+   窓を過ぎてから離した場合も、終端の瞬間まで押し続けていたのなら保持成功として
+   確定する（プロセカ／ガルパの作法：終端まで保持すればロングは完走する。
+   「押しているのに切れる」不具合の主因だったため、押し続けを終端MISSにはしない）。 */
 function releaseLane(lane, jtRaw) {
   if (!playing) return;
   if (heldLane[lane] > 0) return; /* まだ他の指/キーがそのレーンを押している */
@@ -1814,8 +1982,10 @@ function releaseLane(lane, jtRaw) {
       nt.state = 'done';
       applyJudge(nt, worseJudge(nt.headRes || 'GOOD', rel));
     } else if (jt > tailT + J.good) {
-      nt.state = 'broken';
-      applyJudge(nt, 'MISS');
+      /* 終端を過ぎてからのリリース＝終端まで保持していた証拠。保持成功として
+         頭の判定で確定する（フレーム側の完走処理より先に離しイベントが届いた場合） */
+      nt.state = 'done';
+      applyJudge(nt, nt.headRes || 'GOOD');
     }
   }
 }
@@ -1858,8 +2028,14 @@ function updateLongs(dtF) {
     if (nt.type !== 'long') continue;
     if (nt.state === 'holding') {
       var tailT = nt.t + nt.lenSec;
-      /* 終端を過ぎても押し続けていると終端MISS（離すタイミングも判定する） */
-      if (songTime >= tailT + J.good) { nt.state = 'broken'; applyJudge(nt, 'MISS'); continue; }
+      /* 終端の瞬間まで押し続けていたら保持成功として頭の判定で完走する
+         （プロセカ／ガルパの作法。「押しているのに切れる」不具合の主因対策で、
+         押し続けを終端MISSにはしない）。離していた場合は従来どおり終端MISS */
+      if (songTime >= tailT + J.good) {
+        if (heldLane[nt.lane] > 0) { nt.state = 'done'; applyJudge(nt, nt.headRes || 'GOOD'); }
+        else { nt.state = 'broken'; applyJudge(nt, 'MISS'); }
+        continue;
+      }
       if (heldLane[nt.lane] > 0) {
         nt.unheld = 0;
         if (Math.random() < 0.5) { /* 保持中は判定ラインから火花 */
@@ -1869,7 +2045,9 @@ function updateLongs(dtF) {
         }
       } else {
         nt.unheld += dtF;
-        if (nt.unheld > 0.12) { nt.state = 'broken'; applyJudge(nt, 'MISS'); }
+        /* 猶予0.20秒：pointercancel 等で一瞬途絶えても、すぐ再タッチすれば継続できる
+           （猶予内の再押下で unheld はリセットされる）。本当に離した場合は切断する */
+        if (nt.unheld > 0.20) { nt.state = 'broken'; applyJudge(nt, 'MISS'); }
       }
     }
   }
@@ -1888,16 +2066,32 @@ var pointers = {};
 var stageWrap = $('stageWrap');
 stageWrap.addEventListener('pointerdown', function (e) {
   e.preventDefault();
+  /* ポインターキャプチャ：指がステージの外へ出ても move/up/cancel が必ずここへ
+     届くようにする（暗黙キャプチャの無いマウス等で pointerup を取りこぼし、
+     押下状態が残留するのを防ぐ。タッチの暗黙キャプチャとも競合しない）。
+     対象はキャンバス上の演奏タッチだけにする：リザルトパネル等のボタン上で
+     キャプチャすると click の宛先が stageWrap に移り、ボタンが反応しなくなるため */
+  if (e.target === cv) { try { stageWrap.setPointerCapture(e.pointerId); } catch (err) {} }
   var r = stageWrap.getBoundingClientRect();
   var x = e.clientX - r.left, y = e.clientY - r.top;
   var lane = laneFromX(x); /* レーンは判定バーの並び（レーン列）で決める */
-  pointers[e.pointerId] = { lane: lane, x0: x, y0: y, flickDone: false };
+  var jt = songTimeAt(e.timeStamp); /* 実際に触れた瞬間の曲時刻で判定する */
+  var pt = { lane: lane, x0: x, y0: y, flickDone: false, hold: false };
+  pointers[e.pointerId] = pt;
   heldLane[lane]++;
-  pressLane(lane, songTimeAt(e.timeStamp)); /* 実際に触れた瞬間の曲時刻で判定する */
+  pressLane(lane, jt);
+  /* この押下でロングの保持が始まった指は「保持中の指」として記録する。
+     保持中の指のわずかな移動（ドリフト）がフリック判定を暴発させ、保持中の
+     指でフリックノーツを誤って消費する干渉を防ぐ（pointermove 側で参照） */
+  for (var i = 0; i < chart.length; i++) {
+    var n2 = chart[i];
+    if (n2.t - jt > DIFFS[selDiff].judge.good) break;
+    if (n2.type === 'long' && n2.state === 'holding' && n2.lane === lane) { pt.hold = true; break; }
+  }
 });
 stageWrap.addEventListener('pointermove', function (e) {
   var pt = pointers[e.pointerId];
-  if (!pt || pt.flickDone) return;
+  if (!pt || pt.flickDone || pt.hold) return; /* 保持中の指はフリックを発動しない */
   var r = stageWrap.getBoundingClientRect();
   var dx = (e.clientX - r.left) - pt.x0, dy = (e.clientY - r.top) - pt.y0;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
@@ -1914,6 +2108,7 @@ function pointerEnd(e) {
 }
 stageWrap.addEventListener('pointerup', pointerEnd);
 stageWrap.addEventListener('pointercancel', pointerEnd);
+stageWrap.addEventListener('lostpointercapture', pointerEnd); /* キャプチャ喪失時も確実に離し処理する（pointerEnd は二重呼び出し安全） */
 document.addEventListener('keydown', function (e) {
   var tag = (document.activeElement && document.activeElement.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -2533,7 +2728,7 @@ function drawNote(nt, y, t) {
   var col = v.color;
   ctx.save();
   if (v.flick) {
-    /* フリック：下地の円盤は持たず、矢印単体で描く（drawFlickMark） */
+    /* フリック：専用色の本体＋大きなシェブロンで描く（drawFlickMark） */
     drawFlickMark(x, y, nt.dir, t, w, h);
     ctx.restore();
     return;
@@ -2607,56 +2802,56 @@ function drawNoteCap(nt, y) {
   roundRectPath(-r * 0.62, -r * 0.17, r * 1.24, r * 0.34, r * 0.17); ctx.fill();
   ctx.restore();
 }
-/* フリックノーツの本体：方向を前提としない「バースト」マーク。
-   方向指定の廃止に合わせ、矢印はやめて、菱形バッジ＋四方向の小さな三角で
-   「どの方向に弾いてもよい」ことを一目で示す。色はミントグリーンのネオン
-   （FLICK_COL）で、タップ／ロングと同じ「白い縁＋色グラデーション」の質感に
-   そろえ、並んでも浮かないようにする。dir 引数は互換のため受けるが使わない */
+/* フリックノーツの本体：プロセカ／ガルパの作法に倣い、「専用色のノーツ本体＋
+   大きなシェブロン（山形の矢印）」で描く。プロセカは淡ピンクのバーの上に
+   ピンクの太いシェブロンが立ち上がり、ガルパは赤系ノーツに矢印マークが付く。
+   ここでは本体をタップと同じ錠剤型の質感（グロー＋グラデーション＋光沢＋白縁）に
+   そろえて色だけを専用色（FLICK_COL＝ローズレッド）にし、本体の上へ白縁つきの
+   太いシェブロンを大きくせり出させる。本体の上にも白いシェブロンの芯を重ね、
+   遠方でも「矢印のついた専用ノーツ」と一目で分かるようにする。
+   判定は方向不問（どの方向に弾いても成功）のままで、シェブロンは上向きを
+   代表形とする。dir 引数は互換のため受けるが使わない */
 function drawFlickMark(x, y, dir, t, w, h) {
-  var pulse = 1 + 0.07 * Math.sin(t * 9); /* 方向へ弾む代わりに、全体が小さく脈動する */
+  var pulse = 1 + 0.05 * Math.sin(t * 9); /* 小さく脈動して専用ノーツの存在感を出す */
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(pulse, pulse);
-  var R = w * 0.40; /* 菱形の半サイズ */
-  function diamondPath(r) {
+  ctx.translate(-x, -y);
+  /* グロー（タップノーツと同じ二重の柔らかい光、色は専用色） */
+  ctx.fillStyle = hexA(FLICK_COL, 0.16);
+  roundRectPath(x - w / 2 - 9, y - h / 2 - 9, w + 18, h + 18, (h + 18) / 2); ctx.fill();
+  ctx.fillStyle = hexA(FLICK_COL, 0.4);
+  roundRectPath(x - w / 2 - 4, y - h / 2 - 4, w + 8, h + 8, (h + 8) / 2); ctx.fill();
+  /* シェブロン（本体の後ろから立ち上がる太い山形）：白縁→専用色→白い芯の3重描き */
+  function chevronPath(topY, halfW, baseY) {
     ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r, 0);
-    ctx.closePath();
+    ctx.moveTo(x - halfW, baseY);
+    ctx.lineTo(x, topY);
+    ctx.lineTo(x + halfW, baseY);
   }
-  /* 柔らかいグロー（菱形のシルエットを少し大きく薄く敷く） */
-  ctx.save();
-  ctx.globalAlpha = 0.30;
-  ctx.fillStyle = FLICK_COL;
-  diamondPath(R * 1.28); ctx.fill();
-  ctx.restore();
-  /* 本体：中心は白く抜け、外側へ深ミント→ミントのグラデーション */
-  var g = ctx.createRadialGradient(0, 0, R * 0.1, 0, 0, R * 1.05);
-  g.addColorStop(0, '#d9fff1');
-  g.addColorStop(0.55, FLICK_COL);
-  g.addColorStop(1, '#0fb98a');
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  chevronPath(y - h * 1.04, w * 0.34, y + h * 0.30);
+  ctx.lineWidth = h * 0.60; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
+  chevronPath(y - h * 1.04, w * 0.34, y + h * 0.30);
+  ctx.lineWidth = h * 0.42; ctx.strokeStyle = FLICK_COL; ctx.stroke();
+  chevronPath(y - h * 1.04, w * 0.34, y + h * 0.30);
+  ctx.lineWidth = h * 0.14; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke();
+  /* 本体：タップと同じ錠剤型グラデーション（色は専用色） */
+  var g = ctx.createLinearGradient(0, y - h / 2, 0, y + h / 2);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.28, FLICK_COL);
+  g.addColorStop(1, FLICK_COL);
   ctx.fillStyle = g;
-  diamondPath(R); ctx.fill();
-  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.92)';
-  diamondPath(R); ctx.stroke();
-  /* 四方向の小さな三角（上・右・下・左）＝「どの方向でもOK」の合図 */
-  ctx.fillStyle = 'rgba(255,255,255,.92)';
-  var td = R * 0.60, ts = R * 0.20;
-  for (var k = 0; k < 4; k++) {
-    ctx.save();
-    ctx.rotate(k * Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(0, -td - ts);
-    ctx.lineTo(-ts * 0.72, -td + ts * 0.55);
-    ctx.lineTo(ts * 0.72, -td + ts * 0.55);
-    ctx.closePath(); ctx.fill();
-    ctx.restore();
-  }
-  /* 中心の芯 */
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.arc(0, 0, Math.max(1.8, R * 0.15), 0, Math.PI * 2); ctx.fill();
+  roundRectPath(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+  var gl = ctx.createLinearGradient(0, y - h / 2, 0, y + 1);
+  gl.addColorStop(0, 'rgba(255,255,255,.5)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gl;
+  roundRectPath(x - w / 2 + 2, y - h / 2 + 1.5, w - 4, h / 2 - 1, h / 4); ctx.fill();
+  ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  roundRectPath(x - w / 2, y - h / 2, w, h, h / 2); ctx.stroke();
+  /* 本体の上の白いシェブロン（矢印マークの芯）：上部の大シェブロンと対で読ませる */
+  chevronPath(y - h * 0.24, w * 0.19, y + h * 0.20);
+  ctx.lineWidth = h * 0.20; ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.stroke();
   ctx.restore();
 }
 /* 判定バーはレーン幅いっぱいに横たわる「1本の薄い帯」：バーの上端がそのまま
@@ -3157,9 +3352,11 @@ window.__sr = {
   getTapSe: function () { return tapSe; },
   tapSound: function (lane) { laneTapSound(lane); },
   setTapSe: function (id) { setTapSe(id); },
-  getSeVol: function () { return seVol; },
-  setSeVol: function (v) { setSeVol(v); },
-  seVols: function () { return SE_VOLS.slice(); },
+  getSeVol: function () { return sePct / 100; },
+  getSePct: function () { return sePct; },
+  setSeVolPct: function (p) { setSeVolPct(p); },
+  getMusicVolPct: function () { return musicVolPct; },
+  setMusicVolPct: function (p) { setMusicVolPct(p); },
   tapSes: function () { return TAP_SES.map(function (s) { return s.id; }); },
   judgeFontPx: function () { return JUDGE_FONT_PX; },
   judgePopMs: function () { return JUDGE_POP_MS; },
