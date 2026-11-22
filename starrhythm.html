@@ -107,6 +107,14 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #sizeSeg button.on{background:linear-gradient(92deg,#9d6bff,#2563eb);color:#fff;box-shadow:0 2px 10px rgba(157,107,255,.4)}
 #offsetSeg button:active{background:rgba(255,255,255,.14);color:#fff}
 #offsetVal{flex:1.2;text-align:center;font-size:12.5px;font-weight:900;color:var(--txt);white-space:nowrap;cursor:pointer;padding:6px 0}
+#calibModal{position:fixed;inset:0;z-index:210;background:rgba(6,3,18,.82);display:flex;align-items:center;justify-content:center;padding:18px}
+#calibPad{margin:10px 0;height:150px;border-radius:16px;background:rgba(255,255,255,.06);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:var(--txt);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;transition:background .09s,border-color .09s}
+#calibPad.on{background:rgba(255,217,77,.45);border-color:#ffd94d}
+#calibPad.tap{background:rgba(255,93,143,.5);border-color:#ff5d8f}
+#calibProg{font-size:12.5px;color:var(--sub);font-weight:800;min-height:18px}
+#calibResult{font-size:13px;line-height:1.8;color:var(--txt);margin-top:8px;min-height:24px;text-align:left}
+.calibBtns{display:flex;gap:8px;margin-top:12px}
+.calibBtns .btn{flex:1}
 #seSeg button{font-size:11px;padding:6px 0;white-space:nowrap}
 #seSeg .segLbl{padding:0 2px 0 7px}
 #hud{display:flex;flex-direction:column;gap:5px}
@@ -264,7 +272,10 @@ html,body{overscroll-behavior:none;}
 <div id="offsetSeg"><span class="segLbl">判定調整</span><button data-off="-25">−25</button><button data-off="-5">−5</button><span id="offsetVal" title="タップで 0 に戻す">±0ms</span><button data-off="5">＋5</button><button data-off="25">＋25</button></div>
 </div>
 <div id="soloPane">
-<button id="startBtn" class="btn" style="width:100%">▶ 演奏スタート</button>
+<div style="display:flex;gap:8px">
+<button id="startBtn" class="btn" style="flex:1">▶ 演奏スタート</button>
+<button id="calibBtn" class="btn sub" style="flex:none;width:132px;font-size:11.5px;line-height:1.3;padding:6px 4px">🎯 判定<br>キャリブレーション</button>
+</div>
 <p class="help" style="margin-top:8px">ノーツが下の<b style="color:#fff">判定ライン（光るバー）</b>に届く瞬間にバーをタップ！<b style="color:#ffd94d">ロング</b>は最後の瞬間にピタッと離す、<b style="color:#2ee6a8">フリック</b>はどの方向にシュッと弾いてもOK。落下速度は上のボタンで変えられるよ。曲を選ぶとサビがプレビュー再生されるよ。キーは D F J K（レーン）／ 矢印キー（フリック・どの方向でも可）。</p>
 </div>
 <div id="onlinePane" class="hidden"><div class="card">
@@ -285,6 +296,14 @@ html,body{overscroll-behavior:none;}
 <div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <div id="audioToast" class="hidden"></div>
+<div id="calibModal" class="hidden"><div class="dlCard">
+<div class="dlTtl">🎯 判定キャリブレーション</div>
+<p class="dlMsg">一定のテンポ（BPM100）でクリック音が12拍鳴ります。音に合わせて、拍の瞬間に下のパッドをタップしてください。端末の音の遅れと指の癖を測って、判定調整に自動で反映します（最初の2タップは捨てます）。</p>
+<div id="calibPad">🎯 判定キャリブレーション</div>
+<div id="calibProg">「計測スタート」を押してね</div>
+<div id="calibResult"></div>
+<div class="calibBtns"><button id="calibStartBtn" class="btn">▶ 計測スタート</button><button id="calibApplyBtn" class="btn hidden">適用する</button><button id="calibRetryBtn" class="btn sub hidden">もう一度</button><button id="calibCancelBtn" class="btn sub">やめる</button></div>
+</div></div>
 <div id="dlModal" class="hidden"><div class="dlCard">
 <div class="dlTtl">🎵 楽曲データの更新</div>
 <p class="dlMsg" id="dlMsg">新しい楽曲データがあります。全曲の音源データ（<span id="dlSize"></span>）をダウンロードします。<br><b style="color:var(--txt)">Wi-Fi環境でのダウンロードを推奨します。</b></p>
@@ -531,6 +550,16 @@ var SONGS = [
     delta: 'wwwwwwwwwwwwvwywxwxwywwwywxwxwxwwwxwxAwwywywxwwwxwxwzwwwxwxwwwxwwwxwwwyhtwwwwwwwwwwwwwwwwwwwxwwwwixwvwwwvwwwwwwwwwwwwwwwwwwwvwwwvwywuwzwvwxwxwwwwwwwwwwwwwwwvwwwvwywvwwwwwwwxwwwwwwwwwwwwwwwwwxwvwwwwwwLwwwwwwwwwwswxwuwwwwwxwywxwAwwkCwwcwwwniwowywxwzwwwwwAwwwxwwwwwwwvwwwwwwwwwAwwwOwwwywwwBwwwBwwwwwvwwwvwxwvwvwxdywwwsDwtvwwwwwwwwwwxywxwwwwwwwvwewxwywwwwwwwwwwwwwvOwwwwwwvwwwpwwwwwFwwMCwwwuIwwHwwwwwvwwwwrswwwwwwwwwwwwwkwwwwAwwwwwwwwwwxwywwwwLwwwwuwwwwwAwwwuwCwkwtwwwwwwwvwwwwwwwuwwwwwxwwwkwywwwwwwwwwwwvdwwwbwwuwjwxwxwwwwwwwwwwwwwxwwwvllwwwwwwwwwxwLwywwwwwwwwwwwwwxwwKwwxwwwwwwwxwwwwwywwwwwvwwwwwwwxwwowwwwxqwwwwywwwfwxwwwywwwwwwwwwwwxwwwwOwwvwzwwwwwxwwivwlwwwwwwhywvwwwxwwwtwwNvcwwxwwwxwwwxwwwwwwwwwwwuwxwvwwwwwwwwwwwwwwwwwwwwwwwvwywvwwwwwwwvwwwwwwwwwwwvwwwwwwwwbwwwwwwvwwwxwwwwwwwwwwwwwywvwwwwwwwvwwwwwwwvwwwwwwwwwwwvwxwwwwwwwwwxwxwBwwwOwwwDBwwwwjwwwwwwJwwnwwbwFwwswwewwwwMwmEwwIwlFwoNwwwwDwkMwuwfKwxwgwwDwwwkwwMwwwBwwwswwwswwwGwwdwuwwwwACwwwwwwwwwppwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww',
     vst: '0000000000005050407030007060605030604800606050405050505060705040406050333000000030003000400030003340300030003000300030003000300030303040303030003000300030002000304030002050400030004000400040303000203340300000201050304050304020504440420033202040504040004000305040003000200030404050302040403030500030004020502044504046303030003020423050002000400030604000300030003200400020002000203031403034503030003000443040002000300040002000400030003010200220002000005000505050400000003000400030002030404030006000400054003200506040202000300030003000343000000000303020002000400020503300300000403000203040003000300020024000340020404020300030003000300040003500303020002004304030002540200030004001260020005000200020002000103020003030300000003000400040303000200030003000300030003000310030003000400020002000305030002000300020003000200030002020200030003030200040004300004000000800600807008007000060880070870760000608807067070700707070080007000400060008007060000770000000098800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
     steps: '0000000000004020304020003020302030303000302040204020402040204020303030556000000050005000700050006430503070006000600050005000600050305000700060007000600070005000800050006030600070006000600050607000604450404000606050505030704080505430500053308090605040005000603050006000603070306003504070505340600050006000908064505074544070305040645050005000406070406000500040006040500050007000605050445044540060005040545040006000500053005500500050005050500040004400004000405050600000406000700040005050500080005000600050005000500060604000600060005040544040004000800050405000600050406040500040606000505050006000600060006000640050406040700060007000500060005030504050005004500050005440700050004000640070007000600040005000605060005000404000005000500070006000600050008000600060005000600050005040600070006000700050007000500070005000600040006000500050004050500007004400004000000030100201001002001002120010010002001002002002000100201020020002000300030002000020010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+  },
+  {
+    id: 'lovezaru', audio: true, parts: 7, suno: true, title: 'Love斬る', emo: '🗡️', genre: 'ボーカルポップ', bpm: 184.1991, offset: 0.2374, duration: 108.52, theme: 'pop', jk: 'jk-pop',
+    artist: 'Suno', desc: '自作曲（Suno）。王子様を待っているあたしの、愛が重すぎる一曲。', level: { easy: 4, normal: 7, hard: 10 }, jcol: ['#ff5d8f', '#e23d5e'],
+    credit: 'Suno（ユーザー自作曲）',
+    chorus: [[5.46,21.1],[39.34,54.97],[96.67,103.18]],
+    xon: '0000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000001000100000000000000000000000000000000000000000000000000000000000000000000000000000000000010001000101010001000001000000000000000000000000000000000000000000000000001000000010001000000000000010001010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+    delta: 'iwwCwwwwwwwwwwwwwwwwwwwwwwiwhwmwwwiwiwiwhwIwwwFvkwlwkwmwmwlwlwwoGwnwnwmwmwnwnwowowpwowpwowpwpwwwpwwwrwswrwswswsrswwwtksivwtouwwwvnwwxwvwwwxwwwzwxwywxwxwxwwwywvtxwwwxwywwwwwwwywxwywwwxwwwywxwwwwwwwwwxwxwxwwwwwwwwwxwxwwwAwxwwwwwwwxwwwuwwwswwxzwwwxwwwvwAwxwwwxwwwywzwywywywzwzwywywywwwywzwzwywzwywzzywywywywywywywywwwywzwwwywwwAwzwwwywzwAwzwwwzwAwwwzwAwAwzwwwAwBwzwzwAwAwzwAwBwAwAwzwzwuzxwwwzwAwwwzwswzwywwwxwxwwwArzwtszwwyzwywwwzwzwwwzwwwywAwxwxwAwvwAwwwAwAwywBwAwwnAwwwvwAwwwwwlwwwywwwBwBwqwBwAwBDCwwwAwwwBwBwAwHwCwwwBwvwCwBwCnBwBwzwzwBwzwDFCwwwAwAwBwDwAwCwCwBwCwCwCwDwAwwpCwCwCwwwDwEwCwBwEwEwBwwwvwCwCwCwvwwwDwwwDwDwwwDwEwCwDwCwEwDwDwDwDrAwCwwwwwzwwwBwCwCwCwwwCCCwDwzwBwwwBKwwBwBwwwqwBwBwBwwwrwBwwEAwBwwwzwwwzwzwAwDpwwuwzwBwzwrwvwwwzwwwqwwwwwwwxwxwxwwwvwwwxwwwvwvwvwwwxwwwpwuwwwkwuwtwswwwuvsGwwrwrwqwqwwwmwwwwwlwpwmwnwwwmwlwwwlwmwkwlwwwjwwwhwjEwwwwwwwKwECKwLwGwJwHwwwKwGwHwwwGwFwGwwwFwEwFwFwEwEwCDDwDwEwCwCwDvwwAwwwzwBwwwywxwwwxwwwxwwwwwswtwwwtwwwswownwrwqwpwpwwwowwwiwqwnwkwlwwwmwkwkwwwjwwwwwwwwwwwwKwJwIwHwwwHwwwFwCwEwCwFwCwDwwwwwAwBwwwywwwvwwwwwuwswwwqwtwuwqwwwowrwwwnwwwmwowlwkwmwwwkwiwhwwwwwwwwLwJwwwwwwwKwwwwqwwwDwwwwwuwwxwwywwwwnwwwwwwwwwwwwwlwlwnwkwjwwwkwmwwwkwwwkwjwiwwwhwwwwwiwwwwKwJwJwJwIwwwGwFwEwwwDwDwCwCwBwBwzwAwywxxxwwwvwwwuwwwuwtwswwwrwrwpwpwowowowwwlwlwkwjwjwiwjwkwwwwwwwwwywwwwwwwwwwJwwwHwwwFvCqHwEwwwwwwwswwwwww',
+    vst: '2001030001003010300100300020301030202020503002104010101100503011001030202030202140201040205060203000502050203030400030102065800060003040303050205040503030504030400060402050504050304040403060205020503030205200500070308020600080207020600060203002600070306020302040303050603030307060005050305020705340506040303060500030800250006040205050206022604000405020402040303030403040405030402040503000405000203010300040404060604030248040005050005020603020804060300080706030700360004050002020006002705070406030602060006030702040206060502050303000503040437020603050403050706220308020502050304000503040005010400080202030600050004030003050304040403050303050400020600040405040003240225063003300204030703050300050400440500050006050404080605020405052004000502060503030424370204030404050004200634000704050300032320040505052006030007030503020408300704030300050404046002050207503040703030204030300030204000202020102020103030304070420040003040003050204000508000706020500060406030606040006000602050205200503020205000620044000205030502050200070505030203000320030006000403000404020505030400040420040007020403030403050302004004302000000030000400080200040000062000500000202000207050300090007070305000604040206040302060330207020500060303020603040307030402050304000604040006030300050403030602040101010102020201110202202050007000000050001000701110100000000000000',
+    steps: '0001040001030112000103000203001303020204002002204022002100503004001020202020202150102050206060004000503060203043400040202054800090004040304060306040504040705043500070405060505050406040404060005000703050306000600090408030700080008030600050334000700090306000400050403060703040408060005050306030805340707040404060500030800060006050006060307020704000506030400060403040403050405040503040504000407000405020400050505070605350038040204060006000804030704070500070605040600380007050002050007000705060406044600060007040803050006050604050405030704050637000705060504050806030509040500460505000604040405030400070303040600060004040005060405050504050404050500030700040505040004040306060004000505000603040400050500440500060006060405070605030506060004040604060605040504370305040405060004000605006004050400030440060404060005400007030504000407000705040400054060055000600060534050604040004040500030304000202030202020213040304070500070004040004060305000607000707000600060405050606040006005004060405000604030040005000505000406040703050303060605040304000005040006000404000504000506040500040500060007300440044040504040004040633000000030000300702000030030050000600000302000050050330800070070006000605500060404030704030307030500070404030703040308040403050405000704050206030300060504040704040002020220303020202020303040007000000030001000810110200000000000000'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
@@ -661,10 +690,11 @@ function capSimultaneous(notes) {
    1) 同じレーンで、ロングの持続区間（頭より後・ケツより前）の途中に他のノーツが
       挟まってはならない（保持中の指と正面衝突するため）。他レーンの途中ノーツは
       可（複合パターンは維持する）。ロング同士が同一レーンで重なる場合も後発を落とす。
-   2) ロングは開始ステップだけでなく終了ステップでも1枠を占有する。各ステップで
-      「そのステップに始まるノーツ数＋そのステップで終わるロング数」が上限2を
-      超えないよう、開始側を優先度（ロング＞フリック＞タップ）で間引く
-      （ロングのケツ＋他2つ＝実質3つ同時、は禁止）。 */
+   2) ロングは開始ステップから終了ステップまで（途中も末尾も）ずっと1枠を占有
+      し続ける。各ステップで「そのステップでアクティブなロング数（途中＋その
+      ステップで終わるもの）＋そのステップに始まるノーツ数」が上限2を超えない
+      よう、開始側を優先度（ロング＞フリック＞タップ）で間引く。保持中のロングが
+      ある間は新規は1つまで（ロング＋同時2つ＝指3本、は禁止）。 */
 function enforceLongRules(notes) {
   var longs = [];
   notes.forEach(function (n) { if (n.type === 'long') longs.push(n); });
@@ -679,8 +709,13 @@ function enforceLongRules(notes) {
     }
     return true;
   });
-  var endsAt = {};
-  kept.forEach(function (n) { if (n.type === 'long') { var e = n.step + n.lenSteps; endsAt[e] = (endsAt[e] || 0) + 1; } });
+  /* ロングが占有するステップ：開始より後〜終了ステップまで（途中＋末尾）。
+     開始ステップ自身は「始まるノーツ」として数えるのでここには含めない */
+  var blockAt = {};
+  kept.forEach(function (n) {
+    if (n.type !== 'long') return;
+    for (var s = n.step + 1; s <= n.step + n.lenSteps; s++) blockAt[s] = (blockAt[s] || 0) + 1;
+  });
   var pri = { long: 0, flick: 1, tap: 2 };
   var sorted = kept.slice().sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   var out = [], i = 0;
@@ -688,7 +723,7 @@ function enforceLongRules(notes) {
     var j = i;
     while (j + 1 < sorted.length && sorted[j + 1].step === sorted[i].step) j++;
     var grp = sorted.slice(i, j + 1);
-    var allow = 2 - (endsAt[sorted[i].step] || 0);
+    var allow = 2 - (blockAt[sorted[i].step] || 0);
     if (allow < 0) allow = 0;
     if (grp.length > allow) {
       grp.sort(function (a, b) { return (pri[a.type] - pri[b.type]) || (a.lane - b.lane); });
@@ -763,7 +798,7 @@ function buildChart(song, diffKey) {
   }
   notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   notes = capSimultaneous(notes); /* 同時押しは最大2つまで */
-  notes = enforceLongRules(notes); /* ロングの同一レーン区間と開始/終了ステップの占有を上限内に */
+  notes = enforceLongRules(notes); /* ロングの同一レーン区間と全区間（途中・末尾含む）の占有を上限内に */
   /* 同時押しグループ（同じ step に2つ以上）を線で結ぶために印付け */
   var g = 0;
   for (var i = 0; i < notes.length;) {
@@ -890,19 +925,22 @@ function buildAudioChart(song, diffKey) {
   notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
   notes = capSimultaneous(notes); /* 同時押しは最大2つまで */
   var beforeRules = notes;
-  notes = enforceLongRules(notes); /* ロングの同一レーン区間と開始/終了ステップの占有を上限内に */
+  notes = enforceLongRules(notes); /* ロングの同一レーン区間と全区間（途中・末尾含む）の占有を上限内に */
   /* 占有ルールで間引いた分は、近くの空きステップ（強いオンセット優先）に単発タップで
      補い、密度（特にロングが集まるサビ）を落とさない。補う先でも占有ルール
-     （開始＋終了 ≤ 2）と同一レーン区間ルールを守る。乱数は使わず決定的に選ぶ */
+     （アクティブなロング＋開始 ≤ 2）と同一レーン区間ルールを守る。乱数は使わず決定的に選ぶ */
   (function () {
     if (beforeRules.length === notes.length) return;
     var removed = beforeRules.filter(function (n) { return notes.indexOf(n) < 0; });
     if (!removed.length) return;
-    var startsAt = {}, endsAt = {}, occupied = {}, longsByLane = { 0: [], 1: [], 2: [], 3: [] };
+    var startsAt = {}, activeAt = {}, occupied = {}, longsByLane = { 0: [], 1: [], 2: [], 3: [] };
     notes.forEach(function (n) {
       startsAt[n.step] = (startsAt[n.step] || 0) + 1;
       occupied[n.step + ':' + n.lane] = true;
-      if (n.type === 'long') { var e = n.step + n.lenSteps; endsAt[e] = (endsAt[e] || 0) + 1; longsByLane[n.lane].push(n); }
+      if (n.type === 'long') {
+        longsByLane[n.lane].push(n);
+        for (var s2 = n.step + 1; s2 <= n.step + n.lenSteps; s2++) activeAt[s2] = (activeAt[s2] || 0) + 1;
+      }
     });
     removed.sort(function (a, b) { return a.step - b.step; });
     removed.forEach(function (rm) {
@@ -913,7 +951,7 @@ function buildAudioChart(song, diffKey) {
           if (s < 4 || s >= data.totalSteps - 4) return;
           var on = onsetAt(song, s);
           if (on < 3) return;
-          if ((startsAt[s] || 0) + (endsAt[s] || 0) >= 2) return;
+          if ((startsAt[s] || 0) + (activeAt[s] || 0) >= 2) return;
           for (var lane = 0; lane < 4; lane++) {
             if (occupied[s + ':' + lane]) continue;
             var inside = false;
@@ -1353,7 +1391,7 @@ function loadAudioTrack(song, cb) {
    ObjectURL 化まで済ませる）、完了したらそのまま遊べる。「やめる」でポータルへ戻る。
    更新が不要な場合は何も出さない。
    ★ 新しい曲（実音源）を追加したら AUDIO_REV を必ず上げること。 */
-var AUDIO_REV = 1;
+var AUDIO_REV = 2;
 var AUDIO_DL_KEY = 'starrhythm_audio_dl_rev';
 function audioDlSongs() { return SONGS.filter(function (s) { return s.audio && s.parts; }); }
 function audioDlTotalParts() { return audioDlSongs().reduce(function (a, s) { return a + (s.parts | 0); }, 0); }
@@ -1640,6 +1678,111 @@ function setJudgeOffset(ms) {
 }
 /* 判定に使う実効時刻：入力が起きた瞬間の曲時刻 jt に、調整 offset を加える */
 function effJudgeTime(jt) { return jt + judgeOffsetMs / 1000; }
+function offsetLabelFor(ms) { return ms === 0 ? '±0ms' : ((ms > 0 ? '+' : '−') + Math.abs(ms) + 'ms'); }
+var lastJudgeDt = null; /* テスト用：直近の判定ズレ（秒） */
+
+/* ---------------- 判定キャリブレーション ----------------
+   端末の音声出力遅延と指の癖を実測し、判定オフセット（starrhythm_offset）へ
+   自動反映する。BPM100・12拍のクリックに合わせて大きなパッドを叩いてもらい、
+   各タップのズレを実際の判定時計（songTimeAt）と同じ経路で測る。ズレ e
+   （拍より遅れて叩く＝＋）に対し、オフセットは −e とする（手動設定の符号
+   規約どおり：遅れて叩いてしまう人には − を付けて入力を早く扱う）。
+   最初の2タップは捨て、外れ値を除いた中央値で決める。 */
+var CALIB_BPM = 100, CALIB_BEATS = 12, CALIB_LEAD = 0.9, CALIB_INTERVAL = 60 / CALIB_BPM;
+var calib = null; /* { t0, byBeat:{beatIndex:errSec}, finished, result } */
+function calibMedian(a) { var s = a.slice().sort(function (x, y) { return x - y; }); return s.length ? s[Math.floor(s.length / 2)] : 0; }
+/* キャリブ時計：拍0を 0 とする。songTimeAt のシンセ経路（getOutputTimestamp で
+   「聞こえている時刻」に合わせる）と同じ換算で、開始点だけ calib.t0 に置き換える */
+function calibTimeAt(tsMs) {
+  if (!AC || !calib) return 0;
+  if (typeof tsMs === 'number' && isFinite(tsMs) && AC.getOutputTimestamp) {
+    try {
+      var o = AC.getOutputTimestamp();
+      if (o && isFinite(o.contextTime) && isFinite(o.outputTimestamp)) return o.contextTime + (tsMs - o.outputTimestamp) / 1000 - calib.t0;
+    } catch (e) {}
+  }
+  return AC.currentTime - calib.t0;
+}
+function calibCompute() {
+  if (!calib) return null;
+  var beats = Object.keys(calib.byBeat).map(Number).sort(function (a, b) { return a - b; });
+  var errs = beats.map(function (k) { return calib.byBeat[k]; });
+  if (errs.length > 2) errs = errs.slice(2); /* 最初の2タップは捨てる */
+  if (errs.length < 4) return null;
+  var med = calibMedian(errs);
+  var kept = errs.filter(function (e) { return Math.abs(e - med) <= 0.06; }); /* 外れ値除去 */
+  if (kept.length < 4) kept = errs;
+  var m2 = calibMedian(kept);
+  return { offsetMs: clamp(Math.round((-m2 * 1000) / 5) * 5, -100, 100), errMs: Math.round(m2 * 1000), used: kept.length, total: errs.length };
+}
+function calibUiState(state) {
+  $('calibStartBtn').classList.toggle('hidden', state !== 'ready');
+  $('calibApplyBtn').classList.toggle('hidden', state !== 'done');
+  $('calibRetryBtn').classList.toggle('hidden', state !== 'done');
+}
+function openCalib() {
+  ensureAudio();
+  stopPreview();
+  calib = null;
+  $('calibResult').textContent = '';
+  $('calibProg').textContent = '「計測スタート」を押してね';
+  $('calibPad').textContent = '🎯 判定キャリブレーション';
+  calibUiState('ready');
+  $('calibModal').classList.remove('hidden');
+}
+function closeCalib() { calib = null; $('calibModal').classList.add('hidden'); }
+function startCalib() {
+  ensureAudio();
+  if (!AC) return;
+  if (AC.state === 'suspended') AC.resume();
+  calib = { t0: AC.currentTime + CALIB_LEAD, byBeat: {}, finished: false, result: null };
+  for (var k = 0; k < CALIB_BEATS; k++) toneAt(k % 4 === 0 ? 1560 : 1040, calib.t0 + k * CALIB_INTERVAL, 0.07, 'square', 0.14);
+  $('calibResult').textContent = '';
+  $('calibProg').textContent = 'クリックに合わせてタップ！（0 / ' + CALIB_BEATS + '）';
+  $('calibPad').textContent = '✦ ここをタップ';
+  calibUiState('measuring');
+  requestAnimationFrame(calibTick);
+}
+function calibTick() {
+  if (!calib || calib.finished) return;
+  var jt = AC ? AC.currentTime - calib.t0 : 0;
+  var pad = $('calibPad');
+  if (pad) pad.classList.toggle('on', jt >= 0 && (jt % CALIB_INTERVAL) < 0.12);
+  if (jt > (CALIB_BEATS - 1) * CALIB_INTERVAL + CALIB_INTERVAL * 0.6) { finishCalib(); return; }
+  requestAnimationFrame(calibTick);
+}
+function calibTapAt(tsMs) {
+  if (!calib || calib.finished) return;
+  var jt = calibTimeAt(tsMs);
+  if (jt < -0.3) return;
+  var k = Math.round(jt / CALIB_INTERVAL);
+  if (k < 0 || k >= CALIB_BEATS) return;
+  var e = jt - k * CALIB_INTERVAL;
+  if (Math.abs(e) > CALIB_INTERVAL / 2) return;
+  if (calib.byBeat[k] === undefined || Math.abs(e) < Math.abs(calib.byBeat[k])) calib.byBeat[k] = e;
+  var pad = $('calibPad');
+  if (pad) { pad.classList.add('tap'); setTimeout(function () { if (pad) pad.classList.remove('tap'); }, 110); }
+  $('calibProg').textContent = 'クリックに合わせてタップ！（' + Object.keys(calib.byBeat).length + ' / ' + CALIB_BEATS + '）';
+}
+function finishCalib() {
+  if (!calib || calib.finished) return;
+  calib.finished = true;
+  calib.result = calibCompute();
+  var pad = $('calibPad'); if (pad) { pad.classList.remove('on'); pad.textContent = '🎯 判定キャリブレーション'; }
+  if (calib.result) {
+    var r = calib.result;
+    $('calibProg').textContent = '計測おわり（' + r.used + 'タップで判定）';
+    $('calibResult').textContent = 'あなたのタップは拍より平均 ' + (r.errMs > 0 ? '+' : r.errMs < 0 ? '−' : '±') + Math.abs(r.errMs) + 'ms ' + (r.errMs > 0 ? '遅れ' : r.errMs < 0 ? '早め' : '') + '気味でした。判定調整を ' + offsetLabelFor(r.offsetMs) + ' にすると音にピッタリ合います（いまは ' + offsetLabel() + '）。';
+  } else {
+    $('calibProg').textContent = '計測おわり';
+    $('calibResult').textContent = 'タップが足りませんでした。もう一度、クリックに合わせて12拍タップしてみてください。';
+  }
+  calibUiState('done');
+}
+function applyCalib() {
+  if (calib && calib.result) setJudgeOffset(calib.result.offsetMs);
+  closeCalib();
+}
 /* 曲時計と壁時計（performance.now）の対応付け。stepGame が毎フレーム更新する。
    入力イベントの timeStamp（実際に触れた瞬間）から、その瞬間の曲時刻を逆算するのに使う */
 var clockSyncPerf = 0, clockSyncSong = 0;
@@ -1792,6 +1935,12 @@ document.querySelectorAll('#offsetSeg button').forEach(function (b) {
   b.addEventListener('click', function () { ensureAudio(); setJudgeOffset(judgeOffsetMs + parseInt(b.dataset.off, 10)); blip(); });
 });
 { var ov0 = $('offsetVal'); if (ov0) { ov0.textContent = offsetLabel(); ov0.addEventListener('click', function () { setJudgeOffset(0); }); } }
+$('calibBtn').addEventListener('click', function () { openCalib(); });
+$('calibCancelBtn').addEventListener('click', function () { closeCalib(); });
+$('calibStartBtn').addEventListener('click', function () { startCalib(); });
+$('calibRetryBtn').addEventListener('click', function () { startCalib(); });
+$('calibApplyBtn').addEventListener('click', function () { applyCalib(); });
+$('calibPad').addEventListener('pointerdown', function (e) { e.preventDefault(); calibTapAt(e.timeStamp); });
 document.querySelectorAll('#modeSeg button').forEach(function (b) {
   b.addEventListener('click', function () {
     document.querySelectorAll('#modeSeg button').forEach(function (x) { x.classList.remove('on'); });
@@ -2035,6 +2184,7 @@ function pressLane(lane, jtRaw) {
   var jt = effJudgeTime(typeof jtRaw === 'number' ? jtRaw : songTime);
   var nt = nearestInLane(lane, ['tap', 'long'], jt);
   if (!nt) return;
+  lastJudgeDt = nt.t - jt; /* テスト用：直近の判定ズレ（秒） */
   var res = judgeFor(nt.t - jt, selDiff);
   if (!res) return;
   if (nt.type === 'tap') { nt.state = 'done'; applyJudge(nt, res); }
@@ -3393,6 +3543,12 @@ window.__sr = {
   songTimeAt: function (ts) { return songTimeAt(ts); },
   getJudgeOffset: function () { return judgeOffsetMs; },
   setJudgeOffset: function (ms) { setJudgeOffset(ms); },
+  lastJudgeDt: function () { return lastJudgeDt; },
+  calib: {
+    open: openCalib, start: startCalib, tapAt: calibTapAt, tick: calibTick, compute: calibCompute,
+    apply: applyCalib, close: closeCalib, timeAt: calibTimeAt,
+    state: function () { return calib ? { active: true, finished: calib.finished, taps: Object.keys(calib.byBeat).length, result: calib.result } : { active: false }; }
+  },
   getNoteSize: function () { return noteSize; },
   setNoteSize: function (v) { setNoteSize(v); },
   noteSizes: function () { return NOTE_SIZES.slice(); },
