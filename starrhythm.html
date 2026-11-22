@@ -89,7 +89,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #songDetail .bst .rk.fc{background:rgba(74,222,128,.14);border-color:rgba(74,222,128,.6);color:#4ade80}
 #songDetail .bst .rk.ap{background:rgba(255,93,143,.18);border-color:rgba(255,255,255,.7);color:#fff}
 #songDetail .bst .none{font-size:11px;color:var(--sub)}
-.songGrid{display:flex;gap:7px;margin-top:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.songGrid{display:flex;gap:7px;margin-top:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab}
+.songGrid:active{cursor:grabbing}
 .songGrid::-webkit-scrollbar{display:none}
 .songTile{flex:0 0 74px;min-width:0;background:rgba(255,255,255,.05);border:2px solid var(--line);border-radius:13px;padding:5px 4px 6px;color:var(--txt);cursor:pointer;font-family:inherit;transition:border-color .15s, box-shadow .15s}
 .songTile.on{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,201,60,.5),0 4px 16px rgba(255,201,60,.2)}
@@ -207,6 +208,20 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #soloPane .help{display:none}
   #footHelp{display:none}
   #ctrlRow .iconBtn{min-height:38px}
+}
+/* PC・大画面：スマホ前提の 480px 固定だと大画面で小さく固まるため、段階的に広げて
+   ステージと選曲タイルを大きくする（スマホ幅には影響しない） */
+@media (min-width:900px){
+  .wrap{max-width:600px}
+}
+/* タイル・ジャケットの拡大は縦に余裕がある場合だけ（短い画面の圧縮ルールを壊さない） */
+@media (min-width:900px) and (min-height:741px){
+  .songTile{flex-basis:88px}
+  .songTile .jacket{height:60px;font-size:31px}
+  #songDetail .jacketBig{width:88px;height:88px;font-size:44px}
+}
+@media (min-width:1500px){
+  .wrap{max-width:680px}
 }
 </style>
 <style>
@@ -1596,6 +1611,40 @@ function renderSongList() {
     b.innerHTML = DIFFS[b.dataset.d].label + ' <span class="lv">Lv' + s.level[b.dataset.d] + '</span>';
   });
 }
+/* PC対応：スクロール領域をホイール／マウスドラッグでも動かせるようにする共通処理。
+   タッチはブラウザ標準のスクロールに任せ、ドラッグ直後のクリック（曲選択）は抑止する */
+function pwDragScroll(el, axis) {
+  if (!el || el.__pwDragScroll) return;
+  el.__pwDragScroll = true;
+  var horizontal = (axis === 'x');
+  el.addEventListener('wheel', function (e) {
+    var d = horizontal ? (Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX) : e.deltaY;
+    if (e.deltaMode === 1) d *= 16; /* Firefox の行単位を px に換算 */
+    if (!d) return;
+    var before = horizontal ? el.scrollLeft : el.scrollTop;
+    if (horizontal) el.scrollLeft = before + d; else el.scrollTop = before + d;
+    if ((horizontal ? el.scrollLeft : el.scrollTop) !== before) e.preventDefault();
+  }, { passive: false });
+  var drag = null;
+  el.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'touch' || e.button) return;
+    drag = { pos: horizontal ? e.clientX : e.clientY, scroll: horizontal ? el.scrollLeft : el.scrollTop, moved: 0 };
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var delta = (horizontal ? e.clientX : e.clientY) - drag.pos;
+    if (Math.abs(delta) > 3) drag.moved = Math.abs(delta);
+    if (drag.moved) { if (horizontal) el.scrollLeft = drag.scroll - delta; else el.scrollTop = drag.scroll - delta; }
+  });
+  window.addEventListener('pointerup', function () {
+    if (drag && drag.moved > 6) el.__pwDraggedAt = Date.now();
+    drag = null;
+  });
+  el.addEventListener('click', function (e) {
+    if (el.__pwDraggedAt && Date.now() - el.__pwDraggedAt < 350) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+}
+pwDragScroll($('songList'), 'x');
 function blip() { if (!AC) return; toneAt(660, AC.currentTime, 0.07, 'sine', seV(0.12), null, seBus); }
 document.querySelectorAll('#diffSeg button').forEach(function (b) {
   b.addEventListener('click', function () {

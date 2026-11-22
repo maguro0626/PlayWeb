@@ -34,7 +34,8 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #roomCodeText{font-size:26px;font-weight:900;letter-spacing:.3em;color:var(--gold)}
 .help{font-size:12px;color:var(--sub);line-height:1.8;text-align:center}
 #songArea{flex:1;min-height:0;display:flex;flex-direction:column}
-#genreTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none}
+#genreTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none;cursor:grab}
+#genreTabs:active{cursor:grabbing}
 #genreTabs::-webkit-scrollbar{display:none}
 #genreTabs button{flex:none;border:2px solid var(--line);background:rgba(255,255,255,.06);color:var(--sub);padding:6px 14px;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;min-height:36px;letter-spacing:.03em}
 #genreTabs button:active{transform:scale(.95)}
@@ -398,6 +399,19 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #hudScore{font-size:21px}
   #gaugeWrap{height:16px}
   #gaugeLbl{font-size:10px}
+}
+/* PC・大画面：スマホ前提の 480px 固定だと大画面で小さく固まるため、段階的に広げて
+   ステージと曲リストを大きくする（スマホ幅には影響しない） */
+@media (min-width:900px){
+  .wrap{max-width:620px}
+}
+@media (min-width:900px) and (min-height:741px){
+  .songCard .jk{width:56px;height:56px;font-size:31px}
+  .songCard .nm{font-size:17px}
+  #songDetail .sdJk{width:84px;height:84px;font-size:45px}
+}
+@media (min-width:1500px){
+  .wrap{max-width:700px}
 }
 </style>
 <style>
@@ -1533,6 +1547,41 @@ function renderSongList() {
   });
   renderSongDetail();
 }
+/* PC対応：スクロール領域をホイール／マウスドラッグでも動かせるようにする共通処理。
+   タッチはブラウザ標準のスクロールに任せ、ドラッグ直後のクリック（曲選択）は抑止する */
+function pwDragScroll(el, axis) {
+  if (!el || el.__pwDragScroll) return;
+  el.__pwDragScroll = true;
+  var horizontal = (axis === 'x');
+  el.addEventListener('wheel', function (e) {
+    var d = horizontal ? (Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX) : e.deltaY;
+    if (e.deltaMode === 1) d *= 16; /* Firefox の行単位を px に換算 */
+    if (!d) return;
+    var before = horizontal ? el.scrollLeft : el.scrollTop;
+    if (horizontal) el.scrollLeft = before + d; else el.scrollTop = before + d;
+    if ((horizontal ? el.scrollLeft : el.scrollTop) !== before) e.preventDefault();
+  }, { passive: false });
+  var drag = null;
+  el.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'touch' || e.button) return;
+    drag = { pos: horizontal ? e.clientX : e.clientY, scroll: horizontal ? el.scrollLeft : el.scrollTop, moved: 0 };
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var delta = (horizontal ? e.clientX : e.clientY) - drag.pos;
+    if (Math.abs(delta) > 3) drag.moved = Math.abs(delta);
+    if (drag.moved) { if (horizontal) el.scrollLeft = drag.scroll - delta; else el.scrollTop = drag.scroll - delta; }
+  });
+  window.addEventListener('pointerup', function () {
+    if (drag && drag.moved > 6) el.__pwDraggedAt = Date.now();
+    drag = null;
+  });
+  el.addEventListener('click', function (e) {
+    if (el.__pwDraggedAt && Date.now() - el.__pwDraggedAt < 350) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+}
+pwDragScroll($('songList'), 'y');
+pwDragScroll($('genreTabs'), 'x');
 /* 選択中の曲を大きく見せるパネル：難易度ごとの★とベスト/ランクを並べ、ここでも難易度を選べる */
 function renderSongDetail() {
   var s = songById(selSong);

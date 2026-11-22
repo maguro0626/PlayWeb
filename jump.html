@@ -826,6 +826,42 @@ function buildMenu(){
   }
 }
 
+/* ---------- PC対応：横スクロール帯（ステージ/キャラ選択）をホイール／マウスドラッグでも
+   動かせるようにする。帯はメニュー再描画で作り直されるため、document への委譲で処理する。
+   タッチは標準スクロールに任せ、ドラッグ直後のクリック（カード選択）は抑止する ---------- */
+(function(){
+  let drag = null;
+  document.addEventListener('wheel', e=>{
+    const row = e.target && e.target.closest ? e.target.closest('.scroll-row') : null;
+    if(!row) return;
+    const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if(!d) return;
+    const before = row.scrollLeft;
+    row.scrollLeft = before + (e.deltaMode===1 ? d*16 : d);
+    if(row.scrollLeft !== before) e.preventDefault();
+  }, { passive:false });
+  document.addEventListener('pointerdown', e=>{
+    if(e.pointerType==='touch' || e.button) return;
+    const row = e.target && e.target.closest ? e.target.closest('.scroll-row') : null;
+    if(!row) return;
+    drag = { row, pos:e.clientX, scroll:row.scrollLeft, moved:0 };
+  });
+  window.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    const delta = e.clientX - drag.pos;
+    if(Math.abs(delta) > 3) drag.moved = Math.abs(delta);
+    if(drag.moved) drag.row.scrollLeft = drag.scroll - delta;
+  });
+  window.addEventListener('pointerup', ()=>{
+    if(drag && drag.moved > 6) drag.row.__pwDraggedAt = Date.now();
+    drag = null;
+  });
+  document.addEventListener('click', e=>{
+    const row = e.target && e.target.closest ? e.target.closest('.scroll-row') : null;
+    if(row && row.__pwDraggedAt && Date.now() - row.__pwDraggedAt < 350){ e.preventDefault(); e.stopPropagation(); }
+  }, true);
+})();
+
 /* ---------- エンドレス生成 ---------- */
 function genEndless(){
   if (level.speed < 18) level.speed += 0.0016;
