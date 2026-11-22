@@ -4274,10 +4274,11 @@ refreshEditorGate();
    ステージは縦スクロールで譜面を行き来する。
    ノーツは [step, lane, type, len] の配列で保持する（len は long のみ）。 */
 var ed = null; /* {songId, diff, notes, tool, snap, cellH, undo:[], redo:[], sel:{step,lane}|null, longDraft:{step,lane,end}|null, dirty} */
-var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, selfScroll: false, sfxList: null, sfxIdx: 0, sfxCount: 0 };
+var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, selfScroll: false, sfxList: null, sfxIdx: 0, sfxCount: 0, startScrollTop: null };
 var edGeom = { laneW: 80, left0: 30, W: 360 };
 var ED_ZOOMS = [6, 10, 16, 24, 36];
 var ED_RULER_W = 30; /* 左端の小節番号・オンセット表示の帯 */
+var ED_SCROLL_W = 44; /* 右端のスライド専用ストリップの幅（ここはノーツ操作にならずスクロールだけできる） */
 var ED_PAD = 15; /* 譜面の上下の余白(px) */
 /* 譜面全体の content 高さ */
 function edContentH() { return edTotalSteps() * ed.cellH + ED_PAD * 2; }
@@ -4293,6 +4294,29 @@ function edViewBottomStep() {
   if (!w || !ed) return 0;
   return clamp(Math.floor(edTotalSteps() - (w.scrollTop + w.clientHeight - ED_PAD) / ed.cellH), 0, edTotalSteps());
 }
+/* 今ビューポートの中心に来ているステップ（小数）。ズームのアンカー計算に使う */
+function edCenterStep() {
+  var w = $('srEdStageWrap');
+  if (!w || !ed) return 0;
+  return edTotalSteps() - (w.scrollTop + (w.clientHeight || 0) / 2 - ED_PAD) / ed.cellH;
+}
+/* ズーム変更：今見ている位置（選択中ノーツがあればそのステップ、無ければ
+   ビューポート中心のステップ）が画面中心のままになるよう scrollTop を付け替える */
+function edZoomTo(newCellH) {
+  if (!ed || !newCellH || newCellH === ed.cellH) return;
+  var anchor = (ed.sel && typeof ed.sel.step === 'number') ? ed.sel.step : edCenterStep();
+  ed.cellH = newCellH;
+  $('srEdZoomVal').textContent = ed.cellH;
+  edRender(); /* 先に content の高さを新しいズームで確定させる */
+  var w = $('srEdStageWrap');
+  if (w) {
+    var max = Math.max(0, edContentH() - (w.clientHeight || 0));
+    w.scrollTop = clamp(edStepLineY(anchor) - (w.clientHeight || 0) / 2, 0, max);
+  }
+  edRender();
+}
+/* x 座標がスライド専用領域（左ルーラー／右ストリップ）かどうか */
+function edIsScrollArea(x) { return x < ED_RULER_W || x >= edGeom.W - ED_SCROLL_W; }
 /* 譜面の先頭（ステップ0側＝画面の下）までスクロールする */
 function edScrollToStart() {
   var w = $('srEdStageWrap');
@@ -4401,7 +4425,7 @@ function edRender() {
   var x = cv.getContext('2d');
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
   edGeom.W = W;
-  edGeom.laneW = (W - ED_RULER_W) / 4;
+  edGeom.laneW = (W - ED_RULER_W - ED_SCROLL_W) / 4;
   edGeom.left0 = ED_RULER_W;
   var laneW = edGeom.laneW, left0 = edGeom.left0;
   /* content Y（ステップ境界線）。ステップが大きいほど上＝Y は小さい */
@@ -4557,17 +4581,27 @@ function edRender() {
       x.beginPath(); x.moveTo(left0, py); x.lineTo(W, py); x.stroke();
     }
   }
-  /* スクロールバー（右端）：サムの位置と大きさで「今どの辺を見ているか」と
-     「どこからどこまで動かせるか」が分かる。下端まで来たら譜面の先頭 */
+  /* 右端のスライド専用ストリップ：ここをドラッグしてもノーツ操作にはならず
+     スクロールだけできる。サムの位置と大きさで「今どの辺を見ているか」と
+     「どこからどこまで動かせるか」も分かる。下端まで来たら譜面の先頭 */
   {
+    var sx = W - ED_SCROLL_W;
+    x.fillStyle = '#171236';
+    x.fillRect(sx, 0, ED_SCROLL_W, H);
+    x.strokeStyle = 'rgba(255,255,255,.18)';
+    x.beginPath(); x.moveTo(sx + .5, 0); x.lineTo(sx + .5, H); x.stroke();
     var cH = edContentH();
-    var thumbH = Math.max(26, H * H / cH);
+    var trackH = Math.max(1, H - 12);
+    var thumbH = Math.min(trackH, Math.max(26, H * H / cH));
     var maxOff = Math.max(1, cH - H);
-    var thumbY = clamp(off / maxOff, 0, 1) * (H - thumbH);
+    var thumbY = 6 + clamp(off / maxOff, 0, 1) * Math.max(0, trackH - thumbH);
     x.fillStyle = 'rgba(255,255,255,.10)';
-    rr(W - 9, 2, 5, H - 4, 2.5); x.fill();
-    x.fillStyle = 'rgba(255,201,60,.65)';
-    rr(W - 9, 2 + thumbY, 5, thumbH, 2.5); x.fill();
+    rr(sx + ED_SCROLL_W / 2 - 3, 6, 6, trackH, 3); x.fill();
+    x.fillStyle = 'rgba(255,201,60,.75)';
+    rr(sx + ED_SCROLL_W / 2 - 8, thumbY, 16, thumbH, 8); x.fill();
+    x.fillStyle = 'rgba(20,12,40,.85)';
+    x.font = 'bold 12px sans-serif';
+    x.fillText('↕', sx + ED_SCROLL_W / 2 - 5, thumbY + thumbH / 2 + 4);
   }
   var srcLbl = customEntry(ed.songId, ed.diff) ? 'カスタム譜面を編集中' : (officialEntry(ed.songId, ed.diff) ? '承認譜面をもとに編集' : '公式譜面をもとに編集');
   var hint = '';
@@ -4691,7 +4725,7 @@ function edPointerPos(e) {
   var contentY = (e.clientY - r.top) + wrap.scrollTop;
   var x = e.clientX - r.left;
   var lane = clamp(Math.floor((x - edGeom.left0) / edGeom.laneW), 0, 3);
-  return { rawStep: edRawStepFromContentY(contentY), lane: lane, ruler: x < ED_RULER_W, y: e.clientY - r.top };
+  return { rawStep: edRawStepFromContentY(contentY), lane: lane, ruler: x < ED_RULER_W, strip: x >= edGeom.W - ED_SCROLL_W, y: e.clientY - r.top };
 }
 function edSnapStep(raw) {
   var s = Math.round(raw / ed.snap) * ed.snap;
@@ -4714,9 +4748,11 @@ function edCanvasDown(e) {
   e.preventDefault();
   var wrap0 = $('srEdStageWrap');
   var pos = edPointerPos(e);
-  if (pos.ruler) {
+  if (pos.ruler || pos.strip) {
+    /* スライド専用領域（左ルーラー／右ストリップ）：どのモードでもノーツ操作にせず、
+       スクロールだけ受け付ける（スライドしようとしてノーツに触れる事故を防ぐ） */
     edScrollDrag = { y: e.clientY, st: wrap0.scrollTop };
-    /* ルーラーでのスクロールはユーザーの意思：再生中でも追従を切る */
+    /* スライド操作はユーザーの意思：再生中でも追従を切る */
     if (edPlay.playing && edPlay.follow) { edPlay.follow = false; edSyncPalette(); }
     return;
   }
@@ -4854,6 +4890,9 @@ function edPlayStart() {
   var song = edSong(), d = edData();
   var startStep = edViewBottomStep(); /* 見えている範囲の下端（いちばん早いステップ）から再生 */
   edPlay.fromStep = startStep;
+  /* 再生を始めた時の表示位置を覚える（ストップでここへ戻る） */
+  var wrapS = $('srEdStageWrap');
+  edPlay.startScrollTop = wrapS ? wrapS.scrollTop : null;
   /* 再生開始時は追従ON。ヒット音リスト（時刻順）を用意し、開始位置より前の分は読み飛ばす */
   edPlay.follow = true;
   edPlay.sfxCount = 0;
@@ -4935,15 +4974,23 @@ function edPlayTick() {
   }
   edPlay.raf = requestAnimationFrame(edPlayTick);
 }
-function edStopPlayback() {
+/* restore=true は「ユーザーがストップした」時だけ：再生を始めたフレームへ表示を戻す。
+   曲の終わりまで再生し切った時（edSynthTick／edPlayTick からの呼び出し）は戻さない */
+function edStopPlayback(restore) {
   if (edPlay.timer) { clearInterval(edPlay.timer); edPlay.timer = null; }
   if (edPlay.raf) cancelAnimationFrame(edPlay.raf);
   if (edPlay.playing && ed && edSong().audio && audioEl) {
     try { audioEl.pause(); } catch (e) {}
   }
+  var wasPlaying = edPlay.playing;
   edPlay.playing = false;
   edPlay.time = 0;
-  if (ed) edRender();
+  var backTo = (restore && wasPlaying) ? edPlay.startScrollTop : null;
+  edPlay.startScrollTop = null;
+  if (ed) {
+    if (backTo != null) { var w = $('srEdStageWrap'); if (w) w.scrollTop = backTo; }
+    edRender();
+  }
 }
 /* ---- テストプレイ（記録抑制の経路：curPlayOpts.test） ---- */
 function edTestPlay() {
@@ -5145,16 +5192,16 @@ document.querySelectorAll('#srEditorPanel .edSnap').forEach(function (b) {
 $('srEdZoomIn').addEventListener('click', function () {
   if (!ed) return;
   var i = ED_ZOOMS.indexOf(ed.cellH);
-  if (i < ED_ZOOMS.length - 1) { ed.cellH = ED_ZOOMS[i + 1]; $('srEdZoomVal').textContent = ed.cellH; edRender(); }
+  if (i < ED_ZOOMS.length - 1) edZoomTo(ED_ZOOMS[i + 1]); /* 今見ている位置を保ったまま拡大 */
 });
 $('srEdZoomOut').addEventListener('click', function () {
   if (!ed) return;
   var i = ED_ZOOMS.indexOf(ed.cellH);
-  if (i > 0) { ed.cellH = ED_ZOOMS[i - 1]; $('srEdZoomVal').textContent = ed.cellH; edRender(); }
+  if (i > 0) edZoomTo(ED_ZOOMS[i - 1]); /* 今見ている位置を保ったまま縮小 */
 });
 $('srEdUndoBtn').addEventListener('click', edUndo);
 $('srEdRedoBtn').addEventListener('click', edRedo);
-$('srEdPlayBtn').addEventListener('click', function () { if (edPlay.playing) edStopPlayback(); else edPlayStart(); });
+$('srEdPlayBtn').addEventListener('click', function () { if (edPlay.playing) edStopPlayback(true); else edPlayStart(); });
 $('srEdTestBtn').addEventListener('click', edTestPlay);
 $('srEdSaveBtn').addEventListener('click', edSave);
 $('srEdUploadBtn').addEventListener('click', function () {
@@ -5358,7 +5405,12 @@ window.__sr = {
       return true;
     },
     save: edSave, upload: edUpload, undo: edUndo, redo: edRedo,
-    testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
+    centerStep: function () { return ed ? edCenterStep() : null; },
+    zoomIn: function () { if (!ed) return; var i = ED_ZOOMS.indexOf(ed.cellH); if (i < ED_ZOOMS.length - 1) edZoomTo(ED_ZOOMS[i + 1]); },
+    zoomOut: function () { if (!ed) return; var i = ED_ZOOMS.indexOf(ed.cellH); if (i > 0) edZoomTo(ED_ZOOMS[i - 1]); },
+    stripInfo: function () { return { stripW: ED_SCROLL_W, rulerW: ED_RULER_W, geomW: edGeom.W, laneW: ed ? edGeom.laneW : null, left0: edGeom.left0 }; },
+    isScrollX: function (x) { return edIsScrollArea(x); },
+    testPlay: edTestPlay, playStart: edPlayStart, playStop: function () { edStopPlayback(true); }, /* 停止ボタンと同じ（開始フレームへ戻る） */
     playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, sfxCount: edPlay.sfxCount }; }
   },
   official: {

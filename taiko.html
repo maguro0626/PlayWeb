@@ -151,9 +151,9 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 /* スライドできる範囲の可視化：トラック全体＝譜面全体、サム＝今見えている範囲。
    iOS ではネイティブのスクロールバーが見えないため、これで位置を伝える */
 #edScrollBar{flex:none;display:flex;align-items:center;gap:8px}
-#edScrollTrack{position:relative;flex:1;height:17px;border-radius:999px;background:rgba(255,255,255,.10);border:1.5px solid var(--line);touch-action:none;cursor:pointer}
+#edScrollTrack{position:relative;flex:1;height:34px;border-radius:999px;background:rgba(255,255,255,.10);border:1.5px solid var(--line);touch-action:none;cursor:pointer}
 #edScrollThumb{position:absolute;top:1px;bottom:1px;left:0;width:100%;border-radius:999px;background:linear-gradient(180deg,#ffd968,#f5a623);box-shadow:0 0 8px rgba(255,201,60,.45);min-width:26px;pointer-events:none}
-.edScEnd{position:absolute;top:50%;transform:translateY(-50%);font-size:9px;font-weight:900;color:rgba(255,255,255,.6);pointer-events:none;z-index:2;white-space:nowrap}
+.edScEnd{position:absolute;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:900;color:rgba(255,255,255,.6);pointer-events:none;z-index:2;white-space:nowrap}
 .edScEnd.L{left:7px}
 .edScEnd.R{right:7px}
 #edScrollPos{flex:none;font-size:11px;font-weight:800;color:var(--sub);min-width:104px;text-align:right;white-space:nowrap}
@@ -1902,7 +1902,7 @@ function renderDiffSeg() {
 
 /* ---------------- 譜面エディタ本体（マリオメーカー式） ---------------- */
 var ed = null; /* {songId, diff, notes:[[step,type]], tool, snap, cellW, undo:[], redo:[], sel:{step}|null, dirty} */
-var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, followSL: 0, seNotes: null, seIdx: 0 };
+var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, followSL: 0, seNotes: null, seIdx: 0, startSL: null }; /* startSL: 再生を始めた時の表示位置（停止時に戻るため） */
 var edPlayPan = null; /* 再生中のキャンバスドラッグ（パン）候補 {x, sl, moved} */
 var edSeCount = { don: 0, katsu: 0 }; /* エディタのプレビュー/テストプレイで鳴らした打撃SE数（検証用） */
 var testSePtr = 0; /* テストプレイ中のSE発音ポインタ（chart の添字） */
@@ -2094,6 +2094,19 @@ function edUpdateScrollBar() {
   var curBar = Math.min(totalBars, Math.floor((sl / Math.max(1, ed.cellW)) / 16) + 1);
   pos.textContent = max <= 0 ? '全' + totalBars + '小節（全部見えています）' : curBar + ' / ' + totalBars + ' 小節あたり';
 }
+/* ズーム変更：今見ている位置（ビューポート中心のステップ）を保ったまま拡縮する。
+   中心ステップを旧 cellW で求めておき、新 cellW で同じ中心になるよう scrollLeft を再計算する */
+function edSetZoom(nw) {
+  if (!ed || nw === ed.cellW) return;
+  var wrap = $('edStageWrap');
+  var cw = wrap.clientWidth || 0;
+  var centerStep = (wrap.scrollLeft + cw / 2) / ed.cellW;
+  ed.cellW = nw;
+  $('edZoomVal').textContent = nw;
+  edRender(); /* 先に内側の幅を新しいズームで確定させてからスクロール位置を合わせる */
+  wrap.scrollLeft = Math.max(0, Math.round(centerStep * nw - cw / 2));
+  edRender();
+}
 function edPushUndo() {
   ed.undo.push(JSON.stringify(ed.notes));
   if (ed.undo.length > 100) ed.undo.shift();
@@ -2126,6 +2139,14 @@ function edNoteIdxNear(rawStep) {
 var edDrag = null; /* {idx, origStep, moved, undoPushed} */
 var edErasing = false;
 var edScrollDrag = null; /* ルーラー（上部の小節番号帯）ドラッグでタイムラインを左右へ動かす */
+/* スライド（横スクロール）専用ゾーンの判定：y はステージ内座標（上端=0）。
+   小節番号ルーラーの帯（44px）と、レーンの上下の余白はスライド操作専用とし、
+   ノーツ操作（置く／掴む／消す）はレーン帯（上下8pxの余裕つき）の中だけで受け付ける。
+   「スライドしようとしてノーツに触ってしまう」事故を防ぐための分離 */
+function edIsSlideZone(y, wrapH) {
+  var laneTop = (wrapH - 76) / 2; /* edRender の laneH=76 と一致させる */
+  return y < Math.max(44, laneTop - 8) || y > laneTop + 76 + 8;
+}
 function edPointerStep(e) {
   var wrap = $('edStageWrap');
   var r = wrap.getBoundingClientRect();
@@ -2141,7 +2162,7 @@ function edCanvasDown(e) {
   e.preventDefault();
   var wrap0 = $('edStageWrap');
   var wr = wrap0.getBoundingClientRect();
-  if (e.clientY - wr.top < 24) { /* 小節番号の帯をつかんで左右へ移動 */
+  if (edIsSlideZone(e.clientY - wr.top, wrap0.clientHeight)) { /* ルーラー帯とレーン上下はスライド専用：つかんで左右へ移動 */
     edScrollDrag = { x: e.clientX, sl: wrap0.scrollLeft };
     if (edPlay.playing) edPlay.follow = false; /* 再生中でもユーザー操作を優先する */
     return;
@@ -2266,6 +2287,7 @@ function edPlayStart() {
   var wrap = $('edStageWrap');
   var startStep = Math.max(0, Math.floor(wrap.scrollLeft / ed.cellW));
   edPlay.fromStep = startStep;
+  edPlay.startSL = wrap.scrollLeft; /* 停止した時に「再生を始めたフレーム」へ戻すため記録 */
   /* 改善1: プレビューでもノーツが判定位置に来たら打撃SEを鳴らす。
      時刻換算は演奏用ノーツ生成（notesFromSteps）と同一経路を通す */
   edSeCount = { don: 0, katsu: 0 };
@@ -2319,7 +2341,7 @@ function edSynthTick() {
     scheduleStep(song, d, edPlay.nextStep, Math.max(when, AC.currentTime - 0.05));
     edPlay.nextStep++;
   }
-  if (edPlay.nextStep >= d.totalSteps && AC.currentTime > edPlay.t0 + (d.totalSteps - edPlay.fromStep) * d.stepDur + 0.3) edStopPlayback();
+  if (edPlay.nextStep >= d.totalSteps && AC.currentTime > edPlay.t0 + (d.totalSteps - edPlay.fromStep) * d.stepDur + 0.3) edStopPlayback(true); /* 自然終了：位置は戻さない */
 }
 function edPlayTick() {
   if (!ed || !edPlay.playing) return;
@@ -2327,7 +2349,7 @@ function edPlayTick() {
   if (song.real) {
     var r = realAudio[song.id];
     edPlay.time = r && r.el ? r.el.currentTime : 0;
-    if (r && r.el && r.el.ended) { edStopPlayback(); return; }
+    if (r && r.el && r.el.ended) { edStopPlayback(true); return; } /* 自然終了：位置は戻さない */
   } else {
     edPlay.time = edPlay.fromStep * d.stepDur + Math.max(0, AC.currentTime - edPlay.t0);
   }
@@ -2351,8 +2373,11 @@ function edPlayTick() {
   }
   edPlay.raf = requestAnimationFrame(edPlayTick);
 }
-function edStopPlayback() {
+/* fromEnd=true は「最後まで再生し終わった」自然終了。その場合は表示位置を戻さない。
+   ユーザー操作で止めた時は、再生を始めたフレーム（startSL）へ表示を戻す */
+function edStopPlayback(fromEnd) {
   edPlayPan = null;
+  var restoreSL = (!fromEnd && ed && edPlay.startSL != null) ? edPlay.startSL : null;
   if (edPlay.timer) { clearInterval(edPlay.timer); edPlay.timer = null; }
   if (edPlay.raf) cancelAnimationFrame(edPlay.raf);
   if (edPlay.playing && ed) {
@@ -2364,6 +2389,8 @@ function edStopPlayback() {
   }
   edPlay.playing = false;
   edPlay.time = 0;
+  edPlay.startSL = null;
+  if (restoreSL != null) { var w = $('edStageWrap'); if (w) w.scrollLeft = restoreSL; }
   if (ed) edRender();
 }
 /* ---- テストプレイ（練習モードと同じ記録抑制の経路） ---- */
@@ -2539,12 +2566,12 @@ document.querySelectorAll('.edSnap').forEach(function (b) {
 $('edZoomIn').addEventListener('click', function () {
   if (!ed) return;
   var i = ED_ZOOMS.indexOf(ed.cellW);
-  if (i < ED_ZOOMS.length - 1) { ed.cellW = ED_ZOOMS[i + 1]; $('edZoomVal').textContent = ed.cellW; edRender(); }
+  if (i < ED_ZOOMS.length - 1) edSetZoom(ED_ZOOMS[i + 1]);
 });
 $('edZoomOut').addEventListener('click', function () {
   if (!ed) return;
   var i = ED_ZOOMS.indexOf(ed.cellW);
-  if (i > 0) { ed.cellW = ED_ZOOMS[i - 1]; $('edZoomVal').textContent = ed.cellW; edRender(); }
+  if (i > 0) edSetZoom(ED_ZOOMS[i - 1]);
 });
 $('edUndoBtn').addEventListener('click', edUndo);
 $('edRedoBtn').addEventListener('click', edRedo);
@@ -5204,7 +5231,8 @@ window.__taiko = {
     moveNote: function (from, to) { if (!ed) return false; var i = edNoteIdxNear(from); if (i < 0) return false; edPushUndo(); ed.notes[i][0] = to; edSortNotes(); edRender(); return true; },
     save: edSave, upload: edUpload, undo: edUndo, redo: edRedo,
     testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
-    playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu }; },
+    setZoom: edSetZoom, isSlideZone: edIsSlideZone,
+    playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu, startSL: edPlay.startSL }; },
     session: function () { return edSession ? { song: edSession.songId, diff: edSession.diff, notes: edSession.notes.length, scrollLeft: edSession.scrollLeft, dirty: edSession.dirty } : null; },
     scrollInfo: function () { var w = $('edStageWrap'), t = $('edScrollThumb'), pe = $('edScrollPos'); return { scrollLeft: w ? w.scrollLeft : 0, max: w ? Math.max(0, w.scrollWidth - w.clientWidth) : 0, thumbLeft: t ? t.style.left : '', thumbWidth: t ? t.style.width : '', posText: pe ? pe.textContent : '' }; },
     back: returnToEditor,
