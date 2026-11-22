@@ -75,7 +75,7 @@
     jump:       { title: 'ジャンプラン',           file: 'jump.html' },
     caring:     { title: '育成ゲーム',             file: 'caring.html', coop: true },
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
-    taiko:      { title: 'リンクドラムサーガ',     file: 'taiko.html' },
+    taiko:      { title: '太鼓の超人',     file: 'taiko.html' },
     snake:      { title: 'スネークアリーナ',       file: 'snake.html' },
     starrhythm: { title: 'スターリズム',           file: 'starrhythm.html' }
   };

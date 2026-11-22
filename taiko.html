@@ -3,21 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>リンクドラムサーガ | PlayWeb</title>
+<title>太鼓の超人 | PlayWeb</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--bg:#150a10;--accent:#e63946;--accent2:#3a86ff;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.13);--txt:#fff7ea;--sub:#cdb49b;--gold:#ffc93c;--don:#ff5a48;--katsu:#5ea0ff}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 /* v120: ページ全体はスクロールさせない（麻雀方式の一画面固定）。body を dvh の
    フレックス列にし、アカウントヘッダー／フレンドバー等の実寸を差し引いた残りを
    .wrap が受け取る。スクロールは曲一覧などの内部領域だけ。 */
-body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-user-select:none;user-select:none}
+/* 長押しコールアウト／テキスト選択の抑止（スターリズム v94 と同趣旨）。
+   ただし入力欄（対戦コード入力・エディタの書き出し/読み込み欄）だけは
+   選択・貼り付け・コールアウトを通常通りに戻す */
+input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
 .wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;flex:1 1 auto;min-height:0;width:100%;overflow:hidden;position:relative}
 .ttl{font-size:25px;font-weight:900;text-align:center;letter-spacing:.05em;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.45),0 0 18px rgba(230,57,70,.45),0 0 42px rgba(255,150,60,.28);position:relative;padding-bottom:5px}
 .ttl span{color:#ff7a5c}
 .ttl::after{content:'';position:absolute;left:12%;right:12%;bottom:0;height:3px;border-radius:99px;background:linear-gradient(90deg,var(--don),var(--gold),var(--katsu))}
+/* v122: タイトル行は「プレイヤー名 ・ 称号（段位）」表示＋称号ボタンに置き換え */
+.ttlRow{display:flex;align-items:center;gap:8px}
+.ttlRow .ttl{flex:1;min-width:0;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttlRow .ttl #plName{color:#fff}
+.ttlRow .ttl .plSep{color:var(--sub);font-size:14px;margin:0 2px}
+.ttlRow .ttl .plDan{color:var(--gold);font-size:22px;text-shadow:0 2px 0 rgba(0,0,0,.45),0 0 16px rgba(255,201,60,.55)}
+#danBtn{flex:none;border:1.5px solid rgba(255,201,60,.65);background:rgba(0,0,0,.35);color:var(--gold);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;min-height:38px;white-space:nowrap}
+#danBtn:active{transform:scale(.95)}
+.danRow{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;margin-bottom:6px;background:rgba(255,255,255,.04)}
+.danRow.cur{border-color:var(--gold);background:rgba(255,201,60,.13);box-shadow:0 0 12px rgba(255,201,60,.25)}
+.danRow .danName{font-size:16px;font-weight:900;min-width:52px}
+.danRow.cur .danName{color:var(--gold)}
+.danRow .danCond{flex:1;font-size:12px;color:var(--sub);font-weight:800}
+.danRow .danState{font-size:12px;font-weight:900;color:var(--sub)}
+.danRow.cur .danState{color:var(--gold)}
+/* v122: マスコット「にゃん太」（詳細パネル内・演奏画面の大太鼓のそば） */
+#songDetail .sdMascot{flex:none;align-self:flex-end;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;width:52px;text-align:center}
+#songDetail .sdMascot:active{transform:scale(.93)}
+#songDetail .sdMascotLbl{display:block;font-size:9.5px;font-weight:900;color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.6);margin-top:1px}
+#mascotStage{position:absolute;left:6px;bottom:6px;width:52px;z-index:3;pointer-events:none;display:none;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
+.wrap.ingame #mascotStage{display:block}
+.mascotPrev{text-align:center;margin-bottom:8px}
+.mascotSlotLbl{font-size:13px;font-weight:900;margin:10px 0 5px;color:var(--gold)}
+.mascotChips{display:flex;flex-wrap:wrap;gap:6px}
+.mascotChip{border:1.5px solid var(--line);background:rgba(255,255,255,.06);color:var(--txt);border-radius:999px;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:36px}
+.mascotChip.on{background:linear-gradient(180deg,#ffd964,#f5b921);color:#231600;border-color:rgba(255,255,255,.6)}
+.mascotChip.locked{opacity:.55;cursor:default;font-weight:800}
 #modeSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
 #modeSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:9px 6px;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;min-height:40px}
 #modeSeg button.on{background:linear-gradient(180deg,#f4525f,#d92c3c);color:#fff;box-shadow:0 2px 8px rgba(230,57,70,.45)}
@@ -424,7 +455,7 @@ html,body{overscroll-behavior:none;}
 </head>
 <body>
 <div class="wrap" id="wrapEl">
-<div class="ttl">🥁 リンクドラム<span>サーガ</span></div>
+<div class="ttlRow"><div class="ttl" id="playerLine"><span id="plName">ゲスト</span><span class="plSep">・</span><span class="plDan" id="plDan">見習い</span></div><button id="danBtn" type="button">🏅 称号</button></div>
 <div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
 <div id="songArea">
 <div id="infoRow"><span class="rateBox">⭐ レーティング <b id="ratingVal">0.0</b></span><span class="dailyBox" id="dailyLine">📅 今日のチャレンジ：-</span></div>
@@ -464,7 +495,7 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo" class="cb"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo" class="cb"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="ppTtl">⏸ ポーズ中</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="resumeBtn">再開</button><button class="btn blue" id="restartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div></div><div id="autoBadge" class="hidden">🤖 オートプレイ中</div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="mascotStage"></div><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="ppTtl">⏸ ポーズ中</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="resumeBtn">再開</button><button class="btn blue" id="restartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div></div><div id="autoBadge" class="hidden">🤖 オートプレイ中</div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="pauseBtn" class="iconBtn" title="ポーズ（対戦中は不可）">⏸</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
@@ -485,13 +516,24 @@ html,body{overscroll-behavior:none;}
 <div class="edPalette"><button class="edPal on" data-tool="don" type="button">🔴 ドン<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="katsu" type="button">🔵 カツ<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="select" type="button">👆 えらぶ<span class="edPalSub">選択・移動</span></button><button class="edPal" data-tool="erase" type="button">🧽 消しゴム<span class="edPalSub">消す</span></button></div>
 <div class="edCtlRow"><span class="edCtlLbl">マスの細かさ</span><button class="edSnap on" data-snap="1" type="button">16分</button><button class="edSnap" data-snap="0.5" type="button">32分</button><span class="edCtlLbl">ズーム</span><button id="edZoomOut" type="button">－</button><span id="edZoomVal">16</span><button id="edZoomIn" type="button">＋</button></div>
 <div class="edSaveRow"><button id="edSaveBtn" class="btn">💾 保存する</button><button id="edUploadBtn" class="btn blue">📤 アップロード（承認を頼む）</button></div>
-<div class="edSubRow"><button id="edRevertBtn" class="miniBtn2" type="button">公式に戻す（カスタムを消す）</button><button id="edExportBtn" class="miniBtn2" type="button">📋 書き出し</button><button id="edImportBtn" class="miniBtn2" type="button">📥 読み込み</button></div>
+<div class="edSubRow"><button id="edRevertBtn" class="miniBtn2" type="button">公式に戻す（カスタムを消す）</button><button id="edExportBtn" class="miniBtn2" type="button">📋 書き出し</button><button id="edImportBtn" class="miniBtn2" type="button">📥 読み込み</button><button id="edExitBtn" class="miniBtn2" type="button">🚪 エディタを終了</button></div>
 </div>
 <div id="edIoModal" class="modal hidden"><div class="modalCard">
 <div class="modalHead"><span class="mhTtl" id="edIoTtl">譜面データ</span><button class="xBtn" id="edIoClose" type="button">✕</button></div>
 <p class="note" id="edIoNote"></p>
 <textarea id="edIoText" rows="8" spellcheck="false"></textarea>
 <div class="modalBtns"><button id="edIoDoBtn" class="btn hidden" type="button">この内容で読み込む</button><button id="edIoCopyBtn" class="btn hidden" type="button">コピーする</button><button id="edIoCancelBtn" class="btn sub" type="button">閉じる</button></div>
+</div></div>
+<div id="edUploadModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">📤 アップロードの確認</span></div>
+<p class="note" id="edUploadBody" style="font-size:14px;margin:8px 0 2px"></p>
+<p class="note">アップロードすると運営の承認待ちになります。承認されると、この譜面が公式譜面として全員に反映されます。</p>
+<div class="modalBtns"><button id="edUploadNoBtn" class="btn sub" type="button">やめる</button><button id="edUploadYesBtn" class="btn blue" type="button">送信する</button></div>
+</div></div>
+<div id="quitModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">⚠️ 確認</span></div>
+<p class="note" id="quitModalMsg" style="font-size:15px;text-align:center;margin:10px 0 4px">本当にやめますか？</p>
+<div class="modalBtns"><button id="quitNoBtn" class="btn" type="button">続ける</button><button id="quitYesBtn" class="btn sub" type="button">やめる</button></div>
 </div></div>
 <div id="toast"></div>
 <div id="stampModal" class="modal hidden"><div class="modalCard">
@@ -501,6 +543,14 @@ html,body{overscroll-behavior:none;}
 <div id="recordsModal" class="modal hidden"><div class="modalCard">
 <div class="modalHead"><span class="mhTtl">📊 記録</span><button class="xBtn" id="recordsClose">✕</button></div>
 <div id="recordsBody"></div>
+</div></div>
+<div id="danModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">🏅 称号</span><button class="xBtn" id="danClose">✕</button></div>
+<div id="danBody"></div>
+</div></div>
+<div id="mascotModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">👗 にゃん太の着せ替え</span><button class="xBtn" id="mascotClose">✕</button></div>
+<div id="mascotBody"></div>
 </div></div>
 <div id="dlModal" class="modal hidden"><div class="modalCard">
 <div class="modalHead"><span class="mhTtl">🎵 楽曲データの更新</span></div>
@@ -1001,6 +1051,23 @@ function makeResult(counts, gauge, totalNotes) {
    reaction.html と同じく、メモリ保持＋union（大きい方）＋再描画フックで対策する。 */
 var SAVE_KEY = 'taiko_best_v1';
 var saveCache = null;
+/* v122: 称号（段位）ラダーのデータ。need=-1 は「おに全曲」を表す。
+   描画セクションの renderSongList() 初期呼び出し（このファイルの前方）から
+   参照されるため、関数群（後方）より前にここで定義しておく */
+var DAN_LADDER = [
+  { name: '見習い', kind: null, need: 0 },
+  { name: '初段', kind: 'oni', need: 1 },
+  { name: '二段', kind: 'oni', need: 3 },
+  { name: '三段', kind: 'oni', need: 5 },
+  { name: '四段', kind: 'oni', need: 8 },
+  { name: '五段', kind: 'oni', need: 11 },
+  { name: '六段', kind: 'oni', need: 14 },
+  { name: '七段', kind: 'oni', need: 17 },
+  { name: '八段', kind: 'oni', need: 20 },
+  { name: '九段', kind: 'oni', need: -1 },
+  { name: '十段', kind: 'ura', need: 3 },
+  { name: '達人', kind: 'ura', need: 10 }
+];
 var RANK_VAL = { S: 5, A: 4, B: 3, C: 2, D: 1 };
 function rankVal(r) { return RANK_VAL[r] || 0; }
 function loadSave() {
@@ -1724,6 +1791,9 @@ var chartSrcSel = {}; /* {songId__diff: 'official'|'custom'} 画面上の選択�
 var officialMap = null; /* {key: {notes, fromName, approvedAt}} / null=未取得 */
 var editorTest = null; /* {notes, startPos} 次の startSong で消費されるテストプレイ */
 var testPlayActive = false;
+var customPlayActive = false; /* v122: カスタム譜面で演奏中（公式記録にしない） */
+var resultFromTest = false; /* v122: 直前のリザルトがエディタのテストプレイか */
+var edSession = null; /* v122: テストプレイ前のエディタ状態スナップショット（戻る用） */
 function chartKey(songId, diff) { return songId + '__' + diff; }
 function loadCustomCharts() { return loadJsonKey(CUSTOM_CHARTS_KEY, {}); }
 function customEntry(songId, diff) { var all = loadCustomCharts(); return (all[songId] && all[songId][diff]) || null; }
@@ -1850,21 +1920,67 @@ function openEditor(songId, diff) {
   if (df === 'ura' && !isUraUnlocked(sid)) df = 'oni';
   ed = { songId: sid, diff: df, notes: [], tool: 'don', snap: 1, cellW: 16, undo: [], redo: [], sel: null, dirty: false };
   edLoadChart();
-  $('edSongSel').innerHTML = SONGS.map(function (s) { return '<option value="' + s.id + '"' + (s.id === sid ? ' selected' : '') + '>' + s.emo + ' ' + s.title + '</option>'; }).join('');
-  $('edDiffSel').innerHTML = DIFF_KEYS.map(function (k) { return '<option value="' + k + '"' + (k === df ? ' selected' : '') + '>' + DIFFS[k].label + '</option>'; }).join('');
-  document.querySelectorAll('.edPal').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === ed.tool); });
-  document.querySelectorAll('.edSnap').forEach(function (b) { b.classList.toggle('on', parseFloat(b.dataset.snap) === ed.snap); });
-  $('edZoomVal').textContent = ed.cellW;
+  edSyncUi();
   $('editorPanel').classList.remove('hidden');
   var w = $('edStageWrap');
   if (w) w.scrollLeft = 0;
   edRender();
+}
+/* エディタの選択UI（曲・難易度セレクト／パレット／スナップ／ズーム表示）を ed に同期する */
+function edSyncUi() {
+  if (!ed) return;
+  $('edSongSel').innerHTML = SONGS.map(function (s) { return '<option value="' + s.id + '"' + (s.id === ed.songId ? ' selected' : '') + '>' + s.emo + ' ' + s.title + '</option>'; }).join('');
+  $('edDiffSel').innerHTML = DIFF_KEYS.map(function (k) { return '<option value="' + k + '"' + (k === ed.diff ? ' selected' : '') + '>' + DIFFS[k].label + '</option>'; }).join('');
+  document.querySelectorAll('.edPal').forEach(function (b) { b.classList.toggle('on', b.dataset.tool === ed.tool); });
+  document.querySelectorAll('.edSnap').forEach(function (b) { b.classList.toggle('on', parseFloat(b.dataset.snap) === ed.snap); });
+  $('edZoomVal').textContent = ed.cellW;
 }
 function closeEditor() {
   edStopPlayback();
   $('editorPanel').classList.add('hidden');
   ed = null;
   renderSongList();
+}
+/* v122: エディタを終了する導線。未保存の変更がある場合は2段階で確認する */
+var edExitArmed = false;
+function requestCloseEditor() {
+  if (!ed) { closeEditor(); return; }
+  if (ed.dirty && !edExitArmed) {
+    edExitArmed = true;
+    toast('未保存の変更があります。もう一度押すと終了します');
+    var b = $('edExitBtn');
+    if (b) b.textContent = '⚠ 未保存の変更があります（もう一度押すと終了）';
+    setTimeout(function () {
+      edExitArmed = false;
+      var b2 = $('edExitBtn');
+      if (b2) b2.textContent = '🚪 エディタを終了';
+    }, 3500);
+    return;
+  }
+  edExitArmed = false;
+  var b3 = $('edExitBtn');
+  if (b3) b3.textContent = '🚪 エディタを終了';
+  closeEditor();
+}
+/* v122: テストプレイ終了後にエディタへ戻る（曲・難易度・ノーツ・スクロール位置を復元） */
+function returnToEditor() {
+  if (!edSession) return;
+  var s = edSession;
+  edSession = null;
+  resultFromTest = false;
+  stopSong(false);
+  var p = $('resultPanel');
+  if (p) p.classList.add('hidden');
+  wrapEl.classList.remove('playing');
+  wrapEl.classList.remove('ingame');
+  resetStage();
+  ed = { songId: s.songId, diff: s.diff, notes: s.notes.map(function (p2) { return [+p2[0], p2[1]]; }), tool: s.tool, snap: s.snap, cellW: s.cellW, undo: [], redo: [], sel: null, dirty: s.dirty };
+  edSyncUi();
+  $('editorPanel').classList.remove('hidden');
+  edRender();
+  var w = $('edStageWrap');
+  if (w) w.scrollLeft = s.scrollLeft || 0;
+  edRender();
 }
 function edRender() {
   if (!ed) return;
@@ -2221,6 +2337,13 @@ function edTestPlay() {
     notes: ed.notes.map(function (p) { return [+p[0], p[1]]; }),
     startPos: startStep * d.stepDur + (song.real ? song.offset : 0)
   };
+  /* v122: 終了後にエディタへ戻れるよう、状態をスナップショットしておく */
+  edSession = {
+    songId: ed.songId, diff: ed.diff,
+    notes: ed.notes.map(function (p) { return [+p[0], p[1]]; }),
+    tool: ed.tool, snap: ed.snap, cellW: ed.cellW, dirty: ed.dirty,
+    scrollLeft: wrap.scrollLeft || 0
+  };
   var sid = ed.songId, df = ed.diff;
   $('editorPanel').classList.add('hidden');
   ed = null;
@@ -2238,10 +2361,18 @@ function edSave() {
   toast('💾 カスタム譜面として保存しました');
   edRender();
 }
+/* v122 追加指示: アップロードも誤タップ防止のため、押したら即送信せず
+   対象（曲・難易度・ノーツ数）を表示して確認を挟む */
 function edUpload() {
   if (!ed) return;
   if (!window.PWAccount || !PWAccount.user()) { toast('アップロードにはログインが必要です'); return; }
   if (!PWAccount.submitChartSubmission) { toast('アップロードできませんでした'); return; }
+  var song = edSong();
+  $('edUploadBody').textContent = '「' + song.title + '」（' + DIFFS[ed.diff].label + '）の譜面・' + ed.notes.length + '音をアップロードしますか？';
+  $('edUploadModal').classList.remove('hidden');
+}
+function edDoUpload() {
+  if (!ed) return;
   edSave();
   var song = edSong();
   toast('📤 アップロードしています…');
@@ -2310,7 +2441,8 @@ function edImportDo() {
 }
 /* ---- エディタの配線 ---- */
 $('editorBtn').addEventListener('click', function () { ensureAudio(); openEditor(); });
-$('edClose').addEventListener('click', function () { closeEditor(); });
+$('edClose').addEventListener('click', function () { requestCloseEditor(); });
+$('edExitBtn').addEventListener('click', function () { requestCloseEditor(); });
 $('edSongSel').addEventListener('change', function () {
   if (!ed) return;
   ed.songId = this.value;
@@ -2380,6 +2512,9 @@ $('edPlayBtn').addEventListener('click', function () { if (edPlay.playing) edSto
 $('edTestBtn').addEventListener('click', edTestPlay);
 $('edSaveBtn').addEventListener('click', edSave);
 $('edUploadBtn').addEventListener('click', edUpload);
+$('edUploadYesBtn').addEventListener('click', function () { $('edUploadModal').classList.add('hidden'); edDoUpload(); });
+$('edUploadNoBtn').addEventListener('click', function () { $('edUploadModal').classList.add('hidden'); });
+$('edUploadModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
 $('edRevertBtn').addEventListener('click', edRevert);
 $('edExportBtn').addEventListener('click', edExport);
 $('edImportBtn').addEventListener('click', edImportOpen);
@@ -2461,10 +2596,12 @@ function renderSongDetail() {
     srcRow = '<div class="srcRow"><button type="button" class="srcChip' + (cur === 'official' ? ' on' : '') + '" data-src="official">公式' + (off ? '（承認譜面）' : '') + '</button><button type="button" class="srcChip' + (cur === 'custom' ? ' on' : '') + '" data-src="custom">🛠 カスタム</button></div>';
   }
   var creditHtml = s.credit ? '<div class="sdCredit">' + (s.suno ? '🎵 Suno（自作曲）' : s.credit) + '</div>' : '';
-  detEl.innerHTML = '<span class="sdTag">▶ 選択中</span><span class="sdJk" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + (sdArt ? ';background-image:url(' + sdArt + ')' : '') + '">' + s.emo + '</span><span class="sdMain"><div class="sdTtl">' + s.title + '</div><div class="sdMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ' + DIFFS[selDiff].label + ' ' + starStr(diffLevel(s, selDiff)) + (s.vocal ? ' ・ 🎤歌声シンセ' : '') + realTag + '</div><button id="favBtn">' + (isFav(s.id) ? '★ お気に入り中（タップで解除）' : '☆ お気に入りに追加') + '</button>' + stMark + srcRow + creditHtml + '</span>' + bst;
+  detEl.innerHTML = '<span class="sdTag">▶ 選択中</span><span class="sdJk" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + (sdArt ? ';background-image:url(' + sdArt + ')' : '') + '">' + s.emo + '</span><span class="sdMain"><div class="sdTtl">' + s.title + '</div><div class="sdMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ' + DIFFS[selDiff].label + ' ' + starStr(diffLevel(s, selDiff)) + (s.vocal ? ' ・ 🎤歌声シンセ' : '') + realTag + '</div><button id="favBtn">' + (isFav(s.id) ? '★ お気に入り中（タップで解除）' : '☆ お気に入りに追加') + '</button>' + stMark + srcRow + creditHtml + '</span>' + bst + mascotDetailHtml();
   detEl.querySelectorAll('.srcChip').forEach(function (b) {
     b.addEventListener('click', function () { setChartSrc(selSong, selDiff, b.dataset.src); renderSongList(); });
   });
+  var mb = $('sdMascotBtn');
+  if (mb) mb.addEventListener('click', function () { renderMascotModal(); $('mascotModal').classList.remove('hidden'); });
   var fb = $('favBtn');
   if (fb) fb.addEventListener('click', function () { var on = toggleFav(selSong); toast(on ? '★ お気に入りに追加しました' : 'お気に入りを解除しました'); renderSongList(); });
   renderDiffSeg();
@@ -2487,6 +2624,13 @@ document.querySelectorAll('#modeSeg button').forEach(function (b) {
     $('resultPanel').classList.add('hidden');
     resetStage();
   });
+});
+/* 長押しコールアウト抑止（CSS の -webkit-touch-callout:none と対で効かせる）。
+   入力欄（対戦コード・エディタの書き出し/読み込み欄）では通常通り許可する */
+document.addEventListener('contextmenu', function (e) {
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  e.preventDefault();
 });
 window.addEventListener('focus', renderSongList);
 document.addEventListener('visibilitychange', function () { if (!document.hidden) renderSongList(); });
@@ -2533,6 +2677,10 @@ function startSong() {
   edSeCount = { don: 0, katsu: 0 };
   if (et120) chart = notesFromSteps(curSong, et120.notes);
   else chart = resolvePlayChart(curSong, selDiff);
+  /* v122: カスタム譜面（ソロで選択中）で演奏する場合は公式記録にしない。
+     承認されて公式譜面になった譜面を「公式」で演奏すれば通常通り記録される */
+  customPlayActive = !et120 && mode === 'solo' && chartSrcFor(curSong.id, selDiff) === 'custom' && !!customEntry(curSong.id, selDiff);
+  resultFromTest = false;
   curApproach = (DIFFS[selDiff] && DIFFS[selDiff].approach) || APPROACH;
   /* 練習モード（ソロのみ）：最初のサビ開始秒（無ければ曲の30%）から開始し、
      それより前のノーツは判定済み扱いで読み飛ばす */
@@ -2554,7 +2702,7 @@ function startSong() {
   $('quitBtn').classList.remove('hidden');
   var ab = $('autoBadge');
   if (ab) ab.classList.toggle('hidden', !isAutoPlay());
-  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (isPracticePlay() ? ' ・練習' : '') + (isAutoPlay() ? ' ・🤖オート' : '') + (testPlayActive ? ' ・🧪テストプレイ' : '');
+  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (isPracticePlay() ? ' ・練習' : '') + (isAutoPlay() ? ' ・🤖オート' : '') + (testPlayActive ? ' ・🧪テストプレイ' : '') + (customPlayActive ? ' ・🎨カスタム譜面' : '');
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
   if (curSong.real) {
@@ -2568,20 +2716,7 @@ function startSong() {
     try { rr.el.currentTime = playStartPos; } catch (e) {}
     primeRealEl(rr.el);
     if (realPlayTimer) clearTimeout(realPlayTimer);
-    realPlayTimer = setTimeout(function () {
-      realPlayTimer = null;
-      if (!playing || !curSong || !curSong.real) return;
-      realStarted = true;
-      /* カウントダウン終了の瞬間に開始位置で始まることを保証する：
-         プライム等で再生位置が進んでいても開始位置へ戻し、プライムで 0 にした
-         音量もここで必ず戻してから再生する */
-      try { rr.el.volume = 1; rr.el.currentTime = playStartPos; } catch (e) {}
-      var p = null;
-      try { p = rr.el.play(); } catch (e) {}
-      if (p && p.catch) p.catch(function () {
-        if (playing && curSong && curSong.real) { toast('再生を開始できませんでした。もう一度お試しください'); stopSong(true); }
-      });
-    }, 3200);
+    realPlayTimer = setTimeout(fireRealStart, 3200);
   } else {
     /* シンセ：スケジューラの開始位置を開始位置ぶんずらす（songTime が開始位置から始まる） */
     startCtx = AC.currentTime + 3.2 - playStartPos; /* 3秒カウントダウン */
@@ -2592,6 +2727,24 @@ function startSong() {
   updateHUD(true);
 }
 
+/* 実音源の再生開始（カウントダウン終了時）。「やめる」確認でカウントダウンを
+   凍結／再開する際にも同じ開始処理を再予約するため、関数として切り出してある */
+function fireRealStart() {
+  realPlayTimer = null;
+  if (!playing || !curSong || !curSong.real) return;
+  var rr = realAudio[curSong.id];
+  if (!rr || !rr.el) return;
+  realStarted = true;
+  /* カウントダウン終了の瞬間に開始位置で始まることを保証する：
+     プライム等で再生位置が進んでいても開始位置へ戻し、プライムで 0 にした
+     音量もここで必ず戻してから再生する */
+  try { rr.el.volume = 1; rr.el.currentTime = playStartPos; } catch (e) {}
+  var p = null;
+  try { p = rr.el.play(); } catch (e) {}
+  if (p && p.catch) p.catch(function () {
+    if (playing && curSong && curSong.real) { toast('再生を開始できませんでした。もう一度お試しください'); stopSong(true); }
+  });
+}
 function scheduleAhead() {
   if (!playing || !AC) return;
   var ahead = AC.currentTime + 0.15;
@@ -2607,6 +2760,10 @@ function stopSong(toMenu) {
   playing = false;
   paused = false;
   testPlayActive = false;
+  customPlayActive = false;
+  quitConfirmOpen = false;
+  var qm0 = $('quitModal'); if (qm0) qm0.classList.add('hidden');
+  if (toMenu) edSession = null; /* 選曲へ戻る通常導線ではエディタ復帰セッションを破棄する */
   var pp8 = $('pausePanel'); if (pp8) pp8.classList.add('hidden');
   var ab8 = $('autoBadge'); if (ab8) ab8.classList.add('hidden');
   stopRealAudio();
@@ -2627,6 +2784,8 @@ function finishSong() {
   /* レイアウト（.playing/.ingame）はリザルト表示中も維持し、「曲選択へ」で初めて戻す */
   playing = false;
   paused = false;
+  quitConfirmOpen = false;
+  var qm9 = $('quitModal'); if (qm9) qm9.classList.add('hidden');
   var pp9 = $('pausePanel');
   if (pp9) pp9.classList.add('hidden');
   stopRealAudio();
@@ -2650,8 +2809,10 @@ function finishSong() {
       if (res.clear) markClearFc(selSong, selDiff, counts.bad === 0 && (counts.good + counts.ok) > 0);
       awardStamps(selSong, selDiff, res, counts.bad);
       addStats(counts.good + counts.ok + counts.bad, Math.min(Math.max(songTime, 0), curData.duration));
+      checkMascotUnlocks(true); /* v122: 着せ替えアイテムの新規解放をトーストで知らせる */
     }
   }
+  resultFromTest = testPlayActive && !!edSession; /* v122: テストプレイのリザルトには「エディタに戻る」を出す */
   renderSongList();
   if (mode === 'online') { finishOnline(res, totalScore, isBest); return; }
   showResult(res, totalScore, isBest, null);
@@ -2676,19 +2837,24 @@ function showResult(res, totalScore, isBest, vsInfo) {
     + '<div class="accLine">正確さ ' + Math.round(res.acc * 100) + '% ・ 魂ゲージ ' + Math.round(gauge) + '%</div>'
     + '<div class="rdetail">良 ' + counts.good + ' ・ 可 ' + counts.ok + ' ・ 不可 ' + counts.bad + '<br>最大コンボ ' + maxCombo + '</div>';
   if (isAutoPlay()) html += '<div class="rdetail" style="font-weight:900;color:#7dd3fc">🤖 オートプレイ（記録は残りません）</div>';
+  else if (customPlayActive) html += '<div class="rdetail" style="font-weight:900;color:#f0abfc">🎨 カスタム譜面のため記録は残りません</div>';
   else if (isPracticePlay()) html += '<div class="rdetail" style="font-weight:900;color:#f5b942">🔁 練習モード（記録は残りません）</div>';
   else if (isBest) html += '<div class="newRec">🎉 NEW RECORD!</div><div class="rdetail">' + (lastPrevBest === null ? '初記録！' : '前回ベスト ' + lastPrevBest.toLocaleString() + ' 点 → +' + lastBestDiff.toLocaleString() + '点') + '</div>';
   html += histHtml();
   if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
   html += '<div class="rbtns"><button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
+  if (resultFromTest) html += '<div class="rbtns"><button class="btn blue" id="resEdBack" style="flex:1">🛠 エディタに戻る</button></div>';
   p.innerHTML = html;
   p.classList.remove('hidden');
   $('resRetry').addEventListener('click', function () {
     p.classList.add('hidden');
     if (mode === 'online') { requestRematch(); } else { startSong(); }
   });
+  var eb = $('resEdBack');
+  if (eb) eb.addEventListener('click', function () { returnToEditor(); });
   $('resBack').addEventListener('click', function () {
     p.classList.add('hidden');
+    edSession = null; resultFromTest = false;
     if (mode === 'online') leaveOnline();
     wrapEl.classList.remove('playing');
     wrapEl.classList.remove('ingame');
@@ -2950,11 +3116,10 @@ document.addEventListener('keydown', function (e) {
   else if (k === 'd' || k === 'k') hit('katsu');
 });
 $('startBtn').addEventListener('click', function () { startSong(); });
-$('quitBtn').addEventListener('click', function () {
-  if (mode === 'online') { sendNet({ t: 'leave' }); }
-  stopSong(true);
-  if (mode === 'online') { opp.fin = null; oppLeft = true; }
-});
+$('quitBtn').addEventListener('click', function () { openQuitConfirm(); }); /* v122: 即終了せず確認ポップアップを挟む */
+$('quitYesBtn').addEventListener('click', function () { closeQuitConfirm(true); });
+$('quitNoBtn').addEventListener('click', function () { closeQuitConfirm(false); });
+$('quitModal').addEventListener('click', function (e) { if (e.target === this) closeQuitConfirm(false); });
 $('muteBtn').addEventListener('click', function () { ensureAudio(); setMuted(!muted); });
 /* オプションシート（v119）：絶対配置で被せるだけなので、開閉しても
    一覧のスクロール位置やスタートボタンの位置は一切動かない */
@@ -4379,7 +4544,7 @@ var judgeDts = []; /* {dt, res} dt = ノーツ時刻 − 判定時刻（+ = 早�
 var lastPrevBest = null, lastBestDiff = 0;
 function isPracticePlay() { return practiceMode && mode === 'solo'; }
 function isAutoPlay() { return autoMode && mode === 'solo'; }
-function recordsSuppressed() { return isPracticePlay() || isAutoPlay() || testPlayActive; }
+function recordsSuppressed() { return isPracticePlay() || isAutoPlay() || testPlayActive || customPlayActive; }
 function practiceStartPos(song) {
   if (song.chorus && song.chorus.length) return song.chorus[0][0];
   return buildSongData(song).duration * 0.3;
@@ -4448,6 +4613,81 @@ function restartSong() {
   stopSong(false);
   startSong(); /* 同曲・同難易度をカウントダウンから即再開 */
 }
+/* ---------------- 「やめる」確認（v122 追加指示） ----------------
+   演奏中の「やめる」（ポーズメニューの「やめる」も）は誤タップ防止のため、
+   即座に終了せず確認ポップアップを挟む。確認中はポーズと同じ仕組みで
+   譜面時計を凍結する（カウントダウン中でも効くよう、setPaused の制限を
+   受けない専用の凍結／再開を使う。実音源のカウントダウンは開始タイマーを
+   止めて残り時間を保持し、シンセは startCtx をずらして再開する）。
+   対戦中はポーズ不可の従来仕様どおり凍結せず、文面だけ投了用にする
+   （確定時は従来の leave＝投了フローそのまま）。 */
+var quitConfirmOpen = false, quitWasPaused = false, quitFrozenAt = 0, quitRealRemain = 0;
+function freezeForQuitConfirm() {
+  quitFrozenAt = performance.now();
+  pausedSongTime = songTime;
+  paused = true; /* draw ループが songTime を pausedSongTime に固定し、hit() も止まる */
+  if (curSong && curSong.real) {
+    if (realStarted) {
+      var r = realAudio[curSong.id];
+      if (r && r.el) { try { r.el.pause(); } catch (e) {} }
+    } else if (realPlayTimer) {
+      clearTimeout(realPlayTimer); realPlayTimer = null;
+      quitRealRemain = Math.max(0, realStartPerf - quitFrozenAt);
+    }
+  } else if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
+}
+function unfreezeForQuitConfirm() {
+  paused = false;
+  if (curSong && curSong.real) {
+    if (realStarted) {
+      var r = realAudio[curSong.id];
+      if (r && r.el) { try { var pr = r.el.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} }
+    } else {
+      realStartPerf = performance.now() + quitRealRemain;
+      if (realPlayTimer) clearTimeout(realPlayTimer);
+      realPlayTimer = setTimeout(fireRealStart, quitRealRemain);
+    }
+  } else if (AC) {
+    startCtx = AC.currentTime - pausedSongTime;
+    if (schedTimer) clearInterval(schedTimer);
+    schedTimer = setInterval(scheduleAhead, 25);
+  }
+  songTime = pausedSongTime;
+}
+function openQuitConfirm() {
+  if (!playing || quitConfirmOpen) return;
+  quitConfirmOpen = true;
+  quitWasPaused = paused;
+  var online = (mode === 'online');
+  $('quitModalMsg').textContent = online ? '投了しますか？（対戦をやめて、相手の勝ちになります）' : '本当にやめますか？';
+  $('quitYesBtn').textContent = online ? '投了する' : 'やめる';
+  if (!online && !paused) freezeForQuitConfirm();
+  var pp = $('pausePanel');
+  if (pp) pp.classList.add('hidden');
+  $('quitModal').classList.remove('hidden');
+}
+function closeQuitConfirm(doQuit) {
+  if (!quitConfirmOpen) return;
+  quitConfirmOpen = false;
+  $('quitModal').classList.add('hidden');
+  if (doQuit) { doQuitSong(); return; }
+  /* 「続ける」：ポーズ経由で開いた場合はポーズ画面へ戻し、それ以外は演奏を再開する */
+  if (quitWasPaused) {
+    var pp = $('pausePanel');
+    if (pp) pp.classList.remove('hidden');
+  } else if (mode !== 'online' && playing) {
+    unfreezeForQuitConfirm();
+  }
+}
+function doQuitSong() {
+  if (testPlayActive && edSession) { returnToEditor(); return; } /* テストプレイはエディタへ戻る */
+  paused = false;
+  var pp = $('pausePanel');
+  if (pp) pp.classList.add('hidden');
+  if (mode === 'online') { sendNet({ t: 'leave' }); }
+  stopSong(true);
+  if (mode === 'online') { opp.fin = null; oppLeft = true; }
+}
 /* ---------------- スタンプ帳／記録モーダル／レーティング表示 ---------------- */
 function renderStampBook() {
   var el = $('stampBody');
@@ -4484,7 +4724,240 @@ function renderRatingBar() {
   if (el) { var ri = ratingInfo(); el.textContent = ri.rating.toFixed(1) + '（' + ri.title + '）'; }
   var dl = $('dailyLine');
   if (dl) dl.textContent = '📅 今日のチャレンジ：' + songById(dailySongId()).title;
+  renderPlayerLine();
 }
+/* ---------------- v122: 称号（段位） ----------------
+   タイトル行に「プレイヤー名 ・ 称号」を表示する。称号はクリア実績
+   （taiko_clear_v1／ベスト記録に基づく hasCleared）から自動で決まる段位制で、
+   最高称号は「達人」。レーティングの数値・称号は従来通り記録モーダルにも残る */
+/* DAN_LADDER のデータ定義はファイル前方（SAVE_KEY 直後）にある */
+function danCondText(e) {
+  if (!e.kind) return 'はじめの称号';
+  if (e.kind === 'oni') return e.need < 0 ? 'おに 全曲クリア' : 'おに ' + e.need + '曲クリア';
+  return 'うら ' + e.need + '曲クリア';
+}
+function danCounts() {
+  var o = 0, u = 0;
+  SONGS.forEach(function (s) { if (hasCleared(s.id, 'oni')) o++; if (hasCleared(s.id, 'ura')) u++; });
+  return { oni: o, ura: u, total: SONGS.length };
+}
+function danAchieved(e, c) {
+  if (!e.kind) return true;
+  if (e.kind === 'oni') return c.oni >= (e.need < 0 ? c.total : e.need);
+  return c.ura >= e.need;
+}
+function danInfo() {
+  var c = danCounts();
+  var idx = 0;
+  DAN_LADDER.forEach(function (e, i) { if (danAchieved(e, c)) idx = i; });
+  var next = (idx + 1 < DAN_LADDER.length) ? DAN_LADDER[idx + 1] : null;
+  var remain = null;
+  if (next) {
+    var have = next.kind === 'ura' ? c.ura : c.oni;
+    var need = next.need < 0 ? c.total : next.need;
+    remain = Math.max(0, need - have);
+  }
+  return { idx: idx, name: DAN_LADDER[idx].name, counts: c, next: next, remain: remain };
+}
+function playerName() {
+  try {
+    var u = window.PWAccount && PWAccount.user();
+    if (u && u.username) return String(u.username);
+  } catch (e) {}
+  return 'ゲスト';
+}
+function renderPlayerLine() {
+  var n = $('plName'); if (n) n.textContent = playerName();
+  var d = $('plDan'); if (d) d.textContent = danInfo().name;
+}
+function renderDanModal() {
+  var el = $('danBody');
+  if (!el) return;
+  var di = danInfo();
+  var html = '<p class="note">今の称号は <b style="color:var(--gold)">' + di.name + '</b>（おに ' + di.counts.oni + '曲 ・ うら ' + di.counts.ura + '曲クリア）</p>';
+  if (di.next) html += '<p class="note">次の称号「' + di.next.name + '」まで：' + (di.next.kind === 'ura' ? 'うら' : 'おに') + ' あと ' + di.remain + '曲クリア</p>';
+  else html += '<p class="note">🎉 最高称号に到達しています！</p>';
+  DAN_LADDER.forEach(function (e, i) {
+    var st = i < di.idx ? '✅ 達成' : (i === di.idx ? '⭐ 現在' : '未達成');
+    html += '<div class="danRow' + (i === di.idx ? ' cur' : '') + '"><span class="danName">' + e.name + '</span><span class="danCond">' + danCondText(e) + '</span><span class="danState">' + st + '</span></div>';
+  });
+  el.innerHTML = html;
+}
+/* ---------------- v122: マスコット「にゃん太」＋着せ替え ----------------
+   バチを持った猫マスコットを SVG で手続き描画する（外部画像なし）。
+   着せ替えアイテムは条件クリアで解放され、保存は同期セーブの素キー
+   taiko_mascot_v1 = {unlocked:[...], wear:{hat, body, acc}} */
+var MASCOT_KEY = 'taiko_mascot_v1';
+function anyDiffCleared(songId) { return DIFF_KEYS.some(function (d) { return hasCleared(songId, d); }); }
+function mascotCondCtx() {
+  var any = 0, fc = 0, sRank = 0;
+  SONGS.forEach(function (s) {
+    var cleared = false, f = false;
+    DIFF_KEYS.forEach(function (d) {
+      if (hasCleared(s.id, d)) cleared = true;
+      if (hasFc(s.id, d)) f = true;
+      if (getRank(s.id, d) === 'S') sRank = 1;
+    });
+    if (cleared) any++;
+    if (f) fc++;
+  });
+  var dc = danCounts();
+  return { oni: dc.oni, ura: dc.ura, total: dc.total, any: any, fc: fc, sRank: sRank };
+}
+var MASCOT_ITEMS = [
+  { slot: 'hat', id: 'cap', name: '🧢 キャップ', condText: 'おにを1曲クリア', test: function (c) { return c.oni >= 1; } },
+  { slot: 'hat', id: 'hachimaki', name: '🎌 はちまき', condText: '「まつり太鼓」をむずかしい以上でクリア', test: function () { return hasCleared('matsuri', 'hard') || hasCleared('matsuri', 'oni') || hasCleared('matsuri', 'ura'); } },
+  { slot: 'hat', id: 'crown', name: '👑 おうかん', condText: 'うらを1曲クリア', test: function (c) { return c.ura >= 1; } },
+  { slot: 'body', id: 'happi', name: '🎆 はっぴ', condText: '10曲クリア（難易度はどれでも）', test: function (c) { return c.any >= 10; } },
+  { slot: 'body', id: 'sailor', name: '🎀 セーラーふく', condText: '「Love斬る」をクリア（難易度はどれでも）', test: function () { return anyDiffCleared('lovezaru'); } },
+  { slot: 'body', id: 'tux', name: '🤵 タキシード', condText: '全曲クリア（難易度はどれでも）', test: function (c) { return c.any >= c.total; } },
+  { slot: 'acc', id: 'bell', name: '🔔 すずの首輪', condText: 'フルコンボを1回', test: function (c) { return c.fc >= 1; } },
+  { slot: 'acc', id: 'scarf', name: '🧣 マフラー', condText: '「オバリ♡」をクリア（難易度はどれでも）', test: function () { return anyDiffCleared('obari'); } },
+  { slot: 'acc', id: 'glasses', name: '🕶 サングラス', condText: 'ランクSを1回取る', test: function (c) { return c.sRank >= 1; } }
+];
+var MASCOT_SLOTS = [['hat', '🧢 かぶりもの'], ['body', '👕 ふく'], ['acc', '✨ アクセサリ']];
+function loadMascot() {
+  var m = loadJsonKey(MASCOT_KEY, {});
+  if (!Array.isArray(m.unlocked)) m.unlocked = [];
+  if (!m.wear || typeof m.wear !== 'object') m.wear = { hat: null, body: null, acc: null };
+  return m;
+}
+function saveMascot(m) { saveJsonKey(MASCOT_KEY, m); }
+function checkMascotUnlocks(announce) {
+  var m = loadMascot();
+  var ctx = mascotCondCtx();
+  var news = [];
+  MASCOT_ITEMS.forEach(function (it) {
+    if (m.unlocked.indexOf(it.id) < 0 && it.test(ctx)) { m.unlocked.push(it.id); news.push(it); }
+  });
+  if (news.length) {
+    saveMascot(m);
+    if (announce) toast('🎁 着せ替えアイテムをゲット！ ' + news.map(function (it) { return it.name; }).join(' ・ '));
+  }
+  return news;
+}
+function mascotWear(slot, id) {
+  var m = loadMascot();
+  if (id && m.unlocked.indexOf(id) < 0) return false;
+  m.wear[slot] = id || null;
+  saveMascot(m);
+  renderMascotStage();
+  return true;
+}
+function mascotSVG(size) {
+  var w = loadMascot().wear || {};
+  var s = size || 52;
+  var cream = '#fff6e8', line = '#d9b98c', pink = '#ffb3c1';
+  var g = '';
+  g += '<path d="M76 84 q18 -2 15 -20" fill="none" stroke="' + cream + '" stroke-width="7" stroke-linecap="round"/>';
+  g += '<line x1="25" y1="66" x2="9" y2="42" stroke="#c98d4e" stroke-width="4.5" stroke-linecap="round"/><circle cx="9" cy="42" r="3.4" fill="#e2543e"/>';
+  g += '<line x1="75" y1="66" x2="91" y2="42" stroke="#c98d4e" stroke-width="4.5" stroke-linecap="round"/><circle cx="91" cy="42" r="3.4" fill="#e2543e"/>';
+  g += '<ellipse cx="50" cy="80" rx="24" ry="17" fill="' + cream + '" stroke="' + line + '" stroke-width="1.6"/>';
+  if (w.body === 'happi') {
+    g += '<path d="M27 74 a24 17 0 0 1 46 0 l-2 14 a24 10 0 0 1 -42 0 z" fill="#2f6fe4"/>';
+    g += '<path d="M50 63 l0 30" stroke="#ffffff" stroke-width="2.4"/>';
+    g += '<path d="M31 84 q19 8 38 0" stroke="#f5b921" stroke-width="3.4" fill="none"/>';
+  } else if (w.body === 'sailor') {
+    g += '<path d="M27 74 a24 17 0 0 1 46 0 l-2 14 a24 10 0 0 1 -42 0 z" fill="#33408f"/>';
+    g += '<path d="M40 64 l10 9 l10 -9 l-3 -3 q-7 3 -14 0 z" fill="#ffffff"/>';
+    g += '<path d="M46 71 l4 5 l4 -5 l-4 2.6 z" fill="#e63946"/>';
+  } else if (w.body === 'tux') {
+    g += '<path d="M27 74 a24 17 0 0 1 46 0 l-2 14 a24 10 0 0 1 -42 0 z" fill="#26222b"/>';
+    g += '<path d="M42 63 l8 12 l8 -12 l-8 -2.4 z" fill="#ffffff"/>';
+    g += '<path d="M44 66 l6 3 l-6 3 z M56 66 l-6 3 l6 3 z" fill="#e63946"/>';
+  }
+  g += '<ellipse cx="38" cy="96" rx="7" ry="3.6" fill="' + cream + '" stroke="' + line + '" stroke-width="1.2"/>';
+  g += '<ellipse cx="62" cy="96" rx="7" ry="3.6" fill="' + cream + '" stroke="' + line + '" stroke-width="1.2"/>';
+  g += '<circle cx="25" cy="66" r="5" fill="' + cream + '" stroke="' + line + '" stroke-width="1.2"/>';
+  g += '<circle cx="75" cy="66" r="5" fill="' + cream + '" stroke="' + line + '" stroke-width="1.2"/>';
+  g += '<path d="M31 25 L37 6 L48 19 Z" fill="' + cream + '" stroke="' + line + '" stroke-width="1.6" stroke-linejoin="round"/>';
+  g += '<path d="M69 25 L63 6 L52 19 Z" fill="' + cream + '" stroke="' + line + '" stroke-width="1.6" stroke-linejoin="round"/>';
+  g += '<path d="M35 20 L38 11 L44 18 Z" fill="' + pink + '"/>';
+  g += '<path d="M65 20 L62 11 L56 18 Z" fill="' + pink + '"/>';
+  g += '<circle cx="50" cy="36" r="22" fill="' + cream + '" stroke="' + line + '" stroke-width="1.6"/>';
+  g += '<ellipse cx="33" cy="45" rx="4.4" ry="2.8" fill="' + pink + '" opacity=".65"/>';
+  g += '<ellipse cx="67" cy="45" rx="4.4" ry="2.8" fill="' + pink + '" opacity=".65"/>';
+  if (w.acc === 'glasses') {
+    g += '<rect x="29" y="29" width="17" height="11" rx="4" fill="#1f2430"/>';
+    g += '<rect x="54" y="29" width="17" height="11" rx="4" fill="#1f2430"/>';
+    g += '<path d="M46 33 h8" stroke="#1f2430" stroke-width="2.6"/>';
+    g += '<path d="M31.5 31.5 h6 M56.5 31.5 h6" stroke="rgba(255,255,255,.5)" stroke-width="1.6"/>';
+  } else {
+    g += '<circle cx="41" cy="35" r="2.7" fill="#33302b"/><circle cx="59" cy="35" r="2.7" fill="#33302b"/>';
+    g += '<circle cx="41.9" cy="34.1" r="0.9" fill="#ffffff"/><circle cx="59.9" cy="34.1" r="0.9" fill="#ffffff"/>';
+  }
+  g += '<ellipse cx="50" cy="41.5" rx="2.5" ry="1.8" fill="#f27d93"/>';
+  g += '<path d="M50 43.4 q-2.6 3 -5.6 1.2 M50 43.4 q2.6 3 5.6 1.2" fill="none" stroke="#33302b" stroke-width="1.5" stroke-linecap="round"/>';
+  g += '<path d="M28 40 l-9 -1.6 M29 45 l-9 1.8 M72 40 l9 -1.6 M71 45 l9 1.8" stroke="' + line + '" stroke-width="1.3" stroke-linecap="round"/>';
+  if (w.hat === 'cap') {
+    g += '<path d="M28.5 27 a21.5 21.5 0 0 1 43 0 z" fill="#e63946"/>';
+    g += '<ellipse cx="50" cy="27.5" rx="17" ry="3.6" fill="#b91c1c"/>';
+    g += '<circle cx="50" cy="6.5" r="2.6" fill="#b91c1c"/>';
+  } else if (w.hat === 'hachimaki') {
+    g += '<path d="M28.5 24 q21.5 -7 43 0 l0 7.5 q-21.5 -6.6 -43 0 z" fill="#ffffff" stroke="#d8cfc0" stroke-width="1"/>';
+    g += '<circle cx="50" cy="24.6" r="3.4" fill="#e63946"/>';
+    g += '<path d="M71 26 q7 1 8 7 M71 30 q6 2 6.6 8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>';
+  } else if (w.hat === 'crown') {
+    g += '<path d="M33 17 L38 3 L46 12 L50 1 L54 12 L62 3 L67 17 Z" fill="#ffc93c" stroke="#d97706" stroke-width="1.4" stroke-linejoin="round"/>';
+    g += '<circle cx="50" cy="11" r="2.2" fill="#e2543e"/><circle cx="40" cy="12.6" r="1.6" fill="#5ea0ff"/><circle cx="60" cy="12.6" r="1.6" fill="#5ea0ff"/>';
+  }
+  if (w.acc === 'bell') {
+    g += '<path d="M36 55 q14 7 28 0" fill="none" stroke="#e63946" stroke-width="3.6"/>';
+    g += '<circle cx="50" cy="60.5" r="4.6" fill="#ffc93c" stroke="#d97706" stroke-width="1.2"/>';
+    g += '<path d="M46.4 59.4 h7.2" stroke="#d97706" stroke-width="1.2"/>';
+  } else if (w.acc === 'scarf') {
+    g += '<path d="M33 53 q17 8 34 0 l0 6 q-17 7 -34 0 z" fill="#e2543e"/>';
+    g += '<path d="M60 58 l3.4 12 l-7 1.4 l-2 -11.4 z" fill="#c93a26"/>';
+  }
+  return '<svg viewBox="0 0 100 102" width="' + s + '" height="' + Math.round(s * 1.02) + '" role="img" aria-label="マスコット にゃん太">' + g + '</svg>';
+}
+function renderMascotStage() { var el = $('mascotStage'); if (el) el.innerHTML = mascotSVG(52); }
+function mascotDetailHtml() {
+  return '<button type="button" class="sdMascot" id="sdMascotBtn" aria-label="にゃん太の着せ替え">' + mascotSVG(46) + '<span class="sdMascotLbl">👗 着せ替え</span></button>';
+}
+function renderMascotModal() {
+  var el = $('mascotBody');
+  if (!el) return;
+  var m = loadMascot();
+  var html = '<div class="mascotPrev">' + mascotSVG(118) + '<div class="note">太鼓マスコット「にゃん太」。条件をクリアすると着せ替えアイテムが増えます</div></div>';
+  MASCOT_SLOTS.forEach(function (sl) {
+    html += '<div class="mascotSlotLbl">' + sl[1] + '</div><div class="mascotChips">';
+    html += '<button type="button" class="mascotChip' + (!m.wear[sl[0]] ? ' on' : '') + '" data-slot="' + sl[0] + '" data-item="">なし</button>';
+    MASCOT_ITEMS.forEach(function (it) {
+      if (it.slot !== sl[0]) return;
+      if (m.unlocked.indexOf(it.id) >= 0) {
+        html += '<button type="button" class="mascotChip' + (m.wear[sl[0]] === it.id ? ' on' : '') + '" data-slot="' + sl[0] + '" data-item="' + it.id + '">' + it.name + '</button>';
+      } else {
+        html += '<span class="mascotChip locked">🔒 ' + it.name + '<br><span style="font-size:10px">' + it.condText + '</span></span>';
+      }
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('button.mascotChip').forEach(function (b) {
+    b.addEventListener('click', function () {
+      mascotWear(b.dataset.slot, b.dataset.item || null);
+      renderMascotModal();
+      renderSongList();
+    });
+  });
+}
+(function initDanMascot() {
+  var db = $('danBtn');
+  if (db) db.addEventListener('click', function () { renderDanModal(); $('danModal').classList.remove('hidden'); });
+  var dc = $('danClose');
+  if (dc) dc.addEventListener('click', function () { $('danModal').classList.add('hidden'); });
+  var dm = $('danModal');
+  if (dm) dm.addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+  var mc = $('mascotClose');
+  if (mc) mc.addEventListener('click', function () { $('mascotModal').classList.add('hidden'); });
+  var mm = $('mascotModal');
+  if (mm) mm.addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+  if (window.PWAccount && PWAccount.onGateChange) PWAccount.onGateChange(function () { renderPlayerLine(); });
+  renderPlayerLine();
+  renderMascotStage();
+  checkMascotUnlocks(false);
+})();
 /* ---------------- 新UIの配線と選曲プレビュー（旧 initCharaUi から移設） ---------------- */
 (function initV118Ui() {
   var pt = $('practiceTgl');
@@ -4512,7 +4985,7 @@ function renderRatingBar() {
   var rt = $('restartBtn');
   if (rt) rt.addEventListener('click', function () { restartSong(); });
   var pq = $('pauseQuitBtn');
-  if (pq) pq.addEventListener('click', function () { paused = false; $('pausePanel').classList.add('hidden'); stopSong(true); });
+  if (pq) pq.addEventListener('click', function () { openQuitConfirm(); }); /* v122: ポーズの「やめる」も確認を挟む */
   renderRatingBar();
   /* 選曲プレビュー：曲カードのタップ（既存ハンドラで selSong 更新済み）を受けて開始 */
   $('songList').addEventListener('click', function (e) {
@@ -4666,7 +5139,10 @@ window.__taiko = {
     moveNote: function (from, to) { if (!ed) return false; var i = edNoteIdxNear(from); if (i < 0) return false; edPushUndo(); ed.notes[i][0] = to; edSortNotes(); edRender(); return true; },
     save: edSave, upload: edUpload, undo: edUndo, redo: edRedo,
     testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
-    playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu }; }
+    playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu }; },
+    session: function () { return edSession ? { song: edSession.songId, diff: edSession.diff, notes: edSession.notes.length, scrollLeft: edSession.scrollLeft, dirty: edSession.dirty } : null; },
+    back: returnToEditor,
+    requestClose: requestCloseEditor
   },
   official: {
     map: function () { return officialMap; },
@@ -4676,7 +5152,15 @@ window.__taiko = {
     setSrc: function (songId, diff, src) { setChartSrc(songId, diff, src); renderSongList(); },
     srcFor: chartSrcFor,
     custom: function (songId, diff) { var e = customEntry(songId, diff); return e ? e.notes : null; }
-  }
+  },
+  /* v122: 称号（段位）／マスコット着せ替え／カスタム譜面の記録抑制（テスト用） */
+  dan: { ladder: DAN_LADDER, info: danInfo, counts: danCounts, condText: danCondText },
+  mascot: {
+    items: MASCOT_ITEMS.map(function (it) { return { slot: it.slot, id: it.id, name: it.name, condText: it.condText }; }),
+    state: loadMascot, svg: mascotSVG, check: checkMascotUnlocks, wear: mascotWear, ctx: mascotCondCtx
+  },
+  customPlay: function () { return customPlayActive; },
+  quitConfirm: { isOpen: function () { return quitConfirmOpen; }, open: openQuitConfirm, close: closeQuitConfirm }
 };
 })();
 </script>

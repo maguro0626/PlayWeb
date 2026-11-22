@@ -2046,7 +2046,7 @@
     reaction: 'はんしゃテスト', mash: 'れんだバトル', numguess: 'かずあて',
     janken: 'じゃんけんバトル', calc: 'けいさんダッシュ', memory: 'しんけいすいじゃく',
     mole: 'もぐらパニック', simon: 'いろメモリ', timing: 'タイミングストップ',
-    dice: 'ダイスレース', taiko: 'リンクドラムサーガ', snake: 'スネークアリーナ',
+    dice: 'ダイスレース', taiko: '太鼓の超人', snake: 'スネークアリーナ',
     starrhythm: 'スターリズム'
   };
   function pageTitle() {
@@ -2291,7 +2291,7 @@
         '<div class="pwa-user" style="margin:0">' + esc(me.username) + '</div>' +
         (myProfile.comment ? '<div class="pwa-prof-comment" style="margin-top:2px">' + esc(myProfile.comment) + '</div>' : '') +
         '</div></div>' +
-        (myChar ? '<div class="pwa-note">🎴 使用キャラ（リンクドラムサーガ）: <b style="color:#fde68a">' + esc(myChar) + '</b></div>' : '') +
+        (myChar ? '<div class="pwa-note">🎴 使用キャラ（太鼓の超人）: <b style="color:#fde68a">' + esc(myChar) + '</b></div>' : '') +
         '<button class="pwa-btn sub" id="pwaProfEditBtn" style="margin-top:8px">✏️ プロフィールを編集</button>' +
         '<div id="pwaProfEditor"></div>' +
         '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(myStats) +
@@ -2642,7 +2642,7 @@
       '<div class="pwa-prof-meta"><div class="pwa-user" style="margin:0">' + esc(p.name || 'プレイヤー') + '</div>' +
       '<div class="pwa-note" style="margin:2px 0 0">' + esc(relLastSeenText(p)) + (playing ? '・' + esc(GAME_TITLES[p.game]) + 'でプレイ中' : '') + '</div></div></div>' +
       (p.comment ? '<div class="pwa-prof-comment">💬 ' + esc(p.comment) + '</div>' : '') +
-      (p.mainChar ? '<div class="pwa-note">🎴 使用キャラ（リンクドラムサーガ）: <b style="color:#fde68a">' + esc(p.mainChar) + '</b></div>' : '') +
+      (p.mainChar ? '<div class="pwa-note">🎴 使用キャラ（太鼓の超人）: <b style="color:#fde68a">' + esc(p.mainChar) + '</b></div>' : '') +
       '<div class="pw-drawer-sec">🎮 ゲーム別戦績</div>' + statsHTML(p.stats);
   }
 
