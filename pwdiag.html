@@ -152,12 +152,15 @@
         var off = 0;
         var m = /#f(\d+)/.exec(location.hash || '');
         if (m) off = parseInt(m[1], 10) || 0;
-        if (off > 0) {
-          lines.push('== 一覧 ' + off + '〜' + (off + 47) + '（新しい順・タイトルのみ） ==');
-          items.slice(off, off + 48).forEach(function (x, i) {
-            lines.push((off + i) + '. [' + x.type + '][' + (x.game || '-') + '][' + (x.fromName || '-') + '] ' + x.title);
-          });
-        }
+        lines.push('== 一覧 ' + off + '〜' + (off + 47) + '（新しい順・タイトルのみ） ==');
+        items.slice(off, off + 48).forEach(function (x, i) {
+          lines.push((off + i) + '. [' + x.type + '][' + (x.game || '-') + '][' + (x.fromName || '-') + '] ' + x.title);
+        });
+        lines.push('== 本文全文 ' + off + '〜' + (off + 47) + ' ==');
+        items.slice(off, off + 48).forEach(function (x, i) {
+          lines.push('--- ' + (off + i) + '. ' + x.title + ' ---');
+          lines.push(String(x.body || ''));
+        });
         out.textContent = lines.join('\n');
       }).catch(function (err) {
         if (got) return; got = true; clearTimeout(timer);
