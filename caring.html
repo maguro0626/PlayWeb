@@ -229,6 +229,22 @@ body.online-on .foot-row{display:none}
 @media (max-width:380px){ #monster-stage{min-height:260px} .actions{gap:7px} }
 /* 短い画面ではステージの高さを抑えてスクロール量を減らす（育成画面自体はダッシュボード型のため完全には収まらない） */
 @media (max-height:740px){ #monster-stage{min-height:240px} }
+/* 広い画面（PC）ではダッシュボードを2カラムに広げ、左に部屋とお世話ボタン、
+   右にステータス・ゲージ・オンライン・ログを配置する（スマホでは従来の1カラム） */
+@media (min-width:900px){
+  main.col{max-width:1060px;display:grid;column-gap:14px;row-gap:10px;align-items:start;
+    grid-template-columns:minmax(0,1.4fr) minmax(320px,1fr);
+    grid-template-areas:"stage status" "stage gauges" "msg online" "actions online" "actions log" "howto foot"}
+  main.col>.status-strip{grid-area:status}
+  main.col>.gauges{grid-area:gauges}
+  main.col>#monster-stage{grid-area:stage;min-height:460px}
+  main.col>#msg-line{grid-area:msg}
+  main.col>.actions{grid-area:actions}
+  main.col>details.card{grid-area:howto}
+  main.col>#online-panel{grid-area:online}
+  main.col>#log-panel{grid-area:log}
+  main.col>.foot-row{grid-area:foot}
+}
 </style>
 <style>
 /* バウンス抑止（麻雀方式：画面固定） */

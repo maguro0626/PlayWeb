@@ -238,6 +238,28 @@ const KICKS = [[0,0],[-1,0],[1,0],[-2,0],[2,0],[0,-1],[-1,-1],[1,-1],[0,1]];
 const SCORE_TABLE = [0,100,300,500,800];
 const $ = id => document.getElementById(id);
 
+/* ============ 盤面のフィット（大きな画面では比例拡大） ============
+   描画はすべて論理座標（300×600）で行い、ctx の transform で拡大する。
+   入力はキーボード／ボタン操作のみで盤面座標を使わないため換算ずれは起きない。
+   モバイル（max-width:680px のレイアウト）では従来どおり等倍のまま。 */
+let boardScale = 1;
+function fitBoardScale(){
+  let k = 1;
+  if (window.innerWidth > 680){
+    const availH = window.innerHeight - 185; /* 共通ヘッダー＋自前ヘッダー＋ヘルプ＋余白 */
+    const availW = Math.min(window.innerWidth, 860) - 330; /* 両サイド＋gap＋padding */
+    k = Math.min(availH / 620, availW / 320, 1.7);
+    if (!(k > 1)) k = 1;
+  }
+  boardScale = k;
+  const w = Math.round(300 * k), h = Math.round(600 * k);
+  if (board.width !== w || board.height !== h){ board.width = w; board.height = h; }
+  /* 表示サイズはモバイル用 fitBoard() が CSS で管理する。デスクトップでは
+     属性サイズ＝表示サイズになるため、ここで style を固定する必要はない */
+}
+window.addEventListener('resize', fitBoardScale);
+fitBoardScale();
+
 /* ============ 効果音（WebAudio合成） ============ */
 let audioCtx = null, soundOn = true;
 function beep(freq, dur=0.06, type='square', vol=0.05, slide=0){
@@ -445,7 +467,9 @@ function lighten(h,amt){ const [r,g,b]=hexRgb(h); return `rgb(${Math.min(255,r+a
 function darken(h,amt){ const [r,g,b]=hexRgb(h); return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`; }
 
 function draw(){
+  bctx.setTransform(1,0,0,1,0,0);
   bctx.clearRect(0,0,board.width,board.height);
+  bctx.setTransform(boardScale,0,0,boardScale,0,0);
   bctx.save();
   if(shake>0.2){ bctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake); shake *= 0.86; } else shake = 0;
   // グリッド

@@ -767,6 +767,16 @@ function ballVsPaddle(ball){
       const nv = Math.hypot(ball.vx, Math.cos(ang) * spd);
       ball.vx = ball.vx / nv * spd;
       ball.vy = -Math.abs(Math.cos(ang) * spd) / nv * spd;
+      /* 縦ループ防止：パドルの真ん中で反射すると横速度がほぼ0になり、
+         空の列で真上・真下に跳ね続けてしまうため、横速度に最小限の
+         大きさ（速さの約8%）を持たせる。速さ自体は変えない */
+      const minVx = spd * 0.08;
+      if (Math.abs(ball.vx) < minVx){
+        const dirX = ball.vx !== 0 ? Math.sign(ball.vx)
+          : (rel !== 0 ? Math.sign(rel) : (Math.random() < 0.5 ? -1 : 1));
+        ball.vx = dirX * minVx;
+        ball.vy = -Math.sqrt(Math.max(0, spd * spd - ball.vx * ball.vx));
+      }
       ball.y = py - ball.r - 0.5;
       combo = 0; updateComboUI();
       sfx.paddle();

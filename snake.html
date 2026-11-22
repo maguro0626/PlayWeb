@@ -172,6 +172,7 @@
       <div class="statBox"><div class="v" id="ovTime">0:00</div><div class="k">生存時間</div></div>
     </div>
     <button class="bigBtn" id="retryBtn">🔄 もう一度</button>
+    <button class="bigBtn" id="rematchBtn" style="display:none">🔁 最初から再戦</button>
     <button class="subBtn" id="overTitleBtn">タイトルへ</button>
   </div>
 </div>
@@ -1047,6 +1048,13 @@ function showGameOver(s) {
   $('newBest').style.display = isNew ? 'block' : 'none';
   $('overSub').textContent = mode === 'solo' ? 'アリーナの猛者たちに敗れた…' : '対戦は続いているよ。「もう一度」ですぐ復活できる！';
   $('retryBtn').textContent = mode === 'solo' ? '🔄 もう一度' : '🔄 リスポーンする';
+  /* オンライン時は「最初から再戦」の導線も出す（ホストは即開始、ゲストは申し込み制） */
+  const rb = $('rematchBtn');
+  if (mode === 'host' || mode === 'guest') {
+    rb.style.display = 'block'; rb.disabled = false;
+    rb.textContent = mode === 'host' ? '🔁 最初から再戦' : '🔁 再戦を申し込む';
+    netHook('onOverShown');
+  } else rb.style.display = 'none';
   showScr('overScr');
   $('boostBtn').style.display = 'none';
 }
@@ -1141,6 +1149,7 @@ $('retryBtn').onclick = () => {
   else if (mode === 'host') respawnLocal();
   else if (mode === 'guest') netHook('onRespawnRequest');
 };
+$('rematchBtn').onclick = () => { sfx.click(); netHook('onRematchAction'); };
 $('overTitleBtn').onclick = () => { sfx.click(); quitToTitle(); };
 $('lobbyBack').onclick = () => { sfx.click(); netHook('onLobbyBack'); showScr('titleScr'); };
 
@@ -1167,7 +1176,8 @@ window.__snake = {
    ホストが抜けたら対戦終了。死んでもリスポーンして戦い続けられる。 */
 const NET = { role: null, peer: null, conn: null, code: null, active: false, inGame: false, guestReady: false,
               heartbeatTimer: null, connTimer: null, retryTimer: null, snapTimer: null, inputTimer: null,
-              reconnecting: false, retryCount: 0, guestName: 'ゲスト', guestSnake: null, myId: 0, hostId: 0, recorded: false };
+              reconnecting: false, retryCount: 0, guestName: 'ゲスト', guestSnake: null, myId: 0, hostId: 0, recorded: false,
+              rematchWanted: false };
 const PEER_PREFIX = 'playweb-sk-';
 const PEER_OPTS = { config: { iceServers: [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -1193,7 +1203,7 @@ function cleanupNet() {
   if (NET.conn) { try { NET.conn.close(); } catch (e) {} NET.conn = null; }
   if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
   NET.role = null; NET.active = false; NET.inGame = false; NET.guestReady = false;
-  NET.reconnecting = false; NET.guestSnake = null; NET.recorded = false;
+  NET.reconnecting = false; NET.guestSnake = null; NET.recorded = false; NET.rematchWanted = false;
   /* 終了した部屋のコードを残すと friends.js が旧コードを拾って死んだ部屋へ
      招待してしまうため、PW_ROOM_CODE と表示の両方を必ず消す */
   window.PW_ROOM_CODE = '';
@@ -1338,7 +1348,7 @@ function enterMatchUI() {
   $('hud').style.display = 'block'; $('boostBtn').style.display = 'flex'; $('pauseBtn').style.display = 'block';
   $('pauseBtn').textContent = '⏸';
 }
-function startMatch() {
+function startMatch(fresh) {
   initAudio(); sfx.spawn();
   S = newWorld((Math.random() * 1e9) | 0);
   populateNPCs(S);
@@ -1350,13 +1360,20 @@ function startMatch() {
   S.snakes.push(gs);
   NET.guestSnake = gs;
   mode = 'host'; paused = false;
-  NET.inGame = true; NET.recorded = false;
-  sendNet({ t: 'start', seed: S.seed, yourId: gs.id, hostId: playerSnake.id });
+  NET.inGame = true; NET.recorded = false; NET.rematchWanted = false;
+  sendNet({ t: 'start', seed: S.seed, yourId: gs.id, hostId: playerSnake.id, fresh: fresh ? 1 : 0 });
   sendNet(buildSnapshot());
   if (NET.snapTimer) clearInterval(NET.snapTimer);
   NET.snapTimer = setInterval(() => { if (NET.inGame && S) sendNet(buildSnapshot()); }, 110);
   enterMatchUI();
   showFeed('🐍 対戦スタート！');
+}
+/* 再戦：今の対戦を記録して、新しいワールドで最初から対戦し直す（ホスト権威のまま） */
+function startRematch() {
+  if (NET.role !== 'host' || !NET.inGame) return;
+  recordMyMatch();
+  startMatch(true);
+  showFeed('🔁 再戦スタート！');
 }
 function buildSnapshot() {
   const g = NET.guestSnake;
@@ -1414,6 +1431,14 @@ function hostOnData(msg) {
   } else if (msg.t === 'input') {
     const gs = NET.guestSnake;
     if (gs && gs.alive && !gs.ai) { gs.targetAng = +msg.ang || 0; gs.boostHeld = !!msg.boost; }
+  } else if (msg.t === 'rematchReq') {
+    /* ゲストからの再戦の申し込み。ホストがゲームオーバー画面のボタンで受ける */
+    if (!NET.inGame) return;
+    NET.rematchWanted = true;
+    showFeed('🔁 相手が再戦を希望しています');
+    $('netStatus').textContent = '🔁 相手が再戦を希望しています。ゲームオーバー画面の「再戦を受ける！」で開始できます';
+    const rb = $('rematchBtn');
+    if (rb) { rb.style.display = 'block'; rb.disabled = false; rb.textContent = '🔁 再戦を受ける！'; }
   } else if (msg.t === 'respawn') {
     if (!NET.inGame || !S) return;
     const old = NET.guestSnake;
@@ -1429,15 +1454,17 @@ function hostOnData(msg) {
 function guestOnData(msg) {
   if (msg.t === 'start') {
     NET.myId = msg.yourId; NET.hostId = msg.hostId;
-    if (!NET.inGame) {
-      NET.inGame = true; NET.recorded = false;
+    if (!NET.inGame || msg.fresh) {
+      /* fresh=再戦：前の対戦を記録してから表示状態をまっさらにして入り直す */
+      if (NET.inGame) recordMyMatch();
+      NET.inGame = true; NET.recorded = false; NET.rematchWanted = false;
       guestView = { snakes: [], orbs: [], topList: [], myRank: '-', myId: NET.myId, time: 0 };
       playerSnake = null;
       mode = 'guest'; paused = false;
       if (NET.inputTimer) clearInterval(NET.inputTimer);
       NET.inputTimer = setInterval(() => { if (NET.inGame) sendNet(buildInputMsg()); }, 90);
       enterMatchUI();
-      showFeed('🐍 対戦スタート！');
+      showFeed(msg.fresh ? '🔁 再戦スタート！' : '🐍 対戦スタート！');
     } else {
       guestView = guestView || { snakes: [], orbs: [], topList: [], myRank: '-', myId: NET.myId, time: 0 };
       guestView.myId = NET.myId;
@@ -1531,13 +1558,34 @@ window.PW_SNAKE_NET = {
     setLobbyStatus('');
   },
   onRespawnRequest() { if (NET.role === 'guest' && NET.inGame) sendNet({ t: 'respawn' }); },
+  onRematchAction() {
+    if (!NET.inGame) return;
+    if (NET.role === 'host') startRematch();
+    else if (NET.role === 'guest') {
+      /* ゲストはホスト権威なので申し込みだけ送り、ホストの開始を待つ */
+      sendNet({ t: 'rematchReq' });
+      const rb = $('rematchBtn');
+      if (rb) { rb.disabled = true; rb.textContent = '⏳ 再戦を申し込み中…'; }
+      setTimeout(() => {
+        const b = $('rematchBtn');
+        if (b && NET.role === 'guest' && NET.inGame && b.disabled) { b.disabled = false; b.textContent = '🔁 再戦を申し込む'; }
+      }, 20000);
+    }
+  },
+  onOverShown() {
+    /* ゲストから再戦の申し込みが来ていたら、ホストのボタンを「受ける」表示にする */
+    if (NET.role === 'host' && NET.rematchWanted) {
+      const rb = $('rematchBtn');
+      if (rb) rb.textContent = '🔁 再戦を受ける！';
+    }
+  },
   guestFrame(dt) { guestSmooth(dt); },
 };
 $('hostBtn').onclick = () => { initAudio(); hostCreateRoom(); };
 $('joinBtn').onclick = () => { initAudio(); guestJoin($('joinCode').value); };
 $('startBtn').onclick = () => { initAudio(); if (NET.role === 'host' && NET.guestReady) startMatch(); };
 /* テスト用フック */
-window.__snakeNet = { NET, hostCreateRoom, guestJoin, startMatch, buildSnapshot, applySnapshot, cleanupNet };
+window.__snakeNet = { NET, hostCreateRoom, guestJoin, startMatch, startRematch, buildSnapshot, applySnapshot, cleanupNet, handleNetData };
 </script>
 <script>window.PW_GAME='snake';window.PW_JOIN_CFG={openers:[{click:'#mpBtn'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
 <script src="friends.js"></script>
