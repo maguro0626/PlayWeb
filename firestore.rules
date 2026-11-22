@@ -19,12 +19,14 @@ rules_version = '2';
 //                   createdAt, status }          送信は誰でも可、
 //                   読み取り・既読化は管理者（下記 adminUids）のみ
 // - chart_submissions/{id} { songId, diff, songTitle, notes, fromUid,
-//                   fromName, status, createdAt } 太鼓の譜面エディタからの
+//                   fromName, status, createdAt, game? } 譜面エディタからの
 //                   承認依頼。作成はログイン済み本人のみ、読み・状態更新は
-//                   管理者のみ
+//                   管理者のみ。game は任意（'starrhythm' の時だけ付き、
+//                   無い場合は太鼓の投稿として扱う）
 // - official_charts/{songId__diff} { notes, fromName, approvedAt }
 //                   管理者が承認した公式譜面の置き換え。読みは全員
-//                   （ゲスト含む）、書きは管理者のみ
+//                   （ゲスト含む）、書きは管理者のみ。スターリズム分は
+//                   docId を "sr__{songId}__{diff}" とし、太鼓と名前空間を分ける
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -142,17 +144,21 @@ service cloud.firestore {
     // 譜面エディタ（太鼓・v120〜）:
     //   chart_submissions: 編集した譜面の承認依頼。作成はログイン済みで
     //     自分の uid を名乗り、status='pending' のものだけ。フィールド構成と
-    //     型だけ軽く検証する（notes は [step, type] ペアの配列）。
+    //     型だけ軽く検証する（notes は譜面ノーツの配列。太鼓は
+    //     [step, type] ペア、スターリズムは [step, lane, type, len?]）。
+    //     game フィールドは任意（スターリズムの投稿だけ 'starrhythm' を付ける）。
     //     読み取りと状態更新（承認/却下）は管理者のみ。削除は不可。
-    //   official_charts: 承認済みの公式譜面置き換え（docId は
-    //     "{songId}__{diff}"）。読み取りは全員（ゲストの演奏開始時にも
-    //     必要なため認証なしでも可）。作成・更新・削除（公式に戻す）は
-    //     管理者のみ。
+    //   official_charts: 承認済みの公式譜面置き換え（docId は太鼓が
+    //     "{songId}__{diff}"、スターリズムが "sr__{songId}__{diff}"）。
+    //     読み取りは全員（ゲストの演奏開始時にも必要なため認証なしでも可）。
+    //     作成・更新・削除（公式に戻す）は管理者のみ。
     // ================================================================
     match /chart_submissions/{docId} {
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(
-            ['songId', 'diff', 'songTitle', 'notes', 'fromUid', 'fromName', 'status', 'createdAt'])
+            ['songId', 'diff', 'songTitle', 'notes', 'fromUid', 'fromName', 'status', 'createdAt', 'game'])
+        && (!('game' in request.resource.data)
+            || (request.resource.data.game is string && request.resource.data.game.size() <= 16))
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.songId is string

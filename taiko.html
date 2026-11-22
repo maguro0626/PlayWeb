@@ -113,7 +113,10 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #editorPanel .edPickRow{display:flex;gap:8px;flex:none}
 #editorPanel .edPickRow select{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1.5px solid var(--line);border-radius:11px;color:var(--txt);padding:9px 8px;font-size:14px;font-weight:800;font-family:inherit;min-height:42px}
 #editorPanel .edInfo{flex:none;font-size:12px;color:var(--sub);font-weight:800;min-height:16px}
-#edStageWrap{flex:1 1 auto;min-height:90px;overflow-x:auto;overflow-y:hidden;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
+#edStageOuter{flex:1 1 auto;min-height:90px;position:relative;display:flex}
+#edStageWrap{flex:1 1 auto;min-width:0;min-height:0;overflow-x:auto;overflow-y:hidden;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
+#edFollowBtn{position:absolute;top:6px;right:6px;z-index:6;border:1.5px solid var(--line);background:rgba(20,10,16,.88);color:var(--txt);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:32px}
+#edFollowBtn.on{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 10px rgba(255,201,60,.35)}
 /* キャンバスは表示幅だけを描き、スクロール量ぶんずらして描画する（長曲×ズーム大でも
    キャンバス幅の上限に当たらないようにするため、内側スペーサでスクロール幅を作る） */
 #edStageInner{position:relative;height:100%}
@@ -124,6 +127,8 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #editorPanel .edPal{flex:1;border:2.5px solid var(--line);background:rgba(255,255,255,.06);color:var(--txt);padding:10px 4px;border-radius:14px;font-size:16.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:54px}
 #editorPanel .edPal:active{transform:scale(.96)}
 #editorPanel .edPal.on{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,201,60,.25),rgba(255,201,60,.08));box-shadow:0 0 12px rgba(255,201,60,.35)}
+#editorPanel .edPalSub{display:block;font-size:10.5px;font-weight:800;color:var(--sub);margin-top:1px}
+#editorPanel .edPal.on .edPalSub{color:#ffe9a8}
 #editorPanel .edCtlRow{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
 #editorPanel .edCtlLbl{font-size:11.5px;color:var(--sub);font-weight:800}
 #editorPanel .edSnap,#editorPanel #edZoomOut,#editorPanel #edZoomIn{border:1.5px solid var(--line);background:rgba(255,255,255,.07);color:var(--txt);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:34px;min-width:40px}
@@ -475,9 +480,9 @@ html,body{overscroll-behavior:none;}
 <div class="edHead"><span class="edTtl">🛠 譜面エディタ</span><button id="edClose" class="xBtn" type="button" aria-label="エディタを閉じる">✕</button></div>
 <div class="edPickRow"><select id="edSongSel" aria-label="曲を選ぶ"></select><select id="edDiffSel" aria-label="難易度を選ぶ"></select></div>
 <div class="edInfo" id="edInfo"></div>
-<div id="edStageWrap"><div id="edStageInner"><canvas id="edCanvas"></canvas></div></div>
+<div id="edStageOuter"><div id="edStageWrap"><div id="edStageInner"><canvas id="edCanvas"></canvas></div></div><button id="edFollowBtn" class="hidden on" type="button">🎯 追従中</button></div>
 <div class="edPlayRow"><button id="edPlayBtn" class="btn blue">▶ ここから再生</button><button id="edTestBtn" class="btn">🎮 テストプレイ</button><button id="edUndoBtn" class="btn sub">↩️ もどる</button><button id="edRedoBtn" class="btn sub">↪️ すすむ</button></div>
-<div class="edPalette"><button class="edPal on" data-tool="don" type="button">🔴 ドン</button><button class="edPal" data-tool="katsu" type="button">🔵 カツ</button><button class="edPal" data-tool="erase" type="button">🧽 消しゴム</button></div>
+<div class="edPalette"><button class="edPal on" data-tool="don" type="button">🔴 ドン<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="katsu" type="button">🔵 カツ<span class="edPalSub">＋ 追加</span></button><button class="edPal" data-tool="select" type="button">👆 えらぶ<span class="edPalSub">選択・移動</span></button><button class="edPal" data-tool="erase" type="button">🧽 消しゴム<span class="edPalSub">消す</span></button></div>
 <div class="edCtlRow"><span class="edCtlLbl">マスの細かさ</span><button class="edSnap on" data-snap="1" type="button">16分</button><button class="edSnap" data-snap="0.5" type="button">32分</button><span class="edCtlLbl">ズーム</span><button id="edZoomOut" type="button">－</button><span id="edZoomVal">16</span><button id="edZoomIn" type="button">＋</button></div>
 <div class="edSaveRow"><button id="edSaveBtn" class="btn">💾 保存する</button><button id="edUploadBtn" class="btn blue">📤 アップロード（承認を頼む）</button></div>
 <div class="edSubRow"><button id="edRevertBtn" class="miniBtn2" type="button">公式に戻す（カスタムを消す）</button><button id="edExportBtn" class="miniBtn2" type="button">📋 書き出し</button><button id="edImportBtn" class="miniBtn2" type="button">📥 読み込み</button></div>
@@ -741,6 +746,15 @@ var SONGS = [
     delta: 'iwwCwwwwwwwwwwwwwwwwwwwwwwiwhwmwwwiwiwiwhwIwwwFvkwlwkwmwmwlwlwwoGwnwnwmwmwnwnwowowpwowpwowpwpwwwpwwwrwswrwswswsrswwwtksivwtouwwwvnwwxwvwwwxwwwzwxwywxwxwxwwwywvtxwwwxwywwwwwwwywxwywwwxwwwywxwwwwwwwwwxwxwxwwwwwwwwwxwxwwwAwxwwwwwwwxwwwuwwwswwxzwwwxwwwvwAwxwwwxwwwywzwywywywzwzwywywywwwywzwzwywzwywzzywywywywywywywywwwywzwwwywwwAwzwwwywzwAwzwwwzwAwwwzwAwAwzwwwAwBwzwzwAwAwzwAwBwAwAwzwzwuzxwwwzwAwwwzwswzwywwwxwxwwwArzwtszwwyzwywwwzwzwwwzwwwywAwxwxwAwvwAwwwAwAwywBwAwwnAwwwvwAwwwwwlwwwywwwBwBwqwBwAwBDCwwwAwwwBwBwAwHwCwwwBwvwCwBwCnBwBwzwzwBwzwDFCwwwAwAwBwDwAwCwCwBwCwCwCwDwAwwpCwCwCwwwDwEwCwBwEwEwBwwwvwCwCwCwvwwwDwwwDwDwwwDwEwCwDwCwEwDwDwDwDrAwCwwwwwzwwwBwCwCwCwwwCCCwDwzwBwwwBKwwBwBwwwqwBwBwBwwwrwBwwEAwBwwwzwwwzwzwAwDpwwuwzwBwzwrwvwwwzwwwqwwwwwwwxwxwxwwwvwwwxwwwvwvwvwwwxwwwpwuwwwkwuwtwswwwuvsGwwrwrwqwqwwwmwwwwwlwpwmwnwwwmwlwwwlwmwkwlwwwjwwwhwjEwwwwwwwKwECKwLwGwJwHwwwKwGwHwwwGwFwGwwwFwEwFwFwEwEwCDDwDwEwCwCwDvwwAwwwzwBwwwywxwwwxwwwxwwwwwswtwwwtwwwswownwrwqwpwpwwwowwwiwqwnwkwlwwwmwkwkwwwjwwwwwwwwwwwwKwJwIwHwwwHwwwFwCwEwCwFwCwDwwwwwAwBwwwywwwvwwwwwuwswwwqwtwuwqwwwowrwwwnwwwmwowlwkwmwwwkwiwhwwwwwwwwLwJwwwwwwwKwwwwqwwwDwwwwwuwwxwwywwwwnwwwwwwwwwwwwwlwlwnwkwjwwwkwmwwwkwwwkwjwiwwwhwwwwwiwwwwKwJwJwJwIwwwGwFwEwwwDwDwCwCwBwBwzwAwywxxxwwwvwwwuwwwuwtwswwwrwrwpwpwowowowwwlwlwkwjwjwiwjwkwwwwwwwwwywwwwwwwwwwJwwwHwwwFvCqHwEwwwwwwwswwwwww',
     vst: '2001030001003010300100300020301030202020503002104010101100503011001030202030202140201040205060203000502050203030400030102065800060003040303050205040503030504030400060402050504050304040403060205020503030205200500070308020600080207020600060203002600070306020302040303050603030307060005050305020705340506040303060500030800250006040205050206022604000405020402040303030403040405030402040503000405000203010300040404060604030248040005050005020603020804060300080706030700360004050002020006002705070406030602060006030702040206060502050303000503040437020603050403050706220308020502050304000503040005010400080202030600050004030003050304040403050303050400020600040405040003240225063003300204030703050300050400440500050006050404080605020405052004000502060503030424370204030404050004200634000704050300032320040505052006030007030503020408300704030300050404046002050207503040703030204030300030204000202020102020103030304070420040003040003050204000508000706020500060406030606040006000602050205200503020205000620044000205030502050200070505030203000320030006000403000404020505030400040420040007020403030403050302004004302000000030000400080200040000062000500000202000207050300090007070305000604040206040302060330207020500060303020603040307030402050304000604040006030300050403030602040101010102020201110202202050007000000050001000701110100000000000000',
     steps: '0001040001030112000103000203001303020204002002204022002100503004001020202020202150102050206060004000503060203043400040202054800090004040304060306040504040705043500070405060505050406040404060005000703050306000600090408030700080008030600050334000700090306000400050403060703040408060005050306030805340707040404060500030800060006050006060307020704000506030400060403040403050405040503040504000407000405020400050505070605350038040204060006000804030704070500070605040600380007050002050007000705060406044600060007040803050006050604050405030704050637000705060504050806030509040500460505000604040405030400070303040600060004040005060405050504050404050500030700040505040004040306060004000505000603040400050500440500060006060405070605030506060004040604060605040504370305040405060004000605006004050400030440060404060005400007030504000407000705040400054060055000600060534050604040004040500030304000202030202020213040304070500070004040004060305000607000707000600060405050606040006005004060405000604030040005000505000406040703050303060605040304000005040006000404000504000506040500040500060007300440044040504040004040633000000030000300702000030030050000600000302000050050330800070070006000605500060404030704030307030500070404030703040308040403050405000704050206030300060504040704040002020220303020202020303040007000000030001000810110200000000000000'
+  },
+  {
+    id: 'obari', title: 'オバリ♡', emo: '💗', genre: 'Suno', cat: 'Suno', bpm: 169.4821, theme: 'idol',
+    real: true, suno: true, duration: 101.56, offset: 0.0457, beatsPerBar: 4, parts: 6, credit: 'Suno',
+    chorus: [[24.13,35.45],[41.12,51.03],[77.93,90.68]],
+    xon: '0000100000000000001001000000000000000000000000000000000000000000000010000000000000001001000000000000000010000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000010000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000001000000000000000000000000000000000000100000000000000000001000000000000000000000000000000000000000010000100000000000000010000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+    delta: 'wAxwswtkwwwpEwwwJAowsgyHwlywwqEsivJwnwwFtHwmzwEtFwjwlynApwtwwlzwwpFthwLwnBwDtHwwxwwwEwkvKwnwwwwFwkxLwlCwwuDwlywwqBwhvGwlwwwswKwxKwnzwwuGwizwwpzwhtIwkwKwqBwwtwwjwKwqCwguGwhzIwpBwwtwwkwGwoCwhrGwiwwwnCwwrwwkwwwpCKwuHwjyKwmAwwrCwjxGwpAwwtEwhwJwnzwwqwwitFwwyHworwwwwwkwoCnwwwwGwjvJwmAwwrDwwwIwlwMwwAwwswwiwwwozwwnFwhwIwwyKwowwwpwwjvJwwALwwBwwtGwhwJwoBwwrwwwuHwkwwwwwwwwwwiwIwlwLwqwwwswwwuHwlwKwwCwwwEwhvwwkwKwwAwwrwwhwHwwywwnwwwwwwwtwwwwLwwAoBpDwwsFwsxwwmzwwwCwwoFwkuIwwxwwkwwwwBwwrwwlxFwnzwwnwwwwDwhswwjwKwnwwwqAwwCFwiwGwjwIwlwLwnwwwwCwwuwwwwJwlxLwmwMwwywwswwjwGwwxHwmzLwrxwwrwwwwHwioHwgwHwwwwwwDwwrCwwwwwwwIwwxwwwzxwnpwwowwgsEwhtGwwuHwwxwwmwKwwALwpAwwqwwwsEwhtFwwvwwmyKwnxKwwzMwwCwwqDwwwEwwrFwgwwwhuGwiwBwwwwwwwKwwzLwozLwwxwwwCwwrDwwtEwgswwjtwwjvJwwxHwkxKwwyKwwwKwnAMwnwwwsCwwqwwwrwwgrwwhsEwwtwwkwHwwwHwkwwwwwJwmwJwpwwwnwLwpAwwqwwwwAwwrDwwwDwwswKwtEwwuwwwtFwwvwwjxHwgtwwwwDwwpwwhwGwitwwjvGwjwGwjuIwwvwwkvIwkxJwmyJwlzJwnxKwwzJwlxLwwywwmyKwnzwwnwwwoALwoAwwozwwnALwpAwwowLwwywwowwwoAwwowwwwwMwoAwwwAwwpAMwwAwwpwwwwywwowJwwwwwnwwhwxwwwxwwwywwwwwwwxwwnwJwwwIwkxHwkwIwjwHwwwwwlAIwkvIwkuwwkvwwiuGwwuwwwtFwhuFwwtFwwtFwwsEwwwDwwwDwwwDwwwDwwwwwwwwwwwAwwqwwwwww',
+    vst: '0212401405443280935147640441142354316024421422424122343213511252133241412213521162114126206252181231183162613522261328148215242232352243181213812220215113014114141141131343313635421515426127326421561182091332655221543134236524262262232251722922222635313334222100672252582514531551144222515253281242144114421741418215314253411472133521311334524232324116541271112342115131413231114101443224422442522312624114114214142141141550311501113413546302381242153351522431435216214236151242152424422422315144215342333333552412231516061426233151152541623331513127236114132234144342532621412155215232242132144421111111115211152352161132613351156116225241123364225113431623114112261237214711511525413392147121345281301721214413415233253222142322521352125225322142122521221124125404133123252124122511343114111161122152211621215121114121231222552412434316123244241151253522211112225110062152271515721427034517342261154714421635247415241155272632621546135216132442153215622625224112182152161526522627112435433161144522611402216214221111171462611131113111111131032711131645171504162060072215941361146117431151115914361148115215261113111411141115000101000000000000000',
+    steps: '0111002404033600820030540341041044305040420525022020342020600262034502502230720070030030305060080332073602503530260326047305240230340343073303820330206025004005040242043044504660500504039307306420560070090404750440645044307506350363033063600830300734005404330000662300800604530560054030605060080350504005500640609005305060600663034600400440535033045070650370000400005040504032005000450324003400503400604004004005050050040400200400003003433300380340054400503440444007004030040040043405400600305054005350404033063403240506060507040050050500504340504006036004040045035403404605003054405040044504404500000001004000250343070033604360066006305050034075035040440733004003260347004700600536003093308000355070400700005004404340353003503303530352025030330053030400330025005403004224052035203500343004000050033052002630305020004030242030500400433005004040340040053502300333025000050040080506700537034607350060055704530735066505050045083600700555035006030443053205600636026003070050070406500708003505540060046500700503007005030000070050700050005200220030030700030645070505060060090205940380048007530070005903380049006506370004000500050006000001000000000000000'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
@@ -1373,7 +1387,7 @@ function buildRealEl(song, r, b64) {
    先読みして Service Worker のランタイムキャッシュに載せ、完了したらそのまま遊べる。
    「やめる」でポータルへ戻る。更新が不要な場合は何も出さない。
    ★ 新しい曲（実音源）を追加したら AUDIO_REV を必ず上げること。 */
-var AUDIO_REV = 2;
+var AUDIO_REV = 3;
 var AUDIO_DL_KEY = 'taiko_audio_dl_rev';
 function audioDlSongs() { return SONGS.filter(function (s) { return s.real && s.parts; }); }
 function audioDlTotalParts() { return audioDlSongs().reduce(function (a, s) { return a + (s.parts | 0); }, 0); }
@@ -1518,7 +1532,7 @@ function fitCanvas() {
 window.addEventListener('resize', fitCanvas);
 
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
-var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'], lovezaru: ['#ff5d8f', '#6d1030'] };
+var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'], lovezaru: ['#ff5d8f', '#6d1030'], obari: ['#ff7ab8', '#7a1040'] };
 /* ジャケットアート：曲ごとのモチーフを Canvas で手続き生成する（dataURL化して使い回す。
    生成できない環境では null を返し、CSSグラデーションの従来表示にフォールバックする） */
 var jacketCache = {};
@@ -1808,7 +1822,10 @@ function renderDiffSeg() {
 
 /* ---------------- 譜面エディタ本体（マリオメーカー式） ---------------- */
 var ed = null; /* {songId, diff, notes:[[step,type]], tool, snap, cellW, undo:[], redo:[], sel:{step}|null, dirty} */
-var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0 };
+var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, followSL: 0, seNotes: null, seIdx: 0 };
+var edPlayPan = null; /* 再生中のキャンバスドラッグ（パン）候補 {x, sl, moved} */
+var edSeCount = { don: 0, katsu: 0 }; /* エディタのプレビュー/テストプレイで鳴らした打撃SE数（検証用） */
+var testSePtr = 0; /* テストプレイ中のSE発音ポインタ（chart の添字） */
 var ED_ZOOMS = [10, 16, 24, 36];
 function edSong() { return songById(ed.songId); }
 function edData() { return buildSongData(edSong()); }
@@ -1914,6 +1931,12 @@ function edRender() {
   $('edUndoBtn').disabled = !ed.undo.length;
   $('edRedoBtn').disabled = !ed.redo.length;
   $('edPlayBtn').textContent = edPlay.playing ? '⏸ とめる' : '▶ ここから再生';
+  var fb = $('edFollowBtn');
+  if (fb) {
+    fb.classList.toggle('hidden', !edPlay.playing);
+    fb.classList.toggle('on', !!edPlay.follow);
+    fb.textContent = edPlay.follow ? '🎯 追従中' : '🎯 追従する';
+  }
 }
 function edPushUndo() {
   ed.undo.push(JSON.stringify(ed.notes));
@@ -1964,9 +1987,15 @@ function edCanvasDown(e) {
   var wr = wrap0.getBoundingClientRect();
   if (e.clientY - wr.top < 24) { /* 小節番号の帯をつかんで左右へ移動 */
     edScrollDrag = { x: e.clientX, sl: wrap0.scrollLeft };
+    if (edPlay.playing) edPlay.follow = false; /* 再生中でもユーザー操作を優先する */
     return;
   }
-  edStopPlayback();
+  if (edPlay.playing) {
+    /* 改善3: 再生中はキャンバスのドラッグで譜面をパンできる（自動追従は切る）。
+       動かさず離したタップは従来どおり再生停止として扱う */
+    edPlayPan = { x: e.clientX, sl: wrap0.scrollLeft, moved: false };
+    return;
+  }
   var raw = edPointerStep(e);
   var idx = edNoteIdxNear(raw);
   if (ed.tool === 'erase') {
@@ -1974,24 +2003,40 @@ function edCanvasDown(e) {
     if (idx >= 0) { edPushUndo(); edDrag = { undoPushed: true }; ed.notes.splice(idx, 1); ed.sel = null; edRender(); }
     return;
   }
-  if (idx >= 0) {
-    ed.sel = { step: ed.notes[idx][0] };
-    edDrag = { idx: idx, origStep: ed.notes[idx][0], moved: false, undoPushed: false };
+  if (ed.tool === 'select') {
+    /* 改善2: 選択モードはノーツの選択と移動だけ。空きマスでは何も置かない */
+    if (idx >= 0) {
+      ed.sel = { step: ed.notes[idx][0] };
+      edDrag = { idx: idx, origStep: ed.notes[idx][0], moved: false, undoPushed: false };
+    } else {
+      ed.sel = null;
+    }
     edRender();
     return;
   }
+  /* 改善2: 追加モード（ドン/カツ）は空きマスにだけ置く。
+     既存ノーツをタップしても選択・移動はしない */
+  if (idx >= 0) return;
   var step = edSnapStep(raw);
-  edPushUndo();
-  ed.notes.push([step, ed.tool]);
-  edSortNotes();
-  ed.sel = { step: step };
-  edDrag = { idx: edNoteIdxNear(step), origStep: step, moved: false, undoPushed: true };
+  edDrag = { paint: true, type: ed.tool, lastStep: step, undoPushed: false };
+  if (!ed.notes.some(function (n) { return Math.abs(n[0] - step) < 1e-9; })) {
+    edPushUndo();
+    edDrag.undoPushed = true;
+    ed.notes.push([step, ed.tool]);
+    edSortNotes();
+  }
   edRender();
 }
 function edCanvasMove(e) {
   if (!ed) return;
   if (edScrollDrag) {
     $('edStageWrap').scrollLeft = edScrollDrag.sl - (e.clientX - edScrollDrag.x);
+    return;
+  }
+  if (edPlayPan) {
+    var pdx = e.clientX - edPlayPan.x;
+    if (Math.abs(pdx) > 6) { edPlayPan.moved = true; edPlay.follow = false; }
+    if (edPlayPan.moved) $('edStageWrap').scrollLeft = edPlayPan.sl - pdx;
     return;
   }
   var raw = edPointerStep(e);
@@ -2005,6 +2050,30 @@ function edCanvasMove(e) {
     return;
   }
   if (!edDrag) return;
+  if (edDrag.paint) {
+    /* 改善2: 追加モードのドラッグ＝なぞったマスへ連続配置（1ストローク=1アンドゥ）。
+       既存ノーツのあるマスは上書きしない */
+    var pstep = edSnapStep(raw);
+    if (pstep !== edDrag.lastStep) {
+      var dir = pstep > edDrag.lastStep ? 1 : -1;
+      var cur = edDrag.lastStep;
+      var guard = 0;
+      while (cur !== pstep && guard < 96) {
+        cur = Math.round((cur + dir * ed.snap) * 2) / 2;
+        guard++;
+        var cs = cur;
+        if (!ed.notes.some(function (n) { return Math.abs(n[0] - cs) < 1e-9; })) {
+          if (!edDrag.undoPushed) { edPushUndo(); edDrag.undoPushed = true; }
+          ed.notes.push([cs, edDrag.type]);
+        }
+        if ((dir > 0 && cur >= pstep) || (dir < 0 && cur <= pstep)) break;
+      }
+      edDrag.lastStep = pstep;
+      edSortNotes();
+      edRender();
+    }
+    return;
+  }
   var step = edSnapStep(raw);
   if (step !== edDrag.origStep) {
     if (!edDrag.undoPushed) { edPushUndo(); edDrag.undoPushed = true; }
@@ -2024,6 +2093,11 @@ function edCanvasMove(e) {
   }
 }
 function edCanvasUp() {
+  if (edPlayPan) {
+    var panMoved = edPlayPan.moved;
+    edPlayPan = null;
+    if (!panMoved) edStopPlayback(); /* 再生中のタップ（動かさず離す）は従来どおり停止 */
+  }
   edDrag = null;
   edErasing = false;
   edScrollDrag = null;
@@ -2036,6 +2110,16 @@ function edPlayStart() {
   var wrap = $('edStageWrap');
   var startStep = Math.max(0, Math.floor(wrap.scrollLeft / ed.cellW));
   edPlay.fromStep = startStep;
+  /* 改善1: プレビューでもノーツが判定位置に来たら打撃SEを鳴らす。
+     時刻換算は演奏用ノーツ生成（notesFromSteps）と同一経路を通す */
+  edSeCount = { don: 0, katsu: 0 };
+  edPlay.follow = true;
+  edPlay.followSL = wrap.scrollLeft;
+  var startTime = song.real ? (song.offset + startStep * d.stepDur) : (startStep * d.stepDur);
+  edPlay.seNotes = notesFromSteps(song, ed.notes).map(function (n) { return { t: n.t, type: n.type }; });
+  edPlay.seIdx = 0;
+  while (edPlay.seIdx < edPlay.seNotes.length && edPlay.seNotes[edPlay.seIdx].t < startTime - 0.05) edPlay.seIdx++;
+  edPlay.time = startTime;
   if (song.real) {
     ensureRealAudio(song);
     var begin = function () {
@@ -2091,13 +2175,28 @@ function edPlayTick() {
   } else {
     edPlay.time = edPlay.fromStep * d.stepDur + Math.max(0, AC.currentTime - edPlay.t0);
   }
+  /* 改善1: 判定位置を通過したノーツの打撃SE（通常演奏と同じセット・音量経路） */
+  if (edPlay.seNotes) {
+    while (edPlay.seIdx < edPlay.seNotes.length && edPlay.seNotes[edPlay.seIdx].t <= edPlay.time) {
+      var sn = edPlay.seNotes[edPlay.seIdx++];
+      playHit(sn.type);
+      edSeCount[sn.type]++;
+    }
+  }
   edRender();
-  var wrap = $('edStageWrap');
-  var px = ((edPlay.time - (song.real ? song.offset : 0)) / d.stepDur) * ed.cellW;
-  if (px < wrap.scrollLeft || px > wrap.scrollLeft + wrap.clientWidth - 60) wrap.scrollLeft = Math.max(0, px - 40);
+  /* 改善3: 自動追従は follow の時だけ。ユーザーがスクロールしたら勝手に戻さない */
+  if (edPlay.follow) {
+    var wrap = $('edStageWrap');
+    var px = ((edPlay.time - (song.real ? song.offset : 0)) / d.stepDur) * ed.cellW;
+    if (px < wrap.scrollLeft || px > wrap.scrollLeft + wrap.clientWidth - 60) {
+      wrap.scrollLeft = Math.max(0, px - 40);
+      edPlay.followSL = wrap.scrollLeft;
+    }
+  }
   edPlay.raf = requestAnimationFrame(edPlayTick);
 }
 function edStopPlayback() {
+  edPlayPan = null;
   if (edPlay.timer) { clearInterval(edPlay.timer); edPlay.timer = null; }
   if (edPlay.raf) cancelAnimationFrame(edPlay.raf);
   if (edPlay.playing && ed) {
@@ -2240,18 +2339,22 @@ document.querySelectorAll('.edPal').forEach(function (b) {
   b.addEventListener('click', function () {
     if (!ed) return;
     var tool = b.dataset.tool;
-    /* ノーツ選択中は、ドン/カツのパレットでそのノーツの色を変える */
-    if (ed.sel && (tool === 'don' || tool === 'katsu')) {
+    /* 改善2: 追加モード（ドン/カツ）と選択モード（えらぶ）を明確に分ける。
+       選択モードでノーツ選択中にドン/カツを押した時だけ、そのノーツの色変更として扱い、
+       モードは選択のまま維持する。それ以外はモード切替 */
+    if (ed.tool === 'select' && ed.sel && (tool === 'don' || tool === 'katsu')) {
       var idx = edNoteIdxNear(ed.sel.step);
       if (idx >= 0 && ed.notes[idx][1] !== tool) {
         edPushUndo();
         ed.notes[idx][1] = tool;
         edRender();
-        return;
       }
+      return;
     }
     ed.tool = tool;
+    if (tool !== 'select') ed.sel = null;
     document.querySelectorAll('.edPal').forEach(function (y) { y.classList.toggle('on', y.dataset.tool === tool); });
+    edRender();
   });
 });
 document.querySelectorAll('.edSnap').forEach(function (b) {
@@ -2293,17 +2396,36 @@ $('edIoCopyBtn').addEventListener('click', function () {
 (function wireEditorCanvas() {
   var cv = $('edCanvas');
   cv.addEventListener('pointerdown', edCanvasDown);
-  window.addEventListener('pointermove', function (e) { if (edDrag || edErasing || edScrollDrag) edCanvasMove(e); });
+  window.addEventListener('pointermove', function (e) { if (edDrag || edErasing || edScrollDrag || edPlayPan) edCanvasMove(e); });
   window.addEventListener('pointerup', edCanvasUp);
   var wrap = $('edStageWrap');
   var rafPend = false;
   wrap.addEventListener('scroll', function () {
-    if (!ed || rafPend) return;
+    if (!ed) return;
+    /* 改善3: 再生中に、追従側が設定した位置と違うスクロールが起きたら
+       ユーザー操作とみなして自動追従を切る（スクロールバー操作などの受け皿） */
+    if (edPlay.playing && edPlay.follow && Math.abs(wrap.scrollLeft - edPlay.followSL) > 2) edPlay.follow = false;
+    if (rafPend) return;
     rafPend = true;
     requestAnimationFrame(function () { rafPend = false; edRender(); });
   });
+  wrap.addEventListener('wheel', function (e) {
+    if (!ed) return;
+    if (edPlay.playing) edPlay.follow = false;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { wrap.scrollLeft += e.deltaY; e.preventDefault(); }
+  }, { passive: false });
   window.addEventListener('resize', function () { if (ed) edRender(); });
 })();
+$('edFollowBtn').addEventListener('click', function () {
+  if (!ed || !edPlay.playing) return;
+  edPlay.follow = true;
+  var song = edSong(), d = edData();
+  var wrap = $('edStageWrap');
+  var px = ((edPlay.time - (song.real ? song.offset : 0)) / d.stepDur) * ed.cellW;
+  wrap.scrollLeft = Math.max(0, px - 40);
+  edPlay.followSL = wrap.scrollLeft;
+  edRender();
+});
 /* 選択中の曲を大きく見せるパネル（v120: スターリズムと同形式に統一）。
    難易度選択はパネル内の行ではなく、下のスライド式 #diffSeg が担う。
    パネルには選択中難易度のベスト／スタンプと、公式／カスタム切替チップを出す */
@@ -2407,6 +2529,8 @@ function startSong() {
   var et120 = editorTest;
   editorTest = null;
   testPlayActive = !!et120;
+  testSePtr = 0; /* 改善1: テストプレイのSE発音ポインタとカウンタを初期化 */
+  edSeCount = { don: 0, katsu: 0 };
   if (et120) chart = notesFromSteps(curSong, et120.notes);
   else chart = resolvePlayChart(curSong, selDiff);
   curApproach = (DIFFS[selDiff] && DIFFS[selDiff].approach) || APPROACH;
@@ -2752,6 +2876,18 @@ function applyJudge(nt, res) {
   sendProg();
 }
 
+/* 改善1: テストプレイ中は、ノーツが判定位置に来たら打撃SEを鳴らす
+   （プレイヤーが叩いて判定済みのノーツはタップ音が鳴っているので重ねない）。
+   sweepMiss より先に呼ぶことで、見逃し判定されたノーツも含めて全ノーツが対象になる */
+function testPlaySeSweep() {
+  if (!testPlayActive || !playing || paused) return;
+  while (testSePtr < chart.length) {
+    var nt = chart[testSePtr];
+    if (nt.t > songTime) break;
+    if (!nt.judged) { playHit(nt.type); edSeCount[nt.type]++; }
+    testSePtr++;
+  }
+}
 function sweepMiss() {
   if (!playing || songTime < 0) return;
   var P = DIFFS[selDiff];
@@ -2891,12 +3027,14 @@ function draw() {
     else if (realStarted && rel && rel.el) songTime = rel.el.currentTime;
     else songTime = (performance.now() - realStartPerf) / 1000;
     autoAdvance();
+    testPlaySeSweep();
     sweepMiss();
     $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
     if (songTime > curData.duration + 0.9) { finishSong(); }
   } else if (playing && AC) {
     songTime = AC.currentTime - startCtx;
     autoAdvance();
+    testPlaySeSweep();
     sweepMiss();
     $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
     if (songTime > curData.duration + 0.9) { finishSong(); }
@@ -4528,7 +4666,7 @@ window.__taiko = {
     moveNote: function (from, to) { if (!ed) return false; var i = edNoteIdxNear(from); if (i < 0) return false; edPushUndo(); ed.notes[i][0] = to; edSortNotes(); edRender(); return true; },
     save: edSave, upload: edUpload, undo: edUndo, redo: edRedo,
     testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
-    playState: function () { return { playing: edPlay.playing, time: edPlay.time }; }
+    playState: function () { return { playing: edPlay.playing, time: edPlay.time, follow: edPlay.follow, seDon: edSeCount.don, seKatsu: edSeCount.katsu }; }
   },
   official: {
     map: function () { return officialMap; },

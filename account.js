@@ -2867,14 +2867,16 @@
     };
   }
 
-  /* ---------------- 譜面の承認（管理者用・太鼓 v120〜） ----------------
+  /* ---------------- 譜面の承認（管理者用・太鼓 v120〜／スターリズム v121〜） ----------------
      chart_submissions（承認依頼）を購読して一覧表示し、承認で
-     official_charts/{songId__diff} へ譜面を公開、却下で status を
-     'rejected' にする。置き換え中の公式譜面は「公式に戻す」で
-     ドキュメントごと削除でき、ゲーム側は自動生成譜面に戻る。
-     ゲーム側（taiko.html）は PWAccount.fetchOfficialCharts() で
-     置き換え譜面を取得し、PWAccount.submitChartSubmission() で
-     承認依頼を送る。 */
+     official_charts へ譜面を公開、却下で status を 'rejected' にする。
+     置き換え中の公式譜面は「公式に戻す」でドキュメントごと削除でき、
+     ゲーム側は自動生成譜面に戻る。
+     ドキュメントIDはゲームで名前空間を分ける：太鼓は {songId}__{diff}、
+     スターリズム（submission.game === 'starrhythm'）は sr__{songId}__{diff}。
+     ゲーム側（taiko.html / starrhythm.html）は PWAccount.fetchOfficialCharts()
+     で置き換え譜面を取得し、PWAccount.submitChartSubmission() で
+     承認依頼を送る（スターリズムは game:'starrhythm' を付けて送る）。 */
   var CHART_DIFF_LABELS = { easy: 'かんたん', normal: 'ふつう', hard: 'むずかしい', oni: 'おに', ura: 'うら' };
   var chartSubItems = [];
   var chartOfficialItems = [];
@@ -2903,6 +2905,8 @@
         status: 'pending',
         createdAt: nowMs()
       };
+      /* スターリズムの投稿だけ game を付ける（太鼓は付けない＝従来どおり） */
+      if (data.game) payload.game = String(data.game).slice(0, 16);
       return fb.db.collection('chart_submissions').add(payload)
         .then(function () { return { ok: true }; })
         .catch(function (e) { return { ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') }; });
@@ -2995,7 +2999,7 @@
           '<button class="pwa-btn sub" data-chart-reject="' + esc(x._id) + '">却下</button></div>'
         : '';
       return '<div class="pw-fb-item">' +
-        '<span class="pw-fb-badge type">🎵 譜面</span>' + chartStatusBadge(x) +
+        '<span class="pw-fb-badge type">' + (x.game === 'starrhythm' ? '✦ スターリズム譜面' : '🎵 太鼓譜面') + '</span>' + chartStatusBadge(x) +
         '<span class="t">' + esc(x.songTitle || x.songId || '（曲名なし）') + '（' + esc(CHART_DIFF_LABELS[x.diff] || x.diff || '') + '）・ ' + n + '音</span>' +
         '<div class="m">' + esc(x.fromName || '名無し') + ' ・ ' + esc(fmtDateTime(x.createdAt)) + '</div>' + btns + '</div>';
     }).join('');
@@ -3015,8 +3019,11 @@
     }
     box.innerHTML = chartOfficialItems.map(function (x) {
       var n = Array.isArray(x.notes) ? x.notes.length : 0;
+      var isSr = String(x._id).indexOf('sr__') === 0;
       var parts = String(x._id).split('__');
-      var lbl = (parts[0] || x._id) + '（' + (CHART_DIFF_LABELS[parts[1]] || parts[1] || '') + '）';
+      var songPart = isSr ? parts[1] : parts[0];
+      var diffPart = isSr ? parts[2] : parts[1];
+      var lbl = (isSr ? '✦ スターリズム：' : '🥁 太鼓：') + (songPart || x._id) + '（' + (CHART_DIFF_LABELS[diffPart] || diffPart || '') + '）';
       return '<div class="pw-fb-item">' +
         '<span class="pw-fb-badge type">✏️ 承認譜面</span>' +
         '<span class="t">' + esc(lbl) + ' ・ ' + n + '音</span>' +
@@ -3032,7 +3039,10 @@
     var item = null;
     chartSubItems.forEach(function (x) { if (x._id === id) item = x; });
     if (!item) return Promise.resolve(false);
-    var key = String(item.songId || '') + '__' + String(item.diff || '');
+    /* スターリズム分は sr__ 名前空間、太鼓分は従来のキー */
+    var key = item.game === 'starrhythm'
+      ? 'sr__' + String(item.songId || '') + '__' + String(item.diff || '')
+      : String(item.songId || '') + '__' + String(item.diff || '');
     var doc = { notes: Array.isArray(item.notes) ? item.notes : [], fromName: item.fromName || '', approvedAt: nowMs() };
     return fb.db.doc('official_charts/' + key).set(doc).then(function () {
       return fb.db.doc('chart_submissions/' + id).set({ status: 'approved' }, { merge: true });
@@ -3180,7 +3190,7 @@
     isAdmin: isAdmin,
     openFeedback: openFeedback,
     submitFeedback: submitFeedback,
-    /* v120〜 太鼓の譜面エディタ: 承認依頼の送信と公式譜面置き換えの取得 */
+    /* v120〜 譜面エディタ（太鼓／スターリズム共用）: 承認依頼の送信と公式譜面置き換えの取得 */
     submitChartSubmission: submitChartSubmission,
     fetchOfficialCharts: fetchOfficialCharts,
     /* テスト用フック */
