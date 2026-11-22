@@ -12,7 +12,7 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030f 100%);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh;-webkit-user-select:none;user-select:none}
 input,textarea{-webkit-user-select:text;user-select:text}
-.wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;height:calc(100dvh - 46px);overflow:hidden}
+.wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;height:calc(100dvh - 46px);overflow:hidden;position:relative}
 .ttl{font-size:25px;font-weight:900;text-align:center;letter-spacing:.06em;background:linear-gradient(92deg,#ffd94d 0%,#ff5d8f 38%,#7c5cff 72%,#3fd6ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 10px rgba(255,93,143,.45))}
 .ttl small{display:block;font-size:10.5px;letter-spacing:.34em;-webkit-text-fill-color:var(--sub);font-weight:800;margin-top:1px}
 #modeSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
@@ -89,7 +89,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #songDetail .bst .rk.fc{background:rgba(74,222,128,.14);border-color:rgba(74,222,128,.6);color:#4ade80}
 #songDetail .bst .rk.ap{background:rgba(255,93,143,.18);border-color:rgba(255,255,255,.7);color:#fff}
 #songDetail .bst .none{font-size:11px;color:var(--sub)}
-.songGrid{display:flex;gap:7px;margin-top:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab}
+.songGrid{display:flex;flex-wrap:wrap;align-content:flex-start;gap:7px;margin-top:5px;overflow-y:auto;overflow-x:hidden;padding:2px 1px;scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab;flex:1 1 0;min-height:92px}
 .songGrid:active{cursor:grabbing}
 .songGrid::-webkit-scrollbar{display:none}
 .songTile{flex:0 0 74px;min-width:0;background:rgba(255,255,255,.05);border:2px solid var(--line);border-radius:13px;padding:5px 4px 6px;color:var(--txt);cursor:pointer;font-family:inherit;transition:border-color .15s, box-shadow .15s}
@@ -197,7 +197,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #songDetail .dCredit{display:none} /* 短い画面ではクレジット行を畳む（≤600px での既存仕様を ≤740px に拡張。設定行追加分の縦をここで吸収） */
   .songGrid{margin-top:5px}
   .songTile{padding:4px 3px 5px}
-  .songTile .jacket{height:30px;font-size:18px}
   #diffSeg{margin-top:5px}
   #diffSeg button{min-height:30px;padding:5px 4px}
   #speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{margin-top:1px;padding:1px}
@@ -207,10 +206,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #speedSeg button,#seSeg button,#sizeSeg button,#offsetSeg button{min-height:24px;padding:3px 2px}
   #musicVolSeg input[type=range],#seVolSeg input[type=range]{height:24px}
   #offsetVal{padding:3px 0}
-  /* 設定行が増えた分（音量スライダー2本）を、短い画面では一覧と詳細側で吸収して
-     スタートボタンを画面内に収める（一覧はスクロールできるので高さを譲る） */
-  .songGrid{max-height:106px}
-  .songTile .jacket{height:24px;font-size:15px}
+  /* v119: 一覧は折り返しグリッド＋縦スクロールになったため、横帯時代の
+     高さキャップとジャケット縮小は廃止（一覧が flex で縮むので吸収は不要） */
   #diffSeg button{min-height:24px;padding:3px 4px}
   #songDetail .jacketBig{width:38px;height:38px;font-size:19px}
 }
@@ -223,7 +220,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #songDetail .jacketBig{width:30px;height:30px;font-size:16px}
   #diffSeg button{min-height:24px;padding:2px 4px;font-size:13px}
   #modeSeg button{min-height:26px;padding:3px 6px}
-  .songTile .jacket{height:18px;font-size:12px}
   #speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{padding:0 1px}
   #songDetail .dCredit{display:none}
   #soloPane .help{display:none}
@@ -250,9 +246,25 @@ input,textarea{-webkit-user-select:text;user-select:text}
   .wrap{max-width:680px}
 }
 /* ---- v118 新要素（レーティング/デイリー/絞り込み/お気に入り/トグル/モーダル/ポーズ） ---- */
-#ratingInfo{font-size:12px;font-weight:800;color:var(--sub);text-align:center;margin-top:5px}
-#ratingInfo b{color:var(--gold);font-size:14px}
-#dailyBanner{margin-top:5px;width:100%;background:linear-gradient(92deg,rgba(255,201,60,.22),rgba(255,93,143,.18));border:1px solid rgba(255,201,60,.55);color:var(--txt);border-radius:12px;padding:7px 10px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;min-height:32px}
+#ratingInfo{font-size:11.5px;font-weight:800;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+#ratingInfo b{color:var(--gold);font-size:13px}
+#dailyBanner{margin-top:0;flex:1 1 auto;min-width:0;background:linear-gradient(92deg,rgba(255,201,60,.22),rgba(255,93,143,.18));border:1px solid rgba(255,201,60,.55);color:var(--txt);border-radius:12px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;min-height:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 選曲画面の優先順位（v119）：一覧＞選択中＞難易度。レーティング/デイリーは
+   小さくヘッダー寄りの1行に、設定類はオプションシート（絶対配置の被せ）へ */
+#songArea{flex:1;min-height:0;display:flex;flex-direction:column}
+#songArea>*{flex:none}
+#songArea>.songGrid{flex:1 1 0}
+#infoRow{display:flex;align-items:center;gap:7px;flex:none;min-width:0}
+#soloPane{flex:none}
+#optBtn{flex:none;width:118px;font-size:13px;padding:10px 4px}
+#optSheet{position:absolute;left:10px;right:10px;bottom:10px;z-index:60;background:#17102e;border:1.5px solid var(--line);border-radius:18px;padding:12px 12px 10px;max-height:58%;overflow-y:auto;box-shadow:0 -14px 44px rgba(0,0,0,.6);transform:translateY(110%);visibility:hidden;transition:transform .3s cubic-bezier(.2,.9,.3,1),visibility 0s linear .3s}
+#optSheet.open{transform:translateY(0);visibility:visible;transition:transform .3s cubic-bezier(.2,.9,.3,1)}
+#optSheet .optHead{display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:900;margin-bottom:6px}
+#optSheet .optHead button{background:rgba(255,255,255,.09);border:1px solid var(--line);color:var(--txt);border-radius:10px;min-width:38px;min-height:34px;font-size:14px;cursor:pointer;font-family:inherit}
+#optSheet .tglRow{margin:9px 0 0}
+#optSheet #calibBtn{width:100%;flex:none;margin-top:10px;min-height:44px;font-size:13.5px}
+#optSheet .help{margin-top:9px;text-align:left}
+.wrap.playing #optSheet,.wrap.ingame #optSheet{display:none!important}
 #dailyBanner:active{transform:scale(.98)}
 #dailyBanner .done{color:#4ade80;font-weight:900}
 #filterSeg{display:flex;gap:5px;margin-top:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -284,20 +296,16 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #pausePanel .btn{width:100%;max-width:280px;flex:none}
 @media (max-height:900px){
   /* 新規行追加分を中丈画面でも吸収する（390×844 でスタートボタンを画面内に保つ） */
-  #ratingInfo{margin-top:2px;font-size:11px}
-  #dailyBanner{margin-top:3px;min-height:28px;padding:5px 10px}
+  #ratingInfo{font-size:11px}
+  #dailyBanner{min-height:28px;padding:5px 10px}
   #filterSeg{margin-top:3px}
   #filterSeg button{min-height:26px;padding:4px 10px}
   .subBtnRow{margin-top:3px}
   .subBtnRow .btn{min-height:32px;padding:6px 4px}
   .tglRow{margin-bottom:5px}
   .tglBtn{min-height:32px;padding:6px 4px}
-  .songGrid{max-height:76px}
-  .songTile .jacket{height:38px}
   #songDetail .jacketBig{width:62px;height:62px;font-size:32px}
   .wrap{gap:7px}
-  .songGrid{max-height:68px}
-  .songTile .jacket{height:34px}
   #songDetail .dDesc{display:none} /* 中丈以下では説明文を畳んでスタートボタンを画面内に保つ */
   #diffSeg button{min-height:28px}
   #speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{padding:1px}
@@ -306,7 +314,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 @media (max-height:740px){
   /* 新規行（レーティング/デイリー/絞り込み/サブボタン/トグル）追加分を短い画面で回収し、
      スタートボタンの画面内収まり（390×667 で実測）を維持する */
-  #ratingInfo{display:none}
   #dailyBanner{margin-top:1px;min-height:22px;padding:2px 9px;font-size:11.5px}
   #filterSeg{margin-top:1px}
   #filterSeg button{min-height:24px;padding:2px 9px;font-size:11px}
@@ -315,7 +322,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
   .tglRow{gap:5px;margin-bottom:2px}
   .tglBtn{min-height:24px;padding:2px 4px;font-size:12px}
   .subBtnRow .btn{min-height:24px}
-  .songGrid{max-height:44px}
   .songTile .tRk{display:none}
   #songDetail{padding:0 9px}
   #songDetail .dMeta{display:none}
@@ -334,7 +340,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #dailyBanner{font-size:11px;min-height:22px;padding:2px 8px}
   .subBtnRow .btn{min-height:24px}
   .tglBtn{min-height:24px}
-  .songGrid{max-height:44px}
 }
 </style>
 <style>
@@ -348,27 +353,31 @@ html,body{overscroll-behavior:none;}
 <div class="ttl">✦ スターリズム ✦<small>STAR RHYTHM</small></div>
 <div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
 <div id="songArea">
-<div id="songDetail"></div>
-<div id="ratingInfo"></div>
-<button id="dailyBanner" type="button"></button>
+<div id="infoRow"><span id="ratingInfo"></span><button id="dailyBanner" type="button"></button></div>
 <div id="filterSeg"><button data-f="all" class="on">すべて</button><button data-f="fav">★お気に入り</button><button data-f="lv1">Lv〜5</button><button data-f="lv2">Lv6〜8</button><button data-f="lv3">Lv9〜</button><button data-f="unplayed">未プレイ</button><button data-f="cleared">クリア済</button><button data-f="fc">フルコンボ</button></div>
 <div class="songGrid" id="songList"></div>
-<div class="subBtnRow"><button id="randomBtn" class="btn sub">🎲 ランダム選曲</button><button id="stampBtn" class="btn sub">📖 スタンプ帳</button><button id="statsBtn" class="btn sub">📊 記録</button></div>
+<div id="songDetail"></div>
 <div id="diffSeg"><button data-d="easy">かんたん</button><button data-d="normal" class="on">ふつう</button><button data-d="hard">むずかしい</button></div>
+<div class="subBtnRow"><button id="randomBtn" class="btn sub">🎲 ランダム選曲</button><button id="stampBtn" class="btn sub">📖 スタンプ帳</button><button id="statsBtn" class="btn sub">📊 記録</button></div>
+</div>
+<div id="soloPane">
+<div id="startRow" style="display:flex;gap:8px">
+<button id="startBtn" class="btn" style="flex:1">▶ 演奏スタート</button>
+<button id="optBtn" class="btn sub" type="button">⚙️ オプション</button>
+</div>
+</div>
+<div id="optSheet" aria-hidden="true">
+<div class="optHead"><span>⚙️ オプション</span><button id="optClose" type="button" aria-label="オプションを閉じる">✕</button></div>
+<div class="tglRow"><button id="practiceTgl" class="tglBtn" type="button">📝 練習（サビから）</button><button id="autoTgl" class="tglBtn" type="button">🤖 オートプレイ（お手本）</button></div>
+<button id="calibBtn" class="btn sub" type="button">🎯 判定キャリブレーション</button>
 <div id="speedSeg"><span class="segLbl">落下速度</span><button data-s="0.8">×0.8</button><button data-s="1" class="on">×1.0</button><button data-s="1.25">×1.25</button><button data-s="1.5">×1.5</button><button data-s="2">×2.0</button></div>
 <div id="seSeg"><span class="segLbl">タップ音</span><button data-se="classic" class="on">クラシック</button><button data-se="blip">ブリップ</button><button data-se="wood">ウッド</button><button data-se="bell">ベル</button><button data-se="pop">ポップ</button></div>
 <div id="musicVolSeg"><span class="segLbl">曲の音量</span><input type="range" id="musicVolRange" min="0" max="100" step="1" value="100"><span class="volVal" id="musicVolVal">100%</span></div>
 <div id="seVolSeg"><span class="segLbl">効果音の音量</span><input type="range" id="seVolRange" min="0" max="200" step="5" value="140"><span class="volVal" id="seVolVal">140%</span></div>
 <div id="sizeSeg"><span class="segLbl">ノーツ大きさ</span><button data-ns="0.85">×0.85</button><button data-ns="1" class="on">×1.0</button><button data-ns="1.15">×1.15</button><button data-ns="1.3">×1.3</button></div>
 <div id="offsetSeg"><span class="segLbl">判定調整</span><button data-off="-25">−25</button><button data-off="-5">−5</button><span id="offsetVal" title="タップで 0 に戻す">±0ms</span><button data-off="5">＋5</button><button data-off="25">＋25</button></div>
-</div>
-<div id="soloPane">
-<div class="tglRow"><button id="practiceTgl" class="tglBtn" type="button">📝 練習（サビから）</button><button id="autoTgl" class="tglBtn" type="button">🤖 オートプレイ（お手本）</button></div>
-<div style="display:flex;gap:8px">
-<button id="startBtn" class="btn" style="flex:1">▶ 演奏スタート</button>
-<button id="calibBtn" class="btn sub" style="flex:none;width:132px;font-size:11.5px;line-height:1.3;padding:6px 4px">🎯 判定<br>キャリブレーション</button>
-</div>
-<p class="help" style="margin-top:8px">ノーツが下の<b style="color:#fff">判定ライン（光るバー）</b>に届く瞬間にバーをタップ！<b style="color:#ffd94d">ロング</b>は最後の瞬間にピタッと離す、<b style="color:#2ee6a8">フリック</b>はどの方向にシュッと弾いてもOK。落下速度は上のボタンで変えられるよ。曲を選ぶとサビがプレビュー再生されるよ。キーは D F J K（レーン）／ 矢印キー（フリック・どの方向でも可）。</p>
+<p class="help">ノーツが下の<b style="color:#fff">判定ライン（光るバー）</b>に届く瞬間にバーをタップ！<b style="color:#ffd94d">ロング</b>は最後の瞬間にピタッと離す、<b style="color:#2ee6a8">フリック</b>はどの方向にシュッと弾いてもOK。曲を選ぶとサビがプレビュー再生されるよ。キーは D F J K（レーン）／ 矢印キー（フリック・どの方向でも可）。</p>
+<p class="help" id="footHelp">曲は WebAudio 合成のオリジナル曲＋実音源（🎵マークの曲）。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
 </div>
 <div id="onlinePane" class="hidden"><div class="card">
 <div class="netBtns"><button id="hostBtn" class="btn">部屋を作る</button></div>
@@ -405,7 +414,6 @@ html,body{overscroll-behavior:none;}
 <div id="dlProg"></div>
 <div class="dlBtns"><button id="dlCancelBtn" class="btn sub">やめる</button><button id="dlOkBtn" class="btn">わかった</button></div>
 </div></div>
-<p class="help" id="footHelp">曲は WebAudio 合成のオリジナル曲＋実音源（🎵マークの曲）。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
 </div>
 <script>
 /*__SR_MAIN__*/
@@ -2105,7 +2113,7 @@ function pwDragScroll(el, axis) {
     if (el.__pwDraggedAt && Date.now() - el.__pwDraggedAt < 350) { e.preventDefault(); e.stopPropagation(); }
   }, true);
 }
-pwDragScroll($('songList'), 'x');
+pwDragScroll($('songList'), 'y'); /* v119: 一覧は折り返しグリッド＋縦スクロールに変更 */
 function blip() { if (!AC) return; toneAt(660, AC.currentTime, 0.07, 'sine', seV(0.12), null, seBus); }
 document.querySelectorAll('#diffSeg button').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -2722,6 +2730,13 @@ $('quitBtn').addEventListener('click', function () {
   if (mode === 'online') { opp.fin = null; oppLeft = true; }
 });
 $('muteBtn').addEventListener('click', function () { ensureAudio(); setMuted(!muted); });
+/* オプションシート（v119）：絶対配置で被せるだけなので、開閉しても
+   一覧のスクロール位置やスタートボタンの位置は一切動かない */
+function closeOptSheet() { var s = $('optSheet'); if (s) { s.classList.remove('open'); s.setAttribute('aria-hidden', 'true'); } }
+$('optBtn').addEventListener('click', function () { var s = $('optSheet'); var open = s.classList.toggle('open'); s.setAttribute('aria-hidden', open ? 'false' : 'true'); });
+$('optClose').addEventListener('click', closeOptSheet);
+$('startBtn').addEventListener('click', closeOptSheet);
+document.querySelectorAll('#modeSeg button').forEach(function (b) { b.addEventListener('click', closeOptSheet); });
 setMuted(muted);
 
 /* ---------------- ゲーム進行（フレーム単位） ---------------- */
