@@ -136,6 +136,7 @@
   #onlinePanel .row{display:flex;gap:8px;flex-wrap:wrap}
   #onlinePanel button{padding:9px 13px;font-size:13.5px}
   #onlinePanel input{flex:1;min-width:110px;font-family:inherit;font-size:16px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;padding:9px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:#241b12;color:#ffe9b0}
+  #oppOfflineNote{display:none;font-size:12.5px;font-weight:800;line-height:1.6;color:#ffb26a;background:rgba(255,140,0,.13);border:1px solid rgba(255,150,50,.45);border-radius:10px;padding:7px 10px;margin-top:8px}
   #onlineStatus{font-size:13px;line-height:1.7;color:#e6d5ac;margin-top:9px;min-height:1.2em}
   #onlineStatus .err{color:#ff9d8a;font-weight:800}
   .roomcode{font-size:34px;font-weight:900;letter-spacing:.22em;text-align:center;color:#ffd76a;background:rgba(0,0,0,.3);border:1px dashed rgba(255,215,106,.5);border-radius:12px;padding:8px 4px 8px 12px;margin:8px 0}
@@ -242,6 +243,7 @@ html,body{overscroll-behavior:none;}
           <div class="row"><button id="copyCodeBtn" class="ghost">コードをコピー</button></div>
         </div>
         <div id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを選ぶと、部屋を作って招待を送ります。参加は届いた招待からだけできます。</div>
+        <div id="oppOfflineNote">⚠️ 相手はオフラインのようです（応答がない場合は、相手が戻るまでお待ちください）</div>
         <div class="row" style="margin-top:8px">
           <button id="onlineLeaveBtn" class="ghost">やめる</button>
         </div>
@@ -1390,9 +1392,40 @@ function detachMatch(){
   if (fsMatch && fsMatch.unsub){ try{ fsMatch.unsub(); }catch (e){} }
   fsMatch = null;
 }
+/* 相手プレゼンス監視: 対局中に相手の在席が途絶えたら「オフラインのようです」
+   と知らせる。在席は account.js が users/{uid} の online/lastSeen を
+   friends.js へ流し込むもので、ハートビート120秒間隔・5分以上更新が
+   なければオフライン扱いになる。対局開始直後は在席データがまだ届いて
+   いないことがあるため、「一度オンラインを確認できた相手がオフラインに
+   なった」ときだけ表示して誤表示を防ぐ。対局の進行には一切干渉しない */
+let rvOppWatch = {uid: '', seenOnline: false};
+function rvOpponentUid(){
+  if (!fsMatch || !fsMatch.data) return '';
+  const me = fsUid(), d = fsMatch.data;
+  const h = d.hostUid || '', g = d.guestUid || '';
+  if (me) return me === h ? g : (me === g ? h : '');
+  return isHost ? g : h;
+}
+function checkRvOppPresence(){
+  const note = document.getElementById('oppOfflineNote');
+  if (!note) return;
+  let show = false;
+  if (mode === 'online' && onlineActive && !gameOver){
+    const uid = rvOpponentUid();
+    if (uid){
+      if (rvOppWatch.uid !== uid){ rvOppWatch.uid = uid; rvOppWatch.seenOnline = false; }
+      const on = !!(window.PWFriends && PWFriends.isOnline && PWFriends.isOnline(uid));
+      if (on) rvOppWatch.seenOnline = true;
+      show = rvOppWatch.seenOnline && !on;
+    }
+  }
+  note.style.display = show ? 'block' : 'none';
+}
+setInterval(checkRvOppPresence, 20000);
 function teardownOnline(){
   fsOpSeq++;
   onlineActive = false;
+  rvOppWatch = {uid: '', seenOnline: false};
   detachMatch();
   window.PW_ROOM_CODE = '';
   /* 表示コードの文字列自体も消す: 隠しただけだと friends.js の DOM 検出が

@@ -348,6 +348,19 @@
     }
     .promo-piece.red{ color:#b00000; }
 
+    /* ─── Rules: piece movement diagrams ─── */
+    .modal-card.scrollable{ max-height:88vh; overflow-y:auto; }
+    .move-cards{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 18px; }
+    .move-card{ background:#fffbeb; border:1.5px solid #e7d8a8; border-radius:14px; padding:10px 8px 9px; }
+    .move-card .mc-name{ font-weight:900; font-size:13px; color:#44403c; }
+    .move-card .mc-desc{ font-size:10.5px; line-height:1.55; color:#57534e; font-weight:600; text-align:left; }
+    .mini-board{ display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:#7c4d16; border:1.5px solid #2a1700; border-radius:2px; padding:1px; width:78px; margin:5px auto 6px; }
+    .mini-board .mb-cell{ aspect-ratio:1/1; background:linear-gradient(145deg,#efcb85,#d3a44e); display:flex; align-items:center; justify-content:center; }
+    .mini-board .mb-cell.reach{ background:linear-gradient(145deg,#cdeeb0,#8cc95e); }
+    .mini-board .mb-cell.reach::after{ content:''; width:34%; height:34%; border-radius:50%; background:rgba(20,90,20,0.45); }
+    .mini-board .mb-piece{ width:97%; height:97%; clip-path:polygon(50% 0%,95% 18%,100% 100%,0% 100%,5% 18%); background:linear-gradient(160deg,#fff8dc,#fbeeae 18%,#f3d76b 52%,#bd8f24 100%); display:flex; align-items:center; justify-content:center; padding-top:9%; font-family:'Noto Serif JP','Hiragino Mincho ProN',serif; font-weight:900; font-size:10px; color:#1a0e00; line-height:1; }
+    .mini-board .mb-piece.red{ color:#b00000; }
+
     /* ─── Modal ─── */
     .modal-overlay {
       position:fixed; inset:0; z-index:500;
@@ -437,6 +450,7 @@
     }
     .online-note{ font-size:10.5px; color:#a8a29e; font-weight:700; margin:0; line-height:1.5; }
     #online-info{ font-size:12px; font-weight:800; color:#57534e; }
+    #opp-offline-note{ display:none; font-size:12px; font-weight:800; line-height:1.6; color:#b45309; background:rgba(245,158,11,0.13); border:1px solid rgba(245,158,11,0.5); border-radius:12px; padding:7px 10px; }
     .online-code-label{ font-size:9px; font-weight:900; letter-spacing:.16em; color:#a8a29e; text-transform:uppercase; margin-bottom:2px; }
     .online-code-row{ display:flex; align-items:center; gap:10px; }
     #online-code{ font-size:30px; font-weight:900; letter-spacing:.22em; color:var(--ink); font-variant-numeric:tabular-nums; }
@@ -536,6 +550,7 @@ html,body{overscroll-behavior:none;}
         <span id="online-info" style="flex:1;">未接続</span>
         <button class="btn btn-ghost danger" onclick="leaveOnline(true)">やめる</button>
       </div>
+      <div id="opp-offline-note">⚠️ 相手はオフラインのようです（応答がない場合は、相手が戻るまでお待ちください）</div>
     </div>
   </div>
 
@@ -1551,6 +1566,36 @@ function detachShogiMatch(){
   if(sgMatch&&sgMatch.unsub){try{sgMatch.unsub();}catch(e){}}
   sgMatch=null;
 }
+/* 相手プレゼンス監視: 対局中に相手の在席が途絶えたら「オフラインのようです」
+   と知らせる。在席は account.js が users/{uid} の online/lastSeen を
+   friends.js へ流し込むもので、ハートビート120秒間隔・5分以上更新が
+   なければオフライン扱いになる。対局開始直後は在席データがまだ届いて
+   いないことがあるため、「一度オンラインを確認できた相手がオフラインに
+   なった」ときだけ表示して誤表示を防ぐ。対局の進行には一切干渉しない */
+let sgOppWatch={uid:'',seenOnline:false};
+function sgOpponentUid(){
+  if(!sgMatch||!sgMatch.data)return '';
+  const me=sgUid(),d=sgMatch.data;
+  const h=d.hostUid||'',g=d.guestUid||'';
+  if(me)return me===h?g:(me===g?h:'');
+  return mySide==='player'?g:h;
+}
+function checkSgOppPresence(){
+  const note=document.getElementById('opp-offline-note');
+  if(!note)return;
+  let show=false;
+  if(mode==='online'&&onlinePhase==='playing'&&gameActive&&!gameResult){
+    const uid=sgOpponentUid();
+    if(uid){
+      if(sgOppWatch.uid!==uid){sgOppWatch.uid=uid;sgOppWatch.seenOnline=false;}
+      const on=!!(window.PWFriends&&PWFriends.isOnline&&PWFriends.isOnline(uid));
+      if(on)sgOppWatch.seenOnline=true;
+      show=sgOppWatch.seenOnline&&!on;
+    }
+  }
+  note.style.display=show?'block':'none';
+}
+setInterval(checkSgOppPresence,20000);
 /* オンラインモードに入ったとき、進行中マッチがあれば自動で再開する */
 function tryResumeShogi(){
   if(!window.PWMatch||sgMatch)return;
@@ -1659,6 +1704,7 @@ function leaveOnline(manual){
     }
   }
   detachShogiMatch();
+  sgOppWatch={uid:'',seenOnline:false};
   sgOpSeq++;
   onlinePhase='idle';roomCode='';window.PW_ROOM_CODE='';
   /* 表示コードの文字列も消す（隠れた要素から friends.js が古いコードを拾わないように） */
@@ -2267,11 +2313,49 @@ async function resolvePromo(promo,fr,fc,tr,tc){
 // ═══════════════════════════════════════════════════════════
 // KIFU MODAL
 // ═══════════════════════════════════════════════════════════
+/* ルール説明「駒の動き」の図解データ。方向は先手（▲）から見た盤面基準
+   （前＝上）。実際の移動ロジック pseudoMoves() と一致させている。
+   steps=その方向へ1マス動ける／slides=その方向へ何マスでも進める */
+const MOVE_CARDS=[
+  {k:'玉',name:'王将・玉将',desc:'全ての方向に1マスずつ動けます。取られると負けになる、いちばん大事な駒です。',steps:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]},
+  {k:'飛',name:'飛車',desc:'縦と横に何マスでも進めます。成ると「竜」になります。',slides:[[-1,0],[1,0],[0,-1],[0,1]]},
+  {k:'角',name:'角行',desc:'斜めに何マスでも進めます。成ると「馬」になります。',slides:[[-1,-1],[-1,1],[1,-1],[1,1]]},
+  {k:'金',name:'金将',desc:'前・横・後ろと斜め前の6方向に1マスずつ動けます（斜め後ろには行けません）。',steps:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]]},
+  {k:'銀',name:'銀将',desc:'前と斜めの5方向に1マスずつ動けます（横と真後ろには行けません）。',steps:[[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]]},
+  {k:'桂',name:'桂馬',desc:'前に2マス・横に1マスの場所へ跳びます。途中の駒を飛び越えられる唯一の駒です。',steps:[[-2,-1],[-2,1]],pos:[3,2]},
+  {k:'香',name:'香車',desc:'前にだけ、何マスでもまっすぐ進めます。',slides:[[-1,0]]},
+  {k:'歩',name:'歩兵',desc:'前に1マスだけ進めます。',steps:[[-1,0]]},
+  {k:'と',name:'と金（成り駒）',red:true,desc:'歩・香・桂・銀が成ると（と・杏・圭・全）、すべて金将と同じ動きになります。',steps:[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]]},
+  {k:'竜',name:'竜王（成った飛）',red:true,desc:'飛車の動きに、斜め1マスが加わります。',slides:[[-1,0],[1,0],[0,-1],[0,1]],steps:[[-1,-1],[-1,1],[1,-1],[1,1]]},
+  {k:'馬',name:'竜馬（成った角）',red:true,desc:'角行の動きに、縦と横の1マスが加わります。',slides:[[-1,-1],[-1,1],[1,-1],[1,1]],steps:[[-1,0],[1,0],[0,-1],[0,1]]},
+];
+function moveDiagram(card){
+  const pos=card.pos||[2,2],reach=new Set();
+  const mark=(r,c)=>{if(r>=0&&r<5&&c>=0&&c<5)reach.add(r*5+c);};
+  (card.steps||[]).forEach(([dr,dc])=>mark(pos[0]+dr,pos[1]+dc));
+  (card.slides||[]).forEach(([dr,dc])=>{let r=pos[0]+dr,c=pos[1]+dc;while(r>=0&&r<5&&c>=0&&c<5){mark(r,c);r+=dr;c+=dc;}});
+  let cells='';
+  for(let r=0;r<5;r++)for(let c=0;c<5;c++){
+    if(r===pos[0]&&c===pos[1])cells+=`<div class="mb-cell"><div class="mb-piece${card.red?' red':''}">${card.k}</div></div>`;
+    else cells+=`<div class="mb-cell${reach.has(r*5+c)?' reach':''}"></div>`;
+  }
+  return `<div class="mini-board">${cells}</div>`;
+}
 function openRules(){
   playClick();
   const ov=document.createElement('div');
   ov.className='modal-overlay';
-  ov.innerHTML=`<div class="modal-card">
+  const moveCards=MOVE_CARDS.map(card=>`<div class="move-card">
+      <div class="mc-name">${card.name}</div>
+      ${moveDiagram(card)}
+      <div class="mc-desc">${card.desc}</div>
+    </div>`).join('');
+  ov.innerHTML=`<div class="modal-card scrollable">
+    <h2>駒の動き</h2>
+    <div style="text-align:left;font-size:12.5px;line-height:1.75;font-weight:600;color:#44403c;">
+      <p style="margin:0;">緑のマスが動ける場所です。図は先手（▲）から見た動きで、後手（△）は前後が逆になります。進んだ先に相手の駒があれば取れますが、自分の駒がある場所には動けません（桂馬だけは途中の駒を飛び越えられます）。敵陣（相手側の3段）に出入りすると、飛・角・銀・桂・香・歩は「成る」ことができて動きが強くなります。</p>
+    </div>
+    <div class="move-cards">${moveCards}</div>
     <h2>特殊ルール</h2>
     <div style="text-align:left;font-size:12.5px;line-height:1.75;font-weight:600;color:#44403c;margin-bottom:16px;">
       <p style="margin:0 0 8px;"><b>千日手</b>：同じ局面が4回現れると千日手で引き分けです（オンライン対戦でも判定します）。ただし一方だけが王手をかけ続けた場合は、その側の反則負けになります。</p>
