@@ -973,6 +973,14 @@
     var bar = document.createElement('div');
     bar.className = 'pwf-gamebar pwf-root';
     bar.setAttribute('data-pw-mode', mode);
+    if (mode === 'pending') {
+      /* ログイン状態の確認中（認証SDKの初期化待ち）。この間は「ログインが
+         必要です」とは出さない: ログイン済みユーザーでも確認完了まで
+         15〜20秒この状態が続く環境があり、未ログインと誤認させていた */
+      bar.innerHTML =
+        '<div class="pwf-gb-note" style="flex:1 1 200px">⏳ ログイン状態を確認しています…（オンライン対戦・フレンド機能の準備中）</div>';
+      return bar;
+    }
     if (mode === 'blocked') {
       bar.innerHTML = '<div class="pwf-gb-note" style="flex:1 1 200px">🔒 オンライン対戦・フレンド機能にはログインが必要です（ゲストは1人用のみ・セーブされません）</div>' +
         '<button class="pwf-gb-records pwf-gb-login">ログイン</button>';
@@ -1031,7 +1039,8 @@
       if (!blocked) {
         applyOpenerGate(cfg, false);
         var staleBar = document.querySelector('.pwf-gamebar');
-        if (staleBar && staleBar.getAttribute('data-pw-mode') === 'blocked') staleBar.remove();
+        var sbm = staleBar && staleBar.getAttribute('data-pw-mode');
+        if (staleBar && (sbm === 'blocked' || sbm === 'pending')) staleBar.remove();
         return false;
       }
       applyOpenerGate(cfg, true);
@@ -1039,9 +1048,10 @@
       if (cfg.joinCall) {
         try { document.querySelectorAll('[onclick*="' + cfg.joinCall + '"]').forEach(hideEl); } catch (e) {}
       }
+      var wantMode = gateState === 'pending' ? 'pending' : 'blocked';
       var gBar = document.querySelector('.pwf-gamebar');
-      if (gBar && gBar.getAttribute('data-pw-mode') !== 'blocked') { gBar.remove(); gBar = null; }
-      if (!gBar) gBar = buildGameBar('blocked');
+      if (gBar && gBar.getAttribute('data-pw-mode') !== wantMode) { gBar.remove(); gBar = null; }
+      if (!gBar) gBar = buildGameBar(wantMode);
       return placeGuestBar(cfg, gBar);
     }
     if (cfg.input) hideEl(document.querySelector(cfg.input));
@@ -1063,7 +1073,7 @@
       }
     });
     applyOpenerGate(cfg, blocked);
-    var mode = blocked ? 'blocked' : 'member';
+    var mode = gateState === 'pending' ? 'pending' : (blocked ? 'blocked' : 'member');
     var oldBar = document.querySelector('.pwf-gamebar');
     if (oldBar && oldBar.getAttribute('data-pw-mode') !== mode) { oldBar.remove(); oldBar = null; }
     if (!oldBar) {
@@ -1098,7 +1108,7 @@
     /* アカウントドロワー内マウント時: ドロワー自体が半透明パネルなので中身はフラットに */
     '.pwf-indrawer .pwf-panel{width:100%;height:auto;background:transparent;border:none;border-radius:0;box-shadow:none;padding:2px 0 6px;overflow:visible}',
     '.pwf-head{display:flex;align-items:center;justify-content:space-between;font-size:17px;font-weight:900;letter-spacing:.04em;margin-bottom:12px}',
-    '.pwf-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#eef0ff;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer}',
+    '.pwf-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#eef0ff;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;flex:0 0 auto;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}',
     '.pwf-sec{font-size:12px;font-weight:900;letter-spacing:.14em;color:#9aa1c0;margin:16px 0 8px}',
     '.pwf-row{display:flex;gap:8px;align-items:center}',
     '.pwf-input{flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:10px;color:#fff;padding:9px 11px;font-size:14px;font-family:inherit;outline:none}',

@@ -1194,7 +1194,11 @@ function cleanupNet() {
   if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
   NET.role = null; NET.active = false; NET.inGame = false; NET.guestReady = false;
   NET.reconnecting = false; NET.guestSnake = null; NET.recorded = false;
-  window.PW_ROOM_CODE = undefined;
+  /* 終了した部屋のコードを残すと friends.js が旧コードを拾って死んだ部屋へ
+     招待してしまうため、PW_ROOM_CODE と表示の両方を必ず消す */
+  window.PW_ROOM_CODE = '';
+  const rcEl = $('roomCodeText'); if (rcEl) rcEl.textContent = '';
+  const rcWrap = $('roomCodeWrap'); if (rcWrap) rcWrap.style.display = 'none';
 }
 function setupConn(c) {
   const stale = NET.conn;
@@ -1232,7 +1236,16 @@ function hostCreateRoom() {
   NET.code = genRoomCode();
   try { NET.peer = new Peer(PEER_PREFIX + NET.code, PEER_OPTS); }
   catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
+  /* Peer の 'open' が来ないまま固まらないようタイムアウトを張る */
+  const hostPeer = NET.peer; let hostOpened = false;
+  setTimeout(() => {
+    if (NET.peer === hostPeer && !hostOpened){
+      cleanupNet();
+      setLobbyStatus('<span class="err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  }, 15000);
   NET.peer.on('open', () => {
+    hostOpened = true;
     window.PW_ROOM_CODE = NET.code;
     $('roomCodeText').textContent = NET.code;
     $('roomCodeWrap').style.display = 'block';
@@ -1254,14 +1267,34 @@ function guestJoin(code) {
   NET.role = 'guest'; NET.code = code;
   try { NET.peer = new Peer(undefined, PEER_OPTS); }
   catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
-  NET.peer.on('open', () => {
+  const joinPeer = NET.peer;
+  const joinDeadline = Date.now() + 20000;
+  let joinPeerOpen = false, joinConnOpen = false;
+  const tryJoinConnect = () => {
     const c = NET.peer.connect(PEER_PREFIX + code, { reliable: true });
     setupConn(c);
-    c.on('open', () => { NET.active = true; sendNet({ t: 'hello', name: myName() }); startHeartbeat(); setLobbyStatus('<span class="ok">接続しました！ホストが「対戦スタート」を押すのを待っています…</span>'); });
+    c.on('open', () => { joinConnOpen = true; NET.active = true; sendNet({ t: 'hello', name: myName() }); startHeartbeat(); setLobbyStatus('<span class="ok">接続しました！ホストが「対戦スタート」を押すのを待っています…</span>'); });
     armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
-  });
+  };
+  NET.peer.on('open', () => { joinPeerOpen = true; tryJoinConnect(); });
+  /* ゲスト側 Peer の 'open' 自体が来ない場合も固まらないようにする */
+  setTimeout(() => {
+    if (NET.peer === joinPeer && !joinPeerOpen){
+      cleanupNet();
+      setLobbyStatus('<span class="err">接続を確立できませんでした（タイムアウト）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  }, 15000);
   NET.peer.on('error', err => {
-    if (err && err.type === 'peer-unavailable' && !NET.inGame) setLobbyStatus('<span class="err">そのコードの部屋が見つかりませんでした。コードを確認してください。</span>');
+    if (err && err.type === 'peer-unavailable' && !NET.inGame){
+      /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+         同じ Peer から最大20秒ほど再接続を試みてから失敗にする */
+      if (!joinConnOpen && Date.now() < joinDeadline){
+        setLobbyStatus('接続しています…（部屋を探しています）');
+        setTimeout(() => { if (NET.peer === joinPeer && !joinConnOpen && NET.role === 'guest') tryJoinConnect(); }, 1500);
+        return;
+      }
+      setLobbyStatus('<span class="err">そのコードの部屋が見つかりませんでした。コードを確認してください。</span>');
+    }
   });
   setLobbyStatus('接続しています…');
 }

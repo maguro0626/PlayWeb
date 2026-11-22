@@ -1921,6 +1921,7 @@ function netCreateRoom(){
     catch(e){netSetStatus('net-create-status','<span class="err">部屋の作成に失敗しました。</span>');NET.host=false;return;}
     NET.peer.on('open',()=>{
       NET.active=true;
+      window.PW_ROOM_CODE=NET.code;
       document.getElementById('lobby-code').textContent=NET.code;
       document.getElementById('lobby-target-wrap').style.display='';
       document.getElementById('lobby-start').style.display='';
@@ -1940,6 +1941,16 @@ function netCreateRoom(){
     });
   };
   make();
+  /* Peer の 'open' が来ないまま「部屋を作成しています…」で固まらないよう
+     タイムアウトを張る（unavailable-id の作り直し中は NET.peer が差し替わる） */
+  setTimeout(()=>{
+    if(!NET.active&&NET.peer&&NET.host){
+      netSetStatus('net-create-status','<span class="err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+      try{NET.peer.destroy();}catch(e){}
+      NET.peer=null;NET.host=false;NET.code='';
+      const rcEl=document.getElementById('lobby-code'); if(rcEl)rcEl.textContent='------';
+    }
+  },15000);
 }
 
 function netWireGuestConn(c){
@@ -2349,7 +2360,7 @@ function netJoinRoom(){
   }
   NET.name=netInputName()||'ゲスト';
   NET.code=code;
-  NET.host=false;NET.leaving=false;NET.joining=true;
+  NET.host=false;NET.leaving=false;NET.joining=true;NET.joinTries=0;
   netSetStatus('net-join-status','接続しています…');
   netGuestConnect(false);
 }
@@ -2391,6 +2402,14 @@ function netGuestConnect(rejoin){
   NET.peer.on('error',e=>{
     if(e&&e.type==='peer-unavailable'){
       if(NET.reconnecting){scheduleGuestRejoin();return;}
+      /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+         最大20秒ほど（1.5秒間隔）再接続を試みてから失敗にする */
+      NET.joinTries=(NET.joinTries||0)+1;
+      if(NET.joining&&!NET.joined&&NET.joinTries<=12){
+        netSetStatus('net-join-status','接続しています…（部屋を探しています）');
+        setTimeout(()=>{ if(NET.joining&&!NET.joined&&!NET.reconnecting) netGuestConnect(false); },1500);
+        return;
+      }
       netSetStatus('net-join-status','<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
       NET.joining=false;NET.active=false;
       clearTimeout(NET.joinTimer);
@@ -2653,6 +2672,11 @@ function netTeardown(){
   }
   NET.active=false;NET.host=false;NET.inGame=false;NET.peer=null;
   NET.seats={};NET.guestConn=null;NET.joined=false;NET.joining=false;NET.reconnecting=false;
+  /* 終了した部屋のコードを残すと friends.js が旧コードを拾って死んだ部屋へ
+     招待してしまうため必ず消す */
+  NET.code='';
+  window.PW_ROOM_CODE='';
+  const rcEl=document.getElementById('lobby-code'); if(rcEl)rcEl.textContent='------';
   hideEl('overlay-lobby');
   if(G)G.online=false;
   // ゲスト用に書き換えた結果画面ボタンを元に戻す

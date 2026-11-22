@@ -2002,7 +2002,16 @@ function netCreateHostPeer(){
   NET.code=genRoomCode();
   try{ NET.peer=new Peer(HN_PREFIX+NET.code, PEER_OPTS); }
   catch(e){ setNetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  /* Peer の 'open' が来ないまま「部屋を作成中…」で固まらないようタイムアウトを張る
+     （コード衝突の作り直しでは NET.peer が差し替わるため同一性で判定する） */
+  const hostPeer=NET.peer; let hostOpened=false;
+  setTimeout(()=>{
+    if(NET.peer===hostPeer && !hostOpened && NET.mode==='host'){
+      netFailToSolo('<span class="err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  },15000);
   NET.peer.on('open',()=>{
+    hostOpened=true;
     window.PW_ROOM_CODE=NET.code;
     document.getElementById('net-room-code').textContent=NET.code;
     document.getElementById('net-code-wrap').classList.remove('hidden');
@@ -2166,11 +2175,16 @@ function netJoinRoom(){
   if(code.length!==6){ setNetStatus('<span class="err">6文字のルームコードを入力してください。</span>'); return; }
   netTeardown(true);
   NET.mode='guest'; NET.isHost=false; NET.phase='lobby'; NET.code=code;
+  if(!NET._joinRetry) NET.joinTries=0;
+  NET._joinRetry=false;
   NET.prevTotals={g:0,h:0};
   applyOnlineLabels(); updateNetUI();
   setNetStatus('接続中…');
   try{ NET.peer=new Peer(undefined, PEER_OPTS); }
   catch(e){ setNetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  /* タイマーは Peer 生成直後に張る。'open' の中で張ると、シグナリング自体が
+     開かないケースで永遠に発火せず「接続中…」のまま固まる（open 時にも張り直す） */
+  armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
   NET.peer.on('open',()=>{
     armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
     const c=NET.peer.connect(HN_PREFIX+code,{reliable:true});
@@ -2182,6 +2196,16 @@ function netJoinRoom(){
   });
   NET.peer.on('error',err=>{
     if(err&&err.type==='peer-unavailable'){
+      /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+         1.5秒間隔で最大20秒ほど参加し直してから失敗にする */
+      NET.joinTries=(NET.joinTries||0)+1;
+      if(NET.joinTries<=12 && NET.mode==='guest' && NET.phase==='lobby'){
+        NET._joinRetry=true;
+        setNetStatus('接続中…（部屋を探しています）');
+        const retryCode=NET.code;
+        setTimeout(()=>{ if(NET._joinRetry && NET.mode==='guest'){ document.getElementById('net-join-code').value=retryCode; netJoinRoom(); } },1500);
+        return;
+      }
       /* 部屋が無い＝招待・参加の失敗。guest/lobby のまま残すと
          「対戦をはじめる」が永久に反応しなくなるためソロへ戻す */
       netFailToSolo('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');

@@ -67,7 +67,7 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
   justify-content:center;gap:3px;padding:2px;}
 #center{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;}
 #mid-center{flex:1;display:flex;min-height:0;}
-#center-info{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:64px;}
+#center-info{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:50px;}
 #center-wind{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
   font-size:21px;font-weight:900;color:#ffe9a8;
   background:linear-gradient(160deg,rgba(0,0,0,0.55),rgba(0,0,0,0.35));
@@ -213,6 +213,9 @@ header{flex-shrink:0;height:50px;display:flex;align-items:center;justify-content
 .btn-kan{background:linear-gradient(135deg,#b06be8,#7d3cbf);}
 .btn-pass{background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.65);
   border:1px solid rgba(255,255,255,0.16);animation:none;box-shadow:none;}
+.act-count{font-size:12px;font-weight:900;color:#ffe27a;background:rgba(0,0,0,0.45);
+  padding:7px 13px;border-radius:99px;border:1px solid rgba(255,215,0,0.4);white-space:nowrap;}
+.act-count.urgent{color:#f87171;border-color:rgba(248,113,113,0.7);}
 @keyframes btn-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.07);box-shadow:0 8px 24px rgba(0,0,0,0.55);}}
 
 /* ── SETTINGS BAR ─────────────────────────── */
@@ -1495,8 +1498,32 @@ function showActions(acts, tile, dp){
     if (hadRon) G.tempFuriten[HUMAN] = true;
     if (dp >= 0) advanceTurn(dp);
   }, 10000);
+  /* 自動で流れるまでの残り秒数を提示エリア内に表示する（従来は表示がなく
+     突然消えていた）。選択・スキップ・時間切れのいずれでも hideActionArea
+     経由で必ず止まる */
+  startActionCountdown(10000);
 }
-function hideActionArea(){ document.getElementById('action-area').classList.remove('show'); }
+/* ソロの鳴き提示専用カウントダウン（ネット側は #net-timer を使うため対象外） */
+let _actCdInt = null;
+function startActionCountdown(ms){
+  stopActionCountdown();
+  const area = document.getElementById('action-area');
+  if (!area) return;
+  const el = document.createElement('span');
+  el.className = 'act-count'; el.id = 'action-count';
+  area.appendChild(el);
+  const end = Date.now() + ms;
+  const tick = () => {
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    el.textContent = '⏳ あと ' + left + ' 秒';
+    el.classList.toggle('urgent', left <= 3);
+    if (left <= 0) stopActionCountdown();
+  };
+  tick();
+  _actCdInt = setInterval(tick, 250);
+}
+function stopActionCountdown(){ if (_actCdInt) clearInterval(_actCdInt); _actCdInt = null; }
+function hideActionArea(){ stopActionCountdown(); document.getElementById('action-area').classList.remove('show'); }
 
 function doPlayerChi(act, dp){
   takeCalledTile(dp, act.tile);
@@ -1885,7 +1912,10 @@ function renderDiscards(){
   for (const [pos, p] of Object.entries(discMap)){
     const el = document.getElementById('disc-' + pos); if (!el) continue;
     const c = conf[pos];
-    el.style.width = (c.cols * (c.cw + 2)) + 'px';
+    /* 幅は border-box 前提で padding(左右計4px) と列間 gap を含めた実寸にする。
+       従来の計算は2px不足し、最終列が折り返して西・東の捨て牌が本来の列数で
+       表示されず縦に崩れていた（南・北も同様に1列落ちていた） */
+    el.style.width = (c.cols * (c.cw + 2) + 2) + 'px';
     el.innerHTML = '';
     G.discards[p].forEach((t, i) => {
       const cell = document.createElement('div');
@@ -2217,6 +2247,12 @@ function netTeardownNet(){
   NET.callCtx = null; NET.hostCallCtx = null; NET.turnSeat = -1;
   NET.myTurn = false; NET.turnOptions = null; NET.callOpen = false; NET.riichiPending = false;
   NET.welcomed = false; NET.reconnecting = false; NET.viewHandSeq = -1; NET.absPlayers = null; NET.lastState = null;
+  /* 終了した部屋のコードを残すと friends.js が旧コードを「いま開いている部屋」と
+     誤認し、新しい部屋を作らずに死んだ部屋へ招待してしまう（inviteFriendFlow は
+     currentRoomCode() が返れば部屋作成をスキップする）。必ず消す。
+     これが「対局中にフレンド招待を選んでも部屋が作られない」の一因だった */
+  window.PW_ROOM_CODE = '';
+  const rcEl = document.getElementById('net-lobby-code'); if (rcEl) rcEl.textContent = '';
 }
 
 /* ── カウントダウン / 接続バッジ（#net-timer を共用） ── */
@@ -2265,7 +2301,18 @@ function netHostCreateRoom(){
   netSetStatus('部屋を作成中…');
   try { NET.peer = new Peer(MJ_PEER_PREFIX + NET.roomCode, MJ_PEER_OPTS); }
   catch(e){ NET.mode = 'off'; netSetStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  /* Peer の 'open' が来ないまま「接続中」で固まらないようタイムアウトを張る */
+  const hostPeer = NET.peer; let hostOpened = false;
+  setTimeout(() => {
+    if (NET.peer === hostPeer && !hostOpened && NET.mode === 'host'){
+      netTeardownNet();
+      netSetStatus('<span class="err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+      document.getElementById('net-lobby').classList.remove('show');
+      document.getElementById('start-overlay').classList.add('show');
+    }
+  }, 15000);
   NET.peer.on('open', () => {
+    hostOpened = true;
     window.PW_ROOM_CODE = NET.roomCode; /* friends.js の招待フロー用（表示は friends.js が隠す） */
     document.getElementById('start-overlay').classList.remove('show');
     document.getElementById('net-lobby').classList.add('show');
@@ -2739,6 +2786,7 @@ function netGuestJoinFromUI(){
   NET.roomCode = code;
   NET.hostGone = false; NET.leaving = false;
   netSetStatus('接続中…');
+  NET.joinTries = 0;
   clearTimeout(NET.connTimer);
   NET.connTimer = setTimeout(() => {
     if (!NET.welcomed && !NET.reconnecting)
@@ -2757,7 +2805,17 @@ function netGuestDial(){
   });
   NET.peer.on('error', err => {
     if (NET.mode !== 'guest' || NET.reconnecting) return;
-    if (err && err.type === 'peer-unavailable') netSetStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    if (err && err.type === 'peer-unavailable'){
+      /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+         1.5秒間隔で最大20秒ほどかけ直してから失敗にする */
+      NET.joinTries = (NET.joinTries || 0) + 1;
+      if (!NET.welcomed && NET.joinTries <= 12){
+        netSetStatus('接続中…（部屋を探しています）');
+        setTimeout(() => { if (NET.mode === 'guest' && !NET.welcomed && !NET.reconnecting) netGuestDial(); }, 1500);
+        return;
+      }
+      netSetStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    }
     else netSetStatus('<span class="err">接続エラーが発生しました。</span>');
   });
 }

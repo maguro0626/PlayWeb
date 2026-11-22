@@ -882,14 +882,14 @@ function render(){
   els.undoBtn.disabled = mode === 'online' || thinking || passing ||
     (mode === 'local' ? !history.some(h => h.r >= 0) : !history.some(h => h.player === human && h.r >= 0));
   els.newBtn.disabled = mode === 'online';
-  els.record.textContent = `通算成績： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
+  els.record.textContent = `通算成績（CPU戦）： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
 }
 
-function showToast(text){
+function showToast(text, ms){
   els.toast.textContent = text;
   els.toast.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => els.toast.classList.remove('show'), ms || 2200);
 }
 
 function doMove(m, fromRemote){
@@ -929,7 +929,9 @@ function startTurn(){
     const passer = turn;
     passing = true;
     render();
-    showToast(`${colorName(passer)}は置ける場所がありません — パス`);
+    /* パスの通知は手番交代（850ms）より少しだけ長くで十分。それ以上残ると
+       次の手番で「置けるのにパスと表示されている」と誤解される */
+    showToast(`${colorName(passer)}は置ける場所がありません — パス`, 1000);
     playPass();
     history.push({
       player: passer, r: -1, c: -1, flips: [],
@@ -949,6 +951,12 @@ function startTurn(){
       startTurn();
     }, 850);
     return;
+  }
+  /* 置ける手番では、前の手番のパストーストが残っていれば消す
+     （置ける場所があるのに「パス」と出続ける誤解を防ぐ） */
+  if (els.toast && els.toast.textContent.indexOf('パス') >= 0){
+    els.toast.classList.remove('show');
+    clearTimeout(toastTimer);
   }
   if (mode === 'cpu' && turn === cpu){
     thinking = true;
@@ -1017,7 +1025,7 @@ function endGame(){
       saveRecord();
     }
     scoreText = `黒 ${b} — ${w} 白（あなた ${hd} : CPU ${cd}）`;
-    recText = `通算成績： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
+    recText = `通算成績（CPU戦）： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
   }
   render();
   els.resultTitle.textContent = title;
@@ -1045,6 +1053,29 @@ function endByResign(){
   els.resultScore.textContent = `黒 ${b} — ${w} 白（あなた ${myColor === BLACK ? b : w} : 相手 ${myColor === BLACK ? w : b}）`;
   els.resultRecord.textContent = 'オンライン対戦は通算成績に記録されません';
   playWin();
+  setTimeout(() => els.modal.classList.remove('hidden'), 300);
+}
+
+/* 相手側の操作でマッチドキュメントが終局したときに結果を表示する。
+   自分の endGame / endByResign が先に走った場合は gameOver で抑止される。
+   盤面が終局形なら通常の endGame（石数判定）に寄せる */
+function endByRemoteFinish(winnerUid){
+  if (mode !== 'online' || gameOver) return;
+  const terminal = !legalMoves(board, BLACK).length && !legalMoves(board, WHITE).length;
+  if (terminal || !winnerUid || winnerUid === 'draw'){ endGame(); return; }
+  if (fsUid() && winnerUid === fsUid()){ endByResign(); return; }
+  gameOver = true;
+  onlineActive = false;
+  saveSolo();
+  const {b, w} = countDiscs(board);
+  if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch('lose');
+  window.PW_ROOM_CODE = '';
+  if (els.roomCodeText) els.roomCodeText.textContent = '';
+  render();
+  els.resultTitle.textContent = '相手の勝ち…';
+  els.resultScore.textContent = `黒 ${b} — ${w} 白（あなた ${myColor === BLACK ? b : w} : 相手 ${myColor === BLACK ? w : b}）`;
+  els.resultRecord.textContent = '相手が対局を終了しました';
+  playLose();
   setTimeout(() => els.modal.classList.remove('hidden'), 300);
 }
 
@@ -1123,6 +1154,7 @@ function updateSoundBtn(){
    ページを開き直しても、進行中マッチへ復帰できる。
    ============================================================ */
 let fsMatch = null;      /* {code, unsub, data} 現在のマッチ購読 */
+let fsOpSeq = 0;         /* 部屋作成・参加・退出の操作世代（再開処理との競合防止） */
 let fsSeq = 0;           /* 適用済みの state 版数 */
 let fsRound = 1;         /* 適用済みの局数 */
 let fsMsgAt = 0;         /* 処理済みの msg の時刻 */
@@ -1306,6 +1338,13 @@ function attachMatch(code){
   fsMatch.unsub = PWMatch.attach(code, data => {
     if (!fsMatch || fsMatch.code !== code || !data) return;
     fsMatch.data = data;
+    /* 相手側で終局が記録された場合（退出・投了の finish がメッセージより
+       先に届いた等）、そのままでは「相手の手番です」のまま固まるため、
+       ドキュメントの勝者で結果表示へ進める */
+    if (data.status === 'finished' && mode === 'online' && onlineActive && !gameOver){
+      endByRemoteFinish(data.winner || null);
+      return;
+    }
     /* ホスト: ゲスト参加の検知 */
     if (isHost && data.guestUid && !fsGuestSeen){
       fsGuestSeen = true;
@@ -1352,9 +1391,13 @@ function detachMatch(){
   fsMatch = null;
 }
 function teardownOnline(){
+  fsOpSeq++;
   onlineActive = false;
   detachMatch();
   window.PW_ROOM_CODE = '';
+  /* 表示コードの文字列自体も消す: 隠しただけだと friends.js の DOM 検出が
+     終わった対局のコードを拾い、古いコードの招待が送られてしまう */
+  if (els.roomCodeText) els.roomCodeText.textContent = '';
   if (els.onlineCodeWrap) els.onlineCodeWrap.classList.add('hidden-util');
 }
 function hostRoom(){
@@ -1364,7 +1407,7 @@ function hostRoom(){
   myColor = BLACK;
   setOnlineStatus('部屋を作成中…');
   let failed = false;
-  PWMatch.whenReady().then(ok => {
+  PWMatch.whenReady(30000).then(ok => {
     if (!ok){ failed = true; onlineLoadError(); return null; }
     /* 前の対局やCPU戦の盤面が残っていると、その盤面が新しいマッチの初期状態に
        なってしまうため、作成前に必ず初期盤面へ戻す（将棋の resetGame と同型） */
@@ -1406,14 +1449,23 @@ function joinRoom(){
   roomCode = code;
   setOnlineStatus('接続中…');
   let failed = false;
-  PWMatch.whenReady().then(ok => {
+  PWMatch.whenReady(30000).then(ok => {
     if (!ok){ failed = true; onlineLoadError(); return null; }
     return PWMatch.join(code);
   }).then(data => {
     if (failed) return;
     if (!data){
-      if (mode === 'online') setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
-      return;
+      /* join() の null は「部屋が無い」と「既に他の人が参加済み」の両方を
+         意味するため、ドキュメントを読んで理由を切り分ける（満室なのに
+         「見つかりませんでした」と出すと原因を取り違えてしまう） */
+      return PWMatch.get(code).then(doc => {
+        if (mode !== 'online') return;
+        let msg = '部屋が見つかりませんでした。コードを確認してください。';
+        if (doc && doc.status === 'finished') msg = 'その対局は既に終了しています。新しい招待を送ってもらってください。';
+        else if (doc && doc.guestUid && doc.guestUid !== fsUid()) msg = 'その部屋は既に他のプレイヤーが参加しています。';
+        else if (doc && doc.status === 'playing') msg = 'その対局は既に始まっています。';
+        setOnlineStatus('<span class="err">' + msg + '</span>');
+      });
     }
     if (data.status === 'finished'){
       if (mode === 'online') setOnlineStatus('<span class="err">その対局は既に終了しています。新しい招待を送ってもらってください。</span>');
@@ -1435,7 +1487,8 @@ function joinRoom(){
    進行中が無くても、直近10分以内に終わった対局なら結果表示のため一度だけ復元する */
 function tryResumeMatch(){
   if (!window.PWMatch || fsMatch) return;
-  PWMatch.whenReady().then(ok => {
+  const seqAtCall = fsOpSeq;
+  PWMatch.whenReady(30000).then(ok => {
     if (!ok || mode !== 'online' || fsMatch) return null;
     return PWMatch.findActive('reversi').then(found => {
       if (found) return found;
@@ -1452,12 +1505,16 @@ function tryResumeMatch(){
       });
     });
   }).then(found => {
-    if (!found || mode !== 'online' || fsMatch) return;
+    /* 待ち時間の間に部屋作成・参加・退出が走っていたら、古いマッチへの
+       再接続で新しい部屋を潰してしまうため中断する */
+    if (!found || mode !== 'online' || fsMatch || seqAtCall !== fsOpSeq) return;
     const data = found.data;
     isHost = data.hostUid === fsUid();
     myColor = isHost ? BLACK : WHITE;
     roomCode = found.code;
-    window.PW_ROOM_CODE = roomCode;
+    /* 終了済みマッチのコードは招待に使えないため公開しない
+       （公開すると、終わった対局への招待が送られてしまう） */
+    window.PW_ROOM_CODE = data.status === 'finished' ? '' : roomCode;
     fsRound = data.round || 1;
     fsSeq = data.seq || 0;
     fsMsgAt = data.msgAt || 0;
@@ -1465,8 +1522,13 @@ function tryResumeMatch(){
     attachMatch(roomCode);
     if (data.state) applyDocState(data.state);
     onlineActive = data.status === 'playing';
-    els.roomCodeText.textContent = roomCode;
-    els.onlineCodeWrap.classList.remove('hidden-util');
+    if (data.status === 'finished'){
+      /* 終了済みのコードは表示もしない（招待に使えるコードに見せない） */
+      els.roomCodeText.textContent = '';
+    } else {
+      els.roomCodeText.textContent = roomCode;
+      els.onlineCodeWrap.classList.remove('hidden-util');
+    }
     if (data.status === 'finished'){
       try { localStorage.setItem('pwmatch_finseen_reversi', roomCode); } catch (e) {}
       setOnlineStatus('前回の対局は終了しています。');

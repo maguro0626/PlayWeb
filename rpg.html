@@ -779,7 +779,7 @@ const LOCS=[
 trainers:[
 {id:'tr_ryo1',name:'ライバルのリョウ',emoji:'👦',role:'rival',pre:'まってたよ！ぼくが最初のライバルだ！ヒイラギ博士にもらった仲間で勝負だ！',post:'くっ！やるじゃないか…でもまだ負けないからな！',rewardMoney:300,rewardOrbs:1,rewardExp:80,partyFn:(s)=>[{sp:{A:'B',B:'C',C:'A'}[s]||'B',lv:6}]},
 ]},
-{id:'hanada',name:'ミナモシティ',emoji:'🌊',type:'gym',desc:'湖のほとりの町。みずモンスターが集まる場所。',mapPos:{x:75,y:340},adj:['route1','iwayard'],wild:[{sp:'WA1',mn:5,mx:10,r:.7},{sp:'A',mn:4,mx:8,r:.3}],wildWater:[{sp:'WA1',mn:5,mx:11,r:.8},{sp:'WA2',mn:12,mx:16,r:.2}],heal:true,shop:'hanada',gymBadge:{id:'water_badge',name:'しずくバッジ',emoji:'💧'},
+{id:'hanada',name:'ミナモシティ',emoji:'🌊',type:'gym',desc:'湖のほとりの町。みずモンスターが集まる場所。',mapPos:{x:75,y:340},adj:['route1','iwayard'],wild:[{sp:'WA1',mn:5,mx:10,r:.7},{sp:'A',mn:4,mx:8,r:.3}],wildWater:[{sp:'WA1',mn:5,mx:11,r:.8},{sp:'WA2',mn:9,mx:12,r:.2}],heal:true,shop:'hanada',gymBadge:{id:'water_badge',name:'しずくバッジ',emoji:'💧'},
 trainers:[
 {id:'gym1_tr1',name:'ジムトレーナー ミサ',emoji:'👧',role:'trainer',pre:'ミズキさんの代わりに相手してあげる！',post:'すごい！ミズキさんのところへ行って！',rewardMoney:400,rewardOrbs:0,rewardExp:120,party:[{sp:'WA1',lv:10},{sp:'WA1',lv:12}]},
 {id:'gym1_leader',name:'ジムリーダー ミズキ',emoji:'💧',role:'gymleader',pre:'ようこそミナモシティジムへ。水の流れは止められない…かかってきなさい！',post:'すばらしい！このしずくバッジを受け取って！',rewardMoney:1500,rewardOrbs:3,rewardExp:400,party:[{sp:'WA1',lv:14},{sp:'WA2',lv:17}],badge:'water_badge'},
@@ -2702,6 +2702,8 @@ function ovTeardown(){
   try{ if (ovConn) ovConn.close(); }catch(e){}
   try{ if (ovPeer) ovPeer.destroy(); }catch(e){}
   ovConn=null; ovPeer=null; ovReconnecting=false;
+  /* 表示側のコードも消す（friends.js の detectRoomCode は非表示でも拾う） */
+  const rcEl=document.getElementById('ov-room-code'); if(rcEl) rcEl.textContent='';
 }
 function ovLeaveToTitle(){
   ovTeardown();
@@ -2733,11 +2735,21 @@ function ovHostRoom(){
   ovTeardown(); ovClosing=false;
   ovIsHost=true; ovMySide=0; ovPhase='lobby';
   ovRoomCode=ovGenCode();
-  window.PW_ROOM_CODE=ovRoomCode; /* friends.js の detectRoomCode() が確実に拾えるよう公開 */
+  /* PW_ROOM_CODE は Peer が実際に open してから立てる。先に立てると、登録が
+     済んでいない部屋のコードを friends.js が拾って招待してしまう */
   ovSetStatus('部屋を作成中…');
   try{ ovPeer=new Peer(OV_PREFIX+ovRoomCode, OV_PEER_OPTS); }
   catch(e){ ovSetStatus('<span class="ov-err">接続の作成に失敗しました。</span>'); return; }
+  const hostPeer=ovPeer; let hostOpened=false;
+  setTimeout(()=>{
+    if(ovPeer===hostPeer && !hostOpened){
+      ovTeardown(); ovClosing=false; ovPhase='idle';
+      ovSetStatus('<span class="ov-err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  },15000);
   ovPeer.on('open', ()=>{
+    hostOpened=true;
+    window.PW_ROOM_CODE=ovRoomCode; /* friends.js の detectRoomCode() が確実に拾えるよう公開 */
     ovEl('ov-room-code').textContent=ovRoomCode;
     ovEl('ov-code-wrap').classList.remove('hidden');
     ovSetStatus('フレンドの参加を待っています… 招待したフレンドが参加すると対戦が始まります。');
@@ -2762,17 +2774,38 @@ function ovJoinRoom(){
   ovSetStatus('接続中…');
   try{ ovPeer=new Peer(undefined, OV_PEER_OPTS); }
   catch(e){ ovSetStatus('<span class="ov-err">接続の作成に失敗しました。</span>'); return; }
-  ovPeer.on('open', ()=>{
+  const joinPeer=ovPeer;
+  const joinDeadline=Date.now()+20000;
+  let joinPeerOpen=false, joinConnOpen=false;
+  const tryJoinConnect=()=>{
     ovArmTimer('接続を確立できませんでした。ネットワーク環境を変えて、フレンドからの招待からもう一度お試しください。');
     const c=ovPeer.connect(OV_PREFIX+code, {reliable:true});
     ovSetupConn(c);
     c.on('open', ()=>{
+      joinConnOpen=true;
       ovSend({t:'hello'});
       ovSetStatus('接続しました！チーム編成の開始を待っています…');
     });
-  });
+  };
+  ovPeer.on('open', ()=>{ joinPeerOpen=true; tryJoinConnect(); });
+  /* ゲスト側 Peer の 'open' 自体が来ない場合も固まらないようにする */
+  setTimeout(()=>{
+    if(ovPeer===joinPeer && !joinPeerOpen){
+      ovTeardown(); ovClosing=false; ovPhase='idle';
+      ovSetStatus('<span class="ov-err">接続を確立できませんでした（タイムアウト）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  },15000);
   ovPeer.on('error', err=>{
-    if (err && err.type==='peer-unavailable') ovSetStatus('<span class="ov-err">部屋が見つかりませんでした。招待してくれたフレンドにもう一度招待してもらってください。</span>');
+    if (err && err.type==='peer-unavailable'){
+      /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+         同じ Peer から最大20秒ほど再接続を試みてから失敗にする */
+      if(!joinConnOpen && Date.now()<joinDeadline){
+        ovSetStatus('接続中…（部屋を探しています）');
+        setTimeout(()=>{ if(ovPeer===joinPeer && !joinConnOpen) tryJoinConnect(); },1500);
+        return;
+      }
+      ovSetStatus('<span class="ov-err">部屋が見つかりませんでした。招待してくれたフレンドにもう一度招待してもらってください。</span>');
+    }
     else if (ovPhase==='lobby') ovSetStatus('<span class="ov-err">接続エラーが発生しました。</span>');
   });
 }

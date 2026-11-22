@@ -2212,6 +2212,7 @@ function netJoinRoom() {
   NET.myName = netInputName('プレイヤー');
   NET.rulesBackup = Object.assign({}, settings.rules);
   NET.mode = 'guest'; NET.phase = 'connecting'; NET.code = code; NET.mySeat = -1;
+  NET.joinTries = 0;
   netShowLobbyUI();
   document.getElementById('net-start-btn').classList.add('hidden');
   netSetStatus('接続しています…');
@@ -2230,7 +2231,17 @@ function netGuestConnect(isRetry) {
   NET.peer.on('error', err => {
     if (err && err.type === 'peer-unavailable') {
       if (NET.reconnecting) netGuestHostGone();
-      else if (!isRetry) netGuestFail('部屋が見つかりませんでした。コードを確認してください。');
+      else if (!isRetry) {
+        /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+           1.5秒間隔で再接続を試みる（上限は netArmTimer の25秒で netGuestFail） */
+        NET.joinTries = (NET.joinTries || 0) + 1;
+        if (NET.joinTries <= 12 && NET.mode === 'guest' && NET.phase === 'connecting') {
+          netSetStatus('接続しています…（部屋を探しています）');
+          setTimeout(() => { if (NET.mode === 'guest' && NET.phase === 'connecting') netGuestConnect(true); }, 1500);
+          return;
+        }
+        netGuestFail('部屋が見つかりませんでした。コードを確認してください。');
+      }
     }
   });
   if (!isRetry) {

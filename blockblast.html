@@ -107,7 +107,7 @@ html,body{overscroll-behavior:none;}
   <div style="display:flex;gap:8px">
     <button class="hbtn" id="modeBtn">🎯 モード</button>
     <button class="hbtn" id="soundBtn">🔊 サウンド</button>
-    <button class="hbtn" id="restartBtn">↻ 最初から</button>
+    <button class="hbtn" id="restartBtn">🔄 最初から</button>
   </div>
 </header>
 
@@ -1436,6 +1436,11 @@ function teardownNet(){
   try{ if(conn) conn.close(); }catch(e){}
   try{ if(peer) peer.destroy(); }catch(e){}
   conn = null; peer = null;
+  /* 終了した部屋のコードを残すと friends.js が旧コードを拾って死んだ部屋へ
+     招待してしまうため必ず消す */
+  window.PW_ROOM_CODE = '';
+  $('bbRoomCode').textContent = '';
+  $('bbCodeWrap').classList.add('util-hidden');
 }
 function hostRoom(){
   if(!peerAvailable()){ onlineLoadError(); return; }
@@ -1446,7 +1451,16 @@ function hostRoom(){
   setOnlineStatus('部屋を作成中…');
   try{ peer = new Peer(BB_PEER_PREFIX + roomCode, PEER_OPTS); }
   catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  /* Peer の 'open' が来ないまま「部屋を作成中…」で固まらないようタイムアウトを張る */
+  const hostPeer = peer; let hostOpened = false;
+  setTimeout(() => {
+    if(peer === hostPeer && !hostOpened){
+      teardownNet(); onlineClosing = false;
+      setOnlineStatus('<span class="err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  }, 15000);
   peer.on('open', () => {
+    hostOpened = true;
     window.PW_ROOM_CODE = roomCode;
     $('bbRoomCode').textContent = roomCode;
     $('bbCodeWrap').classList.remove('util-hidden');
@@ -1478,13 +1492,33 @@ function joinRoom(){
   setOnlineStatus('接続中…');
   try{ peer = new Peer(undefined, PEER_OPTS); }
   catch(e){ setOnlineStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
-  peer.on('open', () => {
+  const joinPeer = peer;
+  const joinDeadline = Date.now() + 20000;
+  let joinPeerOpen = false;
+  const tryJoinConnect = () => {
     armConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
     const c = peer.connect(BB_PEER_PREFIX + code, {reliable: true});
     setupConn(c);
-  });
+    c.on('open', () => { joinPeerOpen = true; });
+  };
+  peer.on('open', () => { joinPeerOpen = true; tryJoinConnect(); });
+  /* ゲスト側 Peer の 'open' 自体が来ない場合も固まらないようにする。
+     joinPeerOpen は conn 確立でも立つため、未接続の判定には conn を使う */
+  setTimeout(() => {
+    if(peer === joinPeer && !(conn && conn.open) && !battleActive && !joinPeerOpen){
+      teardownNet(); onlineClosing = false;
+      setOnlineStatus('<span class="err">接続を確立できませんでした（タイムアウト）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  }, 15000);
   peer.on('error', err => {
     if(err && err.type === 'peer-unavailable'){
+      /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
+         同じ Peer から最大20秒ほど再接続を試みてから失敗にする */
+      if(!(conn && conn.open) && Date.now() < joinDeadline){
+        setOnlineStatus('接続中…（部屋を探しています）');
+        setTimeout(() => { if(peer === joinPeer && !(conn && conn.open)) tryJoinConnect(); }, 1500);
+        return;
+      }
       setOnlineStatus('<span class="err">部屋が見つかりませんでした。コードを確認してください。</span>');
     } else if(!battleActive) {
       setOnlineStatus('<span class="err">接続エラーが発生しました。</span>');

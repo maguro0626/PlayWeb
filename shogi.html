@@ -258,6 +258,28 @@
       filter:drop-shadow(0 0 10px rgba(255,100,0,0.95)) drop-shadow(0 3px 5px rgba(0,0,0,0.42));
     }
 
+    /* ─── 後手視点（盤面反転）: 自分の駒を常に手前に ───
+       セルの生成順と座標ラベルは render() / buildCoords() が反転させる。
+       ここでは駒の向き・持ち駒・ミニ駒・スコアカードの並びを視点に合わせる
+       （駒の owner クラス自体は変えず、反転時の見た目だけを上書きする） */
+    #shogi-board.flipped .piece-wrap.npc{ transform:none; }
+    #shogi-board.flipped .piece-wrap.npc .piece-kanji{ transform:none; }
+    #shogi-board.flipped .piece-wrap.player{ transform:rotate(180deg); }
+    #shogi-board.flipped .piece-wrap.player .piece-kanji{ transform:rotate(180deg); }
+    body.view-flipped .hand-piece.npc{ transform:none; }
+    body.view-flipped .hand-piece.npc .hk{ transform:none; }
+    body.view-flipped .hand-piece.npc .hand-count{ transform:none; }
+    body.view-flipped .hand-piece.npc.selected-drop{ transform:scale(1.13) translateY(-3px); }
+    body.view-flipped .hand-piece.npc.clickable:hover{ transform:scale(1.1) translateY(-2px); }
+    body.view-flipped .hand-piece:not(.npc){ transform:rotate(180deg); }
+    body.view-flipped .hand-piece:not(.npc) .hk{ transform:rotate(180deg); display:block; }
+    body.view-flipped .hand-piece:not(.npc) .hand-count{ transform:rotate(180deg); }
+    body.view-flipped .mini-piece.npc{ transform:none; }
+    body.view-flipped .mini-piece.npc span{ transform:none; }
+    body.view-flipped #ui-player .mini-piece{ transform:rotate(180deg); }
+    body.view-flipped #ui-player .mini-piece span{ transform:rotate(180deg); display:block; }
+    body.view-flipped .score-grid #ui-player{ order:-1; }
+
     /* ─── Controls ─── */
     .controls{ padding:0 14px 12px; flex-shrink:0; }
     /* UI被り対策: 最下段ボタン行の右端(最初から)がフレンドFAB(右下固定)に隠れないよう右余白を確保 */
@@ -659,6 +681,7 @@ let gameResult=null; // 終局結果 {winner, reason}。オンラインで相手
 let mode='cpu';
 let mySide='player';
 let roomCode='',onlinePhase='idle'; // idle|creating|joining|playing
+let sgOpSeq=0; /* 部屋作成・参加・退出の操作世代（再開処理との競合防止） */
 let matchRecorded=false; // フレンド戦績の二重記録ガード（1試合1回）
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -1410,7 +1433,7 @@ function startHost(){
   updateOnlinePanel();updateLabels();
   setOnlineInfo('部屋を作成中…');
   let failed=false;
-  PWMatch.whenReady().then(ok=>{
+  PWMatch.whenReady(30000).then(ok=>{
     if(!ok){failed=true;onlinePhase='idle';setOnlineInfo('オンライン機能を読み込めませんでした。通信環境を確認してください');updateOnlinePanel();return null;}
     resetGame();
     return PWMatch.create('shogi',{state:serializeState(),turn:sgUid()});
@@ -1438,16 +1461,22 @@ function joinRoom(){
   roomCode=code;mySide='npc';onlinePhase='joining';
   updateOnlinePanel();updateLabels();
   let failed=false;
-  PWMatch.whenReady().then(ok=>{
+  PWMatch.whenReady(30000).then(ok=>{
     if(!ok){failed=true;onlinePhase='idle';setOnlineInfo('オンライン機能を読み込めませんでした。通信環境を確認してください');updateOnlinePanel();return null;}
     return PWMatch.join(code);
   }).then(data=>{
     if(failed)return;
     if(!data){
-      onlinePhase='idle';
-      setOnlineInfo('相手が見つかりませんでした。コードを確認してください');
-      updateOnlinePanel();
-      return;
+      /* join() の null は「部屋が無い」と「既に他の人が参加済み」の両方を
+         意味するため、ドキュメントを読んで理由を切り分ける */
+      return PWMatch.get(code).then(doc=>{
+        onlinePhase='idle';
+        let msg='部屋が見つかりませんでした。コードを確認してください';
+        if(doc&&doc.guestUid&&doc.guestUid!==sgUid())msg='その部屋は既に他のプレイヤーが参加しています';
+        else if(doc&&doc.status==='playing')msg='その対局は既に始まっています';
+        setOnlineInfo(msg);
+        updateOnlinePanel();
+      });
     }
     if(data.status==='finished'){
       onlinePhase='idle';
@@ -1473,6 +1502,13 @@ function attachShogiMatch(code){
   sgMatch.unsub=PWMatch.attach(code,data=>{
     if(!sgMatch||sgMatch.code!==code||!data)return;
     sgMatch.data=data;
+    /* 相手側で終局が記録された場合（退出時の finish がメッセージより先に
+       届いた等）、そのままでは対局中表示のまま固まるため結果表示へ進める */
+    if(data.status==='finished'&&mode==='online'&&onlinePhase==='playing'&&gameActive&&!gameResult){
+      if(!data.winner)endGame(null,'sennichite');
+      else endGame(data.winner===sgUid()?mySide:(mySide==='player'?'npc':'player'),'resign');
+      return;
+    }
     /* ホスト: ゲスト参加の検知 → 対局を初期化して state を配る */
     if(mySide==='player'&&data.guestUid&&!sgGuestSeen){
       sgGuestSeen=true;
@@ -1518,7 +1554,8 @@ function detachShogiMatch(){
 /* オンラインモードに入ったとき、進行中マッチがあれば自動で再開する */
 function tryResumeShogi(){
   if(!window.PWMatch||sgMatch)return;
-  PWMatch.whenReady().then(ok=>{
+  const seqAtCall=sgOpSeq;
+  PWMatch.whenReady(30000).then(ok=>{
     if(!ok||mode!=='online'||sgMatch)return null;
     return PWMatch.findActive('shogi').then(found=>{
       if(found)return found;
@@ -1536,11 +1573,15 @@ function tryResumeShogi(){
       });
     });
   }).then(found=>{
-    if(!found||mode!=='online'||sgMatch)return;
+    /* 待ち時間の間に部屋作成・参加・退出が走っていたら、古いマッチへの
+       再接続で新しい部屋を潰してしまうため中断する */
+    if(!found||mode!=='online'||sgMatch||seqAtCall!==sgOpSeq)return;
     const data=found.data;
     const isHost=data.hostUid===sgUid();
     mySide=isHost?'player':'npc';
-    roomCode=found.code;window.PW_ROOM_CODE=roomCode;
+    roomCode=found.code;
+    /* 終了済みマッチのコードは招待に使えないため公開しない */
+    window.PW_ROOM_CODE=data.status==='finished'?'':roomCode;
     sgRound=data.round||1;sgSeq=data.seq||0;sgMsgAt=data.msgAt||0;
     sgGuestSeen=!!data.guestUid;
     attachShogiMatch(roomCode);
@@ -1556,7 +1597,12 @@ function tryResumeShogi(){
       showToast('進行中の対局に再接続しました');
     }
     updateOnlinePanel();updateLabels();
-    if(finishedNote)setOnlineInfo('前回の対局は終了しています');
+    if(finishedNote){
+      /* 終了済みのコードは表示要素にも残さない（招待に使えるコードに見せない） */
+      const ceF=document.getElementById('online-code');
+      if(ceF)ceF.textContent='';
+      setOnlineInfo('前回の対局は終了しています');
+    }
   }).catch(()=>{});
 }
 function onNetData(msg){
@@ -1613,7 +1659,11 @@ function leaveOnline(manual){
     }
   }
   detachShogiMatch();
+  sgOpSeq++;
   onlinePhase='idle';roomCode='';window.PW_ROOM_CODE='';
+  /* 表示コードの文字列も消す（隠れた要素から friends.js が古いコードを拾わないように） */
+  const codeElOut=document.getElementById('online-code');
+  if(codeElOut)codeElOut.textContent='';
   if(mode==='online'){
     updateOnlinePanel();
     if(manual){resetGame();setStatus('オンライン接続待ち…');}
@@ -1728,10 +1778,10 @@ function makeFlyEl(type,owner,promoted,rect){
     padding-top:${rect.height*0.09}px;
     z-index:1000;pointer-events:none;
     filter:drop-shadow(0 5px 10px rgba(0,0,0,0.55));
-    ${owner==='npc'?'transform:rotate(180deg);':''}
+    ${pieceFacesViewer(owner)?'transform:rotate(180deg);':''}
   `;
   const k=document.createElement('span');
-  k.style.cssText=`font-family:'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif;font-weight:900;font-size:${rect.width*0.4}px;line-height:1;color:${promoted?'#b00000':'#1a0e00'};user-select:none;${owner==='npc'?'transform:rotate(180deg);display:block':''}`;
+  k.style.cssText=`font-family:'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif;font-weight:900;font-size:${rect.width*0.4}px;line-height:1;color:${promoted?'#b00000':'#1a0e00'};user-select:none;${pieceFacesViewer(owner)?'transform:rotate(180deg);display:block':''}`;
   k.textContent=pieceName(type,owner,promoted);
   el.appendChild(k);
   return el;
@@ -1799,11 +1849,13 @@ async function ejectPiece(type,owner,promoted,rect){
   const dist=130+Math.random()*100;
   const dx=Math.cos(angle)*dist,dy=Math.sin(angle)*dist;
   const spin=(Math.random()>.5?1:-1)*(480+Math.random()*600);
-  const baseTransform=owner==='npc'?'rotate(180deg) ':'';
+  /* 回転は translate の後ろに置く: rotate(180deg) を前に置くと translate が
+     回転後の座標系で効き、移動量が画面上で反転してしまうため */
+  const rot=pieceFacesViewer(owner)?' rotate(180deg)':'';
   await ej.animate([
-    {transform:`${baseTransform}translate(0,0) scale(1)`,opacity:1},
-    {transform:`${baseTransform}translate(${dx*.25}px,${dy*.25-22}px) scale(1.25) rotate(${spin*.15}deg)`,opacity:1,offset:.15},
-    {transform:`${baseTransform}translate(${dx}px,${dy}px) scale(0.2) rotate(${spin}deg)`,opacity:0}
+    {transform:`translate(0,0)${rot} scale(1)`,opacity:1},
+    {transform:`translate(${dx*.25}px,${dy*.25-22}px)${rot} scale(1.25) rotate(${spin*.15}deg)`,opacity:1,offset:.15},
+    {transform:`translate(${dx}px,${dy}px)${rot} scale(0.2) rotate(${spin}deg)`,opacity:0}
   ],{duration:560,easing:'cubic-bezier(0.15,0,0.85,1)',fill:'forwards'}).finished;
   ej.remove();
 }
@@ -1834,17 +1886,22 @@ async function animatePieceMove(fr,fc,tr,tc,type,owner,promoted,hasCap,capType,c
   const dy=tgtRect.top-srcRect.top;
   const dist=Math.sqrt(dx*dx+dy*dy);
   const arc=Math.min(95,dist*.44+18);
-  const base=owner==='npc'?'rotate(180deg) ':'';
+  /* 回転は translate の後ろに置くこと。rotate(180deg) translate(dx,dy) と
+     書くと translate が回転後の座標系で効き、画面上の移動量が (-dx,-dy) に
+     反転する（相手の駒が目的地と逆方向へ飛び、最後に目的地へ「置かれる」
+     ように見える不具合の原因）。translate → rotate の順なら移動は画面座標
+     どおりで、回転は駒自身の中心でかかる */
+  const rot=pieceFacesViewer(owner)?' rotate(180deg)':'';
 
   await fly.animate([
-    {transform:`${base}translate(0px,0px) scale(1)`,          filter:'drop-shadow(0 3px 5px rgba(0,0,0,0.45))',  offset:0},
-    {transform:`${base}translate(${dx*.03}px,${-arc*.85}px) scale(1.6)`,  filter:'drop-shadow(0 22px 28px rgba(0,0,0,0.6))', offset:.13},
-    {transform:`${base}translate(${dx*.38}px,${dy*.38-arc}px) scale(1.5)`,filter:'drop-shadow(0 25px 32px rgba(0,0,0,0.55))',offset:.46},
-    {transform:`${base}translate(${dx*.75}px,${dy*.75-arc*.38}px) scale(1.3)`,filter:'drop-shadow(0 14px 18px rgba(0,0,0,0.5))',offset:.72},
-    {transform:`${base}translate(${dx*.93}px,${dy*.93-arc*.06}px) scale(1.15)`,filter:'drop-shadow(0 7px 9px rgba(0,0,0,0.45))',offset:.85},
-    {transform:`${base}translate(${dx}px,${dy+8}px) scale(1.35,0.72)`,filter:'drop-shadow(0 1px 2px rgba(0,0,0,0.4))',offset:.915},
-    {transform:`${base}translate(${dx}px,${dy-4}px) scale(0.92,1.1)`,filter:'drop-shadow(0 5px 7px rgba(0,0,0,0.42))',offset:.96},
-    {transform:`${base}translate(${dx}px,${dy}px) scale(1)`,           filter:'drop-shadow(0 3px 5px rgba(0,0,0,0.42))',offset:1},
+    {transform:`translate(0px,0px)${rot} scale(1)`,          filter:'drop-shadow(0 3px 5px rgba(0,0,0,0.45))',  offset:0},
+    {transform:`translate(${dx*.03}px,${-arc*.85}px)${rot} scale(1.6)`,  filter:'drop-shadow(0 22px 28px rgba(0,0,0,0.6))', offset:.13},
+    {transform:`translate(${dx*.38}px,${dy*.38-arc}px)${rot} scale(1.5)`,filter:'drop-shadow(0 25px 32px rgba(0,0,0,0.55))',offset:.46},
+    {transform:`translate(${dx*.75}px,${dy*.75-arc*.38}px)${rot} scale(1.3)`,filter:'drop-shadow(0 14px 18px rgba(0,0,0,0.5))',offset:.72},
+    {transform:`translate(${dx*.93}px,${dy*.93-arc*.06}px)${rot} scale(1.15)`,filter:'drop-shadow(0 7px 9px rgba(0,0,0,0.45))',offset:.85},
+    {transform:`translate(${dx}px,${dy+8}px)${rot} scale(1.35,0.72)`,filter:'drop-shadow(0 1px 2px rgba(0,0,0,0.4))',offset:.915},
+    {transform:`translate(${dx}px,${dy-4}px)${rot} scale(0.92,1.1)`,filter:'drop-shadow(0 5px 7px rgba(0,0,0,0.42))',offset:.96},
+    {transform:`translate(${dx}px,${dy}px)${rot} scale(1)`,           filter:'drop-shadow(0 3px 5px rgba(0,0,0,0.42))',offset:1},
   ],{duration:530,easing:'linear',fill:'forwards'}).finished;
 
   spawnImpactFX(tgtRect,hasCap);
@@ -1869,15 +1926,16 @@ async function animateDropMove(type,owner,tr,tc){
   const fly=makeFlyEl(type,owner,false,srcRect);
   document.body.appendChild(fly);
   const dx=tgtRect.left-srcRect.left, dy=tgtRect.top-srcRect.top;
-  const base=owner==='npc'?'rotate(180deg) ':'';
+  /* animatePieceMove と同じ理由で、回転は translate の後ろに置く */
+  const rot=pieceFacesViewer(owner)?' rotate(180deg)':'';
 
   await fly.animate([
-    {transform:`${base}translate(0,0) scale(0.5)`,opacity:.2,   offset:0},
-    {transform:`${base}translate(${dx*.28}px,${dy*.28-45}px) scale(1.5)`,opacity:1,offset:.28},
-    {transform:`${base}translate(${dx*.76}px,${dy*.76-16}px) scale(1.3)`,opacity:1,offset:.72},
-    {transform:`${base}translate(${dx}px,${dy+7}px) scale(1.32,0.74)`,   opacity:1,offset:.92},
-    {transform:`${base}translate(${dx}px,${dy-3}px) scale(0.94,1.08)`,   opacity:1,offset:.97},
-    {transform:`${base}translate(${dx}px,${dy}px) scale(1)`,             opacity:1,offset:1},
+    {transform:`translate(0,0)${rot} scale(0.5)`,opacity:.2,   offset:0},
+    {transform:`translate(${dx*.28}px,${dy*.28-45}px)${rot} scale(1.5)`,opacity:1,offset:.28},
+    {transform:`translate(${dx*.76}px,${dy*.76-16}px)${rot} scale(1.3)`,opacity:1,offset:.72},
+    {transform:`translate(${dx}px,${dy+7}px)${rot} scale(1.32,0.74)`,   opacity:1,offset:.92},
+    {transform:`translate(${dx}px,${dy-3}px)${rot} scale(0.94,1.08)`,   opacity:1,offset:.97},
+    {transform:`translate(${dx}px,${dy}px)${rot} scale(1)`,             opacity:1,offset:1},
   ],{duration:460,easing:'linear',fill:'forwards'}).finished;
 
   spawnImpactFX(tgtRect,false);
@@ -2300,6 +2358,7 @@ function endGame(winner,reason='checkmate'){
       <div style="display:flex;gap:10px;">
         ${senButtons}
       </div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:10px;padding:10px;" onclick="document.querySelectorAll('.modal-overlay').forEach(e=>e.remove())">閉じる（盤面を見る）</button>
     </div>`;
     document.body.appendChild(ovS);
     return;
@@ -2335,6 +2394,7 @@ function endGame(winner,reason='checkmate'){
         <button class="btn btn-ghost" style="flex:1;padding:13px;" onclick="undoMove()">↩ 待った</button>
         <button class="btn btn-dark" style="flex:1.4;padding:13px;" onclick="resetGame()">↻ もう一度</button>
       </div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:10px;padding:10px;" onclick="document.querySelectorAll('.modal-overlay').forEach(e=>e.remove())">閉じる（盤面を見る）</button>
     </div>`;
     document.body.appendChild(ovJ);
     return;
@@ -2385,6 +2445,7 @@ function endGame(winner,reason='checkmate'){
     <div style="display:flex;gap:10px;">
       ${buttonsHtml}
     </div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:10px;padding:10px;" onclick="document.querySelectorAll('.modal-overlay').forEach(e=>e.remove())">閉じる（盤面を見る）</button>
   </div>`;
   document.body.appendChild(ov);
 }
@@ -2419,6 +2480,14 @@ function showBanner(msg,size=54){
 // ═══════════════════════════════════════════════════════════
 // RENDERING
 // ═══════════════════════════════════════════════════════════
+/* 視点（自分の側）。後手のときは盤面を反転表示し、自分の駒が常に
+   画面下（手前）に来るようにする。対面2人（local）は先手視点のまま */
+function viewSide(){ return mode==='online'?mySide:(mode==='cpu'?humanSide:'player'); }
+function boardFlipped(){ return viewSide()==='npc'; }
+/* その駒が「こちら向き」（画面下を向く＝相手側の駒）に表示されるべきか。
+   盤上の駒・持ち駒・飛行アニメーションの向きはすべてこれで決める */
+function pieceFacesViewer(owner){ return owner!==viewSide(); }
+
 function buildCoords(sz){
   const frame=document.getElementById('board-frame');
   frame.querySelectorAll('.coord-label').forEach(e=>e.remove());
@@ -2427,18 +2496,19 @@ function buildCoords(sz){
   const fcs=getComputedStyle(frame);
   const padL=parseFloat(fcs.paddingLeft)||12, padT=parseFloat(fcs.paddingTop)||24;
   const cell=sz/9;
+  const flip=boardFlipped();
   for(let c=0;c<9;c++){
     const el=document.createElement('div');
     el.className='coord-label';
     el.style.cssText=`left:${padL+(c+0.5)*cell}px;top:${Math.max(1,padT-19)}px;transform:translateX(-50%);font-size:${Math.max(9,cell*0.3)}px;`;
-    el.textContent=FILE_DIGITS[8-c];
+    el.textContent=flip?FILE_DIGITS[c]:FILE_DIGITS[8-c];
     frame.appendChild(el);
   }
   for(let r=0;r<9;r++){
     const el=document.createElement('div');
     el.className='coord-label';
     el.style.cssText=`top:${padT+(r+0.5)*cell}px;right:5px;transform:translateY(-50%);font-size:${Math.max(9,cell*0.3)}px;`;
-    el.textContent=RANK_KANJI[r];
+    el.textContent=flip?RANK_KANJI[8-r]:RANK_KANJI[r];
     frame.appendChild(el);
   }
 }
@@ -2469,7 +2539,14 @@ function render(){
   const checkP=gameActive&&isInCheck('player',board);
   const checkN=gameActive&&isInCheck('npc',board);
   boardEl.innerHTML='';
-  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+  /* 後手視点では生成順を縦横とも逆にし、盤面を180度回して見せる。
+     セルは論理座標（data-r/data-c とクリック時のクロージャ）を持つため、
+     タップ判定・ハイライト・アニメーション（実座標ベース）はそのまま動く */
+  const flip=boardFlipped();
+  boardEl.classList.toggle('flipped',flip);
+  document.body.classList.toggle('view-flipped',flip);
+  const order=flip?[8,7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7,8];
+  for(const r of order)for(const c of order){
     const cell=document.createElement('div');
     cell.className='cell';cell.dataset.r=r;cell.dataset.c=c;
     cell.onclick=()=>handleCellClick(r,c);

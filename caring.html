@@ -1328,7 +1328,13 @@ function loadGame() {
     if (!saved || typeof saved !== 'object' || typeof saved.stage !== 'string' || !M[saved.stage]) throw new Error('bad save');
     G = Object.assign({}, G, saved);
     const elapsed = Date.now() - (G.lastSave || Date.now());
-    const elapsedSec = Math.min(elapsed / 1000, 3600);
+    /* オフライン進行は最大600秒（年齢換算で約1.7日）まで。従来の上限3600秒は
+       年齢換算で10日に達し、最終進化に必要な6日を一度の復帰で超えてしまい
+       「離席から戻っただけで短時間に最終形態まで進化」していた。
+       また lastSave が未来のセーブ（端末の時計ずれ・時計が進んだ他端末の
+       クラウドセーブ等）では経過が負になり、年齢がマイナスになったり
+       満腹度・ごきげんが上限(4)を超えたりしたため、下限も0で止める */
+    const elapsedSec = Math.max(0, Math.min(elapsed / 1000, 600));
     applyOfflineTime(elapsedSec);
     return true;
   } catch(e) {
@@ -2364,6 +2370,10 @@ function teardownCa() {
   try { if (caConn) caConn.close(); } catch(e) {}
   try { if (caPeer) caPeer.destroy(); } catch(e) {}
   caConn = null; caPeer = null;
+  /* 終了した部屋のコードを残すと friends.js の detectRoomCode が #net-code-text の
+     旧コードを拾って死んだ部屋へ招待してしまうため必ず消す */
+  window.PW_ROOM_CODE = '';
+  const rcEl = document.getElementById('net-code-text'); if (rcEl) rcEl.textContent = '';
 }
 
 /* ── 部屋を作る / 参加する / 終了 ── */
@@ -2378,7 +2388,17 @@ function hostRoom() {
   setNetStatus('部屋を作成中…');
   try { caPeer = new Peer(CA_PEER_PREFIX + caRoomCode, CA_PEER_OPTS); }
   catch(e) { netMode = 'solo'; setNetStatus('<span class="net-err">接続の作成に失敗しました。</span>'); return; }
+  /* Peer の 'open' が来ないまま「部屋を作成中…」で固まらないようタイムアウトを張る */
+  const hostPeer = caPeer; let hostOpened = false;
+  setTimeout(() => {
+    if (caPeer === hostPeer && !hostOpened) {
+      teardownCa(); onlineClosing = false; netMode = 'solo'; caIsHost = false;
+      setNetStatus('<span class="net-err">接続を確立できませんでした（部屋の作成がタイムアウトしました）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  }, 15000);
   caPeer.on('open', () => {
+    hostOpened = true;
+    window.PW_ROOM_CODE = caRoomCode;
     document.getElementById('net-code-text').textContent = caRoomCode;
     /* ルームコードは内部IDとしてのみ使う（フレンド招待制）。#net-code-wrap は表示しない:
        コード文字列は friends.js が #net-code-text の textContent から検出する */
@@ -2411,18 +2431,42 @@ function joinRoom() {
   setNetStatus('接続中…');
   try { caPeer = new Peer(undefined, CA_PEER_OPTS); }
   catch(e) { netMode = 'solo'; setNetStatus('<span class="net-err">接続の作成に失敗しました。</span>'); return; }
-  caPeer.on('open', () => {
+  const joinPeer = caPeer;
+  const joinDeadline = Date.now() + 20000;
+  let joinPeerOpen = false, joinConnOpen = false;
+  const tryJoinConnect = () => {
     armCaConnTimer('接続を確立できませんでした。コードが正しいか確認し、ネットワーク環境を変えてもう一度お試しください。');
     const c = caPeer.connect(CA_PEER_PREFIX + code, {reliable: true});
     setupCaConn(c);
     c.on('open', () => {
+      joinConnOpen = true;
       sendOnline({t:'hello', name: guestName});
       startCaHeartbeat();
       setNetStatus('接続しました！ホストからの開始を待っています…');
     });
-  });
+  };
+  caPeer.on('open', () => { joinPeerOpen = true; tryJoinConnect(); });
+  /* ゲスト側 Peer の 'open' 自体が来ない場合も固まらないようにする */
+  setTimeout(() => {
+    if (caPeer === joinPeer && !joinPeerOpen) {
+      teardownCa(); onlineClosing = false; netMode = 'solo'; caIsHost = false;
+      setNetStatus('<span class="net-err">接続を確立できませんでした（タイムアウト）。通信環境を確認してもう一度お試しください。</span>');
+    }
+  }, 15000);
   caPeer.on('error', err => {
-    if (err && err.type === 'peer-unavailable') setNetStatus('<span class="net-err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    if (err && err.type === 'peer-unavailable') {
+      /* 招待参加では、ホスト側の Peer 登録がまだ PeerJS サーバーへ伝わっていない
+         タイミングで参加すると peer-unavailable になることがある。即「部屋が
+         見つかりませんでした」で打ち切らず、同じ Peer から最大20秒ほど
+         再接続を試みてから失敗にする（従来はこの即時失敗が「招待参加が常に
+         部屋が見つかりませんでした」の主因だった） */
+      if (!joinConnOpen && Date.now() < joinDeadline) {
+        setNetStatus('接続中…（部屋を探しています）');
+        setTimeout(() => { if (caPeer === joinPeer && !joinConnOpen) tryJoinConnect(); }, 1500);
+        return;
+      }
+      setNetStatus('<span class="net-err">部屋が見つかりませんでした。コードを確認してください。</span>');
+    }
     else if (!coPlaying) setNetStatus('<span class="net-err">接続エラーが発生しました。</span>');
   });
 }
