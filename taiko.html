@@ -1831,14 +1831,21 @@ function officialEntry(songId, diff) { return officialMap ? (officialMap[chartKe
 function stepsFromChart(chartArr) {
   return chartArr.map(function (n) { return [n.step, n.type]; }).sort(function (a, b) { return a[0] - b[0]; });
 }
-/* ステップ列 → 演奏用ノーツ列。実音源は生成譜面と全く同じ時刻計算
-   （offset + step*stepDur + stepDelta）を通すので、承認/カスタム譜面でも
-   同期の仕組みがそのまま効く */
+/* ステップ列 → 演奏用ノーツ列（カスタム／承認／テストプレイ等の
+   ユーザー作成譜面専用経路）。
+   時刻はグリッド通り厳密に t = offset + step*stepDur とする（stepDelta は
+   掛けない）。delta は「自動生成譜面のノーツを実オンセットへ寄せる」ための
+   生成側専用の補正で、場所ごとに ±80ms 級で揺れる。これをユーザー譜面にも
+   掛けると、エディタで等間隔に置いたノーツが演奏では場所によって詰まったり
+   開いたり（32分間隔では順序が入れ替わる級）してしまうため、WYSIWYG
+   （エディタで見た間隔＝流れる間隔）を優先し、グリッド一貫性で統一する。
+   グリッド自体は offset（全曲一様の位相補正）で曲に合っている。
+   生成譜面は従来通り buildChart 側で delta を掛ける（v110–v115 の仕様維持） */
 function notesFromSteps(song, arr) {
   var d = buildSongData(song);
   var out = (arr || []).map(function (p) {
     var step = +p[0];
-    var t = song.real ? (song.offset + step * d.stepDur + stepDelta(song, Math.round(step))) : (step * d.stepDur);
+    var t = song.real ? (song.offset + step * d.stepDur) : (step * d.stepDur);
     return { step: step, t: t, type: p[1] === 'katsu' ? 'katsu' : 'don', judged: 0, res: null };
   });
   out.sort(function (a, b) { return (a.t - b.t) || (a.step - b.step); });
@@ -5179,9 +5186,12 @@ function renderMascotModal() {
   var pq = $('pauseQuitBtn');
   if (pq) pq.addEventListener('click', function () { openQuitConfirm(); }); /* v122: ポーズの「やめる」も確認を挟む */
   renderRatingBar();
-  /* 選曲プレビュー：曲カードのタップ（既存ハンドラで selSong 更新済み）を受けて開始 */
+  /* 選曲プレビュー：曲タイルのタップ（既存ハンドラで selSong 更新済み）を受けて開始。
+     v119/v120 の選曲画面再構成でカードのクラスが .songCard → .songTile に変わった際、
+     ここのセレクタが旧クラスのまま残り、プレビューが一切始まらない不具合があった
+     （2026-11-23 本人報告で発覚）。タイルのクラス名を変える時はここも合わせること */
   $('songList').addEventListener('click', function (e) {
-    var b = e.target && e.target.closest ? e.target.closest('.songCard') : null;
+    var b = e.target && e.target.closest ? e.target.closest('.songTile') : null;
     if (!b) return;
     startPreview(songById(b.dataset.song));
   });
@@ -5345,6 +5355,7 @@ window.__taiko = {
     entry: officialEntry,
     refresh: refreshOfficialCharts,
     resolve: function (songId, diff) { return resolvePlayChart(songById(songId), diff).map(function (n) { return [n.step, n.type]; }); },
+    times: function (songId, arr) { return notesFromSteps(songById(songId), arr).map(function (n) { return [n.step, n.t]; }); },
     setSrc: function (songId, diff, src) { setChartSrc(songId, diff, src); renderSongList(); },
     srcFor: chartSrcFor,
     custom: function (songId, diff) { var e = customEntry(songId, diff); return e ? e.notes : null; }
