@@ -1346,13 +1346,26 @@ function initAudioDl() {
   m.classList.remove('hidden');
 }
 /* iOS Safari はタップの瞬間に play() しておかないと後の再生が拒否されるため、
-   開始タップの中で一度 play→pause して再生許可を得ておく */
+   開始タップの中で一度 play→pause して再生許可を得ておく。
+   ただし pause は play() の Promise 解決後にしか走らず、解決が遅れた分だけ
+   カウントダウン中に音楽が鳴ってしまう不具合があった。そこでプライム中は
+   音量を 0 に落として「解決がどれだけ遅れても絶対に聞こえない」ようにし、
+   解決時（または本再生開始時）に必ず音量を戻す。本再生側でも開始直前に
+   currentTime=0 へ戻すため、プライムで進んだ再生位置が残ることもない */
 function primeRealEl(el) {
   if (!el) return;
+  try { el.volume = 0; } catch (e) {}
+  var settled = false;
+  var settle = function () {
+    if (settled) return; settled = true;
+    if (!realStarted) { try { el.pause(); el.currentTime = 0; } catch (e) {} }
+    try { el.volume = 1; } catch (e) {}
+  };
   try {
     var p = el.play();
-    if (p && p.then) p.then(function () { if (!realStarted) { try { el.pause(); el.currentTime = 0; } catch (e) {} } }, function () {});
-  } catch (e) {}
+    if (p && p.then) p.then(settle, settle);
+    else settle();
+  } catch (e) { settle(); }
 }
 function stopRealAudio() {
   if (realPlayTimer) { clearTimeout(realPlayTimer); realPlayTimer = null; }
@@ -1593,6 +1606,9 @@ function startSong() {
     /* 実音源が未読込なら読み込み、完了後に自動で開始する（失敗時はトーストで知らせる） */
     pendingStart = true;
     ensureRealAudio(curSong);
+    /* 読み込みが同期的に完了した場合、markReady 経由で既に開始済み（playing=true）
+       なので、ここで二重に開始処理を走らせない */
+    if (playing) return;
     if (realState(curSong) !== 'ready') { toast('音源を読み込んでいます…'); return; }
     pendingStart = false;
   }
@@ -1626,6 +1642,10 @@ function startSong() {
       realPlayTimer = null;
       if (!playing || !curSong || !curSong.real) return;
       realStarted = true;
+      /* カウントダウン終了の瞬間に songTime=0 で始まることを保証する：
+         プライム等で再生位置が進んでいても 0 へ戻し、プライムで 0 にした
+         音量もここで必ず戻してから再生する */
+      try { rr.el.volume = 1; rr.el.currentTime = 0; } catch (e) {}
       var p = null;
       try { p = rr.el.play(); } catch (e) {}
       if (p && p.catch) p.catch(function () {
@@ -4296,7 +4316,7 @@ window.__taiko = {
   state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre, real: curSong ? !!curSong.real : !!songById(selSong).real, chorus: (playing && curSong) ? inChorus(curSong, songTime) : false }; },
   bigDrum: function () { var bd = bigDrumGeom(); return { x: bd.x, y: bd.y, R: bd.R, top: bd.top }; },
   tapTypeAt: tapTypeAt,
-  realInfo: function (songId) { var s = songById(songId || selSong); if (!s.real) return null; var r = realAudio[s.id]; return { state: r ? r.state : 'none', duration: r && r.el ? r.el.duration : null, currentTime: r && r.el ? r.el.currentTime : null, muted: r && r.el ? !!r.el.muted : null }; },
+  realInfo: function (songId) { var s = songById(songId || selSong); if (!s.real) return null; var r = realAudio[s.id]; return { state: r ? r.state : 'none', duration: r && r.el ? r.el.duration : null, currentTime: r && r.el ? r.el.currentTime : null, muted: r && r.el ? !!r.el.muted : null, paused: r && r.el ? !!r.el.paused : null, volume: r && r.el ? r.el.volume : null, started: realStarted }; },
   seekReal: function (sec) { var r = curSong && realAudio[curSong.id]; if (r && r.el) { try { r.el.currentTime = sec; } catch (e) {} } },
   selectSong: function (songId) { selSong = songById(songId).id; var sg = songById(selSong); if (sg.real) ensureRealAudio(sg); renderSongList(); },
   SE_SETS: SE_SETS,
