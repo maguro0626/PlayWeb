@@ -67,6 +67,15 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #songDetail .dRow{display:flex;gap:11px;align-items:center;width:100%}
 #songDetail .dCredit{font-size:9.5px;color:var(--sub);line-height:1.55;opacity:.9;border-top:1px solid rgba(255,255,255,.10);padding-top:6px;word-break:break-all}
 #audioToast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:60;background:rgba(10,6,28,.92);border:1px solid rgba(255,201,60,.6);color:var(--txt);font-size:13px;font-weight:800;padding:10px 18px;border-radius:999px;box-shadow:0 8px 26px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;max-width:92vw;text-overflow:ellipsis;overflow:hidden}
+#dlModal{position:fixed;inset:0;z-index:200;background:rgba(6,3,18,.82);display:flex;align-items:center;justify-content:center;padding:18px}
+.dlCard{background:#17102e;border:1px solid var(--line);border-radius:18px;padding:20px 18px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.55);text-align:center}
+.dlTtl{font-size:17px;font-weight:900;margin-bottom:8px}
+.dlMsg{font-size:13px;color:var(--sub);line-height:1.7;font-weight:700}
+.dlBarWrap{height:12px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden;margin:14px 0 6px}
+#dlBar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .2s}
+#dlProg{font-size:12px;font-weight:800;color:var(--sub);min-height:16px}
+.dlBtns{display:flex;gap:10px;margin-top:14px}
+.dlBtns .btn{flex:1}
 #songDetail .jacketBig{width:74px;height:74px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;font-size:38px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),0 4px 12px rgba(0,0,0,.45)}
 #songDetail .jacketBig::after{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.45) 48%,transparent 62%);transform:translateX(-120%);animation:shine 3.6s ease-in-out infinite}
 #songDetail .dInfo{flex:1;min-width:0}
@@ -220,6 +229,13 @@ html,body{overscroll-behavior:none;}
 <div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <div id="audioToast" class="hidden"></div>
+<div id="dlModal" class="hidden"><div class="dlCard">
+<div class="dlTtl">🎵 楽曲データの更新</div>
+<p class="dlMsg" id="dlMsg">新しい楽曲データがあります。全曲の音源データ（<span id="dlSize"></span>）をダウンロードします。<br><b style="color:var(--txt)">Wi-Fi環境でのダウンロードを推奨します。</b></p>
+<div class="dlBarWrap"><div id="dlBar"></div></div>
+<div id="dlProg"></div>
+<div class="dlBtns"><button id="dlCancelBtn" class="btn sub">やめる</button><button id="dlOkBtn" class="btn">わかった</button></div>
+</div></div>
 <p class="help" id="footHelp">曲は WebAudio 合成のオリジナル曲＋実音源（🎵マークの曲）。ゲージ80%以上で FEVER 突入（スコア1.1倍）！</p>
 </div>
 <script>
@@ -1094,6 +1110,67 @@ function loadAudioTrack(song, cb) {
       document.head.appendChild(sc);
     })(i);
   }
+}
+/* ---------------- 楽曲データの更新チェック＆一括ダウンロード ----------------
+   起動時にデータ版数（AUDIO_REV）と端末の保存済み版数を比べ、新しい音源データが
+   ある時だけ Wi-Fi 推奨ポップアップを出す。「わかった」で全曲の音源データを
+   先読みして Service Worker のランタイムキャッシュに載せ（loadAudioTrack 経由で
+   ObjectURL 化まで済ませる）、完了したらそのまま遊べる。「やめる」でポータルへ戻る。
+   更新が不要な場合は何も出さない。
+   ★ 新しい曲（実音源）を追加したら AUDIO_REV を必ず上げること。 */
+var AUDIO_REV = 1;
+var AUDIO_DL_KEY = 'starrhythm_audio_dl_rev';
+function audioDlSongs() { return SONGS.filter(function (s) { return s.audio && s.parts; }); }
+function audioDlTotalParts() { return audioDlSongs().reduce(function (a, s) { return a + (s.parts | 0); }, 0); }
+function audioDlSizeText() { return '約' + Math.round(audioDlTotalParts() * 292500 / 1048576) + 'MB'; }
+function audioDlRev() { try { return parseInt(localStorage.getItem(AUDIO_DL_KEY), 10) || 0; } catch (e) { return 0; } }
+function audioDlMarkDone() { try { localStorage.setItem(AUDIO_DL_KEY, String(AUDIO_REV)); } catch (e) {} }
+var srDlRunning = false;
+function startAudioDownload() {
+  if (srDlRunning) return;
+  srDlRunning = true;
+  var songs = audioDlSongs();
+  var totalParts = audioDlTotalParts();
+  var doneParts = 0, doneSongs = 0;
+  var bar = $('dlBar'), txt = $('dlProg'), okBtn = $('dlOkBtn'), msg = $('dlMsg');
+  if (okBtn) okBtn.classList.add('hidden');
+  if (msg) msg.textContent = 'ダウンロード中です。そのままお待ちください…';
+  function upd() {
+    if (bar) bar.style.width = (totalParts ? Math.round(doneParts / totalParts * 100) : 100) + '%';
+    if (txt) txt.textContent = doneSongs + '/' + songs.length + ' 曲 ・ ' + doneParts + '/' + totalParts + ' ファイル';
+  }
+  upd();
+  var idx = 0;
+  function next() {
+    if (idx >= songs.length) {
+      srDlRunning = false;
+      audioDlMarkDone();
+      var m = $('dlModal'); if (m) m.classList.add('hidden');
+      showToast('🎵 楽曲データのダウンロードが完了しました');
+      return;
+    }
+    var song = songs[idx++];
+    if (audioDataReady(song)) { doneParts += song.parts; doneSongs++; upd(); next(); return; }
+    loadAudioTrack(song, function (err) {
+      if (err) {
+        srDlRunning = false;
+        if (msg) msg.innerHTML = '⚠ ダウンロードに失敗しました。通信環境のよい場所でリトライしてください。';
+        if (okBtn) { okBtn.textContent = 'リトライ'; okBtn.classList.remove('hidden'); }
+        return;
+      }
+      doneParts += song.parts; doneSongs++; upd(); next();
+    });
+  }
+  next();
+}
+function initAudioDl() {
+  if (audioDlRev() >= AUDIO_REV) return; /* 更新なし：何も出さず通常起動 */
+  var m = $('dlModal'); if (!m) return;
+  var sz = $('dlSize'); if (sz) sz.textContent = audioDlSizeText();
+  var okBtn = $('dlOkBtn'), cancelBtn = $('dlCancelBtn');
+  if (okBtn) okBtn.addEventListener('click', startAudioDownload);
+  if (cancelBtn) cancelBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
+  m.classList.remove('hidden');
 }
 /* トースト（読み込み中・失敗などの通知） */
 var toastTimer = null;
@@ -2747,6 +2824,7 @@ function drawJudgePop(t) {
 }
 fitCanvas();
 renderSongList();
+initAudioDl(); /* 楽曲データの更新チェック（更新がある時だけポップアップ） */
 requestAnimationFrame(draw);
 
 /* ---------------- オンライン対戦（PeerJS・フレンド招待制は friends.js が担う） ---------------- */
@@ -2997,6 +3075,7 @@ window.__sr = {
   approachSec: function () { return approachSec(); },
   audioInfo: function () { return { active: curAudioActive, started: audioStartedFlag, ended: audioEndedFlag, duration: (audioEl && isFinite(audioEl.duration)) ? audioEl.duration : null, currentTime: audioEl ? audioEl.currentTime : null, paused: audioEl ? audioEl.paused : null }; },
   audioReady: function (id) { var s = songById(id); return s.audio ? audioDataReady(s) : null; },
+  audioDl: { rev: function () { return AUDIO_REV; }, storedRev: audioDlRev, totalParts: audioDlTotalParts, sizeText: audioDlSizeText, songs: function () { return audioDlSongs().map(function (s) { return s.id; }); } },
   audioEl: function () { return audioEl; },
   padInfo: function (lane) { var p = padRect(lane), s = judgeBarSegs()[lane]; return { pad: p, seg: s, same: p.x === s.x && p.y === s.y && p.w === s.w && p.h === s.h, judgeY: judgeY() }; },
   toastVisible: function () { var el = $('audioToast'); return !!el && !el.classList.contains('hidden'); }
