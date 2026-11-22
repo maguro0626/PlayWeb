@@ -485,12 +485,9 @@
     } catch (e) {}
     return out;
   }
-  /* リンクドラムサーガ（taiko）の使用キャラ名をセーブから読む。
-     セーブ形式: { owned: {...}, fav: キャラid }（taiko_chara_v1）
-     優先順: お気に入り(fav) → 編成の先頭 → 最もレベルの高い所持キャラ。
-     名前が引けない id（未登録のもの）は表示しない（空文字を返す）。
-     セーブが無いユーザーでは空文字を返すだけで壊れない。
-     ※ id→名前の対応は旧リンクサーガから流用したロスター全26体分 */
+  /* 旧リンクドラムサーガの使用キャラ名テーブル（全26体）。
+     2026-11-22 のキャラ要素全撤去で readMainChar は使用キャラを返さなくなったため、
+     このテーブルは現在未使用（過去データ互換のため残置）。 */
   var LS_CHAR_NAMES = {
     astraia: 'アストライア', velzelia: 'ヴェルゼリア', seiren: 'セイレーン',
     blaze: 'ブレイズ', gracia: 'グラキエス', terra: 'テラ', solaris: 'ソラリス', nox: 'ノクス',
@@ -500,21 +497,11 @@
     mint: 'ミント', shiro: 'シロ', tama: 'タマ', kuro: 'クロ', yoru: 'ヨル'
   };
   function readMainChar() {
-    try {
-      var s = JSON.parse(localStorage.getItem('taiko_chara_v1') || 'null');
-      if (!s || typeof s !== 'object') return '';
-      var id = '';
-      if (typeof s.fav === 'string' && s.fav) id = s.fav;
-      else if (Array.isArray(s.party) && typeof s.party[0] === 'string' && s.party[0]) id = s.party[0];
-      else if (s.owned && typeof s.owned === 'object') {
-        var best = -1;
-        Object.keys(s.owned).forEach(function (k) {
-          var lv = (s.owned[k] && s.owned[k].lv) || 0;
-          if (lv > best) { best = lv; id = k; }
-        });
-      }
-      return LS_CHAR_NAMES[id] || '';
-    } catch (e) { return ''; }
+    /* 2026-11-22 本人の方針転換で太鼓のキャラゲー要素は全撤去されたため、
+       使用キャラは廃止。taiko_chara_v1 はもう読まず、常に空文字を返す
+       （プロフィールの使用キャラ行は空なら非表示になる既存仕様）。
+       LS_CHAR_NAMES は過去プロフィール表示との互換のため残置するが未使用。 */
+    return '';
   }
 
   /* ---------------- 状態 ---------------- */
@@ -1760,7 +1747,7 @@
     if (typeof data.iconColor === 'string') myProfile.iconColor = data.iconColor;
     if (typeof data.comment === 'string') myProfile.comment = data.comment;
     if (data.stats && typeof data.stats === 'object') myProfile.stats = data.stats;
-    if (typeof data.mainChar === 'string') myProfile.mainChar = data.mainChar;
+    /* mainChar（使用キャラ）は廃止済み。クラウドに残る旧値は取り込まない */
     var ca = createdAtToMs(data.createdAt);
     if (ca !== null) myCreatedAtMs = ca;
   }

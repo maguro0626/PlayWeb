@@ -44,7 +44,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #roomCodeText{font-size:26px;font-weight:900;letter-spacing:.3em;color:var(--gold)}
 .help{font-size:12px;color:var(--sub);line-height:1.8;text-align:center}
 #songArea{flex:1;min-height:0;display:flex;flex-direction:column}
-#genreTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none;cursor:grab}
+#genreTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 1px 8px;scrollbar-width:none;cursor:grab;flex:none}
 #genreTabs:active{cursor:grabbing}
 #genreTabs::-webkit-scrollbar{display:none}
 #genreTabs button{flex:none;border:2px solid var(--line);background:rgba(255,255,255,.06);color:var(--sub);padding:6px 14px;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;min-height:36px;letter-spacing:.03em}
@@ -171,191 +171,16 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #quitBtn{flex:1}
 .wrap.playing #modeSeg,.wrap.playing #songArea,.wrap.playing #soloPane,.wrap.playing #onlinePane,.wrap.playing .footHelp{display:none!important}
 .wrap:not(.ingame) #stageWrap,.wrap:not(.ingame) #hud{display:none}
-/* ===== リンクドラムサーガ：キャラ/ガチャ/バトル ===== */
-/* 2段組：1段目=fav+所持ジェム、2段目=ガチャ/キャラ/バトルの3ボタンを等分。
-   1列に並べると全チップ合計が画面幅を超え、右端のバトル切替が見切れるため */
-#charaBar{display:flex;flex-direction:column;gap:7px;margin-bottom:9px}
-#charaBar .cbRow{display:flex;align-items:center;gap:7px;min-width:0}
-#charaBar .cbBtns .miniBtn{flex:1 1 0;min-width:0}
-#favChip{display:flex;align-items:center;gap:7px;flex:1 1 auto;min-width:0;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,201,60,.55);border-radius:999px;padding:3px 12px 3px 4px;color:var(--txt);cursor:pointer;font-family:inherit;min-height:42px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-#favChip:active{transform:scale(.96)}
-#favChip .fcFace{width:34px;height:34px;border-radius:50%;overflow:hidden;flex:none;background:#241a30;display:flex;align-items:center;justify-content:center}
-#favChip .fcFace svg{width:34px;height:34px;display:block}
-#favChip .fcFace img{width:100%;height:100%;object-fit:cover;display:block}
-#favChip .fcTx{font-size:12px;font-weight:900;line-height:1.25;text-align:left;white-space:nowrap;flex:1;min-width:0;overflow:hidden}
-#favName{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#favChip .fcTx small{display:block;font-size:10px;color:var(--gold);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.curBox{font-size:13px;font-weight:900;color:var(--gold);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:8px 10px;white-space:nowrap;flex:none}
-.miniBtn{background:rgba(255,255,255,.09);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:8px 11px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:42px;white-space:nowrap}
-.miniBtn:active{transform:scale(.95)}
-.miniBtn.off{opacity:.55}
-/* バトル帯：レーン上端より上の帯に収め、ノーツには一切被らない。自キャラ名札＋敵HP＋敵バッジ */
-#battleHud{position:absolute;top:6px;left:8px;right:8px;z-index:3;display:flex;align-items:center;gap:9px;background:linear-gradient(180deg,rgba(24,8,18,.88),rgba(12,5,12,.82));border:1.5px solid rgba(255,201,60,.45);border-radius:14px;padding:6px 9px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.45)}
-#battleHud .bhChar{flex:none;width:74px;min-width:0}
-#bhCharName{font-size:12.5px;font-weight:900;color:var(--gold);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#bhCharName small{display:block;font-size:10px;color:var(--txt);font-weight:800}
-#bhStatus{font-size:10.5px;font-weight:900;color:#7dd3fc;line-height:1.3;min-height:14px;white-space:nowrap;overflow:hidden}
-#battleHud .bhMain{flex:1;min-width:0}
-#battleHud .bhTopRow{display:flex;align-items:baseline;gap:8px}
-#bhName{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
-#bhName .bhEl{font-size:10.5px;color:var(--sub);font-weight:800}
-#bhMeta{font-size:11.5px;color:#ffd9a0;font-weight:900;white-space:nowrap}
-#bhBarWrap{height:14px;background:rgba(255,255,255,.16);border-radius:99px;overflow:hidden;margin-top:3px;box-shadow:inset 0 1px 3px rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25)}
-#bhHp{height:100%;width:100%;background:linear-gradient(90deg,#f43f5e,#fb923c,#facc15);border-radius:99px;transition:width .18s}
-#bhHp.low{background:linear-gradient(90deg,#dc2626,#f43f5e)}
-#bhSkill{font-size:12px;font-weight:900;color:#ffe98a;min-height:16px;line-height:16px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.6)}
-#bhSkill.bad{color:#fda4af}
-#bhSkill.good{color:#7ef0b2}
-#bhSkill.soul{color:#ffb03a}
-.bhFoeWrap{flex:none;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.20),rgba(10,4,10,.55) 75%);border:2.5px solid #888;display:flex;align-items:center;justify-content:center;position:relative}
-#bhFace{font-size:33px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
-.bhFoeWrap.dmg{animation:foeDmg .17s ease-out}
-@keyframes foeDmg{0%{transform:translateX(0)}30%{transform:translateX(3px) scale(.94);filter:brightness(2.1)}100%{transform:translateX(0)}}
-.bhFoeWrap.atk{animation:foeAtk .32s ease-out}
-@keyframes foeAtk{0%{transform:translateX(0) scale(1)}35%{transform:translateX(-13px) scale(1.14)}100%{transform:translateX(0) scale(1)}}
-.bhFoeWrap.down{transform:rotate(72deg) translateY(7px);opacity:.45;filter:grayscale(.6)}
-/* 自キャラのミニキャラ：大太鼓の左脇に立つ（タップは透過） */
-#miniStage{position:absolute;left:8px;bottom:6px;width:62px;height:68px;z-index:3;pointer-events:none}
-#miniStage .miniIn{animation:miniBob 1.7s ease-in-out infinite alternate;transform-origin:50% 100%}
-#miniStage .miniIn svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
-@keyframes miniBob{from{transform:translateY(0)}to{transform:translateY(-3.5px)}}
-#miniStage.act-hit .miniIn{animation:miniHit .19s ease-out}
-@keyframes miniHit{0%{transform:translateY(0) scale(1)}40%{transform:translateY(-9px) scale(1.07)}100%{transform:translateY(0) scale(1)}}
-#miniStage.act-burst .miniIn{animation:miniBurst .56s cubic-bezier(.2,1.4,.4,1)}
-@keyframes miniBurst{0%{transform:translateY(0) rotate(0) scale(1)}35%{transform:translateY(-24px) rotate(-9deg) scale(1.22)}65%{transform:translateY(-16px) rotate(7deg) scale(1.15)}100%{transform:translateY(0) rotate(0) scale(1)}}
-#miniStage.act-hurt .miniIn{animation:miniHurt .32s ease-out}
-@keyframes miniHurt{0%{transform:translateX(0)}25%{transform:translateX(-6px) rotate(-6deg)}55%{transform:translateX(5px)}100%{transform:translateX(0)}}
-#dmgLayer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
-.dmgNum{position:absolute;font-weight:900;font-size:23px;color:#ffd964;text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 10px rgba(255,160,40,.65),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 -1px 0 rgba(0,0,0,.55);animation:dmgFloat .95s ease-out forwards;white-space:nowrap}
-.dmgNum.skill{font-size:33px;color:#fff2b0}
-.dmgNum.big{font-size:29px;color:#ffb03a}
-.dmgNum.k2{font-size:18px;color:#ffe9b0}
-.dmgNum.pair{font-size:25px;color:#7ef0b2}
-.dmgNum.gauge{font-size:17px;color:#7ef0b2}
-.dmgNum.hurt{font-size:20px;color:#fda4af;text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 10px rgba(244,63,94,.6),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 -1px 0 rgba(0,0,0,.55)}
-.dmgNum.guard{font-size:21px;color:#7dd3fc;text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 10px rgba(56,189,248,.65),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 -1px 0 rgba(0,0,0,.55)}
-@keyframes dmgFloat{0%{transform:translateY(6px) scale(.7);opacity:0}14%{opacity:1;transform:translateY(0) scale(1.14)}30%{transform:translateY(-6px) scale(1)}72%{opacity:1}100%{transform:translateY(-42px) scale(1);opacity:0}}
-/* キャラ詳細の全画面イラストビューア */
-#artViewer{position:fixed;inset:0;z-index:100005;background:rgba(4,2,6,.95);display:flex;align-items:center;justify-content:center;cursor:zoom-out}
-#artViewer #artViewBody{max-width:100vw;max-height:100vh;display:flex;align-items:center;justify-content:center}
-#artViewer #artViewBody img{max-width:100vw;max-height:100vh;object-fit:contain;display:block}
-#artViewer #artViewBody svg{width:min(88vw,420px);height:auto}
-#artViewer .avHint{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;font-size:12px;font-weight:800;color:rgba(255,255,255,.65);pointer-events:none}
-#charaDetail .cdFace{cursor:zoom-in}
-.cdZoomHint{font-size:10.5px;color:var(--gold);font-weight:800;margin-top:3px}
-/* デイリーミッション */
-#dailyBox,#weeklyBox,#msDaily,#msWeekly,#msChal{background:rgba(56,189,248,.10);border:1px solid rgba(125,211,252,.4);border-radius:13px;padding:9px 11px;margin-bottom:11px}
-#weeklyBox,#msWeekly{background:rgba(176,110,232,.10);border-color:rgba(196,141,255,.4)}
-#msChal{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.35)}
-#dailyBox .dbTtl,#weeklyBox .dbTtl,#msDaily .dbTtl,#msWeekly .dbTtl,#msChal .dbTtl{font-size:13px;font-weight:900;color:#bae6fd;margin-bottom:5px}
-#weeklyBox .dbTtl,#msWeekly .dbTtl{color:#e3c8ff}
-#msChal .dbTtl{color:#fde68a}
-#dailyBox .dbRow,#weeklyBox .dbRow,#msDaily .dbRow,#msWeekly .dbRow,#msChal .dbRow{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;line-height:1.65}
-#dailyBox .dbRow .dbProg,#weeklyBox .dbRow .dbProg,#msDaily .dbRow .dbProg,#msWeekly .dbRow .dbProg,#msChal .dbRow .dbProg{color:var(--sub);font-weight:800}
-#dailyBox .dbRow .dbGem,#weeklyBox .dbRow .dbGem,#msDaily .dbRow .dbGem,#msWeekly .dbRow .dbGem,#msChal .dbRow .dbGem{margin-left:auto;color:var(--gold);font-weight:900;white-space:nowrap}
-#dailyBox .dbRow.done,#weeklyBox .dbRow.done,#msDaily .dbRow.done,#msWeekly .dbRow.done,#msChal .dbRow.done{color:#7ef0b2}
-#dailyBox .dbRow.done .dbProg,#weeklyBox .dbRow.done .dbProg,#msDaily .dbRow.done .dbProg,#msWeekly .dbRow.done .dbProg,#msChal .dbRow.done .dbProg{color:#7ef0b2}
-/* 初クリア報酬マーカー（難易度行） */
-.dRow .fcYet{color:#ffd76a;font-weight:900;margin-left:6px;font-size:11px;white-space:nowrap}
-.dRow .fcDone{color:#7ef0b2;font-weight:900;margin-left:6px;font-size:11px;white-space:nowrap}
-/* ログインボーナス */
 .dlBarWrap{height:12px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden;margin:10px 0 6px}
 #dlBar{height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#818cf8);border-radius:99px;transition:width .2s}
 #dlProg{font-size:12px;font-weight:800;color:var(--sub);text-align:center;min-height:16px}
-.lbDots{display:flex;gap:5px;justify-content:center;margin:10px 0 4px;flex-wrap:wrap}
-.lbDot{flex:1;min-width:36px;text-align:center;font-size:11px;font-weight:900;padding:7px 2px;border-radius:9px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--sub)}
-.lbDot small{display:block;font-size:9px;font-weight:800;color:var(--sub)}
-.lbDot.got{background:rgba(126,240,178,.15);border-color:rgba(126,240,178,.5);color:#7ef0b2}
-.lbDot.today{background:linear-gradient(180deg,#f5b942,#e07f2e);border-color:#ffd76a;color:#2b1602;box-shadow:0 0 14px rgba(255,183,60,.55)}
-.lbDot.today small{color:#5b3405}
-.lbAmt{text-align:center;font-size:24px;font-weight:900;color:var(--gold);margin:8px 0 2px;text-shadow:0 2px 10px rgba(255,183,60,.4)}
 .modal{position:fixed;inset:0;z-index:100000;background:rgba(8,3,8,.78);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:14px 10px calc(14px + env(safe-area-inset-bottom))}
 .modalCard{width:100%;max-width:460px;background:linear-gradient(180deg,#2b1220,#1c0b16);border:1.5px solid rgba(255,201,60,.4);border-radius:18px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.7)}
 .modalHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .modalHead .mhTtl{font-size:17px;font-weight:900;flex:1;white-space:nowrap;min-width:0}
-.modalHead .curBox{white-space:nowrap}
 .xBtn{background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--txt);border-radius:50%;width:36px;height:36px;font-size:15px;cursor:pointer;flex:none}
-.bannerTabs{display:flex;gap:6px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:3px}
-.bannerTabs button{flex:1;border:none;background:transparent;color:var(--sub);padding:8px 4px;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;min-height:38px}
-.bannerTabs button.on{background:linear-gradient(180deg,#b06ee8,#7c3aed);color:#fff}
-.pityLine{font-size:12px;color:var(--sub);font-weight:800;text-align:center;margin:9px 0 4px;line-height:1.7}
-.pityLine b{color:var(--gold)}
-.pullGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0}
-.pullCell{border-radius:11px;padding:5px 2px 6px;text-align:center;background:rgba(255,255,255,.06);border:1.5px solid var(--line);animation:rankIn .35s backwards}
-.pullCell .pcFace{width:44px;height:44px;margin:0 auto;border-radius:9px;overflow:hidden;background:#241a30}
-.pullCell .pcFace svg{width:100%;height:100%;display:block}
-.pullCell .pcFace img{width:100%;height:100%;object-fit:cover;display:block}
-.pullCell .pcNm{font-size:9.5px;font-weight:900;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pullCell .pcTag{font-size:8.5px;font-weight:900}
-.rar-UR{border-color:#ffd964!important;box-shadow:0 0 12px rgba(255,201,60,.55)}
-.rar-SSR{border-color:#c084fc!important}
-.rar-SR{border-color:#7dd3fc!important}
-.tag-UR{color:#ffd964}.tag-SSR{color:#e9b8ff}.tag-SR{color:#a5e3ff}.tag-R{color:#cdb49b}
 .modalBtns{display:flex;gap:8px;margin-top:10px}
 .note{font-size:11px;color:var(--sub);line-height:1.7;margin-top:8px}
-#charaGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-.chCell{border-radius:12px;padding:6px 2px 7px;text-align:center;background:rgba(255,255,255,.05);border:1.5px solid var(--line);cursor:pointer;font-family:inherit;color:var(--txt)}
-.chCell:active{transform:scale(.96)}
-.chCell.sel{border-color:var(--gold);box-shadow:0 0 10px rgba(255,201,60,.4)}
-.chCell .ccFace{width:52px;height:52px;margin:0 auto;border-radius:10px;overflow:hidden;background:#241a30}
-.chCell .ccFace svg{width:100%;height:100%;display:block}
-.chCell .ccFace img{width:100%;height:100%;object-fit:cover;display:block}
-.chCell.unowned .ccFace{filter:brightness(.12) saturate(.4)}
-.chCell .ccNm{font-size:10.5px;font-weight:900;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chCell .ccLv{font-size:9.5px;color:var(--gold);font-weight:800}
-#charaDetail{margin-top:11px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:11px}
-#charaDetail .cdTop{display:flex;gap:11px}
-#charaDetail .cdFace{width:92px;height:104px;flex:none;border-radius:12px;overflow:hidden;background:#241a30;border:2px solid rgba(255,255,255,.2)}
-#charaDetail .cdFace svg{width:100%;height:100%;display:block}
-#charaDetail .cdFace img{width:100%;height:100%;object-fit:cover;display:block}
-#charaDetail .cdNm{font-size:16.5px;font-weight:900}
-#charaDetail .cdSub{font-size:11.5px;color:var(--sub);font-weight:800;margin-top:1px}
-#charaDetail .cdStats{font-size:12px;line-height:1.75;margin-top:4px;font-weight:700}
-.expBar{height:9px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden;margin:5px 0 3px}
-.expBar i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#818cf8)}
-#charaDetail .cdSkill{font-size:12px;line-height:1.8;margin-top:7px;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px}
-#charaDetail .cdSkill b{color:var(--gold)}
-#charaDetail .cdFlavor{font-size:11.5px;color:var(--sub);line-height:1.7;margin-top:7px;font-style:italic}
-#urFx{position:fixed;inset:0;z-index:100001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(ellipse at 50% 42%,rgba(120,72,0,.94),rgba(30,16,0,.97) 78%);text-align:center;padding:20px}
-#urFx .rays{position:absolute;inset:-48%;background:repeating-conic-gradient(from 0deg,rgba(255,215,110,.16) 0 9deg,transparent 9deg 22deg);animation:raysSpin 14s linear infinite;pointer-events:none}
-#urFx .urFace{width:min(62vw,250px);aspect-ratio:0.88;border-radius:18px;overflow:hidden;border:3.5px solid #ffd964;box-shadow:0 0 44px rgba(255,201,60,.8);animation:rankIn .55s cubic-bezier(.2,1.6,.4,1);background:#241a30;position:relative;z-index:1}
-#urFx .urFace svg{width:100%;height:100%;display:block}
-#urFx .urFace img{width:100%;height:100%;object-fit:cover;display:block}
-#urFx .urTtl{font-size:27px;font-weight:900;color:#ffe98a;text-shadow:0 3px 0 rgba(0,0,0,.5),0 0 26px rgba(255,201,60,.8);position:relative;z-index:1}
-#urFx .urSub{font-size:13.5px;font-weight:900;color:#fff;position:relative;z-index:1}
-#charaDetail .cdFace.awake{border-color:#ffd964;box-shadow:0 0 16px rgba(255,201,60,.75)}
-.chCell .ccFace,.chCell .ccNm,.chCell .ccLv{display:block}
-#resultPanel .rwLine{font-size:13.5px;font-weight:900;color:var(--gold);line-height:1.7}
-#resultPanel .rwLine .defeat{color:#fda4af}
-@media (max-height:740px){
-  #charaBar{gap:5px;margin-bottom:6px}
-  #charaBar .cbRow{gap:5px}
-  #favChip{min-height:36px;padding:2px 9px 2px 3px}
-  #favChip .fcFace{width:28px;height:28px}
-  #favChip .fcFace svg{width:28px;height:28px}
-  .miniBtn{min-height:36px;padding:6px 8px;font-size:11.5px}
-  .curBox{padding:6px 8px;font-size:12px}
-  #battleHud{gap:6px;padding:4px 7px;top:4px}
-  #battleHud .bhChar{width:60px}
-  #bhCharName{font-size:11px}
-  #bhName{font-size:12px}
-  #bhBarWrap{height:11px}
-  #bhSkill{font-size:11px;min-height:14px;line-height:14px}
-  .bhFoeWrap{width:42px;height:42px}
-  #bhFace{font-size:26px}
-  #miniStage{width:48px;height:53px;left:6px;bottom:4px}
-  #miniStage .miniIn svg{width:48px;height:52px}
-}
-@media (max-width:370px){
-  #charaBar{gap:5px}
-  #favChip{padding:2px 8px 2px 3px}
-  #favChip .fcTx{font-size:11px}
-  #favChip .fcTx small{font-size:9px}
-  .curBox{padding:7px 7px;font-size:12px}
-  .miniBtn{padding:7px 8px;font-size:11.5px}
-  #battleHud .bhChar{width:58px}
-  #bhMeta{font-size:10.5px}
-}
 /* ===== サイズ適応：どの端末でも曲リストが潰れて選べなくならないようにする =====
    構造側の保証は .songList{min-height:110px} + #songDetail{flex:0 1 auto;overflow-y:auto}
    （詳細パネルが譲って内部スクロールする）。以下は高さ・幅ごとの段階圧縮。 */
@@ -366,8 +191,6 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #songDetail .sdTtl{padding-right:64px}
   #hudCombo{min-width:86px;font-size:13px;padding:3px 8px}
   #hudSong{min-width:0}
-  .pullCell .pcFace{width:38px;height:38px}
-  #charaDetail .cdFace{width:76px;height:88px}
 }
 @media (max-height:880px){
   .ttl{font-size:22px}
@@ -375,7 +198,6 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #songDetail .dRow{min-height:28px;padding:2px 9px}
   #songDetail .sdCredit{font-size:9px;line-height:1.4;margin-top:4px}
   .help{line-height:1.6}
-  #charaBar{margin-bottom:6px}
 }
 @media (max-height:740px){
   #soloPane .help{display:none}
@@ -392,7 +214,7 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #songDetail .sdMeta{flex:0 0 100%;margin:0;font-size:10.5px}
   #songDetail .dRow{flex:0 0 calc(50% - 3px);width:auto;min-width:0;overflow:hidden;margin-top:0;min-height:25px;padding:2px 7px;flex-wrap:wrap;row-gap:0}
   #songDetail .dLbl{width:44px;font-size:11px}
-  /* 2×2圧縮では1行に収まらず ★ が欠け、「💎+30」が右端で見切れていた。
+  /* 2×2圧縮では1行に収まらず ★ が欠け、報酬バッジが右端で見切れていた。
      ★は小さめにして1行目に全10個を収め、ベスト表示は2行目へ回して
      バッジごと全部見えるようにする（難易度名とスタートボタンは現状維持） */
   /* ★は行幅いっぱいの専用行にして10個全て見せる（横並びだと約45pxに潰れて見切れた） */
@@ -401,8 +223,6 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #songDetail .dBest .rk{font-size:9.5px}
   #songDetail .sdCredit{display:none}
   #soloPane .btn{min-height:44px}
-  #favChip{min-height:34px}
-  .miniBtn{min-height:34px}
   #ctrlRow .iconBtn{min-height:40px;min-width:44px}
   #seSetSel{min-height:40px}
   #resultPanel{justify-content:flex-start;overflow-y:auto;padding:12px 10px}
@@ -411,6 +231,20 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
   #resultPanel .rdetail{font-size:12px;line-height:1.5}
 }
 @media (max-height:580px){
+  /* v118: レーティング＋デイリー行を1行に固定し、各行を圧縮して
+     詳細パネル（5難易度行・うら行48px）が収まる表示領域を確保する */
+  #v118Bar .cbRow2{flex-wrap:nowrap}
+  #v118Bar .rateBox{flex:none}
+  #v118Bar .dailyBox{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  #v118Bar{gap:4px;margin-bottom:5px}
+  #v118Bar .rateBox,#v118Bar .dailyBox{padding:4px 7px}
+  #filterChips button{min-height:27px;padding:3px 8px;font-size:10.5px}
+  .v118Btns .miniBtn2{min-height:30px;padding:4px 8px}
+  #offsetSeg button{min-height:28px;padding:3px 2px}
+  .songList{min-height:84px}
+  #soloPane .btn{min-height:40px}
+  #modeSeg button{min-height:30px}
+  .ttl{font-size:16px}
   .wrap{gap:5px}
   .songCard{min-height:52px;padding:5px 9px 5px 7px}
   .songCard .jk{width:38px;height:38px;font-size:21px}
@@ -433,6 +267,44 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 @media (min-width:1500px){
   .wrap{max-width:700px}
 }
+/* ===== v118 新要素（レーティング/スタンプ/お気に入り/練習/オート/ポーズ） ===== */
+#v118Bar{display:flex;flex-direction:column;gap:7px;margin-bottom:9px}
+.cbRow2{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+.v118Btns{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.v118Btns::-webkit-scrollbar{display:none}
+.v118Btns .miniBtn2{flex:none}
+.rateBox{font-size:12.5px;font-weight:900;color:var(--gold);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:7px 11px;white-space:nowrap}
+.dailyBox{font-size:11.5px;font-weight:800;color:#bae6fd;background:rgba(56,189,248,.12);border:1px solid rgba(125,211,252,.4);border-radius:999px;padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.miniBtn2{background:rgba(255,255,255,.09);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:8px 11px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:40px;white-space:nowrap;flex:1 1 auto}
+.miniBtn2:active{transform:scale(.95)}
+.miniBtn2.on{background:linear-gradient(180deg,#f5b942,#e07f2e);color:#2b1602;border-color:#ffd76a}
+#filterChips{display:flex;gap:5px;overflow-x:auto;padding:1px;scrollbar-width:none}
+#filterChips::-webkit-scrollbar{display:none}
+#filterChips button{flex:none;border:1.5px solid var(--line);background:rgba(255,255,255,.05);color:var(--sub);padding:5px 10px;border-radius:999px;font-size:11.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:32px}
+#filterChips button:active{transform:scale(.95)}
+#filterChips button.on{background:linear-gradient(180deg,#5b9bff,#2f6fe4);border-color:rgba(255,255,255,.35);color:#fff}
+.songCard.daily{border-color:rgba(125,211,252,.75);box-shadow:0 0 12px rgba(56,189,248,.35)}
+.songCard .dailyTag{color:#7dd3fc;font-weight:900}
+#songDetail .dRow.locked{opacity:.62;cursor:default}
+#songDetail .dRow.locked .dLbl{width:auto}
+#favBtn{margin:2px 0 4px;background:rgba(0,0,0,.3);border:1.5px solid rgba(255,201,60,.6);color:var(--gold);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:34px}
+#favBtn:active{transform:scale(.95)}
+.stampSong{margin-bottom:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stampRow{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:800;line-height:1.7;color:var(--sub)}
+.stampRow span:first-child{color:var(--txt);white-space:nowrap}
+.recBig{font-size:20px;font-weight:900;text-align:center;color:var(--gold);margin:6px 0}
+.recLine{font-size:13px;font-weight:800;line-height:1.9;text-align:center}
+.flLine{font-size:12px;color:var(--txt);font-weight:800}
+.histWrap{display:flex;align-items:flex-end;gap:3px;height:44px;margin:6px auto 2px;max-width:220px}
+.histBar{flex:1;background:linear-gradient(180deg,#ffd964,#f59e0b);border-radius:3px 3px 0 0;min-height:8%}
+.histLbl{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);font-weight:800;max-width:220px;margin:0 auto}
+.newRec{font-size:19px;font-weight:900;color:#231600;background:linear-gradient(92deg,#ffe98a,#ffc93c 45%,#ff9d2e);padding:6px 18px;border-radius:999px;box-shadow:0 0 22px rgba(255,201,60,.7);animation:rankIn .5s .1s cubic-bezier(.2,1.6,.4,1) backwards}
+#pausePanel{position:absolute;inset:0;background:rgba(10,4,8,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:6;padding:16px}
+#pausePanel .ppTtl{font-size:24px;font-weight:900}
+#autoBadge{position:absolute;top:8px;right:8px;z-index:4;background:rgba(0,0,0,.65);border:1.5px solid #7dd3fc;color:#bae6fd;font-size:12px;font-weight:900;border-radius:999px;padding:5px 12px;pointer-events:none}
+.wrap:not(.ingame) #pauseBtn{display:none}
+.btn:active,.miniBtn2:active,.iconBtn:active{transform:translateY(2px) scale(.97)}
+@media (max-height:740px){ #v118Bar{gap:5px;margin-bottom:6px} .miniBtn2{min-height:36px;padding:6px 8px;font-size:11px} .rateBox{padding:6px 8px;font-size:11.5px} .dailyBox{padding:6px 8px;font-size:10.5px} }
 </style>
 <style>
 /* バウンス抑止（麻雀方式：画面固定） */
@@ -450,17 +322,10 @@ html,body{overscroll-behavior:none;}
 <div id="songDetail"></div>
 </div>
 <div id="soloPane">
-<div id="charaBar">
-<div class="cbRow">
-<button id="favChip" title="連れていくキャラ"><span class="fcFace" id="favFace"></span><span class="fcTx"><span id="favName">キャラ</span><small id="favLv"></small></span></button>
-<span class="curBox">💎 <span id="gemNum">0</span></span>
-</div>
-<div class="cbRow cbBtns">
-<button id="gachaBtn" class="miniBtn">🎰 ガチャ</button>
-<button id="charaBtn" class="miniBtn">🐱 キャラ</button>
-<button id="missionBtn" class="miniBtn">🎯 ミッション</button>
-<button id="battleTgl" class="miniBtn">⚔ ON</button>
-</div>
+<div id="v118Bar">
+<div class="cbRow2"><span class="rateBox">⭐ レーティング <b id="ratingVal">0.0</b></span><span class="dailyBox" id="dailyLine">📅 今日のチャレンジ：-</span></div>
+<div id="filterChips"></div>
+<div class="cbRow2 v118Btns"><button id="practiceTgl" class="miniBtn2">練習（サビから） OFF</button><button id="autoTgl" class="miniBtn2">🤖 オートプレイ（お手本） OFF</button><button id="randomBtn" class="miniBtn2">🎲 ランダム選曲</button><button id="stampBtn" class="miniBtn2">📖 スタンプ帳</button><button id="recordsBtn" class="miniBtn2">📊 記録</button></div>
 </div>
 <div id="offsetSeg"><span class="segLbl">判定調整</span><button data-off="-25">−25</button><button data-off="-5">−5</button><span id="offsetVal" title="タップで 0 に戻す">±0ms</span><button data-off="5">＋5</button><button data-off="25">＋25</button></div>
 <div id="startRow" style="display:flex;gap:8px">
@@ -484,8 +349,8 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo" class="cb"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo" class="cb"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="battleHud" class="hidden"><div class="bhChar"><div id="bhCharName"></div><div id="bhStatus"></div></div><div class="bhMain"><div class="bhTopRow"><span id="bhName"></span><span id="bhMeta"></span></div><div id="bhBarWrap"><div id="bhHp"></div></div><div id="bhSkill"></div></div><div class="bhFoeWrap" id="bhFoeWrap"><span id="bhFace">🫧</span></div></div><div id="miniStage" class="hidden"><div class="miniIn" id="miniIn"></div></div><div id="dmgLayer"></div><div id="resultPanel" class="hidden"></div></div>
-<div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select><button id="quitBtn" class="btn sub hidden">やめる</button></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="ppTtl">⏸ ポーズ中</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="resumeBtn">再開</button><button class="btn blue" id="restartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div></div><div id="autoBadge" class="hidden">🤖 オートプレイ中</div></div>
+<div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select><button id="pauseBtn" class="iconBtn" title="ポーズ（対戦中は不可）">⏸</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <p class="help footHelp">WebAudio合成のオリジナル曲・フリーBGM・Suno曲で遊べます。魂ゲージ70%以上でクリア！</p>
 </div>
 <div id="calibModal" class="modal hidden"><div class="modalCard">
@@ -497,35 +362,13 @@ html,body{overscroll-behavior:none;}
 <div class="modalBtns"><button id="calibStartBtn" class="btn">▶ 計測スタート</button><button id="calibApplyBtn" class="btn hidden">適用する</button><button id="calibRetryBtn" class="btn sub hidden">もう一度</button><button id="calibCancelBtn" class="btn sub">やめる</button></div>
 </div></div>
 <div id="toast"></div>
-<div id="gachaModal" class="modal hidden"><div class="modalCard">
-<div class="modalHead"><span class="mhTtl">🎰 召喚ガチャ</span><span class="curBox">💎 <span id="gachaGemNum">0</span></span><button class="xBtn" id="gachaClose">✕</button></div>
-<div class="bannerTabs"><button data-b="normal" class="on">通常召喚</button><button data-b="pickup">⭐ ピックアップ</button></div>
-<p class="note" style="text-align:center">ピックアップ対象：UR アストライア / SSR ブレイズ<br>（UR・SSRが出たとき50%の確率でピックアップキャラになります）</p>
-<div class="pityLine" id="pityLine"></div>
-<div id="gachaResults"></div>
-<div class="modalBtns"><button id="pull1Btn" class="btn">1回 💎300</button><button id="pull10Btn" class="btn blue">10連 💎3,000</button></div>
-<p class="note">確率：UR 0.05% / SSR 2% / SR 17.5% / R 80.45%　天井：SSR 90連・UR 1,000連（共通カウンタ）　10連はSR以上が1体確定。被りは限界突破（最大5凸）、上限到達後はコインに変換されます。💎は演奏クリア・初クリア（曲×難易度ごと）・敵の撃破・ランクボーナス・ログインボーナス・ミッション（デイリー/ウィークリー/チャレンジ）・コレクション達成（ミッション画面で確認）で貯まります。</p>
+<div id="stampModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">📖 スタンプ帳</span><button class="xBtn" id="stampClose">✕</button></div>
+<div id="stampBody"></div>
 </div></div>
-<div id="charaModal" class="modal hidden"><div class="modalCard">
-<div class="modalHead"><span class="mhTtl">🐱 キャラ</span><span class="curBox" id="charaCurBox"></span><button class="xBtn" id="charaClose">✕</button></div>
-<div id="dailyBox"></div>
-<div id="weeklyBox"></div>
-<div id="charaGrid"></div>
-<div id="charaDetail"></div>
-</div></div>
-<div id="missionModal" class="modal hidden"><div class="modalCard">
-<div class="modalHead"><span class="mhTtl">🎯 ミッション</span><span class="curBox">💎 <span id="msGemNum">0</span></span><button class="xBtn" id="missionClose">✕</button></div>
-<div id="msDaily"></div>
-<div id="msWeekly"></div>
-<div id="msChal"></div>
-<p class="note">報酬💎は達成した時点で自動で付与されます。デイリーは毎日、ウィークリーは毎週月曜にリセットされます。チャレンジは一度きりの実績ミッションです。</p>
-</div></div>
-<div id="artViewer" class="hidden"><div id="artViewBody"></div><div class="avHint">タップで閉じる</div></div>
-<div id="loginModal" class="modal hidden"><div class="modalCard">
-<div class="modalHead"><span class="mhTtl">🎁 ログインボーナス</span><button class="xBtn" id="loginClose">✕</button></div>
-<div id="loginBody"></div>
-<div class="modalBtns"><button id="loginClaimBtn" class="btn blue">受け取る</button></div>
-<p class="note" style="text-align:center">開いた日ごとに進む累計ログイン日数で、7日ごとにサイクルします（途切れても日数は戻りません）。</p>
+<div id="recordsModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">📊 記録</span><button class="xBtn" id="recordsClose">✕</button></div>
+<div id="recordsBody"></div>
 </div></div>
 <div id="dlModal" class="modal hidden"><div class="modalCard">
 <div class="modalHead"><span class="mhTtl">🎵 楽曲データの更新</span></div>
@@ -534,8 +377,6 @@ html,body{overscroll-behavior:none;}
 <div id="dlProg"></div>
 <div class="modalBtns"><button id="dlCancelBtn" class="btn">やめる</button><button id="dlOkBtn" class="btn blue">わかった</button></div>
 </div></div>
-<div id="urFx" class="hidden"></div>
-<script src="linkdrum_data.js"></script>
 <script>
 /*__TAIKO_MAIN__*/
 (function () {
@@ -812,15 +653,17 @@ function buildSongData(song) {
 
 /* ---------------- 難易度と譜面生成（決定的） ---------------- */
 var DIFFS = {
-  easy:   { label: 'かんたん',   grid: 4, pAccent: 0.85, pOff: 0.55, minGap: 4, bigProb: 0,    good: 0.095, bad: 0.190, approach: 1.9 },
-  normal: { label: 'ふつう',     grid: 2, pAccent: 0.80, pOff: 0.22, minGap: 2, bigProb: 0.16, good: 0.075, bad: 0.160, approach: 1.9 },
-  hard:   { label: 'むずかしい', grid: 1, pAccent: 0.96, pOff: 0.60, minGap: 1, bigProb: 0.27, good: 0.058, bad: 0.130, runLen: 5, approach: 1.55 },
-  /* おに：密度を大幅に上げ、長い連打(runLen)・アクセント大音符(bigAccentProb)を解禁し、判定窓も最も狭い。
-     同時打ち（ペア）は廃止（2026-11-22 本人指示）。代わりに精密解析で拾った追加オンセット
-     (xon) と確率引き上げで単発の密度と連打で難しくする。approach はノーツの見え始めから
-     判定までの秒数（短いほど速く流れる）。密度が上がった分、間隔が詰まりすぎないよう
-     hard/おに は速くして1ノーツあたりの表示間隔を確保する */
-  oni:    { label: 'おに',       grid: 1, pAccent: 1.00, pOff: 0.96, minGap: 1, bigProb: 0.42, good: 0.048, bad: 0.108, bigAccentProb: 0.22, runLen: 9, approach: 1.32 }
+  easy:   { label: 'かんたん',   grid: 4, pAccent: 0.85, pOff: 0.55, minGap: 4, good: 0.095, bad: 0.190, approach: 1.9 },
+  normal: { label: 'ふつう',     grid: 2, pAccent: 0.80, pOff: 0.22, minGap: 2, good: 0.075, bad: 0.160, approach: 1.9 },
+  hard:   { label: 'むずかしい', grid: 1, pAccent: 0.96, pOff: 0.60, minGap: 1, good: 0.058, bad: 0.130, runLen: 5, approach: 1.55 },
+  /* おに：密度を大幅に上げ、長い連打(runLen)で難しくする。同時打ち（ペア）は廃止（2026-11-22 本人指示）。
+     精密解析で拾った追加オンセット(xon)と確率引き上げで単発の密度と連打で難しくする。
+     approach はノーツの見え始めから判定までの秒数（短いほど速く流れる） */
+  oni:    { label: 'おに',       grid: 1, pAccent: 1.00, pOff: 0.96, minGap: 1, good: 0.048, bad: 0.108, runLen: 9, approach: 1.32 },
+  /* うら：その曲の「おに」をランクA以上でクリアすると解放（曲ごと）。
+     譜面は buildChartUra / buildChartUraSynth が全オンセット採用＋32分連打で生成する。
+     既存4難易度の生成ロジックには一切触れない */
+  ura:    { label: 'うら',       grid: 1, pAccent: 1.00, pOff: 1.00, minGap: 1, good: 0.042, bad: 0.095, runLen: 16, approach: 1.1 }
 };
 /* ---------------- サビ区間とオンセット ----------------
    chorus は全曲が持つサビ区間（秒）の配列。実音源は音量エネルギーの解析、
@@ -865,14 +708,22 @@ function vocalStr(song, step) {
   return (n >= 0 && n <= 9) ? n : 0;
 }
 /* オンセット強度→配置確率（難易度別、添字が強度 0〜9）。強度 0 は常に 0＝置かない */
+var DIFF_KEYS = ['easy', 'normal', 'hard', 'oni', 'ura'];
+/* 旧・大音符の乱数消費互換シム用テーブル：既存4難易度の譜面（乱数列＝ステップ/種別）を一切変えないため、
+   従来の大音符抽選が消費していた乱数だけを同じ条件で消費する。大音符そのものは生成しない */
+var LEGACY_ROLL_PROB = { easy: 0, normal: 0.16, hard: 0.27, oni: 0.42 };
+/* 初回 renderSongList（新システム定義より前に走る）から参照される定数はここで先行定義する */
+var FILTERS = [['all', 'すべて'], ['fav', '★お気に入り'], ['lv5', 'Lv〜5'], ['lv68', 'Lv6〜8'], ['lv9', 'Lv9〜'], ['unplayed', '未プレイ'], ['cleared', 'クリア済'], ['fc', 'フルコンボ']];
+var RANK_COEF = { S: 1.00, A: 0.92, B: 0.80, C: 0.60, D: 0.35 };
 var ONSET_P = {
   easy:   [0, 0, 0, 0, 0.55, 0.70, 0.85, 0.95, 0.98, 1.00],
   normal: [0, 0.10, 0.14, 0.18, 0.45, 0.60, 0.75, 0.90, 0.97, 1.00],
   hard:   [0, 0.50, 0.60, 0.70, 0.84, 0.92, 0.98, 1.00, 1.00, 1.00],
-  oni:    [0, 0.88, 0.92, 0.95, 0.98, 1.00, 1.00, 1.00, 1.00, 1.00]
+  oni:    [0, 0.88, 0.92, 0.95, 0.98, 1.00, 1.00, 1.00, 1.00, 1.00],
+  ura:    [0, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00]
 };
 /* サビ区間の確率倍率（難易度別）。最低難易度では上げ幅を小さくする */
-var CHORUS_MUL = { easy: 1.15, normal: 1.30, hard: 1.90, oni: 2.30 };
+var CHORUS_MUL = { easy: 1.15, normal: 1.30, hard: 1.90, oni: 2.30, ura: 2.60 };
 /* 実音源曲の譜面生成（決定的・オンセット駆動）：実際に音が鳴っているステップ
    （steps の強度）に優先して置き、弱いステップは高難易度の埋め草程度、
    強度 0 には原則置かない。サビ区間は強度を引き上げ＋確率倍率で少し
@@ -882,6 +733,7 @@ var CHORUS_MUL = { easy: 1.15, normal: 1.30, hard: 1.90, oni: 2.30 };
    曲の最後の拍より後には置かない。シード固定のためマルチ対戦でも両端末で
    同じ譜面になる。 */
 function buildChartReal(song, diffKey) {
+  if (diffKey === 'ura') return buildChartUra(song);
   var P = DIFFS[diffKey];
   var stepDur = 60 / song.bpm / 4;
   var stepsPerBar = (song.beatsPerBar || 4) * 4;
@@ -930,12 +782,13 @@ function buildChartReal(song, diffKey) {
       while (pr < runLim && pr < n && notes[n - 1 - pr].type === pt) pr++;
       if (pr < runLim) type = pt;
     }
-    /* 大音符は小節頭のみ（おには強いオンセットにも）。強いステップ・サビで確率を上げる */
-    var big = false;
-    if (P.bigProb > 0 && barStart) big = rng() < P.bigProb * (str >= 7 ? 1.8 : 0.7) * (ch ? 1.3 : 1);
-    if (!big && P.bigAccentProb && accent) big = rng() < P.bigAccentProb * (ch ? 1.3 : 1);
+    /* 旧・大音符抽選の乱数消費だけを再現する互換シム（譜面のステップ/種別を変えないため）。
+       大音符は生成しない（v118 で概念自体を廃止） */
+    var legacyRoll = false;
+    if (LEGACY_ROLL_PROB[diffKey] > 0 && barStart) legacyRoll = rng() < LEGACY_ROLL_PROB[diffKey] * (str >= 7 ? 1.8 : 0.7) * (ch ? 1.3 : 1);
+    if (!legacyRoll && diffKey === 'oni' && accent) legacyRoll = rng() < 0.22 * (ch ? 1.3 : 1);
     /* ノーツ時刻はグリッド＋ステップごとの微調整（delta）で実オンセットへスナップする */
-    var main = { step: step, t: t + stepDelta(song, step), type: type, big: big, judged: 0, res: null };
+    var main = { step: step, t: t + stepDelta(song, step), type: type, judged: 0, res: null };
     notes.push(main);
     lastStep = step;
     /* 同時打ち（ペア）は廃止済み：密度は xon・確率・連打で作る */
@@ -944,6 +797,7 @@ function buildChartReal(song, diffKey) {
 }
 function buildChart(song, diffKey) {
   if (song.real) return buildChartReal(song, diffKey);
+  if (diffKey === 'ura') return buildChartUraSynth(song);
   var P = DIFFS[diffKey];
   var data = buildSongData(song);
   var rng = mulberry32(hashStr('taiko:' + song.id + ':' + diffKey));
@@ -964,9 +818,10 @@ function buildChart(song, diffKey) {
     var n = notes.length, runLim = P.runLen || 3, run = 0;
     while (run < runLim && run < n && notes[n - 1 - run].type === type) run++;
     if (run >= runLim) type = (type === 'don') ? 'katsu' : 'don';
-    var big = P.bigProb > 0 && barStart && rng() < P.bigProb;
-    if (!big && P.bigAccentProb && accent && rng() < P.bigAccentProb) big = true; /* おに：小節頭以外（アクセント）にも大音符 */
-    var main = { step: step, t: step * data.stepDur, type: type, big: big, judged: 0, res: null };
+    /* 旧・大音符抽選の乱数消費だけを再現する互換シム（譜面のステップ/種別を変えないため）。大音符は生成しない */
+    var legacyRoll = LEGACY_ROLL_PROB[diffKey] > 0 && barStart && rng() < LEGACY_ROLL_PROB[diffKey];
+    if (!legacyRoll && diffKey === 'oni' && accent && rng() < 0.22) legacyRoll = true;
+    var main = { step: step, t: step * data.stepDur, type: type, judged: 0, res: null };
     notes.push(main);
     lastStep = step;
     /* 同時打ち（ペア）は廃止済み */
@@ -981,9 +836,8 @@ function judgeFor(dt, diffKey) {
   if (a <= P.bad) return 'ok';
   return null;
 }
-function scoreFor(res, big) {
-  var base = res === 'good' ? 300 : (res === 'ok' ? 100 : 0);
-  return base * (big ? 2 : 1);
+function scoreFor(res) {
+  return res === 'good' ? 300 : (res === 'ok' ? 100 : 0);
 }
 var CLEAR_LINE = 70;
 function gaugeDelta(res, totalNotes) {
@@ -1102,44 +956,44 @@ function hatAt(t, vol, open) { noiseAt(t, open ? 0.15 :  0.05, 'highpass', 7600,
    アタックの柔らかいノイズ、大太鼓=スナップなしの長い胴鳴り、鈴=高域の純音）とは
    帯域・減衰・アタックのどれかで必ず聞き分けられるように設計している。 */
 /* -- 標準：従来の太鼓の音 -- */
-function donStd(t, vol, big) { toneAt(big ? 128 : 168, t, big ? 0.34 : 0.24, 'sine', vol, big ? 46 : 57); noiseAt(t, 0.03, 'lowpass', 900, 0.6, vol * 0.35); }
-function katsuStd(t, vol, big) { toneAt(big ? 520 : 640, t, big ? 0.16 : 0.10, 'square', vol * 0.5, big ? 240 : 300); noiseAt(t, 0.05, 'bandpass', 2600, 1.2, vol * 0.7); }
+function donStd(t, vol) { toneAt(168, t, 0.24, 'sine', vol, 57); noiseAt(t, 0.03, 'lowpass', 900, 0.6, vol * 0.35); }
+function katsuStd(t, vol) { toneAt(640, t, 0.10, 'square', vol * 0.5, 300); noiseAt(t, 0.05, 'bandpass', 2600, 1.2, vol * 0.7); }
 /* -- 木の音：木魚の胴鳴り＋拍子木の乾いたクリック -- */
-function donWood(t, vol, big) {
-  toneAt(big ? 280 : 340, t, big ? 0.14 : 0.10, 'triangle', vol * 0.9, big ? 150 : 190);
-  toneAt(big ? 540 : 660, t, 0.05, 'sine', vol * 0.32);
+function donWood(t, vol) {
+  toneAt(340, t, 0.10, 'triangle', vol * 0.9, 190);
+  toneAt(660, t, 0.05, 'sine', vol * 0.32);
   noiseAt(t, 0.03, 'bandpass', 1900, 5, vol * 0.8);
 }
-function katsuWood(t, vol, big) {
+function katsuWood(t, vol) {
   noiseAt(t, 0.022, 'bandpass', 3400, 7, vol);
-  toneAt(big ? 980 : 1150, t, 0.04, 'triangle', vol * 0.45, big ? 700 : 820);
+  toneAt(1150, t, 0.04, 'triangle', vol * 0.45, 820);
 }
 /* -- 電子音：シンセパーカッション。速いピッチドロップ＋金属的なピング -- */
-function donElec(t, vol, big) {
-  toneAt(big ? 180 : 240, t, big ? 0.24 : 0.16, 'sine', vol, big ? 44 : 52);
+function donElec(t, vol) {
+  toneAt(240, t, 0.16, 'sine', vol, 52);
   noiseAt(t, 0.018, 'highpass', 4200, 0.7, vol * 0.45);
 }
-function katsuElec(t, vol, big) {
-  toneAt(big ? 980 : 1240, t, big ? 0.10 : 0.07, 'square', vol * 0.32, big ? 620 : 780);
+function katsuElec(t, vol) {
+  toneAt(1240, t, 0.07, 'square', vol * 0.32, 780);
   noiseAt(t, 0.03, 'bandpass', 5200, 2, vol * 0.55);
 }
 /* -- 軽い音：高めで短く、小気味よいポップな打音 -- */
-function donLight(t, vol, big) {
-  toneAt(big ? 220 : 262, t, big ? 0.20 : 0.13, 'sine', vol * 0.85, big ? 118 : 148);
-  toneAt(big ? 440 : 524, t, 0.06, 'triangle', vol * 0.28);
+function donLight(t, vol) {
+  toneAt(262, t, 0.13, 'sine', vol * 0.85, 148);
+  toneAt(524, t, 0.06, 'triangle', vol * 0.28);
 }
-function katsuLight(t, vol, big) {
-  toneAt(big ? 880 : 1046, t, big ? 0.08 : 0.06, 'triangle', vol * 0.5, big ? 660 : 784);
+function katsuLight(t, vol) {
+  toneAt(1046, t, 0.06, 'triangle', vol * 0.5, 784);
   noiseAt(t, 0.02, 'highpass', 6000, 0.7, vol * 0.3);
 }
 /* -- 重い音：低く長く、ドスッと沈む打音 -- */
-function donHeavy(t, vol, big) {
-  toneAt(big ? 96 : 120, t, big ? 0.42 : 0.32, 'sine', vol, big ? 30 : 36);
-  toneAt(big ? 62 : 74, t, big ? 0.34 : 0.26, 'triangle', vol * 0.38, 32);
+function donHeavy(t, vol) {
+  toneAt(120, t, 0.32, 'sine', vol, 36);
+  toneAt(74, t, 0.26, 'triangle', vol * 0.38, 32);
   noiseAt(t, 0.045, 'lowpass', 600, 0.6, vol * 0.55);
 }
-function katsuHeavy(t, vol, big) {
-  toneAt(big ? 330 : 392, t, big ? 0.15 : 0.11, 'square', vol * 0.48, big ? 175 : 215);
+function katsuHeavy(t, vol) {
+  toneAt(392, t, 0.11, 'square', vol * 0.48, 215);
   noiseAt(t, 0.06, 'bandpass', 1500, 1.4, vol * 0.7);
 }
 var SE_SETS = [
@@ -1171,12 +1025,12 @@ function previewSeSet() {
   ensureAudio();
   if (!AC) return;
   var t = AC.currentTime;
-  donAt(t, 0.8, false);
-  katsuAt(t + 0.22, 0.65, false);
+  donAt(t, 0.8);
+  katsuAt(t + 0.22, 0.65);
 }
 /* 打撃SEの入口：選択中のセットへ振り分ける（伴奏からは呼ばない） */
-function donAt(t, vol, big) { SE_IMPL[seSet].don(t, vol, big); }
-function katsuAt(t, vol, big) { SE_IMPL[seSet].katsu(t, vol, big); }
+function donAt(t, vol) { SE_IMPL[seSet].don(t, vol); }
+function katsuAt(t, vol) { SE_IMPL[seSet].katsu(t, vol); }
 /* 和風曲の伴奏専用：大太鼓（ドンより低く長く、打面のスナップがない柔らかい胴鳴り）と
    鈴（カツと無関係な高域の純音の重なり。拍子木や締太鼓のようなクリック系は使わない） */
 function oodaikoAt(t, vol) { toneAt(104, t, 0.40, 'sine', vol, 38); }
@@ -1186,7 +1040,7 @@ function suzuAt(t, vol) {
   toneAt(8450, t, 0.10, 'sine', vol * 0.14);
   noiseAt(t, 0.12, 'highpass', 6800, 0.7, vol * 0.30, 0.02);
 }
-function playHit(type, big) { if (!AC) return; var t = AC.currentTime; if (type === 'don') donAt(t, big ? 0.95 : 0.8, big); else katsuAt(t, big ? 0.8 : 0.65, big); }
+function playHit(type) { if (!AC) return; var t = AC.currentTime; if (type === 'don') donAt(t, 0.8); else katsuAt(t, 0.65); }
 
 /* ---------------- 歌声シンセ（フォルマント合成） ----------------
    本物の歌声ファイルは使わず、鋸波を母音のフォルマント（共鳴）へ通し、
@@ -1629,9 +1483,11 @@ function genreList() {
 function diffLevel(song, diff) {
   var d = buildSongData(song);
   var n = buildChart(song, diff).length;
-  return clamp(Math.round(n / d.duration * 2.2), 1, 10);
+  var lv = Math.round(n / d.duration * 2.2);
+  if (diff === 'ura') lv += 2; /* うら補正（上限超えは starStr 側で崩れない形にする） */
+  return clamp(lv, 1, diff === 'ura' ? 12 : 10);
 }
-function starStr(lv) { var s = ''; for (var i = 0; i < 10; i++) s += i < lv ? '★' : '☆'; return s; }
+function starStr(lv) { if (lv > 10) return '★★★★★★★★★★+'; var s = ''; for (var i = 0; i < 10; i++) s += i < lv ? '★' : '☆'; return s; }
 function renderGenreTabs() {
   var html = '';
   genreList().forEach(function (c) {
@@ -1644,19 +1500,25 @@ function renderGenreTabs() {
 }
 function renderSongList() {
   renderGenreTabs();
+  renderFilterChips();
+  renderRatingBar();
   /* 再描画（ロード後2秒/5秒・フォーカス復帰時など）でスクロール位置が先頭に戻らないよう保持する */
   var slEl = $('songList');
   var keepScroll = slEl ? (slEl.scrollTop || 0) : 0;
   var html = '';
+  var dailyId = dailySongId();
   SONGS.forEach(function (s) {
     if (selGenre !== 'すべて' && s.cat !== selGenre) return;
+    if (!songMatchesFilter(s)) return;
     var d = buildSongData(s);
     var best = getBest(s.id, selDiff);
     var nNotes = buildChart(s, selDiff).length;
     var cols = SONG_COLORS[s.id] || ['#888', '#444'];
     var art = jacketArt(s);
-    html += '<button class="songCard' + (s.id === selSong ? ' on' : '') + '" data-song="' + s.id + '" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + '"><span class="jk"' + (art ? ' style="background-image:url(' + art + ')"' : '') + '>' + s.emo + '</span><span class="grow"><span class="nm">' + s.title + '</span><div class="meta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ♪' + nNotes + '音' + (s.real ? ' ・ 🎵実音源' : '') + '</div><div class="stars">' + starStr(diffLevel(s, selDiff)) + '</div></span>' + (best === null ? '' : '<span class="bst">🏆 ' + best.toLocaleString() + '</span>') + '</button>';
+    var isDaily = s.id === dailyId;
+    html += '<button class="songCard' + (s.id === selSong ? ' on' : '') + (isDaily ? ' daily' : '') + '" data-song="' + s.id + '" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + '"><span class="jk"' + (art ? ' style="background-image:url(' + art + ')"' : '') + '>' + s.emo + '</span><span class="grow"><span class="nm">' + (isFav(s.id) ? '★ ' : '') + s.title + '</span><div class="meta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ♪' + nNotes + '音' + (s.real ? ' ・ 🎵実音源' : '') + (isDaily ? ' ・ <span class="dailyTag">📅 今日のチャレンジ</span>' : '') + '</div><div class="stars">' + starStr(diffLevel(s, selDiff)) + '</div></span>' + (best === null ? '' : '<span class="bst">🏆 ' + best.toLocaleString() + '</span>') + '</button>';
   });
+  if (!html) html = '<p class="help">条件に合う曲がありません</p>';
   $('songList').innerHTML = html;
   if (slEl && keepScroll) slEl.scrollTop = keepScroll;
   document.querySelectorAll('.songCard').forEach(function (b) {
@@ -1705,13 +1567,16 @@ function renderSongDetail() {
   var d = buildSongData(s);
   var cols = SONG_COLORS[s.id] || ['#888', '#444'];
   var rows = '';
-  var fcSave = LD ? loadChara() : null;
-  ['easy', 'normal', 'hard', 'oni'].forEach(function (df) {
+  ['easy', 'normal', 'hard', 'oni', 'ura'].forEach(function (df) {
     var best = getBest(s.id, df);
     var rank = getRank(s.id, df);
-    var fcMark = '';
-    if (fcSave) fcMark = (fcSave.clears && fcSave.clears[s.id + ':' + df]) ? '<span class="fcDone">💎✔ 初クリア済</span>' : '<span class="fcYet">💎+' + FIRST_CLEAR_GEM + ' 初クリア</span>';
-    rows += '<button class="dRow' + (df === selDiff ? ' on' : '') + '" data-d="' + df + '"><span class="dLbl">' + DIFFS[df].label + '</span><span class="stars">' + starStr(diffLevel(s, df)) + '</span><span class="dBest">' + (best === null ? '未プレイ' : '🏆 ' + best.toLocaleString() + (rank ? '<span class="rk">' + rank + '</span>' : '')) + fcMark + '</span></button>';
+    if (df === 'ura' && !isUraUnlocked(s.id)) {
+      rows += '<button class="dRow locked" data-d="ura"><span class="dLbl">うら 🔒</span><span class="stars">' + starStr(diffLevel(s, df)) + '</span><span class="dBest">おにをA以上でクリアで解放</span></button>';
+      return;
+    }
+    var st = getStamp(s.id, df);
+    var stMark = st ? '<span style="margin-left:5px">' + (st.c ? '✅' : '') + (st.m ? '🎯' : '') + (st.s ? '👑' : '') + '</span>' : '';
+    rows += '<button class="dRow' + (df === selDiff ? ' on' : '') + '" data-d="' + df + '"><span class="dLbl">' + DIFFS[df].label + '</span><span class="stars">' + starStr(diffLevel(s, df)) + '</span><span class="dBest">' + (best === null ? '未プレイ' : '🏆 ' + best.toLocaleString() + (rank ? '<span class="rk">' + rank + '</span>' : '')) + stMark + '</span></button>';
   });
   var detEl = $('songDetail');
   detEl.style.setProperty('--sc', cols[0]);
@@ -1722,14 +1587,18 @@ function renderSongDetail() {
     var rst = realState(s);
     realTag = rst === 'ready' ? ' ・ 🎵実音源' : (rst === 'loading' ? ' ・ ⏳音源読み込み中…' : (rst === 'error' ? ' ・ ⚠音源の読込に失敗' : ' ・ 🎵実音源'));
   }
+  if (s.id === dailySongId()) realTag += ' ・ 📅今日のチャレンジ';
   var creditHtml = s.credit ? '<div class="sdCredit">' + (s.suno ? '🎵 Suno（自作曲）' : s.credit) + '</div>' : '';
-  detEl.innerHTML = '<span class="sdTag">▶ 選択中</span><span class="sdJk" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + (sdArt ? ';background-image:url(' + sdArt + ')' : '') + '">' + s.emo + '</span><span class="sdMain"><div class="sdTtl">' + s.title + '</div><div class="sdMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒' + (s.vocal ? ' ・ 🎤歌声シンセ' : '') + realTag + '</div>' + rows + creditHtml + '</span>';
+  detEl.innerHTML = '<span class="sdTag">▶ 選択中</span><span class="sdJk" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + (sdArt ? ';background-image:url(' + sdArt + ')' : '') + '">' + s.emo + '</span><span class="sdMain"><div class="sdTtl">' + s.title + '</div><div class="sdMeta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒' + (s.vocal ? ' ・ 🎤歌声シンセ' : '') + realTag + '</div><button id="favBtn">' + (isFav(s.id) ? '★ お気に入り中（タップで解除）' : '☆ お気に入りに追加') + '</button>' + rows + creditHtml + '</span>';
   document.querySelectorAll('#songDetail .dRow').forEach(function (b) {
     b.addEventListener('click', function () { ensureAudio(); setDiff(b.dataset.d); blip(); });
   });
+  var fb = $('favBtn');
+  if (fb) fb.addEventListener('click', function () { var on = toggleFav(selSong); toast(on ? '★ お気に入りに追加しました' : 'お気に入りを解除しました'); renderSongList(); });
 }
 function setDiff(df) {
   if (!DIFFS[df]) return;
+  if (df === 'ura' && !isUraUnlocked(selSong)) { toast('🔒 うらは「おに」をランクA以上でクリアすると解放されます'); return; }
   selDiff = df;
   renderSongList();
 }
@@ -1767,6 +1636,9 @@ function startSong() {
   ensureAudio();
   if (!AC) return;
   stopPreview();
+  paused = false;
+  var pp0 = $('pausePanel');
+  if (pp0) pp0.classList.add('hidden');
   curSong = songById(selSong);
   if (curSong.real && realState(curSong) !== 'ready') {
     /* 実音源が未読込なら読み込み、完了後に自動で開始する（失敗時はトーストで知らせる） */
@@ -1781,9 +1653,16 @@ function startSong() {
   curData = buildSongData(curSong);
   chart = buildChart(curSong, selDiff);
   curApproach = (DIFFS[selDiff] && DIFFS[selDiff].approach) || APPROACH;
+  /* 練習モード（ソロのみ）：最初のサビ開始秒（無ければ曲の30%）から開始し、
+     それより前のノーツは判定済み扱いで読み飛ばす */
+  playStartPos = isPracticePlay() ? practiceStartPos(curSong) : 0;
   notePtr = 0;
+  if (playStartPos > 0) {
+    while (notePtr < chart.length && chart[notePtr].t < playStartPos) { chart[notePtr].judged = 2; notePtr++; }
+  }
   score = 0; combo = 0; maxCombo = 0; gauge = 0;
   counts = { good: 0, ok: 0, bad: 0 };
+  judgeDts = [];
   lastHitType = null;
   vocalHits = 0;
   popups = []; hitFx = []; bursts = []; drumWaves = []; comboShown = 0; particles = initParticles(curSong.theme);
@@ -1792,27 +1671,30 @@ function startSong() {
   wrapEl.classList.add('ingame');
   $('resultPanel').classList.add('hidden');
   $('quitBtn').classList.remove('hidden');
-  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）';
+  var ab = $('autoBadge');
+  if (ab) ab.classList.toggle('hidden', !isAutoPlay());
+  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (isPracticePlay() ? ' ・練習' : '') + (isAutoPlay() ? ' ・🤖オート' : '');
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
   if (curSong.real) {
-    /* 実音源：カウントダウン後に HTMLAudio を再生し、時計は audio.currentTime に切り替える */
+    /* 実音源：カウントダウン後に HTMLAudio を再生し、時計は audio.currentTime に切り替える。
+       練習モードでは開始位置へシークしてから再生する */
     if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
     var rr = realAudio[curSong.id];
     realStarted = false;
     realFrozen = false;
     realStartPerf = performance.now() + 3200;
-    try { rr.el.currentTime = 0; } catch (e) {}
+    try { rr.el.currentTime = playStartPos; } catch (e) {}
     primeRealEl(rr.el);
     if (realPlayTimer) clearTimeout(realPlayTimer);
     realPlayTimer = setTimeout(function () {
       realPlayTimer = null;
       if (!playing || !curSong || !curSong.real) return;
       realStarted = true;
-      /* カウントダウン終了の瞬間に songTime=0 で始まることを保証する：
-         プライム等で再生位置が進んでいても 0 へ戻し、プライムで 0 にした
+      /* カウントダウン終了の瞬間に開始位置で始まることを保証する：
+         プライム等で再生位置が進んでいても開始位置へ戻し、プライムで 0 にした
          音量もここで必ず戻してから再生する */
-      try { rr.el.volume = 1; rr.el.currentTime = 0; } catch (e) {}
+      try { rr.el.volume = 1; rr.el.currentTime = playStartPos; } catch (e) {}
       var p = null;
       try { p = rr.el.play(); } catch (e) {}
       if (p && p.catch) p.catch(function () {
@@ -1820,14 +1702,15 @@ function startSong() {
       });
     }, 3200);
   } else {
-    startCtx = AC.currentTime + 3.2; /* 3秒カウントダウン */
-    nextStep = 0;
+    /* シンセ：スケジューラの開始位置を開始位置ぶんずらす（songTime が開始位置から始まる） */
+    startCtx = AC.currentTime + 3.2 - playStartPos; /* 3秒カウントダウン */
+    nextStep = Math.max(0, Math.floor(playStartPos / curData.stepDur));
     if (schedTimer) clearInterval(schedTimer);
     schedTimer = setInterval(scheduleAhead, 25);
   }
   updateHUD(true);
-  battleStart();
 }
+
 function scheduleAhead() {
   if (!playing || !AC) return;
   var ahead = AC.currentTime + 0.15;
@@ -1841,6 +1724,9 @@ function scheduleAhead() {
 }
 function stopSong(toMenu) {
   playing = false;
+  paused = false;
+  var pp8 = $('pausePanel'); if (pp8) pp8.classList.add('hidden');
+  var ab8 = $('autoBadge'); if (ab8) ab8.classList.add('hidden');
   stopRealAudio();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   wrapEl.classList.remove('playing');
@@ -1848,7 +1734,6 @@ function stopSong(toMenu) {
   if (toMenu) { wrapEl.classList.remove('ingame'); $('resultPanel').classList.add('hidden'); resetStage(); }
 }
 function resetStage() {
-  battleClear();
   chart = []; popups = []; score = 0; combo = 0; gauge = 0;
   counts = { good: 0, ok: 0, bad: 0 };
   $('hudSong').textContent = '';
@@ -1859,19 +1744,33 @@ function finishSong() {
   if (!playing) return;
   /* レイアウト（.playing/.ingame）はリザルト表示中も維持し、「曲選択へ」で初めて戻す */
   playing = false;
+  paused = false;
+  var pp9 = $('pausePanel');
+  if (pp9) pp9.classList.add('hidden');
   stopRealAudio();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   $('quitBtn').classList.add('hidden');
   var res = makeResult(counts, gauge, chart.length);
   var totalScore = score;
   var prevBest = getBest(selSong, selDiff);
-  var isBest = prevBest === null || totalScore > prevBest;
-  { var s = loadSave(); var bk = bestKey(selSong, selDiff);
+  var suppressed = recordsSuppressed(); /* 練習・オートはベスト/スタンプ/統計を一切更新しない */
+  var isBest = false;
+  lastPrevBest = prevBest;
+  lastBestDiff = 0;
+  if (!suppressed) {
+    isBest = prevBest === null || totalScore > prevBest;
+    if (isBest && prevBest !== null) lastBestDiff = totalScore - prevBest;
+    var s = loadSave(); var bk = bestKey(selSong, selDiff);
     if (isBest) s.best[bk] = totalScore;
     if (rankVal(res.rank) > rankVal(s.rank[bk])) s.rank[bk] = res.rank;
-    storeSave(s); }
+    storeSave(s);
+    if (mode === 'solo') {
+      if (res.clear) markClearFc(selSong, selDiff, counts.bad === 0 && (counts.good + counts.ok) > 0);
+      awardStamps(selSong, selDiff, res, counts.bad);
+      addStats(counts.good + counts.ok + counts.bad, Math.min(Math.max(songTime, 0), curData.duration));
+    }
+  }
   renderSongList();
-  if (mode === 'solo') charaOnFinish(res);
   if (mode === 'online') { finishOnline(res, totalScore, isBest); return; }
   showResult(res, totalScore, isBest, null);
 }
@@ -1893,9 +1792,11 @@ function showResult(res, totalScore, isBest, vsInfo) {
     + (counts.bad === 0 && totalJudged > 0 ? '<div class="fcBig">🎉 FULL COMBO！</div>' : '')
     + '<div class="rscore">' + totalScore.toLocaleString() + ' 点</div>'
     + '<div class="accLine">正確さ ' + Math.round(res.acc * 100) + '% ・ 魂ゲージ ' + Math.round(gauge) + '%</div>'
-    + '<div class="rdetail">良 ' + counts.good + ' ・ 可 ' + counts.ok + ' ・ 不可 ' + counts.bad + '<br>最大コンボ ' + maxCombo
-    + (isBest ? '<br><span style="color:var(--gold);font-weight:900">🎉 ベスト更新！</span>' : '') + '</div>';
-  if (charaRewardHtml) html += charaRewardHtml;
+    + '<div class="rdetail">良 ' + counts.good + ' ・ 可 ' + counts.ok + ' ・ 不可 ' + counts.bad + '<br>最大コンボ ' + maxCombo + '</div>';
+  if (isAutoPlay()) html += '<div class="rdetail" style="font-weight:900;color:#7dd3fc">🤖 オートプレイ（記録は残りません）</div>';
+  else if (isPracticePlay()) html += '<div class="rdetail" style="font-weight:900;color:#f5b942">🔁 練習モード（記録は残りません）</div>';
+  else if (isBest) html += '<div class="newRec">🎉 NEW RECORD!</div><div class="rdetail">' + (lastPrevBest === null ? '初記録！' : '前回ベスト ' + lastPrevBest.toLocaleString() + ' 点 → +' + lastBestDiff.toLocaleString() + '点') + '</div>';
+  html += histHtml();
   if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
   html += '<div class="rbtns"><button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
   p.innerHTML = html;
@@ -1910,9 +1811,10 @@ function showResult(res, totalScore, isBest, vsInfo) {
     wrapEl.classList.remove('playing');
     wrapEl.classList.remove('ingame');
     resetStage();
-    renderSongList(); /* 演奏で得た初クリアマーカー等を最新表示にする（スクロール位置は保持される） */
+    renderSongList();
   });
 }
+
 
 /* 判定タイミング調整（taiko_offset に保存、-100〜+100ms を 5ms 刻み）。
    スターリズムと同じ作法：入力時刻を offset ぶんずらして判定する。端末や指の
@@ -2045,7 +1947,7 @@ function judgeTimeNow() {
   return t - lat;
 }
 function hit(type) {
-  if (!playing) return;
+  if (!playing || paused) return;
   ensureAudio();
   playHit(type, false);
   lastHitType = type;
@@ -2053,6 +1955,7 @@ function hit(type) {
   zoneFlash[type] = 1;
   drumWaves.push({ t0: performance.now(), col: type === 'don' ? '255,150,110' : '140,190,255' });
   if (drumWaves.length > 5) drumWaves.splice(0, drumWaves.length - 5);
+  if (isAutoPlay()) return; /* オートプレイ中はプレイヤー入力を判定に使わない */
   var jt = judgeTimeNow() + judgeOffsetMs / 1000; /* ユーザーの判定タイミング調整を反映 */
   if (jt < 0) return;
   var P = DIFFS[selDiff];
@@ -2070,35 +1973,27 @@ function hit(type) {
   var res = judgeFor(best.t - jt, selDiff);
   if (!res) return;
   best.judged = 1; best.res = res;
+  judgeDts.push({ dt: best.t - jt, res: res }); /* FAST/LATE 集計用（符号付き） */
   applyJudge(best, res);
-  if (best.big) playHit(type, true);
 }
 function applyJudge(nt, res) {
   if (res === 'good' || res === 'ok') {
     combo++; if (combo > maxCombo) maxCombo = combo;
-    score += scoreFor(res, nt.big);
+    score += scoreFor(res);
     counts[res]++;
     gauge = clamp(gauge + gaugeDelta(res, chart.length), 0, 100);
     spawnPopup(nt, res);
     spawnHitFx(nt);
-    battleOnHit(nt, res);
   } else {
     counts.bad++;
-    var gd = gaugeDelta('bad', chart.length);
-    var shielded = battleOnBad(gd);
-    /* フレーズ評価用：シールドで防いだミスは「可」相当、防げなかったミスは bad に数える */
-    if (battle && !battle.defeated) { if (shielded) battle.phrase.ok++; else battle.phrase.bad++; }
-    if (shielded) {
-      /* シールドがコンボと魂ゲージを守った（battleOnBad 内で演出済み） */
-    } else {
-      combo = 0;
-      gauge = clamp(gauge + gd * battleMissMul(), 0, 100);
-      spawnPopup(nt, 'bad');
-    }
+    combo = 0;
+    gauge = clamp(gauge + gaugeDelta('bad', chart.length), 0, 100);
+    spawnPopup(nt, 'bad');
   }
   updateHUD(false);
   sendProg();
 }
+
 function sweepMiss() {
   if (!playing || songTime < 0) return;
   var P = DIFFS[selDiff];
@@ -2131,14 +2026,14 @@ function tapTypeAt(px, py) {
 }
 function spawnPopup(nt, res) {
   var lg = laneGeom();
-  popups.push({ y: lg.y - lg.h / 2 - 8, txt: res === 'good' ? '良' : (res === 'ok' ? '可' : '不可'), col: res === 'good' ? '#ffc93c' : (res === 'ok' ? '#ffffff' : '#f87171'), t0: performance.now(), big: nt.big, res: res });
+  popups.push({ y: lg.y - lg.h / 2 - 8, txt: res === 'good' ? '良' : (res === 'ok' ? '可' : '不可'), col: res === 'good' ? '#ffc93c' : (res === 'ok' ? '#ffffff' : '#f87171'), t0: performance.now(), res: res });
   if (popups.length > 8) popups.shift();
 }
 function spawnHitFx(nt) {
   var lg = laneGeom();
-  hitFx.push({ x: lg.judgeX, y: lg.y, t0: performance.now(), col: nt.type === 'don' ? '255,110,90' : '120,180,255', big: nt.big });
+  hitFx.push({ x: lg.judgeX, y: lg.y, t0: performance.now(), col: nt.type === 'don' ? '255,110,90' : '120,180,255' });
   if (hitFx.length > 6) hitFx.shift();
-  var n = nt.big ? 16 : 10;
+  var n = 10;
   for (var i = 0; i < n; i++) {
     var a = Math.random() * 6.283, sp = 40 + Math.random() * 140;
     bursts.push({ x: lg.judgeX, y: lg.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, t0: performance.now(), life: 380 + Math.random() * 240, col: nt.type === 'don' ? '#ff8a6a' : '#8ab6ff', r: 2 + Math.random() * 2.6, ang: a, star: i % 4 === 3 });
@@ -2221,18 +2116,22 @@ function draw() {
   var now = performance.now();
   var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
   if (!CW) fitCanvas();
-  if (playing && curSong && curSong.real) {
+  if (paused) {
+    songTime = pausedSongTime; /* ポーズ中は譜面時計を凍結する */
+  } else if (playing && curSong && curSong.real) {
     /* 実音源の時計：再生中は audio.currentTime、カウントダウン中は予定時刻からの経過、
        自動一時停止中は凍結する */
     var rel = realAudio[curSong.id];
     if (realFrozen) { /* songTime は据え置き */ }
     else if (realStarted && rel && rel.el) songTime = rel.el.currentTime;
     else songTime = (performance.now() - realStartPerf) / 1000;
+    autoAdvance();
     sweepMiss();
     $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
     if (songTime > curData.duration + 0.9) { finishSong(); }
   } else if (playing && AC) {
     songTime = AC.currentTime - startCtx;
+    autoAdvance();
     sweepMiss();
     $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
     if (songTime > curData.duration + 0.9) { finishSong(); }
@@ -2241,9 +2140,9 @@ function draw() {
   drumPulse.katsu = Math.max(0, drumPulse.katsu - dt * 5);
   zoneFlash.don = Math.max(0, zoneFlash.don - dt * 4.2);
   zoneFlash.katsu = Math.max(0, zoneFlash.katsu - dt * 4.2);
-  battleTick();
   drawScene(now / 1000, dt);
 }
+
 /* 毎フレーム作り直すと重い定番グラデーションのキャッシュ（サイズ変更時に破棄） */
 var gradCache = {};
 function cachedGrad(key, make) {
@@ -2284,12 +2183,6 @@ function getBgSprite(theme) {
 function drawScene(t, dt) {
   var theme = curSong ? curSong.theme : 'wafu';
   /* 敵の攻撃ギミック：短時間の画面シェイク（シーン全体をずらす） */
-  var shaking = false;
-  if (battleFx.shakeUntil > t) {
-    shaking = true;
-    ctx.save();
-    ctx.translate((Math.random() * 2 - 1) * battleFx.shakeMag, (Math.random() * 2 - 1) * battleFx.shakeMag * 0.7);
-  }
   var bgSp = getBgSprite(theme);
   if (bgSp) ctx.drawImage(bgSp, 0, 0, CW, CH);
   else {
@@ -2384,8 +2277,7 @@ function drawScene(t, dt) {
       var x = judgeX + (remain / curApproach) * (CW - judgeX + 40);
       var ny = laneY;
       /* 敵の攻撃ギミック：ノーツが一瞬ちらつく */
-      if (battleFx.flickerUntil > t) { ctx.save(); ctx.globalAlpha = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(t * 46 + i * 1.7)); drawNote(x, ny, nt); ctx.restore(); }
-      else drawNote(x, ny, nt);
+      drawNote(x, ny, nt);
     }
   }
   /* ヒットリング */
@@ -2396,17 +2288,17 @@ function drawScene(t, dt) {
     ctx.save();
     /* 中心の閃光 */
     ctx.globalAlpha = (1 - k) * 0.30;
-    ctx.beginPath(); ctx.arc(f.x, f.y, (f.big ? 30 : 22) * (1 - k * 0.4), 0, 6.29);
+    ctx.beginPath(); ctx.arc(f.x, f.y, 22 * (1 - k * 0.4), 0, 6.29);
     ctx.fillStyle = 'rgba(' + f.col + ',1)'; ctx.fill();
     /* 主リング */
     ctx.globalAlpha = (1 - k) * 0.95;
-    ctx.beginPath(); ctx.arc(f.x, f.y, (f.big ? 30 : 22) + k * (f.big ? 46 : 34), 0, 6.29);
+    ctx.beginPath(); ctx.arc(f.x, f.y, 22 + k * 34, 0, 6.29);
     ctx.strokeStyle = 'rgba(' + f.col + ',1)'; ctx.lineWidth = 4 * (1 - k) + 1; ctx.stroke();
     /* 少し遅れて広がる外リング */
     var k2 = clamp((k - 0.14) / 0.86, 0, 1);
     if (k2 > 0) {
       ctx.globalAlpha = (1 - k2) * 0.5;
-      ctx.beginPath(); ctx.arc(f.x, f.y, (f.big ? 26 : 18) + k2 * (f.big ? 62 : 46), 0, 6.29);
+      ctx.beginPath(); ctx.arc(f.x, f.y, 18 + k2 * 46, 0, 6.29);
       ctx.strokeStyle = 'rgba(255,240,200,1)'; ctx.lineWidth = 2 * (1 - k2) + 0.6; ctx.stroke();
     }
     ctx.restore();
@@ -2434,36 +2326,6 @@ function drawScene(t, dt) {
     }
     ctx.restore();
   });
-  /* 敵の攻撃ギミック：レーンの一部（これから流れてくる区間）にインクがかかる。短時間で薄れる */
-  if (battleFx.inkUntil > t && battleFx.inkT0 > 0) {
-    var ikA = clamp(Math.min((t - battleFx.inkT0) / 0.25, (battleFx.inkUntil - t) / 0.45, 1), 0, 1) * 0.85;
-    if (ikA > 0.01) {
-      var ikCx = (battleFx.inkX0 + battleFx.inkX1) / 2, ikW = battleFx.inkX1 - battleFx.inkX0;
-      ctx.save();
-      roundRect(battleFx.inkX0, laneY - laneH / 2 + 3, ikW, laneH - 6, 14); ctx.clip();
-      var ig = ctx.createRadialGradient(ikCx, laneY, 6, ikCx, laneY, ikW * 0.62);
-      ig.addColorStop(0, 'rgba(12,5,20,' + ikA.toFixed(3) + ')');
-      ig.addColorStop(0.7, 'rgba(16,7,28,' + (ikA * 0.9).toFixed(3) + ')');
-      ig.addColorStop(1, 'rgba(16,7,28,0)');
-      ctx.fillStyle = ig;
-      ctx.fillRect(battleFx.inkX0 - 8, laneY - laneH / 2, ikW + 16, laneH);
-      /* 飛沫の丸み（大きさの違う円を重ねてインクの飛び散りに見せる） */
-      ctx.fillStyle = 'rgba(10,4,17,' + (ikA * 0.92).toFixed(3) + ')';
-      var splat = [[0.16, 0.50, 0.30], [0.38, 0.38, 0.40], [0.58, 0.55, 0.34], [0.78, 0.42, 0.38], [0.92, 0.52, 0.24]];
-      for (var isp = 0; isp < splat.length; isp++) {
-        ctx.beginPath();
-        ctx.ellipse(battleFx.inkX0 + ikW * splat[isp][0], laneY + (splat[isp][1] - 0.5) * laneH * 0.5, laneH * splat[isp][2] * 0.62, laneH * splat[isp][2] * 0.5, 0, 0, 6.29);
-        ctx.fill();
-      }
-      /* 垂れ */
-      ctx.fillStyle = 'rgba(10,4,17,' + (ikA * 0.75).toFixed(3) + ')';
-      for (var idr = 0; idr < 4; idr++) {
-        var dxp = battleFx.inkX0 + (idr + 0.5) * ikW / 4;
-        roundRect(dxp - 2, laneY - laneH / 2 + 4, 4, laneH * (0.38 + (idr % 2) * 0.2), 3); ctx.fill();
-      }
-      ctx.restore();
-    }
-  }
   /* 判定ポップ（バネ感のある拡大→上昇） */
   popups = popups.filter(function (p) { return now2() - p.t0 < 620; });
   popups.forEach(function (p) {
@@ -2471,7 +2333,7 @@ function drawScene(t, dt) {
     var pop = k < 0.16 ? (0.5 + (k / 0.16) * 0.62) : 1.12 - (k - 0.16) * 0.14;
     ctx.save();
     ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-    ctx.font = '900 ' + Math.round((p.big ? 36 : 28) * pop) + 'px sans-serif';
+    ctx.font = '900 ' + Math.round(28 * pop) + 'px sans-serif';
     ctx.textAlign = 'center';
     ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.6)';
     var y = p.y - k * 30;
@@ -2502,9 +2364,10 @@ function drawScene(t, dt) {
     }
   } else if (comboShown !== 0) { comboShown = 0; }
   /* カウントダウン */
-  if (playing && songTime < 0) {
-    var n = Math.ceil(-songTime);
-    var frac = 1 - (-songTime - (n - 1));
+  if (playing && songTime < countdownEndPos()) {
+    var remainCd = countdownEndPos() - songTime;
+    var n = Math.ceil(remainCd);
+    var frac = 1 - (remainCd - (n - 1));
     var cbd = bigDrumGeom(), cr = Math.min(46, cbd.R * 0.52);
     ctx.save();
     ctx.beginPath(); ctx.arc(cbd.x, cbd.y, cr, 0, 6.29);
@@ -2530,7 +2393,6 @@ function drawScene(t, dt) {
     ctx.fillText('上のレーンを音符が流れてくるよ', CW / 2, laneY + laneH / 2 + 22);
     ctx.restore();
   }
-  if (shaking) ctx.restore();
 }
 function now2() { return performance.now(); }
 var bgFx = { fw: [], nextFw: 2.5 }; /* 和風テーマの花火（打ち上げ間隔と同時数を制限） */
@@ -2721,14 +2583,14 @@ function drawBackdrop(theme, t, dt) {
   }
 }
 /* ノーツの半径と、判定枠の半径（ノーツとほぼ同じ大きさにする） */
-var NOTE_R = 15.5, NOTE_R_BIG = 23;
+var NOTE_R = 15.5;
 var JUDGE_R = NOTE_R + 3;
 /* ノーツのスプライト：立体感のある描画（グロー・影・光沢・二重リム）を一度だけ
    オフスクリーンに描いて使い回す。毎フレームのグラデーション生成と shadowBlur を無くし、
    見た目をリッチにしながらモバイルでも軽く保つ。作れない環境では null → 従来描画に落ちる */
 var noteSprites = null, noteSpritesTried = false;
-function makeNoteSprite(don, big) {
-  var r = big ? NOTE_R_BIG : NOTE_R;
+function makeNoteSprite(don) {
+  var r = NOTE_R;
   var pad = r * 0.85 + 8;
   var L = (r + pad) * 2, SS = 2;
   var c = document.createElement('canvas');
@@ -2736,34 +2598,28 @@ function makeNoteSprite(don, big) {
   var x = c.getContext('2d');
   x.scale(SS, SS);
   var cx = L / 2, cy = L / 2;
-  /* 足元の影 */
   x.beginPath(); x.ellipse(cx + 1.5, cy + r * 0.98, r * 0.82, r * 0.20, 0, 0, 6.29);
   x.fillStyle = 'rgba(0,0,0,.38)'; x.fill();
-  /* 外側のグロー */
   var glow = x.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.62);
   if (don) { glow.addColorStop(0, 'rgba(255,90,60,.50)'); glow.addColorStop(1, 'rgba(255,90,60,0)'); }
   else { glow.addColorStop(0, 'rgba(100,165,255,.50)'); glow.addColorStop(1, 'rgba(100,165,255,0)'); }
   x.fillStyle = glow;
   x.fillRect(cx - r * 1.7, cy - r * 1.7, r * 3.4, r * 3.4);
-  /* 本体 */
   var ng = x.createRadialGradient(cx - r * 0.38, cy - r * 0.44, r * 0.14, cx, cy, r * 1.02);
   if (don) { ng.addColorStop(0, '#ffb59d'); ng.addColorStop(0.38, '#ff6a4d'); ng.addColorStop(0.78, '#e8381f'); ng.addColorStop(1, '#b01c10'); }
   else { ng.addColorStop(0, '#bcd8ff'); ng.addColorStop(0.38, '#6ea8ff'); ng.addColorStop(0.78, '#2f74e8'); ng.addColorStop(1, '#174fae'); }
   x.beginPath(); x.arc(cx, cy, r, 0, 6.29);
   x.fillStyle = ng; x.fill();
-  /* リム：外側の暗い縁＋白い主リム＋内側の細い光 */
   x.beginPath(); x.arc(cx, cy, r - 0.75, 0, 6.29);
   x.lineWidth = 1.5; x.strokeStyle = don ? 'rgba(120,18,6,.5)' : 'rgba(10,40,110,.5)'; x.stroke();
-  x.beginPath(); x.arc(cx, cy, r - (big ? 2.2 : 1.7), 0, 6.29);
-  x.lineWidth = big ? 4.4 : 3.4; x.strokeStyle = '#fff7ea'; x.stroke();
-  x.beginPath(); x.arc(cx, cy, r - (big ? 5.2 : 4.2), 0, 6.29);
+  x.beginPath(); x.arc(cx, cy, r - 1.7, 0, 6.29);
+  x.lineWidth = 3.4; x.strokeStyle = '#fff7ea'; x.stroke();
+  x.beginPath(); x.arc(cx, cy, r - 4.2, 0, 6.29);
   x.lineWidth = 1.1; x.strokeStyle = 'rgba(255,255,255,.4)'; x.stroke();
-  /* 中央の面（ドン/カツの芯） */
   var face = x.createRadialGradient(cx - r * 0.14, cy - r * 0.16, r * 0.05, cx, cy, r * 0.48);
   face.addColorStop(0, 'rgba(255,255,255,.62)'); face.addColorStop(1, 'rgba(255,255,255,.16)');
   x.beginPath(); x.arc(cx, cy, r * 0.46, 0, 6.29);
   x.fillStyle = face; x.fill();
-  /* 左上の光沢（楕円グラデーション） */
   x.save();
   x.translate(cx - r * 0.34, cy - r * 0.44); x.rotate(-0.55);
   var gl = x.createRadialGradient(0, 0, 1, 0, 0, r * 0.42);
@@ -2771,21 +2627,6 @@ function makeNoteSprite(don, big) {
   x.fillStyle = gl;
   x.beginPath(); x.ellipse(0, 0, r * 0.42, r * 0.22, 0, 0, 6.29); x.fill();
   x.restore();
-  if (big) {
-    /* 大音符：金の二重リング＋四隅のきらめき */
-    x.beginPath(); x.arc(cx, cy, r + 4.2, 0, 6.29);
-    x.lineWidth = 3; x.strokeStyle = 'rgba(255,201,60,.95)'; x.stroke();
-    x.beginPath(); x.arc(cx, cy, r + 8.6, 0, 6.29);
-    x.lineWidth = 1.4; x.strokeStyle = 'rgba(255,240,190,.6)'; x.stroke();
-    x.strokeStyle = 'rgba(255,246,200,.95)'; x.lineWidth = 1.8;
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (sg) {
-      var sx = cx + sg[0] * (r + 8.6) * 0.707, sy = cy + sg[1] * (r + 8.6) * 0.707, sr = 4.6;
-      x.beginPath();
-      x.moveTo(sx - sr, sy); x.lineTo(sx + sr, sy);
-      x.moveTo(sx, sy - sr); x.lineTo(sx, sy + sr);
-      x.stroke();
-    });
-  }
   return { c: c, size: L };
 }
 function getNoteSprites() {
@@ -2796,33 +2637,21 @@ function getNoteSprites() {
     if (!probe || typeof probe.getContext !== 'function') return null;
     var pctx = probe.getContext('2d');
     if (!pctx || typeof pctx.createRadialGradient !== 'function') return null;
-    noteSprites = {
-      don: makeNoteSprite(true, false), katsu: makeNoteSprite(false, false),
-      donBig: makeNoteSprite(true, true), katsuBig: makeNoteSprite(false, true)
-    };
+    noteSprites = { don: makeNoteSprite(true), katsu: makeNoteSprite(false) };
   } catch (e) { noteSprites = null; }
   return noteSprites;
 }
 function drawNote(x, y, nt) {
   var sps = getNoteSprites();
   if (sps) {
-    var sp = nt.big ? (nt.type === 'don' ? sps.donBig : sps.katsuBig) : (nt.type === 'don' ? sps.don : sps.katsu);
+    var sp = nt.type === 'don' ? sps.don : sps.katsu;
     ctx.drawImage(sp.c, x - sp.size / 2, y - sp.size / 2, sp.size, sp.size);
-    if (nt.big) {
-      /* 大音符だけ、脈動する金の波紋で存在感を足す */
-      var pr = NOTE_R_BIG + 11 + Math.sin(performance.now() / 190) * 2.2;
-      ctx.save();
-      ctx.globalAlpha = 0.4 + 0.18 * Math.sin(performance.now() / 190);
-      ctx.beginPath(); ctx.arc(x, y, pr, 0, 6.29);
-      ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = 1.6; ctx.stroke();
-      ctx.restore();
-    }
     return;
   }
   drawNoteVector(x, y, nt);
 }
 function drawNoteVector(x, y, nt) {
-  var r = nt.big ? NOTE_R_BIG : NOTE_R;
+  var r = NOTE_R;
   var don = nt.type === 'don';
   ctx.save();
   ctx.shadowColor = don ? 'rgba(255,80,60,.85)' : 'rgba(90,160,255,.85)';
@@ -2834,11 +2663,7 @@ function drawNoteVector(x, y, nt) {
   ctx.fillStyle = ng;
   ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.lineWidth = nt.big ? 4.5 : 3.5; ctx.strokeStyle = '#fff7ea'; ctx.stroke();
-  if (nt.big) {
-    ctx.beginPath(); ctx.arc(x, y, r + 4.5, 0, 6.29);
-    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,247,234,.55)'; ctx.stroke();
-  }
+  ctx.lineWidth = 3.5; ctx.strokeStyle = '#fff7ea'; ctx.stroke();
   ctx.beginPath(); ctx.arc(x, y, r * 0.46, 0, 6.29);
   ctx.fillStyle = 'rgba(255,255,255,.38)'; ctx.fill();
   ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.38, r * 0.16, 0, 6.29);
@@ -3433,1009 +3258,370 @@ $('leaveBtn').addEventListener('click', leaveOnline);
 $('vsStartBtn').addEventListener('click', function () { $('vsStartBtn').classList.add('hidden'); hostStartMatch(); });
 
 /* ================================================================
-   リンクドラムサーガ：キャラ／ガチャ／育成／キャラバトル／選曲プレビュー
-   キャラデータは linkdrum_data.js（window.LD_DATA / LD_PORTRAIT）、
-   イラストは linkdrum_art1〜3.js（window.LD_ART）を必要時に遅延読み込みする。
-   セーブは新規キー taiko_chara_v1（フィールド名 owned / fav はリンクサーガ互換）。
+   v118 新システム：うら譜面生成／解放条件／FAST・LATE／レーティング／
+   楽曲ミッション＆スタンプ／デイリーチャレンジ／お気に入り／絞り込み／
+   ランダム選曲／練習モード／ポーズ＆リスタート／オートプレイ／プレイ統計
+   （キャラ・ガチャ・バトル・ジェム経済は v118 で全撤去。
+     旧キャラ系セーブは今後読み書きしない）
    ================================================================ */
-var LD = window.LD_DATA || null;
-var CHARA_KEY = 'taiko_chara_v1';
-var CHARA_VER = 2; /* v2: バトル設定の移行（battleToggled 導入） */
-var CHAR_MAP = {};
-if (LD) LD.CHARS.forEach(function (c) { CHAR_MAP[c.id] = c; });
-function charById(id) { return CHAR_MAP[id] || null; }
-
-var charaCache = null;
-var charaStoredJson = null; /* 最後に読み書きした保存JSON（外部からの書き換え検出用） */
-function todayStr() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
-/* デイリーミッション定義：kind は daily のカウンタ名、need 到達で gems を1日1回だけ付与 */
-var DAILY_MISSIONS = [
-  { id: 'play1', label: '今日の初演奏', kind: 'plays', need: 1, gems: 100 },
-  { id: 'play3', label: '3曲演奏する', kind: 'plays', need: 3, gems: 200 },
-  { id: 'def1', label: '敵を1体撃破する', kind: 'defeats', need: 1, gems: 150 },
-  { id: 'clear2', label: '2曲クリアする', kind: 'clears', need: 2, gems: 150 },
-  { id: 'combo100', label: '最大コンボ100を出す', kind: 'maxcombo', need: 100, gems: 150 }
-];
-function ensureDaily(cs) {
-  var t = todayStr();
-  if (!cs.daily || typeof cs.daily !== 'object' || cs.daily.day !== t) cs.daily = { day: t, plays: 0, defeats: 0, clears: 0, maxcombo: 0, got: {} };
-  if (!cs.daily.got || typeof cs.daily.got !== 'object') cs.daily.got = {};
-  cs.daily.plays = cs.daily.plays | 0; cs.daily.defeats = cs.daily.defeats | 0; cs.daily.clears = cs.daily.clears | 0; cs.daily.maxcombo = cs.daily.maxcombo | 0;
-  return cs.daily;
-}
-function mergeDaily(a, b) {
-  if (!a) return b || null;
-  if (!b) return a;
-  if (a.day !== b.day) return a.day > b.day ? a : b;
-  var o = { day: a.day, plays: Math.max(a.plays | 0, b.plays | 0), defeats: Math.max(a.defeats | 0, b.defeats | 0), clears: Math.max(a.clears | 0, b.clears | 0), maxcombo: Math.max(a.maxcombo | 0, b.maxcombo | 0), got: {} };
-  [a, b].forEach(function (d) { Object.keys(d.got || {}).forEach(function (k) { o.got[k] = 1; }); });
-  return o;
-}
-/* ログインボーナス：累計ログイン日数（開いた日ごとに+1、途切れても戻らない）で進む7日サイクル。
-   claimed は受け取り済みの日数。マージは days/claimed とも最大値を取るため、
-   片方で受け取り済みの分が古い保存と混ざっても二重付与にならない。 */
-var LOGIN_BONUS = [100, 120, 140, 160, 180, 200, 400];
-function loginBonusFor(day) { return LOGIN_BONUS[(Math.max(1, day | 0) - 1) % 7]; }
-function ensureLogin(cs) {
-  if (!cs.login || typeof cs.login !== 'object') cs.login = { days: 0, lastDay: '', claimed: 0 };
-  cs.login.days = cs.login.days | 0; cs.login.claimed = cs.login.claimed | 0;
-  if (typeof cs.login.lastDay !== 'string') cs.login.lastDay = '';
-  var t = todayStr();
-  if (cs.login.lastDay !== t) { cs.login.days++; cs.login.lastDay = t; }
-  if (cs.login.claimed > cs.login.days) cs.login.claimed = cs.login.days;
-  if (cs.login.claimed < 0) cs.login.claimed = 0;
-  return cs.login;
-}
-function pendingLoginGems(cs) {
-  var l = ensureLogin(cs), sum = 0;
-  for (var d = l.claimed + 1; d <= l.days; d++) sum += loginBonusFor(d);
-  return sum;
-}
-function mergeLogin(a, b) {
-  if (!a || typeof a !== 'object') return (b && typeof b === 'object') ? b : null;
-  if (!b || typeof b !== 'object') return a;
-  return { days: Math.max(a.days | 0, b.days | 0),
-    lastDay: ((a.lastDay || '') > (b.lastDay || '')) ? a.lastDay : (b.lastDay || ''),
-    claimed: Math.max(a.claimed | 0, b.claimed | 0) };
-}
-function claimLoginBonus() {
-  var cs = loadChara();
-  if (!cs) return 0;
-  var sum = pendingLoginGems(cs);
-  if (sum <= 0) return 0;
-  cs.gems += sum;
-  cs.login.claimed = cs.login.days;
-  storeChara(cs);
-  renderCharaBar();
-  return sum;
-}
-/* ウィークリーミッション：月曜リセット。kind は weekly のカウンタ名 */
-var WEEKLY_MISSIONS = [
-  { id: 'wplay', label: '今週10曲演奏する', kind: 'plays', need: 10, gems: 250 },
-  { id: 'wdef', label: '今週敵を5体撃破する', kind: 'defeats', need: 5, gems: 250 },
-  { id: 'wfc', label: '今週フルコンボを1回達成', kind: 'fcs', need: 1, gems: 300 },
-  { id: 'wclear', label: '今週15曲クリアする', kind: 'clears', need: 15, gems: 300 },
-  { id: 'woni', label: '今週おにを3曲クリアする', kind: 'oni', need: 3, gems: 350 }
-];
-/* チャレンジミッション：実績型・一度きり。累計カウンタ cs.chal で管理し、日次/週次リセットの対象外 */
-var CHALLENGES = [
-  { id: 'cplay10', label: '累計10曲演奏する', kind: 'plays', need: 10, gems: 200 },
-  { id: 'cplay50', label: '累計50曲演奏する', kind: 'plays', need: 50, gems: 400 },
-  { id: 'cplay150', label: '累計150曲演奏する', kind: 'plays', need: 150, gems: 800 },
-  { id: 'cdef10', label: '累計で敵を10体撃破する', kind: 'defeats', need: 10, gems: 250 },
-  { id: 'cdef50', label: '累計で敵を50体撃破する', kind: 'defeats', need: 50, gems: 600 },
-  { id: 'ccombo300', label: '最大コンボ300を出す', kind: 'maxcombo', need: 300, gems: 300 },
-  { id: 'ccombo777', label: '最大コンボ777を出す', kind: 'maxcombo', need: 777, gems: 700 },
-  { id: 'cfc5', label: 'フルコンボを5回達成する', kind: 'fcs', need: 5, gems: 500 },
-  { id: 'cfc20', label: 'フルコンボを20回達成する', kind: 'fcs', need: 20, gems: 1000 },
-  { id: 'coni10', label: 'おにを10曲クリアする', kind: 'oni', need: 10, gems: 600 },
-  { id: 'coni30', label: 'おにを30曲クリアする', kind: 'oni', need: 30, gems: 1000 }
-];
-function weekStr() {
-  var d = new Date();
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); /* 月曜に巻き戻す */
-  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-}
-function ensureWeekly(cs) {
-  var w = weekStr();
-  if (!cs.weekly || typeof cs.weekly !== 'object' || cs.weekly.week !== w) cs.weekly = { week: w, plays: 0, defeats: 0, fcs: 0, clears: 0, oni: 0, got: {} };
-  if (!cs.weekly.got || typeof cs.weekly.got !== 'object') cs.weekly.got = {};
-  cs.weekly.plays = cs.weekly.plays | 0; cs.weekly.defeats = cs.weekly.defeats | 0; cs.weekly.fcs = cs.weekly.fcs | 0; cs.weekly.clears = cs.weekly.clears | 0; cs.weekly.oni = cs.weekly.oni | 0;
-  return cs.weekly;
-}
-function mergeWeekly(a, b) {
-  if (!a || typeof a !== 'object') return (b && typeof b === 'object') ? b : null;
-  if (!b || typeof b !== 'object') return a;
-  if (a.week !== b.week) return (a.week || '') > (b.week || '') ? a : b;
-  var o = { week: a.week, plays: Math.max(a.plays | 0, b.plays | 0), defeats: Math.max(a.defeats | 0, b.defeats | 0), fcs: Math.max(a.fcs | 0, b.fcs | 0), clears: Math.max(a.clears | 0, b.clears | 0), oni: Math.max(a.oni | 0, b.oni | 0), got: {} };
-  [a, b].forEach(function (d) { Object.keys(d.got || {}).forEach(function (k) { o.got[k] = 1; }); });
-  return o;
-}
-function ensureChal(cs) {
-  if (!cs.chal || typeof cs.chal !== 'object') cs.chal = { plays: 0, defeats: 0, clears: 0, fcs: 0, oni: 0, maxcombo: 0, got: {} };
-  if (!cs.chal.got || typeof cs.chal.got !== 'object') cs.chal.got = {};
-  cs.chal.plays = cs.chal.plays | 0; cs.chal.defeats = cs.chal.defeats | 0; cs.chal.clears = cs.chal.clears | 0;
-  cs.chal.fcs = cs.chal.fcs | 0; cs.chal.oni = cs.chal.oni | 0; cs.chal.maxcombo = cs.chal.maxcombo | 0;
-  return cs.chal;
-}
-function mergeChal(a, b) {
-  if (!a || typeof a !== 'object') return (b && typeof b === 'object') ? b : null;
-  if (!b || typeof b !== 'object') return a;
-  var o = { plays: Math.max(a.plays | 0, b.plays | 0), defeats: Math.max(a.defeats | 0, b.defeats | 0), clears: Math.max(a.clears | 0, b.clears | 0), fcs: Math.max(a.fcs | 0, b.fcs | 0), oni: Math.max(a.oni | 0, b.oni | 0), maxcombo: Math.max(a.maxcombo | 0, b.maxcombo | 0), got: {} };
-  [a, b].forEach(function (d) { Object.keys(d.got || {}).forEach(function (k) { o.got[k] = 1; }); });
-  return o;
-}
-/* 初クリア報酬：曲×難易度の初クリア（魂ゲージ70%以上）で1回だけ。clears は defeats とは別の記録 */
-var FIRST_CLEAR_GEM = 30;
-/* コレクションマイルストーン：所持キャラ数の到達で1回だけ（過去分も遡って付与） */
-var MILESTONES = [
-  { n: 10, gems: 300 }, { n: 15, gems: 500 }, { n: 20, gems: 800 }, { n: 26, gems: 1500 }
-];
-function checkMilestones(cs) {
-  if (!cs.mile || typeof cs.mile !== 'object') cs.mile = {};
-  var cnt = Object.keys(cs.owned || {}).length, got = 0, msgs = [];
-  MILESTONES.forEach(function (m) {
-    if (cnt >= m.n && !cs.mile[m.n]) { cs.mile[m.n] = 1; got += m.gems; msgs.push('所持キャラ' + m.n + '体 💎+' + m.gems); }
-  });
-  if (got > 0) cs.gems += got;
-  return { gems: got, msgs: msgs };
-}
-function charaDefault() {
-  var o = { v: CHARA_VER, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, battleToggled: false, defeats: {}, daily: { day: todayStr(), plays: 0, defeats: 0, clears: 0, maxcombo: 0, got: {} },
-    login: { days: 0, lastDay: '', claimed: 0 }, weekly: { week: weekStr(), plays: 0, defeats: 0, fcs: 0, clears: 0, oni: 0, got: {} }, clears: {}, mile: {}, chal: { plays: 0, defeats: 0, clears: 0, fcs: 0, oni: 0, maxcombo: 0, got: {} } };
-  LD.STARTERS.forEach(function (id) { o.owned[id] = { lv: 1, lb: 0, exp: 0 }; });
-  o.fav = LD.STARTERS[0];
-  return o;
-}
-function mergeChara(a, b) {
-  var o = { v: Math.max(a.v | 0, b.v | 0) || CHARA_VER,
-    gems: Math.max(a.gems | 0, b.gems | 0), coins: Math.max(a.coins | 0, b.coins | 0), mats: Math.max(a.mats | 0, b.mats | 0),
-    owned: {}, fav: b.fav || a.fav,
-    ssrPity: Math.max(a.ssrPity | 0, b.ssrPity | 0), urPity: Math.max(a.urPity | 0, b.urPity | 0),
-    totalPulls: Math.max(a.totalPulls | 0, b.totalPulls | 0),
-    battleOn: (typeof b.battleOn === 'boolean') ? b.battleOn : (a.battleOn !== false),
-    battleToggled: !!(a.battleToggled || b.battleToggled),
-    defeats: {}, daily: mergeDaily(a.daily, b.daily),
-    login: mergeLogin(a.login, b.login), weekly: mergeWeekly(a.weekly, b.weekly), clears: {}, mile: {}, chal: mergeChal(a.chal, b.chal) };
-  [a, b].forEach(function (s) {
-    Object.keys(s.defeats || {}).forEach(function (k) { o.defeats[k] = 1; });
-    Object.keys(s.clears || {}).forEach(function (k) { o.clears[k] = 1; });
-    Object.keys(s.mile || {}).forEach(function (k) { o.mile[k] = 1; });
-    Object.keys(s.owned || {}).forEach(function (id) {
-      var x = s.owned[id] || {};
-      var cur = o.owned[id];
-      if (!cur) o.owned[id] = { lv: x.lv | 0 || 1, lb: x.lb | 0, exp: x.exp | 0 };
-      else { cur.lv = Math.max(cur.lv, x.lv | 0); cur.lb = Math.max(cur.lb, x.lb | 0); cur.exp = Math.max(cur.exp, x.exp | 0); }
-    });
-  });
-  return o;
-}
-function loadChara() {
-  if (!LD) return null;
-  var raw = null;
-  try { raw = localStorage.getItem(CHARA_KEY); } catch (e) {}
-  /* 自分の読み書きと一致している間はキャッシュが正（消費やカウンタ減少を巻き戻さない）。
-     クラウド同期などで外部から書き換えられた時だけ、進捗を失わないよう union マージする。 */
-  if (charaCache && raw === charaStoredJson) return charaCache;
-  var s = null;
-  try { s = raw ? JSON.parse(raw) : null; } catch (e) {}
-  if (!s || typeof s !== 'object' || !s.owned || typeof s.owned !== 'object') {
-    if (charaCache) return charaCache;
-    charaCache = charaDefault();
-    ensureLogin(charaCache);
-    storeChara(charaCache);
-    return charaCache;
+/* ---------------- うら譜面（実音源）：全オンセット在庫を最大限採用し、
+   強い区間では半ステップ（32分）連打を許容する。step は分数になり得るが
+   時刻 t でソートして返すため判定・描画は従来どおり t 基準で破綻しない ---------------- */
+function buildChartUra(song) {
+  var stepDur = 60 / song.bpm / 4;
+  var stepsPerBar = (song.beatsPerBar || 4) * 4;
+  var totalSteps = Math.max(0, Math.floor((song.duration - song.offset) / stepDur));
+  var rng = mulberry32(hashStr('taiko:' + song.id + ':ura'));
+  var notes = [];
+  var lastPos = -9999;
+  function consider(pos, str) {
+    if (str <= 0) return;
+    if (pos - lastPos < 0.5) return;
+    var t = song.offset + pos * stepDur;
+    if (t > song.duration - 0.2) return;
+    var r = rng();
+    var type = (str >= 5) ? (r < 0.62 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
+    var n = notes.length, run = 0;
+    while (run < 12 && run < n && notes[n - 1 - run].type === type) run++;
+    if (run >= 12) type = (type === 'don') ? 'katsu' : 'don';
+    notes.push({ step: pos, t: t + stepDelta(song, Math.round(pos)), type: type, judged: 0, res: null });
+    lastPos = pos;
   }
-  s.gems = s.gems | 0; s.coins = s.coins | 0; s.mats = s.mats | 0;
-  s.ssrPity = s.ssrPity | 0; s.urPity = s.urPity | 0; s.totalPulls = s.totalPulls | 0;
-  if (!s.defeats || typeof s.defeats !== 'object') s.defeats = {};
-  if (!s.clears || typeof s.clears !== 'object') s.clears = {};
-  if (!s.mile || typeof s.mile !== 'object') s.mile = {};
-  if (typeof s.battleOn !== 'boolean') s.battleOn = true;
-  /* v2 移行：キャラバーの見切れで切替ボタンが見えなかった期間に OFF になっていた人を救済する。
-     本人が明示的に切り替えた記録（battleToggled）がある場合だけ、その選択を尊重する。
-     v を上げるので移行は一度だけ。以後の保存にも v と battleToggled が残る */
-  if ((s.v | 0) < CHARA_VER) {
-    if (s.battleToggled !== true) s.battleOn = true;
-    s.v = CHARA_VER;
+  for (var step = stepsPerBar; step <= totalSteps; step++) {
+    var t0 = song.offset + step * stepDur;
+    if (t0 > song.duration - 0.2) break;
+    var ch = inChorus(song, t0);
+    var str = onsetStr(song, step);
+    if (str <= 0) str = xonStr(song, step);
+    var eff = ch ? Math.min(9, str + 3) : str;
+    if (str >= 1) consider(step, eff); /* 強度1以上は原則全採用 */
+    /* 半ステップ（32分）：サビ or 前後どちらかが強いオンセットの区間だけ */
+    var strN = (step + 1 <= totalSteps) ? Math.max(onsetStr(song, step + 1), xonStr(song, step + 1)) : 0;
+    if ((ch || eff >= 6 || strN >= 6) && (eff >= 3 || strN >= 3)) {
+      if (ch || rng() < 0.85) consider(step + 0.5, Math.max(eff, strN));
+    }
   }
-  ensureDaily(s);
-  ensureLogin(s);
-  ensureWeekly(s);
-  ensureChal(s);
-  if (charaCache) s = mergeChara(s, charaCache);
-  charaCache = s;
-  charaStoredJson = raw;
+  notes.sort(function (a, b) { return (a.t - b.t) || (a.step - b.step); });
+  return notes;
+}
+/* ---------------- うら譜面（シンセ曲）：メロディ onset は全採用、
+   サビのアクセントには半ステップの追い打ちを付ける ---------------- */
+function buildChartUraSynth(song) {
+  var data = buildSongData(song);
+  var rng = mulberry32(hashStr('taiko:' + song.id + ':ura'));
+  var notes = [];
+  var lastPos = -9999;
+  function push(pos, type) {
+    notes.push({ step: pos, t: pos * data.stepDur, type: type, judged: 0, res: null });
+    lastPos = pos;
+  }
+  for (var step = 16; step < data.totalSteps - 8; step++) {
+    var accent = !!data.melSteps[step];
+    var t = step * data.stepDur;
+    var ch = inChorus(song, t);
+    var p = accent ? 1 : (ch ? 0.92 : 0.82);
+    if (rng() >= p) continue;
+    var r = rng();
+    var type = (step % 4 === 0) ? (r < 0.68 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
+    var n = notes.length, run = 0;
+    while (run < 12 && run < n && notes[n - 1 - run].type === type) run++;
+    if (run >= 12) type = (type === 'don') ? 'katsu' : 'don';
+    push(step, type);
+    if (accent && (ch || rng() < 0.6) && step + 0.5 - lastPos >= 0.5) {
+      push(step + 0.5, rng() < 0.5 ? 'don' : 'katsu');
+    }
+  }
+  notes.sort(function (a, b) { return (a.t - b.t) || (a.step - b.step); });
+  return notes;
+}
+/* ---------------- 新セーブ群（stamps / fav / stats / clear） ---------------- */
+var STAMPS_KEY = 'taiko_stamps_v1', FAV_KEY = 'taiko_fav_v1', STATS_KEY = 'taiko_stats_v1', CLEAR_KEY = 'taiko_clear_v1';
+function loadJsonKey(k, def) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return (v && typeof v === 'object') ? v : def; } catch (e) { return def; } }
+function saveJsonKey(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+var stampsCache = null;
+function loadStamps() {
+  if (stampsCache) return stampsCache;
+  var s = loadJsonKey(STAMPS_KEY, {});
+  if (!s.daily || typeof s.daily !== 'object') s.daily = {};
+  stampsCache = s;
   return s;
 }
-function storeChara(cs) {
-  charaCache = cs;
-  try { var j = JSON.stringify(cs); localStorage.setItem(CHARA_KEY, j); charaStoredJson = j; } catch (e) {}
+function storeStamps() { if (stampsCache) saveJsonKey(STAMPS_KEY, stampsCache); }
+function stampKey(songId, diff) { return songId + ':' + diff; }
+function getStamp(songId, diff) { var s = loadStamps(); var v = s[stampKey(songId, diff)]; return (v && typeof v === 'object') ? v : null; }
+var MISS_THRESH = { easy: 10, normal: 7, hard: 5, oni: 3, ura: 2 };
+function awardStamps(songId, diff, res, badCount) {
+  var s = loadStamps();
+  var k = stampKey(songId, diff);
+  var cur = s[k] || {};
+  if (res.clear) cur.c = 1;
+  if (badCount <= MISS_THRESH[diff]) cur.m = 1;
+  if (res.rank === 'S') cur.s = 1;
+  s[k] = cur;
+  if (res.clear && dailySongId() === songId) { if (!s.daily) s.daily = {}; s.daily[dateStr(new Date())] = songId; }
+  storeStamps();
 }
-
-/* ---------------- 育成計算 ---------------- */
-function isAwakened(c, o) { return !!c && c.rar === 'UR' && !!o && o.lb >= 5; }
-function charStats(c, o) {
-  var lv = o ? (o.lv | 0 || 1) : 1, lb = o ? (o.lb | 0) : 0;
-  var mul = (1 + 0.085 * (lv - 1)) * (1 + 0.08 * lb) * (isAwakened(c, o) ? 1.15 : 1);
-  return { hp: Math.round(c.base.hp * mul), atk: Math.round(c.base.atk * mul), def: Math.round(c.base.def * mul) };
+function stampProgress() {
+  var s = loadStamps();
+  var got = 0, total = SONGS.length * DIFF_KEYS.length * 3;
+  SONGS.forEach(function (sg) { DIFF_KEYS.forEach(function (d) { var st = s[stampKey(sg.id, d)]; if (st) { if (st.c) got++; if (st.m) got++; if (st.s) got++; } }); });
+  return { got: got, total: total };
 }
-function expNeed(lv) { return 20 + lv * 6; }
-function levelCost(lv) { return { mats: 5 + lv * 2, coins: 200 + lv * 80 }; }
-function tryLevelUps(id) {
-  if (!LD) return 0;
-  var cs = loadChara();
-  var o = cs.owned[id]; if (!o) return 0;
-  var c = charById(id); if (!c) return 0;
-  var max = LD.MAXLV[c.rar], gained = 0;
-  while (o.lv < max) {
-    var need = expNeed(o.lv), cost = levelCost(o.lv);
-    if (o.exp < need || cs.mats < cost.mats || cs.coins < cost.coins) break;
-    o.exp -= need; cs.mats -= cost.mats; cs.coins -= cost.coins; o.lv++; gained++;
+function loadClearMap() { return loadJsonKey(CLEAR_KEY, {}); }
+function markClearFc(songId, diff, isFc) {
+  var m = loadClearMap();
+  var k = stampKey(songId, diff);
+  var e = m[k] || {};
+  e.c = 1;
+  if (isFc) e.f = 1;
+  m[k] = e;
+  saveJsonKey(CLEAR_KEY, m);
+}
+function hasCleared(songId, diff) {
+  var m = loadClearMap();
+  var e = m[stampKey(songId, diff)];
+  if (e && e.c) return true;
+  if (rankVal(getRank(songId, diff)) >= 4) return true; /* 旧セーブ互換：A以上はクリア時のみ付く */
+  var st = getStamp(songId, diff);
+  return !!(st && st.c);
+}
+function hasFc(songId, diff) { var m = loadClearMap(); var e = m[stampKey(songId, diff)]; return !!(e && e.f); }
+/* ---------------- うら解放条件：その曲の「おに」をランクA以上でクリア ---------------- */
+function isUraUnlocked(songId) { return rankVal(getRank(songId, 'oni')) >= 4; }
+/* ---------------- デイリーチャレンジ曲：日付文字列の決定的ハッシュで選出 ---------------- */
+function dateStr(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function dailySongId(ds) {
+  var str = ds || dateStr(new Date());
+  var h = 0;
+  for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; /* 文字コード×31 の累積ハッシュ */
+  return SONGS[h % SONGS.length].id;
+}
+/* ---------------- お気に入り ---------------- */
+function loadFavs() { var a = loadJsonKey(FAV_KEY, []); return Array.isArray(a) ? a : []; }
+function isFav(id) { return loadFavs().indexOf(id) >= 0; }
+function toggleFav(id) {
+  var a = loadFavs();
+  var i = a.indexOf(id);
+  if (i >= 0) a.splice(i, 1); else a.push(id);
+  saveJsonKey(FAV_KEY, a);
+  return i < 0;
+}
+/* ---------------- プレイ統計（通常プレイのみ） ---------------- */
+function loadStats() { var s = loadJsonKey(STATS_KEY, {}); return { plays: s.plays | 0, notes: s.notes | 0, sec: s.sec | 0 }; }
+function addStats(notesJudged, sec) {
+  var s = loadStats();
+  s.plays++; s.notes += notesJudged; s.sec += Math.max(0, Math.round(sec));
+  saveJsonKey(STATS_KEY, s);
+}
+/* ---------------- レーティング ---------------- */
+/* RANK_COEF は新システム定義部（ONSET_P 直前）で定義済み */
+function chartValue(songId, diff) {
+  var best = getBest(songId, diff);
+  if (best === null) return 0;
+  var lv = diffLevel(songById(songId), diff);
+  var rank = getRank(songId, diff);
+  var coef = rank ? (RANK_COEF[rank] || 0.50) : 0.50; /* ランク記録が無いベストは「クリアのみ」扱い */
+  var v = lv * coef;
+  if (hasFc(songId, diff)) v *= 1.05;
+  return v;
+}
+function ratingTitle(r) { return r < 10 ? 'ビギナー' : (r < 25 ? 'レギュラー' : (r < 40 ? 'アドバンス' : (r < 55 ? 'エキスパート' : (r < 70 ? 'マスター' : (r < 85 ? 'グランドマスター' : 'レジェンド'))))); }
+function ratingInfo() {
+  var vals = [];
+  SONGS.forEach(function (sg) { DIFF_KEYS.forEach(function (d) { var v = chartValue(sg.id, d); if (v > 0) vals.push(v); }); });
+  vals.sort(function (a, b) { return b - a; });
+  var top = vals.slice(0, 15);
+  if (!top.length) return { rating: 0, title: 'ビギナー', count: 0 };
+  var sum = 0;
+  top.forEach(function (v) { sum += v; });
+  var rating = Math.round((sum / top.length) * 10 * 10) / 10;
+  return { rating: rating, title: ratingTitle(rating), count: top.length };
+}
+/* ---------------- 絞り込みチップとランダム選曲 ---------------- */
+var selFilter = 'all';
+var FILTERS = [['all', 'すべて'], ['fav', '★お気に入り'], ['lv5', 'Lv〜5'], ['lv68', 'Lv6〜8'], ['lv9', 'Lv9〜'], ['unplayed', '未プレイ'], ['cleared', 'クリア済'], ['fc', 'フルコンボ']];
+function songMatchesFilter(s) {
+  var lv = diffLevel(s, selDiff);
+  switch (selFilter) {
+    case 'fav': return isFav(s.id);
+    case 'lv5': return lv <= 5;
+    case 'lv68': return lv >= 6 && lv <= 8;
+    case 'lv9': return lv >= 9;
+    case 'unplayed': return getBest(s.id, selDiff) === null;
+    case 'cleared': return hasCleared(s.id, selDiff);
+    case 'fc': return hasFc(s.id, selDiff);
+    default: return true;
   }
-  if (gained) storeChara(cs);
-  return gained;
 }
-
-/* ---------------- ガチャ（リンクサーガ仕様を踏襲） ---------------- */
-var RAR_ORDER = { R: 1, SR: 2, SSR: 3, UR: 4 };
-function rollRarity(rng) {
-  var r = rng() * 100, R = LD.RATES;
-  if (r < R.UR) return 'UR';
-  if (r < R.UR + R.SSR) return 'SSR';
-  if (r < R.UR + R.SSR + R.SR) return 'SR';
-  return 'R';
-}
-function pickFromRarity(rar, banner, rng) {
-  var pool = LD.CHARS.filter(function (c) { return c.rar === rar; });
-  if (banner === 'pickup') {
-    var feat = rar === 'UR' ? LD.PICKUP.UR : (rar === 'SSR' ? LD.PICKUP.SSR : null);
-    if (feat && pool.some(function (c) { return c.id === feat; }) && rng() < 0.5) return charById(feat);
-  }
-  return pool[Math.floor(rng() * pool.length)];
-}
-function grantChar(ch) {
-  var cs = loadChara();
-  var res = { char: ch, isNew: false, lbUp: false, refund: 0, becameAwake: false };
-  if (!cs.owned[ch.id]) { cs.owned[ch.id] = { lv: 1, lb: 0, exp: 0 }; res.isNew = true; }
-  else if (cs.owned[ch.id].lb < 5) { cs.owned[ch.id].lb++; res.lbUp = true; res.becameAwake = isAwakened(ch, cs.owned[ch.id]); }
-  else { res.refund = LD.REFUND[ch.rar]; cs.coins += res.refund; }
-  return res;
-}
-function pullOne(banner, opts, rng) {
-  opts = opts || {};
-  var cs = loadChara();
-  var rar;
-  if (cs.urPity >= LD.PITY.UR - 1) rar = 'UR';
-  else {
-    rar = rollRarity(rng);
-    if (rar !== 'UR' && rar !== 'SSR' && cs.ssrPity >= LD.PITY.SSR - 1) rar = 'SSR';
-  }
-  if (opts.minRarity && RAR_ORDER[rar] < RAR_ORDER[opts.minRarity]) rar = opts.minRarity;
-  var ch = pickFromRarity(rar, banner, rng);
-  if (ch.rar === 'UR') { cs.urPity = 0; cs.ssrPity = 0; }
-  else if (ch.rar === 'SSR') { cs.urPity++; cs.ssrPity = 0; }
-  else { cs.urPity++; cs.ssrPity++; }
-  cs.totalPulls++;
-  return grantChar(ch);
-}
-function doPulls(n, banner, rng) {
-  rng = rng || Math.random;
-  var results = [], hasSR = false;
-  for (var i = 0; i < n; i++) {
-    var opts = (n === 10 && i === 9 && !hasSR) ? { minRarity: 'SR' } : {};
-    var r = pullOne(banner, opts, rng);
-    if (RAR_ORDER[r.char.rar] >= RAR_ORDER.SR) hasSR = true;
-    results.push(r);
-  }
-  storeChara(loadChara());
-  return results;
-}
-
-/* ---------------- イラスト遅延読み込みと顔表示 ---------------- */
-var artState = {}, artCbs = {};
-function ensureArt(n, cb) {
-  if (window.LD_ART && artState[n] === 'done') { if (cb) cb(); return; }
-  if (artState[n] === 'loading') { if (cb) (artCbs[n] = artCbs[n] || []).push(cb); return; }
-  artState[n] = 'loading'; artCbs[n] = cb ? [cb] : [];
-  var sc = document.createElement('script');
-  sc.src = 'linkdrum_art' + n + '.js';
-  sc.onload = function () { artState[n] = 'done'; var cbs = artCbs[n] || []; artCbs[n] = []; cbs.forEach(function (f) { f(); }); };
-  sc.onerror = function () { artState[n] = 'error'; var cbs = artCbs[n] || []; artCbs[n] = []; cbs.forEach(function (f) { f(); }); };
-  try { (document.head || document.body).appendChild(sc); }
-  catch (e) { artState[n] = 'error'; var cbs2 = artCbs[n] || []; artCbs[n] = []; cbs2.forEach(function (f) { f(); }); }
-}
-function charArtUrl(c) {
-  if (!window.LD_ART || !c) return null;
-  if (c.art === 'card') return window.LD_ART[c.id + '_card'] || null;
-  if (c.art === 'bust') return window.LD_ART[c.id] || null;
-  return null;
-}
-function charHomeUrl(c) {
-  if (!window.LD_ART || !c) return null;
-  return window.LD_ART[c.id + '_home'] || null;
-}
-function faceHtml(c, size) {
-  var u = charArtUrl(c);
-  if (u) return '<img src="' + u + '" alt="">';
-  return window.LD_PORTRAIT ? LD_PORTRAIT(c, size || 52) : '';
-}
-
-/* ---------------- 選曲画面のキャラバー ---------------- */
-function renderCharaBar() {
-  if (!LD) return;
-  var cs = loadChara();
-  var fav = charById(cs.fav);
-  if (!fav || !cs.owned[fav.id]) {
-    fav = null;
-    for (var i = 0; i < LD.CHARS.length; i++) if (cs.owned[LD.CHARS[i].id]) { fav = LD.CHARS[i]; break; }
-    if (!fav) fav = LD.CHARS[0];
-  }
-  $('favFace').innerHTML = faceHtml(fav, 34);
-  var o = cs.owned[fav.id];
-  $('favName').textContent = fav.name;
-  $('favLv').textContent = o ? ('Lv' + o.lv + (o.lb ? ' ・ ' + o.lb + '凸' : '') + (isAwakened(fav, o) ? ' ・ ✨覚醒' : '')) : '';
-  $('gemNum').textContent = cs.gems.toLocaleString();
-  var tgl = $('battleTgl');
-  tgl.textContent = cs.battleOn ? '⚔ ON' : '⚔ OFF';
-  tgl.classList.toggle('off', !cs.battleOn);
-}
-
-/* ---------------- ガチャ画面 ---------------- */
-var gachaBanner = 'normal';
-function openGacha() {
-  if (!LD) return;
-  stopPreview();
-  ensureArt(1); ensureArt(2); ensureArt(3);
-  $('gachaModal').classList.remove('hidden');
-  renderGacha();
-}
-function closeGacha() { $('gachaModal').classList.add('hidden'); }
-function renderGacha() {
-  var cs = loadChara();
-  $('gachaGemNum').textContent = cs.gems.toLocaleString();
-  $('pityLine').innerHTML = 'SSRまで あと <b>' + Math.max(1, LD.PITY.SSR - cs.ssrPity) + '</b> 連 ・ URまで あと <b>' + Math.max(1, LD.PITY.UR - cs.urPity) + '</b> 連 ・ 累計 <b>' + cs.totalPulls + '</b> 連';
-  document.querySelectorAll('#gachaModal .bannerTabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.b === gachaBanner); });
-  $('pull1Btn').disabled = cs.gems < LD.COST1;
-  $('pull10Btn').disabled = cs.gems < LD.COST10;
-}
-function doGachaUi(n) {
-  var cs = loadChara();
-  var cost = n === 10 ? LD.COST10 : LD.COST1;
-  if (cs.gems < cost) { toast('💎が足りません（あと ' + (cost - cs.gems) + ' 個）'); return; }
-  cs.gems -= cost; storeChara(cs);
-  var results = doPulls(n, gachaBanner);
-  renderGachaResults(results);
-  renderGacha(); renderCharaBar();
-  /* コレクションマイルストーン：所持数が節目に届いたら自動付与 */
-  var cs2 = loadChara();
-  var ms = checkMilestones(cs2);
-  if (ms.gems > 0) {
-    storeChara(cs2);
-    renderGacha(); renderCharaBar();
-    setTimeout(function () { toast('🏆 コレクション達成！ ' + ms.msgs.join(' ／ ')); }, 350);
-  }
-  var ur = null;
-  results.forEach(function (r) { if (r.char.rar === 'UR' && !ur) ur = r; });
-  if (ur) showUrFx(ur.char);
-}
-function renderGachaResults(results) {
-  var html = '<div class="pullGrid">';
-  results.forEach(function (r, i) {
-    var c = r.char;
-    html += '<div class="pullCell rar-' + c.rar + '" style="animation-delay:' + (i * 0.07).toFixed(2) + 's"><div class="pcFace">' + faceHtml(c, 44) + '</div><div class="pcNm">' + c.name + '</div><div class="pcTag tag-' + c.rar + '">' + c.rar + (r.isNew ? ' NEW!' : (r.lbUp ? ' 凸UP' : (r.refund ? ' 🪙+' + r.refund : ''))) + '</div></div>';
-  });
-  html += '</div>';
-  $('gachaResults').innerHTML = html;
-}
-function fillUrFx(c) {
-  var u = charHomeUrl(c) || charArtUrl(c);
-  $('urFx').innerHTML = '<div class="rays"></div><div class="urTtl">✨ UR 獲得！ ✨</div><div class="urFace">' + (u ? '<img src="' + u + '" alt="">' : faceHtml(c, 200)) + '</div><div class="urSub">' + c.name + '（' + LD.EL[c.el].n + '属性・' + c.roleName + '）</div><div class="note" style="color:#ffe9a8;position:relative;z-index:1">タップで閉じる</div>';
-}
-function showUrFx(c) {
-  fillUrFx(c);
-  ensureArt(2, function () { if (!$('urFx').classList.contains('hidden')) fillUrFx(c); });
-  $('urFx').classList.remove('hidden');
-}
-
-/* ---------------- コレクション画面 ---------------- */
-var selCharId = null;
-function openChara() {
-  if (!LD) return;
-  stopPreview();
-  ensureArt(1, function () { renderCharaGrid(); renderCharaDetail(); });
-  ensureArt(3, function () { renderCharaGrid(); renderCharaDetail(); });
-  if (!selCharId || !charById(selCharId)) selCharId = loadChara().fav;
-  $('charaModal').classList.remove('hidden');
-  renderCharaGrid(); renderCharaDetail();
-}
-function missionRowsHtml(missions, counters) {
-  var html = '';
-  missions.forEach(function (m) {
-    var done = !!counters.got[m.id];
-    var prog = Math.min(counters[m.kind] || 0, m.need);
-    html += '<div class="dbRow' + (done ? ' done' : '') + '"><span>' + (done ? '✅' : '🎯') + ' ' + m.label + '</span><span class="dbProg">' + prog + '/' + m.need + '</span><span class="dbGem">💎+' + m.gems + '</span></div>';
-  });
-  return html;
-}
-function collectionRowsHtml(cs) {
-  var ownedCnt = Object.keys(cs.owned || {}).length;
-  var html = '<div class="dbTtl" style="margin-top:7px">🏆 コレクション（所持 ' + ownedCnt + ' 体）</div>';
-  MILESTONES.forEach(function (m) {
-    var done = !!(cs.mile && cs.mile[m.n]);
-    html += '<div class="dbRow' + (done ? ' done' : '') + '"><span>' + (done ? '✅' : '🎯') + ' 所持キャラ ' + m.n + ' 体</span><span class="dbProg">' + Math.min(ownedCnt, m.n) + '/' + m.n + '</span><span class="dbGem">💎+' + m.gems + '</span></div>';
-  });
-  return html;
-}
-function renderDaily() {
-  var el = $('dailyBox');
+function renderFilterChips() {
+  var el = $('filterChips');
   if (!el) return;
-  var cs = loadChara();
-  var d = ensureDaily(cs);
-  el.innerHTML = '<div class="dbTtl">📅 デイリーミッション（毎日リセット）</div>' + missionRowsHtml(DAILY_MISSIONS, d);
-}
-function renderWeekly() {
-  var el = $('weeklyBox');
-  if (!el) return;
-  var cs = loadChara();
-  var w = ensureWeekly(cs);
-  el.innerHTML = '<div class="dbTtl">🗓 ウィークリーミッション（月曜リセット）</div>' + missionRowsHtml(WEEKLY_MISSIONS, w) + collectionRowsHtml(cs);
-}
-/* ミッション専用画面：デイリー／ウィークリー／チャレンジ（＋コレクション）をまとめて表示 */
-function renderMissions() {
-  var cs = loadChara();
-  if (!cs) return;
-  var dEl = $('msDaily'), wEl = $('msWeekly'), cEl = $('msChal'), gEl = $('msGemNum');
-  if (gEl) gEl.textContent = cs.gems;
-  if (dEl) dEl.innerHTML = '<div class="dbTtl">📅 デイリーミッション（毎日リセット）</div>' + missionRowsHtml(DAILY_MISSIONS, ensureDaily(cs));
-  if (wEl) wEl.innerHTML = '<div class="dbTtl">🗓 ウィークリーミッション（月曜リセット）</div>' + missionRowsHtml(WEEKLY_MISSIONS, ensureWeekly(cs));
-  if (cEl) cEl.innerHTML = '<div class="dbTtl">🏅 チャレンジミッション（実績・一度きり）</div>' + missionRowsHtml(CHALLENGES, ensureChal(cs)) + collectionRowsHtml(cs);
-}
-function openMissions() {
-  stopPreview();
-  renderMissions();
-  var m = $('missionModal');
-  if (m) m.classList.remove('hidden');
-}
-/* ログインボーナスの受け取りポップアップ（未受け取りがある時だけ出す） */
-function showLoginModal() {
-  var cs = loadChara();
-  if (!cs) return;
-  var l = ensureLogin(cs);
-  var pending = pendingLoginGems(cs);
-  if (pending <= 0) return;
-  var cyc = ((l.days - 1) % 7) + 1;
-  var dots = '';
-  for (var i = 1; i <= 7; i++) {
-    var cls = i < cyc ? 'got' : (i === cyc ? 'today' : '');
-    dots += '<span class="lbDot ' + cls + '"><small>' + i + '日目</small>💎' + LOGIN_BONUS[i - 1] + '</span>';
-  }
-  $('loginBody').innerHTML = '<p class="note" style="text-align:center">累計ログイン <b>' + l.days + '</b> 日目（7日サイクルの ' + cyc + ' 日目）</p><div class="lbDots">' + dots + '</div><div class="lbAmt">💎 +' + pending.toLocaleString() + '</div>';
-  $('loginModal').classList.remove('hidden');
-}
-function checkLoginBonus() {
-  if (!LD) return 0;
-  var cs = loadChara();
-  if (!cs) return 0;
-  ensureLogin(cs);
-  storeChara(cs);
-  var pending = pendingLoginGems(cs);
-  if (pending > 0) showLoginModal();
-  return pending;
-}
-/* キャラ詳細の顔タップで全画面表示（イラスト持ちは原画、無しは大きなポートレート） */
-function openArtViewer(c) {
-  if (!c) return;
-  var body = $('artViewBody');
-  var v = $('artViewer');
-  if (!body || !v) return;
-  var show = function () {
-    var u = charHomeUrl(c) || charArtUrl(c);
-    body.innerHTML = u ? '<img src="' + u + '" alt="' + c.name + '">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 380) : '');
-    v.classList.remove('hidden');
-  };
-  if (c.art === 'card') { ensureArt(1); ensureArt(2, show); }
-  else if (c.art === 'bust') ensureArt(3, show);
-  show();
-}
-function renderCharaGrid() {
-  var cs = loadChara();
-  renderDaily();
-  renderWeekly();
-  $('charaCurBox').textContent = '💎 ' + cs.gems.toLocaleString() + '　🪙 ' + cs.coins.toLocaleString() + '　🔷 ' + cs.mats.toLocaleString();
-  var sorted = LD.CHARS.slice().sort(function (a, b) { return (RAR_ORDER[b.rar] - RAR_ORDER[a.rar]) || (a.id < b.id ? -1 : 1); });
-  var html = '';
-  sorted.forEach(function (c) {
-    var o = cs.owned[c.id];
-    html += '<button class="chCell rar-' + c.rar + (o ? '' : ' unowned') + (c.id === selCharId ? ' sel' : '') + '" data-ch="' + c.id + '"><span class="ccFace">' + faceHtml(c, 52) + '</span><span class="ccNm">' + (o ? c.name : '？？？') + '</span><span class="ccLv">' + (o ? ('Lv' + o.lv + (o.lb ? ' ' + o.lb + '凸' : '') + (cs.fav === c.id ? ' ⭐' : '')) : '未所持') + '</span></button>';
-  });
-  $('charaGrid').innerHTML = html;
-  document.querySelectorAll('#charaGrid .chCell').forEach(function (b) {
-    b.addEventListener('click', function () { selCharId = b.dataset.ch; renderCharaGrid(); renderCharaDetail(); blip(); });
+  el.innerHTML = FILTERS.map(function (f) { return '<button data-f="' + f[0] + '"' + (f[0] === selFilter ? ' class="on"' : '') + '>' + f[1] + '</button>'; }).join('');
+  el.querySelectorAll('button').forEach(function (b) {
+    b.addEventListener('click', function () { selFilter = b.dataset.f; renderSongList(); blip(); });
   });
 }
-/* バースト（必殺技）のリズムゲーム読み替え：50コンボで発動する効果の内訳 */
-function burstSpec(c) {
-  var b = c.burst || {};
-  var spec = { dmg: 2.0, gauge: 0, shield: 0, buff: 0, vuln: 0 };
-  var p = (typeof b.power === 'number') ? b.power : 2;
-  switch (b.kind) {
-    case 'dmg': spec.dmg = p; break;
-    case 'dmgAll':
-      spec.dmg = p;
-      if (b.x === 'defDownAll' || b.x === 'atkDownAll') spec.vuln = 20;
-      if (b.x === 'burnAll') spec.dmg = p * 1.3;
-      break;
-    case 'heal': case 'healAll':
-      spec.dmg = p * 0.45; spec.gauge = Math.round(6 + p * 2);
-      if (b.x === 'cleanseShieldAll' || b.x === 'shieldAll') spec.shield = 1;
-      break;
-    case 'shield': case 'shieldAll':
-      spec.dmg = p * 0.55; spec.shield = 1;
-      if (b.x === 'defUpAll') spec.buff = 15;
-      break;
-    case 'buffAtk':
-      spec.dmg = 1.0; spec.buff = 20;
-      if (b.x === 'gaugeAll') spec.gauge = 8;
-      break;
-    case 'debuffDef': case 'debuffAtk':
-      spec.dmg = 1.2; spec.vuln = 20;
-      break;
-    default: spec.dmg = p;
-  }
-  return spec;
+function randomPick() {
+  var pool = SONGS.filter(function (s) { return (selGenre === 'すべて' || s.cat === selGenre) && songMatchesFilter(s); });
+  if (!pool.length) { toast('条件に合う曲がありません'); return; }
+  var s = pool[Math.floor(Math.random() * pool.length)];
+  selSong = s.id;
+  if (s.real) ensureRealAudio(s);
+  renderSongList();
+  toast('🎲 ' + s.title);
 }
-function burstFxText(c) {
-  var cs = loadChara();
-  var o = cs.owned[c.id];
-  var atk = charStats(c, o || { lv: 1, lb: 0 }).atk;
-  var s = burstSpec(c);
-  var parts = ['敵に ' + Math.round(atk * s.dmg).toLocaleString() + ' ダメージ（こうげき×' + s.dmg.toFixed(1) + '）'];
-  if (s.gauge) parts.push('魂ゲージ +' + s.gauge + '%');
-  if (s.shield) parts.push('シールド獲得（ミス1回を無効化）');
-  if (s.buff) parts.push(s.buff + '秒間 与ダメージ+30%');
-  if (s.vuln) parts.push(s.vuln + '秒間 敵の被ダメージ+25%');
-  return parts.join(' ・ ');
+/* ---------------- 練習／オート／ポーズ／FAST・LATE ---------------- */
+var practiceMode = false, autoMode = false, paused = false, pausedSongTime = 0, playStartPos = 0;
+var judgeDts = []; /* {dt, res} dt = ノーツ時刻 − 判定時刻（+ = 早押し FAST / − = 遅押し LATE）。lastJudgeDt と同じ符号規約 */
+var lastPrevBest = null, lastBestDiff = 0;
+function isPracticePlay() { return practiceMode && mode === 'solo'; }
+function isAutoPlay() { return autoMode && mode === 'solo'; }
+function recordsSuppressed() { return isPracticePlay() || isAutoPlay(); }
+function practiceStartPos(song) {
+  if (song.chorus && song.chorus.length) return song.chorus[0][0];
+  return buildSongData(song).duration * 0.3;
 }
-function passiveMods(c) {
-  var p = (c && c.passive) || {};
-  var m = { dmg: 0, miss: 0, skill: 0, heal: 0 };
-  if (p.type === 'atkAll' || p.type === 'front' || p.type === 'elAtk') m.dmg = p.value || 0;
-  else if (p.type === 'defAll' || p.type === 'hpAll') m.miss = p.value || 0;
-  else if (p.type === 'healUp') m.heal = p.value || 0;
-  else if (p.type === 'gauge' || p.type === 'chainDmg') m.skill = p.value || 0;
-  return m;
+function countdownEndPos() { return (curSong && curSong.real) ? 0 : playStartPos; }
+function fastLateStats() {
+  var g = { fast: 0, late: 0 }, o = { fast: 0, late: 0 }, bins = [0, 0, 0, 0, 0, 0, 0, 0];
+  judgeDts.forEach(function (e) {
+    var tgt = e.res === 'good' ? g : o;
+    if (e.dt > 0) tgt.fast++; else if (e.dt < 0) tgt.late++;
+    bins[clamp(Math.floor((e.dt + 0.16) / 0.04), 0, 7)]++;
+  });
+  return { good: g, ok: o, bins: bins };
 }
-function passiveFxText(c) {
-  var p = c.passive || {};
-  switch (p.type) {
-    case 'atkAll': case 'front': case 'elAtk': return '与ダメージ +' + p.value + '%';
-    case 'defAll': case 'hpAll': return 'ミス時の魂ゲージ減少 -' + p.value + '%';
-    case 'healUp': return 'バーストの回復効果 +' + p.value + '%';
-    case 'gauge': case 'chainDmg': return 'バーストのダメージ +' + p.value + '%';
-    default: return p.name || '';
-  }
+function histHtml() {
+  var st = fastLateStats();
+  var max = Math.max.apply(null, st.bins.concat([1]));
+  var bars = st.bins.map(function (n) { return '<span class="histBar" style="height:' + Math.max(8, Math.round(n / max * 100)) + '%"></span>'; }).join('');
+  return '<div class="flLine">良 FAST ' + st.good.fast + ' / LATE ' + st.good.late + ' ・ 可 FAST ' + st.ok.fast + ' / LATE ' + st.ok.late + '</div><div class="histWrap">' + bars + '</div><div class="histLbl"><span>◀ FAST（早）</span><span>LATE（遅）▶</span></div>';
 }
-function renderCharaDetail() {
-  var el = $('charaDetail');
-  var c = charById(selCharId);
-  if (!c) { el.innerHTML = ''; return; }
-  var cs = loadChara();
-  var o = cs.owned[c.id];
-  var st = charStats(c, o || { lv: 1, lb: 0 });
-  var face = charHomeUrl(c) || charArtUrl(c);
-  var faceH = face ? '<img src="' + face + '" alt="">' : (window.LD_PORTRAIT ? LD_PORTRAIT(c, 92) : '');
-  var html = '<div class="cdTop"><div><div class="cdFace' + (isAwakened(c, o) ? ' awake' : '') + '" id="cdFaceBtn" title="タップで全画面表示">' + faceH + '</div>' + (o ? '<div class="cdZoomHint">🔍 タップで全画面</div>' : '') + '</div><div style="flex:1;min-width:0">'
-    + '<div class="cdNm">' + (o ? c.name : '？？？') + ' <span class="tag-' + c.rar + '" style="font-size:12px">' + c.rar + '</span></div>'
-    + '<div class="cdSub">' + LD.EL[c.el].i + ' ' + LD.EL[c.el].n + '属性 ・ ' + c.roleName + (o ? ' ・ Lv' + o.lv + ' / ' + LD.MAXLV[c.rar] + (o.lb ? ' ・ ' + o.lb + '凸' : '') + (isAwakened(c, o) ? ' ・ ✨覚醒' : '') : ' ・ 未所持') + '</div>'
-    + '<div class="cdStats">HP ' + st.hp.toLocaleString() + ' ・ こうげき ' + st.atk.toLocaleString() + ' ・ ぼうぎょ ' + st.def.toLocaleString() + '</div>';
-  if (o) {
-    var maxed = o.lv >= LD.MAXLV[c.rar];
-    html += '<div class="expBar"><i style="width:' + (maxed ? 100 : clamp(o.exp / expNeed(o.lv) * 100, 0, 100)) + '%"></i></div>'
-      + '<div class="cdSub">' + (maxed ? 'Lv MAX' : ('EXP ' + o.exp + ' / ' + expNeed(o.lv) + '　レベルアップ費用：🔷' + levelCost(o.lv).mats + ' 🪙' + levelCost(o.lv).coins)) + '</div>';
-  }
-  html += '</div></div>';
-  html += '<div class="cdSkill">'
-    + '<div>⚔ わざ1「' + c.waza[0].n + '」こうげき ×' + c.waza[0].mult + '</div>'
-    + '<div>⚔ わざ2「' + c.waza[1].n + '」こうげき ×' + c.waza[1].mult + (c.waza[1].all ? '（全体）' : '') + '</div>'
-    + '<div>💥 バースト「' + c.burst.name + '」<br><b>演奏中 50コンボごとに発動：</b>' + burstFxText(c) + '</div>'
-    + '<div>✨ パッシブ「' + c.passive.name + '」：' + passiveFxText(c) + '</div>'
-    + '</div>';
-  if (o) html += '<div class="cdFlavor">「' + c.voice[Math.floor(Math.random() * c.voice.length)] + '」<br>' + c.flavor + '</div>';
-  html += '<div class="modalBtns">';
-  if (o) {
-    html += '<button class="btn" id="favSetBtn"' + (cs.fav === c.id ? ' disabled' : '') + '>' + (cs.fav === c.id ? '⭐ 連れていき中' : '⭐ 連れていく') + '</button>';
-    var canLv = o.lv < LD.MAXLV[c.rar] && o.exp >= expNeed(o.lv) && cs.mats >= levelCost(o.lv).mats && cs.coins >= levelCost(o.lv).coins;
-    html += '<button class="btn blue" id="lvUpBtn"' + (canLv ? '' : ' disabled') + '>⬆ レベルアップ</button>';
-  }
-  html += '</div>';
-  el.innerHTML = html;
-  var cf = $('cdFaceBtn');
-  if (cf) cf.addEventListener('click', function () { openArtViewer(c); });
-  var fb = $('favSetBtn');
-  if (fb) fb.addEventListener('click', function () { var s2 = loadChara(); s2.fav = c.id; storeChara(s2); renderCharaGrid(); renderCharaDetail(); renderCharaBar(); toast(c.name + ' を連れていきます'); });
-  var lb = $('lvUpBtn');
-  if (lb) lb.addEventListener('click', function () { var g = tryLevelUps(c.id); if (g > 0) toast(c.name + ' が ' + g + ' レベルアップ！ 現在 Lv' + loadChara().owned[c.id].lv); renderCharaGrid(); renderCharaDetail(); });
-}
-
-/* ---------------- キャラバトル（ソロ専用） ----------------
-   敵は曲×難易度で決定的に選定。敵HPは「譜面ノーツ数 × 難易度係数 × 敵HP倍率」。
-   係数は想定キャラの育成段階に合わせた調整値：
-   easy=スターターR Lv1（こうげき約100）、normal=R Lv10〜／SR素、
-   hard=SSR Lv40〜／SR最大、oni=UR育成済み、を撃破ラインの目安にしている。 */
-var battle = null;
-var charaRewardHtml = '';
-var BATTLE_PER_NOTE = { easy: 8.5, normal: 15, hard: 36, oni: 105 };
-/* 経済（v97で増額）：クリア報酬／撃破報酬（与ダメ割合）／初撃破／ランク／フルコンボ */
-var CLEAR_GEM = { easy: 50, normal: 80, hard: 120, oni: 180 };
-var DEFEAT_GEM = { easy: 80, normal: 130, hard: 200, oni: 300 };
-var FIRST_DEFEAT_GEM = 250;
-var RANK_GEM = { S: 60, A: 30, B: 15 };
-var FC_GEM = 40;
-/* 敵の攻撃：フレーズ（36ノーツ）区切りで発生。基礎ダメージは魂ゲージ% */
-var PHRASE_NOTES = 36;
-var ATK_BASE = { easy: 5, normal: 7, hard: 9, oni: 12 };
-/* 敵攻撃ギミックの描画状態（drawScene が参照。時刻は performance.now()/1000 基準） */
-var battleFx = { shakeUntil: 0, shakeMag: 0, flickerUntil: 0, inkT0: 0, inkUntil: 0, inkX0: 0, inkX1: 0 };
-function resetBattleFx() { battleFx = { shakeUntil: 0, shakeMag: 0, flickerUntil: 0, inkT0: 0, inkUntil: 0, inkX0: 0, inkX1: 0 }; }
-/* CSSアニメを付け直して再生する小さなヘルパー */
-function pulse(el, cls, ms) {
-  if (!el) return;
-  if (el._pulseT) clearTimeout(el._pulseT);
-  el.classList.remove(cls);
-  void el.offsetWidth;
-  el.classList.add(cls);
-  el._pulseT = setTimeout(function () { el.classList.remove(cls); }, ms || 300);
-}
-function typeMult(aEl, dEl) {
-  if ((aEl === 'fire' && dEl === 'wood') || (aEl === 'wood' && dEl === 'water') || (aEl === 'water' && dEl === 'fire')) return 1.5;
-  if ((aEl === 'light' && dEl === 'dark') || (aEl === 'dark' && dEl === 'light')) return 1.5;
-  return 1;
-}
-function foePoolFor(diff) {
-  if (!LD) return [];
-  if (diff === 'oni') return LD.FOES;
-  if (diff === 'hard') return LD.FOES.filter(function (f) { return !f.boss; });
-  return LD.FOES.filter(function (f) { return !f.boss && f.id !== 'golem'; });
-}
-function foeFor(song, diff) {
-  var pool = foePoolFor(diff);
-  if (!pool.length) return null;
-  return pool[hashStr(song.id + ':' + diff) % pool.length];
-}
-function buildAtkSchedule() {
-  var s = [];
-  if (!chart) return s;
-  for (var i = PHRASE_NOTES; i < chart.length - 4; i += PHRASE_NOTES) s.push(chart[i].t);
-  return s;
-}
-function battleStart() {
-  charaRewardHtml = '';
-  battle = null;
-  resetBattleFx();
-  hideBattleMsg();
-  if (!LD || mode !== 'solo' || !curSong) { renderBattleHud(); return; }
-  var cs = loadChara();
-  if (!cs.battleOn) { renderBattleHud(); return; }
-  var fav = charById(cs.fav);
-  if (!fav || !cs.owned[fav.id]) { renderBattleHud(); return; }
-  var foe = foeFor(curSong, selDiff);
-  if (!foe) { renderBattleHud(); return; }
-  var st = charStats(fav, cs.owned[fav.id]);
-  var maxHp = Math.max(50, Math.round(chart.length * (BATTLE_PER_NOTE[selDiff] || 15) * foe.hp));
-  battle = { foe: foe, charId: fav.id, charLv: cs.owned[fav.id].lv || 1, maxHp: maxHp, hp: maxHp, dealt: 0, defeated: false,
-    atk: st.atk, mods: passiveMods(fav), shield: 0, buffUntil: -1e9, vulnUntil: -1e9, nextBurst: 50,
-    phrase: { good: 0, ok: 0, bad: 0 }, atkTimes: buildAtkSchedule(), atkIdx: 0, _chorus: false, _lastPulse: 0 };
-  /* バトル中の自キャラは全レア共通でミニキャラ（イラストは詳細の全画面表示専用） */
-  var miniEl = $('miniIn');
-  if (miniEl) miniEl.innerHTML = window.LD_MINI ? LD_MINI(fav, 62) : (window.LD_PORTRAIT ? LD_PORTRAIT(fav, 62) : '');
-  var fw = $('bhFoeWrap');
-  if (fw) fw.classList.remove('down');
-  renderBattleHud();
-}
-function renderBattleHud() {
-  var hud = $('battleHud');
-  if (!hud) return;
-  var mst = $('miniStage');
-  if (!battle) { hud.classList.add('hidden'); if (mst) mst.classList.add('hidden'); return; }
-  hud.classList.remove('hidden');
-  if (mst) mst.classList.remove('hidden');
-  var fav = charById(battle.charId);
-  $('bhCharName').innerHTML = (fav ? fav.name : '') + '<small>Lv' + battle.charLv + (fav && battle.mods ? '' : '') + '</small>';
-  $('bhFace').textContent = battle.foe.face;
-  var fw = $('bhFoeWrap');
-  if (fw) {
-    fw.style.borderColor = battle.foe.col;
-    fw.style.boxShadow = '0 0 13px ' + battle.foe.col + '77, inset 0 0 9px rgba(0,0,0,.45)';
-    fw.classList.toggle('down', !!battle.defeated);
-  }
-  $('bhName').innerHTML = battle.foe.name + ' <span class="bhEl">' + LD.EL[battle.foe.el].i + LD.EL[battle.foe.el].n + '</span>';
-  var pct = clamp(battle.hp / battle.maxHp * 100, 0, 100);
-  var hpEl = $('bhHp');
-  hpEl.style.width = pct + '%';
-  hpEl.classList.toggle('low', pct <= 30 && !battle.defeated);
-  $('bhMeta').textContent = battle.defeated ? '👑 撃破！' : (Math.max(0, Math.ceil(battle.hp)).toLocaleString() + ' / ' + battle.maxHp.toLocaleString());
-  var st = [];
-  if (battle.shield > 0) st.push('🛡×' + battle.shield);
-  if (songTime < battle.buffUntil) st.push('🔥バフ');
-  if (songTime < battle.vulnUntil) st.push('🎯弱点');
-  if (battle._chorus) st.push('🎵サビ 与ダメ+25%');
-  $('bhStatus').textContent = st.join(' ');
-}
-/* バトル帯の中に技名・敵攻撃などを一時表示する（レーンには一切被らない） */
-var bhMsgTimer = null;
-function showBattleMsg(txt, cls) {
-  var el = $('bhSkill');
-  if (!el) return;
-  el.textContent = txt;
-  el.className = cls || '';
-  if (bhMsgTimer) clearTimeout(bhMsgTimer);
-  bhMsgTimer = setTimeout(hideBattleMsg, 1500);
-}
-function hideBattleMsg() {
-  if (bhMsgTimer) { clearTimeout(bhMsgTimer); bhMsgTimer = null; }
-  var el = $('bhSkill');
-  if (el) el.textContent = '';
-}
-function foeHitFx() {
-  if (!battle || battle.defeated) return;
-  var n = performance.now();
-  if (battle._lastPulse && n - battle._lastPulse < 110) return;
-  battle._lastPulse = n;
-  pulse($('bhFoeWrap'), 'dmg', 180);
-}
-function miniHitFx() { pulse($('miniStage'), 'act-hit', 200); }
-/* ダメージ数字：敵への攻撃は敵バッジ（右上）付近、自分の被ダメ/回復はミニキャラ（左下）付近に出す */
-function spawnDmgNum(txt, cls, pos) {
-  try {
-    var layer = $('dmgLayer');
-    if (!layer) return;
-    while (layer.children && layer.children.length >= 12) layer.removeChild(layer.firstChild);
-    var s = document.createElement('span');
-    s.className = 'dmgNum' + (cls ? ' ' + cls : '');
-    s.textContent = txt;
-    layer.appendChild(s);
-    if (pos === 'me') { s.style.left = (2 + Math.random() * 9) + '%'; s.style.top = 'auto'; s.style.bottom = '88px'; }
-    else {
-      /* 敵バッジの実測位置を基準に、その真下へ出す（帯の上や右端ではみ出さないようクランプ）。
-         以前は % 指定で帯の上に重なり、右端では文字が欠けることがあった */
-      var lr = layer.getBoundingClientRect();
-      var fw = $('bhFoeWrap');
-      var placed = false;
-      if (fw && lr.width > 0) {
-        var fr = fw.getBoundingClientRect();
-        if (fr.width > 0) {
-          var w = s.offsetWidth || 48;
-          var cx = fr.left - lr.left + fr.width / 2;
-          var x = cx - w / 2 + (Math.random() * 26 - 13);
-          x = Math.max(2, Math.min(x, lr.width - w - 2));
-          var y = fr.bottom - lr.top + 4 + Math.random() * 14;
-          y = Math.max(2, Math.min(y, lr.height - 46));
-          s.style.left = x + 'px';
-          s.style.top = y + 'px';
-          placed = true;
-        }
-      }
-      if (!placed) { s.style.left = (62 + Math.random() * 12) + '%'; s.style.top = (78 + Math.random() * 20) + 'px'; }
+function autoAdvance() {
+  if (!isAutoPlay() || !playing || paused) return;
+  while (notePtr < chart.length) {
+    var nt = chart[notePtr];
+    if (nt.t > songTime) break;
+    if (!nt.judged) {
+      nt.judged = 1; nt.res = 'good';
+      judgeDts.push({ dt: 0, res: 'good' });
+      applyJudge(nt, 'good');
     }
-    if (cls === 'k2') s.style.animationDelay = '0.07s';
-    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 1150);
-  } catch (e) {}
+    notePtr++;
+  }
 }
-function battleDamage(mult, isSkill) {
-  if (!battle || battle.defeated) return 0;
-  var fav = charById(battle.charId);
-  var m = mult * (1 + battle.mods.dmg / 100);
-  if (isSkill) m *= (1 + battle.mods.skill / 100);
-  if (fav) m *= typeMult(fav.el, battle.foe.el);
-  if (songTime < battle.buffUntil) m *= 1.3;
-  if (songTime < battle.vulnUntil) m *= 1.25;
-  /* 太鼓のゲーム性との連動：魂ゲージが高いほど攻撃が乗り、サビ区間は与ダメ+25% */
-  m *= 0.85 + 0.45 * clamp(gauge, 0, 100) / 100;
-  if (curSong && inChorus(curSong, songTime)) m *= 1.25;
-  var dmg = Math.max(1, Math.round(battle.atk * m));
-  battle.hp -= dmg; battle.dealt += dmg;
-  if (battle.hp <= 0) { battle.hp = 0; battle.defeated = true; spawnDmgNum('撃破！', 'skill', 'foe'); }
-  return dmg;
-}
-/* 叩くこと自体が戦闘アクションになる：
-   ドン＝単発の強い一撃／カツ＝2連続ヒット／大音符＝重撃（×1.5） */
-function battleOnHit(nt, res) {
-  if (!battle || battle.defeated) return;
-  if (res === 'good') battle.phrase.good++; else battle.phrase.ok++;
-  if (nt.type === 'katsu') {
-    var per = (res === 'good' ? 0.065 : 0.035) * (nt.big ? 1.5 : 1);
-    var d1 = battleDamage(per, false);
-    if (d1 > 0) { spawnDmgNum(d1.toLocaleString(), '', 'foe'); foeHitFx(); }
-    if (!battle.defeated) {
-      var d2 = battleDamage(per, false);
-      if (d2 > 0) spawnDmgNum(d2.toLocaleString(), 'k2', 'foe');
-    }
+/* ポーズ：対戦中はポーズ不可（従来仕様どおり。オンラインでは呼び出し側でも無効化する） */
+function setPaused(on) {
+  if (!playing || mode === 'online') return;
+  if (on && songTime < countdownEndPos()) return; /* カウントダウン中はポーズしない */
+  if (on === paused) return;
+  paused = on;
+  var pp = $('pausePanel');
+  if (pp) pp.classList.toggle('hidden', !paused);
+  if (paused) {
+    pausedSongTime = songTime;
+    if (curSong && curSong.real) {
+      var r = realAudio[curSong.id];
+      if (r && r.el && realStarted) { try { r.el.pause(); } catch (e) {} }
+    } else if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   } else {
-    var mult = (res === 'good' ? 0.12 : 0.06) * (nt.big ? 1.5 : 1);
-    var dmg = battleDamage(mult, false);
-    if (dmg > 0) { spawnDmgNum(dmg.toLocaleString(), nt.big ? 'big' : '', 'foe'); foeHitFx(); }
-  }
-  miniHitFx();
-  if (!battle.defeated && combo >= battle.nextBurst) { battle.nextBurst += 50; fireBurst(); }
-  renderBattleHud();
-}
-function fireBurst() {
-  if (!battle) return;
-  var fav = charById(battle.charId);
-  if (!fav) return;
-  var spec = burstSpec(fav);
-  /* 魂ゲージ70%以上でバーストが「魂解放」化して1.3倍 */
-  var soul = gauge >= 70;
-  if (soul) spec = { dmg: spec.dmg * 1.3, gauge: spec.gauge, shield: spec.shield, buff: spec.buff, vuln: spec.vuln };
-  var dmg = battleDamage(spec.dmg, true);
-  if (dmg > 0) { spawnDmgNum(dmg.toLocaleString(), 'skill', 'foe'); foeHitFx(); }
-  if (spec.gauge) {
-    var g = Math.round(spec.gauge * (1 + battle.mods.heal / 100));
-    gauge = clamp(gauge + g, 0, 100);
-    spawnDmgNum('魂 +' + g + '%', 'gauge', 'me');
-  }
-  if (spec.shield) battle.shield = Math.min(2, battle.shield + spec.shield);
-  if (spec.buff) battle.buffUntil = songTime + spec.buff;
-  if (spec.vuln) battle.vulnUntil = songTime + spec.vuln;
-  /* 技の表現はレーン脇のミニキャラのアクション＋バトル帯の技名表示のみ（譜面は覆わない） */
-  showBattleMsg((soul ? '🔥魂解放！ ' : '💥 ') + fav.burst.name, soul ? 'soul' : '');
-  pulse($('miniStage'), 'act-burst', 580);
-  if (AC) { var t = AC.currentTime; toneAt(880, t, 0.12, 'triangle', 0.14); toneAt(1318, t + 0.07, 0.16, 'triangle', 0.12); }
-  updateHUD(false);
-  renderBattleHud();
-}
-function battleOnBad(gd) {
-  if (!battle || battle.defeated || battle.shield <= 0) return false;
-  battle.shield--;
-  var lg = laneGeom();
-  popups.push({ y: lg.y - lg.h / 2 - 8, txt: '🛡ガード', col: '#7dd3fc', t0: performance.now(), big: false, res: 'ok' });
-  if (popups.length > 8) popups.shift();
-  renderBattleHud();
-  return true;
-}
-function battleMissMul() {
-  if (!battle) return 1;
-  return 1 - battle.mods.miss / 100;
-}
-/* ---------------- 敵の攻撃（フレーズ区切り） ----------------
-   フレーズ（36ノーツ）ごとに、その区間の演奏成績で判定する：
-   ミスなし＆良中心なら完全防御（GUARD、被ダメも妨害もなし）。
-   それ以外は魂ゲージを削り、成績が悪いほど譜面ギミック（シェイク／ちらつき／インク）が強くなる。
-   上手く叩くことがそのまま防御になる。バトルOFF・撃破後は発生しない。 */
-function resolveEnemyAttack() {
-  if (!battle || battle.defeated) return null;
-  var p = battle.phrase;
-  battle.phrase = { good: 0, ok: 0, bad: 0 };
-  var total = p.good + p.ok + p.bad;
-  if (!total) return null;
-  var score = (p.good + p.ok * 0.5) / total;
-  pulse($('bhFoeWrap'), 'atk', 340);
-  var nowS = performance.now() / 1000;
-  if (p.bad === 0 && score >= 0.75) {
-    spawnDmgNum('🛡 GUARD!', 'guard', 'me');
-    showBattleMsg('🛡 敵の攻撃を完全に防いだ！', 'good');
-    return { guard: true, score: score, loss: 0 };
-  }
-  var loss = Math.max(1, Math.round((ATK_BASE[selDiff] || 7) * (1.15 - score)));
-  gauge = clamp(gauge - loss, 0, 100);
-  spawnDmgNum('敵の攻撃 -' + loss + '%', 'hurt', 'me');
-  showBattleMsg('💥 ' + battle.foe.name + ' の攻撃！ 魂 -' + loss + '%', 'bad');
-  pulse($('miniStage'), 'act-hurt', 340);
-  battleFx.shakeUntil = nowS + 0.35;
-  battleFx.shakeMag = score >= 0.55 ? 3 : 5;
-  if (score < 0.55) {
-    if (selDiff === 'hard' || selDiff === 'oni') {
-      battleFx.inkT0 = nowS; battleFx.inkUntil = nowS + 2.2;
-      battleFx.inkX0 = CW * 0.44; battleFx.inkX1 = CW * 0.80;
-      battleFx.flickerUntil = nowS + 0.6;
-    } else {
-      battleFx.flickerUntil = nowS + 0.9;
+    if (curSong && curSong.real) {
+      var r2 = realAudio[curSong.id];
+      if (r2 && r2.el && realStarted) { try { var pr = r2.el.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} }
+    } else if (AC) {
+      /* シンセ時計は startCtx をずらして再開する（譜面時計とスケジューラが一緒に止まる） */
+      startCtx = AC.currentTime - pausedSongTime;
+      if (schedTimer) clearInterval(schedTimer);
+      schedTimer = setInterval(scheduleAhead, 25);
     }
-  }
-  updateHUD(false);
-  return { guard: false, score: score, loss: loss };
-}
-function battleTick() {
-  if (!battle || battle.defeated || !playing) return;
-  var inC = inChorus(curSong, songTime);
-  if (inC !== battle._chorus) { battle._chorus = inC; renderBattleHud(); }
-  if (battle.atkIdx < battle.atkTimes.length && songTime >= battle.atkTimes[battle.atkIdx]) {
-    battle.atkIdx++;
-    resolveEnemyAttack();
+    songTime = pausedSongTime;
   }
 }
-function battleClear() {
-  battle = null;
-  charaRewardHtml = '';
-  resetBattleFx();
-  hideBattleMsg();
-  var layer = $('dmgLayer');
-  if (layer) { try { layer.innerHTML = ''; } catch (e) {} }
-  renderBattleHud();
+function restartSong() {
+  if (mode === 'online' || !curSong) return;
+  paused = false;
+  var pp = $('pausePanel');
+  if (pp) pp.classList.add('hidden');
+  stopSong(false);
+  startSong(); /* 同曲・同難易度をカウントダウンから即再開 */
 }
-/* 演奏終了時の報酬（ソロのみ・finishSong から呼ばれる） */
-function charaOnFinish(res) {
-  charaRewardHtml = '';
-  if (!LD) return;
-  var cs = loadChara();
-  var key = selSong + ':' + selDiff;
-  var ratio = 0, defeated = false, foeName = '';
-  if (battle) {
-    ratio = battle.maxHp > 0 ? clamp(battle.dealt / battle.maxHp, 0, 1) : 0;
-    defeated = battle.defeated; foeName = battle.foe.name;
-  }
-  var firstDefeat = defeated && !cs.defeats[key];
-  if (defeated) cs.defeats[key] = 1;
-  /* 初クリア報酬：曲×難易度ごとの初クリアで1回だけ（初撃破の記録とは別管理） */
-  if (!cs.clears || typeof cs.clears !== 'object') cs.clears = {};
-  var firstClear = !!res.clear && !cs.clears[key];
-  if (firstClear) cs.clears[key] = 1;
-  var rankGem = res.clear ? (RANK_GEM[res.rank] || 0) : 0;
-  var totalJudged = counts.good + counts.ok + counts.bad;
-  var isFc = !!res.clear && counts.bad === 0 && totalJudged > 0;
-  var fcGem = isFc ? FC_GEM : 0;
-  /* デイリーミッション：演奏回数と撃破を数え、達成したものを1日1回だけ付与 */
-  var daily = ensureDaily(cs);
-  daily.plays++;
-  if (defeated) daily.defeats++;
-  if (res.clear) daily.clears++;
-  if (maxCombo > daily.maxcombo) daily.maxcombo = maxCombo;
-  var dailyGems = 0, dailyMsgs = [];
-  DAILY_MISSIONS.forEach(function (m) {
-    if (!daily.got[m.id] && (daily[m.kind] || 0) >= m.need) { daily.got[m.id] = 1; dailyGems += m.gems; dailyMsgs.push(m.label + ' 💎+' + m.gems); }
+/* ---------------- スタンプ帳／記録モーダル／レーティング表示 ---------------- */
+function renderStampBook() {
+  var el = $('stampBody');
+  if (!el) return;
+  var pr = stampProgress();
+  var html = '<p class="note">スタンプ ' + pr.got + ' / ' + pr.total + ' 個（曲×難易度ごとに クリア／ミス≤閾値／ランクS の3種）</p>';
+  SONGS.forEach(function (s) {
+    html += '<div class="stampSong"><b>' + s.emo + ' ' + s.title + '</b>';
+    DIFF_KEYS.forEach(function (d) {
+      var st = getStamp(s.id, d);
+      var lock = (d === 'ura' && !isUraUnlocked(s.id));
+      html += '<div class="stampRow"><span>' + DIFFS[d].label + (lock ? ' 🔒' : '') + '</span><span>' + (st && st.c ? '✅クリア' : '⬜クリア') + ' ' + (st && st.m ? '✅ミス≤' + MISS_THRESH[d] : '⬜ミス≤' + MISS_THRESH[d]) + ' ' + (st && st.s ? '✅ランクS' : '⬜ランクS') + '</span></div>';
+    });
+    html += '</div>';
   });
-  /* ウィークリーミッション：演奏・撃破・フルコンボを数え、達成したものを週1回だけ付与 */
-  var weekly = ensureWeekly(cs);
-  weekly.plays++;
-  if (defeated) weekly.defeats++;
-  if (isFc) weekly.fcs++;
-  if (res.clear) weekly.clears++;
-  if (res.clear && selDiff === 'oni') weekly.oni++;
-  var weeklyGems = 0, weeklyMsgs = [];
-  WEEKLY_MISSIONS.forEach(function (m) {
-    if (!weekly.got[m.id] && (weekly[m.kind] || 0) >= m.need) { weekly.got[m.id] = 1; weeklyGems += m.gems; weeklyMsgs.push(m.label + ' 💎+' + m.gems); }
-  });
-  /* チャレンジミッション：累計カウンタで判定し、達成したものを一度だけ付与（リセットなし） */
-  var chal = ensureChal(cs);
-  chal.plays++;
-  if (defeated) chal.defeats++;
-  if (res.clear) chal.clears++;
-  if (isFc) chal.fcs++;
-  if (res.clear && selDiff === 'oni') chal.oni++;
-  if (maxCombo > chal.maxcombo) chal.maxcombo = maxCombo;
-  var chalGems = 0, chalMsgs = [];
-  CHALLENGES.forEach(function (m) {
-    if (!chal.got[m.id] && (chal[m.kind] || 0) >= m.need) { chal.got[m.id] = 1; chalGems += m.gems; chalMsgs.push(m.label + ' 💎+' + m.gems); }
-  });
-  var gems = (res.clear ? CLEAR_GEM[selDiff] : 0) + Math.round(DEFEAT_GEM[selDiff] * ratio) + (firstDefeat ? FIRST_DEFEAT_GEM : 0) + (firstClear ? FIRST_CLEAR_GEM : 0) + rankGem + fcGem + dailyGems + weeklyGems + chalGems;
-  var coins = 120 + Math.floor(score / 500) + (defeated ? 150 : 0);
-  var mats = (res.clear ? 3 : 1) + (defeated ? 3 : 0);
-  cs.gems += gems; cs.coins += coins; cs.mats += mats;
-  var exp = 0, lvUps = 0, favName = '';
-  var fav = charById(cs.fav);
-  if (fav && cs.owned[fav.id]) {
-    exp = counts.good + counts.ok + (res.clear ? 30 : 0) + (defeated ? 50 : 0);
-    cs.owned[fav.id].exp += exp;
-    favName = fav.name;
-  }
-  storeChara(cs);
-  if (fav && cs.owned[fav.id]) { lvUps = tryLevelUps(fav.id); cs = loadChara(); }
-  renderCharaBar();
-  var bonusMsgs = [];
-  if (firstClear) bonusMsgs.push('初クリア 💎+' + FIRST_CLEAR_GEM);
-  if (rankGem) bonusMsgs.push('ランク' + res.rank + ' 💎+' + rankGem);
-  if (fcGem) bonusMsgs.push('フルコンボ 💎+' + fcGem);
-  charaRewardHtml = '<div class="rwLine">💎+' + gems + '　🪙+' + coins + '　🔷+' + mats
-    + (battle ? (defeated ? '<br><span class="defeat">⚔ ' + foeName + ' を撃破！</span>' + (firstDefeat ? '（初撃破ボーナス 💎+' + FIRST_DEFEAT_GEM + '）' : '') : '<br>敵への与ダメージ ' + Math.round(ratio * 100) + '%') : '')
-    + (bonusMsgs.length ? '<br>🏆 ' + bonusMsgs.join(' ・ ') : '')
-    + (dailyMsgs.length ? '<br>📅 デイリー達成：' + dailyMsgs.join(' ／ ') : '<br>📅 デイリー：演奏 ' + Math.min(daily.plays, 3) + '/3曲' + (daily.defeats ? ' ・ 撃破 ' + daily.defeats + '体' : ''))
-    + (weeklyMsgs.length ? '<br>🗓 ウィークリー達成：' + weeklyMsgs.join(' ／ ') : '')
-    + (chalMsgs.length ? '<br>🏅 チャレンジ達成：' + chalMsgs.join(' ／ ') : '')
-    + (exp ? '<br>' + favName + ' EXP +' + exp : '')
-    + (lvUps ? '<br>🎉 ' + favName + ' が Lv' + cs.owned[fav.id].lv + ' にアップ！' : '')
-    + '</div>';
+  var st2 = loadStamps();
+  var dkeys = Object.keys(st2.daily || {}).sort();
+  html += '<p class="note">📅 デイリーチャレンジ達成日：' + (dkeys.length ? dkeys.join('、') : 'まだありません') + '</p>';
+  el.innerHTML = html;
 }
+function renderRecords() {
+  var el = $('recordsBody');
+  if (!el) return;
+  var ri = ratingInfo();
+  var st = loadStats();
+  var pr = stampProgress();
+  el.innerHTML = '<div class="recBig">レーティング ' + ri.rating.toFixed(1) + '</div>'
+    + '<div class="recLine">称号：<b>' + ri.title + '</b>（上位 ' + ri.count + ' 譜面で算出）</div>'
+    + '<div class="recLine">総プレイ ' + st.plays + ' 回 ・ 判定ノーツ ' + st.notes.toLocaleString() + ' ・ 演奏時間 ' + Math.floor(st.sec / 60) + '分' + (st.sec % 60) + '秒</div>'
+    + '<div class="recLine">スタンプ ' + pr.got + ' / ' + pr.total + ' 個</div>';
+}
+function renderRatingBar() {
+  var el = $('ratingVal');
+  if (el) { var ri = ratingInfo(); el.textContent = ri.rating.toFixed(1) + '（' + ri.title + '）'; }
+  var dl = $('dailyLine');
+  if (dl) dl.textContent = '📅 今日のチャレンジ：' + songById(dailySongId()).title;
+}
+/* ---------------- 新UIの配線と選曲プレビュー（旧 initCharaUi から移設） ---------------- */
+(function initV118Ui() {
+  var pt = $('practiceTgl');
+  if (pt) pt.addEventListener('click', function () { practiceMode = !practiceMode; pt.classList.toggle('on', practiceMode); pt.textContent = '練習（サビから）' + (practiceMode ? ' ON' : ' OFF'); blip(); });
+  var at = $('autoTgl');
+  if (at) at.addEventListener('click', function () { autoMode = !autoMode; at.classList.toggle('on', autoMode); at.textContent = '🤖 オートプレイ（お手本）' + (autoMode ? ' ON' : ' OFF'); blip(); });
+  var rb = $('randomBtn');
+  if (rb) rb.addEventListener('click', function () { ensureAudio(); randomPick(); });
+  var sb = $('stampBtn');
+  if (sb) sb.addEventListener('click', function () { renderStampBook(); $('stampModal').classList.remove('hidden'); });
+  var sc = $('stampClose');
+  if (sc) sc.addEventListener('click', function () { $('stampModal').classList.add('hidden'); });
+  var sm = $('stampModal');
+  if (sm) sm.addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+  var rc = $('recordsBtn');
+  if (rc) rc.addEventListener('click', function () { renderRecords(); $('recordsModal').classList.remove('hidden'); });
+  var rcx = $('recordsClose');
+  if (rcx) rcx.addEventListener('click', function () { $('recordsModal').classList.add('hidden'); });
+  var rm = $('recordsModal');
+  if (rm) rm.addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+  var pb = $('pauseBtn');
+  if (pb) pb.addEventListener('click', function () { setPaused(true); });
+  var rs = $('resumeBtn');
+  if (rs) rs.addEventListener('click', function () { setPaused(false); });
+  var rt = $('restartBtn');
+  if (rt) rt.addEventListener('click', function () { restartSong(); });
+  var pq = $('pauseQuitBtn');
+  if (pq) pq.addEventListener('click', function () { paused = false; $('pausePanel').classList.add('hidden'); stopSong(true); });
+  renderRatingBar();
+  /* 選曲プレビュー：曲カードのタップ（既存ハンドラで selSong 更新済み）を受けて開始 */
+  $('songList').addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('.songCard') : null;
+    if (!b) return;
+    startPreview(songById(b.dataset.song));
+  });
+  document.querySelectorAll('#modeSeg button').forEach(function (b) {
+    b.addEventListener('click', function () { stopPreview(); });
+  });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) stopPreview(); });
+})();
 
 /* ---------------- 選曲プレビュー（サビ再生） ----------------
    曲カードを選んだタップの流れの中で開始する（iOS の自動再生制限に配慮）。
@@ -4519,63 +3705,6 @@ function stopPreview() {
   if (pv.kind === 'synth' && master) master.gain.value = muted ? 0 : 0.9;
 }
 
-/* ---------------- キャラまわりの初期化 ---------------- */
-(function initCharaUi() {
-  if (!LD) return;
-  loadChara();
-  renderCharaBar();
-  /* 起動時：コレクションマイルストーンの遡及付与（既存プレイヤー分） */
-  var ics = loadChara();
-  var ims = checkMilestones(ics);
-  if (ims.gems > 0) {
-    storeChara(ics);
-    renderCharaBar();
-    setTimeout(function () { toast('🏆 コレクション達成ボーナス 💎+' + ims.gems); }, 900);
-  }
-  /* 起動時：ログインボーナス（未受け取りがあればポップアップ） */
-  checkLoginBonus();
-  $('loginClaimBtn').addEventListener('click', function () {
-    var got = claimLoginBonus();
-    $('loginModal').classList.add('hidden');
-    if (got > 0) toast('🎁 ログインボーナス 💎+' + got.toLocaleString());
-  });
-  $('loginClose').addEventListener('click', function () { $('loginModal').classList.add('hidden'); });
-  $('loginModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
-  $('favChip').addEventListener('click', function () { ensureAudio(); openChara(); });
-  $('gachaBtn').addEventListener('click', function () { ensureAudio(); openGacha(); });
-  $('charaBtn').addEventListener('click', function () { ensureAudio(); openChara(); });
-  $('battleTgl').addEventListener('click', function () {
-    var cs = loadChara();
-    cs.battleOn = !cs.battleOn; cs.battleToggled = true; storeChara(cs); renderCharaBar();
-    toast(cs.battleOn ? '⚔ キャラバトル ON' : '⚔ キャラバトル OFF（通常演奏）');
-  });
-  $('gachaClose').addEventListener('click', closeGacha);
-  $('charaClose').addEventListener('click', function () { $('charaModal').classList.add('hidden'); });
-  $('missionBtn').addEventListener('click', function () { ensureAudio(); openMissions(); });
-  $('missionClose').addEventListener('click', function () { $('missionModal').classList.add('hidden'); });
-  $('gachaModal').addEventListener('click', function (e) { if (e.target === this) closeGacha(); });
-  $('charaModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
-  $('missionModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
-  document.querySelectorAll('#gachaModal .bannerTabs button').forEach(function (b) {
-    b.addEventListener('click', function () { gachaBanner = b.dataset.b; renderGacha(); blip(); });
-  });
-  $('pull1Btn').addEventListener('click', function () { ensureAudio(); doGachaUi(1); });
-  $('pull10Btn').addEventListener('click', function () { ensureAudio(); doGachaUi(10); });
-  $('urFx').addEventListener('click', function () { this.classList.add('hidden'); });
-  $('artViewer').addEventListener('click', function () { this.classList.add('hidden'); });
-  /* 選曲プレビュー：曲カードのタップ（既存ハンドラで selSong 更新済み）を受けて開始 */
-  $('songList').addEventListener('click', function (e) {
-    var b = e.target && e.target.closest ? e.target.closest('.songCard') : null;
-    if (!b) return;
-    startPreview(songById(b.dataset.song));
-  });
-  document.querySelectorAll('#modeSeg button').forEach(function (b) {
-    b.addEventListener('click', function () { stopPreview(); });
-  });
-  document.addEventListener('visibilitychange', function () { if (document.hidden) stopPreview(); });
-  window.addEventListener('focus', function () { loadChara(); renderCharaBar(); });
-})();
-
 /* 起動時：楽曲データの更新チェック（更新がある時だけポップアップ） */
 initAudioDl();
 
@@ -4586,8 +3715,8 @@ window.__taiko = {
   mulberry32: mulberry32, melodyVoice: melodyVoice, FORMANTS: FORMANTS, VOWELS: VOWELS,
   diffLevel: diffLevel, starStr: starStr, getRank: getRank, genreList: genreList,
   inChorus: inChorus, onsetStr: onsetStr, chorusMix: function () { return chorusMix; },
-  judgeGeom: function () { var lg = laneGeom(); return { r: JUDGE_R, noteR: NOTE_R, noteRBig: NOTE_R_BIG, x: lg.judgeX, y: lg.y, laneH: lg.h }; },
-  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre, real: curSong ? !!curSong.real : !!songById(selSong).real, chorus: (playing && curSong) ? inChorus(curSong, songTime) : false }; },
+  judgeGeom: function () { var lg = laneGeom(); return { r: JUDGE_R, noteR: NOTE_R, x: lg.judgeX, y: lg.y, laneH: lg.h }; },
+  state: function () { return { playing: playing, songTime: songTime, score: score, combo: combo, maxCombo: maxCombo, gauge: gauge, counts: counts, chartLen: chart.length, lastHit: lastHitType, practice: practiceMode, auto: autoMode, paused: paused, startPos: playStartPos, vocal: vocalHits, song: curSong ? curSong.id : selSong, diff: selDiff, genre: selGenre, real: curSong ? !!curSong.real : !!songById(selSong).real, chorus: (playing && curSong) ? inChorus(curSong, songTime) : false }; },
   bigDrum: function () { var bd = bigDrumGeom(); return { x: bd.x, y: bd.y, R: bd.R, top: bd.top }; },
   tapTypeAt: tapTypeAt,
   realInfo: function (songId) { var s = songById(songId || selSong); if (!s.real) return null; var r = realAudio[s.id]; return { state: r ? r.state : 'none', duration: r && r.el ? r.el.duration : null, currentTime: r && r.el ? r.el.currentTime : null, muted: r && r.el ? !!r.el.muted : null, paused: r && r.el ? !!r.el.paused : null, volume: r && r.el ? r.el.volume : null, started: realStarted }; },
@@ -4600,35 +3729,16 @@ window.__taiko = {
   startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
   hit: hit,
   finishNow: function () { if (playing) { songTime = curData.duration + 1; finishSong(); } },
-  chara: {
-    data: function () { return LD; },
-    save: loadChara, store: storeChara,
-    charById: charById, charStats: charStats, isAwakened: isAwakened,
-    expNeed: expNeed, levelCost: levelCost, tryLevelUps: tryLevelUps,
-    rollRarity: rollRarity, pullOne: pullOne, doPulls: doPulls, grantChar: grantChar,
-    foeFor: foeFor, burstSpec: burstSpec, passiveMods: passiveMods, typeMult: typeMult,
-    mini: function (c, size) { return window.LD_MINI ? LD_MINI(c, size) : null; },
-    econ: function () { return { CLEAR_GEM: CLEAR_GEM, DEFEAT_GEM: DEFEAT_GEM, FIRST_DEFEAT_GEM: FIRST_DEFEAT_GEM, RANK_GEM: RANK_GEM, FC_GEM: FC_GEM, DAILY_MISSIONS: DAILY_MISSIONS, FIRST_CLEAR_GEM: FIRST_CLEAR_GEM, LOGIN_BONUS: LOGIN_BONUS, WEEKLY_MISSIONS: WEEKLY_MISSIONS, MILESTONES: MILESTONES, CHALLENGES: CHALLENGES }; },
-    daily: function () { var cs = loadChara(); return cs ? ensureDaily(cs) : null; },
-    login: function () { var cs = loadChara(); return cs ? ensureLogin(cs) : null; },
-    pendingLogin: function () { var cs = loadChara(); return cs ? pendingLoginGems(cs) : 0; },
-    claimLogin: function () { return claimLoginBonus(); },
-    checkLogin: function () { return checkLoginBonus(); },
-    weekly: function () { var cs = loadChara(); return cs ? ensureWeekly(cs) : null; },
-    chal: function () { var cs = loadChara(); return cs ? ensureChal(cs) : null; },
-    weekStr: weekStr,
-    clears: function () { var cs = loadChara(); return cs ? (cs.clears || {}) : {}; },
-    milestones: function () { var cs = loadChara(); if (!cs) return null; var r = checkMilestones(cs); if (r.gems > 0) storeChara(cs); return r; },
-    battle: function () { return battle; },
-    battleFx: function () { return battleFx; },
-    battleStart: battleStart, battleOnHit: battleOnHit, battleOnBad: battleOnBad, fireBurst: fireBurst,
-    battleTick: battleTick, resolveEnemyAttack: resolveEnemyAttack,
-    setGauge: function (v) { gauge = clamp(v, 0, 100); },
-    setFav: function (id) { var cs = loadChara(); if (cs && cs.owned[id]) { cs.fav = id; storeChara(cs); } },
-    setBattleOn: function (on) { var cs = loadChara(); if (cs) { cs.battleOn = !!on; cs.battleToggled = true; storeChara(cs); } },
-    rewardHtml: function () { return charaRewardHtml; },
-    openGacha: openGacha, closeGacha: closeGacha, doGachaUi: doGachaUi, openChara: openChara, showUrFx: showUrFx, renderCharaBar: renderCharaBar,
-    reset: function () { charaCache = null; charaStoredJson = null; try { localStorage.removeItem(CHARA_KEY); } catch (e) {} return loadChara(); }
+  v118: {
+    isUraUnlocked: isUraUnlocked, dailySongId: dailySongId, dateStr: dateStr,
+    rating: ratingInfo, ratingTitle: ratingTitle, chartValue: chartValue,
+    stamps: loadStamps, stampProgress: stampProgress, MISS_THRESH: MISS_THRESH,
+    favs: loadFavs, toggleFav: toggleFav, stats: loadStats,
+    hasCleared: hasCleared, hasFc: hasFc, fastLate: fastLateStats, judgeDts: function () { return judgeDts; },
+    setPractice: function (v) { practiceMode = !!v; }, practice: function () { return practiceMode; },
+    setAuto: function (v) { autoMode = !!v; }, auto: function () { return autoMode; },
+    setPaused: setPaused, paused: function () { return paused; }, restart: restartSong,
+    setFilter: function (f) { selFilter = f; renderSongList(); }, filter: function () { return selFilter; }
   },
   previewState: function () { return preview ? { active: true, song: preview.song.id, kind: preview.kind, seg: preview.seg, waiting: !!preview.waiting } : { active: false }; },
   startPreview: startPreview,

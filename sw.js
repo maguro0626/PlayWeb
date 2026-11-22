@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v117';
+const CACHE_NAME = 'game-platform-cache-v118';
 /* 実行時キャッシュ（バージョンをまたいで保持する）。
    ゲーム本体や画像は「初めて開いた時」にここへ入り、更新のたびに
    消えることがない。更新で消えるのは下のコアキャッシュだけ。 */
@@ -73,8 +73,11 @@ self.addEventListener('fetch', event => {
 
   // それ以外（各ゲームのHTMLなど）：ネット優先で常に最新を取りに行き、
   // 取得できたら実行時キャッシュに控えを残す。オフライン時は控えを返す。
+  // HTMLは HTTP キャッシュを再検証させて取りに行く（GitHub Pages の
+  // max-age=600 のせいで「ネット優先」でも古い控えが返ることがあったため）。
+  const isHtml = req.mode === 'navigate' || /\.html$/i.test(url.pathname);
   event.respondWith(
-    fetch(req).then(res => {
+    fetch(req, isHtml ? { cache: 'no-cache' } : undefined).then(res => {
       if (res && res.ok) {
         const copy = res.clone();
         caches.open(RUNTIME_CACHE).then(cache => cache.put(req, copy));
@@ -90,6 +93,10 @@ self.addEventListener('fetch', event => {
 });
 
 // 古いキャッシュのお掃除（実行時キャッシュは残す）
+// ＋ 新バージョンが有効化されたら、実行時キャッシュ内のゲームHTMLだけを
+// 破棄する。これで「ホームの更新ボタンで更新が見つかった」あとは、
+// 次にゲームを開いた時に必ず新しいゲームが落ちてくるようになる。
+// 画像・音声パート等の資産は消さない（再ダウンロードさせないため）。
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -97,6 +104,13 @@ self.addEventListener('activate', event => {
         cacheNames.filter(name => name !== CACHE_NAME && name !== RUNTIME_CACHE)
           .map(name => caches.delete(name))
       );
-    }).then(() => self.clients.claim())
+    }).then(() =>
+      caches.open(RUNTIME_CACHE).then(cache =>
+        cache.keys().then(reqs => Promise.all(
+          reqs.filter(r => /\.html$/i.test(new URL(r.url).pathname))
+            .map(r => cache.delete(r))
+        ))
+      )
+    ).then(() => self.clients.claim())
   );
 });
