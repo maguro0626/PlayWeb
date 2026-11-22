@@ -303,6 +303,17 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #pausePanel{position:absolute;inset:0;background:rgba(6,3,18,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;text-align:center;z-index:6}
 #pausePanel .pttl{font-size:26px;font-weight:900;margin-bottom:4px}
 #pausePanel .btn{width:100%;max-width:280px;flex:none}
+#quitModal{position:absolute;inset:0;background:rgba(6,3,18,.72);display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
+#quitModal .qmCard{background:#1d1438;border:1.5px solid var(--line);border-radius:18px;padding:20px 18px;max-width:300px;width:100%;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+#quitModal .qmTitle{font-size:19px;font-weight:900;margin-bottom:14px;line-height:1.5}
+#quitModal .qmBtns{display:flex;gap:9px}
+#quitModal .qmBtns .btn{flex:1;min-width:0;min-height:48px}
+#srEdUploadModal{position:absolute;inset:0;background:rgba(6,3,18,.78);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px}
+#srEdUploadModal .edUpCard{background:#1d1438;border:1.5px solid var(--line);border-radius:18px;padding:20px 18px;max-width:320px;width:100%;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+#srEdUploadModal .edUpTtl{font-size:19px;font-weight:900;margin-bottom:10px}
+#srEdUploadModal .edUpBody{font-size:14px;line-height:1.7;margin:0 0 16px;white-space:pre-line}
+#srEdUploadModal .edUpBtns{display:flex;gap:9px}
+#srEdUploadModal .edUpBtns .btn{flex:1;min-width:0;min-height:48px}
 @media (max-height:900px){
   /* 新規行追加分を中丈画面でも吸収する（390×844 でスタートボタンを画面内に保つ） */
   #ratingInfo{font-size:11px}
@@ -356,18 +367,18 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #songDetail .srcRow{display:flex;gap:7px;width:100%}
 #songDetail .srcChip{flex:1;border:1.5px solid var(--line);background:rgba(0,0,0,.3);color:var(--txt);padding:6px 4px;border-radius:999px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;min-height:32px}
 #songDetail .srcChip.on{background:linear-gradient(92deg,var(--accent),var(--accent2));color:#fff;border-color:rgba(255,255,255,.5);box-shadow:0 2px 10px rgba(255,93,143,.4)}
-#srEditorPanel{position:fixed;inset:0;z-index:90000;background:#120c26;color:var(--txt);display:flex;flex-direction:column;padding:10px 12px calc(10px + env(safe-area-inset-bottom));gap:8px;font-family:inherit}
+#srEditorPanel{position:fixed;inset:0;z-index:90000;background:#120c26;color:var(--txt);display:flex;flex-direction:column;padding:10px 12px calc(10px + env(safe-area-inset-bottom));gap:8px;font-family:inherit;box-sizing:border-box}
 #srEditorPanel .edHead{display:flex;align-items:center;justify-content:space-between;flex:none}
 #srEditorPanel .edTtl{font-size:19px;font-weight:900;letter-spacing:.03em}
 #srEditorPanel .edXBtn{border:1.5px solid var(--line);background:rgba(255,255,255,.08);color:var(--txt);border-radius:10px;min-width:40px;min-height:36px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit}
 #srEditorPanel .edPickRow{display:flex;gap:8px;flex:none}
 #srEditorPanel .edPickRow select{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1.5px solid var(--line);border-radius:11px;color:var(--txt);padding:9px 8px;font-size:14px;font-weight:800;font-family:inherit;min-height:42px}
 #srEditorPanel .edInfo{flex:none;font-size:12px;color:var(--sub);font-weight:800;min-height:16px;line-height:1.45}
-#srEdStageWrap{flex:1 1 auto;min-height:120px;overflow-x:auto;overflow-y:hidden;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
-#srEdStageInner{position:relative;height:100%}
-#srEdCanvas{position:sticky;left:0;display:block;touch-action:none}
-#srEditorPanel .edPlayRow{display:flex;gap:7px;flex:none}
-#srEditorPanel .edPlayRow .btn{flex:1;font-size:13.5px;min-height:46px;padding:9px 2px;white-space:nowrap}
+#srEdStageWrap{flex:1 1 auto;min-height:120px;overflow-x:hidden;overflow-y:auto;background:rgba(0,0,0,.4);border:1.5px solid var(--line);border-radius:14px;scrollbar-width:thin;position:relative}
+#srEdStageInner{position:relative;width:100%}
+#srEdCanvas{position:sticky;top:0;display:block;touch-action:none}
+#srEditorPanel .edPlayRow{display:flex;gap:7px;flex:none;flex-wrap:wrap}
+#srEditorPanel .edPlayRow .btn{flex:1 1 30%;min-width:0;font-size:13.5px;min-height:46px;padding:9px 2px;white-space:normal;line-height:1.25}
 #srEditorPanel .edPalette{display:flex;gap:7px;flex:none}
 #srEditorPanel .edPal{flex:1;border:2.5px solid var(--line);background:rgba(255,255,255,.06);color:var(--txt);padding:8px 2px;border-radius:14px;font-size:15.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:48px}
 #srEditorPanel .edPal:active{transform:scale(.96)}
@@ -377,10 +388,15 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #srEditorPanel .edMode.on{border-color:#3fd6ff;background:linear-gradient(180deg,rgba(63,214,255,.30),rgba(63,214,255,.08));box-shadow:0 0 12px rgba(63,214,255,.35)}
 /* 背の低い画面では各行を詰めて、タイムラインと全ボタンが収まるようにする */
 @media (max-height:640px){
-  #srEditorPanel{gap:6px;padding-top:8px;padding-bottom:8px}
-  #srEdStageWrap{min-height:92px}
-  #srEditorPanel .edPal{min-height:44px}
-  #srEditorPanel .edMode{min-height:36px}
+  #srEditorPanel{gap:5px;padding-top:8px;padding-bottom:8px}
+  #srEdStageWrap{min-height:64px}
+  #srEditorPanel .edPal{min-height:40px}
+  #srEditorPanel .edMode{min-height:34px}
+  #srEditorPanel .edPlayRow .btn{min-height:40px;font-size:12.5px}
+  #srEditorPanel .edSaveRow .btn{min-height:42px}
+  #srEditorPanel .edPickRow select{min-height:38px;padding:6px 8px}
+  #srEditorPanel .edXBtn{min-height:32px;min-width:36px}
+  #srEditorPanel .edInfo{font-size:11px}
 }
 #srEditorPanel .edCtlRow{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
 #srEditorPanel .edCtlLbl{font-size:11.5px;color:var(--sub);font-weight:800}
@@ -389,8 +405,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #srEditorPanel #srEdZoomVal{font-size:12.5px;font-weight:900;min-width:22px;text-align:center}
 #srEditorPanel .edSaveRow{display:flex;gap:8px;flex:none}
 #srEditorPanel .edSaveRow .btn{flex:1;font-size:14px;min-height:48px;padding:10px 2px}
-#srEditorPanel .edSubRow{display:flex;gap:7px;flex:none}
-#srEditorPanel .edSubBtn{flex:1;border:1.5px solid var(--line);background:rgba(255,255,255,.07);color:var(--txt);border-radius:11px;padding:8px 2px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:40px}
+#srEditorPanel .edSubRow{display:flex;gap:7px;flex:none;flex-wrap:wrap}
+#srEditorPanel .edSubBtn{flex:1 1 21%;min-width:0;border:1.5px solid var(--line);background:rgba(255,255,255,.07);color:var(--txt);border-radius:11px;padding:8px 2px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:40px}
 #srEdIoModal{position:fixed;inset:0;z-index:90001;background:rgba(5,3,15,.72);display:flex;align-items:center;justify-content:center;padding:18px}
 #srEdIoModal .edIoCard{background:#1b1436;border:1.5px solid var(--line);border-radius:16px;padding:16px;width:100%;max-width:520px;max-height:86vh;overflow-y:auto;color:var(--txt)}
 #srEdIoModal .edIoHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -453,7 +469,7 @@ html,body{overscroll-behavior:none;}
 <div id="progWrap"><div id="progFill"></div></div>
 <div id="vsRow" class="hidden"><div class="scoreBox">あなた<b id="vsMeScore">0</b><span id="vsMeCombo"></span><div class="mini"><i id="vsMeGauge"></i></div></div><div class="scoreBox">相手<b id="vsOppScore">-</b><span id="vsOppCombo"></span><div class="mini"><i id="vsOppGauge"></i></div></div></div>
 </div>
-<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="pttl">⏸ ポーズ中</div><button class="btn" id="pauseResumeBtn">▶ 再開</button><button class="btn blue" id="pauseRestartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div></div>
+<div id="stageWrap"><canvas id="cv"></canvas><div id="resultPanel" class="hidden"></div><div id="pausePanel" class="hidden"><div class="pttl">⏸ ポーズ中</div><button class="btn" id="pauseResumeBtn">▶ 再開</button><button class="btn blue" id="pauseRestartBtn">🔁 リスタート</button><button class="btn sub" id="pauseQuitBtn">やめる</button></div><div id="quitModal" class="hidden"><div class="qmCard"><div class="qmTitle" id="quitModalTitle">本当にやめますか？</div><div class="qmBtns"><button class="btn sub" id="quitModalYes" type="button">やめる</button><button class="btn" id="quitModalNo" type="button">続ける</button></div></div></div></div>
 <div id="ctrlRow"><button id="muteBtn" class="iconBtn" title="サウンド ON/OFF">🔊</button><button id="pauseBtn" class="iconBtn hidden" title="ポーズ">⏸</button><button id="quitBtn" class="btn sub hidden">やめる</button></div>
 <div id="stampModal" class="modalWrap hidden"><div class="modalCard"><h3>📖 スタンプ帳</h3><div id="stampList"></div><div class="calibBtns"><button id="stampCloseBtn" class="btn sub">閉じる</button></div></div></div>
 <div id="statsModal" class="modalWrap hidden"><div class="modalCard"><h3>📊 記録</h3><div id="statsBody"></div><div class="calibBtns"><button id="statsCloseBtn" class="btn sub">閉じる</button></div></div></div>
@@ -483,13 +499,18 @@ html,body{overscroll-behavior:none;}
 <div class="edPalette"><button class="edPal on" data-tool="tap" type="button">● タップ</button><button class="edPal" data-tool="long" type="button">━ ロング</button><button class="edPal" data-tool="flick" type="button">≫ フリック</button></div>
 <div class="edCtlRow"><span class="edCtlLbl">マスの細かさ</span><button class="edSnap on" data-snap="1" type="button">16分</button><button class="edSnap" data-snap="0.5" type="button">32分</button><span class="edCtlLbl">ズーム</span><button id="srEdZoomOut" type="button">－</button><span id="srEdZoomVal">10</span><button id="srEdZoomIn" type="button">＋</button></div>
 <div class="edSaveRow"><button id="srEdSaveBtn" class="btn">💾 保存する</button><button id="srEdUploadBtn" class="btn">📤 アップロード（承認を頼む）</button></div>
-<div class="edSubRow"><button id="srEdRevertBtn" class="edSubBtn" type="button">公式に戻す（カスタムを消す）</button><button id="srEdExportBtn" class="edSubBtn" type="button">📋 書き出し</button><button id="srEdImportBtn" class="edSubBtn" type="button">📥 読み込み</button></div>
+<div class="edSubRow"><button id="srEdRevertBtn" class="edSubBtn" type="button">公式に戻す（カスタムを消す）</button><button id="srEdExportBtn" class="edSubBtn" type="button">📋 書き出し</button><button id="srEdImportBtn" class="edSubBtn" type="button">📥 読み込み</button><button id="srEdExitBtn" class="edSubBtn" type="button">🚪 終了する</button></div>
 </div>
 <div id="srEdIoModal" class="hidden"><div class="edIoCard">
 <div class="edIoHead"><span class="edIoTtl" id="srEdIoTtl">譜面データ</span><button class="edXBtn" id="srEdIoClose" type="button" style="border:1.5px solid var(--line);background:rgba(255,255,255,.08);color:var(--txt);border-radius:10px;min-width:40px;min-height:36px;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit">✕</button></div>
 <p class="edIoNote" id="srEdIoNote"></p>
 <textarea id="srEdIoText" rows="8" spellcheck="false"></textarea>
 <div class="edIoBtns"><button id="srEdIoDoBtn" class="btn hidden" type="button">この内容で読み込む</button><button id="srEdIoCopyBtn" class="btn hidden" type="button">コピーする</button><button id="srEdIoCancelBtn" class="btn sub" type="button">閉じる</button></div>
+</div></div>
+<div id="srEdUploadModal" class="hidden"><div class="edUpCard">
+<div class="edUpTtl">アップロードしますか？</div>
+<p class="edUpBody" id="srEdUploadText"></p>
+<div class="edUpBtns"><button id="srEdUploadYes" class="btn" type="button">送信する</button><button id="srEdUploadNo" class="btn sub" type="button">やめる</button></div>
 </div></div>
 </div>
 <script>
@@ -1878,7 +1899,7 @@ var scoreF = 0, combo = 0, maxCombo = 0, gauge = 20, fever = false;
 var counts = { perfect: 0, great: 0, good: 0, miss: 0 };
 var accSum = 0; /* Σ(weight × factor) */
 var practiceOn = false, autoOn = false; /* 選曲画面のトグル（練習／オートプレイ） */
-var curPlayOpts = { practice: false, auto: false, test: false }; /* 演奏開始時点のスナップショット */
+var curPlayOpts = { practice: false, auto: false, test: false, custom: false }; /* 演奏開始時点のスナップショット */
 var playStartOffset = 0; /* 練習モードの開始位置（秒）。通常は 0 */
 var paused = false, pauseStartCtx = 0, audioPendingStart = false; /* ポーズ管理（対戦中はポーズ不可：pauseBtn を出さない） */
 var prevBestScore = null; /* NEW RECORD の差分表示用 */
@@ -2301,10 +2322,46 @@ $('randomBtn').addEventListener('click', function () {
 });
 $('practiceTgl').addEventListener('click', function () { practiceOn = !practiceOn; $('practiceTgl').classList.toggle('on', practiceOn); if (practiceOn) { autoOn = false; $('autoTgl').classList.remove('on'); } });
 $('autoTgl').addEventListener('click', function () { autoOn = !autoOn; $('autoTgl').classList.toggle('on', autoOn); if (autoOn) { practiceOn = false; $('practiceTgl').classList.remove('on'); } });
+/* ---------------- 「やめる」確認ポップアップ（誤タップ防止） ----------------
+   ソロ：押した時点でポーズ扱いにして演奏を止め、確認中は進めない。
+   「続ける」＝演奏に復帰（ポーズメニューから来た場合はポーズ画面のまま）。
+   対戦：投了の確認として出す（対戦はこちらだけでは止められないので進行は止めず、
+   着地は従来の投了フローと同じ）。 */
+var quitConfirmCtx = null;
+function showQuitConfirm(fromPauseMenu) {
+  quitConfirmCtx = { online: mode === 'online', wasPaused: paused || !!fromPauseMenu };
+  $('quitModalTitle').textContent = quitConfirmCtx.online ? '投了して対戦を終了しますか？' : '本当にやめますか？';
+  $('quitModalYes').textContent = quitConfirmCtx.online ? '投了する' : 'やめる';
+  $('quitModal').classList.remove('hidden');
+}
+function hideQuitConfirm() {
+  var m = $('quitModal'); if (m) m.classList.add('hidden');
+  quitConfirmCtx = null;
+}
+function doQuitConfirmed(ctx) {
+  /* 従来の「やめる」処理そのもの（投了通知→停止→着地） */
+  if (ctx.online) { sendNet({ t: 'leave' }); }
+  $('pausePanel').classList.add('hidden');
+  paused = false;
+  stopSong(true);
+  if (ctx.online) { opp.fin = null; oppLeft = true; }
+  else if (typeof edSession !== 'undefined' && edSession) returnToEditor(); /* テストプレイをやめたらエディタへ戻る */
+}
+$('quitModalYes').addEventListener('click', function () {
+  var ctx = quitConfirmCtx || { online: mode === 'online', wasPaused: false };
+  hideQuitConfirm();
+  doQuitConfirmed(ctx);
+});
+$('quitModalNo').addEventListener('click', function () {
+  var ctx = quitConfirmCtx;
+  hideQuitConfirm();
+  /* ポーズメニューから来た場合はポーズ画面のまま。演奏中から来た場合だけ再開する */
+  if (ctx && !ctx.online && !ctx.wasPaused) resumeGame();
+});
 $('pauseBtn').addEventListener('click', function () { pauseGame(); });
 $('pauseResumeBtn').addEventListener('click', function () { resumeGame(); });
 $('pauseRestartBtn').addEventListener('click', function () { restartSong(); });
-$('pauseQuitBtn').addEventListener('click', function () { $('pausePanel').classList.add('hidden'); paused = false; stopSong(true); });
+$('pauseQuitBtn').addEventListener('click', function () { showQuitConfirm(true); });
 $('stampBtn').addEventListener('click', function () {
   var st = loadStamps();
   var html = '';
@@ -2392,13 +2449,20 @@ function beginPlay(song) {
   curSong = song;
   /* v121: 譜面の解決順は テストプレイ（エディタ）> カスタム（ソロ＆選択時）>
      承認譜面 > 自動生成。対戦は常に公式側（resolvePlayChart が担保） */
+  /* テストプレイの再開（リザルトの「もう一度」やポーズのリスタート）では、
+     エディタへ戻るためのセッションからテスト譜面を張り直す */
+  if (!editorTest && typeof edSession !== 'undefined' && edSession && edSession.songId === song.id && edSession.diff === selDiff) {
+    editorTest = { songId: edSession.songId, diff: edSession.diff, notes: edCloneNotes(edSession.notes), startPos: edSession.startPos };
+  }
   var testReq = (editorTest && editorTest.songId === song.id && editorTest.diff === selDiff) ? editorTest : null;
   editorTest = null;
   curBuilt = testReq ? buildFromSteps(curSong, selDiff, testReq.notes) : resolvePlayChart(curSong, selDiff);
   chart = curBuilt.notes;
   totalWeight = curBuilt.totalWeight;
+  /* カスタム譜面での演奏は公式記録にしない（スコアは公式にならない） */
+  var customPlay = !testReq && mode === 'solo' && chartSrcFor(song.id, selDiff) === 'custom' && !!customEntry(song.id, selDiff);
   /* 演奏オプションの確定：対戦中は練習/オート/ポーズを使わない（通常プレイ固定） */
-  curPlayOpts = { practice: mode === 'solo' && practiceOn && !testReq, auto: mode === 'solo' && autoOn && !testReq, test: !!testReq };
+  curPlayOpts = { practice: mode === 'solo' && practiceOn && !testReq, auto: mode === 'solo' && autoOn && !testReq, test: !!testReq, custom: customPlay };
   playStartOffset = testReq ? testReq.startPos : (curPlayOpts.practice ? practiceStartSec(song) : 0);
   paused = false; audioPendingStart = false;
   judgeLog = [];
@@ -2416,7 +2480,7 @@ function beginPlay(song) {
   $('pausePanel').classList.add('hidden');
   $('quitBtn').classList.remove('hidden');
   $('pauseBtn').classList.toggle('hidden', mode !== 'solo'); /* ポーズはソロのみ（対戦中はポーズ不可） */
-  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (curPlayOpts.test ? ' 🧪 テストプレイ' : (curPlayOpts.auto ? ' 🤖 オートプレイ中' : (curPlayOpts.practice ? ' 📝 練習' : '')));
+  $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (curPlayOpts.test ? ' 🧪 テストプレイ' : (curPlayOpts.auto ? ' 🤖 オートプレイ中' : (curPlayOpts.practice ? ' 📝 練習' : (curPlayOpts.custom ? ' 🛠 カスタム譜面' : ''))));
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
   audioClockCT = -1; audioClockPerf = 0; /* 実音源時計の平滑化を曲ごとにリセット */
@@ -2442,6 +2506,7 @@ function stopSong(toMenu) {
   playing = false;
   paused = false; audioPendingStart = false;
   $('pausePanel').classList.add('hidden');
+  hideQuitConfirm();
   $('pauseBtn').classList.add('hidden');
   stopAudioEl();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
@@ -2496,6 +2561,7 @@ function finishSong() {
   playing = false;
   paused = false;
   $('pausePanel').classList.add('hidden');
+  hideQuitConfirm();
   $('pauseBtn').classList.add('hidden');
   stopAudioEl();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
@@ -2504,8 +2570,8 @@ function finishSong() {
   var res = makeResult(counts, gauge, accSum / totalWeight);
   var prevBest = getBest(selSong, selDiff);
   var isBest = !prevBest || totalScore > prevBest.s;
-  /* 練習／オートプレイ／テストプレイはベスト・スタンプ・統計・デイリー等の記録を一切残さない */
-  var recordable = mode === 'solo' && !curPlayOpts.practice && !curPlayOpts.auto && !curPlayOpts.test;
+  /* 練習／オートプレイ／テストプレイ／カスタム譜面はベスト・スタンプ・統計・デイリー等の公式記録を一切残さない */
+  var recordable = mode === 'solo' && !curPlayOpts.practice && !curPlayOpts.auto && !curPlayOpts.test && !curPlayOpts.custom;
   if (recordable || mode === 'online') {
     var s = loadSave();
     s.best[bestKey(selSong, selDiff)] = mergeBestRec(s.best[bestKey(selSong, selDiff)], { s: totalScore, r: res.rank, fc: res.fullCombo ? 1 : 0, ap: res.allPerfect ? 1 : 0 });
@@ -2581,17 +2647,26 @@ function showResult(res, totalScore, isBest, vsInfo) {
   if (curPlayOpts.test) html += '<div class="rdetail" style="font-weight:900;color:var(--cyan)">🧪 テストプレイ（記録は残りません）</div>';
   else if (curPlayOpts.auto) html += '<div class="rdetail" style="font-weight:900;color:var(--cyan)">🤖 オートプレイ（記録は残りません）</div>';
   else if (curPlayOpts.practice) html += '<div class="rdetail" style="font-weight:900;color:var(--cyan)">📝 練習モード（記録は残りません）</div>';
+  else if (curPlayOpts.custom) html += '<div class="rdetail" style="font-weight:900;color:var(--cyan)">🛠 カスタム譜面のため記録は残りません</div>';
   if (vsInfo) html += '<div class="rdetail" style="font-size:16px;font-weight:900;color:var(--txt)">' + vsInfo + '</div>';
-  html += '<div class="rbtns"><button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
+  html += '<div class="rbtns">' + (typeof edSession !== 'undefined' && edSession ? '<button class="btn" id="resEdBack">🛠 エディタに戻る</button>' : '') + '<button class="btn" id="resRetry">もう一度</button><button class="btn sub" id="resBack">曲選択へ</button></div>';
   p.innerHTML = html;
   p.classList.remove('hidden');
   spawnResultFx(res);
+  if (typeof edSession !== 'undefined' && edSession && $('resEdBack')) $('resEdBack').addEventListener('click', function () {
+    p.classList.add('hidden');
+    wrapEl.classList.remove('playing');
+    wrapEl.classList.remove('ingame');
+    resetStage();
+    returnToEditor();
+  });
   $('resRetry').addEventListener('click', function () {
     p.classList.add('hidden');
     if (mode === 'online') { requestRematch(); } else { startSong(); }
   });
   $('resBack').addEventListener('click', function () {
     p.classList.add('hidden');
+    if (typeof edSession !== 'undefined' && edSession) { edSession = null; editorTest = null; } /* 選曲へ戻るならエディタ復帰は破棄 */
     if (mode === 'online') leaveOnline();
     wrapEl.classList.remove('playing');
     wrapEl.classList.remove('ingame');
@@ -2855,9 +2930,9 @@ document.addEventListener('keyup', function (e) {
 });
 $('startBtn').addEventListener('click', function () { startSong(); });
 $('quitBtn').addEventListener('click', function () {
-  if (mode === 'online') { sendNet({ t: 'leave' }); }
-  stopSong(true);
-  if (mode === 'online') { opp.fin = null; oppLeft = true; }
+  if (!playing) return;
+  if (mode !== 'online') pauseGame(); /* 確認中は演奏を進めない（実質ポーズ扱い） */
+  showQuitConfirm(false);
 });
 $('muteBtn').addEventListener('click', function () { ensureAudio(); setMuted(!muted); });
 /* オプションシート（v119）：絶対配置で被せるだけなので、開閉しても
@@ -4068,7 +4143,7 @@ $('vsStartBtn').addEventListener('click', function () { $('vsStartBtn').classLis
 var SR_CUSTOM_CHARTS_KEY = 'starrhythm_custom_charts_v1';
 var SR_OFFICIAL_CACHE_KEY = 'starrhythm_official_cache_v1';
 var SR_OFFICIAL_PREFIX = 'sr__';
-var chartSrcSel = null; /* {songId__diff: 'official'|'custom'} 画面上の選択（保存しない）。初期化順の都合で遅延生成 */
+var chartSrcSel = null; /* {songId__diff: 'official'|'custom'} 公式/カスタムの選択（localStorage に保持）。初期化順の都合で遅延生成 */
 var officialMap = null; /* {key: {notes, fromName, approvedAt}} / null=未取得 */
 var editorTest = null; /* {songId, diff, notes, startPos} 次の beginPlay で消費されるテストプレイ */
 function chartKey(songId, diff) { return songId + '__' + diff; }
@@ -4089,8 +4164,10 @@ function deleteCustomEntry(songId, diff) {
   if (all[songId]) { delete all[songId][diff]; if (!Object.keys(all[songId]).length) delete all[songId]; }
   edSaveJsonKey(SR_CUSTOM_CHARTS_KEY, all);
 }
-function chartSrcFor(songId, diff) { if (!chartSrcSel) chartSrcSel = {}; return chartSrcSel[chartKey(songId, diff)] === 'custom' ? 'custom' : 'official'; }
-function setChartSrc(songId, diff, src) { if (!chartSrcSel) chartSrcSel = {}; chartSrcSel[chartKey(songId, diff)] = src; }
+var SR_SRC_SEL_KEY = 'starrhythm_chartsrc_v1'; /* 公式/カスタムの選択を曲×難易度ごとに保持する */
+function loadSrcSel() { if (!chartSrcSel) chartSrcSel = edLoadJsonKey(SR_SRC_SEL_KEY, {}); return chartSrcSel; }
+function chartSrcFor(songId, diff) { return loadSrcSel()[chartKey(songId, diff)] === 'custom' ? 'custom' : 'official'; }
+function setChartSrc(songId, diff, src) { loadSrcSel()[chartKey(songId, diff)] = src; edSaveJsonKey(SR_SRC_SEL_KEY, chartSrcSel); }
 function officialEntry(songId, diff) { return officialMap ? (officialMap[srOfficialKey(songId, diff)] || null) : null; }
 /* 保存形式 [step, lane, type, len?] の正規化（long 以外は len を落とす） */
 function srNormStepNote(p) {
@@ -4183,14 +4260,16 @@ if (window.PWAccount && PWAccount.onGateChange) PWAccount.onGateChange(function 
 refreshEditorGate();
 
 /* ---------------- 譜面エディタ本体（マリオメーカー式） ----------------
-   タイムラインは横軸=時間（ステップ）、縦=4レーン。ノーツは
-   [step, lane, type, len] の配列で保持する（len は long のみ意味を持つ）。 */
-var ed = null; /* {songId, diff, notes, tool, snap, cellW, undo:[], redo:[], sel:{step,lane}|null, longDraft:{step,lane,end}|null, dirty} */
+   タイムラインは実ゲームと同じ縦長形式：縦軸=時間（ステップ、上から下へ
+   流れる向き）、横=4レーン。ステージは縦スクロールで譜面を行き来する。
+   ノーツは [step, lane, type, len] の配列で保持する（len は long のみ）。 */
+var ed = null; /* {songId, diff, notes, tool, snap, cellH, undo:[], redo:[], sel:{step,lane}|null, longDraft:{step,lane,end}|null, dirty} */
 var edPlay = { playing: false, time: 0, raf: 0, timer: null, fromStep: 0, t0: 0, nextStep: 0, follow: true, selfScroll: false, sfxList: null, sfxIdx: 0, sfxCount: 0 };
-var edGeom = { laneH: 34, top0: 27, H: 160 };
+var edGeom = { laneW: 80, left0: 30, W: 360 };
 var ED_ZOOMS = [6, 10, 16, 24, 36];
-var ED_RULER_H = 24;
+var ED_RULER_W = 30; /* 左端の小節番号・オンセット表示の帯 */
 var ED_LONG_MIN = 2, ED_LONG_MAX = 256;
+var edSession = null; /* テストプレイへ出る前のエディタ状態。終わったらここへ戻る */
 function edSong() { return songById(ed.songId); }
 function edData() { return buildSongData(edSong()); }
 function edTotalSteps() { return edData().totalSteps + 16; }
@@ -4215,129 +4294,205 @@ function openEditor(songId, diff) {
   stopPreview();
   if (playing) stopSong(true);
   edStopPlayback();
+  edSession = null; /* 新しく開くなら、テストプレイ復帰用の控えは破棄する */
   var sid = songId || selSong;
   var df = diff || selDiff;
-  ed = { songId: sid, diff: df, notes: [], tool: 'tap', mode: 'add', snap: 1, cellW: 10, undo: [], redo: [], sel: null, longDraft: null, dirty: false };
+  ed = { songId: sid, diff: df, notes: [], tool: 'tap', mode: 'add', snap: 1, cellH: 10, undo: [], redo: [], sel: null, longDraft: null, dirty: false };
   edLoadChart();
-  $('srEdSongSel').innerHTML = SONGS.map(function (s) { return '<option value="' + s.id + '"' + (s.id === sid ? ' selected' : '') + '>' + s.emo + ' ' + s.title + '</option>'; }).join('');
-  $('srEdDiffSel').innerHTML = Object.keys(DIFFS).map(function (k) { return '<option value="' + k + '"' + (k === df ? ' selected' : '') + '>' + DIFFS[k].label + '</option>'; }).join('');
+  edShowPanel(0);
+}
+function edShowPanel(scrollTop) {
+  $('srEdSongSel').innerHTML = SONGS.map(function (s) { return '<option value="' + s.id + '"' + (s.id === ed.songId ? ' selected' : '') + '>' + s.emo + ' ' + s.title + '</option>'; }).join('');
+  $('srEdDiffSel').innerHTML = Object.keys(DIFFS).map(function (k) { return '<option value="' + k + '"' + (k === ed.diff ? ' selected' : '') + '>' + DIFFS[k].label + '</option>'; }).join('');
   edSyncPalette();
   document.querySelectorAll('#srEditorPanel .edSnap').forEach(function (b) { b.classList.toggle('on', parseFloat(b.dataset.snap) === ed.snap); });
-  $('srEdZoomVal').textContent = ed.cellW;
+  $('srEdZoomVal').textContent = ed.cellH;
   $('srEditorPanel').classList.remove('hidden');
+  edRender(); /* 先に中身の高さを確定させてからスクロール位置を復元する */
   var w = $('srEdStageWrap');
-  if (w) w.scrollLeft = 0;
+  if (w) w.scrollTop = scrollTop || 0;
   edRender();
 }
 function closeEditor() {
   edStopPlayback();
+  edExitDisarm();
+  var upm = $('srEdUploadModal'); if (upm) upm.classList.add('hidden');
   $('srEditorPanel').classList.add('hidden');
   ed = null;
   renderSongList();
 }
-function edLaneY(lane) { return edGeom.top0 + lane * edGeom.laneH + edGeom.laneH / 2; }
+/* エディタを終了する（未保存の変更がある時は2タップで確認する） */
+var edExitArmed = false, edExitTimer = null;
+function edExitDisarm() {
+  edExitArmed = false;
+  if (edExitTimer) { clearTimeout(edExitTimer); edExitTimer = null; }
+  var b1 = $('srEdClose'), b2 = $('srEdExitBtn');
+  if (b1) b1.textContent = '✕';
+  if (b2) b2.textContent = '🚪 終了する';
+}
+function requestCloseEditor() {
+  if (!ed) return;
+  if (!ed.dirty || edExitArmed) { closeEditor(); return; }
+  edExitArmed = true;
+  showToast('未保存の変更があります。もう一度「終了」を押すと、変更を残さずに終了します', 3000);
+  var b1 = $('srEdClose'), b2 = $('srEdExitBtn');
+  if (b1) b1.textContent = '⚠';
+  if (b2) b2.textContent = '⚠ 本当に終了する';
+  if (edExitTimer) clearTimeout(edExitTimer);
+  edExitTimer = setTimeout(edExitDisarm, 3500);
+}
+/* テストプレイからエディタへ戻る（曲・難易度・ノーツ・スクロール位置を復元） */
+function returnToEditor() {
+  if (!edSession) return;
+  var s = edSession;
+  edSession = null;
+  editorTest = null;
+  stopPreview();
+  ed = { songId: s.songId, diff: s.diff, notes: edCloneNotes(s.notes), tool: s.tool, mode: s.mode, snap: s.snap, cellH: s.cellH, undo: s.undo.slice(), redo: s.redo.slice(), sel: null, longDraft: null, dirty: s.dirty };
+  edShowPanel(s.scrollTop);
+  showToast('🛠 エディタに戻りました', 1600);
+}
+function edLaneCX(lane) { return edGeom.left0 + lane * edGeom.laneW + edGeom.laneW / 2; }
 function edRender() {
   if (!ed) return;
   var wrap = $('srEdStageWrap'), inner = $('srEdStageInner'), cv = $('srEdCanvas');
   if (!wrap || !cv) return;
   var song = edSong(), d = edData();
   var total = edTotalSteps();
-  inner.style.width = Math.ceil(total * ed.cellW) + 30 + 'px';
+  inner.style.height = Math.ceil(total * ed.cellH) + 30 + 'px';
   var W = wrap.clientWidth, H = Math.max(120, wrap.clientHeight || 160);
-  var off = wrap.scrollLeft;
+  var off = wrap.scrollTop;
   var dpr = window.devicePixelRatio || 1;
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   var x = cv.getContext('2d');
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  edGeom.H = H;
-  edGeom.laneH = clamp((H - ED_RULER_H - 8) / 4, 24, 48);
-  edGeom.top0 = ED_RULER_H + 4;
-  var laneH = edGeom.laneH, top0 = edGeom.top0;
+  edGeom.W = W;
+  edGeom.laneW = (W - ED_RULER_W) / 4;
+  edGeom.left0 = ED_RULER_W;
+  var laneW = edGeom.laneW, left0 = edGeom.left0;
   x.fillStyle = '#0d0920'; x.fillRect(0, 0, W, H);
-  var st0 = Math.max(0, Math.floor(off / ed.cellW) - 1);
-  var st1 = Math.min(total, Math.ceil((off + W) / ed.cellW) + 1);
-  /* サビ区間の陰影 */
+  var st0 = Math.max(0, Math.floor(off / ed.cellH) - 1);
+  var st1 = Math.min(total, Math.ceil((off + H) / ed.cellH) + 1);
+  /* サビ区間の陰影（横帯） */
   var chRanges = chorusRangesSec(song, d);
   if (chRanges.length) {
     x.fillStyle = 'rgba(255,201,60,.07)';
     chRanges.forEach(function (sg) {
-      var a = ((song.audio ? sg[0] - song.offset : sg[0]) / d.stepDur) * ed.cellW - off;
-      var b = ((song.audio ? sg[1] - song.offset : sg[1]) / d.stepDur) * ed.cellW - off;
-      if (b > 0 && a < W) x.fillRect(a, ED_RULER_H, b - a, H - ED_RULER_H);
+      var a = ((song.audio ? sg[0] - song.offset : sg[0]) / d.stepDur) * ed.cellH - off;
+      var b = ((song.audio ? sg[1] - song.offset : sg[1]) / d.stepDur) * ed.cellH - off;
+      if (b > 0 && a < H) x.fillRect(left0, a, W - left0, b - a);
     });
   }
-  /* 実音源：オンセットの強さを上の帯に表示（音がある場所の目安） */
+  /* レーン（縦の帯） */
+  for (var l = 0; l < 4; l++) {
+    var lx = left0 + l * laneW;
+    x.fillStyle = hexA(LANE_COLORS[l], l % 2 ? 0.045 : 0.075);
+    x.fillRect(lx, 0, laneW, H);
+    x.strokeStyle = 'rgba(255,255,255,.14)';
+    x.beginPath(); x.moveTo(lx + laneW, 0); x.lineTo(lx + laneW, H); x.stroke();
+  }
+  /* 左端の帯：小節番号と、実音源のオンセットの強さ（音がある場所の目安） */
+  x.fillStyle = 'rgba(255,255,255,.05)';
+  x.fillRect(0, 0, ED_RULER_W, H);
+  x.strokeStyle = 'rgba(255,255,255,.18)';
+  x.beginPath(); x.moveTo(ED_RULER_W, 0); x.lineTo(ED_RULER_W, H); x.stroke();
   if (song.audio) {
     x.fillStyle = 'rgba(255,255,255,.35)';
     for (var st = st0; st < st1; st++) {
       var v = onsetAt(song, st);
-      if (v > 0) x.fillRect(st * ed.cellW + 1 - off, ED_RULER_H - 4 - v * 1.5, Math.max(1, ed.cellW - 2), v * 1.5);
+      if (v > 0) x.fillRect(ED_RULER_W - 3 - v * 1.4, st * ed.cellH + ed.cellH / 2 - off - 1.5, v * 1.4, 3);
     }
   }
-  /* レーン */
-  for (var l = 0; l < 4; l++) {
-    var ly = top0 + l * laneH;
-    x.fillStyle = hexA(LANE_COLORS[l], l % 2 ? 0.045 : 0.075);
-    x.fillRect(0, ly, W, laneH);
-    x.strokeStyle = 'rgba(255,255,255,.14)';
-    x.beginPath(); x.moveTo(0, ly + laneH); x.lineTo(W, ly + laneH); x.stroke();
-  }
-  /* マス目 */
+  /* マス目（横線） */
   for (var i = st0; i <= st1; i++) {
-    var gx = i * ed.cellW - off;
+    var gy = i * ed.cellH - off;
     x.strokeStyle = i % 4 === 0 ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.06)';
-    x.beginPath(); x.moveTo(gx, ED_RULER_H); x.lineTo(gx, H); x.stroke();
-    if (i % 16 === 0) { x.fillStyle = 'rgba(255,255,255,.45)'; x.font = '9px sans-serif'; x.fillText(String(i / 4 + 1), gx + 2, 10); }
+    x.beginPath(); x.moveTo(left0, gy); x.lineTo(W, gy); x.stroke();
+    if (i % 16 === 0) { x.fillStyle = 'rgba(255,255,255,.45)'; x.font = '9px sans-serif'; x.fillText(String(i / 4 + 1), 3, gy + 10); }
   }
-  function edDrawNote(cx, lane, type, lenSteps, ghost) {
-    var cy = edLaneY(lane);
+  /* 角丸パスのローカル版（本編の roundRectPath は本編用 ctx を掴むため使えない） */
+  function rr(rx, ry, rw, rh, rad) {
+    x.beginPath();
+    x.moveTo(rx + rad, ry);
+    x.arcTo(rx + rw, ry, rx + rw, ry + rh, rad);
+    x.arcTo(rx + rw, ry + rh, rx, ry + rh, rad);
+    x.arcTo(rx, ry + rh, rx, ry, rad);
+    x.arcTo(rx, ry, rx + rw, ry, rad);
+    x.closePath();
+  }
+  /* ノーツの見た目は実ゲームに寄せる：タップ＝白→レーン色グラデの錠剤型＋白い芯、
+     ロング＝帯（半透明＋二重の縁線＋縞）＋頭の二重リング＋尾の丸マーカー＋エンドバー、
+     フリック＝専用色の錠剤型＋白いシェブロン（∧） */
+  function edDrawNote(cy, lane, type, lenSteps, ghost) {
+    var cx = edLaneCX(lane);
     var col = type === 'flick' ? FLICK_COL : LANE_COLORS[lane];
-    var hh = laneH * 0.54;
+    var pw = laneW * 0.88 * (type === 'flick' ? 1.18 : 1);
+    var ph = clamp(ed.cellH * 1.7, 15, 27) * (type === 'flick' ? 1.25 : 1);
     if (type === 'long') {
-      var tx = cx + lenSteps * ed.cellW;
-      x.fillStyle = hexA(col, ghost ? 0.25 : 0.5);
-      x.fillRect(cx, cy - hh / 2, Math.max(2, tx - cx), hh);
+      var ty = cy + lenSteps * ed.cellH;
+      var bw = laneW * 0.52;
+      x.fillStyle = hexA(col, ghost ? 0.22 : 0.5);
+      x.fillRect(cx - bw / 2, cy, bw, Math.max(2, ty - cy));
       x.strokeStyle = hexA(col, ghost ? 0.5 : 0.95); x.lineWidth = 2;
-      x.beginPath(); x.moveTo(cx, cy - hh / 2); x.lineTo(tx, cy - hh / 2); x.moveTo(cx, cy + hh / 2); x.lineTo(tx, cy + hh / 2); x.stroke();
-      x.beginPath(); x.arc(tx, cy, Math.min(7, hh * 0.3), 0, Math.PI * 2);
-      x.strokeStyle = hexA(col, ghost ? 0.6 : 1); x.stroke();
+      x.beginPath(); x.moveTo(cx - bw / 2, cy); x.lineTo(cx - bw / 2, ty); x.moveTo(cx + bw / 2, cy); x.lineTo(cx + bw / 2, ty); x.stroke();
+      x.strokeStyle = hexA(col, ghost ? 0.22 : 0.38); x.lineWidth = 1;
+      for (var sy = cy + LONG_STRIPE_PX / 2; sy < ty - 2; sy += LONG_STRIPE_PX) { x.beginPath(); x.moveTo(cx - bw / 2 + 2, sy); x.lineTo(cx + bw / 2 - 2, sy); x.stroke(); }
+      /* 尾：丸い終端マーカー＋中央のエンドバー（実ゲームの終端と同じ印） */
+      var tr = clamp(laneW * 0.17, 6.5, 13);
+      x.beginPath(); x.arc(cx, ty, tr, 0, Math.PI * 2);
+      x.fillStyle = hexA(col, ghost ? 0.45 : 1); x.fill();
+      x.lineWidth = 2.4; x.strokeStyle = 'rgba(255,255,255,.95)'; x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.95)';
+      rr(cx - tr * 0.62, ty - tr * 0.17, tr * 1.24, tr * 0.34, tr * 0.17); x.fill();
     }
-    var r = Math.min(laneH * 0.30, 13);
-    x.beginPath(); x.ellipse(cx, cy, Math.max(r, ed.cellW * 0.42), r, 0, 0, Math.PI * 2);
-    x.fillStyle = hexA(col, ghost ? 0.45 : 1); x.fill();
-    x.lineWidth = 2; x.strokeStyle = 'rgba(255,255,255,.85)'; x.stroke();
+    var g = x.createLinearGradient(0, cy - ph / 2, 0, cy + ph / 2);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.28, col); g.addColorStop(1, col);
+    x.fillStyle = ghost ? hexA(col, 0.45) : g;
+    rr(cx - pw / 2, cy - ph / 2, pw, ph, ph / 2); x.fill();
+    x.lineWidth = 1.6; x.strokeStyle = 'rgba(255,255,255,.9)';
+    rr(cx - pw / 2, cy - ph / 2, pw, ph, ph / 2); x.stroke();
     if (type === 'flick') {
+      var cw2 = pw * 0.30, ch2 = ph * 0.34;
       x.beginPath();
-      x.moveTo(cx - r * 0.45, cy - r * 0.62); x.lineTo(cx + r * 0.5, cy); x.lineTo(cx - r * 0.45, cy + r * 0.62);
-      x.moveTo(cx + r * 0.05, cy - r * 0.62); x.lineTo(cx + r * 0.95, cy); x.lineTo(cx + r * 0.05, cy + r * 0.62);
-      x.lineWidth = 2.4; x.strokeStyle = '#fff'; x.stroke();
-    } else if (type === 'tap') {
-      x.beginPath(); x.ellipse(cx, cy, Math.max(r * 0.45, 2.5), r * 0.45, 0, 0, Math.PI * 2);
-      x.fillStyle = 'rgba(255,255,255,.92)'; x.fill();
+      x.moveTo(cx - cw2, cy + ch2 * 0.6); x.lineTo(cx, cy - ch2); x.lineTo(cx + cw2, cy + ch2 * 0.6);
+      x.moveTo(cx - cw2 * 0.62, cy + ch2 * 1.2); x.lineTo(cx, cy - ch2 * 0.42); x.lineTo(cx + cw2 * 0.62, cy + ch2 * 1.2);
+      x.lineWidth = 2.6; x.strokeStyle = '#fff'; x.lineJoin = 'round'; x.stroke();
+    } else if (type === 'long') {
+      x.lineWidth = 2.2; x.strokeStyle = 'rgba(255,255,255,.95)';
+      rr(cx - pw / 2 - 3, cy - ph / 2 - 3, pw + 6, ph + 6, (ph + 6) / 2); x.stroke();
+      x.lineWidth = 1.2; x.strokeStyle = hexA(col, 0.9);
+      rr(cx - pw / 2 - 5.5, cy - ph / 2 - 5.5, pw + 11, ph + 11, (ph + 11) / 2); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,.92)';
+      rr(cx - pw * 0.3, cy - 4.6, pw * 0.6, 3.6, 1.8); x.fill();
+      rr(cx - pw * 0.3, cy + 1, pw * 0.6, 3.6, 1.8); x.fill();
+    } else {
+      x.fillStyle = 'rgba(255,255,255,.88)';
+      rr(cx - pw * 0.3, cy - 2.6, pw * 0.6, 5.2, 2.6); x.fill();
     }
   }
   ed.notes.forEach(function (p) {
     if (p[0] + (p[2] === 'long' ? p[3] : 0) < st0 - 1 || p[0] > st1 + 1) return;
-    var cx = p[0] * ed.cellW + ed.cellW / 2 - off;
-    edDrawNote(cx, p[1], p[2], p[2] === 'long' ? p[3] : 0, false);
+    var cy = p[0] * ed.cellH + ed.cellH / 2 - off;
+    edDrawNote(cy, p[1], p[2], p[2] === 'long' ? p[3] : 0, false);
     if (ed.sel && ed.sel.step === p[0] && ed.sel.lane === p[1]) {
       x.strokeStyle = '#ffc93c'; x.lineWidth = 3;
-      var cy2 = edLaneY(p[1]);
-      var wdt = (p[2] === 'long' ? (p[3] + 1) * ed.cellW : Math.max(ed.cellW, 26));
-      x.strokeRect(cx - ed.cellW / 2 - 3, cy2 - laneH * 0.36, wdt + 6, laneH * 0.72);
+      var cx2 = edLaneCX(p[1]);
+      var ph2 = clamp(ed.cellH * 1.7, 15, 27);
+      var hgt = (p[2] === 'long' ? p[3] * ed.cellH + ph2 : ph2);
+      x.strokeRect(cx2 - laneW * 0.47, cy - ph2 / 2 - 4, laneW * 0.94, hgt + 8);
     }
   });
   if (ed.longDraft) {
     var dp = ed.longDraft;
-    var dcx = dp.step * ed.cellW + ed.cellW / 2 - off;
-    edDrawNote(dcx, dp.lane, 'long', Math.max(0, dp.end - dp.step), true);
+    var dcy = dp.step * ed.cellH + ed.cellH / 2 - off;
+    edDrawNote(dcy, dp.lane, 'long', Math.max(0, dp.end - dp.step), true);
   }
   if (edPlay.playing || edPlay.time > 0) {
-    var px = ((edPlay.time - (song.audio ? song.offset : 0)) / d.stepDur) * ed.cellW - off;
-    if (px >= -2 && px <= W + 2) {
+    var py = ((edPlay.time - (song.audio ? song.offset : 0)) / d.stepDur) * ed.cellH - off;
+    if (py >= -2 && py <= H + 2) {
       x.strokeStyle = '#ffc93c'; x.lineWidth = 2.5;
-      x.beginPath(); x.moveTo(px, 0); x.lineTo(px, H); x.stroke();
+      x.beginPath(); x.moveTo(left0, py); x.lineTo(W, py); x.stroke();
     }
   }
   var srcLbl = customEntry(ed.songId, ed.diff) ? 'カスタム譜面を編集中' : (officialEntry(ed.songId, ed.diff) ? '承認譜面をもとに編集' : '公式譜面をもとに編集');
@@ -4456,10 +4611,10 @@ var edScrollDrag = null;
 function edPointerPos(e) {
   var wrap = $('srEdStageWrap');
   var r = wrap.getBoundingClientRect();
-  var contentX = (e.clientX - r.left) + wrap.scrollLeft;
-  var y = e.clientY - r.top;
-  var lane = clamp(Math.floor((y - edGeom.top0) / edGeom.laneH), 0, 3);
-  return { rawStep: contentX / ed.cellW - 0.5, lane: lane, ruler: y < ED_RULER_H, y: y };
+  var contentY = (e.clientY - r.top) + wrap.scrollTop;
+  var x = e.clientX - r.left;
+  var lane = clamp(Math.floor((x - edGeom.left0) / edGeom.laneW), 0, 3);
+  return { rawStep: contentY / ed.cellH - 0.5, lane: lane, ruler: x < ED_RULER_W, y: e.clientY - r.top };
 }
 function edSnapStep(raw) {
   var s = Math.round(raw / ed.snap) * ed.snap;
@@ -4483,7 +4638,7 @@ function edCanvasDown(e) {
   var wrap0 = $('srEdStageWrap');
   var pos = edPointerPos(e);
   if (pos.ruler) {
-    edScrollDrag = { x: e.clientX, sl: wrap0.scrollLeft };
+    edScrollDrag = { y: e.clientY, st: wrap0.scrollTop };
     /* ルーラーでのスクロールはユーザーの意思：再生中でも追従を切る */
     if (edPlay.playing && edPlay.follow) { edPlay.follow = false; edSyncPalette(); }
     return;
@@ -4549,7 +4704,7 @@ function edCanvasDown(e) {
 function edCanvasMove(e) {
   if (!ed) return;
   if (edScrollDrag) {
-    $('srEdStageWrap').scrollLeft = edScrollDrag.sl - (e.clientX - edScrollDrag.x);
+    $('srEdStageWrap').scrollTop = edScrollDrag.st - (e.clientY - edScrollDrag.y);
     return;
   }
   var pos = edPointerPos(e);
@@ -4621,7 +4776,7 @@ function edPlayStart() {
   ensureAudio();
   var song = edSong(), d = edData();
   var wrap = $('srEdStageWrap');
-  var startStep = Math.max(0, Math.floor(wrap.scrollLeft / ed.cellW));
+  var startStep = Math.max(0, Math.floor(wrap.scrollTop / ed.cellH));
   edPlay.fromStep = startStep;
   /* 再生開始時は追従ON。ヒット音リスト（時刻順）を用意し、開始位置より前の分は読み飛ばす */
   edPlay.follow = true;
@@ -4695,10 +4850,10 @@ function edPlayTick() {
   }
   /* 追従はユーザーが手でスクロールしたら切れる（勝手に戻さない） */
   var wrap = $('srEdStageWrap');
-  var px = ((edPlay.time - (song.audio ? song.offset : 0)) / d.stepDur) * ed.cellW;
-  if (edPlay.follow && (px < wrap.scrollLeft || px > wrap.scrollLeft + wrap.clientWidth - 60)) {
+  var py = ((edPlay.time - (song.audio ? song.offset : 0)) / d.stepDur) * ed.cellH;
+  if (edPlay.follow && (py < wrap.scrollTop + 20 || py > wrap.scrollTop + wrap.clientHeight - 60)) {
     edPlay.selfScroll = true;
-    wrap.scrollLeft = Math.max(0, px - 40);
+    wrap.scrollTop = Math.max(0, py - 60);
   }
   edPlay.raf = requestAnimationFrame(edPlayTick);
 }
@@ -4718,11 +4873,19 @@ function edTestPlay() {
   edStopPlayback();
   var song = edSong(), d = edData();
   var wrap = $('srEdStageWrap');
-  var startStep = Math.max(0, Math.floor(wrap.scrollLeft / ed.cellW));
+  var startStep = Math.max(0, Math.floor(wrap.scrollTop / ed.cellH));
+  var startPos = startStep * d.stepDur + (song.audio ? song.offset : 0);
   editorTest = {
     songId: ed.songId, diff: ed.diff,
     notes: edCloneNotes(ed.notes),
-    startPos: startStep * d.stepDur + (song.audio ? song.offset : 0)
+    startPos: startPos
+  };
+  /* テストプレイが終わったらエディタへ戻れるよう、今の編集状態を丸ごと控える */
+  edSession = {
+    songId: ed.songId, diff: ed.diff, notes: edCloneNotes(ed.notes),
+    tool: ed.tool, mode: ed.mode, snap: ed.snap, cellH: ed.cellH,
+    undo: ed.undo.slice(), redo: ed.redo.slice(), dirty: ed.dirty,
+    scrollTop: wrap.scrollTop, startPos: startPos
   };
   var sid = ed.songId, df = ed.diff;
   $('srEditorPanel').classList.add('hidden');
@@ -4739,6 +4902,7 @@ function edSave() {
   saveCustomEntry(ed.songId, ed.diff, ed.notes.map(function (p) { return srNormStepNote(p); }));
   setChartSrc(ed.songId, ed.diff, 'custom');
   ed.dirty = false;
+  edExitDisarm();
   showToast('💾 カスタム譜面として保存しました', 2200);
   edRender();
 }
@@ -4826,13 +4990,14 @@ function edImportDo() {
 }
 /* ---- エディタの配線 ---- */
 $('editorBtn').addEventListener('click', function () { ensureAudio(); openEditor(); });
-$('srEdClose').addEventListener('click', function () { closeEditor(); });
+$('srEdClose').addEventListener('click', function () { requestCloseEditor(); });
+$('srEdExitBtn').addEventListener('click', function () { requestCloseEditor(); });
 $('srEdSongSel').addEventListener('change', function () {
   if (!ed) return;
   ed.songId = this.value;
   edStopPlayback();
   edLoadChart();
-  $('srEdStageWrap').scrollLeft = 0;
+  $('srEdStageWrap').scrollTop = 0;
   edRender();
 });
 $('srEdDiffSel').addEventListener('change', function () {
@@ -4840,7 +5005,7 @@ $('srEdDiffSel').addEventListener('change', function () {
   ed.diff = this.value;
   edStopPlayback();
   edLoadChart();
-  $('srEdStageWrap').scrollLeft = 0;
+  $('srEdStageWrap').scrollTop = 0;
   edRender();
 });
 document.querySelectorAll('#srEditorPanel .edPal').forEach(function (b) {
@@ -4901,20 +5066,33 @@ document.querySelectorAll('#srEditorPanel .edSnap').forEach(function (b) {
 });
 $('srEdZoomIn').addEventListener('click', function () {
   if (!ed) return;
-  var i = ED_ZOOMS.indexOf(ed.cellW);
-  if (i < ED_ZOOMS.length - 1) { ed.cellW = ED_ZOOMS[i + 1]; $('srEdZoomVal').textContent = ed.cellW; edRender(); }
+  var i = ED_ZOOMS.indexOf(ed.cellH);
+  if (i < ED_ZOOMS.length - 1) { ed.cellH = ED_ZOOMS[i + 1]; $('srEdZoomVal').textContent = ed.cellH; edRender(); }
 });
 $('srEdZoomOut').addEventListener('click', function () {
   if (!ed) return;
-  var i = ED_ZOOMS.indexOf(ed.cellW);
-  if (i > 0) { ed.cellW = ED_ZOOMS[i - 1]; $('srEdZoomVal').textContent = ed.cellW; edRender(); }
+  var i = ED_ZOOMS.indexOf(ed.cellH);
+  if (i > 0) { ed.cellH = ED_ZOOMS[i - 1]; $('srEdZoomVal').textContent = ed.cellH; edRender(); }
 });
 $('srEdUndoBtn').addEventListener('click', edUndo);
 $('srEdRedoBtn').addEventListener('click', edRedo);
 $('srEdPlayBtn').addEventListener('click', function () { if (edPlay.playing) edStopPlayback(); else edPlayStart(); });
 $('srEdTestBtn').addEventListener('click', edTestPlay);
 $('srEdSaveBtn').addEventListener('click', edSave);
-$('srEdUploadBtn').addEventListener('click', edUpload);
+$('srEdUploadBtn').addEventListener('click', function () {
+  if (!ed) return;
+  /* 誤タップ防止：即送信せず、対象（曲・難易度・ノーツ数）を見せて確認してから送る */
+  var song = edSong();
+  $('srEdUploadText').textContent = '曲：' + song.title + '\n難易度：' + DIFFS[ed.diff].label + '\nノーツ数：' + ed.notes.length + '\n公式譜面の承認申請として送信します。';
+  $('srEdUploadModal').classList.remove('hidden');
+});
+$('srEdUploadYes').addEventListener('click', function () {
+  $('srEdUploadModal').classList.add('hidden');
+  edUpload();
+});
+$('srEdUploadNo').addEventListener('click', function () {
+  $('srEdUploadModal').classList.add('hidden');
+});
 $('srEdRevertBtn').addEventListener('click', edRevert);
 $('srEdExportBtn').addEventListener('click', edExport);
 $('srEdImportBtn').addEventListener('click', edImportOpen);
@@ -5033,7 +5211,7 @@ window.__sr = {
   filteredIds: function () { return filteredSongs().map(function (s) { return s.id; }); },
   setPractice: function (on) { practiceOn = !!on; if (on) autoOn = false; },
   setAuto: function (on) { autoOn = !!on; if (on) practiceOn = false; },
-  playOpts: function () { return { practice: curPlayOpts.practice, auto: curPlayOpts.auto, test: !!curPlayOpts.test, practiceToggle: practiceOn, autoToggle: autoOn, startOffset: playStartOffset }; },
+  playOpts: function () { return { practice: curPlayOpts.practice, auto: curPlayOpts.auto, test: !!curPlayOpts.test, custom: !!curPlayOpts.custom, practiceToggle: practiceOn, autoToggle: autoOn, startOffset: playStartOffset }; },
   pause: function () { pauseGame(); },
   resume: function () { resumeGame(); },
   restart: function () { restartSong(); },
@@ -5043,7 +5221,9 @@ window.__sr = {
   /* v121: 譜面エディタ／公式譜面置き換え（テスト用） */
   editor: {
     isUser: isEditorUser, open: openEditor, close: closeEditor,
-    state: function () { return ed ? { song: ed.songId, diff: ed.diff, notes: edCloneNotes(ed.notes), tool: ed.tool, mode: ed.mode, snap: ed.snap, cellW: ed.cellW, dirty: ed.dirty, undoLen: ed.undo.length, redoLen: ed.redo.length, sel: ed.sel, draft: ed.longDraft } : null; },
+    state: function () { return ed ? { song: ed.songId, diff: ed.diff, notes: edCloneNotes(ed.notes), tool: ed.tool, mode: ed.mode, snap: ed.snap, cellH: ed.cellH, cellW: ed.cellH, dirty: ed.dirty, undoLen: ed.undo.length, redoLen: ed.redo.length, sel: ed.sel, draft: ed.longDraft } : null; },
+    hasSession: function () { return !!edSession; },
+    returnToEditor: returnToEditor,
     setTool: function (t) { if (!ed) return; if (t === 'erase') ed.mode = 'erase'; else { ed.tool = t; if (ed.mode === 'erase') ed.mode = 'add'; } edSyncPalette(); },
     setMode: function (m) { if (!ed) return; ed.mode = m; if (m !== 'add') ed.longDraft = null; edSyncPalette(); },
     canPlace: function (step, lane, type, len) { return ed ? edCheckPlace(step, lane, type, len || 0, -1) : 'no editor'; },
