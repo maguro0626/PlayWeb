@@ -10,9 +10,12 @@
 <style>
 :root{--bg:#0a0618;--accent:#ff5d8f;--accent2:#7c5cff;--cyan:#3fd6ff;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.14);--txt:#fdfaff;--sub:#b9aede;--gold:#ffc93c;--perfect:#ffd94d;--great:#ff7ac1;--good:#4ade80;--miss:#8f8fa8}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
-body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030f 100%);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;min-height:100dvh;-webkit-user-select:none;user-select:none}
+/* v120: ページ全体はスクロールさせない（麻雀方式の一画面固定）。body を dvh の
+   フレックス列にし、アカウントヘッダー／フレンドバー等の実寸を差し引いた残りを
+   .wrap が受け取る。スクロールは曲一覧などの内部領域だけ。 */
+body{background:radial-gradient(120% 90% at 50% 0%,#1d1140 0%,#0a0618 55%,#05030f 100%);color:var(--txt);font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-user-select:none;user-select:none}
 input,textarea{-webkit-user-select:text;user-select:text}
-.wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;height:calc(100dvh - 46px);overflow:hidden;position:relative}
+.wrap{max-width:480px;margin:0 auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;flex:1 1 auto;min-height:0;width:100%;overflow:hidden;position:relative}
 .ttl{font-size:25px;font-weight:900;text-align:center;letter-spacing:.06em;background:linear-gradient(92deg,#ffd94d 0%,#ff5d8f 38%,#7c5cff 72%,#3fd6ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 10px rgba(255,93,143,.45))}
 .ttl small{display:block;font-size:10.5px;letter-spacing:.34em;-webkit-text-fill-color:var(--sub);font-weight:800;margin-top:1px}
 #modeSeg{display:flex;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
@@ -226,11 +229,10 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #footHelp{display:none}
   #ctrlRow .iconBtn{min-height:38px}
 }
-/* 短い画面で選曲メニューが溢れた場合の逃げ道：メニューだけ縦スクロール可にする。
-   演奏中（.ingame）は従来どおり固定。ゲストバーの高さは幅で変わるため圧縮だけでは
-   320x568 / 360x640 でスタートボタンが切れて触れなくなる問題が残っていた。
-   内容が収まる画面ではスクロールは発生せず見た目は変わらない */
-#wrapEl:not(.ingame){overflow-y:auto;overscroll-behavior:contain}
+/* v120: 旧「短い画面では .wrap 自体をスクローラにする」逃げは廃止。
+   ページ全体がスクロールして曲グリッドが上端で切れる不具合の原因だった。
+   body を dvh フレックス列にしてフレンドバー等の実寸を差し引く方式に変えたため、
+   .wrap は overflow:hidden のまま固定され、内部の曲一覧だけがスクロールする。 */
 /* PC・大画面：スマホ前提の 480px 固定だと大画面で小さく固まるため、段階的に広げて
    ステージと選曲タイルを大きくする（スマホ幅には影響しない） */
 @media (min-width:900px){
@@ -267,6 +269,13 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .wrap.playing #optSheet,.wrap.ingame #optSheet{display:none!important}
 #dailyBanner:active{transform:scale(.98)}
 #dailyBanner .done{color:#4ade80;font-weight:900}
+/* v120: ジャンルタブ（太鼓と同形式の横スクロールピル） */
+#genreTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 1px 4px;scrollbar-width:none;cursor:grab;flex:none}
+#genreTabs:active{cursor:grabbing}
+#genreTabs::-webkit-scrollbar{display:none}
+#genreTabs button{flex:none;border:2px solid var(--line);background:rgba(255,255,255,.06);color:var(--sub);padding:6px 14px;border-radius:999px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;min-height:36px;letter-spacing:.03em}
+#genreTabs button:active{transform:scale(.95)}
+#genreTabs button.on{background:linear-gradient(92deg,var(--accent),var(--accent2));border-color:rgba(255,255,255,.35);color:#fff;box-shadow:0 3px 10px rgba(255,93,143,.45)}
 #filterSeg{display:flex;gap:5px;margin-top:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 #filterSeg::-webkit-scrollbar{display:none}
 #filterSeg button{flex:none;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--sub);padding:5px 11px;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;min-height:28px;white-space:nowrap}
@@ -354,6 +363,7 @@ html,body{overscroll-behavior:none;}
 <div id="modeSeg"><button data-m="solo" class="on">1人用</button><button data-m="online">オンライン対戦</button></div>
 <div id="songArea">
 <div id="infoRow"><span id="ratingInfo"></span><button id="dailyBanner" type="button"></button></div>
+<div id="genreTabs"></div>
 <div id="filterSeg"><button data-f="all" class="on">すべて</button><button data-f="fav">★お気に入り</button><button data-f="lv1">Lv〜5</button><button data-f="lv2">Lv6〜8</button><button data-f="lv3">Lv9〜</button><button data-f="unplayed">未プレイ</button><button data-f="cleared">クリア済</button><button data-f="fc">フルコンボ</button></div>
 <div class="songGrid" id="songList"></div>
 <div id="songDetail"></div>
@@ -1796,6 +1806,34 @@ var playStartOffset = 0; /* 練習モードの開始位置（秒）。通常は 
 var paused = false, pauseStartCtx = 0, audioPendingStart = false; /* ポーズ管理（対戦中はポーズ不可：pauseBtn を出さない） */
 var prevBestScore = null; /* NEW RECORD の差分表示用 */
 var songFilter = 'all'; /* 選曲の絞り込みチップ */
+var selGenre = 'すべて'; /* v120: ジャンルタブ（太鼓と同形式）。既存 genre 文字列から分類する */
+function songCat(s) {
+  var g = (s && s.genre) || '';
+  if (g.indexOf('ボーカル') >= 0) return 'ボーカル';
+  if (g.indexOf('和風') >= 0) return '和風';
+  if (g.indexOf('ロック') >= 0) return 'ロック';
+  if (g.indexOf('エレクトロ') >= 0 || g.indexOf('ドラムン') >= 0) return 'エレクトロ';
+  if (g.indexOf('ポップ') >= 0) return 'ポップ';
+  return 'その他';
+}
+var GENRE_ORDER = ['ボーカル', 'ポップ', 'ロック', 'エレクトロ', '和風', 'その他'];
+function genreList() {
+  var seen = {};
+  SONGS.forEach(function (s) { seen[songCat(s)] = 1; });
+  var out = ['すべて'];
+  GENRE_ORDER.forEach(function (g) { if (seen[g]) out.push(g); });
+  return out;
+}
+function renderGenreTabs() {
+  var box = $('genreTabs');
+  if (!box) return;
+  box.innerHTML = genreList().map(function (g) {
+    return '<button type="button" data-g="' + g + '"' + (g === selGenre ? ' class="on"' : '') + '>' + g + '</button>';
+  }).join('');
+  box.querySelectorAll('button').forEach(function (b) {
+    b.addEventListener('click', function () { selGenre = b.dataset.g; renderGenreTabs(); renderSongList(); });
+  });
+}
 var heldLane = [0, 0, 0, 0]; /* レーンごとの押下数（タッチ＋キー合算） */
 var keyHeld = {};
 var laneFlash = [0, 0, 0, 0];
@@ -2029,6 +2067,7 @@ function scaleFromY(y) { return lerp(0.34, 1.05, depthFromY(y)); }
 /* 絞り込みチップの適用（現在選択中の難易度の Lv / 記録で判定する） */
 function filteredSongs() {
   return SONGS.filter(function (sg) {
+    if (selGenre !== 'すべて' && songCat(sg) !== selGenre) return false; /* v120: ジャンル×絞り込みチップの併用 */
     var b = getBest(sg.id, selDiff);
     switch (songFilter) {
       case 'fav': return isFav(sg.id);
@@ -2044,6 +2083,7 @@ function filteredSongs() {
 }
 /* 曲選択UI：選択中は大きなジャケット＋情報パネル、下にジャケットのタイルが並ぶ */
 function renderSongList() {
+  renderGenreTabs();
   var s = songById(selSong);
   var d = buildSongData(s);
   var best = getBest(s.id, selDiff);
@@ -2114,6 +2154,7 @@ function pwDragScroll(el, axis) {
   }, true);
 }
 pwDragScroll($('songList'), 'y'); /* v119: 一覧は折り返しグリッド＋縦スクロールに変更 */
+pwDragScroll($('genreTabs'), 'x'); /* v120: ジャンルタブもドラッグスクロール＋クリック誤発防止 */
 function blip() { if (!AC) return; toneAt(660, AC.currentTime, 0.07, 'sine', seV(0.12), null, seBus); }
 document.querySelectorAll('#diffSeg button').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -4006,6 +4047,9 @@ window.__sr = {
   dailySong: function (ds) { return dailySongFor(ds || dailyDateStr()).id; },
   dailyDateStr: function () { return dailyDateStr(); },
   setFilter: function (f) { songFilter = f; renderSongList(); return filteredSongs().map(function (s) { return s.id; }); },
+  setGenre: function (g) { selGenre = g; renderSongList(); return filteredSongs().map(function (s) { return s.id; }); },
+  genreList: genreList,
+  songCat: songCat,
   filteredIds: function () { return filteredSongs().map(function (s) { return s.id; }); },
   setPractice: function (on) { practiceOn = !!on; if (on) autoOn = false; },
   setAuto: function (on) { autoOn = !!on; if (on) practiceOn = false; },

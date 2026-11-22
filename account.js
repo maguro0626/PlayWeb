@@ -1801,6 +1801,7 @@
        （マージ完了時に戦績集計の publish まで行う） */
     mergeCloudSaves();
     startAdminInbox();
+    startChartAdmin();
     /* フレンド一覧の購読: クラウドの方が新しい時だけ取り込む
        （ローカルの方が新しい場合は uploadFriends 側が上げる） */
     var fu = friendsDoc(me.uid).onSnapshot(function (d) {
@@ -2204,6 +2205,12 @@
       '<div id="pwFbAdminSec" style="display:none">' +
       '<div class="pw-drawer-sec">📮 意見ボックス（管理者用）</div>' +
       '<div id="pwFbInbox"><div class="pwa-note">読み込み中…</div></div>' +
+      '</div>' +
+      '<div id="pwChartAdminSec" style="display:none">' +
+      '<div class="pw-drawer-sec">🎵 譜面の承認（管理者用）</div>' +
+      '<div id="pwChartInbox"><div class="pwa-note">読み込み中…</div></div>' +
+      '<div class="pw-drawer-sec">✏️ 置き換え中の公式譜面</div>' +
+      '<div id="pwChartOfficial"><div class="pwa-note">読み込み中…</div></div>' +
       '</div>' +
       '</aside>';
     document.body.appendChild(drawerWrapEl);
@@ -2768,6 +2775,8 @@
   function refreshAdminUI() {
     var sec = $('pwFbAdminSec');
     if (sec) sec.style.display = isAdmin() ? '' : 'none';
+    var csec = $('pwChartAdminSec');
+    if (csec) csec.style.display = isAdmin() ? '' : 'none';
   }
   function fmtDateTime(ts) {
     var d = new Date(ts || 0);
@@ -2856,6 +2865,198 @@
         renderAdminInbox();
       }).catch(function () { rb.disabled = false; });
     };
+  }
+
+  /* ---------------- 譜面の承認（管理者用・太鼓 v120〜） ----------------
+     chart_submissions（承認依頼）を購読して一覧表示し、承認で
+     official_charts/{songId__diff} へ譜面を公開、却下で status を
+     'rejected' にする。置き換え中の公式譜面は「公式に戻す」で
+     ドキュメントごと削除でき、ゲーム側は自動生成譜面に戻る。
+     ゲーム側（taiko.html）は PWAccount.fetchOfficialCharts() で
+     置き換え譜面を取得し、PWAccount.submitChartSubmission() で
+     承認依頼を送る。 */
+  var CHART_DIFF_LABELS = { easy: 'かんたん', normal: 'ふつう', hard: 'むずかしい', oni: 'おに', ura: 'うら' };
+  var chartSubItems = [];
+  var chartOfficialItems = [];
+  var chartAdminStarted = false;
+  function whenFb(timeoutMs) {
+    return new Promise(function (resolve) {
+      var t0 = Date.now();
+      (function poll() {
+        if (fb && fb.db) return resolve(true);
+        if (sdkState === 'unavailable' || Date.now() - t0 > (timeoutMs || 15000)) return resolve(!!(fb && fb.db));
+        setTimeout(poll, 120);
+      })();
+    });
+  }
+  function submitChartSubmission(data) {
+    if (!me) return Promise.resolve({ ok: false, msg: 'ログインが必要です' });
+    return whenFb(15000).then(function (ready) {
+      if (!ready || !fb) return { ok: false, msg: '送信できませんでした（通信環境を確認してください）' };
+      var payload = {
+        songId: String(data.songId || '').slice(0, 40),
+        diff: String(data.diff || '').slice(0, 16),
+        songTitle: String(data.songTitle || '').slice(0, 60),
+        notes: Array.isArray(data.notes) ? data.notes : [],
+        fromUid: me.uid,
+        fromName: me.username,
+        status: 'pending',
+        createdAt: nowMs()
+      };
+      return fb.db.collection('chart_submissions').add(payload)
+        .then(function () { return { ok: true }; })
+        .catch(function (e) { return { ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') }; });
+    });
+  }
+  function fetchOfficialCharts() {
+    return whenFb(15000).then(function (ready) {
+      if (!ready || !fb) return null;
+      return fb.db.collection('official_charts').get().then(function (snap) {
+        var map = {};
+        snap.forEach(function (d) {
+          var x = d.data() || {};
+          map[d.id] = {
+            notes: Array.isArray(x.notes) ? x.notes : [],
+            fromName: x.fromName || '',
+            approvedAt: x.approvedAt || 0
+          };
+        });
+        return map;
+      }).catch(function () { return null; });
+    });
+  }
+  function startChartAdmin() {
+    refreshAdminUI();
+    if (!isAdmin() || !fb || chartAdminStarted) return;
+    chartAdminStarted = true;
+    var applySubs = function (snap) {
+      var items = [];
+      snap.forEach(function (d) {
+        var x = d.data() || {};
+        x._id = d.id;
+        items.push(x);
+      });
+      items.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+      chartSubItems = items.slice(0, 50);
+      renderChartAdmin();
+    };
+    var applyOfficial = function (snap) {
+      var items = [];
+      snap.forEach(function (d) {
+        var x = d.data() || {};
+        x._id = d.id;
+        items.push(x);
+      });
+      items.sort(function (a, b) { return (b.approvedAt || 0) - (a.approvedAt || 0); });
+      chartOfficialItems = items;
+      renderChartOfficial();
+    };
+    try {
+      unsubs.push(fb.db.collection('chart_submissions').onSnapshot(applySubs, function () {
+        fb.db.collection('chart_submissions').get().then(applySubs).catch(function () { renderChartAdminError(); });
+      }));
+      unsubs.push(fb.db.collection('official_charts').onSnapshot(applyOfficial, function () {
+        fb.db.collection('official_charts').get().then(applyOfficial).catch(function () { renderChartOfficialError(); });
+      }));
+      /* 購読の初回配送が固まる環境への保険（意見ボックスと同じ v75 方式） */
+      setTimeout(function () {
+        if (!chartSubItems.length) fb.db.collection('chart_submissions').get().then(applySubs).catch(function () {});
+        if (!chartOfficialItems.length) fb.db.collection('official_charts').get().then(applyOfficial).catch(function () {});
+      }, 6000);
+    } catch (e) {
+      fb.db.collection('chart_submissions').get().then(applySubs).catch(function () { renderChartAdminError(); });
+      fb.db.collection('official_charts').get().then(applyOfficial).catch(function () { renderChartOfficialError(); });
+    }
+  }
+  function renderChartAdminError() {
+    var box = $('pwChartInbox');
+    if (box) box.innerHTML = '<div class="pwa-note err">譜面の承認リストを読み込めませんでした（ルール未反映の可能性があります）</div>';
+  }
+  function renderChartOfficialError() {
+    var box = $('pwChartOfficial');
+    if (box) box.innerHTML = '<div class="pwa-note err">置き換え中の公式譜面を読み込めませんでした（ルール未反映の可能性があります）</div>';
+  }
+  function chartStatusBadge(x) {
+    if (x.status === 'approved') return '<span class="pw-fb-badge read">承認済み</span>';
+    if (x.status === 'rejected') return '<span class="pw-fb-badge read">却下</span>';
+    return '<span class="pw-fb-badge new">承認待ち</span>';
+  }
+  function renderChartAdmin() {
+    var box = $('pwChartInbox');
+    if (!box || !isAdmin()) return;
+    if (!chartSubItems.length) {
+      box.innerHTML = '<div class="pwa-note">まだ届いていません。</div>';
+      return;
+    }
+    box.innerHTML = chartSubItems.map(function (x) {
+      var n = Array.isArray(x.notes) ? x.notes.length : 0;
+      var btns = x.status === 'pending'
+        ? '<div style="display:flex;gap:8px;margin-top:8px"><button class="pwa-btn" data-chart-approve="' + esc(x._id) + '">承認する</button>' +
+          '<button class="pwa-btn sub" data-chart-reject="' + esc(x._id) + '">却下</button></div>'
+        : '';
+      return '<div class="pw-fb-item">' +
+        '<span class="pw-fb-badge type">🎵 譜面</span>' + chartStatusBadge(x) +
+        '<span class="t">' + esc(x.songTitle || x.songId || '（曲名なし）') + '（' + esc(CHART_DIFF_LABELS[x.diff] || x.diff || '') + '）・ ' + n + '音</span>' +
+        '<div class="m">' + esc(x.fromName || '名無し') + ' ・ ' + esc(fmtDateTime(x.createdAt)) + '</div>' + btns + '</div>';
+    }).join('');
+    box.querySelectorAll('[data-chart-approve]').forEach(function (el) {
+      el.onclick = function () { approveChartSubmission(el.getAttribute('data-chart-approve')); };
+    });
+    box.querySelectorAll('[data-chart-reject]').forEach(function (el) {
+      el.onclick = function () { rejectChartSubmission(el.getAttribute('data-chart-reject')); };
+    });
+  }
+  function renderChartOfficial() {
+    var box = $('pwChartOfficial');
+    if (!box || !isAdmin()) return;
+    if (!chartOfficialItems.length) {
+      box.innerHTML = '<div class="pwa-note">置き換え中の譜面はありません（全て自動生成の公式譜面です）。</div>';
+      return;
+    }
+    box.innerHTML = chartOfficialItems.map(function (x) {
+      var n = Array.isArray(x.notes) ? x.notes.length : 0;
+      var parts = String(x._id).split('__');
+      var lbl = (parts[0] || x._id) + '（' + (CHART_DIFF_LABELS[parts[1]] || parts[1] || '') + '）';
+      return '<div class="pw-fb-item">' +
+        '<span class="pw-fb-badge type">✏️ 承認譜面</span>' +
+        '<span class="t">' + esc(lbl) + ' ・ ' + n + '音</span>' +
+        '<div class="m">' + esc(x.fromName || '') + ' ・ ' + esc(fmtDateTime(x.approvedAt)) + '</div>' +
+        '<div style="margin-top:8px"><button class="pwa-btn sub" data-chart-revert="' + esc(x._id) + '">公式に戻す（自動生成に復帰）</button></div></div>';
+    }).join('');
+    box.querySelectorAll('[data-chart-revert]').forEach(function (el) {
+      el.onclick = function () { revertOfficialChart(el.getAttribute('data-chart-revert')); };
+    });
+  }
+  function approveChartSubmission(id) {
+    if (!isAdmin() || !fb || !id) return Promise.resolve(false);
+    var item = null;
+    chartSubItems.forEach(function (x) { if (x._id === id) item = x; });
+    if (!item) return Promise.resolve(false);
+    var key = String(item.songId || '') + '__' + String(item.diff || '');
+    var doc = { notes: Array.isArray(item.notes) ? item.notes : [], fromName: item.fromName || '', approvedAt: nowMs() };
+    return fb.db.doc('official_charts/' + key).set(doc).then(function () {
+      return fb.db.doc('chart_submissions/' + id).set({ status: 'approved' }, { merge: true });
+    }).then(function () {
+      item.status = 'approved';
+      renderChartAdmin();
+      return true;
+    }).catch(function () { return false; });
+  }
+  function rejectChartSubmission(id) {
+    if (!isAdmin() || !fb || !id) return Promise.resolve(false);
+    return fb.db.doc('chart_submissions/' + id).set({ status: 'rejected' }, { merge: true }).then(function () {
+      chartSubItems.forEach(function (x) { if (x._id === id) x.status = 'rejected'; });
+      renderChartAdmin();
+      return true;
+    }).catch(function () { return false; });
+  }
+  function revertOfficialChart(key) {
+    if (!isAdmin() || !fb || !key) return Promise.resolve(false);
+    return fb.db.doc('official_charts/' + key).delete().then(function () {
+      chartOfficialItems = chartOfficialItems.filter(function (x) { return x._id !== key; });
+      renderChartOfficial();
+      return true;
+    }).catch(function () { return false; });
   }
 
   /* ---------------- SDK ロード ---------------- */
@@ -2979,6 +3180,9 @@
     isAdmin: isAdmin,
     openFeedback: openFeedback,
     submitFeedback: submitFeedback,
+    /* v120〜 太鼓の譜面エディタ: 承認依頼の送信と公式譜面置き換えの取得 */
+    submitChartSubmission: submitChartSubmission,
+    fetchOfficialCharts: fetchOfficialCharts,
     /* テスト用フック */
     _test: {
       syncableKey: syncableKey,
@@ -3011,8 +3215,15 @@
       setAdminUids: function (arr) {
         ADMIN_UIDS = (arr || []).slice();
         refreshAdminUI();
-        if (cloudActive()) startAdminInbox();
+        if (cloudActive()) { startAdminInbox(); startChartAdmin(); }
       },
+      /* v120〜 譜面の承認（テスト用） */
+      chartSubmissions: function () { return chartSubItems.slice(); },
+      chartOfficial: function () { return chartOfficialItems.slice(); },
+      approveChart: approveChartSubmission,
+      rejectChart: rejectChartSubmission,
+      revertChart: revertOfficialChart,
+      startChartAdmin: startChartAdmin,
       adminUids: function () { return ADMIN_UIDS.slice(); },
       inboxItems: function () { return fbInboxItems.slice(); },
       /* フィードバック送信タイムアウト（ms）の差し替え（テスト用） */

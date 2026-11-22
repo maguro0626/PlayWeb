@@ -18,6 +18,13 @@ rules_version = '2';
 // - feedback/{id} { type, title, body, game, fromUid, fromName,
 //                   createdAt, status }          送信は誰でも可、
 //                   読み取り・既読化は管理者（下記 adminUids）のみ
+// - chart_submissions/{id} { songId, diff, songTitle, notes, fromUid,
+//                   fromName, status, createdAt } 太鼓の譜面エディタからの
+//                   承認依頼。作成はログイン済み本人のみ、読み・状態更新は
+//                   管理者のみ
+// - official_charts/{songId__diff} { notes, fromName, approvedAt }
+//                   管理者が承認した公式譜面の置き換え。読みは全員
+//                   （ゲスト含む）、書きは管理者のみ
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -129,6 +136,46 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
       allow delete: if false;
+    }
+
+    // ================================================================
+    // 譜面エディタ（太鼓・v120〜）:
+    //   chart_submissions: 編集した譜面の承認依頼。作成はログイン済みで
+    //     自分の uid を名乗り、status='pending' のものだけ。フィールド構成と
+    //     型だけ軽く検証する（notes は [step, type] ペアの配列）。
+    //     読み取りと状態更新（承認/却下）は管理者のみ。削除は不可。
+    //   official_charts: 承認済みの公式譜面置き換え（docId は
+    //     "{songId}__{diff}"）。読み取りは全員（ゲストの演奏開始時にも
+    //     必要なため認証なしでも可）。作成・更新・削除（公式に戻す）は
+    //     管理者のみ。
+    // ================================================================
+    match /chart_submissions/{docId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(
+            ['songId', 'diff', 'songTitle', 'notes', 'fromUid', 'fromName', 'status', 'createdAt'])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.songId is string
+        && request.resource.data.songId.size() > 0
+        && request.resource.data.songId.size() <= 40
+        && request.resource.data.diff is string
+        && request.resource.data.songTitle is string
+        && request.resource.data.songTitle.size() <= 60
+        && request.resource.data.notes is list
+        && request.resource.data.notes.size() <= 4000
+        && request.resource.data.fromName is string
+        && request.resource.data.fromName.size() <= 30
+        && request.resource.data.createdAt is number;
+      allow get, list: if isAdmin();
+      // 承認/却下は status フィールドだけの更新を管理者に許可する
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['approved', 'rejected'];
+      allow delete: if false;
+    }
+    match /official_charts/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // ================================================================
