@@ -229,13 +229,26 @@ body{background:var(--bg);color:var(--txt);font-family:"Hiragino Maru Gothic Pro
 #charaDetail .cdFace{cursor:zoom-in}
 .cdZoomHint{font-size:10.5px;color:var(--gold);font-weight:800;margin-top:3px}
 /* デイリーミッション */
-#dailyBox{background:rgba(56,189,248,.10);border:1px solid rgba(125,211,252,.4);border-radius:13px;padding:9px 11px;margin-bottom:11px}
-#dailyBox .dbTtl{font-size:13px;font-weight:900;color:#bae6fd;margin-bottom:5px}
-#dailyBox .dbRow{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;line-height:1.65}
-#dailyBox .dbRow .dbProg{color:var(--sub);font-weight:800}
-#dailyBox .dbRow .dbGem{margin-left:auto;color:var(--gold);font-weight:900;white-space:nowrap}
-#dailyBox .dbRow.done{color:#7ef0b2}
-#dailyBox .dbRow.done .dbProg{color:#7ef0b2}
+#dailyBox,#weeklyBox{background:rgba(56,189,248,.10);border:1px solid rgba(125,211,252,.4);border-radius:13px;padding:9px 11px;margin-bottom:11px}
+#weeklyBox{background:rgba(176,110,232,.10);border-color:rgba(196,141,255,.4)}
+#dailyBox .dbTtl,#weeklyBox .dbTtl{font-size:13px;font-weight:900;color:#bae6fd;margin-bottom:5px}
+#weeklyBox .dbTtl{color:#e3c8ff}
+#dailyBox .dbRow,#weeklyBox .dbRow{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;line-height:1.65}
+#dailyBox .dbRow .dbProg,#weeklyBox .dbRow .dbProg{color:var(--sub);font-weight:800}
+#dailyBox .dbRow .dbGem,#weeklyBox .dbRow .dbGem{margin-left:auto;color:var(--gold);font-weight:900;white-space:nowrap}
+#dailyBox .dbRow.done,#weeklyBox .dbRow.done{color:#7ef0b2}
+#dailyBox .dbRow.done .dbProg,#weeklyBox .dbRow.done .dbProg{color:#7ef0b2}
+/* 初クリア報酬マーカー（難易度行） */
+.dRow .fcYet{color:#ffd76a;font-weight:900;margin-left:6px;font-size:11px;white-space:nowrap}
+.dRow .fcDone{color:#7ef0b2;font-weight:900;margin-left:6px;font-size:11px;white-space:nowrap}
+/* ログインボーナス */
+.lbDots{display:flex;gap:5px;justify-content:center;margin:10px 0 4px;flex-wrap:wrap}
+.lbDot{flex:1;min-width:36px;text-align:center;font-size:11px;font-weight:900;padding:7px 2px;border-radius:9px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--sub)}
+.lbDot small{display:block;font-size:9px;font-weight:800;color:var(--sub)}
+.lbDot.got{background:rgba(126,240,178,.15);border-color:rgba(126,240,178,.5);color:#7ef0b2}
+.lbDot.today{background:linear-gradient(180deg,#f5b942,#e07f2e);border-color:#ffd76a;color:#2b1602;box-shadow:0 0 14px rgba(255,183,60,.55)}
+.lbDot.today small{color:#5b3405}
+.lbAmt{text-align:center;font-size:24px;font-weight:900;color:var(--gold);margin:8px 0 2px;text-shadow:0 2px 10px rgba(255,183,60,.4)}
 .modal{position:fixed;inset:0;z-index:100000;background:rgba(8,3,8,.78);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:14px 10px calc(14px + env(safe-area-inset-bottom))}
 .modalCard{width:100%;max-width:460px;background:linear-gradient(180deg,#2b1220,#1c0b16);border:1.5px solid rgba(255,201,60,.4);border-radius:18px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.7)}
 .modalHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -439,15 +452,22 @@ html,body{overscroll-behavior:none;}
 <div class="pityLine" id="pityLine"></div>
 <div id="gachaResults"></div>
 <div class="modalBtns"><button id="pull1Btn" class="btn">1回 💎300</button><button id="pull10Btn" class="btn blue">10連 💎3,000</button></div>
-<p class="note">確率：UR 0.05% / SSR 2% / SR 17.5% / R 80.45%　天井：SSR 90連・UR 1,000連（共通カウンタ）　10連はSR以上が1体確定。被りは限界突破（最大5凸）、上限到達後はコインに変換されます。💎は演奏クリア・敵の撃破・ランクボーナス・デイリーミッション（キャラ画面で確認）で貯まります。</p>
+<p class="note">確率：UR 0.05% / SSR 2% / SR 17.5% / R 80.45%　天井：SSR 90連・UR 1,000連（共通カウンタ）　10連はSR以上が1体確定。被りは限界突破（最大5凸）、上限到達後はコインに変換されます。💎は演奏クリア・初クリア（曲×難易度ごと）・敵の撃破・ランクボーナス・ログインボーナス・デイリー＆ウィークリーミッション・コレクション達成（キャラ画面で確認）で貯まります。</p>
 </div></div>
 <div id="charaModal" class="modal hidden"><div class="modalCard">
 <div class="modalHead"><span class="mhTtl">🐱 キャラ</span><span class="curBox" id="charaCurBox"></span><button class="xBtn" id="charaClose">✕</button></div>
 <div id="dailyBox"></div>
+<div id="weeklyBox"></div>
 <div id="charaGrid"></div>
 <div id="charaDetail"></div>
 </div></div>
 <div id="artViewer" class="hidden"><div id="artViewBody"></div><div class="avHint">タップで閉じる</div></div>
+<div id="loginModal" class="modal hidden"><div class="modalCard">
+<div class="modalHead"><span class="mhTtl">🎁 ログインボーナス</span><button class="xBtn" id="loginClose">✕</button></div>
+<div id="loginBody"></div>
+<div class="modalBtns"><button id="loginClaimBtn" class="btn blue">受け取る</button></div>
+<p class="note" style="text-align:center">開いた日ごとに進む累計ログイン日数で、7日ごとにサイクルします（途切れても日数は戻りません）。</p>
+</div></div>
 <div id="urFx" class="hidden"></div>
 <script src="linkdrum_data.js"></script>
 <script>
@@ -584,6 +604,55 @@ var SONGS = [
     real: true, suno: true, duration: 109.96, offset: 0.207, beatsPerBar: 4, parts: 7, credit: 'Suno',
     chorus: [[60.13,66.6],[71.46,107.09]],
     steps: '12000050048004456250003000240056550503050233023564070300402404500034304050203342043040034002242230240402360006453057030407002380438233600050004252304050235030600330340604052007070344050405200504353335004060004072434060204032504373306030500050053544030426003503054304333504040553350404040044704503604030500340440550304063004034353340300400370430250504350334054075060406003503644305000600007004600350445044600373407030603360507340600340303633335505033500470304630604040046034445070407033625450567004050006363364060305004504055304040800343850060500360066053035040006000060460350504370045040504060345000505030406000500050306030600060004000500050005030404040036404450590580804860006040604560507005405063336350705350446340466060534043504454437050603074006340504450438340533080335000533364303036007070607545605460035303536050404043530343505050504363344560803050407304534050506070504046405040504474036350404050438344743350600060604050505060400063050590084006003830560338030703374405553843060507453736080507035904652709030503083436440704250306050006050405000606044508040500040550551322070000000'
+  },
+  {
+    id: 'shiningstar', title: 'Shining Star', emo: '🌟', genre: '魔王魂', cat: '魔王魂', bpm: 158, theme: 'idol',
+    real: true, maou: true, duration: 94.51, offset: 0.014, beatsPerBar: 4, parts: 6,
+    chorus: [[31.91,47.1],[51.66,75.96]],
+    steps: '000000006010201030003010003040004040800470007000504070005080506000507000600070006040705000600086500060605000605050007000504080005040606070505040006070500040604050044040700060405040804060408060600086006006604050507060005000607050007850000030600000334040400070000050800054047000060050506450700060556005600050006000600050005050500060000050600650606060600070600060700090700008000060005500506075000000900050007000600080500050705000005000556070000000600000007050000570000000805050606050505070600000700000006065000060000000655000066000000090006000709000506050005090006050700060007000005060000006500000006000650060500075706000508000606060506000607050006000505040004006500050000070404040400060700600007000500060005000606060006000600050050000600060005000600080005000500060406000600060400040604040405000705000700070006000007000600707050050000000000000000000000000002000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
+  },
+  {
+    id: 'tsukitookami', title: '月と狼', emo: '🌙', genre: '魔王魂', cat: '魔王魂', bpm: 158, theme: 'rock',
+    real: true, maou: true, duration: 89.55, offset: 0.331, beatsPerBar: 4, parts: 6,
+    chorus: [[24.63,33.75],[53.5,80.84]],
+    steps: '0000000000000000000000000001001000000000100000110100110101000110000000000100002000100020001100100020001000210010101000200020002000100010002000020002000200020001000200020000200021000100001100001000022000000000000110010000000000000000000090507040665060005050704454408040605080405440905066505070804404407040704066549000504070045550704060408050655070505550705560504000504060405040600074506040606070007040600070505080555500407040705060607440505060660440605064507000535060060040600070407064005060408000007800000000504050507000504050000050600000095000504440406400500000506050505050006000705070006040605050605000755000055000006070600560606506770055006050608055050055705067056050505070605060660000506060550660008000606060785060600570706506706550007575000000806050406550800060505005545080406050705055408050654080507045554070507040675070007050700454508040604070505450805064405056605060000000000000000000000000000000000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
+  },
+  {
+    id: 'halzion', title: 'ハルジオン', emo: '🌸', genre: '魔王魂', cat: '魔王魂', bpm: 152, theme: 'idol',
+    real: true, maou: true, duration: 92.94, offset: 0.115, beatsPerBar: 4, parts: 6,
+    chorus: [[17.48,42.75],[53.8,66.43]],
+    steps: '00000000605040304000304040305020201030203000203020202020203030200096500000000000000050005000600050000000500070000000600000506000600000005000706050005050505050005050556050555000006040508500000060005000500060607000500060605005006050606070705050505055000054004000000060606050500060000066000000607050700000550050500060550000600005565050505060508050606600007000700070006000500050504000000060500000700000006000600000000005000060006000660060057050056500005000600000006000000600000000700050005000000050000005000000505000000000006000000000006000050060005000000050005050000050000550600070006000500060006000505000005500700060050000500060005000005000006000600000000000000040000000500000004000000060000000500000006000600050004000600000005000500060006000000060506000500050000050500000000000000000030040000303003030040020200100300200410100300020020101003003000021030002000022000111000000000000000000000000000000000000000000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
+  },
+  {
+    id: 'burningheart', title: 'Burning Heart', emo: '❤️‍🔥', genre: '魔王魂', cat: '魔王魂', bpm: 142, theme: 'rock',
+    real: true, maou: true, duration: 118.39, offset: 0.111, beatsPerBar: 4, parts: 7,
+    chorus: [[10.25,32.22],[76.17,99.83]],
+    steps: '0000000000000000803340505030403030625040534050505033505060305000735070640550006000005000005060005005500050005070000450006000405640004040500064005000000050005000645000005000604050045500500560004000604050000000600050005000600000005000500040400040500040004050004450405000500050005040400450005000005040005430500050055000600050405000400050009040605440046040607580005404704060447040500474005050700066046000500050533030304040543000403040405740403350304000440040008000403050044040500060036003404033004005400000605300400043053030600040005054464040404033640040406030403053406070503060004030400060004030530040404300500050434040630054306004435043005000430040403030303040406000500050560000500000004040505040504305500063000000600000000000000050505000500550404000646000445000500050564000404050005400500055005004400064504400400050405005550050046000400060405000505055005000400060005000500050005405000050000004505050505040400060405000404050045000500050505000500050005005500060405000400040005000000020002020202010223020321032202021402020202020302030200533333300000101000000000000000000000000000000000000000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
+  },
+  {
+    id: 'maou12345', title: '12345', emo: '🔢', genre: '魔王魂', cat: '魔王魂', bpm: 195.1, theme: 'rock',
+    real: true, maou: true, duration: 92.68, offset: 0.072, beatsPerBar: 4, parts: 6,
+    chorus: [[40.67,61.58],[66.5,72.65]],
+    steps: '00030023000300030004002300230003000400030000004060000005005605000050400060005000700060008000404070060000500000660000000600070007000000600060006000000060006000000660006006006060070080000000400030054445000000040330000430300004000400240000000800600006006000000600000600000008000050080004000070004055000500060054000003000050600605060000000070006008000500070000400060505000700050007000400070005007000600040005000080400006000500007040000070000000606000007000000060000000500000006000500080004040604000007000500700005060600060000000700000000060000060006000008506000080060000000000006000860006000000070006000700000007000600080005000700006006000000070006000700000007000000070000000000007007000070000070007070707000600000007000000060006000700050007005000060050000600500006000005050006060800060600000000000000000006000700600606005006000000030000000500060000040700040007000404070006060606000000000000060600000500050006000504070004000700050505000000070000050006000006000600070000000700000008000500070004000700000056006600060040000605000005506500080005000900040006000400070007000000000000000000000000000000000060080000000606000007000006000006007006060060060000000040000000000000000000000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
+  },
+  {
+    id: 'utakata', title: '泡沫のレクエルド', emo: '🫧', genre: '魔王魂', cat: '魔王魂', bpm: 130, theme: 'jazz',
+    real: true, maou: true, duration: 92, offset: 0.256, beatsPerBar: 4, parts: 6,
+    chorus: [[22.41,48.26],[59.33,66.72]],
+    steps: '0540406040423050506054704064706040704070605330506080808004680075407050606040505050008070405050605050746050506060500080700040605060505060605000504000807000507050604080706050006050007050655050600000004400000040505000404040705000644050404060408050005040686050805000404030000060500043005060500040005004400050606400504070606000540000505055005040060050504056006005406050550705700800540007455080005050003040440000606055555000000050404000500044405000400070509000500050507050605060009050705060444000606060505400600050505000500050005040600060006000600060055000500070004050006060000000507000000050005050504080500050606050405050600050607040706000507060506000505050007040006050005070606050506050000050500070505050606000070000000030000002000030001010110010111101111111110110000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
+  },
+  {
+    id: 'still', title: 'still', emo: '🌠', genre: '魔王魂', cat: '魔王魂', bpm: 135, theme: 'idol',
+    real: true, maou: true, duration: 121.44, offset: 0.093, beatsPerBar: 4, parts: 7,
+    chorus: [[33.87,80.09]],
+    steps: '0000000000000000402030402000302030203030300030204020402040204020402030303055600000005000500070005000643050307000600060005000500060005030500070006000700060007000500080005000603060007000600060005060700060445040400060605050503070408050543050005330809060504000500060305000600060307030600350407050534060005000600090806450507454407030504064505000500040607040600050004000604050005000700060505044504454006000504054504000600050005300550050005000505050004000440000400040505060000040600070004000505050008000500060005000500050006060400060006000504054404000400080005040500060005040604050004060600050505000600060006000600064005040604070006000700050006000503050405000500450005000544070005000400064007000700060004000500060506000500040400000500050007000600060005000800060006000500060005000504060007000600070005000700050007000500060004000600050005000405050000700440000400000003010020100100200100212001001000200100200200200010020102002000200030003000200002001020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+    credit: 'Music: 魔王魂 (https://maou.audio/)'
   }
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
@@ -1209,7 +1278,7 @@ function fitCanvas() {
 window.addEventListener('resize', fitCanvas);
 
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
-var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'] };
+var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'] };
 /* ジャケットアート：曲ごとのモチーフを Canvas で手続き生成する（dataURL化して使い回す。
    生成できない環境では null を返し、CSSグラデーションの従来表示にフォールバックする） */
 var jacketCache = {};
@@ -1316,6 +1385,9 @@ function renderGenreTabs() {
 }
 function renderSongList() {
   renderGenreTabs();
+  /* 再描画（ロード後2秒/5秒・フォーカス復帰時など）でスクロール位置が先頭に戻らないよう保持する */
+  var slEl = $('songList');
+  var keepScroll = slEl ? (slEl.scrollTop || 0) : 0;
   var html = '';
   SONGS.forEach(function (s) {
     if (selGenre !== 'すべて' && s.cat !== selGenre) return;
@@ -1327,6 +1399,7 @@ function renderSongList() {
     html += '<button class="songCard' + (s.id === selSong ? ' on' : '') + '" data-song="' + s.id + '" style="--sc:' + cols[0] + ';--sc2:' + cols[1] + '"><span class="jk"' + (art ? ' style="background-image:url(' + art + ')"' : '') + '>' + s.emo + '</span><span class="grow"><span class="nm">' + s.title + '</span><div class="meta">' + s.genre + ' ・ BPM ' + s.bpm + ' ・ 約' + Math.round(d.duration) + '秒 ・ ♪' + nNotes + '音' + (s.real ? ' ・ 🎵実音源' : '') + '</div><div class="stars">' + starStr(diffLevel(s, selDiff)) + '</div></span>' + (best === null ? '' : '<span class="bst">🏆 ' + best.toLocaleString() + '</span>') + '</button>';
   });
   $('songList').innerHTML = html;
+  if (slEl && keepScroll) slEl.scrollTop = keepScroll;
   document.querySelectorAll('.songCard').forEach(function (b) {
     b.addEventListener('click', function () { ensureAudio(); selSong = b.dataset.song; var sg = songById(selSong); if (sg.real) ensureRealAudio(sg); renderSongList(); blip(); });
   });
@@ -1338,10 +1411,13 @@ function renderSongDetail() {
   var d = buildSongData(s);
   var cols = SONG_COLORS[s.id] || ['#888', '#444'];
   var rows = '';
+  var fcSave = LD ? loadChara() : null;
   ['easy', 'normal', 'hard', 'oni'].forEach(function (df) {
     var best = getBest(s.id, df);
     var rank = getRank(s.id, df);
-    rows += '<button class="dRow' + (df === selDiff ? ' on' : '') + '" data-d="' + df + '"><span class="dLbl">' + DIFFS[df].label + '</span><span class="stars">' + starStr(diffLevel(s, df)) + '</span><span class="dBest">' + (best === null ? '未プレイ' : '🏆 ' + best.toLocaleString() + (rank ? '<span class="rk">' + rank + '</span>' : '')) + '</span></button>';
+    var fcMark = '';
+    if (fcSave) fcMark = (fcSave.clears && fcSave.clears[s.id + ':' + df]) ? '<span class="fcDone">💎✔ 初クリア済</span>' : '<span class="fcYet">💎+' + FIRST_CLEAR_GEM + ' 初クリア</span>';
+    rows += '<button class="dRow' + (df === selDiff ? ' on' : '') + '" data-d="' + df + '"><span class="dLbl">' + DIFFS[df].label + '</span><span class="stars">' + starStr(diffLevel(s, df)) + '</span><span class="dBest">' + (best === null ? '未プレイ' : '🏆 ' + best.toLocaleString() + (rank ? '<span class="rk">' + rank + '</span>' : '')) + fcMark + '</span></button>';
   });
   var detEl = $('songDetail');
   detEl.style.setProperty('--sc', cols[0]);
@@ -1532,6 +1608,7 @@ function showResult(res, totalScore, isBest, vsInfo) {
     wrapEl.classList.remove('playing');
     wrapEl.classList.remove('ingame');
     resetStage();
+    renderSongList(); /* 演奏で得た初クリアマーカー等を最新表示にする（スクロール位置は保持される） */
   });
 }
 
@@ -2913,8 +2990,88 @@ function mergeDaily(a, b) {
   [a, b].forEach(function (d) { Object.keys(d.got || {}).forEach(function (k) { o.got[k] = 1; }); });
   return o;
 }
+/* ログインボーナス：累計ログイン日数（開いた日ごとに+1、途切れても戻らない）で進む7日サイクル。
+   claimed は受け取り済みの日数。マージは days/claimed とも最大値を取るため、
+   片方で受け取り済みの分が古い保存と混ざっても二重付与にならない。 */
+var LOGIN_BONUS = [100, 120, 140, 160, 180, 200, 400];
+function loginBonusFor(day) { return LOGIN_BONUS[(Math.max(1, day | 0) - 1) % 7]; }
+function ensureLogin(cs) {
+  if (!cs.login || typeof cs.login !== 'object') cs.login = { days: 0, lastDay: '', claimed: 0 };
+  cs.login.days = cs.login.days | 0; cs.login.claimed = cs.login.claimed | 0;
+  if (typeof cs.login.lastDay !== 'string') cs.login.lastDay = '';
+  var t = todayStr();
+  if (cs.login.lastDay !== t) { cs.login.days++; cs.login.lastDay = t; }
+  if (cs.login.claimed > cs.login.days) cs.login.claimed = cs.login.days;
+  if (cs.login.claimed < 0) cs.login.claimed = 0;
+  return cs.login;
+}
+function pendingLoginGems(cs) {
+  var l = ensureLogin(cs), sum = 0;
+  for (var d = l.claimed + 1; d <= l.days; d++) sum += loginBonusFor(d);
+  return sum;
+}
+function mergeLogin(a, b) {
+  if (!a || typeof a !== 'object') return (b && typeof b === 'object') ? b : null;
+  if (!b || typeof b !== 'object') return a;
+  return { days: Math.max(a.days | 0, b.days | 0),
+    lastDay: ((a.lastDay || '') > (b.lastDay || '')) ? a.lastDay : (b.lastDay || ''),
+    claimed: Math.max(a.claimed | 0, b.claimed | 0) };
+}
+function claimLoginBonus() {
+  var cs = loadChara();
+  if (!cs) return 0;
+  var sum = pendingLoginGems(cs);
+  if (sum <= 0) return 0;
+  cs.gems += sum;
+  cs.login.claimed = cs.login.days;
+  storeChara(cs);
+  renderCharaBar();
+  return sum;
+}
+/* ウィークリーミッション：月曜リセット。kind は weekly のカウンタ名 */
+var WEEKLY_MISSIONS = [
+  { id: 'wplay', label: '今週10曲演奏する', kind: 'plays', need: 10, gems: 250 },
+  { id: 'wdef', label: '今週敵を5体撃破する', kind: 'defeats', need: 5, gems: 250 },
+  { id: 'wfc', label: '今週フルコンボを1回達成', kind: 'fcs', need: 1, gems: 300 }
+];
+function weekStr() {
+  var d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); /* 月曜に巻き戻す */
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function ensureWeekly(cs) {
+  var w = weekStr();
+  if (!cs.weekly || typeof cs.weekly !== 'object' || cs.weekly.week !== w) cs.weekly = { week: w, plays: 0, defeats: 0, fcs: 0, got: {} };
+  if (!cs.weekly.got || typeof cs.weekly.got !== 'object') cs.weekly.got = {};
+  cs.weekly.plays = cs.weekly.plays | 0; cs.weekly.defeats = cs.weekly.defeats | 0; cs.weekly.fcs = cs.weekly.fcs | 0;
+  return cs.weekly;
+}
+function mergeWeekly(a, b) {
+  if (!a || typeof a !== 'object') return (b && typeof b === 'object') ? b : null;
+  if (!b || typeof b !== 'object') return a;
+  if (a.week !== b.week) return (a.week || '') > (b.week || '') ? a : b;
+  var o = { week: a.week, plays: Math.max(a.plays | 0, b.plays | 0), defeats: Math.max(a.defeats | 0, b.defeats | 0), fcs: Math.max(a.fcs | 0, b.fcs | 0), got: {} };
+  [a, b].forEach(function (d) { Object.keys(d.got || {}).forEach(function (k) { o.got[k] = 1; }); });
+  return o;
+}
+/* 初クリア報酬：曲×難易度の初クリア（魂ゲージ70%以上）で1回だけ。clears は defeats とは別の記録 */
+var FIRST_CLEAR_GEM = 30;
+/* コレクションマイルストーン：所持キャラ数の到達で1回だけ（過去分も遡って付与） */
+var MILESTONES = [
+  { n: 10, gems: 300 }, { n: 15, gems: 500 }, { n: 20, gems: 800 }, { n: 26, gems: 1500 }
+];
+function checkMilestones(cs) {
+  if (!cs.mile || typeof cs.mile !== 'object') cs.mile = {};
+  var cnt = Object.keys(cs.owned || {}).length, got = 0, msgs = [];
+  MILESTONES.forEach(function (m) {
+    if (cnt >= m.n && !cs.mile[m.n]) { cs.mile[m.n] = 1; got += m.gems; msgs.push('所持キャラ' + m.n + '体 💎+' + m.gems); }
+  });
+  if (got > 0) cs.gems += got;
+  return { gems: got, msgs: msgs };
+}
 function charaDefault() {
-  var o = { v: CHARA_VER, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, battleToggled: false, defeats: {}, daily: { day: todayStr(), plays: 0, defeats: 0, got: {} } };
+  var o = { v: CHARA_VER, gems: 1000, coins: 0, mats: 0, owned: {}, fav: null, ssrPity: 0, urPity: 0, totalPulls: 0, battleOn: true, battleToggled: false, defeats: {}, daily: { day: todayStr(), plays: 0, defeats: 0, got: {} },
+    login: { days: 0, lastDay: '', claimed: 0 }, weekly: { week: weekStr(), plays: 0, defeats: 0, fcs: 0, got: {} }, clears: {}, mile: {} };
   LD.STARTERS.forEach(function (id) { o.owned[id] = { lv: 1, lb: 0, exp: 0 }; });
   o.fav = LD.STARTERS[0];
   return o;
@@ -2927,9 +3084,12 @@ function mergeChara(a, b) {
     totalPulls: Math.max(a.totalPulls | 0, b.totalPulls | 0),
     battleOn: (typeof b.battleOn === 'boolean') ? b.battleOn : (a.battleOn !== false),
     battleToggled: !!(a.battleToggled || b.battleToggled),
-    defeats: {}, daily: mergeDaily(a.daily, b.daily) };
+    defeats: {}, daily: mergeDaily(a.daily, b.daily),
+    login: mergeLogin(a.login, b.login), weekly: mergeWeekly(a.weekly, b.weekly), clears: {}, mile: {} };
   [a, b].forEach(function (s) {
     Object.keys(s.defeats || {}).forEach(function (k) { o.defeats[k] = 1; });
+    Object.keys(s.clears || {}).forEach(function (k) { o.clears[k] = 1; });
+    Object.keys(s.mile || {}).forEach(function (k) { o.mile[k] = 1; });
     Object.keys(s.owned || {}).forEach(function (id) {
       var x = s.owned[id] || {};
       var cur = o.owned[id];
@@ -2951,12 +3111,15 @@ function loadChara() {
   if (!s || typeof s !== 'object' || !s.owned || typeof s.owned !== 'object') {
     if (charaCache) return charaCache;
     charaCache = charaDefault();
+    ensureLogin(charaCache);
     storeChara(charaCache);
     return charaCache;
   }
   s.gems = s.gems | 0; s.coins = s.coins | 0; s.mats = s.mats | 0;
   s.ssrPity = s.ssrPity | 0; s.urPity = s.urPity | 0; s.totalPulls = s.totalPulls | 0;
   if (!s.defeats || typeof s.defeats !== 'object') s.defeats = {};
+  if (!s.clears || typeof s.clears !== 'object') s.clears = {};
+  if (!s.mile || typeof s.mile !== 'object') s.mile = {};
   if (typeof s.battleOn !== 'boolean') s.battleOn = true;
   /* v2 移行：キャラバーの見切れで切替ボタンが見えなかった期間に OFF になっていた人を救済する。
      本人が明示的に切り替えた記録（battleToggled）がある場合だけ、その選択を尊重する。
@@ -2966,6 +3129,8 @@ function loadChara() {
     s.v = CHARA_VER;
   }
   ensureDaily(s);
+  ensureLogin(s);
+  ensureWeekly(s);
   if (charaCache) s = mergeChara(s, charaCache);
   charaCache = s;
   charaStoredJson = raw;
@@ -3130,6 +3295,14 @@ function doGachaUi(n) {
   var results = doPulls(n, gachaBanner);
   renderGachaResults(results);
   renderGacha(); renderCharaBar();
+  /* コレクションマイルストーン：所持数が節目に届いたら自動付与 */
+  var cs2 = loadChara();
+  var ms = checkMilestones(cs2);
+  if (ms.gems > 0) {
+    storeChara(cs2);
+    renderGacha(); renderCharaBar();
+    setTimeout(function () { toast('🏆 コレクション達成！ ' + ms.msgs.join(' ／ ')); }, 350);
+  }
   var ur = null;
   results.forEach(function (r) { if (r.char.rar === 'UR' && !ur) ur = r; });
   if (ur) showUrFx(ur.char);
@@ -3177,6 +3350,51 @@ function renderDaily() {
   });
   el.innerHTML = html;
 }
+function renderWeekly() {
+  var el = $('weeklyBox');
+  if (!el) return;
+  var cs = loadChara();
+  var w = ensureWeekly(cs);
+  var html = '<div class="dbTtl">🗓 ウィークリーミッション（月曜リセット）</div>';
+  WEEKLY_MISSIONS.forEach(function (m) {
+    var done = !!w.got[m.id];
+    var prog = Math.min(w[m.kind] || 0, m.need);
+    html += '<div class="dbRow' + (done ? ' done' : '') + '"><span>' + (done ? '✅' : '🎯') + ' ' + m.label + '</span><span class="dbProg">' + prog + '/' + m.need + '</span><span class="dbGem">💎+' + m.gems + '</span></div>';
+  });
+  var ownedCnt = Object.keys(cs.owned || {}).length;
+  html += '<div class="dbTtl" style="margin-top:7px">🏆 コレクション（所持 ' + ownedCnt + ' 体）</div>';
+  MILESTONES.forEach(function (m) {
+    var done = !!(cs.mile && cs.mile[m.n]);
+    html += '<div class="dbRow' + (done ? ' done' : '') + '"><span>' + (done ? '✅' : '🎯') + ' 所持キャラ ' + m.n + ' 体</span><span class="dbProg">' + Math.min(ownedCnt, m.n) + '/' + m.n + '</span><span class="dbGem">💎+' + m.gems + '</span></div>';
+  });
+  el.innerHTML = html;
+}
+/* ログインボーナスの受け取りポップアップ（未受け取りがある時だけ出す） */
+function showLoginModal() {
+  var cs = loadChara();
+  if (!cs) return;
+  var l = ensureLogin(cs);
+  var pending = pendingLoginGems(cs);
+  if (pending <= 0) return;
+  var cyc = ((l.days - 1) % 7) + 1;
+  var dots = '';
+  for (var i = 1; i <= 7; i++) {
+    var cls = i < cyc ? 'got' : (i === cyc ? 'today' : '');
+    dots += '<span class="lbDot ' + cls + '"><small>' + i + '日目</small>💎' + LOGIN_BONUS[i - 1] + '</span>';
+  }
+  $('loginBody').innerHTML = '<p class="note" style="text-align:center">累計ログイン <b>' + l.days + '</b> 日目（7日サイクルの ' + cyc + ' 日目）</p><div class="lbDots">' + dots + '</div><div class="lbAmt">💎 +' + pending.toLocaleString() + '</div>';
+  $('loginModal').classList.remove('hidden');
+}
+function checkLoginBonus() {
+  if (!LD) return 0;
+  var cs = loadChara();
+  if (!cs) return 0;
+  ensureLogin(cs);
+  storeChara(cs);
+  var pending = pendingLoginGems(cs);
+  if (pending > 0) showLoginModal();
+  return pending;
+}
 /* キャラ詳細の顔タップで全画面表示（イラスト持ちは原画、無しは大きなポートレート） */
 function openArtViewer(c) {
   if (!c) return;
@@ -3195,6 +3413,7 @@ function openArtViewer(c) {
 function renderCharaGrid() {
   var cs = loadChara();
   renderDaily();
+  renderWeekly();
   $('charaCurBox').textContent = '💎 ' + cs.gems.toLocaleString() + '　🪙 ' + cs.coins.toLocaleString() + '　🔷 ' + cs.mats.toLocaleString();
   var sorted = LD.CHARS.slice().sort(function (a, b) { return (RAR_ORDER[b.rar] - RAR_ORDER[a.rar]) || (a.id < b.id ? -1 : 1); });
   var html = '';
@@ -3636,9 +3855,14 @@ function charaOnFinish(res) {
   }
   var firstDefeat = defeated && !cs.defeats[key];
   if (defeated) cs.defeats[key] = 1;
+  /* 初クリア報酬：曲×難易度ごとの初クリアで1回だけ（初撃破の記録とは別管理） */
+  if (!cs.clears || typeof cs.clears !== 'object') cs.clears = {};
+  var firstClear = !!res.clear && !cs.clears[key];
+  if (firstClear) cs.clears[key] = 1;
   var rankGem = res.clear ? (RANK_GEM[res.rank] || 0) : 0;
   var totalJudged = counts.good + counts.ok + counts.bad;
-  var fcGem = (res.clear && counts.bad === 0 && totalJudged > 0) ? FC_GEM : 0;
+  var isFc = !!res.clear && counts.bad === 0 && totalJudged > 0;
+  var fcGem = isFc ? FC_GEM : 0;
   /* デイリーミッション：演奏回数と撃破を数え、達成したものを1日1回だけ付与 */
   var daily = ensureDaily(cs);
   daily.plays++;
@@ -3647,7 +3871,16 @@ function charaOnFinish(res) {
   DAILY_MISSIONS.forEach(function (m) {
     if (!daily.got[m.id] && (daily[m.kind] || 0) >= m.need) { daily.got[m.id] = 1; dailyGems += m.gems; dailyMsgs.push(m.label + ' 💎+' + m.gems); }
   });
-  var gems = (res.clear ? CLEAR_GEM[selDiff] : 0) + Math.round(DEFEAT_GEM[selDiff] * ratio) + (firstDefeat ? FIRST_DEFEAT_GEM : 0) + rankGem + fcGem + dailyGems;
+  /* ウィークリーミッション：演奏・撃破・フルコンボを数え、達成したものを週1回だけ付与 */
+  var weekly = ensureWeekly(cs);
+  weekly.plays++;
+  if (defeated) weekly.defeats++;
+  if (isFc) weekly.fcs++;
+  var weeklyGems = 0, weeklyMsgs = [];
+  WEEKLY_MISSIONS.forEach(function (m) {
+    if (!weekly.got[m.id] && (weekly[m.kind] || 0) >= m.need) { weekly.got[m.id] = 1; weeklyGems += m.gems; weeklyMsgs.push(m.label + ' 💎+' + m.gems); }
+  });
+  var gems = (res.clear ? CLEAR_GEM[selDiff] : 0) + Math.round(DEFEAT_GEM[selDiff] * ratio) + (firstDefeat ? FIRST_DEFEAT_GEM : 0) + (firstClear ? FIRST_CLEAR_GEM : 0) + rankGem + fcGem + dailyGems + weeklyGems;
   var coins = 120 + Math.floor(score / 500) + (defeated ? 150 : 0);
   var mats = (res.clear ? 3 : 1) + (defeated ? 3 : 0);
   cs.gems += gems; cs.coins += coins; cs.mats += mats;
@@ -3662,12 +3895,14 @@ function charaOnFinish(res) {
   if (fav && cs.owned[fav.id]) { lvUps = tryLevelUps(fav.id); cs = loadChara(); }
   renderCharaBar();
   var bonusMsgs = [];
+  if (firstClear) bonusMsgs.push('初クリア 💎+' + FIRST_CLEAR_GEM);
   if (rankGem) bonusMsgs.push('ランク' + res.rank + ' 💎+' + rankGem);
   if (fcGem) bonusMsgs.push('フルコンボ 💎+' + fcGem);
   charaRewardHtml = '<div class="rwLine">💎+' + gems + '　🪙+' + coins + '　🔷+' + mats
     + (battle ? (defeated ? '<br><span class="defeat">⚔ ' + foeName + ' を撃破！</span>' + (firstDefeat ? '（初撃破ボーナス 💎+' + FIRST_DEFEAT_GEM + '）' : '') : '<br>敵への与ダメージ ' + Math.round(ratio * 100) + '%') : '')
     + (bonusMsgs.length ? '<br>🏆 ' + bonusMsgs.join(' ・ ') : '')
     + (dailyMsgs.length ? '<br>📅 デイリー達成：' + dailyMsgs.join(' ／ ') : '<br>📅 デイリー：演奏 ' + Math.min(daily.plays, 3) + '/3曲' + (daily.defeats ? ' ・ 撃破 ' + daily.defeats + '体' : ''))
+    + (weeklyMsgs.length ? '<br>🗓 ウィークリー達成：' + weeklyMsgs.join(' ／ ') : '')
     + (exp ? '<br>' + favName + ' EXP +' + exp : '')
     + (lvUps ? '<br>🎉 ' + favName + ' が Lv' + cs.owned[fav.id].lv + ' にアップ！' : '')
     + '</div>';
@@ -3760,6 +3995,23 @@ function stopPreview() {
   if (!LD) return;
   loadChara();
   renderCharaBar();
+  /* 起動時：コレクションマイルストーンの遡及付与（既存プレイヤー分） */
+  var ics = loadChara();
+  var ims = checkMilestones(ics);
+  if (ims.gems > 0) {
+    storeChara(ics);
+    renderCharaBar();
+    setTimeout(function () { toast('🏆 コレクション達成ボーナス 💎+' + ims.gems); }, 900);
+  }
+  /* 起動時：ログインボーナス（未受け取りがあればポップアップ） */
+  checkLoginBonus();
+  $('loginClaimBtn').addEventListener('click', function () {
+    var got = claimLoginBonus();
+    $('loginModal').classList.add('hidden');
+    if (got > 0) toast('🎁 ログインボーナス 💎+' + got.toLocaleString());
+  });
+  $('loginClose').addEventListener('click', function () { $('loginModal').classList.add('hidden'); });
+  $('loginModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
   $('favChip').addEventListener('click', function () { ensureAudio(); openChara(); });
   $('gachaBtn').addEventListener('click', function () { ensureAudio(); openGacha(); });
   $('charaBtn').addEventListener('click', function () { ensureAudio(); openChara(); });
@@ -3821,8 +4073,16 @@ window.__taiko = {
     rollRarity: rollRarity, pullOne: pullOne, doPulls: doPulls, grantChar: grantChar,
     foeFor: foeFor, burstSpec: burstSpec, passiveMods: passiveMods, typeMult: typeMult,
     mini: function (c, size) { return window.LD_MINI ? LD_MINI(c, size) : null; },
-    econ: function () { return { CLEAR_GEM: CLEAR_GEM, DEFEAT_GEM: DEFEAT_GEM, FIRST_DEFEAT_GEM: FIRST_DEFEAT_GEM, RANK_GEM: RANK_GEM, FC_GEM: FC_GEM, DAILY_MISSIONS: DAILY_MISSIONS }; },
+    econ: function () { return { CLEAR_GEM: CLEAR_GEM, DEFEAT_GEM: DEFEAT_GEM, FIRST_DEFEAT_GEM: FIRST_DEFEAT_GEM, RANK_GEM: RANK_GEM, FC_GEM: FC_GEM, DAILY_MISSIONS: DAILY_MISSIONS, FIRST_CLEAR_GEM: FIRST_CLEAR_GEM, LOGIN_BONUS: LOGIN_BONUS, WEEKLY_MISSIONS: WEEKLY_MISSIONS, MILESTONES: MILESTONES }; },
     daily: function () { var cs = loadChara(); return cs ? ensureDaily(cs) : null; },
+    login: function () { var cs = loadChara(); return cs ? ensureLogin(cs) : null; },
+    pendingLogin: function () { var cs = loadChara(); return cs ? pendingLoginGems(cs) : 0; },
+    claimLogin: function () { return claimLoginBonus(); },
+    checkLogin: function () { return checkLoginBonus(); },
+    weekly: function () { var cs = loadChara(); return cs ? ensureWeekly(cs) : null; },
+    weekStr: weekStr,
+    clears: function () { var cs = loadChara(); return cs ? (cs.clears || {}) : {}; },
+    milestones: function () { var cs = loadChara(); if (!cs) return null; var r = checkMilestones(cs); if (r.gems > 0) storeChara(cs); return r; },
     battle: function () { return battle; },
     battleFx: function () { return battleFx; },
     battleStart: battleStart, battleOnHit: battleOnHit, battleOnBad: battleOnBad, fireBurst: fireBurst,
