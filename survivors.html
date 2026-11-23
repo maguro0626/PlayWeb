@@ -2178,7 +2178,7 @@ function updateSpawning(dt){
    90〜150秒間隔でランダムに1つ発生。ホスト/ソロのシミュレーション側が決定し、
    協力時は {t:'event'} でゲストにも同じイベントを告知する（実体はスナップショットで同期）。 */
 const EVENT_KINDS = ['gemrain', 'starfall', 'merchant', 'surge', 'fountain', 'gemrush'];
-function trimGems(){ if (gems.length > 420) gems.splice(0, gems.length - 420); }
+function trimGems(){ if (gems.length > 420) { compressGems(); if (gems.length > 420) gems.splice(0, gems.length - 420); } }
 function triggerEvent(kind){
   if (NET.role === 'guest') return null;
   if (S.state !== 'play') return null;
@@ -2397,10 +2397,85 @@ function addParts(x, y, n, color, spd, size){
 }
 function dropGems(x, y, xp){
   let rest = xp;
-  while (rest >= 25) { gems.push({ x: x + rand(-14, 14), y: y + rand(-14, 14), val: 25, vx: 0, vy: 0, ph: rand(0, TAU) }); rest -= 25; }
-  while (rest >= 5) { gems.push({ x: x + rand(-14, 14), y: y + rand(-14, 14), val: 5, vx: 0, vy: 0, ph: rand(0, TAU) }); rest -= 5; }
-  while (rest >= 1) { gems.push({ x: x + rand(-16, 16), y: y + rand(-16, 16), val: 1, vx: 0, vy: 0, ph: rand(0, TAU) }); rest -= 1; }
-  if (gems.length > 420) gems.splice(0, gems.length - 420);
+  while (rest >= 25) { gems.push({ x: x + rand(-14, 14), y: y + rand(-14, 14), val: 25, vx: 0, vy: 0, ph: rand(0, TAU), age: 0 }); rest -= 25; }
+  while (rest >= 5) { gems.push({ x: x + rand(-14, 14), y: y + rand(-14, 14), val: 5, vx: 0, vy: 0, ph: rand(0, TAU), age: 0 }); rest -= 5; }
+  while (rest >= 1) { gems.push({ x: x + rand(-16, 16), y: y + rand(-16, 16), val: 1, vx: 0, vy: 0, ph: rand(0, TAU), age: 0 }); rest -= 1; }
+  if (gems.length > 420) { compressGems(); if (gems.length > 420) gems.splice(0, gems.length - 420); }
+}
+/* ── ジェム圧縮（意見対応 2026-11-22 qa_otaku01） ──
+   大発生の後などに未回収ジェムが地面に大量に残り、画面が数百個のジェムで埋まる問題への対策。
+   地面のジェム数が上限を超えたら、「地面に残り続けているジェム」だけを対象に、
+   近くのジェム同士を合算して既存階梯（1=青／5=緑／25=ピンク）の高額ジェムへまとめる。
+   合算は 25/5/1 への再分解で行うため合計経験値は厳密に不変。落下・生成仕様、敵のドロップ量、
+   磁石の範囲・回収仕様は一切変更しない。
+   圧縮対象の条件（即回収できる状況のジェムを勝手に動かさないため）:
+     ・生成から GEM_LINGER_SEC 秒以上 経過して地面に滞留している
+     ・全プレイヤーの磁石範囲（+余裕 GEM_SAFE_MARGIN）より外にある（吸着中・回収圏内は除外）
+     ・宝箱の全回収フラグ（vac）付きでない、死んでいない
+   協力ゲストはホスト権威（スナップショット同期）なので圧縮しない。 */
+const GEM_COMPRESS_LIMIT = 150;   // 地面ジェムがこの数を超えたら圧縮を試みる
+const GEM_COMPRESS_TARGET = 120;  // 圧縮で目指す上限
+const GEM_MERGE_RADIUS = 110;     // 「近くのジェム」とみなす距離
+const GEM_LINGER_SEC = 3;         // 滞留とみなす経過秒数
+const GEM_SAFE_MARGIN = 30;       // 磁石範囲に足す安全余裕（この内側のジェムは触らない）
+function gemPiecesFor(sum){ // 合計 sum を既存階梯 25/5/1 に分解した額面リスト（合計は厳密に不変）
+  const out = []; let r = sum;
+  while (r >= 25) { out.push(25); r -= 25; }
+  while (r >= 5) { out.push(5); r -= 5; }
+  while (r >= 1) { out.push(1); r -= 1; }
+  return out;
+}
+function gemEligibleForCompress(g){
+  if (!g || g.dead || g.vac) return false;
+  if ((g.age || 0) < GEM_LINGER_SEC) return false;
+  for (const p of alivePlayers()) {
+    const mr = magnetR(p) + GEM_SAFE_MARGIN;
+    if (dist2(g.x, g.y, p.x, p.y) <= mr * mr) return false;
+  }
+  return true;
+}
+function mergeGemGroup(group){ // group を重心1点の高額ジェム群へ置き換える。合計 val は不変。減った個数を返す
+  let sum = 0, cx = 0, cy = 0, maxAge = 0;
+  for (const g of group) { sum += g.val; cx += g.x * g.val; cy += g.y * g.val; if ((g.age || 0) > maxAge) maxAge = g.age || 0; }
+  const pieces = gemPiecesFor(sum);
+  if (pieces.length >= group.length) return 0;
+  cx /= sum; cy /= sum;
+  const dead = new Set(group);
+  gems = gems.filter(g => !dead.has(g));
+  for (const v of pieces) gems.push({ x: cx + rand(-10, 10), y: cy + rand(-10, 10), val: v, vx: 0, vy: 0, ph: rand(0, TAU), age: maxAge });
+  return group.length - pieces.length;
+}
+function compressGems(){
+  if (NET.role === 'guest') return 0;
+  if (gems.length <= GEM_COMPRESS_LIMIT) return 0;
+  let removed = 0, guard = 0;
+  /* 第1段: 近接クラスタごとに合算（最も滞留したジェムを種に、半径内の対象ジェムをまとめる） */
+  while (gems.length > GEM_COMPRESS_TARGET && guard++ < 80) {
+    const elig = gems.filter(gemEligibleForCompress);
+    if (elig.length < 2) break;
+    elig.sort((a, b) => (b.age || 0) - (a.age || 0));
+    const seed = elig[0];
+    const cluster = elig.filter(g => dist2(g.x, g.y, seed.x, seed.y) <= GEM_MERGE_RADIUS * GEM_MERGE_RADIUS);
+    if (cluster.length < 2) break; // 種が孤立 → 第2段（全体合算）へ
+    const n = mergeGemGroup(cluster);
+    if (n <= 0) break;
+    removed += n;
+  }
+  /* 第2段: 散らばって近接合算できない場合も上限以下にするため、滞留の古い順にまとめて合算する
+     （対象条件は第1段と同じ＝滞留＋磁石圏外のみ。位置は合算グループの重心） */
+  guard = 0;
+  while (gems.length > GEM_COMPRESS_TARGET && guard++ < 80) {
+    const elig = gems.filter(gemEligibleForCompress);
+    if (elig.length < 2) break;
+    elig.sort((a, b) => (b.age || 0) - (a.age || 0) || a.val - b.val);
+    const chunk = []; let sum = 0;
+    for (const g of elig) { chunk.push(g); sum += g.val; if (sum >= 25 || chunk.length >= 25) break; }
+    if (chunk.length < 2) break;
+    const n = mergeGemGroup(chunk);
+    if (n <= 0) break;
+    removed += n;
+  }
+  return removed;
 }
 /* ── 宝箱ドロップ（第6弾・運営調整で大幅に抑制） ──
    エリート 8%（ラッキーダイスで +5%/Lv）／中ボス 50%／ボスは確定。
@@ -3407,6 +3482,7 @@ function updateEshots(dt){
 }
 function updateGems(dt){
   for (const g of gems) {
+    g.age = (g.age || 0) + dt; // ジェム圧縮の滞留判定用に滞在時間を積算する
     // 最も近いプレイヤーの磁石に引かれ、そのプレイヤーが拾う（XPはチーム共有）
     let bp = null, bd2 = Infinity, bmr = 0;
     for (const p of alivePlayers()) {
@@ -3435,6 +3511,7 @@ function updateGems(dt){
     }
   }
   gems = gems.filter(g => !g.dead);
+  compressGems(); // 地面に残り続けるジェムだけを合算圧縮（合計経験値は不変・磁石/回収仕様は不変）
   if (performance.now() - lastPickupSnd > 500) pickupCombo = 0;
   for (const pk of pickups) {
     pk.ph += dt * 3;
@@ -7609,7 +7686,12 @@ window.__surv = {
   levelUpSequence, openChest, applyChestChoice,
   TIME_MODES, TIME_MODE_ORDER, timeModeDef, clearTime, renderTimeModes,
   setTimeMode: sec => { if (TIME_MODES[sec]) { meta.timeMode = sec; S.timeMode = sec; saveMeta(); renderTitleMeta(); } },
-  get hudCache(){ return hudCache; }
+  get hudCache(){ return hudCache; },
+  /* ジェム圧縮（意見対応）: 滞留ジェムの合算。合計経験値不変の機械検証用フック */
+  compressGems, GEM_COMPRESS_LIMIT, GEM_COMPRESS_TARGET, GEM_MERGE_RADIUS, GEM_LINGER_SEC, dropGems,
+  addGem: (x, y, val, age) => { const g = { x, y, val, vx: 0, vy: 0, ph: 0, age: age || 0 }; gems.push(g); return g; },
+  clearGems: () => { gems = []; },
+  gemTotal: () => gems.reduce((s, g) => s + g.val, 0)
 };
 
 

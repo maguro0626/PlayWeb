@@ -241,6 +241,38 @@
     if (ok && state.view === 'list') renderList();
     return ok;
   }
+  /* ---------------- ソロ戦績（CPU戦など相手 uid の無い対局） ----------------
+     playweb_records は本来「フレンド相手別の戦績」だが、アカウント画面の
+     「ゲーム別戦績」（account.js の computeMyStats）は playweb_records の
+     全バケットを合算して作られるため、CPU戦の結果を記録する受け皿が無いと
+     ゲーム内成績だけが増えてアカウント戦績に永遠に反映されない。
+     そこで相手を持たない対局は専用バケット '_solo' に記録する。
+     フレンド一覧や相手別表示はフレンド uid のバケットしか読まないため、
+     相手別戦績の見え方は変わらない。集計側（computeMyStats）だけが拾う。 */
+  var SOLO_UID = '_solo';
+  var lastSoloRecord = { key: '', ts: 0 };
+  function recordSoloMatch(outcome, opts) {
+    if (MY_GAME === 'portal') return false;
+    if (outcome !== 'win' && outcome !== 'lose' && outcome !== 'draw' && outcome !== 'coop') return false;
+    var key = MY_GAME + '|solo|' + outcome + '|' + (opts && opts.cleared ? 1 : 0);
+    var now = Date.now();
+    if (lastSoloRecord.key === key && now - lastSoloRecord.ts < 4000) return false;
+    lastSoloRecord = { key: key, ts: now };
+    return recordResult(MY_GAME, SOLO_UID, outcome, opts);
+  }
+  /* 既にゲーム側ローカル成績（例: リバーシの reversi_record_v1）へ蓄積済みの
+     通算を、ソロバケットがまだ無い場合に限り初期値として取り込む移行用。
+     バケットが既にある端末では二重計上になるため何もしない。 */
+  function seedSoloRecord(gameId, totals) {
+    if (!GAMES[gameId] || gameId === 'portal' || !totals) return false;
+    var byGame = records[SOLO_UID] || (records[SOLO_UID] = {});
+    if (byGame[gameId]) return false;
+    var w = totals.win | 0, l = totals.lose | 0, d = totals.draw | 0;
+    if (w + l + d <= 0) return false;
+    byGame[gameId] = { w: w, l: l, d: d, plays: w + l + d, clears: 0, last: Date.now() };
+    saveRecords();
+    return true;
+  }
   /* ゲスト: ホストへ「参加した」ことをフレンド経路で知らせる */
   function trySendMatchJoin() {
     if (!match || match.role !== 'guest' || match.joinSent) return;
@@ -592,6 +624,8 @@
     openRecords: function (gameId) { openRecords(gameId); },
     recordResult: recordResult,
     recordMatch: recordMatch,
+    recordSoloMatch: recordSoloMatch,
+    seedSoloRecord: seedSoloRecord,
     invitedActive: invitedActive,
     clearInvited: clearInvited,
     matchPeers: matchPeers,

@@ -1025,6 +1025,15 @@ function endGame(){
       else if (hd < cd) record.lose++;
       else record.draw++;
       saveRecord();
+      /* アカウント画面の「ゲーム別戦績」にも反映させる。そちらの集計
+         （account.js computeMyStats）は playweb_records が唯一の入力なので、
+         CPU戦の結果も friends.js のソロバケットへ記録する。
+         これが無いとゲーム内成績だけが増え、アカウント戦績は変わらない */
+      if (window.PWFriends && PWFriends.recordSoloMatch){
+        if (hd > cd) PWFriends.recordSoloMatch('win');
+        else if (hd < cd) PWFriends.recordSoloMatch('lose');
+        else PWFriends.recordSoloMatch('draw');
+      }
     }
     scoreText = `黒 ${b} — ${w} 白（あなた ${hd} : CPU ${cd}）`;
     recText = `通算成績（CPU戦）： ${record.win}勝 ${record.lose}敗 ${record.draw}分`;
@@ -1435,6 +1444,32 @@ function teardownOnline(){
 }
 function hostRoom(){
   if (!window.PWMatch){ onlineLoadError(); return; }
+  /* 既に自分がホストのマッチへ接続済みの場合は、その部屋を使い続ける。
+     オンラインモード入場時の tryResumeMatch が前回の waiting 部屋を復元して
+     PW_ROOM_CODE にそのコードを公開していることがあり、招待ピッカーは
+     そのコードで招待を送る。ここで新しい部屋を作り直すと、招待された相手は
+     ホスト不在の旧部屋へ参加してしまい、黒（ホスト）の手番のまま対局が
+     永遠に進まなくなる（2026-11-22 qa_otaku01 報告の再現条件）。
+     進行中（playing）の対局を「部屋を作る」で捨ててしまう事故も防ぐ。 */
+  if (fsMatch && fsMatch.data && fsMatch.data.status !== 'finished' &&
+      fsMatch.data.hostUid && fsMatch.data.hostUid === fsUid()){
+    isHost = true;
+    myColor = BLACK;
+    roomCode = fsMatch.code;
+    window.PW_ROOM_CODE = roomCode;
+    fsRound = fsMatch.data.round || fsRound;
+    if (els.roomCodeText) els.roomCodeText.textContent = roomCode;
+    if (els.onlineCodeWrap) els.onlineCodeWrap.classList.remove('hidden-util');
+    if (fsMatch.data.guestUid){
+      fsGuestSeen = true;
+      onlineActive = true;
+      setOnlineStatus('対局中。あなたは<strong>黒（先手）</strong>です。');
+    } else {
+      setOnlineStatus('相手の参加を待っています… あなたは<strong>黒（先手）</strong>です。フレンドを招待すると、相手が参加した時点で対局が始まります。');
+    }
+    render();
+    return;
+  }
   teardownOnline();
   isHost = true;
   myColor = BLACK;
@@ -1653,6 +1688,10 @@ function init(){
   els.cpuSettings = $('cpuSettings');
 
   loadRecord();
+  /* 過去にゲーム内成績（reversi_record_v1）だけへ蓄積された CPU 戦の通算を、
+     アカウント戦績の集計対象（playweb_records のソロバケット）へ一度だけ
+     取り込む。以後は endGame が対局ごとにソロバケットへ加算する */
+  if (window.PWFriends && PWFriends.seedSoloRecord) PWFriends.seedSoloRecord('reversi', record);
   loadSettings();
   els.difficulty.value = difficulty;
   els.sideSelect.value = human === WHITE ? 'white' : 'black';

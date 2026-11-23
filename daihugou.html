@@ -928,7 +928,12 @@ async function getCPUAction(player) {
     ? 420 + Math.random() * 280
     : 600 + Math.random() * 520 + Math.min(420, options.length * 34);
   await sleep(think);
-  return chooseFromOptions(player, options);
+  /* 候補は「出す瞬間」に再生成する。思考スリープの間に場が変わっていると、
+     生成時点では合法だった手が同ランク等の反則手に化けるため、古い候補を
+     そのまま出すと「CPUだけ同ランクを出せる」事故になる（プレイヤー側は
+     出す瞬間に isValidPlay で検証される）。実行時検証は handlePlayCards 側
+     でも共通で行うが、ここで再生成しておくと不要なパス化も防げる。 */
+  return chooseFromOptions(player, playableOptions(player));
 }
 </script>
 
@@ -1173,6 +1178,16 @@ async function handlePass(player) {
 }
 
 async function handlePlayCards(player, cards) {
+  /* 実行時検証（全プレイヤー共通の最終関門）: カードを場に出す瞬間に、
+     プレイヤーの「出す」ボタンと同じ isValidPlay で必ず検証する。
+     CPUの手は候補生成→思考スリープ→実行の間に場が変わり得るため、
+     無検証で出すと同ランク等の反則手が場に出て「CPUだけ出せる」
+     不公平になる（プレイヤー・オンラインゲストは実行時に検証済み）。
+     出せない手はパスとして処理し、ターンを止めない。 */
+  const playInfo0 = evaluatePlay(cards);
+  if (!playInfo0 || !isValidPlay(playInfo0)) {
+    return handlePass(player);
+  }
   const prevTableCards = game.table.cards;
 
   player.hand = player.hand.filter(c => !cards.includes(c));

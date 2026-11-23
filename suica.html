@@ -372,7 +372,7 @@ const mergeScore = t => (t + 1) * (t + 2) / 2 * 10;  // 進化先tierで得点
 // ---------- 状態 ----------
 let fruits = [];        // {x,y,vx,vy,angle,va,tier,r,scale,scaleV,born,dead,seed}
 let particles = [];     // {x,y,vx,vy,life,maxLife,size,color}
-let popups = [];        // {x,y,vy,life,text,color,size}
+let popups = [];        // {x,y,vy,life,text,color,size,kind} kind: "score"|"combo"|"other"
 let score = 0;
 let best = +(localStorage.getItem(HS_KEY) || 0);
 let dropCount = 0;      // このゲームで落下させた回数（序盤判定用、resetGameで0に戻る）
@@ -791,7 +791,7 @@ function doMerge(a, b){
 
   const pts = mergeScore(nt) + (combo-1)*15;
   addScore(pts, mx, my - nf.r*0.4, nt>=7 ? "#ffd34d" : "#ffffff", nt>=7 ? 25 : 19);
-  if (combo >= 2) addPopup(mx, my - nf.r - 16, combo + " コンボ!", "#ffb340", 17);
+  if (combo >= 2) addPopup(mx, my - nf.r - 16, combo + " コンボ!", "#ffb340", 17, "combo");
   burst(mx, my, 12 + nt*3, FRUITS[nt].c2, 130 + nt*16);
   if (nt >= 6) shake = Math.min(12, shake + nt - 3);
   flashEvo(nt);
@@ -800,12 +800,34 @@ function doMerge(a, b){
 function addScore(pts, x, y, color, size){
   score += pts;
   if (score > best){ best = score; localStorage.setItem(HS_KEY, String(best)); }
-  addPopup(x, y, "+" + pts, color, size);
+  addPopup(x, y, "+" + pts, color, size, "score");
   refreshHUD();
   netOnScore();
 }
-function addPopup(x, y, text, color, size){
-  popups.push({ x, y, vy:-66, life:0.95, maxLife:0.95, text, color, size: size||18 });
+function addPopup(x, y, text, color, size, kind){
+  size = size || 18;
+  kind = kind || "other";
+  // 連続合体でポップアップが重なって読めなくなる対策（表示のみ・スコア計算は不変）:
+  // スコア／コンボは種類ごとに最新だけを残し、古い同種ポップアップは消す。
+  // これで同時に残るのは「最新のスコア加算」と「最新のコンボ数」だけになる。
+  if (kind === "score" || kind === "combo"){
+    popups = popups.filter(p => p.kind !== kind);
+  }
+  // 残っている別種ポップアップと縦位置が近ければ、その真上へずらして重なりを避ける。
+  // 全ポップアップは同じ速度で上昇するので、一度空けた間隔は表示中ずっと保たれる。
+  let ny = y;
+  for (let guard = 0; guard < 8; guard++){
+    let hit = null, need = 0;
+    for (const p of popups){
+      if (Math.abs(p.x - x) >= 150) continue;   // 横に十分離れていれば重ならない
+      const sep = (p.size + size) / 2 + 12;     // 文字の高さ＋余白
+      if (Math.abs(p.y - ny) < sep){ hit = p; need = sep; break; }
+    }
+    if (!hit) break;
+    ny = hit.y - need;
+  }
+  if (ny < size + 6) ny = size + 6;             // 画面上端からはみ出さない下限
+  popups.push({ x, y: ny, vy:-66, life:0.95, maxLife:0.95, text, color, size, kind });
 }
 function burst(x, y, n, color, speed){
   for (let i=0;i<n;i++){

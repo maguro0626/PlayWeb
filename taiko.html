@@ -1404,13 +1404,63 @@ function realJoinedBase64(song) {
   for (var i = 0; i < song.parts; i++) if (typeof arr[i] !== 'string') return null;
   return arr.join('');
 }
+/* ================================================================
+   v132: 実音源のメモリ解放（2026-11-23 実機で iOS Safari の WebContent
+   クラッシュ「問題が繰り返し起きました」が演奏中に発生した件への対応）
+   ----------------------------------------------------------------
+   監査で見つかった保持漏れ:
+   (1) Blob URL は生成するだけで revokeObjectURL が一度も呼ばれず、
+       演奏／プレビューした全曲分の Blob（m4a 実データ）と Audio 要素が
+       realAudio に残り続けていた。
+   (2) 音源パートの base64 文字列（全178パート・合計約6,900万字）が
+       window.PW_AUDIO_PARTS に読み込まれたまま解放されず、曲を
+       切り替えるたびに増え続けていた。
+   方針: 実音源の保持は常時1曲だけ（再生中／プレビュー中／読込中の曲）。
+   他の曲は要素・Blob をその都度破棄し、パート文字列も「直近1曲分」
+   だけ残して他は落とす。必要になったら SW キャッシュから読み直す。
+   ================================================================ */
+function dropSongParts(songId) {
+  if (window.PW_AUDIO_PARTS) { try { delete window.PW_AUDIO_PARTS[songId]; } catch (e) { window.PW_AUDIO_PARTS[songId] = undefined; } }
+}
+function dropOtherSongParts(keepId) {
+  if (!window.PW_AUDIO_PARTS) return;
+  Object.keys(window.PW_AUDIO_PARTS).forEach(function (id) { if (id !== keepId) dropSongParts(id); });
+}
+function releaseRealAudio(songId, dropParts) {
+  var r = realAudio[songId];
+  if (!r) return;
+  delete realAudio[songId];
+  if (r.el) {
+    if (songGateEl === r.el) ungateRealEl(); /* ゲートの見張り対象なら先に畳む */
+    try { r.el.pause(); } catch (e) {}
+    try { r.el.removeAttribute('src'); } catch (e) {}
+    try { r.el.src = ''; r.el.load(); } catch (e) {} /* デコード済みメディアデータを解放させる */
+  }
+  if (r.url) { try { URL.revokeObjectURL(r.url); } catch (e) {} r.url = null; }
+  if (dropParts !== false) dropSongParts(songId);
+}
+function releaseOtherRealAudio(keepId) {
+  Object.keys(realAudio).forEach(function (id) { if (id !== keepId) releaseRealAudio(id); });
+}
+var lastRealSongId = null; /* 直近に読み込んだ実音源曲（保持キャッシュの対象） */
+function releaseAllRealAudio() {
+  /* 保持は常時最大1曲：直近の曲だけは要素・Blob・パート文字列を
+     キャッシュとして残し（同じ曲の再演奏・プレビューを即座にする）、
+     それ以外を解放する。上限は ensureRealAudio が曲切替時に担保する */
+  Object.keys(realAudio).forEach(function (id) { if (id !== lastRealSongId) releaseRealAudio(id, false); });
+}
 function ensureRealAudio(song) {
   if (!song || !song.real) return true;
+  lastRealSongId = song.id;
   var r = realAudio[song.id];
   if (r && r.state === 'ready') return true;
   if (r && r.state === 'loading') return false;
+  /* v132: 新しい曲の読込を始める前に、他の曲のメディアとパート文字列を解放する */
+  releaseOtherRealAudio(song.id);
+  dropOtherSongParts(song.id);
   r = realAudio[song.id] = { state: 'loading', url: null, el: null };
   var done = function (ok, b64) {
+    if (realAudio[song.id] !== r) return; /* v132: 読込中に解放されたエントリの完了通知は捨てる */
     if (ok) buildRealEl(song, r, b64);
     else {
       r.state = 'error';
@@ -1437,8 +1487,8 @@ function ensureRealAudio(song) {
       (function (idx) {
         var sc = document.createElement('script');
         sc.src = 'audio/parts/' + song.id + '.p' + ('0' + idx).slice(-2) + '.js';
-        sc.onload = function () { onPart(true); };
-        sc.onerror = function () { onPart(false); };
+        sc.onload = function () { try { sc.remove(); } catch (e) {} onPart(true); };
+        sc.onerror = function () { try { sc.remove(); } catch (e) {} onPart(false); };
         (document.head || document.body).appendChild(sc);
       })(i);
     }
@@ -1451,14 +1501,21 @@ function buildRealEl(song, r, b64) {
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     var url = URL.createObjectURL(new Blob([bytes], { type: 'audio/mp4' }));
+    /* v132: 生成が終わる前にこの曲のエントリが解放されていたら、作った
+       Blob URL は即座に破棄して登録しない（解放漏れの再発防止） */
+    if (realAudio[song.id] !== r) { try { URL.revokeObjectURL(url); } catch (e) {} return; }
     var el = document.createElement('audio');
     el.src = url;
     el.preload = 'auto';
     el.muted = muted;
     r.url = url; r.el = el;
+    /* v132: パートの base64 文字列は「この曲の分だけ」保持する（同じ曲の
+       再演奏・リスタートを即座にするため）。他の曲の分は ensureRealAudio
+       が曲切替時に落とすので、保持量は常時1曲分に bounded される */
     /* メタデータ（長さ）が確定して初めて ready とする */
     var markReady = function () {
       if (r.state === 'ready') return;
+      if (realAudio[song.id] !== r) return; /* 解放済みエントリの遅延コールバックは無視 */
       r.state = 'ready';
       renderSongList();
       if (pendingStart) { pendingStart = false; startSong(); }
@@ -1504,8 +1561,8 @@ function loadPartScriptDl(song, idx) {
   return new Promise(function (resolve, reject) {
     var sc = document.createElement('script');
     sc.src = 'audio/parts/' + song.id + '.p' + String(idx).padStart(2, '0') + '.js';
-    sc.onload = function () { resolve(); };
-    sc.onerror = function () { reject(new Error('load failed: ' + sc.src)); };
+    sc.onload = function () { try { sc.remove(); } catch (e) {} resolve(); };
+    sc.onerror = function () { try { sc.remove(); } catch (e) {} reject(new Error('load failed: ' + sc.src)); };
     document.head.appendChild(sc);
   });
 }
@@ -1552,6 +1609,10 @@ function startAudioDownload() {
   chain.then(function () {
     dlRunning = false;
     audioDlMarkDone();
+    /* v132: 一括DLで全曲分（約6,900万字）の base64 文字列をメモリに
+       抱えたままにしない。実体は SW キャッシュ（ディスク）にあるので、
+       完了時点で文字列キャッシュは全て落とす（演奏時に読み直す） */
+    window.PW_AUDIO_PARTS = {};
     var m = $('dlModal'); if (m) m.classList.add('hidden');
     toast('🎵 楽曲データのダウンロードが完了しました');
   }).catch(function () {
@@ -1906,6 +1967,74 @@ window.addEventListener('orientationchange', function () {
   setTimeout(function () { unlockStageSize(); fitCanvas(); }, 80);
 });
 
+/* ================================================================
+   v132: キャンバス寸法の自己修復
+   （2026-11-23 実機報告「演奏中にキャンバス内容だけが左上の約半分に
+   縮んで描かれる」への対応。WebContent クラッシュと同セッションの
+   可能性が高く、メモリ逼迫時に iOS Safari が canvas の裏バッファを
+   リセット／縮小する劣化とみられる）
+   ----------------------------------------------------------------
+   実機スクショの縮小率は幅・高さともほぼ正確に 1/2 で、これは
+   「CW/CH（座標系）は正しいのに、裏解像度 cv.width/height が
+   CW*DPR から外れた（＝変換行列が単位行列に戻った）」状態の特徴。
+   cv.width への代入は変換行列をリセットするため、ブラウザ側の
+   バッファ再割当てでも同じ状態になり得る。従来は fitCanvas が
+   resize 等のイベントでしか走らず、draw は CW=0 の時しか呼ばない
+   ため、一度ズレると曲が終わるまで直らなかった。
+   対策: 描画ループから毎フレーム軽く照合し、ズレていれば座標系
+   （CW/CH・判定・時計）には触れず裏解像度と変換だけを復元する。
+   枠との照合はレイアウト負荷を避けて 15 フレームに1回だけ行い、
+   演奏中の扱いは stage_lock の仕様（高さ変動では再計算しない）を
+   守る: 幅 60px 超のズレ、またはピン留めしたはずの高さと rect が
+   60px 超ずれている「ピン破損」時だけ再計測する。
+   ================================================================ */
+var canvasCheckFrame = 0;
+function ensureCanvasSize() {
+  if (!CW || !CH) { fitCanvas(); return; }
+  var dprNow = Math.min(2, window.devicePixelRatio || 1);
+  var bw = Math.round(CW * dprNow), bh = Math.round(CH * dprNow);
+  if (cv.width !== bw || cv.height !== bh || DPR !== dprNow) {
+    DPR = dprNow;
+    cv.width = bw; cv.height = bh;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    gradCache = {}; bgSpriteCache = {};
+    return;
+  }
+  if (ctx.getTransform) {
+    try {
+      var tm = ctx.getTransform();
+      if (Math.abs(tm.a - DPR) > 0.01 || Math.abs(tm.d - DPR) > 0.01) ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    } catch (e) {}
+  }
+  if ((++canvasCheckFrame % 15) !== 0) return;
+  var sw = $('stageWrap');
+  if (!sw) return;
+  var r = sw.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  if (!wrapEl.classList.contains('ingame')) {
+    if (Math.abs(r.width - CW) > 2 || Math.abs(r.height - CH) > 2) fitCanvas();
+    return;
+  }
+  if (!stagePinned) { fitCanvas(); return; }
+  if (Math.abs(r.width - CW) > 60) { fitCanvas(); return; }
+  var pinnedH = parseFloat(sw.style.height) || 0;
+  if (pinnedH && Math.abs(r.height - pinnedH) > 60) { unlockStageSize(); fitCanvas(); }
+}
+/* 演奏開始直後（カウントダウン中）に寸法を取り直す: 開始タップの瞬間は
+   Safari のツールバー出入り等でレイアウトが遷移中のことがあり、その一瞬の
+   rect で測ると縮んだ寸法がピン留めされてしまう。遷移が落ち着く頃に
+   8px 超のズレがあれば測り直す。ノーツ位置は時刻基準で毎フレーム算出
+   されるため、カウントダウン中の再計測は判定・同期に影響しない */
+function recheckStartSize() {
+  if (!playing || !wrapEl.classList.contains('ingame')) return;
+  if (songTime > 1) return; /* カウントダウン（実音源/シンセとも約3.2秒）の範囲だけ */
+  var sw = $('stageWrap');
+  if (!sw) return;
+  var r = sw.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  if (Math.abs(r.width - CW) > 8 || Math.abs(r.height - CH) > 8) { unlockStageSize(); fitCanvas(); }
+}
+
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
 var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'], lovezaru: ['#ff5d8f', '#6d1030'], obari: ['#ff7ab8', '#7a1040'] };
 /* ジャケットアート：曲ごとのモチーフを Canvas で手続き生成する（dataURL化して使い回す。
@@ -2059,6 +2188,10 @@ function pwDragScroll(el, axis) {
   }, { passive: false });
   var drag = null;
   el.addEventListener('pointerdown', function (e) {
+    /* v132: 新しい押下が来たら前回ドラッグのクリック抑止は解除する。
+       抑止は「そのドラッグ自身に続く click」だけが対象で、ドラッグ直後に
+       行われた別ジェスチャの正規タップまで巻き込んではならない */
+    el.__pwSuppressClickAt = 0;
     if (e.pointerType === 'touch' || e.button) return;
     drag = { pos: horizontal ? e.clientX : e.clientY, scroll: horizontal ? el.scrollLeft : el.scrollTop, moved: 0 };
   });
@@ -2069,16 +2202,61 @@ function pwDragScroll(el, axis) {
     if (drag.moved) { if (horizontal) el.scrollLeft = drag.scroll - delta; else el.scrollTop = drag.scroll - delta; }
   });
   window.addEventListener('pointerup', function () {
-    if (drag && drag.moved > 6) el.__pwDraggedAt = Date.now();
+    if (drag && drag.moved > 6) { el.__pwDraggedAt = Date.now(); el.__pwSuppressClickAt = Date.now(); }
     drag = null;
   });
   el.addEventListener('click', function (e) {
-    if (el.__pwDraggedAt && Date.now() - el.__pwDraggedAt < 350) { e.preventDefault(); e.stopPropagation(); }
+    /* 抑止は一回限り（消費したら解除）。pointerdown でも解除されるため、
+       ドラッグの click が来なかった場合に次のタップを巻き込まない */
+    if (el.__pwSuppressClickAt && Date.now() - el.__pwSuppressClickAt < 1000) { el.__pwSuppressClickAt = 0; e.preventDefault(); e.stopPropagation(); }
   }, true);
 }
 pwDragScroll($('songList'), 'y');
 pwDragScroll($('genreTabs'), 'x');
 pwDragScroll($('diffSeg'), 'x'); /* v120 追加4: 難易度スライドもドラッグ対応＋クリック誤発防止 */
+
+/* ================================================================
+   v132: 難易度ピルのタップ取りこぼし対策
+   （2026-11-22 otaku01 報告「かんたんを選んでもふつうで始まることがある」）
+   ----------------------------------------------------------------
+   根本原因: #diffSeg は横スライド（ドラッグスクロール）可能な行で、
+   難易度選択はピルの click イベント一本頼みだった。タップの瞬間に
+   ポインタが 6px 超滑ると pwDragScroll が「ドラッグ後のクリック」と
+   みなして直後の click を capture 段階で抑止し、加えてスクロールで
+   ピル自体が指の下からずれて click の対象からも外れるため、setDiff が
+   一度も呼ばれず selDiff が既定値 'normal'（ふつう）のまま残る。
+   滑った時だけ壊れる間欠性と一致し、既定曲「まつり太鼓」は曲タイルを
+   踏まずに始められるため症状がこの曲で目立った。
+   対策: pointerdown で押したピルを記録し、pointerup 時点の移動量が
+   タップ範囲（24px 以内）なら click を待たずその場で選択を確定する。
+   本物のスライド（24px 超）は従来どおり選択しない。確定済みタップに
+   続く click は二重適用しない（キーボード／プログラムからの click は
+   pointerdown を経ないため、従来の click ハンドラがそのまま効く）。
+   ================================================================ */
+var diffTapPending = null; /* {d, x, y} pointerdown 中の難易度ピル候補 */
+var diffTapCommitted = null; /* {d, t} pointerup で確定済みのタップ */
+(function initDiffTapCommit() {
+  var seg = $('diffSeg');
+  if (!seg) return;
+  function pillDiff(e) {
+    var t = e && e.target;
+    var b = t && t.closest ? t.closest('button[data-d]') : null;
+    return b && b.dataset && b.dataset.d ? b.dataset.d : null;
+  }
+  seg.addEventListener('pointerdown', function (e) {
+    var d = pillDiff(e);
+    diffTapPending = d ? { d: d, x: e.clientX || 0, y: e.clientY || 0 } : null;
+  });
+  seg.addEventListener('pointerup', function (e) {
+    var p = diffTapPending; diffTapPending = null;
+    if (!p) return;
+    var dx = (e.clientX || 0) - p.x, dy = (e.clientY || 0) - p.y;
+    if (dx * dx + dy * dy > 24 * 24) return; /* スライド操作では選択しない */
+    diffTapCommitted = { d: p.d, t: Date.now() };
+    ensureAudio(); setDiff(p.d); blip();
+  });
+  seg.addEventListener('pointercancel', function () { diffTapPending = null; });
+})();
 
 /* ================================================================
    v120: 譜面エディタ／カスタム譜面／公式譜面の承認置き換え
@@ -2088,7 +2266,8 @@ pwDragScroll($('diffSeg'), 'x'); /* v120 追加4: 難易度スライドもドラ
      （素キーなので account.js の既存同期にそのまま乗る）
    - 公式の置き換え: Firestore official_charts/{songId__diff} を
      PWAccount.fetchOfficialCharts() で取得し、taiko_official_cache_v1 に
-     キャッシュ。取得できない時はキャッシュ、それも無ければ自動生成。
+     キャッシュ。取得できない時はキャッシュ、それも無ければ内蔵の
+     承認譜面（BUILTIN_OFFICIAL）、最後に自動生成。
    - 演奏時の解決順: テストプレイ > （ソロ＆カスタム選択時）カスタム >
      承認譜面 > 自動生成。対戦は常に公式側（承認譜面 or 生成）。
    - エディタの入口はユーザー名 unko のログイン時のみ表示する。
@@ -2097,6 +2276,14 @@ var CUSTOM_CHARTS_KEY = 'taiko_custom_charts_v1';
 var OFFICIAL_CACHE_KEY = 'taiko_official_cache_v1';
 var chartSrcSel = {}; /* {songId__diff: 'official'|'custom'} 画面上の選択（保存しない） */
 var officialMap = null; /* {key: {notes, fromName, approvedAt}} / null=未取得 */
+/* 内蔵の承認譜面（フォールバック）: 承認済みだが Firestore の
+   official_charts へ未登録の譜面を、公式スロットの最下層として同梱する。
+   officialEntry() が Firestore／キャッシュ側に同 song/diff のエントリを
+   見つけた場合はそちらが優先され、内蔵データは使われない。
+   - lovezaru__oni: 作者 unko（書き出し JSON をそのまま採用、679ノーツ） */
+var BUILTIN_OFFICIAL = {
+  'lovezaru__oni': { fromName: 'unko', builtin: true, notes: [[3,"katsu"],[4,"katsu"],[5,"katsu"],[9,"katsu"],[11,"katsu"],[13,"katsu"],[14,"katsu"],[15,"katsu"],[19,"katsu"],[21,"katsu"],[25,"katsu"],[27,"katsu"],[31,"katsu"],[33,"katsu"],[35,"don"],[37,"don"],[39,"don"],[42,"katsu"],[45,"don"],[46,"don"],[47,"katsu"],[49,"don"],[50,"don"],[51,"katsu"],[54,"katsu"],[55,"katsu"],[56,"katsu"],[58,"katsu"],[60,"don"],[63,"katsu"],[66,"katsu"],[68,"katsu"],[70,"don"],[72,"don"],[74,"katsu"],[76,"don"],[78,"katsu"],[79,"don"],[80,"katsu"],[82,"katsu"],[84,"katsu"],[86,"katsu"],[88,"don"],[90,"don"],[92,"don"],[94,"katsu"],[96,"katsu"],[98,"katsu"],[100,"don"],[102,"don"],[104,"don"],[106,"don"],[108,"don"],[110,"don"],[111,"don"],[112,"don"],[116,"don"],[118,"don"],[120,"don"],[122,"katsu"],[123,"katsu"],[124,"katsu"],[128,"katsu"],[129,"katsu"],[130,"don"],[131,"don"],[132,"katsu"],[134,"katsu"],[135,"katsu"],[136,"don"],[138,"don"],[140,"katsu"],[142,"don"],[144,"katsu"],[146,"katsu"],[147,"don"],[148,"katsu"],[150,"don"],[152,"don"],[154,"don"],[156,"katsu"],[158,"katsu"],[159,"katsu"],[160,"don"],[162,"don"],[163,"don"],[164,"katsu"],[166,"katsu"],[168,"katsu"],[170,"don"],[172,"katsu"],[173,"katsu"],[174,"don"],[176,"don"],[178,"don"],[179,"don"],[180,"katsu"],[181,"katsu"],[182,"katsu"],[184,"don"],[185,"don"],[186,"katsu"],[187,"katsu"],[188,"don"],[191,"don"],[196,"katsu"],[198,"don"],[200,"katsu"],[202,"don"],[204,"katsu"],[206,"don"],[208,"katsu"],[210,"don"],[211,"don"],[212,"katsu"],[214,"don"],[216,"don"],[218,"don"],[220,"katsu"],[224,"katsu"],[228,"katsu"],[229,"katsu"],[230,"don"],[232,"don"],[233,"don"],[234,"katsu"],[236,"don"],[238,"don"],[240,"katsu"],[241,"katsu"],[242,"don"],[244,"katsu"],[245,"katsu"],[246,"don"],[248,"katsu"],[249,"katsu"],[250,"don"],[252,"don"],[256,"don"],[260,"katsu"],[262,"don"],[264,"katsu"],[266,"don"],[268,"katsu"],[270,"katsu"],[271,"katsu"],[272,"katsu"],[274,"katsu"],[276,"don"],[278,"katsu"],[280,"don"],[281,"don"],[282,"katsu"],[284,"don"],[286,"katsu"],[288,"don"],[290,"katsu"],[292,"don"],[294,"don"],[295,"don"],[296,"don"],[298,"katsu"],[300,"katsu"],[302,"katsu"],[304,"katsu"],[306,"katsu"],[308,"don"],[310,"don"],[314,"katsu"],[315,"katsu"],[316,"katsu"],[320,"katsu"],[324,"don"],[325,"don"],[326,"don"],[330,"katsu"],[332,"katsu"],[334,"don"],[336,"katsu"],[338,"don"],[339,"don"],[340,"don"],[341,"katsu"],[342,"katsu"],[346,"don"],[348,"don"],[350,"katsu"],[352,"katsu"],[353,"katsu"],[354,"don"],[355,"don"],[356,"katsu"],[357,"katsu"],[358,"don"],[359,"don"],[360,"katsu"],[361,"katsu"],[362,"don"],[363,"don"],[364,"katsu"],[365,"katsu"],[366,"don"],[367,"don"],[368,"katsu"],[369,"katsu"],[370,"don"],[371,"don"],[372,"katsu"],[373,"katsu"],[374,"don"],[375,"don"],[376,"katsu"],[380,"katsu"],[382,"katsu"],[384,"don"],[388,"don"],[390,"katsu"],[394,"don"],[396,"katsu"],[398,"katsu"],[400,"katsu"],[404,"don"],[406,"don"],[408,"don"],[410,"katsu"],[411,"katsu"],[412,"katsu"],[414,"don"],[415,"don"],[416,"don"],[419,"katsu"],[420,"don"],[422,"katsu"],[424,"katsu"],[426,"katsu"],[428,"don"],[432,"don"],[436,"katsu"],[440,"katsu"],[441,"katsu"],[442,"don"],[446,"katsu"],[447,"katsu"],[448,"don"],[452,"don"],[454,"katsu"],[456,"katsu"],[458,"katsu"],[460,"don"],[463,"katsu"],[464,"katsu"],[465,"katsu"],[468,"don"],[470,"katsu"],[474,"don"],[475,"don"],[476,"don"],[480,"don"],[482,"katsu"],[484,"don"],[486,"don"],[488,"don"],[490,"don"],[492,"don"],[494,"don"],[495,"katsu"],[496,"katsu"],[500,"don"],[504,"don"],[506,"katsu"],[508,"katsu"],[510,"katsu"],[511,"katsu"],[512,"katsu"],[514,"don"],[516,"katsu"],[518,"don"],[520,"katsu"],[522,"don"],[523,"katsu"],[524,"don"],[526,"katsu"],[528,"katsu"],[530,"don"],[532,"katsu"],[534,"don"],[536,"don"],[538,"don"],[539,"don"],[540,"don"],[544,"don"],[546,"don"],[548,"don"],[550,"don"],[551,"don"],[552,"katsu"],[554,"katsu"],[556,"katsu"],[558,"don"],[559,"don"],[560,"katsu"],[562,"don"],[564,"don"],[566,"don"],[568,"katsu"],[570,"katsu"],[571,"katsu"],[572,"don"],[574,"don"],[576,"don"],[580,"don"],[582,"don"],[584,"don"],[586,"don"],[588,"don"],[590,"don"],[592,"katsu"],[594,"katsu"],[596,"don"],[598,"don"],[600,"katsu"],[602,"don"],[604,"katsu"],[606,"katsu"],[608,"katsu"],[610,"katsu"],[611,"katsu"],[612,"katsu"],[614,"katsu"],[616,"katsu"],[618,"katsu"],[620,"don"],[622,"katsu"],[624,"don"],[626,"don"],[628,"katsu"],[630,"don"],[632,"don"],[634,"katsu"],[636,"don"],[638,"don"],[640,"don"],[644,"katsu"],[646,"katsu"],[650,"don"],[652,"don"],[654,"don"],[656,"katsu"],[660,"katsu"],[662,"katsu"],[664,"katsu"],[665,"katsu"],[666,"katsu"],[668,"katsu"],[670,"katsu"],[672,"katsu"],[676,"katsu"],[677,"katsu"],[678,"don"],[682,"katsu"],[684,"don"],[686,"katsu"],[688,"don"],[692,"katsu"],[694,"don"],[697,"katsu"],[698,"don"],[699,"katsu"],[700,"don"],[704,"don"],[706,"don"],[708,"don"],[710,"don"],[712,"katsu"],[714,"don"],[716,"don"],[718,"katsu"],[720,"don"],[722,"don"],[724,"katsu"],[726,"don"],[728,"katsu"],[730,"katsu"],[732,"katsu"],[734,"don"],[736,"don"],[738,"don"],[740,"katsu"],[742,"katsu"],[744,"katsu"],[746,"katsu"],[748,"don"],[750,"don"],[751,"katsu"],[752,"don"],[754,"katsu"],[756,"don"],[758,"katsu"],[759,"katsu"],[760,"katsu"],[762,"don"],[763,"don"],[764,"don"],[768,"don"],[772,"katsu"],[773,"katsu"],[774,"katsu"],[777,"don"],[778,"don"],[780,"katsu"],[782,"don"],[784,"don"],[788,"don"],[790,"don"],[791,"katsu"],[794,"don"],[796,"katsu"],[798,"katsu"],[800,"don"],[803,"don"],[804,"katsu"],[805,"katsu"],[808,"don"],[810,"don"],[812,"katsu"],[814,"don"],[816,"katsu"],[818,"katsu"],[820,"katsu"],[821,"katsu"],[822,"katsu"],[824,"katsu"],[825,"katsu"],[826,"don"],[828,"don"],[830,"don"],[832,"don"],[834,"don"],[837,"don"],[838,"don"],[839,"katsu"],[841,"don"],[842,"don"],[843,"don"],[847,"don"],[851,"don"],[853,"katsu"],[854,"don"],[855,"don"],[857,"katsu"],[859,"don"],[861,"katsu"],[863,"katsu"],[867,"don"],[869,"don"],[871,"katsu"],[875,"don"],[877,"katsu"],[879,"katsu"],[883,"katsu"],[885,"katsu"],[887,"don"],[889,"katsu"],[893,"katsu"],[895,"don"],[896,"don"],[897,"katsu"],[898,"katsu"],[899,"don"],[900,"don"],[901,"katsu"],[902,"katsu"],[903,"don"],[904,"don"],[905,"katsu"],[906,"katsu"],[907,"don"],[911,"katsu"],[915,"katsu"],[916,"katsu"],[917,"don"],[921,"katsu"],[923,"katsu"],[925,"katsu"],[927,"katsu"],[931,"don"],[932,"don"],[933,"katsu"],[937,"don"],[939,"don"],[941,"katsu"],[943,"don"],[945,"katsu"],[947,"katsu"],[949,"don"],[951,"katsu"],[953,"don"],[955,"katsu"],[957,"don"],[959,"katsu"],[963,"katsu"],[965,"katsu"],[966,"katsu"],[967,"katsu"],[969,"katsu"],[971,"don"],[973,"don"],[975,"don"],[977,"katsu"],[979,"don"],[981,"don"],[985,"katsu"],[986,"katsu"],[987,"don"],[989,"katsu"],[990,"katsu"],[991,"don"],[994,"katsu"],[996,"katsu"],[1000,"katsu"],[1002,"don"],[1004,"katsu"],[1006,"don"],[1008,"don"],[1010,"katsu"],[1012,"don"],[1016,"katsu"],[1018,"don"],[1020,"don"],[1022,"don"],[1023,"don"],[1024,"katsu"],[1026,"don"],[1027,"don"],[1028,"katsu"],[1030,"don"],[1031,"don"],[1032,"katsu"],[1034,"katsu"],[1038,"don"],[1042,"don"],[1044,"katsu"],[1048,"don"],[1050,"katsu"],[1054,"don"],[1056,"katsu"],[1058,"katsu"],[1060,"don"],[1064,"katsu"],[1066,"don"],[1070,"don"],[1073,"katsu"],[1074,"katsu"],[1075,"don"],[1077,"katsu"],[1078,"katsu"],[1079,"don"],[1082,"katsu"],[1084,"don"],[1085,"don"],[1086,"don"],[1087,"don"],[1088,"katsu"],[1091,"don"],[1092,"don"],[1093,"don"],[1094,"don"],[1095,"katsu"],[1097,"katsu"],[1098,"katsu"],[1099,"don"],[1100,"don"],[1101,"don"],[1109,"katsu"],[1114,"katsu"],[1117,"katsu"],[1119,"katsu"],[1124,"katsu"],[1126,"katsu"],[1128,"katsu"],[1130,"don"],[1132,"katsu"],[1134,"don"],[1135,"don"],[1136,"don"],[1138,"don"],[1139,"don"],[1140,"don"],[1142,"don"],[1143,"don"],[1144,"don"],[1145,"don"],[1146,"don"],[1147,"don"],[1148,"don"],[1149,"don"],[1150,"don"],[1151,"don"],[1159,"don"],[1160,"don"],[1161,"katsu"],[1163,"don"],[1167,"katsu"],[1171,"katsu"],[1173,"katsu"],[1174,"katsu"],[1175,"don"],[1178,"don"],[1179,"don"],[1180,"katsu"],[1181,"katsu"],[1182,"don"],[1186,"don"],[1188,"don"],[1190,"don"],[1191,"don"],[1192,"don"],[1194,"katsu"],[1196,"katsu"],[1197,"katsu"],[1198,"katsu"],[1202,"don"],[1204,"don"],[1206,"don"],[1208,"katsu"],[1210,"don"],[1212,"katsu"],[1214,"katsu"],[1216,"katsu"],[1218,"katsu"],[1220,"katsu"],[1221,"katsu"],[1222,"don"],[1224,"katsu"],[1226,"katsu"],[1228,"katsu"],[1230,"don"],[1234,"don"],[1235,"don"],[1236,"don"],[1238,"katsu"],[1240,"katsu"],[1242,"katsu"],[1244,"don"],[1246,"don"],[1250,"don"],[1252,"don"],[1254,"katsu"],[1256,"katsu"],[1258,"katsu"],[1260,"katsu"],[1261,"don"],[1262,"don"],[1266,"katsu"],[1268,"katsu"],[1270,"katsu"],[1271,"katsu"],[1273,"don"],[1275,"don"],[1277,"don"],[1279,"katsu"],[1281,"katsu"],[1283,"katsu"],[1285,"katsu"],[1287,"katsu"],[1288,"katsu"],[1289,"katsu"],[1293,"don"],[1301,"don"],[1302,"don"],[1303,"katsu"],[1304,"katsu"],[1305,"katsu"],[1309,"don"],[1310,"don"],[1311,"don"],[1313,"don"],[1314,"katsu"],[1315,"don"]] }
+};
 var edTestData = null; /* {notes, startPos} テストプレイ中の譜面。リスタートでも差し替わらないよう消費せず、テストセッション中（edSession がある間）は保持し、セッション終了時に edSession と一緒に破棄する。startPos はテストプレイ開始時にエディタで見ていた位置（＝テスト開始地点、秒） */
 var testRestartPos = null; /* テストプレイ専用やり直し（初めから／開始地点から）で次回 startSong にだけ使う開始位置（秒）。playStartPos を決めた時点で消費して null に戻す */
 var testPlayActive = false;
@@ -2120,7 +2307,11 @@ function deleteCustomEntry(songId, diff) {
 }
 function chartSrcFor(songId, diff) { return chartSrcSel[chartKey(songId, diff)] === 'custom' ? 'custom' : 'official'; }
 function setChartSrc(songId, diff, src) { chartSrcSel[chartKey(songId, diff)] = src; }
-function officialEntry(songId, diff) { return officialMap ? (officialMap[chartKey(songId, diff)] || null) : null; }
+function officialEntry(songId, diff) {
+  var k = chartKey(songId, diff);
+  if (officialMap && officialMap[k]) return officialMap[k];
+  return BUILTIN_OFFICIAL[k] || null;
+}
 function stepsFromChart(chartArr) {
   return chartArr.map(function (n) { return [n.step, n.type]; }).sort(function (a, b) { return a[0] - b[0]; });
 }
@@ -2197,7 +2388,11 @@ function renderDiffSeg() {
     return '<button type="button" data-d="' + df + '"' + (cls ? ' class="' + cls.trim() + '"' : '') + '>' + DIFFS[df].label + '<span class="lv">' + lv + '</span></button>';
   }).join('');
   seg.querySelectorAll('button').forEach(function (b) {
-    b.addEventListener('click', function () { ensureAudio(); setDiff(b.dataset.d); blip(); });
+    b.addEventListener('click', function () {
+      /* v132: pointerup で確定済みのタップは二重適用しない */
+      if (diffTapCommitted && diffTapCommitted.d === b.dataset.d && Date.now() - diffTapCommitted.t < 600) { diffTapCommitted = null; return; }
+      ensureAudio(); setDiff(b.dataset.d); blip();
+    });
   });
   var on = seg.querySelector('button.on');
   if (on && seg.scrollWidth > seg.clientWidth) {
@@ -2374,6 +2569,7 @@ function edRender() {
     }
   }
   $('edInfo').textContent = song.title + '（' + DIFFS[ed.diff].label + '） ・ ノーツ ' + ed.notes.length + '音' + (customEntry(ed.songId, ed.diff) ? ' ・ カスタム譜面を編集中' : ' ・ 公式譜面をもとに編集') + (ed.dirty ? ' ・ 未保存の変更あり' : '');
+  edUploadBtnRefresh();
   $('edUndoBtn').disabled = !ed.undo.length;
   $('edRedoBtn').disabled = !ed.redo.length;
   $('edPlayBtn').textContent = edPlay.playing ? '⏸ とめる' : '▶ ここから再生';
@@ -2744,17 +2940,62 @@ function edUpload() {
   $('edUploadBody').textContent = '「' + song.title + '」（' + DIFFS[ed.diff].label + '）の譜面・' + ed.notes.length + '音をアップロードしますか？';
   $('edUploadModal').classList.remove('hidden');
 }
+/* v132: 送信済み表示（アップロードボタンのラベル）の照合キー。
+   送信した譜面の署名と現在の譜面が一致する間だけ「送信済み」を出す */
+var edUploadDoneKey = null;
+function edNotesSig() {
+  if (!ed) return '';
+  var h = 0;
+  for (var i = 0; i < ed.notes.length; i++) { var p = ed.notes[i]; h = ((h * 31) + Math.round((+p[0] || 0) * 10) + (p[1] === 'katsu' ? 1 : 0)) >>> 0; }
+  return ed.songId + '|' + ed.diff + '|' + ed.notes.length + '|' + h;
+}
+function edUploadBtnRefresh() {
+  var b = $('edUploadBtn');
+  if (!b) return;
+  b.textContent = (ed && edUploadDoneKey && edUploadDoneKey === edNotesSig()) ? '📤 送信済み（承認待ち）' : '📤 アップロード（承認を頼む）';
+}
+/* v132: 送信の成否を握り潰さない（2026-11-23「アップロードしたのに
+   承認欄が0件」への対応）。旧実装は「送信する」を押した瞬間にモーダルを
+   閉じ、結果は2.6秒のトーストだけだったため、失敗（firestore/
+   invalid-argument 等）に気付けなかった。新実装は結果が確定するまで
+   モーダルを閉じず、失敗時は理由をモーダル内に残して再送できるように
+   し、成功時はモーダルを閉じて成功トースト＋ボタンの「送信済み」表示で
+   送信済みであることを残す。Promise の予期せぬ reject も catch する */
 function edDoUpload() {
-  if (!ed) return;
+  if (!ed) return Promise.resolve(false);
   edSave();
   var song = edSong();
-  toast('📤 アップロードしています…');
-  PWAccount.submitChartSubmission({
-    songId: ed.songId, diff: ed.diff, songTitle: song.title,
-    notes: ed.notes.map(function (p) { return [+p[0], p[1]]; })
-  }).then(function (r) {
-    toast(r && r.ok ? '📤 アップロードしました！承認されると公式譜面になります' : 'アップロードできませんでした' + (r && r.msg ? '（' + r.msg + '）' : ''));
-  });
+  var yes = $('edUploadYesBtn'), no = $('edUploadNoBtn'), body = $('edUploadBody');
+  if (yes) yes.disabled = true;
+  if (no) no.disabled = true;
+  if (body) body.textContent = '📤 アップロードしています…';
+  var fail = function (msg) {
+    if (body) body.textContent = '⚠ アップロードできませんでした（' + msg + '）。通信環境を確認して、もう一度「送信する」を押してください。\n対象：「' + song.title + '」（' + DIFFS[ed.diff].label + '）・' + ed.notes.length + '音';
+    if (yes) yes.disabled = false;
+    if (no) no.disabled = false;
+    toast('アップロードできませんでした（' + msg + '）');
+    return false;
+  };
+  if (!window.PWAccount || !PWAccount.submitChartSubmission) return Promise.resolve(fail('送信機能が読み込まれていません'));
+  var p;
+  try {
+    p = PWAccount.submitChartSubmission({
+      songId: ed.songId, diff: ed.diff, songTitle: song.title,
+      notes: ed.notes.map(function (p2) { return [+p2[0], p2[1]]; })
+    });
+  } catch (e) { return Promise.resolve(fail('送信処理でエラーが発生しました')); }
+  return Promise.resolve(p).then(function (r) {
+    if (r && r.ok) {
+      edUploadDoneKey = edNotesSig();
+      $('edUploadModal').classList.add('hidden');
+      if (yes) yes.disabled = false;
+      if (no) no.disabled = false;
+      edUploadBtnRefresh();
+      toast('📤 アップロードしました！承認されると公式譜面になります');
+      return true;
+    }
+    return fail((r && r.msg) || '送信できませんでした');
+  }, function () { return fail('送信処理でエラーが発生しました'); });
 }
 var edRevertArmed = false;
 function edRevert() {
@@ -2885,7 +3126,7 @@ $('edPlayBtn').addEventListener('click', function () { if (edPlay.playing) edSto
 $('edTestBtn').addEventListener('click', edTestPlay);
 $('edSaveBtn').addEventListener('click', edSave);
 $('edUploadBtn').addEventListener('click', edUpload);
-$('edUploadYesBtn').addEventListener('click', function () { $('edUploadModal').classList.add('hidden'); edDoUpload(); });
+$('edUploadYesBtn').addEventListener('click', function () { edDoUpload(); }); /* v132: モーダルは送信結果が確定してから閉じる（edDoUpload 側で制御） */
 $('edUploadNoBtn').addEventListener('click', function () { $('edUploadModal').classList.add('hidden'); });
 $('edUploadModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
 $('edRevertBtn').addEventListener('click', edRevert);
@@ -3118,6 +3359,10 @@ function startSong() {
   $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (isPracticePlay() ? ' ・練習' : '') + (isAutoPlay() ? ' ・🤖オート' : '') + (testPlayActive ? ' ・🧪テストプレイ' : '') + (customPlayActive ? ' ・🎨カスタム譜面' : '');
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
+  /* v132: 開始直後の寸法再確認（レイアウト遷移中の一瞬の rect で測って
+     縮んだ寸法が固定されるのを防ぐ。カウントダウン中にだけ効く） */
+  setTimeout(recheckStartSize, 400);
+  setTimeout(recheckStartSize, 1200);
   playStartVoice(); /* 開始ボイス：カウントダウン待機の開始時点で鳴らす（曲本体は待機が終わるまで鳴らない） */
   if (curSong.real) {
     /* 実音源：カウントダウン後に HTMLAudio を再生し、時計は audio.currentTime に切り替える。
@@ -3189,6 +3434,10 @@ function stopSong(toMenu) {
   var ab8 = $('autoBadge'); if (ab8) ab8.classList.add('hidden');
   stopStartVoice(); /* 開始ボイスが鳴っていれば一緒に止める */
   stopRealAudio();
+  /* v132: 選曲へ戻る時は実音源の保持を全て解放する（要素・Blob URL・
+     パート文字列）。リザルトの「もう一度」は stopSong を通らないので、
+     同じ曲の再演奏では読み直しにならない */
+  if (toMenu) releaseAllRealAudio();
   if (schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   wrapEl.classList.remove('playing');
   $('quitBtn').classList.add('hidden');
@@ -3617,6 +3866,7 @@ function draw() {
   var now = performance.now();
   var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
   if (!CW) fitCanvas();
+  ensureCanvasSize(); /* v132: 裏解像度／変換／枠とのズレを自己修復（寸法が合っていれば読み取りのみ） */
   if (paused) {
     songTime = pausedSongTime; /* ポーズ中は譜面時計を凍結する */
   } else if (playing && curSong && curSong.real) {
@@ -5670,7 +5920,10 @@ window.__taiko = {
   startVoice: function () { return { state: startVoiceState, bufReady: !!startVoiceBuf, plays: startVoicePlays }; },
   comboVoice: function () { return { state: comboVoiceState, readyKeys: Object.keys(comboVoiceBuf), plays: comboVoicePlays }; },
   songGate: function () { return { active: !!songGateEl, gen: songGateGen, watching: !!songGateTimer }; },
-  stage: { size: function () { return { CW: CW, CH: CH, pinned: stagePinned }; }, fit: fitCanvas, lock: lockStageSize, unlock: unlockStageSize, stopToMenu: function () { stopSong(true); } },
+  stage: { size: function () { return { CW: CW, CH: CH, pinned: stagePinned }; }, fit: fitCanvas, lock: lockStageSize, unlock: unlockStageSize, stopToMenu: function () { stopSong(true); },
+    repair: ensureCanvasSize, recheckStart: recheckStartSize,
+    canvasInfo: function () { return { cvW: cv.width, cvH: cv.height, DPR: DPR }; } },
+  audioMem: function () { return { entries: Object.keys(realAudio), states: Object.keys(realAudio).map(function (id) { return id + ':' + realAudio[id].state; }), partsSongs: window.PW_AUDIO_PARTS ? Object.keys(window.PW_AUDIO_PARTS) : [] }; },
   startPreview: startPreview,
   stopPreview: stopPreview,
   chorusSeg: chorusSeg,
@@ -5691,7 +5944,7 @@ window.__taiko = {
     place: function (step, type) { if (!ed) return; edPushUndo(); ed.notes.push([step, type || ed.tool]); edSortNotes(); edRender(); },
     eraseAt: function (step) { if (!ed) return false; var i = edNoteIdxNear(step); if (i < 0) return false; edPushUndo(); ed.notes.splice(i, 1); edRender(); return true; },
     moveNote: function (from, to) { if (!ed) return false; var i = edNoteIdxNear(from); if (i < 0) return false; edPushUndo(); ed.notes[i][0] = to; edSortNotes(); edRender(); return true; },
-    save: edSave, upload: edUpload, undo: edUndo, redo: edRedo,
+    save: edSave, upload: edUpload, doUpload: edDoUpload, uploadDone: function () { return !!ed && !!edUploadDoneKey && edUploadDoneKey === edNotesSig(); }, undo: edUndo, redo: edRedo,
     testPlay: edTestPlay, playStart: edPlayStart, playStop: edStopPlayback,
     jumpTop: edJumpToTop,
     testData: function () { return edTestData ? { startPos: edTestData.startPos, notes: edTestData.notes.map(function (p) { return [+p[0], p[1]]; }) } : null; },

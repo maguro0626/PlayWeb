@@ -2283,7 +2283,13 @@
       return;
     }
     if (me) {
-      var myStats = myProfile.stats || computeMyStats();
+      /* 自分の戦績表示は、端末の playweb_records からその場で集計した値を
+         正とする。myProfile.stats はクラウド文書由来で、publish（記録時の
+         デバウンス送信）が済むまでは古いままのため、それを優先すると
+         「対局が終わったのにゲーム別戦績が変わらない」状態になる。
+         ローカル集計が空の場合だけ、クラウド値をフォールバックに使う */
+      var myStats = computeMyStats();
+      if (!Object.keys(myStats).length && myProfile.stats) myStats = myProfile.stats;
       var myChar = myProfile.mainChar || readMainChar();
       body.innerHTML =
         '<div class="pwa-prof">' + profileIconHTML(myProfile, 46) +
@@ -2513,7 +2519,7 @@
   /* ---------------- プロフィール表示（v52〜） ---------------- */
   function statsHTML(stats) {
     if (!stats || !Object.keys(stats).length) {
-      return '<div class="pwa-note">まだ戦績がありません。フレンドと対戦・協力すると、ここにゲーム別の成績が表示されます。</div>';
+      return '<div class="pwa-note">まだ戦績がありません。対戦・協力プレイをすると、ここにゲーム別の成績が表示されます。</div>';
     }
     var rows = Object.keys(stats).map(function (g) {
       var s = stats[g] || {};
@@ -2601,10 +2607,13 @@
     if (!view || !profileWrapEl) return;
     profileWrapEl.classList.add('open');
     if (me && uid === me.uid) {
+      /* 自分の戦績はドロワー表示と同じくローカル集計を正とする（同上の理由） */
+      var selfStats = computeMyStats();
+      if (!Object.keys(selfStats).length && myProfile.stats) selfStats = myProfile.stats;
       renderProfileView(view, {
         name: me.username, iconId: myProfile.iconId, iconColor: myProfile.iconColor,
         comment: myProfile.comment, online: true, lastSeen: nowMs(), game: MY_GAME,
-        stats: myProfile.stats || computeMyStats(), mainChar: myProfile.mainChar || readMainChar()
+        stats: selfStats, mainChar: myProfile.mainChar || readMainChar()
       });
       return;
     }
@@ -2891,6 +2900,39 @@
       })();
     });
   }
+  /* ================================================================
+     v132: 譜面 notes の Firestore 形式エンコード
+     （2026-11-23 本人報告「v125 のアプデ後に絶対アップロードしたのに
+     管理者の承認欄が0件」への根本対応）
+     ----------------------------------------------------------------
+     主因: Firestore は「配列の中に配列」を直接格納できず、JS SDK が
+     送信前に firestore/invalid-argument（Nested arrays are not
+     supported）で弾く。太鼓・スターリズムの notes はどちらも
+     [step, type] / [step, lane, type, len?] のペア配列＝配列の配列
+     だったため、本番では承認依頼が1件も書き込まれていなかった
+     （ルール評価に到達する前の SDK 検証で落ちるので、管理者側の
+     pending が常に0件だった。FakeFirebase を使う従来テストは
+     この検証を再現しておらず、フローが通って見えていた）。
+     対策: 送信時に各ノーツを {v: [step, ...]} のオブジェクトに
+     包んで送る（オブジェクトの中の配列は Firestore で合法）。
+     承認側はそのまま official_charts へコピーし、ゲーム側の取得
+     （fetchOfficialCharts）で元のペア配列へ復号する。ルールの
+     hasOnly／型検証は notes が list であることだけを見るため、
+     最新ルールでも v120 時点のルール（game フィールド無し）でも
+     太鼓のペイロード（game を付けない従来8フィールド）は通る。
+     ================================================================ */
+  function encodeChartNotes(notes) {
+    if (!Array.isArray(notes)) return [];
+    return notes.map(function (n) { return Array.isArray(n) ? { v: n.slice() } : n; });
+  }
+  function decodeChartNotes(notes) {
+    if (!Array.isArray(notes)) return [];
+    return notes.map(function (n) {
+      if (Array.isArray(n)) return n; /* 旧形式（ペア配列）が混ざっていてもそのまま使う */
+      if (n && typeof n === 'object' && Array.isArray(n.v)) return n.v.slice();
+      return n;
+    });
+  }
   function submitChartSubmission(data) {
     if (!me) return Promise.resolve({ ok: false, msg: 'ログインが必要です' });
     return whenFb(15000).then(function (ready) {
@@ -2899,7 +2941,7 @@
         songId: String(data.songId || '').slice(0, 40),
         diff: String(data.diff || '').slice(0, 16),
         songTitle: String(data.songTitle || '').slice(0, 60),
-        notes: Array.isArray(data.notes) ? data.notes : [],
+        notes: encodeChartNotes(data.notes),
         fromUid: me.uid,
         fromName: me.username,
         status: 'pending',
@@ -2920,7 +2962,7 @@
         snap.forEach(function (d) {
           var x = d.data() || {};
           map[d.id] = {
-            notes: Array.isArray(x.notes) ? x.notes : [],
+            notes: decodeChartNotes(x.notes),
             fromName: x.fromName || '',
             approvedAt: x.approvedAt || 0
           };
@@ -3192,6 +3234,7 @@
     submitFeedback: submitFeedback,
     /* v120〜 譜面エディタ（太鼓／スターリズム共用）: 承認依頼の送信と公式譜面置き換えの取得 */
     submitChartSubmission: submitChartSubmission,
+    chartNotesCodec: { encode: encodeChartNotes, decode: decodeChartNotes },
     fetchOfficialCharts: fetchOfficialCharts,
     /* テスト用フック */
     _test: {
