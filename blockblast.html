@@ -894,6 +894,13 @@ function restoreState(){
     $('scoreVal').textContent = score.toLocaleString();
     $('overOv').classList.add('hidden');
     lastStateJson = raw;
+    /* 復元した盤面で「空きマスはあるのに、未使用ピースのどれも置けない」場合は
+       そのまま復元すると置けず・ゲームオーバーにもならず詰む。配置可否は
+       afterMove でしか判定しておらず、復元経路には判定が無かった。
+       復元直後に同じ判定を通し、置けないなら通常どおりゲームオーバーにする */
+    if(mode === 'endless' && !tray.some(p => p && !p.used && anyPlacement(board, p.shape))){
+      showGameOver();
+    }
     return true;
   }catch(e){ return false; }
 }

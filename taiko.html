@@ -226,7 +226,7 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 #gaugeLbl{font-size:11px;color:var(--sub);display:flex;justify-content:space-between;font-weight:700}
 #gaugePct{color:var(--gold);font-weight:900;font-size:12px}
 #progWrap{height:5px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
-#progFill{height:100%;width:0%;background:rgba(255,255,255,.45)}
+#progFill{height:100%;width:100%;transform:scaleX(0);transform-origin:0 50%;background:rgba(255,255,255,.45)}
 #vsRow{display:flex;gap:8px}
 .scoreBox{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 10px;text-align:center;font-size:12px;color:var(--sub)}
 .scoreBox b{display:block;font-size:17px;color:var(--txt)}
@@ -1542,7 +1542,12 @@ function buildRealEl(song, r, b64) {
    起動時にデータ版数（AUDIO_REV）と端末の保存済み版数を比べ、新しい音源データが
    ある時だけ Wi-Fi 推奨ポップアップを出す。「わかった」で全曲のパートファイルを
    先読みして Service Worker のランタイムキャッシュに載せ、完了したらそのまま遊べる。
-   「やめる」でポータルへ戻る。更新が不要な場合は何も出さない。
+   「やめる」はポータルへは戻らず、ポップアップを閉じてそのまま遊べる（QA報告
+   2026-11-22 で「やめる」を押すとポータルへ戻ってしまうと指摘があり変更。
+   旧仕様は test_audio_dl_browser.js 側に期待値として残っていたため、そちらも
+   新仕様に合わせてある）。ダウンロード中に閉じた場合は裏で継続し、完了しても
+   ポップアップは再表示しない。未完了のまま閉じた場合は次回起動時に再案内する。
+   更新が不要な場合は何も出さない。
    ★ 新しい曲（実音源）を追加したら AUDIO_REV を必ず上げること。 */
 var AUDIO_REV = 3;
 var AUDIO_DL_KEY = 'taiko_audio_dl_rev';
@@ -1580,6 +1585,7 @@ function loadSongPartsDl(song) {
   });
 }
 var dlRunning = false;
+var dlDismissed = false; /* 「やめる」で閉じた後は、完了/失敗してもポップアップ側を触らない */
 function startAudioDownload() {
   if (dlRunning) return;
   dlRunning = true;
@@ -1614,9 +1620,10 @@ function startAudioDownload() {
        完了時点で文字列キャッシュは全て落とす（演奏時に読み直す） */
     window.PW_AUDIO_PARTS = {};
     var m = $('dlModal'); if (m) m.classList.add('hidden');
-    toast('🎵 楽曲データのダウンロードが完了しました');
+    if (!dlDismissed) toast('🎵 楽曲データのダウンロードが完了しました');
   }).catch(function () {
     dlRunning = false;
+    if (dlDismissed) return; /* 閉じた後に失敗しても、画面へは出さない（次回起動時に再案内） */
     if (msg) msg.innerHTML = '⚠ ダウンロードに失敗しました。通信環境のよい場所でリトライしてください。';
     if (okBtn) { okBtn.textContent = 'リトライ'; okBtn.classList.remove('hidden'); }
     if (cancelBtn) cancelBtn.classList.remove('hidden');
@@ -1628,7 +1635,12 @@ function initAudioDl() {
   var sz = $('dlSize'); if (sz) sz.textContent = audioDlSizeText();
   var okBtn = $('dlOkBtn'), cancelBtn = $('dlCancelBtn');
   if (okBtn) okBtn.addEventListener('click', startAudioDownload);
-  if (cancelBtn) cancelBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
+  if (cancelBtn) cancelBtn.addEventListener('click', function () {
+    /* 「やめる」: ポータルへ戻らず、この画面に留まる。ダウンロード中なら
+       裏で継続させ、完了/失敗のどちらでもポップアップは再表示しない */
+    dlDismissed = true;
+    m.classList.add('hidden');
+  });
   m.classList.remove('hidden');
 }
 /* iOS Safari はタップの瞬間に play() しておかないと後の再生が拒否されるため、
@@ -1959,6 +1971,7 @@ function fitCanvas() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   gradCache = {};
   bgSpriteCache = {};
+  laneSpriteCache = {};
   if (ingameNow) lockStageSize();
 }
 window.addEventListener('resize', fitCanvas);
@@ -1983,10 +1996,12 @@ window.addEventListener('orientationchange', function () {
    ため、一度ズレると曲が終わるまで直らなかった。
    対策: 描画ループから毎フレーム軽く照合し、ズレていれば座標系
    （CW/CH・判定・時計）には触れず裏解像度と変換だけを復元する。
-   枠との照合はレイアウト負荷を避けて 15 フレームに1回だけ行い、
-   演奏中の扱いは stage_lock の仕様（高さ変動では再計算しない）を
-   守る: 幅 60px 超のズレ、またはピン留めしたはずの高さと rect が
-   60px 超ずれている「ピン破損」時だけ再計測する。
+   枠との照合はレイアウト負荷（getBoundingClientRect が HUD の
+   変更を契機に再計算を強いる）を避けて間引く: 選曲中は15フレーム、
+   演奏中は45フレームに1回だけ行い、演奏中の扱いは stage_lock の
+   仕様（高さ変動では再計算しない）を守る: 幅 60px 超のズレ、または
+   ピン留めしたはずの高さと rect が 60px 超ずれている「ピン破損」時
+   だけ再計測する。
    ================================================================ */
 var canvasCheckFrame = 0;
 function ensureCanvasSize() {
@@ -1997,7 +2012,7 @@ function ensureCanvasSize() {
     DPR = dprNow;
     cv.width = bw; cv.height = bh;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    gradCache = {}; bgSpriteCache = {};
+    gradCache = {}; bgSpriteCache = {}; laneSpriteCache = {};
     return;
   }
   if (ctx.getTransform) {
@@ -2006,7 +2021,9 @@ function ensureCanvasSize() {
       if (Math.abs(tm.a - DPR) > 0.01 || Math.abs(tm.d - DPR) > 0.01) ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     } catch (e) {}
   }
-  if ((++canvasCheckFrame % 15) !== 0) return;
+  canvasCheckFrame++;
+  if (canvasCheckFrame < (playing ? 45 : 15)) return;
+  canvasCheckFrame = 0;
   var sw = $('stageWrap');
   if (!sw) return;
   var r = sw.getBoundingClientRect();
@@ -3833,13 +3850,32 @@ $('calibPad').addEventListener('pointerdown', function (e) { e.preventDefault();
 
 /* ---------------- HUD ---------------- */
 var lastHud = {};
+var progFillEl = null;
+/* 進行バーは width の毎フレーム書き換え（レイアウト計算が走る）ではなく
+   transform: scaleX で進める。要否参照もキャッシュする */
+function setProgFrac(frac) {
+  var pf = progFillEl || (progFillEl = $('progFill'));
+  if (pf) pf.style.transform = 'scaleX(' + clamp(frac, 0, 1) + ')';
+}
+/* コンボ表示の「弾む」演出。従来は void el.offsetWidth で強制リフローを
+   起こして CSS アニメーションを再起動しており、ヒットのたび（＝演奏中
+   ずっと）にレイアウト計算が走ってヒッチの原因になっていた（プロファイルで
+   updateHUD が突出）。Web Animations で同じキーフレーム（cpop と同一）を
+   再生し、リフローを起こさない。WAAPI が使えない環境では従来方式へ */
+function popComboEl(el) {
+  el.classList.remove('pop');
+  if (el.animate) {
+    try { el.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' }); return; } catch (e) {}
+  }
+  void el.offsetWidth; el.classList.add('pop');
+}
 function updateHUD(force) {
   var sc = String(score), cb = combo >= 2 ? combo + ' コンボ' : '', gp = Math.round(gauge) + '%';
   if (force || lastHud.sc !== sc) { $('hudScore').textContent = sc.replace(/\B(?=(\d{3})+(?!\d))/g, ','); lastHud.sc = sc; }
   if (force || lastHud.cb !== cb) {
     var el = $('hudCombo'); el.textContent = cb; lastHud.cb = cb;
     el.classList.toggle('hot', combo >= 50);
-    if (cb) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    if (cb) popComboEl(el);
   }
   if (force || lastHud.gp !== gp) {
     $('gaugeFill').style.width = gauge + '%';
@@ -3879,14 +3915,14 @@ function draw() {
     autoAdvance();
     testPlaySeSweep();
     sweepMiss();
-    $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
+    setProgFrac(songTime / curData.duration);
     if (songTime > curData.duration + 0.9) { finishSong(); }
   } else if (playing && AC) {
     songTime = AC.currentTime - startCtx;
     autoAdvance();
     testPlaySeSweep();
     sweepMiss();
-    $('progFill').style.width = clamp(songTime / curData.duration * 100, 0, 100) + '%';
+    setProgFrac(songTime / curData.duration);
     if (songTime > curData.duration + 0.9) { finishSong(); }
   }
   drumPulse.don = Math.max(0, drumPulse.don - dt * 5);
@@ -3934,6 +3970,116 @@ function getBgSprite(theme) {
   bgSpriteCache[key] = sp;
   return sp;
 }
+/* 角丸パスの context 指定版（roundRect は本画面の ctx 専用のため、焼き込み用） */
+function rrPath(x, px, py, w, h, r) {
+  x.beginPath();
+  x.moveTo(px + r, py);
+  x.arcTo(px + w, py, px + w, py + h, r);
+  x.arcTo(px + w, py + h, px, py + h, r);
+  x.arcTo(px, py + h, px, py, r);
+  x.arcTo(px, py, px + w, py, r);
+  x.closePath();
+}
+/* レーン帯の静的部分（影・地・枠・鋲・溝・判定ライン）。毎フレームの
+   ベクタ再描画はパス数が多くソフト描画で重いため、(CW, CH, laneY, laneH)
+   キーでオフスクリーンへ焼いて使い回す。動くのは流れる光沢とサビ重ねだけ
+   ライブ描画する（drawScene 側） */
+function drawLaneBandStatic(x, W, laneY, laneH, judgeX) {
+  /* 影 */
+  x.fillStyle = 'rgba(0,0,0,.5)';
+  rrPath(x, 4, laneY - laneH / 2 + 8, W - 8, laneH, 16); x.fill();
+  /* 地（金属＋革のグラデーション） */
+  var gr = x.createLinearGradient(0, laneY - laneH / 2, 0, laneY + laneH / 2);
+  gr.addColorStop(0, '#463d63'); gr.addColorStop(0.16, '#322b4a'); gr.addColorStop(0.52, '#221c36'); gr.addColorStop(0.86, '#191329'); gr.addColorStop(1, '#100c1e');
+  x.fillStyle = gr;
+  rrPath(x, 4, laneY - laneH / 2, W - 8, laneH, 16); x.fill();
+  /* 外枠（二重） */
+  x.strokeStyle = 'rgba(255,220,150,.6)'; x.lineWidth = 2;
+  rrPath(x, 4, laneY - laneH / 2, W - 8, laneH, 16); x.stroke();
+  x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 1;
+  rrPath(x, 5.5, laneY - laneH / 2 + 1.5, W - 11, laneH - 3, 15); x.stroke();
+  /* 上端のハイライト */
+  x.fillStyle = 'rgba(255,255,255,.22)';
+  rrPath(x, 10, laneY - laneH / 2 + 4, W - 20, 3, 2); x.fill();
+  /* 角の鋲 */
+  var rivets = [[13, laneY - laneH / 2 + 9], [W - 13, laneY - laneH / 2 + 9], [13, laneY + laneH / 2 - 9], [W - 13, laneY + laneH / 2 - 9]];
+  for (var ri = 0; ri < rivets.length; ri++) {
+    x.fillStyle = '#0d0a18';
+    x.beginPath(); x.arc(rivets[ri][0], rivets[ri][1], 2.6, 0, 6.29); x.fill();
+    x.strokeStyle = 'rgba(255,220,150,.55)'; x.lineWidth = 1; x.stroke();
+  }
+  /* ノーツの通り道（溝：内側の影と上下の縁） */
+  x.fillStyle = 'rgba(0,0,0,.40)';
+  rrPath(x, 10, laneY - laneH * 0.31, W - 20, laneH * 0.62, laneH * 0.31); x.fill();
+  x.strokeStyle = 'rgba(0,0,0,.6)'; x.lineWidth = 1.2;
+  rrPath(x, 10, laneY - laneH * 0.31, W - 20, laneH * 0.62, laneH * 0.31); x.stroke();
+  x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = 1;
+  rrPath(x, 11, laneY - laneH * 0.31 + 1.5, W - 22, laneH * 0.62 - 3, laneH * 0.31); x.stroke();
+  /* 判定ライン（グロー付き） */
+  x.fillStyle = 'rgba(255,201,60,.16)';
+  x.fillRect(judgeX - 5, laneY - laneH / 2 + 4, 10, laneH - 8);
+  x.fillStyle = 'rgba(255,201,60,.9)';
+  x.fillRect(judgeX - 1.5, laneY - laneH / 2 + 5, 3, laneH - 10);
+  x.beginPath();
+  x.moveTo(judgeX - 6, laneY - laneH / 2 - 1); x.lineTo(judgeX + 6, laneY - laneH / 2 - 1); x.lineTo(judgeX, laneY - laneH / 2 + 8); x.closePath();
+  x.fillStyle = '#ffc93c'; x.fill();
+}
+var laneSpriteCache = {};
+function getLaneSprite(laneY, laneH, judgeX) {
+  var key = CW + 'x' + CH + ':' + laneY.toFixed(1) + ':' + laneH.toFixed(1);
+  if (key in laneSpriteCache) return laneSpriteCache[key];
+  var sp = null;
+  try {
+    var y0 = Math.floor(laneY - laneH / 2) - 2;
+    var y1 = Math.ceil(laneY + laneH / 2 + 8) + 2;
+    var c = document.createElement('canvas');
+    if (c && typeof c.getContext === 'function') {
+      c.width = Math.max(2, Math.round(CW * DPR)); c.height = Math.max(2, Math.round((y1 - y0) * DPR));
+      var x = c.getContext('2d');
+      if (x && typeof x.createLinearGradient === 'function') {
+        x.setTransform(DPR, 0, 0, DPR, 0, -y0 * DPR);
+        drawLaneBandStatic(x, CW, laneY, laneH, judgeX);
+        sp = { c: c, y0: y0, h: y1 - y0 };
+      }
+    }
+  } catch (e) { sp = null; }
+  if (Object.keys(laneSpriteCache).length > 4) laneSpriteCache = {};
+  laneSpriteCache[key] = sp;
+  return sp;
+}
+/* 背景の放射グロー（月・提灯のハロー）は、色 stops をそのまま焼いた円盤
+   スプライトを使い回す（スターリズムの drawGlow と同方式）。毎フレームの
+   createRadialGradient＋全円フィルはソフト描画で重いため */
+var glowSpriteCacheT = {};
+function glowSpriteT(key, stops) {
+  if (key in glowSpriteCacheT) return glowSpriteCacheT[key];
+  var sp = null;
+  try {
+    var S = 128;
+    var c = document.createElement('canvas');
+    if (c && typeof c.getContext === 'function') {
+      c.width = S; c.height = S;
+      var x = c.getContext('2d');
+      if (x && typeof x.createRadialGradient === 'function') {
+        var g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+        for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+        x.fillStyle = g; x.fillRect(0, 0, S, S);
+        sp = c;
+      }
+    }
+  } catch (e) { sp = null; }
+  if (Object.keys(glowSpriteCacheT).length > 8) glowSpriteCacheT = {};
+  glowSpriteCacheT[key] = sp;
+  return sp;
+}
+function drawGlowT(cx, cy, r, r0, key, stops) {
+  var sp = glowSpriteT(key, stops);
+  if (sp) { ctx.drawImage(sp, cx - r, cy - r, r * 2, r * 2); return; }
+  var g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r);
+  for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.29); ctx.fill();
+}
 function drawScene(t, dt) {
   var theme = curSong ? curSong.theme : 'wafu';
   /* 敵の攻撃ギミック：短時間の画面シェイク（シーン全体をずらす） */
@@ -3961,17 +4107,12 @@ function drawScene(t, dt) {
   }
   drawBigDrum(t);
   var lg = laneGeom(), laneY = lg.y, laneH = lg.h, judgeX = lg.judgeX;
-  /* ── ノーツレーン帯（金属＋革の質感で浮かせる） ── */
-  ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,.5)';
-  roundRect(4, laneY - laneH / 2 + 8, CW - 8, laneH, 16); ctx.fill();
-  var lg2 = cachedGrad('lane:' + laneH, function () {
-    var gr = ctx.createLinearGradient(0, laneY - laneH / 2, 0, laneY + laneH / 2);
-    gr.addColorStop(0, '#463d63'); gr.addColorStop(0.16, '#322b4a'); gr.addColorStop(0.52, '#221c36'); gr.addColorStop(0.86, '#191329'); gr.addColorStop(1, '#100c1e');
-    return gr;
-  });
-  ctx.fillStyle = lg2;
-  roundRect(4, laneY - laneH / 2, CW - 8, laneH, 16); ctx.fill();
+  /* ── ノーツレーン帯（金属＋革の質感で浮かせる） ──
+     静的部分はスプライト化済み（drawLaneBandStatic）。ここでは流れる
+     光沢だけを帯にクリップしてライブ描画する */
+  var laneSp = getLaneSprite(laneY, laneH, judgeX);
+  if (laneSp) ctx.drawImage(laneSp.c, 0, laneSp.y0, CW, laneSp.h);
+  else { ctx.save(); drawLaneBandStatic(ctx, CW, laneY, laneH, judgeX); ctx.restore(); }
   /* 流れる光沢（レーン内だけにクリップした細い帯） */
   ctx.save();
   roundRect(4, laneY - laneH / 2, CW - 8, laneH, 16); ctx.clip();
@@ -3980,34 +4121,6 @@ function drawScene(t, dt) {
   shg.addColorStop(0, 'rgba(255,255,255,0)'); shg.addColorStop(0.5, 'rgba(255,255,255,.055)'); shg.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = shg;
   ctx.fillRect(sheenX - 55, laneY - laneH / 2, 110, laneH);
-  ctx.restore();
-  ctx.strokeStyle = 'rgba(255,220,150,.6)'; ctx.lineWidth = 2;
-  roundRect(4, laneY - laneH / 2, CW - 8, laneH, 16); ctx.stroke();
-  ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1;
-  roundRect(5.5, laneY - laneH / 2 + 1.5, CW - 11, laneH - 3, 15); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,.22)';
-  roundRect(10, laneY - laneH / 2 + 4, CW - 20, 3, 2); ctx.fill();
-  /* 角の鋲 */
-  ctx.fillStyle = '#0d0a18';
-  [[13, laneY - laneH / 2 + 9], [CW - 13, laneY - laneH / 2 + 9], [13, laneY + laneH / 2 - 9], [CW - 13, laneY + laneH / 2 - 9]].forEach(function (pt) {
-    ctx.beginPath(); ctx.arc(pt[0], pt[1], 2.6, 0, 6.29); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,220,150,.55)'; ctx.lineWidth = 1; ctx.stroke();
-  });
-  /* ノーツの通り道（溝：内側の影と上下の縁） */
-  ctx.fillStyle = 'rgba(0,0,0,.40)';
-  roundRect(10, laneY - laneH * 0.31, CW - 20, laneH * 0.62, laneH * 0.31); ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1.2;
-  roundRect(10, laneY - laneH * 0.31, CW - 20, laneH * 0.62, laneH * 0.31); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
-  roundRect(11, laneY - laneH * 0.31 + 1.5, CW - 22, laneH * 0.62 - 3, laneH * 0.31); ctx.stroke();
-  /* 判定ライン（グロー付き） */
-  ctx.fillStyle = 'rgba(255,201,60,.16)';
-  ctx.fillRect(judgeX - 5, laneY - laneH / 2 + 4, 10, laneH - 8);
-  ctx.fillStyle = 'rgba(255,201,60,.9)';
-  ctx.fillRect(judgeX - 1.5, laneY - laneH / 2 + 5, 3, laneH - 10);
-  ctx.beginPath();
-  ctx.moveTo(judgeX - 6, laneY - laneH / 2 - 1); ctx.lineTo(judgeX + 6, laneY - laneH / 2 - 1); ctx.lineTo(judgeX, laneY - laneH / 2 + 8); ctx.closePath();
-  ctx.fillStyle = '#ffc93c'; ctx.fill();
   ctx.restore();
   if (chorusMix > 0.01) {
     /* サビ中はレーン内側に暖色のグローを重ね、枠を明るい金にして盛り上がりを示す */
@@ -4034,10 +4147,14 @@ function drawScene(t, dt) {
       drawNote(x, ny, nt);
     }
   }
-  /* ヒットリング */
+  /* ヒットリング。生存フィルタは filter() の新規配列割り当てをやめ、
+     順序を保ったままその場で詰め直す（毎フレームの GC 圧を下げる） */
   var nowMs = performance.now();
-  hitFx = hitFx.filter(function (f) { return nowMs - f.t0 < 380; });
-  hitFx.forEach(function (f) {
+  var hw = 0, fi;
+  for (fi = 0; fi < hitFx.length; fi++) { if (nowMs - hitFx[fi].t0 < 380) hitFx[hw++] = hitFx[fi]; }
+  hitFx.length = hw;
+  for (fi = 0; fi < hitFx.length; fi++) {
+    var f = hitFx[fi];
     var k = (nowMs - f.t0) / 380;
     ctx.save();
     /* 中心の閃光 */
@@ -4056,20 +4173,23 @@ function drawScene(t, dt) {
       ctx.strokeStyle = 'rgba(255,240,200,1)'; ctx.lineWidth = 2 * (1 - k2) + 0.6; ctx.stroke();
     }
     ctx.restore();
-  });
-  /* ヒット時の飛沫（進行方向に伸びる雫）と星屑 */
-  bursts = bursts.filter(function (b) { return nowMs - b.t0 < b.life; });
-  bursts.forEach(function (b) {
+  }
+  /* ヒット時の飛沫（進行方向に伸びる雫）と星屑（その場詰め直し） */
+  var bw = 0, bi;
+  for (bi = 0; bi < bursts.length; bi++) { if (nowMs - bursts[bi].t0 < bursts[bi].life) bursts[bw++] = bursts[bi]; }
+  bursts.length = bw;
+  for (bi = 0; bi < bursts.length; bi++) {
+    var b = bursts[bi];
     var age = (nowMs - b.t0) / 1000, k = (nowMs - b.t0) / b.life;
     var bx = b.x + b.vx * age, by = b.y + b.vy * age + 150 * age * age;
     ctx.save();
     ctx.globalAlpha = 1 - k;
     if (b.star) {
       ctx.strokeStyle = b.col; ctx.lineWidth = 1.7;
-      var sr = b.r * 2.3 * (1 - k * 0.4);
+      var srad = b.r * 2.3 * (1 - k * 0.4);
       ctx.beginPath();
-      ctx.moveTo(bx - sr, by); ctx.lineTo(bx + sr, by);
-      ctx.moveTo(bx, by - sr); ctx.lineTo(bx, by + sr);
+      ctx.moveTo(bx - srad, by); ctx.lineTo(bx + srad, by);
+      ctx.moveTo(bx, by - srad); ctx.lineTo(bx, by + srad);
       ctx.stroke();
     } else {
       ctx.translate(bx, by); ctx.rotate(b.ang || 0);
@@ -4079,11 +4199,15 @@ function drawScene(t, dt) {
       ctx.beginPath(); ctx.ellipse(-b.r * 0.5, -b.r * 0.25, b.r * 0.5, b.r * 0.22, 0, 0, 6.29); ctx.fill();
     }
     ctx.restore();
-  });
-  /* 判定ポップ（バネ感のある拡大→上昇） */
-  popups = popups.filter(function (p) { return now2() - p.t0 < 620; });
-  popups.forEach(function (p) {
-    var k = (now2() - p.t0) / 620;
+  }
+  /* 判定ポップ（バネ感のある拡大→上昇）（その場詰め直し） */
+  var nowP = now2();
+  var pw = 0, pi;
+  for (pi = 0; pi < popups.length; pi++) { if (nowP - popups[pi].t0 < 620) popups[pw++] = popups[pi]; }
+  popups.length = pw;
+  for (pi = 0; pi < popups.length; pi++) {
+    var p = popups[pi];
+    var k = (nowP - p.t0) / 620;
     var pop = k < 0.16 ? (0.5 + (k / 0.16) * 0.62) : 1.12 - (k - 0.16) * 0.14;
     ctx.save();
     ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
@@ -4094,7 +4218,7 @@ function drawScene(t, dt) {
     if (p.res === 'good') { ctx.shadowColor = 'rgba(255,201,60,.9)'; ctx.shadowBlur = 14; }
     ctx.strokeText(p.txt, judgeX, y); ctx.fillStyle = p.col; ctx.fillText(p.txt, judgeX, y);
     ctx.restore();
-  });
+  }
   /* コンボ大表示（レーン下・ゾーン上）：数に応じて炎色が育ち、増えた瞬間に弾む */
   if (playing && combo >= 5) {
     if (combo !== comboShown) { comboShown = combo; comboPopT = nowMs; }
@@ -4144,11 +4268,8 @@ function drawBackdrop(theme, t, dt) {
   if (!particles.length) particles = initParticles(theme);
   var i, p;
   if (theme === 'wafu') {
-    /* 月 */
-    var mg = ctx.createRadialGradient(CW * 0.84, 44, 4, CW * 0.84, 44, 46);
-    mg.addColorStop(0, 'rgba(255,240,200,.95)'); mg.addColorStop(0.35, 'rgba(255,230,170,.55)'); mg.addColorStop(1, 'rgba(255,230,170,0)');
-    ctx.fillStyle = mg;
-    ctx.beginPath(); ctx.arc(CW * 0.84, 44, 46, 0, 6.29); ctx.fill();
+    /* 月（グローは円盤スプライトで描く） */
+    drawGlowT(CW * 0.84, 44, 46, 4, 'moonWafu', [[0, 'rgba(255,240,200,.95)'], [0.35, 'rgba(255,230,170,.55)'], [1, 'rgba(255,230,170,0)']]);
     ctx.fillStyle = '#ffedbe';
     ctx.beginPath(); ctx.arc(CW * 0.84, 44, 17, 0, 6.29); ctx.fill();
     /* 流れる雲 */
@@ -4187,10 +4308,8 @@ function drawBackdrop(theme, t, dt) {
       var lx = CW * (0.12 + i * 0.19), ly = 26 + Math.sin(t * 0.9 + i * 1.7) * 4;
       ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, ly - 14); ctx.stroke();
-      var hg = ctx.createRadialGradient(lx, ly, 2, lx, ly, 30);
-      hg.addColorStop(0, i % 2 ? 'rgba(255,130,95,.5)' : 'rgba(255,200,100,.55)'); hg.addColorStop(1, 'rgba(255,180,90,0)');
-      ctx.fillStyle = hg;
-      ctx.beginPath(); ctx.arc(lx, ly, 30, 0, 6.29); ctx.fill();
+      if (i % 2) drawGlowT(lx, ly, 30, 2, 'lanternOdd', [[0, 'rgba(255,130,95,.5)'], [1, 'rgba(255,180,90,0)']]);
+      else drawGlowT(lx, ly, 30, 2, 'lanternEven', [[0, 'rgba(255,200,100,.55)'], [1, 'rgba(255,180,90,0)']]);
       ctx.fillStyle = i % 2 ? 'rgba(255,120,90,.9)' : 'rgba(255,190,90,.95)';
       ctx.beginPath(); ctx.ellipse(lx, ly, 13, 16, 0, 0, 6.29); ctx.fill();
       ctx.fillStyle = 'rgba(60,20,10,.8)'; ctx.fillRect(lx - 6, ly - 19, 12, 4); ctx.fillRect(lx - 6, ly + 15, 12, 4);
@@ -4203,10 +4322,13 @@ function drawBackdrop(theme, t, dt) {
       ctx.beginPath(); ctx.ellipse(q.x * CW, q.y * CH, 4.5 * q.s, 3 * q.s, q.ph + t * 0.7, 0, 6.29); ctx.fill();
     });
   } else if (theme === 'chip') {
-    /* 地平線のグロー */
-    var cg = ctx.createLinearGradient(0, CH * 0.42, 0, CH * 0.62);
-    cg.addColorStop(0, 'rgba(90,140,255,0)'); cg.addColorStop(0.5, 'rgba(120,170,255,.20)'); cg.addColorStop(1, 'rgba(90,140,255,0)');
-    ctx.fillStyle = cg; ctx.fillRect(0, CH * 0.42, CW, CH * 0.2);
+    /* 地平線のグロー（静止グラデーションなのでキャッシュを使い回す） */
+    var chg = cachedGrad('chipHorizon:' + CH, function () {
+      var gr = ctx.createLinearGradient(0, CH * 0.42, 0, CH * 0.62);
+      gr.addColorStop(0, 'rgba(90,140,255,0)'); gr.addColorStop(0.5, 'rgba(120,170,255,.20)'); gr.addColorStop(1, 'rgba(90,140,255,0)');
+      return gr;
+    });
+    ctx.fillStyle = chg; ctx.fillRect(0, CH * 0.42, CW, CH * 0.2);
     ctx.strokeStyle = 'rgba(110,140,255,.16)'; ctx.lineWidth = 1;
     var off = (t * 30) % 34;
     for (i = -1; i < CW / 34 + 1; i++) { ctx.beginPath(); ctx.moveTo(i * 34 + off, 0); ctx.lineTo(i * 34 + off - 20, CH); ctx.stroke(); }
@@ -4288,10 +4410,7 @@ function drawBackdrop(theme, t, dt) {
       ctx.globalAlpha = 1;
     });
   } else if (theme === 'jazz') { /* 月明かりのクラブと漂う音符 */
-    var jg = ctx.createRadialGradient(CW * 0.8, 46, 4, CW * 0.8, 46, 52);
-    jg.addColorStop(0, 'rgba(210,225,255,.9)'); jg.addColorStop(0.35, 'rgba(170,195,255,.4)'); jg.addColorStop(1, 'rgba(170,195,255,0)');
-    ctx.fillStyle = jg;
-    ctx.beginPath(); ctx.arc(CW * 0.8, 46, 52, 0, 6.29); ctx.fill();
+    drawGlowT(CW * 0.8, 46, 52, 4, 'moonJazz', [[0, 'rgba(210,225,255,.9)'], [0.35, 'rgba(170,195,255,.4)'], [1, 'rgba(170,195,255,0)']]);
     ctx.fillStyle = '#e8efff';
     ctx.beginPath(); ctx.arc(CW * 0.8, 46, 19, 0, 6.29); ctx.fill();
     var jx = CW * 0.3, jsw = Math.sin(t * 0.5) * 0.25;

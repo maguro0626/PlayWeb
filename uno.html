@@ -938,6 +938,9 @@ async function beginTurn(idx){
   if(G.phase!=='playing')return;
   G.currentIdx=idx;
   G.drawnCard=null;
+  /* ターン内ドローガードはターン開始でリセットする（このターンではまだ引いていない） */
+  G.turnDrew=false;
+  if(G.netDrewTurn)delete G.netDrewTurn[idx];
 
   // UNO challenge window closes when that player's turn starts (original rule)
   if(G.unoWin[idx]){G.unoWin[idx].open=false;}
@@ -1169,9 +1172,21 @@ async function afterPlayerPlay(card){
 }
 
 function playerDraw(){
-  if(NET.active&&!NET.host){netSendAct({draw:true});return;}
+  if(NET.active&&!NET.host){
+    /* ゲスト: 1ターン1枚。ホスト側にも同じガードはあるが、状態同期が返る前に
+       連打すると act が2通送れてしまうため、送信側でもターン内は1回だけ送る。
+       ガードは netApplyState で「引いた札が届いた／手番が移った」時に解除される */
+    if(G.drawnCard||NET.drawActSent)return;
+    NET.drawActSent=true;
+    netSendAct({draw:true});
+    return;
+  }
   if(G.phase!=='playing'||G.busy||G.currentIdx!==0)return;
-  if(G.drawnCard)return;
+  if(G.drawnCard||G.turnDrew)return;
+  /* 引いた札が出せない場合、これまでは busy を即解除して nextTurn を520ms後に
+     予約するだけだったため、その隙に2回目のクリックが通り1ターンに2枚引けた。
+     turnDrew を引く前に立て、ターンが beginTurn で始まるまで解除しない */
+  G.turnDrew=true;
   G.busy=true;
 
   const drawn=drawCard();
@@ -1513,7 +1528,7 @@ function renderCenter(){
   updateDrawCount();
   updateActiveDot();
   const dp=document.getElementById('draw-pile-card');
-  if(dp)dp.classList.toggle('can-draw',G.currentIdx===0&&G.phase==='playing'&&!G.busy&&!G.drawnCard);
+  if(dp)dp.classList.toggle('can-draw',G.currentIdx===0&&G.phase==='playing'&&!G.busy&&!G.drawnCard&&!G.turnDrew&&!NET.drawActSent);
 }
 
 function cardInnerHTML(card){
@@ -2095,6 +2110,7 @@ function netHostStartMatch(){
     pendingDraw:0,
     online:true,
     netDrawn:{},
+    netDrewTurn:{},
     netActBusy:false,
   };
   NET.inGame=true;
@@ -2239,6 +2255,12 @@ function netDoChallenge(seat,target){
 function netDoDraw(seat){
   const p=G.players[seat];
   if(G.netDrawn[seat]){netSendTo(seat,{t:'error',msg:'すでにカードを引いています'});return;}
+  /* ターン内1枚ガード（ホスト側）: 引いた札が出せず手番が移るまでの間は
+     netDrawn が立たないため、連打された draw act が2枚目を通してしまう。
+     netDrewTurn に席を記録し、beginTurn でその席の番が始まるまで解除しない */
+  if(!G.netDrewTurn)G.netDrewTurn={};
+  if(G.netDrewTurn[seat]){netSendTo(seat,{t:'error',msg:'このターンはすでにカードを引いています'});return;}
+  G.netDrewTurn[seat]=true;
   const drawn=drawCard();
   if(!drawn)return;
   p.hand.push(drawn);
@@ -2603,6 +2625,9 @@ function netApplyState(st){
   if(st.drawnId){
     G.drawnCard=players[0].hand.find(c=>c.id===st.drawnId)||null;
   }
+  /* ゲストのドロー送信ガード解除: 引いた札が届いた（drawnId）か、手番が
+     自分から移ったら、そのターンのドローは完了している */
+  if(st.drawnId||st.current!==you)NET.drawActSent=false;
   if(st.round!==NET.shownRound){
     hideEl('overlay-round');hideEl('overlay-end');
   }

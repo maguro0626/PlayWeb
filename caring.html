@@ -141,6 +141,10 @@ main.col{max-width:480px;margin:0 auto;padding:10px 12px 18px;display:flex;flex-
 .action-btn.feed{border-top:4px solid var(--orange)} .action-btn.play{border-top:4px solid var(--blue)}
 .action-btn.clean{border-top:4px solid var(--green)} .action-btn.med{border-top:4px solid var(--pink)}
 .action-btn.scold{border-top:4px solid var(--purple)} .action-btn.light{border-top:4px solid var(--gold)}
+/* 睡眠中は使えない行動（ごはん・あそぶ）の見た目だけ無効化する。
+   disabled にはしない: 押した時に「ねむっているから起こしてあげよう」の
+   説明メッセージを出すため、クリック自体は受け付ける */
+.action-btn.sleep-blocked{opacity:.45;filter:grayscale(.85)}
 /* log */
 #log-panel{padding:12px 16px}
 #log-panel .log-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
@@ -1581,7 +1585,7 @@ function floatDelta(gaugeId, text, color) {
 // ════════════════════════════════════
 function doFeed() {
   if (!G.isAlive) return;
-  if (G.isSleeping) { showMsg('ねてるよ💤'); SFX.fail(); return; }
+  if (G.isSleeping) { showMsg('ねむっているから起こしてあげよう💤（でんきボタンで起こせるよ）'); SFX.fail(); return; }
   if (G.hunger >= 4) { showMsg(G.stage === 'egg' ? 'たまごは おなかいっぱいだよ🥚' : 'おなかいっぱい！'); SFX.fail(); return; }
   G.hunger = Math.min(4, G.hunger + 1);
   G.weight = Math.min(99, G.weight + 1);
@@ -1596,7 +1600,7 @@ function doFeed() {
 }
 function doPlay() {
   if (!G.isAlive) return;
-  if (G.isSleeping) { showMsg('ねてるよ💤'); SFX.fail(); return; }
+  if (G.isSleeping) { showMsg('ねむっているから起こしてあげよう💤（でんきボタンで起こせるよ）'); SFX.fail(); return; }
   if (G.stage === 'egg') { showMsg('まだたまごだよ🥚（年齢1日で孵化するよ）'); SFX.fail(); return; }
   SFX.click();
   openMinigame();
@@ -1681,7 +1685,7 @@ function setMgLight(cls) {
   el.className = cls || '';
 }
 function openMinigame() {
-  if (G.isSleeping) { showMsg('ねてるよ💤'); return; }
+  if (G.isSleeping) { showMsg('ねむっているから起こしてあげよう💤（でんきボタンで起こせるよ）'); return; }
   mgActor = currentActor || (netMode === 'host' ? hostName : '');
   mgActive = true; mgScore = 0; mgRound = 0; mgLit = false;
   document.getElementById('mg-overlay').classList.remove('hidden');
@@ -2020,6 +2024,15 @@ function updateUI() {
   document.getElementById('status-text').textContent = st;
 
   showCallInd(callActive || (G.isAlive && (G.isSick || G.hunger === 0 || G.happy === 0 || G.poop)));
+  syncSleepButtons();
+}
+/* 睡眠中の可否をボタンの見た目に反映する。睡眠中に実際にブロックされるのは
+   ごはん・あそぶだけ（doFeed/doPlay の isSleeping ガード）なので対象はこの2つ。
+   しかる・おそうじ・おくすり・でんきは睡眠中も従来通り使えるため変えない
+   （ゲーム仕様そのものは変更しない） */
+function syncSleepButtons() {
+  const blocked = !!(G && G.isAlive && G.isSleeping);
+  document.querySelectorAll('.action-btn.feed, .action-btn.play').forEach(b => b.classList.toggle('sleep-blocked', blocked));
 }
 
 // ════════════════════════════════════

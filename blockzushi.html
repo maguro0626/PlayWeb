@@ -1301,13 +1301,29 @@ $('diffSeg').addEventListener('click', e => {
   const b = e.target.closest('button');
   if(!b) return;
   if(mode === 'online' && racePhase !== 'idle'){ showToast('対戦中は難易度を変更できません'); return; }
+  /* プレイ中（ポーズ／ステージクリア含む）は難易度を変えない（QA報告 2026-11-22:
+     従来はハイライトと保存だけが変わり、進行中の残機・速度・配置には一切効かず
+     表示と実態が食い違っていた。オンライン対戦中と同じく弾く） */
+  if(gameState === 'playing' || gameState === 'paused' || gameState === 'stageclear'){
+    showToast('プレイ中は難易度を変更できません'); return;
+  }
   diff = b.dataset.d;
   saveDiffPref();
   document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('on', x === b));
+  syncTitleLives();
 });
+/* タイトル／ゲームオーバー時の残機表示を選択中の難易度に合わせる
+   （QA報告 2026-11-22: むずかしい=残機2 なのに開始前 HUD が ❤️❤️❤️ のままだった。
+   従来は livesLeft の初期値3と静的HTMLが残り、難易度を変えても表示が追随しなかった） */
+function syncTitleLives(){
+  if(gameState !== 'title' && gameState !== 'gameover') return;
+  livesLeft = DIFF[diff].lives;
+  $('livesVl').textContent = '❤️'.repeat(Math.min(livesLeft, 9));
+}
 /* 起動時: 保存済み設定を UI へ同期（変数への読み戻しは宣言部で実施） */
 $('soundBtn').textContent = soundOn ? '🔊 サウンド' : '🔇 サウンド';
 document.querySelectorAll('#diffSeg button').forEach(x => x.classList.toggle('on', x.dataset.d === diff));
+syncTitleLives();
 refreshBest();
 window.addEventListener('focus', () => refreshBest());   /* クラウドマージ後着をタイトル／HUDへ反映 */
 

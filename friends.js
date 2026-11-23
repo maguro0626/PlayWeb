@@ -378,6 +378,34 @@
 
   /* ---------------- Peer / プレゼンス ---------------- */
   function peerOpts() { return window.PW_FRIENDS_PEER_OPTS || PEER_OPTS; }
+  /* unavailable-id（ID 使用中）時の自動再試行。
+     同一タブの再読み込みでは、閉じたはずの自分の前回の登録がブローカー側に
+     しばらく残り、新しい登録が unavailable-id で弾かれることがある。その場合
+     ブローカーが前回分を手放せば（数秒〜数十秒）再登録できるので、間隔を
+     広げながら再試行し、成功したら idTaken を解除してオンラインに復帰する。
+     別タブ・別端末が本当に保持している場合は再試行しても弾かれ続けるだけ
+     （相手の登録は奪えない）で、「使用中」表示のままになるのが正しい。
+     合計で約2分半まで粘り、それ以上は諦める（ページを開き直せば再開する） */
+  var peerRetryTimer = null;
+  var peerRetryCount = 0;
+  var PEER_RETRY_DELAYS = [2000, 4000, 8000, 15000, 30000, 30000, 30000, 30000];
+  function cancelPeerRetry() {
+    if (peerRetryTimer) { clearTimeout(peerRetryTimer); peerRetryTimer = null; }
+    peerRetryCount = 0;
+  }
+  function schedulePeerRetry() {
+    if (peerRetryTimer || state.peerOpen) return;
+    if (peerRetryCount >= PEER_RETRY_DELAYS.length) return;
+    var delay = PEER_RETRY_DELAYS[peerRetryCount];
+    peerRetryCount++;
+    peerRetryTimer = setTimeout(function () {
+      peerRetryTimer = null;
+      if (gateState !== 'member' || state.peerOpen) return;
+      try { if (state.peer) state.peer.destroy(); } catch (e) {}
+      state.peer = null;
+      startPeerWhenReady();
+    }, delay);
+  }
   function startPeer() {
     if (typeof window.Peer === 'undefined') { state.unavailable = true; renderAll(); return; }
     var uid = myUid();
@@ -389,6 +417,7 @@
     var peer = state.peer;
     peer.on('open', function () {
       state.peerOpen = true; state.idTaken = false;
+      cancelPeerRetry();
       friends.forEach(function (f) { connectTo(f.uid); });
       renderAll();
     });
@@ -401,7 +430,12 @@
       wireConn(c, code, 'in');
     });
     peer.on('error', function (err) {
-      if (err && err.type === 'unavailable-id') { state.idTaken = true; renderAll(); }
+      if (err && err.type === 'unavailable-id') {
+        state.idTaken = true; renderAll();
+        /* 自分の前回登録の残りかもしれないので自動再試行する
+           （本当に別タブ・別端末が使っている場合は弾かれ続ける） */
+        schedulePeerRetry();
+      }
       /* peer-unavailable 等は日常的に起きるので握りつぶす */
     });
     peer.on('disconnected', function () { try { peer.reconnect(); } catch (e) {} });
@@ -1143,7 +1177,7 @@
     '.pwf-panel{background:#0d1020;width:min(368px,94vw);height:100%;overflow-y:auto;padding:16px 16px 28px;box-shadow:-16px 0 44px rgba(0,0,0,.5)}',
     /* アカウントドロワー内マウント時: ドロワー自体が半透明パネルなので中身はフラットに */
     '.pwf-indrawer .pwf-panel{width:100%;height:auto;background:transparent;border:none;border-radius:0;box-shadow:none;padding:2px 0 6px;overflow:visible}',
-    '.pwf-head{display:flex;align-items:center;justify-content:space-between;font-size:17px;font-weight:900;letter-spacing:.04em;margin-bottom:12px}',
+    '.pwf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:17px;font-weight:900;letter-spacing:.04em;margin-bottom:12px}',
     '.pwf-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#eef0ff;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;flex:0 0 auto;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}',
     '.pwf-sec{font-size:12px;font-weight:900;letter-spacing:.14em;color:#9aa1c0;margin:16px 0 8px}',
     '.pwf-row{display:flex;gap:8px;align-items:center}',
@@ -1196,7 +1230,10 @@
        説明文（.pwf-note）は折り返し不能な並びでも強制的に折り返す。
        見出しは縮小可能にして ✕ ボタンが押し出されないようにする */
     '.pwf-modal .pwf-note{overflow-wrap:anywhere}',
-    '.pwf-modal .pwf-head>span{min-width:0}',
+    /* 意見対応: 招待ピッカーのタイトル（「👥 フレンドを招待 — まじょねこサバイバーズ」等の
+       長いゲーム名付き）は390px幅で2行に折り返して切れ、✕ボタンに重なって見えた。
+       タイトルは1行省略（ellipsis）で幅に収め、フォントも少し下げて ✕ との間隔を確保する */
+    '.pwf-modal .pwf-head>span{min-width:0;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15.5px}',
     'select.pwf-input{appearance:auto}'
   ].join('\n');
 
@@ -1469,9 +1506,13 @@
   function renderProfile() {
     var note = $('pwfMeNote');
     if (note) {
-      if (state.unavailable) note.textContent = 'オンライン機能を読み込めませんでした（通信環境を確認してください）。フレンド機能は使えませんが、ゲームは遊べます。';
+      /* state.unavailable は PeerJS（直接接続用）の読み込み失敗でしか立たない。
+         フレンド一覧・在席・招待・フレンド申請は Firestore 経由（クラウド）が
+         本線で、そちらが生きていれば実際に使える。その場合は「フレンド機能は
+         使えません」と断定せず、実態に合わせてオンライン表示にする */
+      if (state.unavailable && !cloudActive()) note.textContent = 'オンライン機能を読み込めませんでした（通信環境を確認してください）。フレンド機能は使えませんが、ゲームは遊べます。';
       else if (state.idTaken) note.textContent = 'このアカウントは別のタブ・端末で使用中です。そちらを閉じると、ここがオンラインになります。';
-      else if (!state.peerOpen) note.textContent = '接続中…';
+      else if (!state.peerOpen && !cloudActive()) note.textContent = '接続中…';
       else note.textContent = 'オンラインです。フレンドにはあなたの状態が見えます。';
     }
   }
@@ -1828,8 +1869,9 @@
     if (els.overlay && els.overlay.parentNode) els.overlay.parentNode.removeChild(els.overlay);
     els.overlay = null;
     document.querySelectorAll('.pwf-gamebar').forEach(function (b) { b.remove(); });
+    cancelPeerRetry();
     try { if (state.peer) state.peer.destroy(); } catch (e) {}
-    state.peer = null; state.peerOpen = false; state.conns = {}; state.presence = {};
+    state.peer = null; state.peerOpen = false; state.idTaken = false; state.conns = {}; state.presence = {};
   }
   var hooksNoticeShown = false;
   function initHooksBlockedNotice() {

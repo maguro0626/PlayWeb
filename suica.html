@@ -310,6 +310,8 @@ html,body{overscroll-behavior:none;}
             <button class="btn" id="joinBtn" type="button">参加する</button>
           </div>
           <div id="onlineStatus">オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してね。</div>
+          <button class="btn" id="hostCancelBtn" type="button" style="display:none">✕ 待機をキャンセル（招待を取り下げる）</button>
+          <div id="waitNote" style="display:none; font-size:11.5px; color:var(--sub); line-height:1.6">招待は相手が次にPlayWebを開いた時にも届く仕組みのため、待機の自動タイムアウトはありません。待つのをやめる時はキャンセルを押してください（部屋が閉じられ、招待先の部屋は無くなります）。</div>
         </div>
       </div>
     </div>
@@ -1215,6 +1217,7 @@ function updateRaceBar(){
   else { diffEl.textContent = "同点！"; diffEl.className = "race-diff"; }
 }
 function beginRaceCountdown(startAt){
+  setWaitingUI(false);
   racePhase = "racing";
   raceStartAt = startAt;
   raceEndAt = startAt + RACE_MS;
@@ -1423,8 +1426,29 @@ function setupConn(c){
     }
   });
 }
+/* 待機中だけ出すキャンセル導線とタイムアウトに関する注記の表示切替 */
+function setWaitingUI(on){
+  const b = $("hostCancelBtn"), n = $("waitNote");
+  if (b) b.style.display = on ? "" : "none";
+  if (n) n.style.display = on ? "" : "none";
+}
+/* 待機のキャンセル: 招待を取り下げて部屋を閉じ、待機表示を閉じる。
+   送信済み招待の取り下げは friends.js の公開API clearInvited() で「招待済み」
+   状態を解除する（クラウド招待ドキュメント自体の削除 withdrawInviteFlow /
+   PWAccount.withdrawInviteCloud はドキュメントIDが friends.js 内部に閉じて
+   おりゲーム側からは呼べない）。そのうえで teardownOnline() で PeerJS ルーム
+   自体を破棄するので、相手の画面に残った招待から入っても部屋は存在しない。 */
+function cancelWaiting(){
+  if (window.PWFriends && PWFriends.clearInvited){ try{ PWFriends.clearInvited(); }catch (e){} }
+  teardownOnline();
+  onlineClosing = false;
+  racePhase = "idle";
+  setWaitingUI(false);
+  setOnlineStatus("待機をキャンセルしました（招待を取り下げ、部屋を閉じました）。オンラインはフレンド招待制です。「フレンドを招待して対戦」からフレンドを招待してね。");
+}
 function teardownOnline(){
   onlineClosing = true;
+  setWaitingUI(false);
   netReconnecting = false;
   stopHeartbeat();
   clearTimeout(guestRetryTimer);
@@ -1468,6 +1492,7 @@ function hostRoom(){
     $("roomCodeText").textContent = roomCode;
     $("onlineCodeWrap").style.display = "";
     setOnlineStatus("フレンドの参加を待っています…（オンラインはフレンド招待制です）相手が参加すると自動でスタート！");
+    setWaitingUI(true);
   });
   peer.on("connection", c => {
     setupConn(c);
@@ -1509,6 +1534,7 @@ function joinRoom(){
       joinConnOpen = true;
       sendOnline({t: "hello"});
       setOnlineStatus("接続しました！ホストがスタートするのを待っています…");
+      setWaitingUI(true);
     });
   };
   peer.on("open", () => { joinPeerOpen = true; tryJoinConnect(); });
@@ -1576,6 +1602,7 @@ $("modeOnlineBtn").addEventListener("click", ()=>{ sfxClick(); setMode("online")
 $("hostBtn").addEventListener("click", ()=>{ sfxClick(); audio(); hostRoom(); });
 $("joinBtn").addEventListener("click", ()=>{ sfxClick(); audio(); joinRoom(); });
 $("copyCodeBtn").addEventListener("click", ()=>{ sfxClick(); copyRoomCode(); });
+$("hostCancelBtn").addEventListener("click", ()=>{ sfxClick(); cancelWaiting(); });
 $("raceLeaveBtn").addEventListener("click", ()=>{ sfxClick(); leaveOnline(); });
 $("raceExitBtn").addEventListener("click", ()=>{ sfxClick(); leaveOnline(); });
 $("rematchBtn").addEventListener("click", ()=>{

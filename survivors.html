@@ -804,6 +804,7 @@ html,body{overscroll-behavior:none;}
       <button class="subBtn" id="lvSkipBtn">⏭ スキップ</button>
     </div>
     <p class="subTitle" id="lvOpsNote">再抽選・スキップはショップの「パワーアップ」で解放・強化できます（スキップは報酬なし）</p>
+    <button class="subBtn" id="lvPauseBtn">⏸ ポーズする（選択は保持されます）</button>
   </div>
 </div>
 
@@ -1024,6 +1025,7 @@ window.addEventListener('keydown', e => {
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) e.preventDefault();
   if (document.getElementById('wDetailScr').classList.contains('show') && (e.key === 'Escape' || e.key.toLowerCase() === 'p')) { closeWeaponDetail(); return; }
   if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && S.state === 'play') pauseGame();
+  else if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && S.state === 'levelup') pauseFromLevelUp();
   else if ((e.key === 'Escape' || e.key.toLowerCase() === 'p') && S.state === 'pause') resumeGame();
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -1538,6 +1540,7 @@ function claimAch(id){
   if (!achDone(id) || meta.achClaimed.includes(id)) return false;
   meta.achClaimed.push(id);
   meta.shards += ACHIEVEMENTS[id].reward;
+  meta.stats.shardsEarned += ACHIEVEMENTS[id].reward; /* 意見対応: 残高＝累計獲得−累計消費 を常に一致させる */
   saveMeta();
   renderAch(); renderTitleMeta();
   return true;
@@ -1548,6 +1551,7 @@ function claimDaily(id){
   if (!ms || !d.ids.includes(id) || d.claimed.includes(id) || (d.prog[id] || 0) < ms.target) return false;
   d.claimed.push(id);
   meta.shards += ms.reward;
+  meta.stats.shardsEarned += ms.reward; /* 意見対応: 残高＝累計獲得−累計消費 を常に一致させる */
   saveMeta();
   renderAch(); renderTitleMeta();
   return true;
@@ -1576,7 +1580,7 @@ function claimAllRewards(){
     const ms = MISSIONS[id];
     if (ms && !d.claimed.includes(id) && (d.prog[id] || 0) >= ms.target) { d.claimed.push(id); total += ms.reward; count++; }
   }
-  if (count > 0) { meta.shards += total; saveMeta(); }
+  if (count > 0) { meta.shards += total; meta.stats.shardsEarned += total; saveMeta(); } /* 意見対応: 累計獲得にも加算（残高との不整合防止） */
   renderAch(); renderTitleMeta();
   return { total, count };
 }
@@ -1729,6 +1733,7 @@ function canRebirth(){ return !!meta.rebirthReady && (meta.inherit | 0) < INHERI
 function doRebirth(){
   if (!canRebirth()) return false;
   meta.upgrades = {};       // メタショップの強化段階（星の加護を含む）を全リセット
+  meta.stats.shardsSpent += meta.shards; // 意見対応: 転生で失う残高は消費側に寄せ、残高＝獲得−消費 を保つ
   meta.shards = 0;          // 所持かけらも0に
   meta.inherit = (meta.inherit | 0) + 1;
   meta.rebirthReady = false; // 転生権を消費
@@ -1772,7 +1777,7 @@ function loadMeta(){
   const migSc = Array.isArray(m.stageClears) ? m.stageClears.filter(s => STAGES[s]) : [];
   const migReady = STAGE_ORDER.some(s => Array.isArray(migDc[s]) && migDc[s].includes('hell'))
     || STAGE_ORDER.every(s => migSc.includes(s));
-  return {
+  const out = {
     shards: Math.max(0, m.shards | 0),
     upgrades: (m.upgrades && typeof m.upgrades === 'object') ? m.upgrades : {},
     unlocked: Array.isArray(m.unlocked) && m.unlocked.length ? m.unlocked : ['nowa'],
@@ -1832,6 +1837,19 @@ function loadMeta(){
     },
     title: TITLES[m.title] ? m.title : 'rookie'
   };
+  /* ── 意見対応（2026-11-22 QA: 残高と累計獲得の差900）: 統計の不整合の是正移行。
+     実績・ミッション報酬や補填・ガチャ返還など、過去に「残高だけ増えて累計獲得に
+     数えられなかった」付与がある既存セーブでは 残高 ≠ 累計獲得−累計消費 になっている。
+     残高（経済）は一切変えず、差分を累計側へ寄せて表示の定義を揃える:
+     残高が上回れば差分を累計獲得へ、獲得−消費が上回れば（転生で残高を失った等）
+     差分を累計消費へ加算する。是正があった場合のみ書き戻し、二重是正は起きない ── */
+  {
+    const diff = out.shards - (out.stats.shardsEarned - out.stats.shardsSpent);
+    if (diff > 0) out.stats.shardsEarned += diff;
+    else if (diff < 0) out.stats.shardsSpent += -diff;
+    if (diff !== 0) { try { localStorage.setItem(META_KEY, JSON.stringify(out)); } catch (e) {} }
+  }
+  return out;
 }
 function saveMeta(){ try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {} }
 let metaDirty = false;
@@ -3651,6 +3669,7 @@ function showPickUI(player, picks, cb, skipFn){
     wrap.appendChild(b);
   }
   document.getElementById('levelScr').classList.add('show');
+  const lpb = document.getElementById('lvPauseBtn'); if (lpb) lpb.style.display = coopMode ? 'none' : ''; /* ポーズ導線はソロ専用（協力は同期のためポーズ不可） */
   renderLvOps();
 }
 document.getElementById('lvRerollBtn').onclick = () => {
@@ -3760,6 +3779,7 @@ function levelUpSequence(opts){
       closeLvSession();
       document.getElementById('lvCards').innerHTML = '';
       document.getElementById('lvWait').style.display = 'block';
+      const lpb2 = document.getElementById('lvPauseBtn'); if (lpb2) lpb2.style.display = 'none'; /* 協力の待機中はポーズ導線を出さない */
       document.getElementById('levelScr').classList.add('show');
     }
   } else if (coopMode && NET.role === 'guest') {
@@ -4057,7 +4077,28 @@ function pauseGame(){
   $('pauseInfo').textContent = `生存 ${fmtTime(S.time)} ／ 撃破 ${S.kills} ／ Lv ${P.level}`;
   $('pauseScr').classList.add('show');
 }
-function resumeGame(){ if (S.state !== 'pause') return; S.state = 'play'; $('pauseScr').classList.remove('show'); }
+/* ── 意見対応: レベルアップ選択中でもポーズできるようにする。
+   選択モーダル（z-index 10）がポーズボタン（HUD）を覆い、連鎖中はポーズできず
+   選択直後に被弾死する報告への対策。モーダル内のボタン（と Esc/P）から
+   ポーズ画面へ移り、再開すると選択肢を保持したまま選択画面へ戻る。
+   ゲームの進行・バランスには触れない（停止中は従来のポーズと同じく更新が止まる）。
+   協力時は同期の都合で従来どおりポーズ不可のため、この導線もソロ専用 ── */
+let lvPaused = false;
+function pauseFromLevelUp(){
+  if (S.state !== 'levelup' || coopMode) return false;
+  lvPaused = true;
+  $('levelScr').classList.remove('show');
+  S.state = 'pause';
+  $('pauseInfo').textContent = `生存 ${fmtTime(S.time)} ／ 撃破 ${S.kills} ／ Lv ${P.level}`;
+  $('pauseScr').classList.add('show');
+  return true;
+}
+function resumeGame(){
+  if (S.state !== 'pause') return;
+  $('pauseScr').classList.remove('show');
+  if (lvPaused) { lvPaused = false; S.state = 'levelup'; $('levelScr').classList.add('show'); return; }
+  S.state = 'play';
+}
 /* ── アカウントドロワー／意見モーダル連動ポーズ ──
    account.js のドロワー（#pwDrawerWrap.open）と意見モーダル（#pwFbWrap.open）が
    開いている間、ソロのランを一時停止し、閉じたら再開する。account.js 側に開閉
@@ -4119,6 +4160,7 @@ function settleAbortedRun(){
 function quitToTitle(){
   settleAbortedRun(); /* cleanupNet で coopMode/NET が消える前に、中断ランを記録する */
   drawerPaused = false; /* ドロワーを開いたまま終了しても、閉じた時に再開させない */
+  lvPaused = false; /* レベルアップ経由のポーズから戻っても、次回再開で選択画面を復元しない */
   hideBanner();
   cleanupNet();
   S.pendingLv = false; S.pendingLvFree = 0; S.pendingChoices = null; S.pendingChest = null; S.pendingGuestChest = false; /* タイトルへ戻る時に保留レベルアップ・宝箱は出さない */
@@ -4290,6 +4332,7 @@ $('resumeBtn').onclick = resumeGame;
 $('quitBtn').onclick = quitToTitle;
 $('radarBtn').onclick = () => setRadarEnabled(!radarOn());
 $('pauseBtn').onclick = () => { if (S.state === 'play') pauseGame(); };
+$('lvPauseBtn').onclick = () => { initAudio(); pauseFromLevelUp(); };
 $('endlessBtn').onclick = () => {
   S.endless = true; $('endScr').classList.remove('show'); S.state = 'play';
   if (coopMode && NET.role === 'host') sendNet({ t: 'endless' });
@@ -6775,6 +6818,7 @@ function claimApologyGift(){
   if (amount <= 0) return false;
   if (!apologyEligible()) return false;
   meta.shards += amount;
+  meta.stats.shardsEarned += amount; /* 意見対応: 補填分も累計獲得に数える（残高との不整合防止） */
   meta.apologyGift20261120 = APOLOGY_SHARDS;
   meta.apology20261120 = true;
   saveMeta();
@@ -6835,6 +6879,7 @@ function resolveGachaChar(rarity){
   if (lb < LB_MAX) { const nlb = lb + 1; meta.lb[id] = nlb; return { id, rarity, kind: 'lb', refund: 0, lb: nlb, awaken: rarity === 'UR' && nlb >= LB_MAX }; }
   const refund = GACHA_REFUND[rarity];
   meta.shards += refund;
+  meta.stats.shardsEarned += refund; /* 意見対応: 返還分も累計獲得に数える（残高との不整合防止） */
   return { id, rarity, kind: 'refund', refund, lb };
 }
 function gachaDraw(count){
@@ -7212,7 +7257,7 @@ function guestJoin(code){
   catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
   const joinPeer = NET.peer;
   const joinDeadline = Date.now() + 20000;
-  let joinPeerOpen = false, joinConnOpen = false;
+  let joinPeerOpen = false, joinConnOpen = false, joinFailed = false;
   const tryJoinConnect = () => {
     const c = NET.peer.connect(PEER_PREFIX + code, { reliable: true });
     setupConn(c);
@@ -7228,15 +7273,22 @@ function guestJoin(code){
     }
   }, 15000);
   NET.peer.on('error', err => {
-    if (err && err.type === 'peer-unavailable' && !NET.inGame){
+    if (err && err.type === 'peer-unavailable' && !NET.inGame && !joinFailed){
       /* ホストの Peer 登録が間に合っていないだけのことがあるため即失敗にせず、
          同じ Peer から最大20秒ほど再接続を試みてから失敗にする */
       if (!joinConnOpen && Date.now() < joinDeadline){
         setLobbyStatus('接続しています…（部屋を探しています）');
-        setTimeout(() => { if (NET.peer === joinPeer && !joinConnOpen && NET.role === 'guest') tryJoinConnect(); }, 1500);
+        setTimeout(() => { if (NET.peer === joinPeer && !joinConnOpen && !joinFailed && NET.role === 'guest') tryJoinConnect(); }, 1500);
         return;
       }
-      setLobbyStatus('<span class="err">そのコードの部屋が見つかりませんでした。コードを確認してください。</span>');
+      /* 意見対応: 部屋が見つからない場合は原因に合った文言で確定させる。
+         以前はここで文言を出しても接続タイマー（25秒）が残っており、後から
+         汎用文言「接続を確立できませんでした。コードが正しいか…」に上書きされ、
+         30〜40秒待たされた末に原因違いの案内になっていた。タイマーを解除し、
+         Peer も破棄して参加処理をここで終了する */
+      joinFailed = true;
+      cleanupNet();
+      setLobbyStatus('<span class="err">部屋が見つかりませんでした（ホストが退出した可能性があります）。もう一度招待してもらってください。</span>');
     }
   });
   setLobbyStatus('接続しています…');
@@ -7620,7 +7672,7 @@ window.__surv = {
   gainXp: n => gainXp(n), setTime: s => { S.time = s; },
   spawn: t => spawnEnemy(t), spawnElite: t => spawnEnemy(t, undefined, undefined, 1, true),
   spawnAt: (t, x, y) => spawnEnemy(t, x, y), boss: () => spawnBoss(), miniBoss: () => spawnMiniBoss(),
-  pause: pauseGame, resume: resumeGame,
+  pause: pauseGame, resume: resumeGame, pauseFromLevelUp, get lvPaused(){ return lvPaused; },
   xpForLevel, maxHp: () => maxHp(), dmgMul: () => dmgMul(), moveSpeed: () => moveSpeed(), magnetR: () => magnetR(), xpMul: () => xpMul(),
   hpScale, dmgScale, critRate: () => critRate(), critDmgMul: () => critDmgMul(), cdMul: () => cdMul(), gemValMul: () => gemValMul(),
   MAX_WLV, MAX_PASSIVES, lbOf, LB_MAX, GACHA_POOLS, gachaDraw, renderGacha, rollGachaRarity,

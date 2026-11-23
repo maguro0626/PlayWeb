@@ -135,7 +135,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #gaugeLbl{font-size:11px;color:var(--sub);display:flex;justify-content:space-between}
 #gaugeLbl .fv{color:var(--gold);font-weight:900;letter-spacing:.14em}
 #progWrap{height:5px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
-#progFill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--accent))}
+#progFill{height:100%;width:100%;transform:scaleX(0);transform-origin:0 50%;background:linear-gradient(90deg,var(--cyan),var(--accent))}
 #vsRow{display:flex;gap:8px}
 .scoreBox{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 10px;text-align:center;font-size:12px;color:var(--sub)}
 .scoreBox b{display:block;font-size:17px;color:var(--txt)}
@@ -1651,15 +1651,52 @@ function assembledAudioB64(song) {
   }
   return b64;
 }
+/* パートが全て揃っているかだけを軽く見る（結合文字列を作らない）。
+   判定のたびに数MBの base64 を結合し直すと、選曲・プレビュー切り替えの
+   瞬間に大きな文字列確保と GC が走ってヒッチの原因になるため */
+function audioPartsComplete(song) {
+  var parts = window.PW_AUDIO_PARTS && window.PW_AUDIO_PARTS[song.id];
+  if (!parts || !song.parts) return false;
+  for (var i = 0; i < song.parts; i++) if (typeof parts[i] !== 'string') return false;
+  return true;
+}
+/* ObjectURL キャッシュの上限。全曲分の Blob を掴んだままにするとメモリを
+   圧迫し続け、メモリ上限の厳しい端末（iOS Safari 等）ではページごと
+   落とされる原因になるため、最近使った数曲だけ残して古いものは
+   revokeObjectURL で解放する。解放した曲は選曲時にパートを読み直せば
+   再生成できる（パートは SW キャッシュから速く戻る） */
+var AUDIO_URL_CAP = 3;
+function evictAudioURLs(keepId) {
+  if (srDlRunning) return; /* 一括ダウンロード中は全曲 ready の契約を守る（解放は演奏開始時にまとめて行う） */
+  var ids = Object.keys(audioURLs);
+  if (ids.length <= AUDIO_URL_CAP) return;
+  var prot = {};
+  if (keepId) prot[keepId] = 1;
+  if (curSong) prot[curSong.id] = 1;
+  if (preview && preview.songId) prot[preview.songId] = 1;
+  if (audioEl && audioEl.src) {
+    for (var i = 0; i < ids.length; i++) if (audioURLs[ids[i]] === audioEl.src) prot[ids[i]] = 1;
+  }
+  for (var j = 0; j < ids.length && Object.keys(audioURLs).length > AUDIO_URL_CAP; j++) {
+    var id = ids[j];
+    if (prot[id] || !audioURLs[id]) continue;
+    try { URL.revokeObjectURL(audioURLs[id]); } catch (e) {}
+    delete audioURLs[id];
+  }
+}
 /* 結合済み base64 を ObjectURL 化してキャッシュする（成功したらパート文字列は解放する） */
 function cacheAudioURL(song, b64) {
   audioURLs[song.id] = b64ToBlobURL(b64);
   if (window.PW_AUDIO_PARTS) delete window.PW_AUDIO_PARTS[song.id];
+  evictAudioURLs(song.id);
   return audioURLs[song.id];
 }
-function audioDataReady(song) { return !!audioURLs[song.id] || !!assembledAudioB64(song); }
+function audioDataReady(song) { return !!audioURLs[song.id] || audioPartsComplete(song); }
 function loadAudioTrack(song, cb) {
-  if (audioURLs[song.id]) { cb(null, audioURLs[song.id]); return; }
+  if (audioURLs[song.id]) { /* LRU：使った曲は末尾へ付け替える */
+    var u = audioURLs[song.id]; delete audioURLs[song.id]; audioURLs[song.id] = u;
+    cb(null, u); return;
+  }
   var ready = assembledAudioB64(song);
   if (ready !== null) {
     try { cb(null, cacheAudioURL(song, ready)); } catch (e) { cb(e); }
@@ -1680,6 +1717,7 @@ function loadAudioTrack(song, cb) {
       var sc = document.createElement('script');
       sc.src = 'audio/parts/' + song.id + '.p' + (idx < 10 ? '0' : '') + idx + '.js';
       sc.onload = function () {
+        if (sc.parentNode) sc.parentNode.removeChild(sc); /* 読み終えたパートタグは残さない */
         if (failed) return;
         remaining--;
         if (remaining > 0) return;
@@ -1687,7 +1725,7 @@ function loadAudioTrack(song, cb) {
         if (b64 === null) { done(new Error('no audio data')); return; }
         try { done(null, cacheAudioURL(song, b64)); } catch (e) { done(e); }
       };
-      sc.onerror = function () { if (!failed) { failed = true; done(new Error('load failed')); } };
+      sc.onerror = function () { if (sc.parentNode) sc.parentNode.removeChild(sc); if (!failed) { failed = true; done(new Error('load failed')); } };
       document.head.appendChild(sc);
     })(i);
   }
@@ -1707,6 +1745,7 @@ function audioDlSizeText() { return '約' + Math.round(audioDlTotalParts() * 292
 function audioDlRev() { try { return parseInt(localStorage.getItem(AUDIO_DL_KEY), 10) || 0; } catch (e) { return 0; } }
 function audioDlMarkDone() { try { localStorage.setItem(AUDIO_DL_KEY, String(AUDIO_REV)); } catch (e) {} }
 var srDlRunning = false;
+var srDlDismissed = false; /* 「やめる」で閉じた後は、完了/失敗してもポップアップ側を触らない */
 function startAudioDownload() {
   if (srDlRunning) return;
   srDlRunning = true;
@@ -1727,7 +1766,7 @@ function startAudioDownload() {
       srDlRunning = false;
       audioDlMarkDone();
       var m = $('dlModal'); if (m) m.classList.add('hidden');
-      showToast('🎵 楽曲データのダウンロードが完了しました');
+      if (!srDlDismissed) showToast('🎵 楽曲データのダウンロードが完了しました');
       return;
     }
     var song = songs[idx++];
@@ -1735,6 +1774,7 @@ function startAudioDownload() {
     loadAudioTrack(song, function (err) {
       if (err) {
         srDlRunning = false;
+        if (srDlDismissed) return; /* 閉じた後に失敗しても、画面へは出さない（次回起動時に再案内） */
         if (msg) msg.innerHTML = '⚠ ダウンロードに失敗しました。通信環境のよい場所でリトライしてください。';
         if (okBtn) { okBtn.textContent = 'リトライ'; okBtn.classList.remove('hidden'); }
         return;
@@ -1750,7 +1790,12 @@ function initAudioDl() {
   var sz = $('dlSize'); if (sz) sz.textContent = audioDlSizeText();
   var okBtn = $('dlOkBtn'), cancelBtn = $('dlCancelBtn');
   if (okBtn) okBtn.addEventListener('click', startAudioDownload);
-  if (cancelBtn) cancelBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
+  if (cancelBtn) cancelBtn.addEventListener('click', function () {
+    /* 「やめる」: ポータルへ戻らず、この画面に留まる。ダウンロード中なら
+       裏で継続させ、完了/失敗のどちらでもポップアップは再表示しない */
+    srDlDismissed = true;
+    m.classList.add('hidden');
+  });
   m.classList.remove('hidden');
 }
 /* トースト（読み込み中・失敗などの通知） */
@@ -1950,12 +1995,20 @@ var comboT0 = 0; /* コンボが増えた時刻（ポップ演出用） */
 var judgePop = null, milestone = null;
 var CW = 0, CH = 0, DPR = 1;
 
+/* 描画キャッシュ（ジオメトリ依存のものは fitCanvas で破棄する）。
+   毎フレーム CanvasGradient を作り直したり全画面の放射グラデーションを
+   塗ったりすると、演奏中に一定の負荷と GC が積み上がって「一瞬カクつく」
+   原因になるため、静的なものは使い回し、大きなグローはスプライト化する */
+var gradCacheSR = {};
+var noteSpriteCache = {};
+var judgeBarMemo = { key: '', rect: null, segs: null };
 function fitCanvas() {
   var r = $('stageWrap').getBoundingClientRect();
   DPR = Math.min(2, window.devicePixelRatio || 1);
   CW = Math.max(280, r.width); CH = Math.max(160, r.height);
   cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  gradCacheSR = {}; noteSpriteCache = {}; judgeBarMemo.key = '';
 }
 window.addEventListener('resize', fitCanvas);
 
@@ -2458,6 +2511,7 @@ function practiceStartSec(song) {
 }
 function beginPlay(song) {
   curSong = song;
+  evictAudioURLs(song.id); /* 演奏開始の節目で Blob URL を最近の数曲へ絞り、メモリを解放する */
   /* v121: 譜面の解決順は テストプレイ（エディタ）> カスタム（ソロ＆選択時）>
      承認譜面 > 自動生成。対戦は常に公式側（resolvePlayChart が担保） */
   /* テストプレイ中は、セッションが保持するテスト譜面（edTestData）を常に使う。
@@ -3024,19 +3078,33 @@ function stepGame(dtF) {
   sweepMiss();
   updateLongs(dtF);
   updateFever();
-  var pf = $('progFill');
-  if (pf && curBuilt) pf.style.width = clamp(songTime / curBuilt.data.duration * 100, 0, 100) + '%';
+  /* 進行バーは width ではなく transform で伸ばす（width の毎フレーム変更は
+     レイアウト再計算を誘発しうるため。見た目は同一） */
+  var pf = progFillEl || (progFillEl = $('progFill'));
+  if (pf && curBuilt) pf.style.transform = 'scaleX(' + clamp(songTime / curBuilt.data.duration, 0, 1) + ')';
   if (curBuilt && songTime > curBuilt.data.duration + 0.9) finishSong();
 }
 
 /* ---------------- HUD ---------------- */
 var lastHud = {};
+var progFillEl = null;
+/* コンボ表示の「弾む」演出。従来は void el.offsetWidth で強制リフローを
+   起こして CSS アニメーションを再起動しており、ヒットのたび（＝演奏中
+   ずっと）にレイアウト計算が走ってヒッチの原因になっていた。
+   Web Animations で同じキーフレームを再生し、リフローを起こさない */
+function popComboEl(el) {
+  el.classList.remove('pop');
+  if (el.animate) {
+    try { el.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' }); return; } catch (e) {}
+  }
+  void el.offsetWidth; el.classList.add('pop');
+}
 function updateHUD(force) {
   var sc = String(Math.floor(scoreF)), cb = combo >= 2 ? combo + ' コンボ' : '', gp = Math.round(gauge) + '%';
   if (force || lastHud.sc !== sc) { $('hudScore').textContent = sc.replace(/\B(?=(\d{3})+(?!\d))/g, ','); lastHud.sc = sc; }
   if (force || lastHud.cb !== cb) {
     var el = $('hudCombo'); el.textContent = cb; lastHud.cb = cb;
-    if (cb) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    if (cb) popComboEl(el);
   }
   if (force || lastHud.gp !== gp || lastHud.fv !== fever) {
     $('gaugeFill').style.width = gauge + '%';
@@ -3097,13 +3165,67 @@ function chorusActiveNow() {
   if (chorusCacheSong !== curSong) { chorusCacheSong = curSong; chorusCacheRanges = chorusRangesSec(curSong, buildSongData(curSong)); }
   return inChorusRanges(chorusCacheRanges, songTime);
 }
+/* ジオメトリが静的なグラデーションはオブジェクトを使い回す（生成自体は
+   軽くても、毎フレームの確保→破棄が GC を誘発する） */
+function cachedGradSR(key, make) {
+  if (!gradCacheSR) gradCacheSR = {};
+  if (!gradCacheSR[key]) gradCacheSR[key] = make();
+  return gradCacheSR[key];
+}
+function hexToRgbStr(hex) {
+  return parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16);
+}
+/* 大きな放射グローは円盤スプライト（中心 alpha=1 → 外周 0）を焼いて
+   drawImage で貼る。全画面の放射グラデーションフィルはソフト描画で
+   特に重く、演奏中のフレーム落ちの主因になるため */
+var glowSpriteCache = {};
+function glowSprite(rgb) {
+  if (rgb in glowSpriteCache) return glowSpriteCache[rgb];
+  var sp = null;
+  try {
+    var S = 128;
+    var c = document.createElement('canvas');
+    if (c && typeof c.getContext === 'function') {
+      c.width = S; c.height = S;
+      var x = c.getContext('2d');
+      if (x && typeof x.createRadialGradient === 'function') {
+        var g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+        g.addColorStop(0, 'rgba(' + rgb + ',1)');
+        g.addColorStop(1, 'rgba(' + rgb + ',0)');
+        x.fillStyle = g; x.fillRect(0, 0, S, S);
+        sp = c;
+      }
+    }
+  } catch (e) { sp = null; }
+  if (Object.keys(glowSpriteCache).length > 16) glowSpriteCache = {};
+  glowSpriteCache[rgb] = sp;
+  return sp;
+}
+function drawGlow(cx, cy, rx, ry, rgb, alpha) {
+  var sp = glowSprite(rgb);
+  if (sp) {
+    ctx.save();
+    ctx.globalAlpha = clamp(alpha, 0, 1);
+    ctx.drawImage(sp, cx - rx, cy - ry, rx * 2, ry * 2);
+    ctx.restore();
+    return;
+  }
+  var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
+  g.addColorStop(0, 'rgba(' + rgb + ',' + clamp(alpha, 0, 1) + ')');
+  g.addColorStop(1, 'rgba(' + rgb + ',0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+}
 function drawScene(t, dt) {
   var theme = curSong ? curSong.theme : 'pop';
-  /* 背景グラデーション */
-  var g = ctx.createLinearGradient(0, 0, 0, CH);
-  if (theme === 'rock') { g.addColorStop(0, '#160409'); g.addColorStop(0.6, '#24060f'); g.addColorStop(1, '#38040d'); }
-  else if (theme === 'electro') { g.addColorStop(0, '#070420'); g.addColorStop(0.6, '#120a38'); g.addColorStop(1, '#1d0b4a'); }
-  else { g.addColorStop(0, '#150a33'); g.addColorStop(0.6, '#241055'); g.addColorStop(1, '#3a1160'); }
+  /* 背景グラデーション（ジオメトリ静的 → グラデーションを使い回す） */
+  var g = cachedGradSR('bg:' + theme, function () {
+    var gr = ctx.createLinearGradient(0, 0, 0, CH);
+    if (theme === 'rock') { gr.addColorStop(0, '#160409'); gr.addColorStop(0.6, '#24060f'); gr.addColorStop(1, '#38040d'); }
+    else if (theme === 'electro') { gr.addColorStop(0, '#070420'); gr.addColorStop(0.6, '#120a38'); gr.addColorStop(1, '#1d0b4a'); }
+    else { gr.addColorStop(0, '#150a33'); gr.addColorStop(0.6, '#241055'); gr.addColorStop(1, '#3a1160'); }
+    return gr;
+  });
   ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
   drawBackdrop(theme, t, dt);
   /* サビの色づき（背景の上に薄く重ねる。ノーツやレーンの視認性は保つ） */
@@ -3111,22 +3233,24 @@ function drawScene(t, dt) {
   chorusMix += (cTgt - chorusMix) * Math.min(1, (dt || 0.016) * 2.5);
   if (Math.abs(cTgt - chorusMix) < 0.02) chorusMix = cTgt;
   if (chorusMix > 0.01) {
-    var cg2 = ctx.createLinearGradient(0, 0, 0, CH);
-    cg2.addColorStop(0, 'rgba(255,166,66,' + (0.13 * chorusMix) + ')');
-    cg2.addColorStop(0.55, 'rgba(255,93,143,' + (0.06 * chorusMix) + ')');
-    cg2.addColorStop(1, 'rgba(255,166,66,' + (0.09 * chorusMix) + ')');
+    var cg2 = cachedGradSR('chorus', function () {
+      var gr2 = ctx.createLinearGradient(0, 0, 0, CH);
+      gr2.addColorStop(0, 'rgba(255,166,66,0.13)');
+      gr2.addColorStop(0.55, 'rgba(255,93,143,0.06)');
+      gr2.addColorStop(1, 'rgba(255,166,66,0.09)');
+      return gr2;
+    });
+    ctx.save();
+    ctx.globalAlpha = chorusMix;
     ctx.fillStyle = cg2; ctx.fillRect(0, 0, CW, CH);
+    ctx.restore();
   }
-  /* ビートに合わせた奥のグロー */
+  /* ビートに合わせた奥のグロー（放射フィル→円盤スプライト） */
   if (playing && curSong) {
     var beat = 60 / curSong.bpm;
     var bp = 1 - ((songTime % beat) / beat);
     if (songTime >= 0) {
-      var rg = ctx.createRadialGradient(CW / 2, judgeY(), 10, CW / 2, judgeY(), CW * 0.75);
-      var col = fever ? '255,120,80' : '150,110,255';
-      rg.addColorStop(0, 'rgba(' + col + ',' + (0.20 * bp + (fever ? 0.12 : 0)) + ')');
-      rg.addColorStop(1, 'rgba(' + col + ',0)');
-      ctx.fillStyle = rg; ctx.fillRect(0, 0, CW, CH);
+      drawGlow(CW / 2, judgeY(), CW * 0.75, CW * 0.75, fever ? '255,120,80' : '150,110,255', 0.20 * bp + (fever ? 0.12 : 0));
     }
   }
   drawJacketPanel(t);
@@ -3166,10 +3290,7 @@ function drawBackdrop(theme, t, dt) {
     var nx = CW * (0.5 + 0.42 * Math.sin(t * 0.11 + i * 2.1));
     var ny = CH * (0.24 + 0.2 * Math.cos(t * 0.09 + i * 1.7));
     var nr = CW * (0.55 + 0.1 * Math.sin(t * 0.13 + i));
-    var ng = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
-    ng.addColorStop(0, hexA(nebCols[i], 0.13));
-    ng.addColorStop(1, hexA(nebCols[i], 0));
-    ctx.fillStyle = ng; ctx.fillRect(0, 0, CW, CH);
+    drawGlow(nx, ny, nr, nr, hexToRgbStr(nebCols[i]), 0.13); /* 全画面の放射フィル×3は重いためスプライト化 */
   }
   if (theme === 'rock') {
     for (i = 0; i < 3; i++) { /* スポットライト */
@@ -3180,15 +3301,14 @@ function drawBackdrop(theme, t, dt) {
       ctx.beginPath(); ctx.moveTo(bx - 7, 0); ctx.lineTo(bx + 7, 0); ctx.lineTo(bx + sway * 120 + 46, CH); ctx.lineTo(bx + sway * 120 - 46, CH); ctx.closePath(); ctx.fill();
     }
     /* 足元の炎のグロー */
-    var fg2 = ctx.createRadialGradient(CW / 2, CH * 1.02, 10, CW / 2, CH * 1.02, CW * 0.72);
-    fg2.addColorStop(0, 'rgba(255,110,50,.20)'); fg2.addColorStop(1, 'rgba(255,110,50,0)');
-    ctx.fillStyle = fg2; ctx.fillRect(0, 0, CW, CH);
+    drawGlow(CW / 2, CH * 1.02, CW * 0.72, CW * 0.72, '255,110,50', 0.20);
     ctx.fillStyle = 'rgba(255,170,80,.85)';
-    bgParts.forEach(function (p) {
+    for (i = 0; i < bgParts.length; i++) {
+      var p = bgParts[i];
       p.y -= p.sp * dt * 14; p.x += Math.sin(t * 2 + p.ph) * 0.0004;
       if (p.y < -0.03) { p.y = 1.03; p.x = Math.random(); }
       ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, 1.9 * p.s, 0, 6.29); ctx.fill();
-    });
+    }
   } else if (theme === 'electro') {
     /* オーロラのリボン（上空をゆらめく光の帯） */
     for (var rb = 0; rb < 2; rb++) {
@@ -3207,7 +3327,8 @@ function drawBackdrop(theme, t, dt) {
     var hz = judgeY() + 26;
     for (i = 0; i < 6; i++) { var gy = hz + i * i * 3.2; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(CW, gy); ctx.stroke(); }
     for (i = -6; i <= 6; i++) { ctx.beginPath(); ctx.moveTo(CW / 2 + i * 16, hz); ctx.lineTo(CW / 2 + i * 74, CH); ctx.stroke(); }
-    bgParts.forEach(function (p) {
+    for (i = 0; i < bgParts.length; i++) {
+      var p = bgParts[i];
       p.y -= p.sp * dt * 5;
       if (p.y < -0.03) { p.y = 1.03; p.x = Math.random(); }
       var tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.4 + p.ph));
@@ -3216,7 +3337,7 @@ function drawBackdrop(theme, t, dt) {
       if (p.glyph) ctx.fillRect(p.x * CW - 1.6 * p.s, p.y * CH - 1.6 * p.s, 3.2 * p.s, 3.2 * p.s); /* データビット */
       else { ctx.beginPath(); ctx.arc(p.x * CW, p.y * CH, 1.8 * p.s, 0, 6.29); ctx.fill(); }
       ctx.globalAlpha = 1;
-    });
+    }
   } else if (theme === 'wa') {
     /* 月 */
     var mg = ctx.createRadialGradient(CW * 0.8, CH * 0.13, 4, CW * 0.8, CH * 0.13, 66);
@@ -3226,7 +3347,8 @@ function drawBackdrop(theme, t, dt) {
     ctx.beginPath(); ctx.arc(CW * 0.8, CH * 0.13, 21, 0, 6.29); ctx.fill();
     /* 桜の花びら：回転しながらひらひら落ちる */
     var petCols = ['#ffd7e8', '#ffb7d5', '#fff0f6'];
-    bgParts.forEach(function (p) {
+    for (i = 0; i < bgParts.length; i++) {
+      var p = bgParts[i];
       p.y += p.sp * dt * 5.2; p.x += Math.sin(t * 1.1 + p.ph) * 0.0009 + 0.00022; p.rot += p.vr * dt;
       if (p.y > 1.04) { p.y = -0.04; p.x = Math.random(); }
       if (p.x > 1.05) p.x = -0.05;
@@ -3242,9 +3364,10 @@ function drawBackdrop(theme, t, dt) {
       ctx.fill();
       ctx.restore();
       ctx.globalAlpha = 1;
-    });
+    }
   } else { /* pop / idol：星屑と音符が舞う */
-    bgParts.forEach(function (p) {
+    for (i = 0; i < bgParts.length; i++) {
+      var p = bgParts[i];
       p.y -= p.sp * dt * 6; p.x += Math.sin(t * 0.8 + p.ph) * 0.00035;
       if (p.y < -0.04) { p.y = 1.04; p.x = Math.random(); }
       var tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.8 + p.ph));
@@ -3267,22 +3390,26 @@ function drawBackdrop(theme, t, dt) {
         ctx.fill();
         ctx.globalAlpha = 1;
       }
-    });
+    }
   }
   /* 流れ星（rock以外・たまに） */
   if (theme !== 'rock' && shootStars.length < 2 && Math.random() < dt * 0.22) {
     shootStars.push({ x: CW * (0.15 + Math.random() * 0.6), y: CH * Math.random() * 0.22, life: 0, max: 0.75, vx: -(150 + Math.random() * 130), vy: 95 + Math.random() * 60 });
   }
-  shootStars = shootStars.filter(function (s) { return s.life < s.max; });
-  shootStars.forEach(function (s) {
+  var ssn = 0;
+  for (i = 0; i < shootStars.length; i++) {
+    var s = shootStars[i];
     s.life += dt; s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.life >= s.max) continue;
+    shootStars[ssn++] = s;
     var a = Math.sin(Math.PI * clamp(s.life / s.max, 0, 1)) * 0.85;
     var tail = 0.16;
     var sgr = ctx.createLinearGradient(s.x, s.y, s.x - s.vx * tail, s.y - s.vy * tail);
     sgr.addColorStop(0, 'rgba(255,255,255,' + a + ')'); sgr.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.strokeStyle = sgr; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * tail, s.y - s.vy * tail); ctx.stroke();
-  });
+  }
+  shootStars.length = ssn;
 }
 /* 背景中央のジャケットパネル（オリジナルグラデーション＋絵文字）。
    レーンの消失点付近に置き、ノーツがその手前を落ちてくる構図にする */
@@ -3291,12 +3418,16 @@ function drawJacketPanel(t) {
   var pw = CW * 0.56, ph = judgeY() * 0.44;
   var px = (CW - pw) / 2, py = 2;
   ctx.save();
-  /* パネル背後のグロー（曲色） */
-  var gg = ctx.createRadialGradient(CW / 2, py + ph / 2, 8, CW / 2, py + ph / 2, pw * 0.85);
-  gg.addColorStop(0, hexA(s.jcol[0], 0.30)); gg.addColorStop(1, hexA(s.jcol[0], 0));
-  ctx.fillStyle = gg; ctx.fillRect(px - pw * 0.3, py - 10, pw * 1.6, ph + 20);
-  var g = ctx.createLinearGradient(px, py, px + pw, py + ph);
-  g.addColorStop(0, s.jcol[0]); g.addColorStop(1, s.jcol[1]);
+  /* パネル背後のグロー（曲色。放射フィルはスプライトで代替） */
+  ctx.save();
+  ctx.beginPath(); ctx.rect(px - pw * 0.3, py - 10, pw * 1.6, ph + 20); ctx.clip();
+  drawGlow(CW / 2, py + ph / 2, pw * 0.85, pw * 0.85, hexToRgbStr(s.jcol[0]), 0.30);
+  ctx.restore();
+  var g = cachedGradSR('jacket:' + s.id, function () {
+    var gr = ctx.createLinearGradient(px, py, px + pw, py + ph);
+    gr.addColorStop(0, s.jcol[0]); gr.addColorStop(1, s.jcol[1]);
+    return gr;
+  });
   /* 遠方のノーツはこのパネルの手前を落ちてくる。パネルが明るく大きいと
      小さな遠方ノーツ（特にロングの尾側）が紛れて見えなくなるため、
      不透明度と高さを抑え、ノーツ側のコントラストを優先する */
@@ -3338,10 +3469,13 @@ function drawField(t) {
   var cx = CW / 2;
   /* レーン面（台形）：奥側はほぼ不透明にして、背後のジャケットパネルの
      明るさ・文字が透けて遠方ノーツの視認を邪魔しないようにする */
-  var lg = ctx.createLinearGradient(0, topY, 0, botY);
-  lg.addColorStop(0, 'rgba(16,10,40,.97)');
-  lg.addColorStop(0.75, 'rgba(30,18,70,.90)');
-  lg.addColorStop(1, 'rgba(52,30,110,.92)');
+  var lg = cachedGradSR('laneSurf', function () {
+    var gr = ctx.createLinearGradient(0, topY, 0, botY);
+    gr.addColorStop(0, 'rgba(16,10,40,.97)');
+    gr.addColorStop(0.75, 'rgba(30,18,70,.90)');
+    gr.addColorStop(1, 'rgba(52,30,110,.92)');
+    return gr;
+  });
   ctx.fillStyle = lg;
   ctx.beginPath();
   ctx.moveTo(cx - hwT, topY); ctx.lineTo(cx + hwT, topY);
@@ -3365,26 +3499,32 @@ function drawField(t) {
     ctx.closePath(); ctx.fill();
   }
   /* 消失点のグロー（奥がほんのり光って奥行きを強調） */
-  var vg = ctx.createRadialGradient(cx, topY + 4, 2, cx, topY + 4, CW * 0.34);
-  vg.addColorStop(0, 'rgba(210,200,255,.20)'); vg.addColorStop(1, 'rgba(210,200,255,0)');
+  var vg = cachedGradSR('vanish', function () {
+    var gr = ctx.createRadialGradient(cx, topY + 4, 2, cx, topY + 4, CW * 0.34);
+    gr.addColorStop(0, 'rgba(210,200,255,.20)'); gr.addColorStop(1, 'rgba(210,200,255,0)');
+    return gr;
+  });
   ctx.fillStyle = vg; ctx.fillRect(cx - CW * 0.34, topY, CW * 0.68, CW * 0.34);
   /* 外側レールのネオン発光（太い淡い光＋細い芯の二重描き） */
-  [0, 4].forEach(function (d) {
+  for (var d = 0; d <= 4; d += 4) {
     var xt = cx + (d - 2) * (hwT * 2 / 4), xb = cx + (d - 2) * (hwB * 2 / 4);
     ctx.lineCap = 'round';
     ctx.strokeStyle = 'rgba(150,170,255,.20)'; ctx.lineWidth = 5.5;
     ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, botY); ctx.stroke();
     ctx.strokeStyle = 'rgba(225,232,255,.8)'; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, botY); ctx.stroke();
-  });
-  /* 仕切り線（グロー） */
+  }
+  /* 仕切り線（グロー。グラデーションは5本共通で使い回す） */
   ctx.lineWidth = 1.6;
+  var dg = cachedGradSR('divider', function () {
+    var gr = ctx.createLinearGradient(0, topY, 0, botY);
+    gr.addColorStop(0, 'rgba(160,170,255,.06)');
+    gr.addColorStop(0.8, 'rgba(190,200,255,.4)');
+    gr.addColorStop(1, 'rgba(220,230,255,.75)');
+    return gr;
+  });
   for (var d = 0; d <= 4; d++) {
     var xt = cx + (d - 2) * (hwT * 2 / 4), xb = cx + (d - 2) * (hwB * 2 / 4);
-    var dg = ctx.createLinearGradient(0, topY, 0, botY);
-    dg.addColorStop(0, 'rgba(160,170,255,.06)');
-    dg.addColorStop(0.8, 'rgba(190,200,255,.4)');
-    dg.addColorStop(1, 'rgba(220,230,255,.75)');
     ctx.strokeStyle = dg;
     ctx.beginPath(); ctx.moveTo(xt, topY); ctx.lineTo(xb, botY); ctx.stroke();
   }
@@ -3408,29 +3548,38 @@ function drawField(t) {
   var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
   drawJudgeBar(t);
   /* 両端のダイヤ */
-  [-1, 1].forEach(function (sgn) {
+  for (var sgn = -1; sgn <= 1; sgn += 2) {
     var dx = cx + sgn * (hwB + 10);
     ctx.save();
     ctx.translate(dx, jy); ctx.rotate(Math.PI / 4);
     ctx.fillStyle = 'rgba(255,217,77,' + (0.55 + 0.45 * pulse) + ')';
     ctx.fillRect(-4.5, -4.5, 9, 9);
     ctx.restore();
-  });
-  /* 判定ラインの光だまり（床面ににじむ反射光。ヒットでレーン色が強まる） */
+  }
+  /* 判定ラインの光だまり（床面ににじむ反射光。ヒットでレーン色が強まる）。
+     グラデーション形状は静的なので最大 alpha で作って使い回し、
+     強さは globalAlpha で調整する（alpha は線形に効くため見た目は同一） */
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  var pool = ctx.createRadialGradient(cx, jy, 4, cx, jy, hwB * 1.25);
-  pool.addColorStop(0, 'rgba(200,190,255,' + (0.10 + 0.08 * pulse + (fever ? 0.08 : 0)) + ')');
-  pool.addColorStop(1, 'rgba(200,190,255,0)');
+  var pool = cachedGradSR('pool', function () {
+    var gr = ctx.createRadialGradient(cx, jy, 4, cx, jy, hwB * 1.25);
+    gr.addColorStop(0, 'rgba(200,190,255,0.26)');
+    gr.addColorStop(1, 'rgba(200,190,255,0)');
+    return gr;
+  });
+  ctx.globalAlpha = (0.10 + 0.08 * pulse + (fever ? 0.08 : 0)) / 0.26;
   ctx.fillStyle = pool;
   ctx.beginPath(); ctx.ellipse(cx, jy, hwB * 1.25, 30, 0, 0, 6.29); ctx.fill();
   for (var pl = 0; pl < 4; pl++) {
     if (laneFlash[pl] < 0.03) continue;
     var pcx = laneCenterX(pl, jy);
-    var pg2 = ctx.createRadialGradient(pcx, jy, 2, pcx, jy, laneWidthAt(jy) * 0.95);
-    pg2.addColorStop(0, hexA(LANE_COLORS[pl], laneFlash[pl] * 0.30));
-    pg2.addColorStop(1, hexA(LANE_COLORS[pl], 0));
-    ctx.fillStyle = pg2;
+    ctx.globalAlpha = laneFlash[pl];
+    ctx.fillStyle = cachedGradSR('poolLane:' + pl, function () {
+      var gr = ctx.createRadialGradient(pcx, jy, 2, pcx, jy, laneWidthAt(jy) * 0.95);
+      gr.addColorStop(0, hexA(LANE_COLORS[pl], 0.30));
+      gr.addColorStop(1, hexA(LANE_COLORS[pl], 0));
+      return gr;
+    });
     ctx.beginPath(); ctx.ellipse(pcx, jy, laneWidthAt(jy) * 0.95, 24, 0, 0, 6.29); ctx.fill();
   }
   ctx.restore();
@@ -3438,6 +3587,18 @@ function drawField(t) {
 function hexA(hex, a) {
   var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
   return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+/* ロング本体の点列プールと輪郭トレース（毎フレームの生成を避ける）。
+   対象の点列は longCurPts/longCurN で渡す（旧・関数内クロージャと同じ形） */
+var longPtsPool = [];
+var longCurPts = null, longCurN = 0;
+function traceBody() {
+  var pts = longCurPts, n = longCurN;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].cx - pts[0].hw, pts[0].y);
+  for (var li2 = 1; li2 < n; li2++) ctx.lineTo(pts[li2].cx - pts[li2].hw, pts[li2].y);
+  for (var ri2 = n - 1; ri2 >= 0; ri2--) ctx.lineTo(pts[ri2].cx + pts[ri2].hw, pts[ri2].y);
+  ctx.closePath();
 }
 function drawNotes(t) {
   if (!playing && !chart.length) return;
@@ -3477,24 +3638,20 @@ function drawNotes(t) {
     var holding = nt.state === 'holding';
     /* 遠近に沿ったテーパー帯：奥ほど細く、中心線はレーンの斜めに沿う */
     var segN = Math.max(2, Math.ceil((bot - top) / 26));
-    var pts = [];
+    /* 点列は使い回しプールへ書く（毎フレームの配列＋オブジェクト生成と
+       クロージャ生成が GC を誘発していたため） */
+    var pts = longPtsPool, pn = segN + 1;
     for (var si = 0; si <= segN; si++) {
       var yy2 = top + (bot - top) * si / segN;
       var cy2 = clamp(yy2, 0, jy);
       /* 遠方でも最小の太さを保証する：出現直後から「帯＝ロング」と分かるよう、
          帯の半幅は手前レーン幅の16%を下限にする（透視で細くなりすぎるのを防ぐ） */
       var hwF = Math.max(laneWidthAt(cy2) * 0.34, laneWidthAt(jy) * 0.16) * noteSize;
-      pts.push({ y: yy2, cx: laneCenterX(nt.lane, cy2), hw: hwF });
+      var pt = pts[si] || (pts[si] = { y: 0, cx: 0, hw: 0 });
+      pt.y = yy2; pt.cx = laneCenterX(nt.lane, cy2); pt.hw = hwF;
     }
+    longCurPts = pts; longCurN = pn;
     var pu = 0.88 + 0.12 * Math.sin(t * 5.2 + nt.step * 0.7); /* ロングの脈動 */
-    /* 本体の輪郭パス（塗り・縞のクリップ・縁取りで共用する） */
-    function traceBody() {
-      ctx.beginPath();
-      ctx.moveTo(pts[0].cx - pts[0].hw, pts[0].y);
-      for (var li2 = 1; li2 < pts.length; li2++) ctx.lineTo(pts[li2].cx - pts[li2].hw, pts[li2].y);
-      for (var ri2 = pts.length - 1; ri2 >= 0; ri2--) ctx.lineTo(pts[ri2].cx + pts[ri2].hw, pts[ri2].y);
-      ctx.closePath();
-    }
     /* 暗いハロー（帯の外側に影を敷き、明るい背景・ジャケット上でも輪郭が立つように） */
     ctx.strokeStyle = 'rgba(6,3,18,0.50)';
     ctx.lineWidth = 7;
@@ -3509,7 +3666,7 @@ function drawNotes(t) {
     /* 流れる縞：エネルギーが手前（下）へ流れるアニメーションで、
        「押さえ続ける帯」だと流れで分かるようにする */
     var minCx = 1e9, maxCx = -1e9, maxHw = 0;
-    for (var pi2 = 0; pi2 < pts.length; pi2++) {
+    for (var pi2 = 0; pi2 < pn; pi2++) {
       if (pts[pi2].cx < minCx) minCx = pts[pi2].cx;
       if (pts[pi2].cx > maxCx) maxCx = pts[pi2].cx;
       if (pts[pi2].hw > maxHw) maxHw = pts[pi2].hw;
@@ -3527,7 +3684,7 @@ function drawNotes(t) {
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(pts[0].cx, pts[0].y);
-    for (var ki2 = 1; ki2 < pts.length; ki2++) ctx.lineTo(pts[ki2].cx, pts[ki2].y);
+    for (var ki2 = 1; ki2 < pn; ki2++) ctx.lineTo(pts[ki2].cx, pts[ki2].y);
     ctx.stroke();
     /* 縁のライン：太く強く（レーン色＋白の二重） */
     ctx.strokeStyle = hexA(LANE_COLORS[nt.lane], holding ? 0.95 : 0.80);
@@ -3538,7 +3695,7 @@ function drawNotes(t) {
       ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.moveTo(pts[0].cx, pts[0].y);
-      for (var ci2 = 1; ci2 < pts.length; ci2++) ctx.lineTo(pts[ci2].cx, pts[ci2].y);
+      for (var ci2 = 1; ci2 < pn; ci2++) ctx.lineTo(pts[ci2].cx, pts[ci2].y);
       ctx.stroke();
     }
   }
@@ -3584,10 +3741,94 @@ function noteVisual(nt, y) {
     color: isF ? FLICK_COL : LANE_COLORS[nt.lane]
   };
 }
+/* ノーツ描画のスプライト化：タップ／ロング頭／フリックの見た目は
+   ジオメトリが決まれば静的なので、標準サイズで一度だけオフスクリーンに
+   焼いて drawImage で貼る。従来は1ノーツあたりグラデーション2〜3個＋
+   パス多数を毎フレーム生成しており、密集地帯でヒッチの主因になっていた。
+   焼けない環境（テスト用のスタブ等）では従来のベクタ描画に落ちる */
+var NOTE_SPR_W = 176, NOTE_SPR_H = 52, NOTE_SPR_PAD = 14, NOTE_SPR_SS = 2;
+function bakeNoteSprite(col, flick, isLong) {
+  var W = NOTE_SPR_W, H = NOTE_SPR_H, P = NOTE_SPR_PAD;
+  var topPad = flick ? Math.ceil(H * 1.34) + 6 : P;
+  var totalW = W + P * 2, totalH = topPad + H + P;
+  var c = document.createElement('canvas');
+  c.width = Math.round(totalW * NOTE_SPR_SS); c.height = Math.round(totalH * NOTE_SPR_SS);
+  var x = c.getContext('2d');
+  x.scale(NOTE_SPR_SS, NOTE_SPR_SS);
+  var cx = P + W / 2, cy = topPad + H / 2;
+  function sprRR(rx, ry, rw, rh, r) {
+    x.beginPath();
+    x.moveTo(rx + r, ry);
+    x.arcTo(rx + rw, ry, rx + rw, ry + rh, r);
+    x.arcTo(rx + rw, ry + rh, rx, ry + rh, r);
+    x.arcTo(rx, ry + rh, rx, ry, r);
+    x.arcTo(rx, ry, rx + rw, ry, r);
+    x.closePath();
+  }
+  /* グロー二重 */
+  x.fillStyle = hexA(col, 0.16); sprRR(cx - W / 2 - 9, cy - H / 2 - 9, W + 18, H + 18, (H + 18) / 2); x.fill();
+  x.fillStyle = hexA(col, 0.4); sprRR(cx - W / 2 - 4, cy - H / 2 - 4, W + 8, H + 8, (H + 8) / 2); x.fill();
+  if (flick) {
+    /* 大シェブロン：白縁→専用色→白い芯 */
+    function chev(topY, halfW, baseY) {
+      x.beginPath(); x.moveTo(cx - halfW, baseY); x.lineTo(cx, topY); x.lineTo(cx + halfW, baseY);
+    }
+    x.lineJoin = 'round'; x.lineCap = 'round';
+    chev(cy - H * 1.04, W * 0.34, cy + H * 0.30); x.lineWidth = H * 0.60; x.strokeStyle = 'rgba(255,255,255,.95)'; x.stroke();
+    chev(cy - H * 1.04, W * 0.34, cy + H * 0.30); x.lineWidth = H * 0.42; x.strokeStyle = col; x.stroke();
+    chev(cy - H * 1.04, W * 0.34, cy + H * 0.30); x.lineWidth = H * 0.14; x.strokeStyle = 'rgba(255,255,255,.9)'; x.stroke();
+  }
+  /* 本体グラデーション */
+  var g = x.createLinearGradient(0, cy - H / 2, 0, cy + H / 2);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.28, col); g.addColorStop(1, col);
+  x.fillStyle = g; sprRR(cx - W / 2, cy - H / 2, W, H, H / 2); x.fill();
+  /* 上半分の光沢 */
+  var gl = x.createLinearGradient(0, cy - H / 2, 0, cy + 1);
+  gl.addColorStop(0, 'rgba(255,255,255,.5)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gl; sprRR(cx - W / 2 + 2, cy - H / 2 + 1.5, W - 4, H / 2 - 1, H / 4); x.fill();
+  x.lineWidth = 1.6; x.strokeStyle = 'rgba(255,255,255,.9)';
+  sprRR(cx - W / 2, cy - H / 2, W, H, H / 2); x.stroke();
+  if (flick) {
+    x.lineJoin = 'round'; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(cx - W * 0.19, cy + H * 0.20); x.lineTo(cx, cy - H * 0.24); x.lineTo(cx + W * 0.19, cy + H * 0.20);
+    x.lineWidth = H * 0.20; x.strokeStyle = 'rgba(255,255,255,.92)'; x.stroke();
+  } else if (isLong) {
+    x.lineWidth = 2.6; x.strokeStyle = 'rgba(255,255,255,.95)';
+    sprRR(cx - W / 2 - 3.5, cy - H / 2 - 3.5, W + 7, H + 7, (H + 7) / 2); x.stroke();
+    x.lineWidth = 1.4; x.strokeStyle = hexA(col, 0.9);
+    sprRR(cx - W / 2 - 6.5, cy - H / 2 - 6.5, W + 13, H + 13, (H + 13) / 2); x.stroke();
+    x.fillStyle = 'rgba(255,255,255,.92)';
+    sprRR(cx - W * 0.3, cy - 5.4, W * 0.6, 4.2, 2.1); x.fill();
+    sprRR(cx - W * 0.3, cy + 1.2, W * 0.6, 4.2, 2.1); x.fill();
+  } else {
+    x.fillStyle = 'rgba(255,255,255,.85)';
+    sprRR(cx - W * 0.3, cy - 3, W * 0.6, 6, 3); x.fill();
+  }
+  return { c: c, w: totalW, h: totalH, ax: cx / totalW, ay: cy / totalH };
+}
+function getNoteSprite(col, flick, isLong, lane) {
+  var key = flick ? 'flick' : (isLong ? 'long' : 'tap') + lane;
+  if (key in noteSpriteCache) return noteSpriteCache[key];
+  var sp = null;
+  try {
+    var probe = document.createElement('canvas');
+    var pctx = probe && typeof probe.getContext === 'function' ? probe.getContext('2d') : null;
+    if (pctx && typeof pctx.createLinearGradient === 'function' && typeof pctx.arcTo === 'function') sp = bakeNoteSprite(col, flick, isLong);
+  } catch (e) { sp = null; }
+  noteSpriteCache[key] = sp;
+  return sp;
+}
 function drawNote(nt, y, t) {
   var v = noteVisual(nt, y);
   var w = v.w, h = v.h, x = v.x;
   var col = v.color;
+  var sp = getNoteSprite(col, v.flick, v.long, nt.lane);
+  if (sp) {
+    var dw = sp.w * (w / NOTE_SPR_W), dh = sp.h * (h / NOTE_SPR_H);
+    if (v.flick) { var pu3 = 1 + 0.05 * Math.sin(t * 9); dw *= pu3; dh *= pu3; }
+    ctx.drawImage(sp.c, x - sp.ax * dw, y - sp.ay * dh, dw, dh);
+    return;
+  }
   ctx.save();
   if (v.flick) {
     /* フリック：専用色の本体＋大きなシェブロンで描く（drawFlickMark） */
@@ -3723,17 +3964,26 @@ function drawFlickMark(x, y, dir, t, w, h) {
    judgeBarRect() がバー全体の単一矩形、judgeBarSegs() はその区切りを返す
    （テストからも参照する） */
 function judgeBarRect() {
-  var jy = judgeY(), hw = halfWAt(jy), cx = CW / 2;
-  return { x: cx - hw, y: jy, w: hw * 2, h: JUDGE_BAR_H, cx: cx };
+  /* 形状はキャンバスサイズだけに依存する。毎フレーム（描画・入力の両方から）
+     呼ばれて新規オブジェクトを量産していたため、サイズが変わるまで
+     メモ化して同じオブジェクトを使い回す（値は従来と同一） */
+  var key = CW + 'x' + CH;
+  if (judgeBarMemo.key !== key) {
+    var jy = judgeY(), hw = halfWAt(jy), cx = CW / 2;
+    judgeBarMemo.rect = { x: cx - hw, y: jy, w: hw * 2, h: JUDGE_BAR_H, cx: cx };
+    var segs = [];
+    for (var l = 0; l < 4; l++) {
+      var x0 = judgeBarMemo.rect.x + l * (judgeBarMemo.rect.w / 4), x1 = judgeBarMemo.rect.x + (l + 1) * (judgeBarMemo.rect.w / 4);
+      segs.push({ lane: l, x: x0, y: judgeBarMemo.rect.y, w: x1 - x0, h: judgeBarMemo.rect.h, cx: (x0 + x1) / 2 });
+    }
+    judgeBarMemo.segs = segs;
+    judgeBarMemo.key = key;
+  }
+  return judgeBarMemo.rect;
 }
 function judgeBarSegs() {
-  var bar = judgeBarRect();
-  var segs = [];
-  for (var l = 0; l < 4; l++) {
-    var x0 = bar.x + l * (bar.w / 4), x1 = bar.x + (l + 1) * (bar.w / 4);
-    segs.push({ lane: l, x: x0, y: bar.y, w: x1 - x0, h: bar.h, cx: (x0 + x1) / 2 });
-  }
-  return segs;
+  judgeBarRect();
+  return judgeBarMemo.segs;
 }
 /* バーのレーン区切り（旧パッド矩形）：入力判定はレーン列で行い、これは表示用 */
 function padRect(lane) {
@@ -3754,8 +4004,11 @@ function drawJudgeBar(t) {
   var bar = judgeBarRect();
   var jy = bar.y, hwB = bar.w / 2, cx = bar.cx;
   var pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
-  var jg = ctx.createLinearGradient(cx - hwB, 0, cx + hwB, 0);
-  jg.addColorStop(0, '#ff5d8f'); jg.addColorStop(0.5, '#c084fc'); jg.addColorStop(1, '#3fd6ff');
+  var jg = cachedGradSR('judgeJG', function () {
+    var gr = ctx.createLinearGradient(cx - hwB, 0, cx + hwB, 0);
+    gr.addColorStop(0, '#ff5d8f'); gr.addColorStop(0.5, '#c084fc'); gr.addColorStop(1, '#3fd6ff');
+    return gr;
+  });
   ctx.save();
   /* バー全体の下地グロー（平らな光のにじみ。浮き出た影ではない） */
   ctx.globalAlpha = 0.30 * pulse;
@@ -3763,10 +4016,13 @@ function drawJudgeBar(t) {
   ctx.fillRect(bar.x - 4, bar.y - 3, bar.w + 8, bar.h + 6);
   ctx.globalAlpha = 1;
   /* バー本体：全体を1枚で塗る（レーンごとに分けない） */
-  var bg = ctx.createLinearGradient(0, bar.y, 0, bar.y + bar.h);
-  bg.addColorStop(0, 'rgba(26,18,58,.94)');
-  bg.addColorStop(0.5, 'rgba(16,10,40,.94)');
-  bg.addColorStop(1, 'rgba(9,6,26,.96)');
+  var bg = cachedGradSR('judgeBG', function () {
+    var gr = ctx.createLinearGradient(0, bar.y, 0, bar.y + bar.h);
+    gr.addColorStop(0, 'rgba(26,18,58,.94)');
+    gr.addColorStop(0.5, 'rgba(16,10,40,.94)');
+    gr.addColorStop(1, 'rgba(9,6,26,.96)');
+    return gr;
+  });
   ctx.fillStyle = bg;
   ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
   /* ネオンの色味を全体に薄く載せる */
@@ -3856,51 +4112,69 @@ function drawJudgeLine(t, cx, hwB, jy, jg, pulse) {
   }
   ctx.restore();
 }
+function pillarGrad(col) {
+  return cachedGradSR('pillar:' + col, function () {
+    var pg = ctx.createLinearGradient(0, judgeY() - CH * 0.46, 0, judgeY());
+    pg.addColorStop(0, hexA(col, 0));
+    pg.addColorStop(1, hexA(col, 1));
+    return pg;
+  });
+}
 function drawFx(t, dt) {
+  /* パーティクル類は filter＋forEach のたびに配列とクロージャを生成して
+     GC を誘発していたため、その場で詰め直す（順序は維持） */
   /* レーンの光の柱（ヒットした瞬間、判定ラインから上へ立ちのぼる） */
-  pillars = pillars.filter(function (p) { return p.life < 0.36; });
-  pillars.forEach(function (p) {
+  var pn = 0;
+  for (var pi = 0; pi < pillars.length; pi++) {
+    var p = pillars[pi];
     p.life += dt;
+    if (p.life >= 0.36) continue;
+    pillars[pn++] = p;
     var a = (1 - p.life / 0.36) * 0.44;
     var pcx = laneCenterX(p.lane, judgeY()), pw = laneWidthAt(judgeY()) * 0.82;
-    var pg = ctx.createLinearGradient(0, judgeY() - CH * 0.46, 0, judgeY());
-    pg.addColorStop(0, hexA(p.col, 0));
-    pg.addColorStop(1, hexA(p.col, a));
-    ctx.fillStyle = pg;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = pillarGrad(p.col);
     ctx.fillRect(pcx - pw / 2, judgeY() - CH * 0.46, pw, CH * 0.46);
-  });
+  }
+  pillars.length = pn; ctx.globalAlpha = 1;
   /* リング */
-  rings = rings.filter(function (r) { return r.life < 0.32; });
-  rings.forEach(function (r) {
+  var rn = 0;
+  for (var ri = 0; ri < rings.length; ri++) {
+    var r = rings[ri];
     r.life += dt; r.r += dt * 190;
-    ctx.save();
+    if (r.life >= 0.32) continue;
+    rings[rn++] = r;
     ctx.globalAlpha = 1 - r.life / 0.32;
     ctx.strokeStyle = r.col; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.42, 0, 0, 6.29); ctx.stroke();
-    ctx.restore();
-  });
+  }
+  rings.length = rn; ctx.globalAlpha = 1;
   /* 火花 */
-  sparks = sparks.filter(function (s) { return s.life < s.max; });
-  sparks.forEach(function (s) {
+  var sn = 0;
+  for (var si2 = 0; si2 < sparks.length; si2++) {
+    var s = sparks[si2];
     s.life += dt;
     s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 340 * dt;
-    ctx.save();
+    if (s.life >= s.max) continue;
+    sparks[sn++] = s;
     ctx.globalAlpha = 1 - s.life / s.max;
     ctx.fillStyle = s.col;
     ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, 6.29); ctx.fill();
-    ctx.restore();
-  });
+  }
+  sparks.length = sn; ctx.globalAlpha = 1;
   /* 星屑（PERFECT バースト） */
-  starFx = starFx.filter(function (s) { return s.life < s.max; });
-  starFx.forEach(function (s) {
-    s.life += dt;
-    s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 300 * dt; s.rot += s.vr * dt;
-    ctx.save();
-    ctx.globalAlpha = 1 - s.life / s.max;
-    ctx.fillStyle = s.col;
-    starPath(s.x, s.y, s.size * (1 - s.life / s.max * 0.4), s.rot); ctx.fill();
-    ctx.restore();
-  });
+  var tn = 0;
+  for (var ti = 0; ti < starFx.length; ti++) {
+    var s2 = starFx[ti];
+    s2.life += dt;
+    s2.x += s2.vx * dt; s2.y += s2.vy * dt; s2.vy += 300 * dt; s2.rot += s2.vr * dt;
+    if (s2.life >= s2.max) continue;
+    starFx[tn++] = s2;
+    ctx.globalAlpha = 1 - s2.life / s2.max;
+    ctx.fillStyle = s2.col;
+    starPath(s2.x, s2.y, s2.size * (1 - s2.life / s2.max * 0.4), s2.rot); ctx.fill();
+  }
+  starFx.length = tn; ctx.globalAlpha = 1;
   /* FEVER の枠グロー */
   if (fever) {
     ctx.save();

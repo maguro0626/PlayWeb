@@ -2233,7 +2233,8 @@
       tab.classList.toggle('on', drawerOpen);
       var dot = tab.querySelector('.pw-dot');
       if (dot) dot.style.background = me ? '#3ED6A5' : '';
-      tab.title = me ? (me.username + '（ログイン中）') : 'ログイン / 新規登録';
+      tab.title = me ? (me.username + '（ログイン中）')
+        : (gateState === 'pending' ? 'ログイン状態を確認中…' : 'ログイン / 新規登録');
     }
     var main = headerEl.querySelector('#pwTabMain');
     if (main) main.classList.toggle('on', !drawerOpen);
@@ -2276,6 +2277,16 @@
     rescueFriendsSec();
     if (sdkState === 'loading') {
       body.innerHTML = '<div class="pwa-note">読み込み中…</div>';
+      return;
+    }
+    if (sdkState !== 'unavailable' && fb && gateState === 'pending') {
+      /* 認証状態が未確定（セッション復帰待ち）の間はゲスト扱いの表示を
+         出さない。復帰に時間がかかる環境で「ゲストとして遊んでいます」
+         ＋ログインフォームが先に出て、後からログイン表示へ切り替わる
+         誤解を招くため、確定するまで読み込み中表示にする。
+         確定時は onAuthUser / doLogout が setGate の後に updateModal を
+         呼び直すので、ここで止めても表示は必ず正しい状態へ進む */
+      body.innerHTML = '<div class="pwa-note">ログイン状態を確認しています…</div>';
       return;
     }
     if (sdkState === 'unavailable' || !fb) {
