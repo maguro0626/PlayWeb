@@ -2672,13 +2672,68 @@ function genreList() {
   SONGS.forEach(function (s) { if (cats.indexOf(s.cat) < 0) cats.push(s.cat); });
   return cats;
 }
-/* 難易度レベル（★の数）：音符密度から決定的に算出する */
-function diffLevel(song, diff) {
+/* 難易度レベル（★の数）：実際にプレイされる公式側の譜面を複合指標で
+   決定的に算出する（2026-11-24 振り直し。本人の指示で基準を設定）。
+   基準は妻（unko）作の Love斬る（おに）内蔵承認譜面で、その複合スコアを
+   ちょうど Lv8.0 としてスケーリングする（上限10に対し、基準より難しい
+   譜面のために 9〜10 を空ける）。うらのみ上限12。
+   指標：密度（notes/sec）を核に、16分連打の割合・連打区間（4連以上）の
+   占有率・ドン/カツ切替率・裏拍（奇数16分位置）の割合・4秒窓ピーク密度の
+   突出度で補正し、スクロール速度（approach）でも補正する。
+   譜面そのものは一切変更しない（読むだけ）。曲×難易度でメモ化する。 */
+function levelChartNotes(song, diff) {
+  var oe = null;
+  try { oe = officialEntry(song.id, diff); } catch (e) {}
+  if (oe && oe.notes) return notesFromSteps(song, oe.notes);
+  return notesFromSteps(song, stepsFromChart(buildChart(song, diff)));
+}
+function chartHardness(song, diff) {
+  var notes = levelChartNotes(song, diff);
   var d = buildSongData(song);
-  var n = buildChart(song, diff).length;
-  var lv = Math.round(n / d.duration * 2.2);
-  if (diff === 'ura') lv += 2; /* うら補正（上限超えは starStr 側で崩れない形にする） */
-  return clamp(lv, 1, diff === 'ura' ? 12 : 10);
+  var n = notes.length;
+  if (!n || !(d.duration > 0)) return 0;
+  var density = n / d.duration;
+  var sw = 0, gap16 = 0, odd = 0, streamNotes = 0, run = 1, peak = 0, win = 0, i, nt;
+  for (i = 0; i < n; i++) {
+    nt = notes[i];
+    if ((nt.step % 2) !== 0) odd++;
+    while (win < n && notes[win].t < nt.t + 4) win++;
+    if (win - i > peak) peak = win - i;
+    if (i > 0) {
+      if (notes[i - 1].type !== nt.type) sw++;
+      if (nt.step - notes[i - 1].step <= 1.01) { gap16++; run++; }
+      else { if (run >= 4) streamNotes += run; run = 1; }
+    }
+  }
+  if (run >= 4) streamNotes += run;
+  var peakEx = Math.max(0, (peak / 4) / density - 1);
+  var mult = 1
+    + 0.55 * (streamNotes / n)
+    + 0.35 * (gap16 / Math.max(1, n - 1))
+    + 0.30 * (sw / Math.max(1, n - 1))
+    + 0.25 * (odd / n)
+    + 0.30 * peakEx;
+  return density * mult * Math.pow(1.32 / DIFFS[diff].approach, 0.5);
+}
+var LV_REF = null; /* 基準譜面（Love斬る おに）の複合スコア */
+function lvRefScore() {
+  if (LV_REF === null) {
+    var s = songById('lovezaru');
+    LV_REF = (s && s.id === 'lovezaru') ? chartHardness(s, 'oni') : 0;
+    if (!(LV_REF > 0)) LV_REF = 1;
+  }
+  return LV_REF;
+}
+var _lvMemo = {};
+function diffLevel(song, diff) {
+  var key = song.id + '__' + diff;
+  if (_lvMemo[key] != null) return _lvMemo[key];
+  var raw = 1 + 7 * Math.pow(chartHardness(song, diff) / lvRefScore(), 0.8);
+  var lv = clamp(Math.round(raw), 1, diff === 'ura' ? 12 : 10);
+  var idx = DIFF_KEYS.indexOf(diff);
+  if (idx > 0) lv = Math.max(lv, diffLevel(song, DIFF_KEYS[idx - 1])); /* 曲内単調性の保証 */
+  _lvMemo[key] = lv;
+  return lv;
 }
 function starStr(lv) { if (lv > 10) return '★★★★★★★★★★+'; var s = ''; for (var i = 0; i < 10; i++) s += i < lv ? '★' : '☆'; return s; }
 function renderGenreTabs() {
@@ -2897,6 +2952,8 @@ function refreshOfficialCharts() {
   PWAccount.fetchOfficialCharts().then(function (map) {
     if (map) {
       officialMap = map;
+      _lvMemo = {}; /* 公式譜面が差し替わったらレベルも追随させる */
+      LV_REF = null;
       try { localStorage.setItem(OFFICIAL_CACHE_KEY, JSON.stringify(map)); } catch (e) {}
       renderSongList();
     }
