@@ -506,6 +506,7 @@ html,body{overscroll-behavior:none;}
 <div class="cbRow2"><button id="practiceTgl" class="miniBtn2">練習（サビから） OFF</button><button id="autoTgl" class="miniBtn2">🤖 オートプレイ（お手本） OFF</button></div>
 <div id="offsetSeg"><span class="segLbl">判定調整</span><button data-off="-25">−25</button><button data-off="-5">−5</button><span id="offsetVal" title="タップで 0 に戻す">±0ms</span><button data-off="5">＋5</button><button data-off="25">＋25</button></div>
 <div id="seSetRow"><span class="segLbl">タップ音（ドン/カツ）</span><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select></div>
+<button id="lightTgl" class="btn sub" type="button">🪶 軽量モード（解像度を下げて軽くする） OFF</button>
 <button id="calibBtn" class="btn sub" type="button">🎯 判定キャリブレーション</button>
 <button id="diagBtn" class="btn sub" type="button">📋 診断ログ</button>
 <div id="diagWrap" class="hidden">
@@ -1145,6 +1146,12 @@ function ensureAudio() {
   try {
     if (!AC) {
       AC = new (window.AudioContext || window.webkitAudioContext)();
+      /* v136: 診断ログ用に AudioContext の状態遷移を記録する。特に
+         suspended への遷移は「シンセ時計が止まる／SE が無音になる」事故の
+         直接の手がかりになるため即時フラッシュで残す */
+      if (AC.addEventListener) {
+        try { AC.addEventListener('statechange', function () { diagLog('ac-state', { st: AC.state }, AC.state === 'suspended'); }); } catch (e) {}
+      }
       master = AC.createGain();
       master.gain.value = muted ? 0 : 0.9;
       master.connect(AC.destination);
@@ -1532,6 +1539,21 @@ function buildRealEl(song, r, b64) {
         renderSongList();
       } else if (playing && curSong && curSong.id === song.id) { toast('音源を再生できませんでした'); stopSong(true); }
     });
+    /* v136: 診断ログ用に音源要素の異常系イベントを記録する（ゲーム動作には
+       一切関与しない）。実機で「音が止まった／プロセスが無言で死んだ」時に、
+       直前に要素が stalled／waiting／suspend を出していたかを追うため。
+       suspend は通常の読み込み完了でも出るため、種別ごとに3秒で間引く */
+    var diagAudioEv = function (kind) {
+      return function () {
+        var d = { k: kind, id: song.id, rs: el.readyState, ns: el.networkState };
+        if (kind === 'error') d.ec = el.error ? el.error.code : 0;
+        diagLogThrottled('aev:' + kind + ':' + song.id, 3000, 'audio-ev', d);
+      };
+    };
+    el.addEventListener('stalled', diagAudioEv('stalled'));
+    el.addEventListener('waiting', diagAudioEv('waiting'));
+    el.addEventListener('suspend', diagAudioEv('suspend'));
+    el.addEventListener('error', diagAudioEv('error'));
     if (el.readyState >= 1) markReady();
   } catch (e) {
     r.state = 'error';
@@ -1998,6 +2020,32 @@ var DIAG_KEY = 'taiko_diag_v1';
 var DIAG_MAX = 200;
 var diagBuf = [];
 var diagDirty = false, diagLastWrite = 0, diagLoaded = false, diagThrottleMap = {};
+/* v136: 表示ボックス（キャンバス要素とステージ枠）の実寸キャッシュ。
+   内部寸法（CW/CH・裏解像度）が正常でも「表示だけ縮む」ケースを切り分ける
+   ため、全イベントのスナップショットに載せる。getBoundingClientRect は
+   レイアウト計測なので毎イベント測らず、fit／プローブ／tick のタイミングで
+   だけ更新し、スナップショットはキャッシュの写しを返す（演奏中の追加
+   計測は tick の時だけ、という制約を守るための相乗り方式） */
+var diagBox = { bw: 0, bh: 0, sw: 0, sh: 0 };
+function diagBoxRefresh() {
+  try {
+    var r = cv.getBoundingClientRect();
+    diagBox.bw = Math.round(r.width * 10) / 10; diagBox.bh = Math.round(r.height * 10) / 10;
+    var sw = $('stageWrap');
+    if (sw) { var q = sw.getBoundingClientRect(); diagBox.sw = Math.round(q.width * 10) / 10; diagBox.sh = Math.round(q.height * 10) / 10; }
+  } catch (e) {}
+}
+/* v136: devicePixelRatio の生値の変化監視。ensureCanvasSize の期待値は
+   fitCanvas が確定した DPR で固定する（下記）ため、環境側の DPR が動いても
+   「ズレた状態で自己整合」せず、変化は dpr-env として切り分けられる */
+var diagLastRdpr = window.devicePixelRatio || 1;
+function diagDprWatch() {
+  var r = window.devicePixelRatio || 1;
+  if (r !== diagLastRdpr) {
+    var from = diagLastRdpr; diagLastRdpr = r;
+    diagLog('dpr-env', { from: from, to: r }, true);
+  }
+}
 function diagLoad() {
   if (diagLoaded) return;
   diagLoaded = true;
@@ -2007,7 +2055,7 @@ function diagLoad() {
   } catch (e) {}
 }
 function diagSnap() {
-  var s = { cw: CW, ch: CH, vw: cv ? cv.width : 0, vh: cv ? cv.height : 0, dpr: DPR };
+  var s = { cw: CW, ch: CH, vw: cv ? cv.width : 0, vh: cv ? cv.height : 0, dpr: DPR, rdpr: window.devicePixelRatio || 1, bw: diagBox.bw, bh: diagBox.bh, sw: diagBox.sw, sh: diagBox.sh };
   try { if (ctx && ctx.getTransform) { var tm = ctx.getTransform(); s.ta = Math.round(tm.a * 100) / 100; s.td = Math.round(tm.d * 100) / 100; } } catch (e) {}
   return s;
 }
@@ -2042,9 +2090,114 @@ function diagText() {
       if (k === 't' || k === 'ev' || k === 's') continue;
       parts.push(k + '=' + e[k]);
     }
-    if (e.s) parts.push('cw=' + e.s.cw, 'ch=' + e.s.ch, 'vw=' + e.s.vw, 'vh=' + e.s.vh, 'dpr=' + e.s.dpr, 'ta=' + e.s.ta, 'td=' + e.s.td);
+    if (e.s) parts.push('cw=' + e.s.cw, 'ch=' + e.s.ch, 'vw=' + e.s.vw, 'vh=' + e.s.vh, 'dpr=' + e.s.dpr, 'rdpr=' + e.s.rdpr, 'bw=' + e.s.bw, 'bh=' + e.s.bh, 'sw=' + e.s.sw, 'sh=' + e.s.sh, 'ta=' + e.s.ta, 'td=' + e.s.td);
     return parts.join(' ');
   }).join('\n');
+}
+/* ================================================================
+   v136: 診断ログ v2 拡張（2026-11-23、v135 ログが実機障害を捉えた件）
+   ----------------------------------------------------------------
+   v135 のログが捉えた実機障害（オバリ♡ おに・開始約30秒で無言死）は、
+   寸法・変換・DPR が完全に正常なまま、probe-fail／reinit／error の記録も
+   ゼロで、ページが hidden→再起動していた。つまりキャンバス劣化でも
+   自己修復の誤作動でもなく、プロセスが無言で死んだパターン。しかも本人
+   申告では同じセッションで「枠は通常・中身だけ約1/2」の縮小が実際に
+   起きていた。内部の数値が正常なのに表示だけ縮むなら、残る検出手段は
+   (1) 生きている間の定期記録（ハートビート）、(2) 表示ボックスの実寸、
+   (3) 環境側（生 DPR・ビューポート）の変動記録、しかない。v2 では：
+   - tick: 演奏中のみ約5秒ごとのハートビート（ループと音が生きていたか、
+     何秒で死んだか、メモリ代理指標）。連続 tick は状態署名が同じ間は
+     1件に圧縮し、200件の枠を圧迫しない。
+   - 表示ボックス実寸（bw/bh/sw/sh）を全スナップショットに追加。
+   - 音源要素の error/stalled/waiting/suspend と AudioContext の
+     statechange を記録。
+   - 生 devicePixelRatio（rdpr）を全スナップショットに追加し、変化は
+     dpr-env として記録。visualViewport の resize も記録する。
+   - 本人の環境はホーム画面に追加した standalone PWA と判明。standalone
+     では演奏キャンバスの DPR 上限を 1.5 に抑える（後段の初期化で適用）。
+   ================================================================ */
+/* メモリ代理指標: performance.memory が無い環境（iOS）でも保持量を追う */
+function diagPartsChars() {
+  var n = 0;
+  try {
+    var P = window.PW_AUDIO_PARTS;
+    if (P) for (var id in P) { var a = P[id]; if (a) for (var i = 0; i < a.length; i++) if (typeof a[i] === 'string') n += a[i].length; }
+  } catch (e) {}
+  return n;
+}
+function diagBlobUrls() {
+  var n = 0;
+  try { for (var id in realAudio) if (realAudio[id] && realAudio[id].url) n++; } catch (e) {}
+  return n;
+}
+function diagOffscreenPx() {
+  var px = 0;
+  function addC(c) { if (c && c.width && c.height) px += c.width * c.height; }
+  try {
+    var k, v;
+    for (k in bgSpriteCache) addC(bgSpriteCache[k]);
+    for (k in laneSpriteCache) { v = laneSpriteCache[k]; if (v) addC(v.c); }
+    for (k in glowSpriteCacheT) addC(glowSpriteCacheT[k]);
+    for (k in drumSpriteCache) { v = drumSpriteCache[k]; if (v) { if (v.body) addC(v.body.c); if (v.face) addC(v.face.c); if (v.faceLit) addC(v.faceLit.c); } }
+    if (noteSprites) { addC(noteSprites.don); addC(noteSprites.katsu); }
+    addC(haloSprite);
+  } catch (e) {}
+  return px;
+}
+/* ハートビート: draw() から毎フレーム呼ばれ、約5秒に1回だけ記録する。
+   連続する tick は、音源の状態署名（readyState／paused／音時計が進んで
+   いるか）が同じ間は最後の1件を最新値で上書きする（n は圧縮回数）。
+   署名が変われば新しい tick として残るので、「音が止まったのにループは
+   生きていた」のような遷移も追える */
+var diagTickLastAt = 0, diagTickEntry = null;
+function diagTick(now) {
+  if (now - diagTickLastAt < 5000) return;
+  diagTickLastAt = now;
+  try {
+    diagBoxRefresh();
+    var isReal = !!(curSong && curSong.real);
+    var act = 0, ars = -1, apz = -1;
+    if (isReal) {
+      var rel = realAudio[curSong.id];
+      if (rel && rel.el) {
+        ars = rel.el.readyState; apz = rel.el.paused ? 1 : 0;
+        act = realStarted ? rel.el.currentTime : (performance.now() - realStartPerf) / 1000;
+      }
+    } else if (AC) {
+      act = AC.currentTime - startCtx;
+    }
+    var data = {
+      st: Math.round(songTime * 10) / 10,
+      pn: Math.round(now / 100) / 10,
+      act: Math.round(act * 10) / 10,
+      cb: combo,
+      acs: AC ? AC.state : '',
+      pc: diagPartsChars(),
+      bu: diagBlobUrls(),
+      opx: Math.round(diagOffscreenPx() / 1000),
+      vvs: window.visualViewport ? Math.round(window.visualViewport.scale * 100) / 100 : 0,
+      iw: window.innerWidth, ih: window.innerHeight
+    };
+    if (isReal) { data.ars = ars; data.apz = apz; }
+    var last = diagBuf.length ? diagBuf[diagBuf.length - 1] : null;
+    /* 署名: 実音源は readyState／paused／「前回 tick から音時計が進んだか」。
+       音が止まれば adv が 1→0 に変わり、圧縮を破って新しい tick が残る */
+    var adv = 1;
+    if (isReal && last && last === diagTickEntry && last.ev === 'tick' && typeof last.act === 'number') adv = (act - last.act) > 1 ? 1 : 0;
+    var sig = isReal ? ('r' + ars + '/' + apz + '/' + adv) : 's';
+    if (last && last === diagTickEntry && last.ev === 'tick' && last.sig === sig && (Date.now() - last.t) < 20000) {
+      last.t = Date.now();
+      last.s = diagSnap();
+      for (var k in data) last[k] = data[k];
+      last.n = (last.n || 1) + 1;
+      diagDirty = true;
+      if (performance.now() - diagLastWrite > 2000) diagFlush();
+      return;
+    }
+    data.sig = sig; data.n = 1;
+    diagLog('tick', data);
+    diagTickEntry = diagBuf.length ? diagBuf[diagBuf.length - 1] : null;
+  } catch (e) {}
 }
 window.addEventListener('error', function (e) { diagLog('error', { msg: String((e && e.message) || '').slice(0, 120) }, true); });
 window.addEventListener('unhandledrejection', function (e) { var r = e && e.reason; diagLog('reject', { msg: String((r && r.message) || r || '').slice(0, 120) }, true); });
@@ -2053,10 +2206,58 @@ document.addEventListener('visibilitychange', function () {
   if (document.hidden) diagFlush(); /* ページが殺される前に残す */
 });
 if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', function () { diagLog('sw-controller', {}, true); });
+/* v136: standalone（ホーム画面アプリ）特有のビューポート変動を捉える。
+   visualViewport の resize はスクロールやツールバー出入りでも発火しうる
+   ため1秒に間引く（値が変わった瞬間の記録が目的） */
+if (window.visualViewport) window.visualViewport.addEventListener('resize', function () {
+  canvasProbeASAP = true; /* 変化直後はプローブ間引きを待たず即時に1回走らせる */
+  var vv = window.visualViewport;
+  diagLogThrottled('vv', 1000, 'vv-resize', { iw: window.innerWidth, ih: window.innerHeight, vvw: Math.round(vv.width), vvh: Math.round(vv.height), vvs: Math.round(vv.scale * 100) / 100, vvo: Math.round(vv.offsetTop) });
+});
 /* 間引きで保留された分を定期的に書き出す（ページが突然死しても直前数秒の
    記録が残るように。dirty の時だけ書くので通常時の負荷はない） */
 setInterval(function () { if (diagDirty) diagFlush(); }, 5000);
 diagLog('boot', { ua: String(navigator.userAgent || '').slice(0, 90) });
+/* v136: standalone（ホーム画面に追加したアプリ）表示では、演奏キャンバスの
+   DPR 上限を 1.5 に抑える。本人の環境は standalone PWA と判明しており、
+   「内部の数値は正常なのに表示だけ縮む」症状は WKWebView のコンポジット／
+   GPU 側の劣化とみられる。裏解像度を 2→1.5 にするとテクスチャ量は
+   約44%減り、コンポジット負荷も下がる（鮮明さはわずかに下がる）。
+   プローブ連敗時の段階フォールバック（dprCap を下げる既存経路）とは
+   同じ変数を共有し、初期値を 1.5 にするだけなので競合しない
+   （フォールバックは 1.5→1 へ続く）。ブラウザ表示では従来どおり上限2 */
+var isStandalone = false;
+try { isStandalone = (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch (e) {}
+if (isStandalone && dprCap > 1.5) {
+  var dprCapFrom = dprCap;
+  dprCap = 1.5;
+  diagLog('dpr', { from: dprCapFrom, to: 1.5, why: 'standalone' }, true);
+}
+/* v136: 軽量モード（手動トグル、オプション内）。ON の間は環境によらず
+   実効 DPR 上限を 1.25 にする（standalone の 1.5・プローブ連敗の段階
+   フォールバックとは「実効値 = min(健全上限, 軽量上限)」で統合し、
+   健全側の dprCap 自体は書き換えないので競合しない）。Safari タブでも
+   ラグが残る場合の受け皿。保存キー taiko_light_mode、既定 OFF */
+var lightMode = false;
+try { lightMode = localStorage.getItem('taiko_light_mode') === '1'; } catch (e) {}
+function dprCapEff() { return lightMode ? Math.min(dprCap, 1.25) : dprCap; }
+if (lightMode) diagLog('dpr', { from: dprCap, to: dprCapEff(), why: 'light' }, true);
+function setLightMode(on, why) {
+  var before = dprCapEff();
+  lightMode = !!on;
+  try { localStorage.setItem('taiko_light_mode', lightMode ? '1' : '0'); } catch (e) {}
+  var after = dprCapEff();
+  if (before !== after) diagLog('dpr', { from: before, to: after, why: why || (lightMode ? 'light-on' : 'light-off') }, true);
+  renderLightTgl();
+  /* 実効上限が変わったら即座に反映。演奏中ピン留め時は fitCanvas が寸法
+     維持で早期 return するため、解像度だけを作り直す経路を使う */
+  if (playing && stagePinned) forceCanvasReinit();
+  else fitCanvas('light');
+}
+function renderLightTgl() {
+  var b = $('lightTgl');
+  if (b) b.textContent = '🪶 軽量モード（解像度を下げて軽くする） ' + (lightMode ? 'ON' : 'OFF');
+}
 var APPROACH = 1.9; /* 音符が見えてから判定までの秒数（既定値） */
 var curApproach = APPROACH; /* 演奏中の難易度別アプローチ（startSong で DIFFS から設定） */
 
@@ -2086,6 +2287,7 @@ function unlockStageSize() {
 function fitCanvas(src) {
   if (typeof src !== 'string') src = 'call';
   var beforeCw = CW, beforeCh = CH, beforeDpr = DPR, beforePin = stagePinned;
+  var beforeVw = cv.width, beforeVh = cv.height;
   var ingameNow = wrapEl.classList.contains('ingame');
   if (ingameNow && stagePinned) {
     var rw = $('stageWrap').getBoundingClientRect().width;
@@ -2094,7 +2296,7 @@ function fitCanvas(src) {
   }
   if (!ingameNow) unlockStageSize();
   var r = $('stageWrap').getBoundingClientRect();
-  DPR = Math.min(dprCap, window.devicePixelRatio || 1);
+  DPR = Math.min(dprCapEff(), window.devicePixelRatio || 1);
   CW = Math.max(280, r.width); CH = Math.max(160, r.height);
   cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -2102,13 +2304,19 @@ function fitCanvas(src) {
   bgSpriteCache = {};
   laneSpriteCache = {};
   if (ingameNow) lockStageSize(CH);
+  diagBoxRefresh(); /* v136: 表示ボックス実寸の相乗り更新（fit のスナップショットに載せる） */
   /* v135: 寸法が実際に変わった時だけ診断ログに残す（呼ぶだけでは残さない） */
   if (CW !== beforeCw || CH !== beforeCh || DPR !== beforeDpr || stagePinned !== beforePin) {
     diagLog('fit', { src: src, fcw: beforeCw, fch: beforeCh, fdpr: beforeDpr, pin: stagePinned ? 1 : 0 });
+  } else if (playing && cv.width === beforeVw && cv.height === beforeVh) {
+    /* v136: 寸法不変でも cv.width への代入自体がビットマップを消去する
+       （＝実質的な再初期化）。演奏中にこれが無言で起きると「直したはずの
+       記録が無い」空白になるため、同寸法の再代入も fit として残す */
+    diagLogThrottled('fitsame', 5000, 'fit', { src: src, same: 1, pin: stagePinned ? 1 : 0 });
   }
 }
-window.addEventListener('resize', function () { fitCanvas('resize'); });
-window.addEventListener('orientationchange', function () {
+window.addEventListener('resize', function () { canvasProbeASAP = true; fitCanvas('resize'); });
+window.addEventListener('orientationchange', function () { canvasProbeASAP = true;
   /* 回転直後は rect がまだ古いことがあるため、少し待ってから固定をやり直す */
   setTimeout(function () { unlockStageSize(); fitCanvas('orient'); }, 80);
 });
@@ -2196,6 +2404,9 @@ var canvasCheckFrame = 0;
      getImageData の同期読み戻し自体の負荷も下げる。
    ================================================================ */
 var canvasProbeFrame = 0, canvasProbeFails = 0, canvasRepairCount = 0;
+/* プローブ即時実行フラグ（resize／visualViewport 変化の直後は間隔を待たず
+   次の ensureCanvasSize で1回走らせる。変化直後こそ劣化が起きやすい） */
+var canvasProbeASAP = false;
 var probeConfirmFails = 0, probeLastCountedAt = 0, probeHealthyStreak = 0, probeReinitMisses = 0, lastReinitAt = 0;
 var PROBE_CONFIRM_N = 3;            /* 修復に必要な「間隔を空けた連続失敗」の回数 */
 var PROBE_CONFIRM_GAP_MS = 300;     /* 数える失敗同士の最小間隔（同一過渡の二重数え防止） */
@@ -2222,7 +2433,7 @@ function canvasBitmapProbe(bw, bh) {
 }
 function forceCanvasReinit() {
   try { delete cv.width; delete cv.height; } catch (e) {}
-  DPR = Math.min(dprCap, window.devicePixelRatio || 1);
+  DPR = Math.min(dprCapEff(), window.devicePixelRatio || 1);
   cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   gradCache = {}; bgSpriteCache = {}; laneSpriteCache = {};
@@ -2230,12 +2441,17 @@ function forceCanvasReinit() {
 }
 function ensureCanvasSize() {
   if (!CW || !CH) { fitCanvas(); return; }
-  var dprNow = Math.min(dprCap, window.devicePixelRatio || 1);
-  var bw = Math.round(CW * dprNow), bh = Math.round(CH * dprNow);
-  if (cv.width !== bw || cv.height !== bh || DPR !== dprNow) {
+  diagDprWatch(); /* v136: 環境側 DPR の変化は dpr-env として記録（ここでは採用しない） */
+  /* v136: 期待値は fitCanvas が確定した時点の CW/CH/DPR で固定する。
+     従来は毎フレーム live な devicePixelRatio から期待値を組み直していた
+     ため、環境側の DPR がズレると期待値も一緒にズレて「自己整合」し、
+     検出も修復も発動しないまま表示だけがおかしくなりえた（実機ログで
+     寸法・変換の記録が正常なまま縮小が起きていた件の説明になりうる）。
+     DPR の再確定は fitCanvas（と作り直し時の forceCanvasReinit）だけが行う */
+  var bw = Math.round(CW * DPR), bh = Math.round(CH * DPR);
+  if (cv.width !== bw || cv.height !== bh) {
     /* 属性が正直にズレている型：従来どおり即座に裏解像度と変換だけを復元する */
     diagLogThrottled('dim', 5000, 'dim-fix', { fw: cv.width, fh: cv.height, tw: bw, th: bh });
-    DPR = dprNow;
     cv.width = bw; cv.height = bh;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     gradCache = {}; bgSpriteCache = {}; laneSpriteCache = {};
@@ -2262,9 +2478,15 @@ function ensureCanvasSize() {
   /* v135: 実ビットマップのプローブ（保守化版）。単発の不一致では何もせず、
      間隔を空けた連続失敗が確定して初めて作り直す。健全な間は間隔を広げる */
   canvasProbeFrame++;
-  var probeEvery = playing ? (probeHealthyStreak >= 20 ? 90 : 30) : 90;
+  /* 間隔（v136 間引き）: getImageData の読み戻しは GPU パイプラインの同期を
+     強制し、iOS では周期的な引っかかりの原因になりうる。演奏中は開始直後
+     から90フレーム間隔、健全が20回続いたら300フレームまで広げる。
+     resize／visualViewport 変化の直後は ASAP フラグで即時に1回走らせる */
+  var probeEvery = playing ? (probeHealthyStreak >= 20 ? 300 : 90) : 90;
+  if (canvasProbeASAP) { canvasProbeASAP = false; canvasProbeFrame = probeEvery; }
   if (canvasProbeFrame >= probeEvery) {
     canvasProbeFrame = 0;
+    diagBoxRefresh(); /* v136: 表示ボックス実寸はプローブのタイミングに相乗りして更新 */
     var pr = canvasBitmapProbe(bw, bh);
     if (pr.ok) {
       if (probeConfirmFails > 0) diagLog('probe-recover', { n: probeConfirmFails });
@@ -2330,6 +2552,7 @@ function recheckStartSize() {
   if (!sw) return;
   var r = sw.getBoundingClientRect();
   if (!r.width || !r.height) return;
+  diagBoxRefresh(); /* v136: rect を読むタイミングに相乗り */
   var dw = Math.round(r.width - CW), dh = Math.round(r.height - CH);
   if (dw > 8 || dh > 8) {
     diagLog('recheck', { dw: dw, dh: dh, applied: 1 });
@@ -4234,6 +4457,7 @@ function draw() {
   }
   drumPulse.don = Math.max(0, drumPulse.don - dt * 5);
   drumPulse.katsu = Math.max(0, drumPulse.katsu - dt * 5);
+  if (playing && !paused) diagTick(now); /* v136: 診断ハートビート（約5秒間隔・内部で間引き） */
   zoneFlash.don = Math.max(0, zoneFlash.don - dt * 4.2);
   zoneFlash.katsu = Math.max(0, zoneFlash.katsu - dt * 4.2);
   /* v134: 描画系の例外隔離。rAF は先頭で再登録済みのため例外でループ自体は
@@ -4399,6 +4623,39 @@ function drawGlowT(cx, cy, r, r0, key, stops) {
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.29); ctx.fill();
 }
+/* コンボ大表示のスプライト（値＋色が変わる時だけ焼き直す単一キャッシュ）。
+   ax/ay は「数値の右端・ベースライン」というアンカーのスプライト内座標で、
+   呼び出し側はアンカーが (cx, cy) に重なるよう拡大して貼る */
+var comboSpriteEntry = null;
+function getComboSprite(combo, cCol) {
+  var key = combo + ':' + cCol;
+  if (comboSpriteEntry && comboSpriteEntry.key === key) return comboSpriteEntry;
+  try {
+    var c = document.createElement('canvas');
+    var x = c.getContext('2d');
+    if (!x) return null;
+    x.font = '900 30px sans-serif';
+    var wNum = x.measureText(combo + '').width;
+    x.font = '800 11px sans-serif';
+    var wLab = x.measureText('COMBO').width;
+    var pad = 20; /* shadowBlur 15 のにじみ分 */
+    var right = Math.max(wNum, wLab);
+    c.width = Math.ceil(right) + pad * 2;
+    c.height = 30 + 15 + pad + 10;
+    var ax = pad + right, by = pad + 24;
+    x.textAlign = 'right';
+    if (combo >= 30) { x.shadowColor = cCol; x.shadowBlur = 15; }
+    x.font = '900 30px sans-serif';
+    x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.5)';
+    x.strokeText(combo + '', ax, by);
+    x.fillStyle = cCol; x.fillText(combo + '', ax, by);
+    x.shadowBlur = 0;
+    x.font = '800 11px sans-serif'; x.fillStyle = 'rgba(255,247,234,.75)';
+    x.fillText('COMBO', ax, by + 15);
+    comboSpriteEntry = { key: key, c: c, ax: ax, ay: by };
+    return comboSpriteEntry;
+  } catch (e) { return null; }
+}
 function drawScene(t, dt) {
   var theme = curSong ? curSong.theme : 'wafu';
   /* 敵の攻撃ギミック：短時間の画面シェイク（シーン全体をずらす） */
@@ -4418,11 +4675,19 @@ function drawScene(t, dt) {
   var chorusTarget = (playing && curSong && inChorus(curSong, songTime)) ? 1 : 0;
   chorusMix += clamp(chorusTarget - chorusMix, -dt * 2.2, dt * 2.2);
   if (chorusMix > 0.01) {
-    var cg = ctx.createLinearGradient(0, 0, 0, CH);
-    cg.addColorStop(0, 'rgba(255,116,32,' + (0.13 * chorusMix).toFixed(3) + ')');
-    cg.addColorStop(1, 'rgba(255,64,24,' + (0.06 * chorusMix).toFixed(3) + ')');
+    /* v136 軽量化: グラデーションは固定アルファで焼いてキャッシュし、
+       濃さは globalAlpha で付ける（毎フレームの生成＋文字列組み立てを廃止） */
+    var cg = cachedGrad('chorus:' + CH, function () {
+      var g0 = ctx.createLinearGradient(0, 0, 0, CH);
+      g0.addColorStop(0, 'rgba(255,116,32,.13)');
+      g0.addColorStop(1, 'rgba(255,64,24,.06)');
+      return g0;
+    });
+    ctx.save();
+    ctx.globalAlpha = chorusMix;
     ctx.fillStyle = cg;
     ctx.fillRect(0, 0, CW, CH);
+    ctx.restore();
   }
   drawBigDrum(t);
   var lg = laneGeom(), laneY = lg.y, laneH = lg.h, judgeX = lg.judgeX;
@@ -4436,10 +4701,17 @@ function drawScene(t, dt) {
   ctx.save();
   roundRect(4, laneY - laneH / 2, CW - 8, laneH, 16); ctx.clip();
   var sheenX = ((t * 34) % (CW + 260)) - 130;
-  var shg = ctx.createLinearGradient(sheenX - 55, 0, sheenX + 55, 0);
-  shg.addColorStop(0, 'rgba(255,255,255,0)'); shg.addColorStop(0.5, 'rgba(255,255,255,.055)'); shg.addColorStop(1, 'rgba(255,255,255,0)');
+  /* v136 軽量化: 光沢グラデーションは原点中心で焼いてキャッシュし、
+     位置は translate で動かす（クリップは clip() 時点で確定するので
+     後からの平行移動には影響されない） */
+  var shg = cachedGrad('sheen', function () {
+    var g0 = ctx.createLinearGradient(-55, 0, 55, 0);
+    g0.addColorStop(0, 'rgba(255,255,255,0)'); g0.addColorStop(0.5, 'rgba(255,255,255,.055)'); g0.addColorStop(1, 'rgba(255,255,255,0)');
+    return g0;
+  });
+  ctx.translate(sheenX, 0);
   ctx.fillStyle = shg;
-  ctx.fillRect(sheenX - 55, laneY - laneH / 2, 110, laneH);
+  ctx.fillRect(-55, laneY - laneH / 2, 110, laneH);
   ctx.restore();
   if (chorusMix > 0.01) {
     /* サビ中はレーン内側に暖色のグローを重ね、枠を明るい金にして盛り上がりを示す */
@@ -4538,23 +4810,32 @@ function drawScene(t, dt) {
     ctx.strokeText(p.txt, judgeX, y); ctx.fillStyle = p.col; ctx.fillText(p.txt, judgeX, y);
     ctx.restore();
   }
-  /* コンボ大表示（レーン下・ゾーン上）：数に応じて炎色が育ち、増えた瞬間に弾む */
+  /* コンボ大表示（レーン下・ゾーン上）：数に応じて炎色が育ち、増えた瞬間に弾む。
+     v136 軽量化: 従来は毎フレーム strokeText＋fillText＋shadowBlur で再描画
+     していた（プロファイルで strokeText が上位）。数値＋COMBO ラベルを
+     値が変わる時だけオフスクリーンへ焼き、毎フレームは drawImage の
+     拡大縮小で弾みアニメーションを付ける */
   if (playing && combo >= 5) {
     if (combo !== comboShown) { comboShown = combo; comboPopT = nowMs; }
     var cScale = 1 + 0.30 * Math.max(0, 1 - (nowMs - comboPopT) / 170);
     var cCol = combo >= 100 ? '#ff5a3c' : (combo >= 50 ? '#ff9a3c' : (combo >= 30 ? '#ffc93c' : '#fff7ea'));
     var cx = CW - 14, cy = laneY + laneH / 2 + 36;
-    ctx.save();
-    ctx.textAlign = 'right';
-    ctx.font = '900 ' + Math.round(30 * cScale) + 'px sans-serif';
-    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.5)';
-    if (combo >= 30) { ctx.shadowColor = cCol; ctx.shadowBlur = 15; }
-    ctx.strokeText(combo + '', cx, cy);
-    ctx.fillStyle = cCol; ctx.fillText(combo + '', cx, cy);
-    ctx.shadowBlur = 0;
-    ctx.font = '800 11px sans-serif'; ctx.fillStyle = 'rgba(255,247,234,.75)';
-    ctx.fillText('COMBO', cx, cy + 15);
-    ctx.restore();
+    var csp = getComboSprite(combo, cCol);
+    if (csp) {
+      ctx.drawImage(csp.c, cx - csp.ax * cScale, cy - csp.ay * cScale, csp.c.width * cScale, csp.c.height * cScale);
+    } else {
+      ctx.save();
+      ctx.textAlign = 'right';
+      ctx.font = '900 ' + Math.round(30 * cScale) + 'px sans-serif';
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.5)';
+      if (combo >= 30) { ctx.shadowColor = cCol; ctx.shadowBlur = 15; }
+      ctx.strokeText(combo + '', cx, cy);
+      ctx.fillStyle = cCol; ctx.fillText(combo + '', cx, cy);
+      ctx.shadowBlur = 0;
+      ctx.font = '800 11px sans-serif'; ctx.fillStyle = 'rgba(255,247,234,.75)';
+      ctx.fillText('COMBO', cx, cy + 15);
+      ctx.restore();
+    }
     /* 高コンボでは火の粉が舞う（上限つき） */
     if (combo >= 30 && Math.random() < dt * 9 && bursts.length < 110) {
       bursts.push({ x: cx - 26 + Math.random() * 30, y: cy - 8, vx: (Math.random() - 0.5) * 16, vy: -36 - Math.random() * 30, t0: nowMs, life: 560 + Math.random() * 200, col: '#ffb03a', r: 1.5 + Math.random() * 1.6, ang: -1.57, star: false });
@@ -4668,8 +4949,12 @@ function drawBackdrop(theme, t, dt) {
   } else if (theme === 'rock') { /* rock：スポットライトと火の粉 */
     for (i = 0; i < 3; i++) {
       var bx = CW * (0.22 + i * 0.28), sway = Math.sin(t * 0.6 + i * 2.1) * 0.35;
-      var grad = ctx.createLinearGradient(bx, 0, bx + sway * 120, CH);
-      grad.addColorStop(0, 'rgba(255,120,80,.20)'); grad.addColorStop(1, 'rgba(255,120,80,0)');
+      /* v136 軽量化: sway を量子化してグラデーションをキャッシュ（毎フレーム生成を廃止） */
+      var grad = cachedGrad('spotR:' + i + ':' + Math.round(sway * 40) + ':' + CW + 'x' + CH, function () {
+        var g0 = ctx.createLinearGradient(bx, 0, bx + sway * 120, CH);
+        g0.addColorStop(0, 'rgba(255,120,80,.20)'); g0.addColorStop(1, 'rgba(255,120,80,0)');
+        return g0;
+      });
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.moveTo(bx - 7, 0); ctx.lineTo(bx + 7, 0); ctx.lineTo(bx + sway * 120 + 44, CH); ctx.lineTo(bx + sway * 120 - 44, CH); ctx.closePath(); ctx.fill();
     }
@@ -4700,8 +4985,12 @@ function drawBackdrop(theme, t, dt) {
     var icol = ['255,93,143', '120,200,255', '255,201,60'];
     for (i = 0; i < 3; i++) {
       var ix = CW * (0.18 + i * 0.32), isw = Math.sin(t * 0.8 + i * 2.4) * 0.4;
-      var ig = ctx.createLinearGradient(ix, 0, ix + isw * 130, CH);
-      ig.addColorStop(0, 'rgba(' + icol[i] + ',.22)'); ig.addColorStop(1, 'rgba(' + icol[i] + ',0)');
+      /* v136 軽量化: sway を量子化してグラデーションをキャッシュ */
+      var ig = cachedGrad('spotI:' + i + ':' + Math.round(isw * 40) + ':' + CW + 'x' + CH, function () {
+        var g0 = ctx.createLinearGradient(ix, 0, ix + isw * 130, CH);
+        g0.addColorStop(0, 'rgba(' + icol[i] + ',.22)'); g0.addColorStop(1, 'rgba(' + icol[i] + ',0)');
+        return g0;
+      });
       ctx.fillStyle = ig;
       ctx.beginPath(); ctx.moveTo(ix - 6, 0); ctx.lineTo(ix + 6, 0); ctx.lineTo(ix + isw * 130 + 40, CH); ctx.lineTo(ix + isw * 130 - 40, CH); ctx.closePath(); ctx.fill();
     }
@@ -4733,8 +5022,12 @@ function drawBackdrop(theme, t, dt) {
     ctx.fillStyle = '#e8efff';
     ctx.beginPath(); ctx.arc(CW * 0.8, 46, 19, 0, 6.29); ctx.fill();
     var jx = CW * 0.3, jsw = Math.sin(t * 0.5) * 0.25;
-    var jlg = ctx.createLinearGradient(jx, 0, jx + jsw * 110, CH);
-    jlg.addColorStop(0, 'rgba(255,214,140,.16)'); jlg.addColorStop(1, 'rgba(255,214,140,0)');
+    /* v136 軽量化: sway を量子化してグラデーションをキャッシュ */
+    var jlg = cachedGrad('spotJ:' + Math.round(jsw * 40) + ':' + CW + 'x' + CH, function () {
+      var g0 = ctx.createLinearGradient(jx, 0, jx + jsw * 110, CH);
+      g0.addColorStop(0, 'rgba(255,214,140,.16)'); g0.addColorStop(1, 'rgba(255,214,140,0)');
+      return g0;
+    });
     ctx.fillStyle = jlg;
     ctx.beginPath(); ctx.moveTo(jx - 8, 0); ctx.lineTo(jx + 8, 0); ctx.lineTo(jx + jsw * 110 + 52, CH); ctx.lineTo(jx + jsw * 110 - 52, CH); ctx.closePath(); ctx.fill();
     /* 街のシルエットと窓明かり（決定的に配置） */
@@ -6190,6 +6483,8 @@ function renderMascotModal() {
   if (pt) pt.addEventListener('click', function () { practiceMode = !practiceMode; pt.classList.toggle('on', practiceMode); pt.textContent = '練習（サビから）' + (practiceMode ? ' ON' : ' OFF'); blip(); });
   var at = $('autoTgl');
   if (at) at.addEventListener('click', function () { autoMode = !autoMode; at.classList.toggle('on', autoMode); at.textContent = '🤖 オートプレイ（お手本）' + (autoMode ? ' ON' : ' OFF'); blip(); });
+  var lt = $('lightTgl');
+  if (lt) { renderLightTgl(); lt.addEventListener('click', function () { setLightMode(!lightMode); blip(); }); }
   var rb = $('randomBtn');
   if (rb) rb.addEventListener('click', function () { ensureAudio(); randomPick(); });
   var sb = $('stampBtn');
@@ -6364,7 +6659,12 @@ window.__taiko = {
     repair: ensureCanvasSize, recheckStart: recheckStartSize,
     probe: function () { return { fails: canvasProbeFails, confirm: probeConfirmFails, misses: probeReinitMisses, healthy: probeHealthyStreak, repairs: canvasRepairCount, dprCap: dprCap, spriteKill: spriteKill, sceneErrStreak: sceneErrStreak }; },
     canvasInfo: function () { return { cvW: cv.width, cvH: cv.height, DPR: DPR }; } },
-  diag: { text: diagText, log: diagLog, entries: function () { return diagBuf.slice(); }, clear: function () { diagBuf = []; diagDirty = true; diagFlush(); } },
+  diag: { text: diagText, log: diagLog, entries: function () { return diagBuf.slice(); }, clear: function () { diagBuf = []; diagDirty = true; diagFlush(); },
+    state: function () { return { standalone: isStandalone, dprCap: dprCap, dprEff: dprCapEff(), light: lightMode, rdpr: window.devicePixelRatio || 1, lastRdpr: diagLastRdpr, ac: AC ? AC.state : 'none', box: { bw: diagBox.bw, bh: diagBox.bh, sw: diagBox.sw, sh: diagBox.sh } }; },
+    setLight: function (on) { setLightMode(!!on, 'test'); },
+    audioEl: function (songId) { var r = realAudio[songId || (curSong ? curSong.id : selSong)]; return r ? r.el : null; },
+    acSuspend: function () { if (AC && AC.suspend) { AC.suspend(); return true; } return false; },
+    acResume: function () { if (AC && AC.resume) { AC.resume(); return true; } return false; } },
   audioMem: function () { return { entries: Object.keys(realAudio), states: Object.keys(realAudio).map(function (id) { return id + ':' + realAudio[id].state; }), partsSongs: window.PW_AUDIO_PARTS ? Object.keys(window.PW_AUDIO_PARTS) : [] }; },
   startPreview: startPreview,
   stopPreview: stopPreview,
