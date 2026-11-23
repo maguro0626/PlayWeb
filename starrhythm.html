@@ -1692,6 +1692,48 @@ function cacheAudioURL(song, b64) {
   return audioURLs[song.id];
 }
 function audioDataReady(song) { return !!audioURLs[song.id] || audioPartsComplete(song); }
+/* パートファイル（audio/parts/<id>.pNN.js）の読み込み。
+   script タグ方式をやめ、fetch でテキストとして取得して base64 本体だけを
+   抽出する方式に変更した（太鼓で実証済みの方式に統一）。script 方式では
+   読み込んだ文字列が Script（コンパイル済みコード）側に固定され、
+   PW_AUDIO_PARTS への参照を落としても GC で回収されなかった（実測：
+   選曲をまたいで1曲あたり約7〜14MBが残留し続け、一括DL後はヒープが
+   約100MB増えたまま戻らなかった。太鼓で実機のメモリ逼迫→描画劣化→
+   WebContent クラッシュの主因と確定したものと同型）。fetch 方式の文字列は
+   通常のヒープ対象で、cacheAudioURL が参照を落とせば回収される。SW の
+   キャッシュ経路は script 読込と同一（同じ URL への GET で、SW の応答
+   分岐も同じ）。fetch が使えない／抽出できない場合は従来の script 方式に
+   フォールバックする（その場合も読み終えたタグは除去する）。 */
+function partFileUrl(song, idx) { return 'audio/parts/' + song.id + '.p' + ('0' + idx).slice(-2) + '.js'; }
+function extractPartPayload(text) {
+  var m = typeof text === 'string' ? text.match(/\]='([A-Za-z0-9+/=]+)';?\s*$/) : null;
+  return m ? m[1] : null;
+}
+function loadPartViaScript(song, idx) {
+  return new Promise(function (resolve, reject) {
+    var sc = document.createElement('script');
+    sc.src = partFileUrl(song, idx);
+    sc.onload = function () { try { sc.remove(); } catch (e) {} resolve(); };
+    sc.onerror = function () { try { sc.remove(); } catch (e) {} reject(new Error('load failed: ' + sc.src)); };
+    (document.head || document.body).appendChild(sc);
+  });
+}
+function loadPartData(song, idx) {
+  window.PW_AUDIO_PARTS = window.PW_AUDIO_PARTS || {};
+  if (!window.PW_AUDIO_PARTS[song.id]) window.PW_AUDIO_PARTS[song.id] = [];
+  if (typeof window.PW_AUDIO_PARTS[song.id][idx] === 'string' && window.PW_AUDIO_PARTS[song.id][idx]) return Promise.resolve();
+  var viaFetch = (typeof fetch === 'function')
+    ? fetch(partFileUrl(song, idx)).then(function (res) {
+        if (!res || !res.ok) throw new Error('part fetch failed');
+        return res.text();
+      }).then(function (text) {
+        var payload = extractPartPayload(text);
+        if (payload === null) throw new Error('part format');
+        window.PW_AUDIO_PARTS[song.id][idx] = payload;
+      })
+    : Promise.reject(new Error('no fetch'));
+  return viaFetch.catch(function () { return loadPartViaScript(song, idx); });
+}
 function loadAudioTrack(song, cb) {
   if (audioURLs[song.id]) { /* LRU：使った曲は末尾へ付け替える */
     var u = audioURLs[song.id]; delete audioURLs[song.id]; audioURLs[song.id] = u;
@@ -1711,30 +1753,33 @@ function loadAudioTrack(song, cb) {
   };
   var total = song.parts || 0;
   if (!total) { done(new Error('no audio parts')); return; }
-  var remaining = total, failed = false;
-  for (var i = 0; i < total; i++) {
-    (function (idx) {
-      var sc = document.createElement('script');
-      sc.src = 'audio/parts/' + song.id + '.p' + (idx < 10 ? '0' : '') + idx + '.js';
-      sc.onload = function () {
-        if (sc.parentNode) sc.parentNode.removeChild(sc); /* 読み終えたパートタグは残さない */
-        if (failed) return;
-        remaining--;
-        if (remaining > 0) return;
-        var b64 = assembledAudioB64(song);
-        if (b64 === null) { done(new Error('no audio data')); return; }
-        try { done(null, cacheAudioURL(song, b64)); } catch (e) { done(e); }
-      };
-      sc.onerror = function () { if (sc.parentNode) sc.parentNode.removeChild(sc); if (!failed) { failed = true; done(new Error('load failed')); } };
-      document.head.appendChild(sc);
-    })(i);
-  }
+  var remaining = total, failed = false, finished = false;
+  var onPart = function (ok) {
+    if (finished) return;
+    if (!ok) failed = true;
+    if (--remaining > 0) return;
+    finished = true;
+    if (failed) { done(new Error('load failed')); return; }
+    var b64 = assembledAudioB64(song);
+    if (b64 === null) { done(new Error('no audio data')); return; }
+    try { done(null, cacheAudioURL(song, b64)); } catch (e) { done(e); }
+  };
+  try {
+    for (var i = 0; i < total; i++) {
+      (function (idx) {
+        loadPartData(song, idx).then(function () { onPart(true); }, function () { onPart(false); });
+      })(i);
+    }
+  } catch (e) { done(e); }
 }
 /* ---------------- 楽曲データの更新チェック＆一括ダウンロード ----------------
    起動時にデータ版数（AUDIO_REV）と端末の保存済み版数を比べ、新しい音源データが
    ある時だけ Wi-Fi 推奨ポップアップを出す。「わかった」で全曲の音源データを
    先読みして Service Worker のランタイムキャッシュに載せ（loadAudioTrack 経由で
-   ObjectURL 化まで済ませる）、完了したらそのまま遊べる。「やめる」でポータルへ戻る。
+   ObjectURL 化まで済ませる）、完了したらそのまま遊べる。「やめる」はポータルへは
+   戻らず、ポップアップを閉じてそのまま遊べる（太鼓と同仕様）。ダウンロード中に
+   閉じた場合は裏で継続し、完了してもポップアップは再表示しない。未完了のまま
+   閉じた場合は次回起動時に再案内する。
    更新が不要な場合は何も出さない。
    ★ 新しい曲（実音源）を追加したら AUDIO_REV を必ず上げること。 */
 var AUDIO_REV = 3;

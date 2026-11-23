@@ -507,6 +507,12 @@ html,body{overscroll-behavior:none;}
 <div id="offsetSeg"><span class="segLbl">判定調整</span><button data-off="-25">−25</button><button data-off="-5">−5</button><span id="offsetVal" title="タップで 0 に戻す">±0ms</span><button data-off="5">＋5</button><button data-off="25">＋25</button></div>
 <div id="seSetRow"><span class="segLbl">タップ音（ドン/カツ）</span><select id="seSetSel" title="タップ音（ドン/カツ）の種類" aria-label="タップ音の種類"><option value="standard">🥁 標準</option><option value="wood">🪵 木の音</option><option value="elec">🎛 電子音</option><option value="light">✨ 軽い音</option><option value="heavy">💥 重い音</option></select></div>
 <button id="calibBtn" class="btn sub" type="button">🎯 判定キャリブレーション</button>
+<button id="diagBtn" class="btn sub" type="button">📋 診断ログ</button>
+<div id="diagWrap" class="hidden">
+<textarea id="diagText" readonly rows="9" style="width:100%;box-sizing:border-box;font-size:10px;line-height:1.5;background:#17101f;color:#cfc4e8;border:1px solid #3a2c55;border-radius:8px;padding:6px"></textarea>
+<div style="display:flex;gap:8px;margin-top:6px"><button id="diagCopy" class="miniBtn2" type="button">📄 コピー</button><button id="diagClear" class="miniBtn2" type="button">🗑 消去</button></div>
+<p class="note">画面がおかしくなった時は、このログをコピーして送ってもらえると原因が分かります。</p>
+</div>
 <p class="help">音符が左端の金の枠に重なったら叩こう！<br>赤い音符＝<b style="color:#ff8a7a">ドン（下の大太鼓の中をタップ）</b>、青い音符＝<b style="color:#8ab6ff">カツ（大太鼓の外をタップ）</b>。キー F・J＝ドン / D・K＝カツ でも叩けます。</p>
 </div>
 <div id="onlinePane" class="hidden"><div class="card">
@@ -1974,6 +1980,83 @@ var lastHitType = null; /* 直近の打撃種別（テスト検証用） */
 var CW = 0, CH = 0, DPR = 1;
 var dprCap = 2; /* 裏解像度の上限。端末が DPR 2 のバッファを保持できない状態が
    プローブで繰り返し検出された時だけ段階的に下がる（通常は常に 2） */
+
+/* ================================================================
+   v135: 実機診断ログ（リングバッファ）
+   ----------------------------------------------------------------
+   実機（iPhone Safari / WKWebView）でしか起きない描画障害は、こちらの
+   検証環境では再現できないことがある。次に実機で起きた時に「その瞬間
+   何が起きていたか」を後から読めるよう、寸法・プローブ・修復・例外
+   などのイベントを localStorage の専用キーに時刻つきで残す。
+   設計: メモリ上の配列に貯め、localStorage への書き込みは2秒に1回
+   までに間引く（重要イベントと画面が隠れる瞬間は即時）。上限200件・
+   数十KB以内。演奏中の記録は既に計算済みの値の写しだけで、レイアウト
+   計測などの重い処理は一切しない。通常プレイの見た目には出さない
+   （閲覧はオプションシート内の「📋 診断ログ」から）。
+   ================================================================ */
+var DIAG_KEY = 'taiko_diag_v1';
+var DIAG_MAX = 200;
+var diagBuf = [];
+var diagDirty = false, diagLastWrite = 0, diagLoaded = false, diagThrottleMap = {};
+function diagLoad() {
+  if (diagLoaded) return;
+  diagLoaded = true;
+  try {
+    var raw = localStorage.getItem(DIAG_KEY);
+    if (raw) { var arr = JSON.parse(raw); if (Object.prototype.toString.call(arr) === '[object Array]') diagBuf = arr.slice(-DIAG_MAX); }
+  } catch (e) {}
+}
+function diagSnap() {
+  var s = { cw: CW, ch: CH, vw: cv ? cv.width : 0, vh: cv ? cv.height : 0, dpr: DPR };
+  try { if (ctx && ctx.getTransform) { var tm = ctx.getTransform(); s.ta = Math.round(tm.a * 100) / 100; s.td = Math.round(tm.d * 100) / 100; } } catch (e) {}
+  return s;
+}
+function diagFlush() {
+  if (!diagDirty) return;
+  diagDirty = false; diagLastWrite = performance.now();
+  try { localStorage.setItem(DIAG_KEY, JSON.stringify(diagBuf)); } catch (e) {}
+}
+function diagLog(ev, data, urgent) {
+  try {
+    diagLoad();
+    var e = { t: Date.now(), ev: ev, s: diagSnap() };
+    if (data) for (var k in data) e[k] = data[k];
+    diagBuf.push(e);
+    if (diagBuf.length > DIAG_MAX) diagBuf.splice(0, diagBuf.length - DIAG_MAX);
+    diagDirty = true;
+    if (urgent || performance.now() - diagLastWrite > 2000) diagFlush();
+  } catch (err) {}
+}
+/* 同種イベントの連発でログが埋まらないよう、キーごとに最小間隔を空ける */
+function diagLogThrottled(key, gapMs, ev, data) {
+  var now = performance.now();
+  if (diagThrottleMap[key] && now - diagThrottleMap[key] < gapMs) return;
+  diagThrottleMap[key] = now;
+  diagLog(ev, data);
+}
+function diagText() {
+  diagLoad();
+  return diagBuf.map(function (e) {
+    var parts = [new Date(e.t).toISOString(), e.ev];
+    for (var k in e) {
+      if (k === 't' || k === 'ev' || k === 's') continue;
+      parts.push(k + '=' + e[k]);
+    }
+    if (e.s) parts.push('cw=' + e.s.cw, 'ch=' + e.s.ch, 'vw=' + e.s.vw, 'vh=' + e.s.vh, 'dpr=' + e.s.dpr, 'ta=' + e.s.ta, 'td=' + e.s.td);
+    return parts.join(' ');
+  }).join('\n');
+}
+window.addEventListener('error', function (e) { diagLog('error', { msg: String((e && e.message) || '').slice(0, 120) }, true); });
+window.addEventListener('unhandledrejection', function (e) { var r = e && e.reason; diagLog('reject', { msg: String((r && r.message) || r || '').slice(0, 120) }, true); });
+document.addEventListener('visibilitychange', function () {
+  diagLog('vis', { h: document.hidden ? 1 : 0 }, !!document.hidden);
+  if (document.hidden) diagFlush(); /* ページが殺される前に残す */
+});
+if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', function () { diagLog('sw-controller', {}, true); });
+/* 間引きで保留された分を定期的に書き出す（ページが突然死しても直前数秒の
+   記録が残るように。dirty の時だけ書くので通常時の負荷はない） */
+setInterval(function () { if (diagDirty) diagFlush(); }, 5000);
+diagLog('boot', { ua: String(navigator.userAgent || '').slice(0, 90) });
 var APPROACH = 1.9; /* 音符が見えてから判定までの秒数（既定値） */
 var curApproach = APPROACH; /* 演奏中の難易度別アプローチ（startSong で DIFFS から設定） */
 
@@ -1985,10 +2068,14 @@ var curApproach = APPROACH; /* 演奏中の難易度別アプローチ（startSo
    影響そのものを断つ。(2) fitCanvas は ingame 中、高さだけの変動（＝バーの出入り）
    では再計算しない。幅が大きく変わった場合（回転など）だけ再計測して固定し直す。 */
 var stagePinned = false;
-function lockStageSize() {
+function lockStageSize(pinH) {
   var sw = $('stageWrap');
   if (!sw || !CH) return;
-  var h = sw.getBoundingClientRect().height;
+  /* v135: ピン高さは原則として fitCanvas が決めた CH をそのまま使う。
+     rect を読み直すと、レイアウト遷移中は CH と違う高さでピンしてしまい、
+     キャンバスが CSS で引き伸ばされて（ぼやけ・寸法ズレ）見える原因になる。
+     引数なし（テストフック等）の場合だけ従来どおり rect から決める */
+  var h = (pinH && pinH > 0) ? pinH : sw.getBoundingClientRect().height;
   if (h > 0) { sw.style.flex = 'none'; sw.style.height = h + 'px'; stagePinned = true; }
 }
 function unlockStageSize() {
@@ -1996,7 +2083,9 @@ function unlockStageSize() {
   if (sw) { sw.style.flex = ''; sw.style.height = ''; }
   stagePinned = false;
 }
-function fitCanvas() {
+function fitCanvas(src) {
+  if (typeof src !== 'string') src = 'call';
+  var beforeCw = CW, beforeCh = CH, beforeDpr = DPR, beforePin = stagePinned;
   var ingameNow = wrapEl.classList.contains('ingame');
   if (ingameNow && stagePinned) {
     var rw = $('stageWrap').getBoundingClientRect().width;
@@ -2012,12 +2101,16 @@ function fitCanvas() {
   gradCache = {};
   bgSpriteCache = {};
   laneSpriteCache = {};
-  if (ingameNow) lockStageSize();
+  if (ingameNow) lockStageSize(CH);
+  /* v135: 寸法が実際に変わった時だけ診断ログに残す（呼ぶだけでは残さない） */
+  if (CW !== beforeCw || CH !== beforeCh || DPR !== beforeDpr || stagePinned !== beforePin) {
+    diagLog('fit', { src: src, fcw: beforeCw, fch: beforeCh, fdpr: beforeDpr, pin: stagePinned ? 1 : 0 });
+  }
 }
-window.addEventListener('resize', fitCanvas);
+window.addEventListener('resize', function () { fitCanvas('resize'); });
 window.addEventListener('orientationchange', function () {
   /* 回転直後は rect がまだ古いことがあるため、少し待ってから固定をやり直す */
-  setTimeout(function () { unlockStageSize(); fitCanvas(); }, 80);
+  setTimeout(function () { unlockStageSize(); fitCanvas('orient'); }, 80);
 });
 
 /* ================================================================
@@ -2066,18 +2159,66 @@ var canvasCheckFrame = 0;
    （＝端末がその寸法のバッファを保持できない）場合は、dprCap を段階的
    に下げて保持できる寸法まで落とす（通常時は一切発動しない）。
    ================================================================ */
+/* ================================================================
+   v135: プローブ／自己修復の監査結果と保守化（2026-11-23、v134 適用後も
+   「更新後1曲目（Love斬る）の途中」で実機再現した件への対応）
+   ----------------------------------------------------------------
+   v134 のプローブを実機の誤作動経路という観点で洗い直した結果：
+   【欠陥1】単発の読み戻し不一致で即 forceCanvasReinit が走り、3回連続で
+     DPR まで落としていた。誤検出が短時間に重なれば、健全な端末でも
+     演奏中に再割当て（＝一瞬の暗転とキャッシュ全消去によるヒッチ）と
+     解像度低下が起きる。
+   【欠陥2】プローブの状態隔離が不完全だった。save/restore はしていたが
+     継承した globalAlpha / globalCompositeOperation / 影 / clip を
+     初期化していなかった。ensureCanvasSize は draw() の先頭＝前フレームの
+     drawScene が残した状態の上で走り、drawScene は try/catch 隔離のため
+     例外が save/restore の途中で起きると状態が残留しうる（globalAlpha の
+     使用箇所18件・clip の使用あり）。alpha<1 や clip が残れば、健全な
+     ビットマップでも読み戻しが不一致になり【欠陥1】と連鎖する。
+   【欠陥3】判定が 3x3 の先頭1ピクセル依存で、閾値もきつく、端末差
+     （色空間の丸め・プリマルチプライ）や1pxの汚染で反転しえた。
+   【健全だった点】読み戻し座標の換算：getImageData は変換行列の影響を
+     受けず、bw/bh はプローブ直前の寸法照合で cv.width/height との一致が
+     保証される。描く場所と読む場所がズレる経路はない。
+   【forceCanvasReinit の副作用】CW/CH・ピン・譜面時計には触れず安全。
+     ただし再割当てはビットマップを消すため、誤発動自体が可視の障害に
+     なる。delete cv.width/height は、属性がシャドウされた状態を外す
+     ために必要な操作（テスト障害モデルCで実証）なので残す。
+   対策（保守化）：
+   - プローブは状態を完全隔離（alpha／合成／影を既定値へ）し、判定は
+     3x3 の過半数（5px以上）の投票制＋閾値を緩和。単一ピクセルでは決めない。
+   - ensureCanvasSize の先頭で、フレームをまたいで残った alpha／合成を
+     検出して既定値へ戻し、診断ログに残す（残留そのものも障害の兆候）。
+   - 修復は「間隔（300ms以上）を空けた3回の連続失敗」で初めて1回だけ。
+     再初期化の最小間隔は1.5秒。再初期化しても直らない（次の確認でも
+     失敗する）ことが2回続いて初めて DPR を一段下げる。
+   - 健全なプローブが続く間はプローブ間隔を広げ（演奏中30→90フレーム）、
+     getImageData の同期読み戻し自体の負荷も下げる。
+   ================================================================ */
 var canvasProbeFrame = 0, canvasProbeFails = 0, canvasRepairCount = 0;
+var probeConfirmFails = 0, probeLastCountedAt = 0, probeHealthyStreak = 0, probeReinitMisses = 0, lastReinitAt = 0;
+var PROBE_CONFIRM_N = 3;            /* 修復に必要な「間隔を空けた連続失敗」の回数 */
+var PROBE_CONFIRM_GAP_MS = 300;     /* 数える失敗同士の最小間隔（同一過渡の二重数え防止） */
+var PROBE_REINIT_MIN_GAP_MS = 1500; /* 再初期化の最小間隔（連発防止） */
 function canvasBitmapProbe(bw, bh) {
+  /* 戻り値 { ok, skip?, rgba（中心px）, hits（マゼンタ一致px数） } */
   try {
-    if (!ctx.getImageData || bw < 8 || bh < 8) return true; /* 読めない環境では不明＝健全扱い（修復ループにしない） */
+    if (!ctx.getImageData || bw < 8 || bh < 8) return { ok: true, skip: true }; /* 読めない環境では不明＝健全扱い（修復ループにしない） */
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowBlur = 0; ctx.shadowColor = 'rgba(0,0,0,0)'; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     ctx.fillStyle = 'rgb(255,0,255)';
     ctx.fillRect(bw - 3, bh - 3, 3, 3);
     var d = ctx.getImageData(bw - 3, bh - 3, 3, 3).data;
     ctx.restore();
-    return d[0] > 200 && d[1] < 80 && d[2] > 200 && d[3] > 200;
-  } catch (e) { try { ctx.restore(); } catch (e2) {} return true; }
+    var hits = 0;
+    for (var i = 0; i < d.length; i += 4) {
+      if (d[i] > 180 && d[i + 1] < 100 && d[i + 2] > 180 && d[i + 3] > 180) hits++;
+    }
+    return { ok: hits >= 5, rgba: [d[16], d[17], d[18], d[19]], hits: hits };
+  } catch (e) { try { ctx.restore(); } catch (e2) {} return { ok: true, skip: true }; }
 }
 function forceCanvasReinit() {
   try { delete cv.width; delete cv.height; } catch (e) {}
@@ -2092,6 +2233,8 @@ function ensureCanvasSize() {
   var dprNow = Math.min(dprCap, window.devicePixelRatio || 1);
   var bw = Math.round(CW * dprNow), bh = Math.round(CH * dprNow);
   if (cv.width !== bw || cv.height !== bh || DPR !== dprNow) {
+    /* 属性が正直にズレている型：従来どおり即座に裏解像度と変換だけを復元する */
+    diagLogThrottled('dim', 5000, 'dim-fix', { fw: cv.width, fh: cv.height, tw: bw, th: bh });
     DPR = dprNow;
     cv.width = bw; cv.height = bh;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -2101,20 +2244,57 @@ function ensureCanvasSize() {
   if (ctx.getTransform) {
     try {
       var tm = ctx.getTransform();
-      if (Math.abs(tm.a - DPR) > 0.01 || Math.abs(tm.d - DPR) > 0.01) ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      if (Math.abs(tm.a - DPR) > 0.01 || Math.abs(tm.d - DPR) > 0.01) {
+        diagLogThrottled('tm', 5000, 'transform-fix', { fa: Math.round(tm.a * 100) / 100, fd: Math.round(tm.d * 100) / 100 });
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
     } catch (e) {}
   }
-  /* v134: 実ビットマップのプローブ（演奏中30フレーム・選曲中90フレームに1回）。
-     属性と変換が正常でも、実バッファが失われていればここで検出して作り直す */
+  /* v135: フレーム先頭の ctx 状態の正常化。drawScene は save/restore の対で
+     描く前提だが、例外隔離（try/catch）で途中終了すると globalAlpha 等が
+     残留しうる。残留は描画そのものもプローブ判定も歪めるため、既定値へ
+     戻して診断ログに残す（残留の発生自体が障害の手がかりになる） */
+  if (ctx.globalAlpha !== 1 || ctx.globalCompositeOperation !== 'source-over') {
+    diagLogThrottled('leak', 5000, 'state-leak', { alpha: ctx.globalAlpha, gco: ctx.globalCompositeOperation });
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  /* v135: 実ビットマップのプローブ（保守化版）。単発の不一致では何もせず、
+     間隔を空けた連続失敗が確定して初めて作り直す。健全な間は間隔を広げる */
   canvasProbeFrame++;
-  if (canvasProbeFrame >= (playing ? 30 : 90)) {
+  var probeEvery = playing ? (probeHealthyStreak >= 20 ? 90 : 30) : 90;
+  if (canvasProbeFrame >= probeEvery) {
     canvasProbeFrame = 0;
-    if (canvasBitmapProbe(bw, bh)) { canvasProbeFails = 0; }
-    else {
-      canvasProbeFails++;
-      if (canvasProbeFails >= 3 && dprCap > 1) { dprCap = Math.max(1, dprCap - 0.5); canvasProbeFails = 0; }
-      forceCanvasReinit();
-      return;
+    var pr = canvasBitmapProbe(bw, bh);
+    if (pr.ok) {
+      if (probeConfirmFails > 0) diagLog('probe-recover', { n: probeConfirmFails });
+      probeConfirmFails = 0; canvasProbeFails = 0; probeReinitMisses = 0;
+      probeHealthyStreak++;
+    } else {
+      probeHealthyStreak = 0;
+      var nowMs = performance.now();
+      if (nowMs - probeLastCountedAt >= PROBE_CONFIRM_GAP_MS) {
+        probeLastCountedAt = nowMs;
+        probeConfirmFails++; canvasProbeFails = probeConfirmFails;
+        diagLog('probe-fail', { rgba: pr.rgba ? pr.rgba.join(',') : '', hits: pr.hits, n: probeConfirmFails });
+        if (probeConfirmFails >= PROBE_CONFIRM_N && nowMs - lastReinitAt >= PROBE_REINIT_MIN_GAP_MS) {
+          probeConfirmFails = 0; canvasProbeFails = 0;
+          lastReinitAt = nowMs;
+          probeReinitMisses++;
+          var stepped = 0;
+          if (probeReinitMisses >= 2 && dprCap > 1) {
+            /* 作り直しても保持できないことが2回続いた場合だけ一段下げる */
+            var oldCap = dprCap;
+            dprCap = Math.max(1, dprCap - 0.5);
+            probeReinitMisses = 0;
+            stepped = 1;
+            diagLog('dpr', { from: oldCap, to: dprCap }, true);
+          }
+          diagLog('reinit', { why: 'probe', miss: probeReinitMisses, stepped: stepped }, true);
+          forceCanvasReinit();
+          return;
+        }
+      }
     }
   }
   canvasCheckFrame++;
@@ -2137,7 +2317,12 @@ function ensureCanvasSize() {
    Safari のツールバー出入り等でレイアウトが遷移中のことがあり、その一瞬の
    rect で測ると縮んだ寸法がピン留めされてしまう。遷移が落ち着く頃に
    8px 超のズレがあれば測り直す。ノーツ位置は時刻基準で毎フレーム算出
-   されるため、カウントダウン中の再計測は判定・同期に影響しない */
+   されるため、カウントダウン中の再計測は判定・同期に影響しない
+   v135: 適用は「拡大方向だけ」に限定する。ツールバーが現れる方向へ遷移が
+   進むと rect は開始時より小さくなり、その値で測り直すとステージ全体が
+   一段小さい寸法で曲の終わりまで固定されてしまう（開始直後の実機報告
+   「1曲目の途中で画面がおかしくなった」の一因になりうる）。縮小方向は
+   診断ログに残すだけで適用しない（曲が終わればピン自体が解除される） */
 function recheckStartSize() {
   if (!playing || !wrapEl.classList.contains('ingame')) return;
   if (songTime > 1) return; /* カウントダウン（実音源/シンセとも約3.2秒）の範囲だけ */
@@ -2145,7 +2330,13 @@ function recheckStartSize() {
   if (!sw) return;
   var r = sw.getBoundingClientRect();
   if (!r.width || !r.height) return;
-  if (Math.abs(r.width - CW) > 8 || Math.abs(r.height - CH) > 8) { unlockStageSize(); fitCanvas(); }
+  var dw = Math.round(r.width - CW), dh = Math.round(r.height - CH);
+  if (dw > 8 || dh > 8) {
+    diagLog('recheck', { dw: dw, dh: dh, applied: 1 });
+    unlockStageSize(); fitCanvas('recheck');
+  } else if (dw < -8 || dh < -8) {
+    diagLog('recheck', { dw: dw, dh: dh, applied: 0 });
+  }
 }
 
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
@@ -3472,6 +3663,7 @@ function startSong() {
   $('hudSong').textContent = curSong.title + '（' + DIFFS[selDiff].label + '）' + (isPracticePlay() ? ' ・練習' : '') + (isAutoPlay() ? ' ・🤖オート' : '') + (testPlayActive ? ' ・🧪テストプレイ' : '') + (customPlayActive ? ' ・🎨カスタム譜面' : '');
   if (mode === 'online') { $('vsRow').classList.remove('hidden'); resetVs(); }
   fitCanvas();
+  diagLog('song-start', { id: selSong, diff: selDiff }, true); /* v135: 寸法確定後に記録（スナップショットが実寸になる） */
   /* v132: 開始直後の寸法再確認（レイアウト遷移中の一瞬の rect で測って
      縮んだ寸法が固定されるのを防ぐ。カウントダウン中にだけ効く） */
   setTimeout(recheckStartSize, 400);
@@ -3536,6 +3728,7 @@ function scheduleAhead() {
   }
 }
 function stopSong(toMenu) {
+  if (playing) diagLog('song-end', { id: selSong, diff: selDiff, fin: 0 }, true);
   playing = false;
   paused = false;
   testPlayActive = false;
@@ -3565,6 +3758,7 @@ function resetStage() {
 }
 function finishSong() {
   if (!playing) return;
+  diagLog('song-end', { id: selSong, diff: selDiff, fin: 1 }, true);
   /* レイアウト（.playing/.ingame）はリザルト表示中も維持し、「曲選択へ」で初めて戻す */
   playing = false;
   paused = false;
@@ -3937,6 +4131,23 @@ document.querySelectorAll('#offsetSeg button').forEach(function (b) {
 var offValEl = $('offsetVal');
 if (offValEl) { offValEl.textContent = offsetLabel(); offValEl.addEventListener('click', function () { setJudgeOffset(0); }); }
 $('calibBtn').addEventListener('click', function () { openCalib(); });
+/* v135: 診断ログの閲覧（オプション内だけ。通常プレイには出さない） */
+$('diagBtn').addEventListener('click', function () {
+  var w = $('diagWrap'); if (!w) return;
+  var willShow = w.classList.contains('hidden');
+  w.classList.toggle('hidden', !willShow);
+  if (willShow) { diagFlush(); $('diagText').value = diagText() || '（まだ記録がありません）'; }
+});
+$('diagCopy').addEventListener('click', function () {
+  var ta = $('diagText'); if (!ta) return;
+  ta.focus(); ta.select();
+  try { if (navigator.clipboard) navigator.clipboard.writeText(ta.value); } catch (e) {}
+  try { document.execCommand('copy'); } catch (e) {}
+});
+$('diagClear').addEventListener('click', function () {
+  diagBuf = []; diagDirty = true; diagFlush();
+  var ta = $('diagText'); if (ta) ta.value = '';
+});
 $('calibClose').addEventListener('click', function () { closeCalib(); });
 $('calibCancelBtn').addEventListener('click', function () { closeCalib(); });
 $('calibStartBtn').addEventListener('click', function () { startCalib(); });
@@ -6151,8 +6362,9 @@ window.__taiko = {
   songGate: function () { return { active: !!songGateEl, gen: songGateGen, watching: !!songGateTimer }; },
   stage: { size: function () { return { CW: CW, CH: CH, pinned: stagePinned }; }, fit: fitCanvas, lock: lockStageSize, unlock: unlockStageSize, stopToMenu: function () { stopSong(true); },
     repair: ensureCanvasSize, recheckStart: recheckStartSize,
-    probe: function () { return { fails: canvasProbeFails, repairs: canvasRepairCount, dprCap: dprCap, spriteKill: spriteKill, sceneErrStreak: sceneErrStreak }; },
+    probe: function () { return { fails: canvasProbeFails, confirm: probeConfirmFails, misses: probeReinitMisses, healthy: probeHealthyStreak, repairs: canvasRepairCount, dprCap: dprCap, spriteKill: spriteKill, sceneErrStreak: sceneErrStreak }; },
     canvasInfo: function () { return { cvW: cv.width, cvH: cv.height, DPR: DPR }; } },
+  diag: { text: diagText, log: diagLog, entries: function () { return diagBuf.slice(); }, clear: function () { diagBuf = []; diagDirty = true; diagFlush(); } },
   audioMem: function () { return { entries: Object.keys(realAudio), states: Object.keys(realAudio).map(function (id) { return id + ':' + realAudio[id].state; }), partsSongs: window.PW_AUDIO_PARTS ? Object.keys(window.PW_AUDIO_PARTS) : [] }; },
   startPreview: startPreview,
   stopPreview: stopPreview,
