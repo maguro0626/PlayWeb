@@ -100,6 +100,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .songTile .jacket{display:flex;height:52px;border-radius:9px;align-items:center;justify-content:center;font-size:27px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
 .songTile .tNm{display:block;font-size:9.5px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .songTile .tRk{display:block;font-size:9.5px;color:var(--gold);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:13px}
+.songTile .tRk .mFc{color:#4ade80;font-weight:900}
+.songTile .tRk .mAp{color:#ff8fb8;font-weight:900}
 #speedSeg,#seSeg,#seVolSeg,#musicVolSeg,#sizeSeg,#offsetSeg{display:flex;align-items:center;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;margin-top:5px}
 #speedSeg .segLbl,#seSeg .segLbl,#seVolSeg .segLbl,#musicVolSeg .segLbl,#sizeSeg .segLbl,#offsetSeg .segLbl{font-size:11px;color:var(--sub);font-weight:800;padding:0 4px 0 9px;white-space:nowrap}
 #speedSeg button,#seSeg button,#sizeSeg button,#offsetSeg button{flex:1;border:none;background:transparent;color:var(--sub);padding:6px 2px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;min-height:32px}
@@ -142,7 +144,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .scoreBox .mini{height:6px;background:rgba(255,255,255,.1);border-radius:99px;margin-top:4px;overflow:hidden}
 .scoreBox .mini i{display:block;height:100%;background:#4ade80;width:0%}
 #stageWrap{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:2px solid rgba(160,140,255,.35);box-shadow:0 0 34px rgba(124,92,255,.28),inset 0 0 60px rgba(60,30,140,.35);background:#0a0618;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer}
-#cv{position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #resultPanel{position:absolute;inset:0;background:rgba(6,3,18,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;z-index:5;overflow:hidden}
 #resultPanel .rank{font-size:60px;font-weight:900;line-height:1;background:linear-gradient(92deg,#ffd94d,#ff5d8f,#7c5cff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 14px rgba(255,93,143,.5));animation:rankPop .55s cubic-bezier(.2,1.5,.35,1) both}
 @keyframes rankPop{0%{transform:scale(.25) rotate(-6deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
@@ -440,7 +442,7 @@ html,body{overscroll-behavior:none;}
 <div id="filterSeg"><button data-f="all" class="on">すべて</button><button data-f="fav">★お気に入り</button><button data-f="lv1">Lv〜5</button><button data-f="lv2">Lv6〜8</button><button data-f="lv3">Lv9〜</button><button data-f="unplayed">未プレイ</button><button data-f="cleared">クリア済</button><button data-f="fc">フルコンボ</button></div>
 <div class="songGrid" id="songList"></div>
 <div id="songDetail"></div>
-<div id="diffSeg"><button data-d="easy">かんたん</button><button data-d="normal" class="on">ふつう</button><button data-d="hard">むずかしい</button></div>
+<div id="diffSeg"><button data-d="easy">EASY</button><button data-d="normal" class="on">NORMAL</button><button data-d="hard">HARD</button></div>
 <div class="subBtnRow"><button id="randomBtn" class="btn sub">🎲 ランダム選曲</button><button id="stampBtn" class="btn sub">📖 スタンプ帳</button><button id="statsBtn" class="btn sub">📊 記録</button><button id="editorBtn" class="btn sub hidden">🛠 譜面エディタ</button></div>
 </div>
 <div id="soloPane">
@@ -835,9 +837,9 @@ function buildSongData(song) {
 
 /* ---------------- 難易度と譜面生成（決定的） ---------------- */
 var DIFFS = {
-  easy:   { label: 'かんたん',   grid: 4, pAccent: 0.90, pOff: 0.50, minGap: 4, pLong: 0.14, pFlick: 0,    pChord: 0,    judge: { p: 0.055, g: 0.105, good: 0.165 }, approach: 1.9 },
-  normal: { label: 'ふつう',     grid: 2, pAccent: 0.85, pOff: 0.22, minGap: 2, pLong: 0.20, pFlick: 0.10, pChord: 0.28, judge: { p: 0.045, g: 0.090, good: 0.145 }, approach: 1.6 },
-  hard:   { label: 'むずかしい', grid: 1, pAccent: 0.92, pOff: 0.36, minGap: 1, pLong: 0.30, pFlick: 0.22, pChord: 0.50, judge: { p: 0.038, g: 0.078, good: 0.125 }, approach: 1.35 }
+  easy:   { label: 'EASY',   grid: 4, pAccent: 0.90, pOff: 0.50, minGap: 4, pLong: 0.14, pFlick: 0,    pChord: 0,    judge: { p: 0.055, g: 0.105, good: 0.165 }, approach: 1.9 },
+  normal: { label: 'NORMAL', grid: 2, pAccent: 0.85, pOff: 0.22, minGap: 2, pLong: 0.20, pFlick: 0.10, pChord: 0.28, judge: { p: 0.045, g: 0.090, good: 0.145 }, approach: 1.6 },
+  hard:   { label: 'HARD',   grid: 1, pAccent: 0.92, pOff: 0.36, minGap: 1, pLong: 0.30, pFlick: 0.22, pChord: 0.50, judge: { p: 0.038, g: 0.078, good: 0.125 }, approach: 1.35 }
 };
 /* フリックの方向指定は廃止済み：フリックノーツの dir は常に null で、
    どの方向へのスワイプ／矢印キーでも成功する（flickAttempt が方向を見ない） */
@@ -2052,6 +2054,12 @@ function renderGenreTabs() {
   });
 }
 var heldLane = [0, 0, 0, 0]; /* レーンごとの押下数（タッチ＋キー合算） */
+/* レーンごとの「仮想保持」期限（曲時刻）。pointercancel／lostpointercapture で
+   ポインター追跡が OS・ブラウザに打ち切られた場合、プレイヤーは指を離して
+   いないことが多い（指が画面に残ったままイベントだけが止まる）。その場合は
+   本人のリリースではないので、この期限まではレーンを保持中として扱い、
+   期限内の再タッチでそのまま継続できるようにする */
+var virtHoldUntil = [0, 0, 0, 0];
 var keyHeld = {};
 var laneFlash = [0, 0, 0, 0];
 var sparks = [], rings = [], bgParts = [];
@@ -2342,7 +2350,7 @@ function renderSongList() {
   var html = '';
   filteredSongs().forEach(function (sg) {
     var b2 = getBest(sg.id, selDiff);
-    html += '<button class="songTile' + (sg.id === selSong ? ' on' : '') + '" data-song="' + sg.id + '"><span class="jacket ' + sg.jk + '">' + sg.emo + '</span><span class="tNm">' + (sg.audio ? '🎵' : '') + (sg.id === ds.id ? '📅' : '') + sg.title + '</span><span class="tRk">' + (b2 ? b2.r + 'ランク' : '未プレイ') + (officialEntry(sg.id, selDiff) ? ' ✏️' : '') + '</span></button>';
+    html += '<button class="songTile' + (sg.id === selSong ? ' on' : '') + '" data-song="' + sg.id + '"><span class="jacket ' + sg.jk + '">' + sg.emo + '</span><span class="tNm">' + (sg.audio ? '🎵' : '') + (sg.id === ds.id ? '📅' : '') + sg.title + '</span><span class="tRk">' + (b2 ? b2.r + 'ランク' : '未プレイ') + (b2 && b2.ap ? ' <span class="mAp">👑AP</span>' : (b2 && b2.fc ? ' <span class="mFc">✨FC</span>' : '')) + (officialEntry(sg.id, selDiff) ? ' ✏️' : '') + '</span></button>';
   });
   $('songList').innerHTML = html;
   document.querySelectorAll('.songTile').forEach(function (b) {
@@ -2609,7 +2617,7 @@ function beginPlay(song) {
   { var pb = getBest(song.id, selDiff); if (pb) prevBestScore = pb.s; }
   scoreF = 0; combo = 0; maxCombo = 0; gauge = 20; fever = false; accSum = 0;
   counts = { perfect: 0, great: 0, good: 0, miss: 0 };
-  heldLane = [0, 0, 0, 0]; keyHeld = {};
+  heldLane = [0, 0, 0, 0]; keyHeld = {}; virtHoldUntil = [0, 0, 0, 0]; pointers = {};
   laneFlash = [0, 0, 0, 0]; sparks = []; rings = []; starFx = []; pillars = []; shootStars = []; judgePop = null; milestone = null;
   bgParts = initBg(curSong.theme);
   playing = true;
@@ -2921,6 +2929,15 @@ function pressLane(lane, jtRaw) {
   else { nt.state = 'holding'; nt.headRes = res; nt.unheld = 0; spawnSparks(lane, res); }
 }
 function worseJudge(a, b) { return JUDGE_FACTOR[a] <= JUDGE_FACTOR[b] ? a : b; }
+/* レーンの押下を1つ終わらせる共通処理。
+   interrupted=false（pointerup／keyup＝本人が離した）: 仮想保持は残さない。
+   interrupted=true（pointercancel／lostpointercapture＝追跡の途絶）: 指が画面に
+   残っていることがあるため、押下数が0になったレーンに1秒の仮想保持を残す */
+function laneHoldEnd(lane, interrupted) {
+  heldLane[lane] = Math.max(0, heldLane[lane] - 1);
+  if (!interrupted) virtHoldUntil[lane] = 0;
+  else if (heldLane[lane] === 0) virtHoldUntil[lane] = songTime + 1.0;
+}
 /* ロング終端のリリース判定：終端のタイミングで離すのが正解。
    窓（タップ判定窓と同じ幅）の中で離せば、頭の判定と離し判定の悪い方で確定。
    窓より前なら何もしない（猶予内の再押下で継続、超えたら updateLongs が切断）。
@@ -2988,15 +3005,18 @@ function updateLongs(dtF) {
     if (nt.type !== 'long') continue;
     if (nt.state === 'holding') {
       var tailT = nt.t + nt.lenSec;
+      /* 保持中かどうか：実際の押下に加え、追跡が途絶えた直後の仮想保持の
+         期限内も「押している」として扱う（本人が離したわけではないため） */
+      var laneHeld = heldLane[nt.lane] > 0 || curPlayOpts.auto || songTime < virtHoldUntil[nt.lane];
       /* 終端の瞬間まで押し続けていたら保持成功として頭の判定で完走する
          （プロセカ／ガルパの作法。「押しているのに切れる」不具合の主因対策で、
          押し続けを終端MISSにはしない）。離していた場合は従来どおり終端MISS */
       if (songTime >= tailT + J.good) {
-        if (heldLane[nt.lane] > 0 || curPlayOpts.auto) { nt.state = 'done'; applyJudge(nt, nt.headRes || 'GOOD'); }
+        if (laneHeld) { nt.state = 'done'; applyJudge(nt, nt.headRes || 'GOOD'); }
         else { nt.state = 'broken'; applyJudge(nt, 'MISS'); }
         continue;
       }
-      if (heldLane[nt.lane] > 0 || curPlayOpts.auto) {
+      if (laneHeld) {
         nt.unheld = 0;
         if (Math.random() < 0.5) { /* 保持中は判定ラインから火花 */
           var x = laneCenterX(nt.lane, judgeY());
@@ -3005,8 +3025,9 @@ function updateLongs(dtF) {
         }
       } else {
         nt.unheld += dtF;
-        /* 猶予0.20秒：pointercancel 等で一瞬途絶えても、すぐ再タッチすれば継続できる
-           （猶予内の再押下で unheld はリセットされる）。本当に離した場合は切断する */
+        /* 猶予0.20秒：本当に離した場合の切断までの猶予（猶予内の再押下で unheld は
+           リセットされる）。pointercancel 等の途絶は仮想保持（1秒）が先に効くので、
+           ここに来るのは仮想保持も切れた後か、本人が離した場合だけ */
         if (nt.unheld > 0.20) { nt.state = 'broken'; applyJudge(nt, 'MISS'); }
       }
     }
@@ -3039,6 +3060,7 @@ stageWrap.addEventListener('pointerdown', function (e) {
   var pt = { lane: lane, x0: x, y0: y, flickDone: false, hold: false };
   pointers[e.pointerId] = pt;
   heldLane[lane]++;
+  virtHoldUntil[lane] = 0; /* 実際の押下があれば仮想保持は不要 */
   pressLane(lane, jt);
   /* この押下でロングの保持が始まった指は「保持中の指」として記録する。
      保持中の指のわずかな移動（ドリフト）がフリック判定を暴発させ、保持中の
@@ -3062,13 +3084,21 @@ stageWrap.addEventListener('pointermove', function (e) {
 function pointerEnd(e) {
   var pt = pointers[e.pointerId];
   if (!pt) return;
-  heldLane[pt.lane] = Math.max(0, heldLane[pt.lane] - 1);
-  releaseLane(pt.lane, songTimeAt(e.timeStamp));
   delete pointers[e.pointerId];
+  /* pointerup＝本人が離した。pointercancel／lostpointercapture＝追跡の途絶
+     （指は画面に残っていることがある）ので、仮想保持つきで終わらせる */
+  laneHoldEnd(pt.lane, e.type !== 'pointerup');
+  releaseLane(pt.lane, songTimeAt(e.timeStamp));
 }
 stageWrap.addEventListener('pointerup', pointerEnd);
 stageWrap.addEventListener('pointercancel', pointerEnd);
 stageWrap.addEventListener('lostpointercapture', pointerEnd); /* キャプチャ喪失時も確実に離し処理する（pointerEnd は二重呼び出し安全） */
+/* Safari（特にホーム画面アプリ）対策：キャンバスへのタッチは Touch Events 側でも
+   既定動作を止め、スクロール／ズームのジェスチャとしてタッチが奪われて
+   pointercancel になるのを防ぐ（touch-action の効きが弱い環境への二重化）。
+   対象はキャンバスだけ：ポーズ画面等のボタンは click が必要なため止めない */
+stageWrap.addEventListener('touchstart', function (e) { if (e.target === cv) e.preventDefault(); }, { passive: false });
+stageWrap.addEventListener('touchmove', function (e) { if (e.target === cv) e.preventDefault(); }, { passive: false });
 document.addEventListener('keydown', function (e) {
   var tag = (document.activeElement && document.activeElement.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -3086,7 +3116,7 @@ document.addEventListener('keydown', function (e) {
 document.addEventListener('keyup', function (e) {
   var k = (e.key || '').toLowerCase();
   var li = LANE_KEYS.indexOf(k);
-  if (li >= 0 && keyHeld[k]) { keyHeld[k] = false; heldLane[li] = Math.max(0, heldLane[li] - 1); releaseLane(li, songTimeAt(e.timeStamp)); }
+  if (li >= 0 && keyHeld[k]) { keyHeld[k] = false; laneHoldEnd(li, false); releaseLane(li, songTimeAt(e.timeStamp)); }
 });
 $('startBtn').addEventListener('click', function () { startSong(); });
 $('quitBtn').addEventListener('click', function () {
@@ -4109,7 +4139,7 @@ function drawJudgeBar(t) {
   var segs = judgeBarSegs();
   for (var l = 0; l < 4; l++) {
     var r = segs[l];
-    var held = heldLane[l] > 0;
+    var held = heldLane[l] > 0 || songTime < virtHoldUntil[l];
     var fl = laneFlash[l];
     if (held) {
       ctx.fillStyle = hexA(LANE_COLORS[l], 0.34);
@@ -5622,10 +5652,14 @@ window.__sr = {
   mulberry32: mulberry32,
   state: function () { return { playing: playing, songTime: songTime, score: Math.floor(scoreF), combo: combo, maxCombo: maxCombo, gauge: gauge, fever: fever, counts: counts, chartLen: chart.length, held: heldLane.slice() }; },
   startSolo: function (songId, diff) { mode = 'solo'; selSong = songId; selDiff = diff; startSong(); },
-  pressLane: function (lane) { heldLane[lane]++; pressLane(lane); },
-  pressLaneAt: function (lane, jt) { heldLane[lane]++; pressLane(lane, jt); },
-  releaseLane: function (lane) { heldLane[lane] = Math.max(0, heldLane[lane] - 1); releaseLane(lane); },
-  releaseLaneAt: function (lane, jt) { heldLane[lane] = Math.max(0, heldLane[lane] - 1); releaseLane(lane, jt); },
+  pressLane: function (lane) { heldLane[lane]++; virtHoldUntil[lane] = 0; pressLane(lane); },
+  pressLaneAt: function (lane, jt) { heldLane[lane]++; virtHoldUntil[lane] = 0; pressLane(lane, jt); },
+  releaseLane: function (lane) { laneHoldEnd(lane, false); releaseLane(lane); },
+  releaseLaneAt: function (lane, jt) { laneHoldEnd(lane, false); releaseLane(lane, jt); },
+  /* pointercancel 等の「追跡の途絶」を再現するフック：本人のリリースではない
+     終了として押下を1つ外し、仮想保持（1秒）を残す */
+  interruptLane: function (lane) { laneHoldEnd(lane, true); releaseLane(lane); },
+  virtHoldUntil: function () { return virtHoldUntil.slice(); },
   flick: function (dir) { flickAttempt(dir, null); },
   flickAt: function (dir, jt) { flickAttempt(dir, null, jt); },
   songTimeAt: function (ts) { return songTimeAt(ts); },

@@ -2898,6 +2898,13 @@
      で置き換え譜面を取得し、PWAccount.submitChartSubmission() で
      承認依頼を送る（スターリズムは game:'starrhythm' を付けて送る）。 */
   var CHART_DIFF_LABELS = { easy: 'かんたん', normal: 'ふつう', hard: 'むずかしい', oni: 'おに', ura: 'うら' };
+  /* スターリズムの難易度表記は英語に統一（2026-11-24 本人指示：EASY／NORMAL／HARD）。
+     太鼓の表記は従来どおり日本語 */
+  var CHART_DIFF_LABELS_SR = { easy: 'EASY', normal: 'NORMAL', hard: 'HARD' };
+  function chartDiffLabel(game, diff) {
+    if (game === 'starrhythm') return CHART_DIFF_LABELS_SR[diff] || diff || '';
+    return CHART_DIFF_LABELS[diff] || diff || '';
+  }
   var chartSubItems = [];
   var chartOfficialItems = [];
   var chartAdminStarted = false;
@@ -3053,7 +3060,7 @@
         : '';
       return '<div class="pw-fb-item">' +
         '<span class="pw-fb-badge type">' + (x.game === 'starrhythm' ? '✦ スターリズム譜面' : '🎵 太鼓譜面') + '</span>' + chartStatusBadge(x) +
-        '<span class="t">' + esc(x.songTitle || x.songId || '（曲名なし）') + '（' + esc(CHART_DIFF_LABELS[x.diff] || x.diff || '') + '）・ ' + n + '音</span>' +
+        '<span class="t">' + esc(x.songTitle || x.songId || '（曲名なし）') + '（' + esc(chartDiffLabel(x.game, x.diff)) + '）・ ' + n + '音</span>' +
         '<div class="m">' + esc(x.fromName || '名無し') + ' ・ ' + esc(fmtDateTime(x.createdAt)) + '</div>' + btns + '</div>';
     }).join('');
     box.querySelectorAll('[data-chart-approve]').forEach(function (el) {
@@ -3076,7 +3083,7 @@
       var parts = String(x._id).split('__');
       var songPart = isSr ? parts[1] : parts[0];
       var diffPart = isSr ? parts[2] : parts[1];
-      var lbl = (isSr ? '✦ スターリズム：' : '🥁 太鼓：') + (songPart || x._id) + '（' + (CHART_DIFF_LABELS[diffPart] || diffPart || '') + '）';
+      var lbl = (isSr ? '✦ スターリズム：' : '🥁 太鼓：') + (songPart || x._id) + '（' + chartDiffLabel(isSr ? 'starrhythm' : 'taiko', diffPart) + '）';
       return '<div class="pw-fb-item">' +
         '<span class="pw-fb-badge type">✏️ 承認譜面</span>' +
         '<span class="t">' + esc(lbl) + ' ・ ' + n + '音</span>' +
