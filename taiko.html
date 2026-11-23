@@ -1485,11 +1485,7 @@ function ensureRealAudio(song) {
   try {
     for (var i = 0; i < total; i++) {
       (function (idx) {
-        var sc = document.createElement('script');
-        sc.src = 'audio/parts/' + song.id + '.p' + ('0' + idx).slice(-2) + '.js';
-        sc.onload = function () { try { sc.remove(); } catch (e) {} onPart(true); };
-        sc.onerror = function () { try { sc.remove(); } catch (e) {} onPart(false); };
-        (document.head || document.body).appendChild(sc);
+        loadPartData(song, idx).then(function () { onPart(true); }, function () { onPart(false); });
       })(i);
     }
   } catch (e) { done(false); }
@@ -1562,14 +1558,51 @@ function songPartsPresent(song) {
   for (var i = 0; i < song.parts; i++) if (typeof parts[i] !== 'string' || !parts[i]) return false;
   return true;
 }
-function loadPartScriptDl(song, idx) {
+/* パートファイル（audio/parts/<id>.pNN.js）の読み込み。
+   v134: script タグ方式をやめ、fetch でテキストとして取得して base64 本体
+   だけを抽出する方式に変更した。script 方式では読み込んだ文字列が
+   Script（コンパイル済みコード）側に固定され、PW_AUDIO_PARTS への参照を
+   落としても GC で回収されなかった（Chrome で実測：1曲・約370万字の読込で
+   約7MBが残留し続け、全18曲分では約90MBが残留した）。つまり v132 で
+   「パート文字列を落とす」対策を入れても、エンジン側の保持で実メモリは
+   減っていなかった。演奏した曲の数だけヒープが増え続ける構造で、実機の
+   メモリ逼迫（キャンバス劣化・WebContent クラッシュ）の主因とみられる。
+   fetch 方式の文字列は通常のヒープ対象で、参照を落とせば回収される
+   （同じ実測で残留ゼロを確認）。SW のキャッシュ経路は script 読込と同一
+   （同じ URL への GET で、SW の応答分岐も同じ）。fetch が使えない／
+   抽出できない場合は従来の script 方式にフォールバックする。 */
+function partFileUrl(song, idx) { return 'audio/parts/' + song.id + '.p' + ('0' + idx).slice(-2) + '.js'; }
+function extractPartPayload(text) {
+  var m = typeof text === 'string' ? text.match(/\]='([A-Za-z0-9+/=]+)';?\s*$/) : null;
+  return m ? m[1] : null;
+}
+function loadPartViaScript(song, idx) {
   return new Promise(function (resolve, reject) {
     var sc = document.createElement('script');
-    sc.src = 'audio/parts/' + song.id + '.p' + String(idx).padStart(2, '0') + '.js';
+    sc.src = partFileUrl(song, idx);
     sc.onload = function () { try { sc.remove(); } catch (e) {} resolve(); };
     sc.onerror = function () { try { sc.remove(); } catch (e) {} reject(new Error('load failed: ' + sc.src)); };
-    document.head.appendChild(sc);
+    (document.head || document.body).appendChild(sc);
   });
+}
+function loadPartData(song, idx) {
+  window.PW_AUDIO_PARTS = window.PW_AUDIO_PARTS || {};
+  if (!window.PW_AUDIO_PARTS[song.id]) window.PW_AUDIO_PARTS[song.id] = [];
+  if (typeof window.PW_AUDIO_PARTS[song.id][idx] === 'string' && window.PW_AUDIO_PARTS[song.id][idx]) return Promise.resolve();
+  var viaFetch = (typeof fetch === 'function')
+    ? fetch(partFileUrl(song, idx)).then(function (res) {
+        if (!res || !res.ok) throw new Error('part fetch failed');
+        return res.text();
+      }).then(function (text) {
+        var payload = extractPartPayload(text);
+        if (payload === null) throw new Error('part format');
+        window.PW_AUDIO_PARTS[song.id][idx] = payload;
+      })
+    : Promise.reject(new Error('no fetch'));
+  return viaFetch.catch(function () { return loadPartViaScript(song, idx); });
+}
+function loadPartScriptDl(song, idx) {
+  return loadPartData(song, idx);
 }
 function loadSongPartsDl(song) {
   if (songPartsPresent(song)) return Promise.resolve();
@@ -1602,14 +1635,19 @@ function startAudioDownload() {
   }
   upd();
   var chain = Promise.resolve();
+  /* 各曲のパート文字列は、その曲の読込が終わった時点で即 dropSongParts する。
+     文字列の役割は SW キャッシュを温めることだけで、保持し続ける意味はない。
+     全曲分を抱えると約4,800万字（JSヒープ換算で約90MB）のピークになり、
+     実機（iPhone Safari）のメモリ逼迫→キャンバス劣化／WebContent クラッシュの
+     一因になるため、ピークを1曲分（約500万字）に抑える（2026-11-23 計測で確認） */
   songs.forEach(function (song) {
     chain = chain.then(function () {
       window.PW_AUDIO_PARTS = window.PW_AUDIO_PARTS || {};
       var arr = window.PW_AUDIO_PARTS[song.id] || [];
       var before = 0;
       for (var i = 0; i < song.parts; i++) if (typeof arr[i] === 'string' && arr[i]) before++;
-      if (before >= song.parts) { doneParts += song.parts; doneSongs++; upd(); return null; }
-      return loadSongPartsDl(song).then(function () { doneParts += (song.parts - before); doneSongs++; upd(); });
+      if (before >= song.parts) { doneParts += song.parts; doneSongs++; upd(); dropSongParts(song.id); return null; }
+      return loadSongPartsDl(song).then(function () { doneParts += (song.parts - before); doneSongs++; upd(); dropSongParts(song.id); });
     });
   });
   chain.then(function () {
@@ -1934,6 +1972,8 @@ var drumWaves = []; /* 大太鼓を叩いた時の波紋（上限つき） */
 var zoneFlash = { don: 0, katsu: 0 }, hitFx = [], bursts = [];
 var lastHitType = null; /* 直近の打撃種別（テスト検証用） */
 var CW = 0, CH = 0, DPR = 1;
+var dprCap = 2; /* 裏解像度の上限。端末が DPR 2 のバッファを保持できない状態が
+   プローブで繰り返し検出された時だけ段階的に下がる（通常は常に 2） */
 var APPROACH = 1.9; /* 音符が見えてから判定までの秒数（既定値） */
 var curApproach = APPROACH; /* 演奏中の難易度別アプローチ（startSong で DIFFS から設定） */
 
@@ -1965,7 +2005,7 @@ function fitCanvas() {
   }
   if (!ingameNow) unlockStageSize();
   var r = $('stageWrap').getBoundingClientRect();
-  DPR = Math.min(2, window.devicePixelRatio || 1);
+  DPR = Math.min(dprCap, window.devicePixelRatio || 1);
   CW = Math.max(280, r.width); CH = Math.max(160, r.height);
   cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -2004,9 +2044,52 @@ window.addEventListener('orientationchange', function () {
    だけ再計測する。
    ================================================================ */
 var canvasCheckFrame = 0;
+/* ================================================================
+   v134: 実ビットマップのプローブ検出（2026-11-23 実機で v132/v133 の
+   対策後も「縮む」「止まる」「落ちる」が継続した件への対応）
+   ----------------------------------------------------------------
+   v132 の自己修復は cv.width/cv.height と ctx.getTransform() の照合に
+   依存していた。しかし iOS Safari がメモリ逼迫時に裏バッファを破棄／
+   縮小する劣化では、属性値（width/height）と JS 側の変換行列の状態は
+   「設定した値」のまま報告され続け、実際のビットマップだけが失われる
+   ことがある。その場合どの照合も正常と判定し、縮んだ表示が直らない。
+   そこで検出を「属性を読む」から「実際に描いて読み戻す」に変える：
+   右下隅 3x3 デバイス px にマジック色を描き、同じ同期処理の中で
+   getImageData で読み戻して一致を見れば、ビットマップの実在と寸法が
+   証明できる。ビットマップが縮んでいれば描画は範囲外で切り捨てられ、
+   読み戻しは透明（不一致）になる。破棄されて真っ白でも、描画自体は
+   受け付けられるため一致し（＝描画系は健全で、シーン再描画で戻る）、
+   誤検出にはならない。プローブは描画ループの先頭で書き、同じフレームの
+   シーン描画が上書きするので画面には残らない。
+   修復は「作り直し」：width/height を再代入してビットマップを再割当て
+   し、変換とキャッシュを初期化する。再代入後もプローブが失敗し続ける
+   （＝端末がその寸法のバッファを保持できない）場合は、dprCap を段階的
+   に下げて保持できる寸法まで落とす（通常時は一切発動しない）。
+   ================================================================ */
+var canvasProbeFrame = 0, canvasProbeFails = 0, canvasRepairCount = 0;
+function canvasBitmapProbe(bw, bh) {
+  try {
+    if (!ctx.getImageData || bw < 8 || bh < 8) return true; /* 読めない環境では不明＝健全扱い（修復ループにしない） */
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = 'rgb(255,0,255)';
+    ctx.fillRect(bw - 3, bh - 3, 3, 3);
+    var d = ctx.getImageData(bw - 3, bh - 3, 3, 3).data;
+    ctx.restore();
+    return d[0] > 200 && d[1] < 80 && d[2] > 200 && d[3] > 200;
+  } catch (e) { try { ctx.restore(); } catch (e2) {} return true; }
+}
+function forceCanvasReinit() {
+  try { delete cv.width; delete cv.height; } catch (e) {}
+  DPR = Math.min(dprCap, window.devicePixelRatio || 1);
+  cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  gradCache = {}; bgSpriteCache = {}; laneSpriteCache = {};
+  canvasRepairCount++;
+}
 function ensureCanvasSize() {
   if (!CW || !CH) { fitCanvas(); return; }
-  var dprNow = Math.min(2, window.devicePixelRatio || 1);
+  var dprNow = Math.min(dprCap, window.devicePixelRatio || 1);
   var bw = Math.round(CW * dprNow), bh = Math.round(CH * dprNow);
   if (cv.width !== bw || cv.height !== bh || DPR !== dprNow) {
     DPR = dprNow;
@@ -2020,6 +2103,19 @@ function ensureCanvasSize() {
       var tm = ctx.getTransform();
       if (Math.abs(tm.a - DPR) > 0.01 || Math.abs(tm.d - DPR) > 0.01) ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     } catch (e) {}
+  }
+  /* v134: 実ビットマップのプローブ（演奏中30フレーム・選曲中90フレームに1回）。
+     属性と変換が正常でも、実バッファが失われていればここで検出して作り直す */
+  canvasProbeFrame++;
+  if (canvasProbeFrame >= (playing ? 30 : 90)) {
+    canvasProbeFrame = 0;
+    if (canvasBitmapProbe(bw, bh)) { canvasProbeFails = 0; }
+    else {
+      canvasProbeFails++;
+      if (canvasProbeFails >= 3 && dprCap > 1) { dprCap = Math.max(1, dprCap - 0.5); canvasProbeFails = 0; }
+      forceCanvasReinit();
+      return;
+    }
   }
   canvasCheckFrame++;
   if (canvasCheckFrame < (playing ? 45 : 15)) return;
@@ -3929,9 +4025,18 @@ function draw() {
   drumPulse.katsu = Math.max(0, drumPulse.katsu - dt * 5);
   zoneFlash.don = Math.max(0, zoneFlash.don - dt * 4.2);
   zoneFlash.katsu = Math.max(0, zoneFlash.katsu - dt * 4.2);
-  updateMascotAnim(now);
-  drawScene(now / 1000, dt);
+  /* v134: 描画系の例外隔離。rAF は先頭で再登録済みのため例外でループ自体は
+     止まらないが、毎フレーム同じ箇所で投げ続けると画面だけ凍る。シーン描画が
+     30フレーム連続で失敗したら、スプライト経路を切り離してベクタ描画の
+     フォールバックに落とし、自己回復させる（見た目の系統は同じ） */
+  try { updateMascotAnim(now); } catch (e) {}
+  try { drawScene(now / 1000, dt); sceneErrStreak = 0; }
+  catch (e) {
+    sceneErrStreak++;
+    if (sceneErrStreak >= 30 && !spriteKill) { spriteKill = true; sceneErrStreak = 0; }
+  }
 }
+var sceneErrStreak = 0, spriteKill = false;
 
 /* 毎フレーム作り直すと重い定番グラデーションのキャッシュ（サイズ変更時に破棄） */
 var gradCache = {};
@@ -3943,6 +4048,7 @@ function cachedGrad(key, make) {
    放射グラデーションの全画面フィルはソフト描画で特に重いため、毎フレームは drawImage だけにする */
 var bgSpriteCache = {};
 function getBgSprite(theme) {
+  if (spriteKill) return null;
   var key = theme + ':' + CW + 'x' + CH;
   if (bgSpriteCache[key]) return bgSpriteCache[key];
   var sp = null;
@@ -4026,6 +4132,7 @@ function drawLaneBandStatic(x, W, laneY, laneH, judgeX) {
 }
 var laneSpriteCache = {};
 function getLaneSprite(laneY, laneH, judgeX) {
+  if (spriteKill) return null;
   var key = CW + 'x' + CH + ':' + laneY.toFixed(1) + ':' + laneH.toFixed(1);
   if (key in laneSpriteCache) return laneSpriteCache[key];
   var sp = null;
@@ -4052,6 +4159,7 @@ function getLaneSprite(laneY, laneH, judgeX) {
    createRadialGradient＋全円フィルはソフト描画で重いため */
 var glowSpriteCacheT = {};
 function glowSpriteT(key, stops) {
+  if (spriteKill) return null;
   if (key in glowSpriteCacheT) return glowSpriteCacheT[key];
   var sp = null;
   try {
@@ -4493,6 +4601,7 @@ function makeNoteSprite(don) {
   return { c: c, size: L };
 }
 function getNoteSprites() {
+  if (spriteKill) return null;
   if (noteSpritesTried) return noteSprites;
   noteSpritesTried = true;
   try {
@@ -4539,6 +4648,7 @@ function drawNoteVector(x, y, nt) {
 /* 判定リングのハロー用スプライト（単位サイズで作り、描画時に拡大縮小する） */
 var haloSprite = null, haloSpriteTried = false;
 function getHaloSprite() {
+  if (spriteKill) return null;
   if (haloSpriteTried) return haloSprite;
   haloSpriteTried = true;
   try {
@@ -6041,6 +6151,7 @@ window.__taiko = {
   songGate: function () { return { active: !!songGateEl, gen: songGateGen, watching: !!songGateTimer }; },
   stage: { size: function () { return { CW: CW, CH: CH, pinned: stagePinned }; }, fit: fitCanvas, lock: lockStageSize, unlock: unlockStageSize, stopToMenu: function () { stopSong(true); },
     repair: ensureCanvasSize, recheckStart: recheckStartSize,
+    probe: function () { return { fails: canvasProbeFails, repairs: canvasRepairCount, dprCap: dprCap, spriteKill: spriteKill, sceneErrStreak: sceneErrStreak }; },
     canvasInfo: function () { return { cvW: cv.width, cvH: cv.height, DPR: DPR }; } },
   audioMem: function () { return { entries: Object.keys(realAudio), states: Object.keys(realAudio).map(function (id) { return id + ':' + realAudio[id].state; }), partsSongs: window.PW_AUDIO_PARTS ? Object.keys(window.PW_AUDIO_PARTS) : [] }; },
   startPreview: startPreview,
