@@ -253,7 +253,13 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #dailyBanner{margin-top:0;flex:1 1 auto;min-width:0;background:linear-gradient(92deg,rgba(255,201,60,.22),rgba(255,93,143,.18));border:1px solid rgba(255,201,60,.55);color:var(--txt);border-radius:12px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;text-align:left;min-height:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 選曲画面の優先順位（v119）：一覧＞選択中＞難易度。レーティング/デイリーは
    小さくヘッダー寄りの1行に、設定類はオプションシート（絶対配置の被せ）へ */
-#songArea{flex:1;min-height:0;display:flex;flex-direction:column}
+#songArea{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none}
+/* v120: 短い画面で中身が枠を越えた際、末尾の .subBtnRow が枠外へはみ出して
+   下の startRow／ctrlRow と重なり、ボタンの端がタップ不能になっていた
+   （第16回スイープ：320x568で🔊がランダム選曲の左上を覆う、360x640で
+   演奏スタートがサブボタン行の下端に重なる）。枠内でスクロールさせて
+   はみ出しを封じ込める。収まる画面では変化なし。 */
+#songArea::-webkit-scrollbar{display:none}
 #songArea>*{flex:none}
 #songArea>.songGrid{flex:1 1 0}
 #infoRow{display:flex;align-items:center;gap:7px;flex:none;min-width:0}
@@ -334,7 +340,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 @media (max-height:740px){
   /* 新規行（レーティング/デイリー/絞り込み/サブボタン/トグル）追加分を短い画面で回収し、
      スタートボタンの画面内収まり（390×667 で実測）を維持する */
-  #dailyBanner{margin-top:1px;min-height:22px;padding:2px 9px;font-size:11.5px}
+  #dailyBanner{margin-top:1px;min-height:24px;padding:2px 9px;font-size:11.5px} /* v120: タップ基準24pxを満たす（旧22px） */
   #filterSeg{margin-top:1px}
   #filterSeg button{min-height:24px;padding:2px 9px;font-size:11px}
   .subBtnRow{margin-top:2px}
@@ -357,7 +363,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
   #musicVolSeg input[type=range],#seVolSeg input[type=range]{height:22px}
 }
 @media (max-height:600px){
-  #dailyBanner{font-size:11px;min-height:22px;padding:2px 8px}
+  #dailyBanner{font-size:11px;min-height:24px;padding:2px 8px} /* v120: タップ基準24pxを満たす（旧22px） */
   .subBtnRow .btn{min-height:24px}
   .tglBtn{min-height:24px}
 }
