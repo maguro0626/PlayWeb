@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-platform-cache-v137';
+const CACHE_NAME = 'game-platform-cache-v138';
 /* 実行時キャッシュ（バージョンをまたいで保持する）。
    ゲーム本体や画像は「初めて開いた時」にここへ入り、更新のたびに
    消えることがない。更新で消えるのは下のコアキャッシュだけ。 */
