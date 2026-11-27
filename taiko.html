@@ -6,7 +6,6 @@
 <title>太鼓の超人 | PlayWeb</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--bg:#150a10;--accent:#e63946;--accent2:#3a86ff;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.13);--txt:#fff7ea;--sub:#cdb49b;--gold:#ffc93c;--don:#ff5a48;--katsu:#5ea0ff}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
@@ -216,13 +215,6 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 .hudRow{display:flex;align-items:center;gap:10px;height:34px}
 #hudScore{font-size:25px;font-weight:900;letter-spacing:.02em;line-height:1.12;text-shadow:0 2px 0 rgba(0,0,0,.4)}
 #hudScore::before{content:'SCORE ';font-size:10px;color:var(--sub);letter-spacing:.18em;vertical-align:3px}
-#hudCombo{font-size:14.5px;font-weight:900;color:#fff;background:linear-gradient(90deg,#f59e0b,#e63946);padding:3px 11px;border-radius:999px;box-shadow:0 2px 8px rgba(230,57,70,.45);white-space:nowrap;height:27px;min-width:108px;display:inline-flex;align-items:center;justify-content:center}
-/* コンボが無い時は場所を確保したまま透明にするだけ（display切替で画面を上下させない） */
-#hudCombo:empty{visibility:hidden}
-#hudCombo.pop{animation:cpop .18s ease-out}
-#hudCombo.hot{background:linear-gradient(90deg,#ff8a3c,#e63946);box-shadow:0 2px 13px rgba(255,120,50,.8),inset 0 1px 0 rgba(255,255,255,.5);animation:hotPulse .45s ease-in-out infinite alternate}
-@keyframes hotPulse{from{filter:brightness(1)}to{filter:brightness(1.22)}}
-@keyframes cpop{0%{transform:scale(1.35)}100%{transform:scale(1)}}
 #hudSong{margin-left:auto;font-size:12px;color:var(--sub);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #gaugeWrap{position:relative;height:19px;margin-top:2px;background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:999px;overflow:hidden;box-shadow:inset 0 2px 5px rgba(0,0,0,.6)}
 /* 右端の角丸を小さくし、低%でも「浮いたピンクの楕円」に見えずバーの充填として読める形にする */
@@ -312,7 +304,6 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
   #songDetail{padding:8px;gap:8px}
   #songDetail .dLbl{width:52px;font-size:11px}
   #songDetail .sdTtl{padding-right:64px}
-  #hudCombo{min-width:86px;font-size:13px;padding:3px 8px}
   #hudSong{min-width:0}
 }
 @media (max-height:880px){
@@ -568,6 +559,22 @@ html,body{overscroll-behavior:none;}
 @media (orientation: portrait){
   .wrap.playing #ctrlRow{justify-content:flex-end;padding-right:2px}
   .wrap.playing #ctrlRow .iconBtn{min-height:36px}
+  /* v151: 縦画面の演奏中HUDも1行バー化（スコア／魂ゲージ／%／進行だけ）に
+     してステージの高さを稼ぐ。曲名は縦の演奏中だけ落とす（選曲画面で
+     分かるため）。横画面は横画面ブロック側の指定がそのまま効く */
+  .wrap.playing #hud{flex-direction:row;align-items:center;gap:9px}
+  .wrap.playing .hudRow{flex:0 0 auto;height:auto;gap:8px;flex-wrap:nowrap}
+  .wrap.playing #hudScore{font-size:21px}
+  .wrap.playing #hudSong{display:none}
+  .wrap.playing #gaugeWrap{flex:1 1 90px;min-width:52px;margin-top:0;height:15px}
+  .wrap.playing #gaugeLbl{flex:0 0 auto}
+  .wrap.playing #gaugeLbl>span:first-child{display:none}
+  .wrap.playing #progWrap{flex:0 0 56px}
+  .wrap.playing #vsRow{flex:0 1 auto;flex-direction:row;gap:6px}
+  .wrap.playing .scoreBox{display:flex;align-items:center;gap:6px;padding:3px 8px;font-size:11px;white-space:nowrap}
+  .wrap.playing .scoreBox b{display:inline;font-size:14px}
+  .wrap.playing .scoreBox .cb{display:inline;height:auto;line-height:1}
+  .wrap.playing .scoreBox .mini{width:44px;margin-top:0}
 }
 </style>
 </head>
@@ -614,7 +621,7 @@ html,body{overscroll-behavior:none;}
 <button id="leaveBtn" class="btn sub hidden" style="width:100%;margin-top:8px">退出する</button>
 </div></div>
 <div id="hud">
-<div class="hudRow"><span id="hudScore">0</span><span id="hudCombo"></span><span id="hudSong"></span></div>
+<div class="hudRow"><span id="hudScore">0</span><span id="hudSong"></span></div>
 <div id="gaugeWrap"><div id="gaugeFill"></div><div id="gaugeMark"></div></div>
 <div id="gaugeLbl"><span>魂ゲージ</span><span id="gaugePct">0%</span></div>
 <div id="progWrap"><div id="progFill"></div></div>
@@ -3020,15 +3027,27 @@ function lvRefScore() {
   return LV_REF;
 }
 var _lvMemo = {};
-function diffLevel(song, diff) {
+function diffLevelBase(song, diff) {
   var key = song.id + '__' + diff;
   if (_lvMemo[key] != null) return _lvMemo[key];
   var raw = 1 + 7 * Math.pow(chartHardness(song, diff) / lvRefScore(), 0.8);
   var lv = clamp(Math.round(raw), 1, diff === 'ura' ? 12 : 10);
   var idx = DIFF_KEYS.indexOf(diff);
-  if (idx > 0) lv = Math.max(lv, diffLevel(song, DIFF_KEYS[idx - 1])); /* 曲内単調性の保証 */
+  if (idx > 0) lv = Math.max(lv, diffLevelBase(song, DIFF_KEYS[idx - 1])); /* 曲内単調性の保証 */
   _lvMemo[key] = lv;
   return lv;
+}
+/* 個別譜面の表示レベル上書き（本人の指示による。算出式・譜面データは
+   一切変えない）。2026-11-28: ゆめのはなし おに は算出値が Lv7
+   （raw 7.024）だが体感に合わせて表示を Lv6 に固定する。
+   上書きは diffLevel の参照側（表示・絞り込み・レイティング等）だけに
+   効かせ、曲内単調性の連鎖（うら の下限など）は算出値ベースのままに
+   するため、連鎖計算は diffLevelBase 側で行う */
+var LV_OVERRIDES = { 'yumenohanashi__oni': 6 };
+function diffLevel(song, diff) {
+  var lv = diffLevelBase(song, diff);
+  var ov = LV_OVERRIDES[song.id + '__' + diff];
+  return ov != null ? ov : lv;
 }
 function starStr(lv) { if (lv > 10) return '★★★★★★★★★★+'; var s = ''; for (var i = 0; i < 10; i++) s += i < lv ? '★' : '☆'; return s; }
 /* 難易度ピル内の星は2段（5個×2段＝計10個）で出す。Lv11以上（うら）は
@@ -4674,17 +4693,40 @@ function sweepMiss() {
 }
 /* レーン帯の配置（描画と演出で共有） */
 function laneGeom() {
-  var h = clamp(CH * 0.24, 84, 112);
-  return { y: CH * 0.30, h: h, judgeX: CW * 0.20 };
+  /* v151: レーンはステージ上部に寄せる（上端 16px）。判定ポップは
+     レーン帯の内側に出すので上端の余白は最小でよく、下の広い領域は
+     すべて大太鼓に回る。judgeX は従来どおり CW*0.20 */
+  var h = clamp(CH * 0.26, 84, 118);
+  return { y: 16 + h / 2, h: h, judgeX: CW * 0.20 };
 }
 /* 下部の大太鼓の配置（描画とタップ判定で共有）：レーンの下に大きく置く */
 function bigDrumGeom() {
   var lg = laneGeom();
   var top = lg.y + lg.h / 2 + 8;
   var availH = Math.max(80, CH - top - 4);
-  var R = Math.min(CW * 0.34, (availH - 10) / 2, 142);
+  /* v151: 太鼓を大きくする（幅係数 0.34→0.44、上限 142→200）。
+     ただし右側のコンボ大表示（アンカー CW-14／ベースライン＝レーン下+36、
+     字形域は最大幅124・上26・下15と見積もる）と円が重なる場合は少しずつ
+     縮める。下限は「旧式が同じ CW/CH で出す半径」で、どの画面でも
+     従来より小さくはならない（狭い画面でコンボが太鼓の面に乗るのを防ぐ） */
+  var R = Math.min(CW * 0.44, (availH - 8) / 2, 200);
+  var cy = top + availH / 2;
+  var cbBase = lg.y + lg.h / 2 + 36;
+  var rx0 = CW - 14 - 124, rx1 = CW - 14, ry0 = cbBase - 26, ry1 = cbBase + 15;
+  var hOld = clamp(CH * 0.24, 84, 112);
+  var availOld = Math.max(80, CH - (CH * 0.30 + hOld / 2 + 8) - 4);
+  /* 下限は旧式半径。ただし最も狭い画面では旧式半径でも字形域に僅かに
+     届くため、下限には 96（従来の実測最小半径と同等）の上限も被せる */
+  var rFloor = Math.max(42, Math.min(CW * 0.34, (availOld - 10) / 2, 142, 96));
+  while (R > rFloor) {
+    var nx = Math.max(rx0, Math.min(CW / 2, rx1));
+    var ny = Math.max(ry0, Math.min(cy, ry1));
+    var ddx = CW / 2 - nx, ddy = cy - ny;
+    if (ddx * ddx + ddy * ddy >= (R + 2) * (R + 2)) break;
+    R -= 2;
+  }
   if (R < 42) R = 42;
-  return { x: CW / 2, y: top + availH / 2, R: R, top: top };
+  return { x: CW / 2, y: cy, R: R, top: top };
 }
 /* タップ位置→種別：大太鼓の円の内側=ドン、外側=カツ */
 function tapTypeAt(px, py) {
@@ -4694,7 +4736,10 @@ function tapTypeAt(px, py) {
 }
 function spawnPopup(nt, res) {
   var lg = laneGeom();
-  popups.push({ y: lg.y - lg.h / 2 - 8, txt: res === 'good' ? '良' : (res === 'ok' ? '可' : '不可'), col: res === 'good' ? '#ffc93c' : (res === 'ok' ? '#ffffff' : '#f87171'), t0: performance.now(), res: res });
+  /* v151: 判定ポップはレーン帯の内側（上寄り）に出す。従来はレーンの
+     上側に置いていたため、レーンを上部へ寄せるとステージ上端から
+     はみ出す。帯の内側ならどの画面高でもステージ内に収まる */
+  popups.push({ y: lg.y - lg.h / 2 + 30, txt: res === 'good' ? '良' : (res === 'ok' ? '可' : '不可'), col: res === 'good' ? '#ffc93c' : (res === 'ok' ? '#ffffff' : '#f87171'), t0: performance.now(), res: res });
   if (popups.length > 8) popups.shift();
 }
 function spawnHitFx(nt) {
@@ -4781,26 +4826,12 @@ function setProgFrac(frac) {
   var pf = progFillEl || (progFillEl = $('progFill'));
   if (pf) pf.style.transform = 'scaleX(' + clamp(frac, 0, 1) + ')';
 }
-/* コンボ表示の「弾む」演出。従来は void el.offsetWidth で強制リフローを
-   起こして CSS アニメーションを再起動しており、ヒットのたび（＝演奏中
-   ずっと）にレイアウト計算が走ってヒッチの原因になっていた（プロファイルで
-   updateHUD が突出）。Web Animations で同じキーフレーム（cpop と同一）を
-   再生し、リフローを起こさない。WAAPI が使えない環境では従来方式へ */
-function popComboEl(el) {
-  el.classList.remove('pop');
-  if (el.animate) {
-    try { el.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' }); return; } catch (e) {}
-  }
-  void el.offsetWidth; el.classList.add('pop');
-}
 function updateHUD(force) {
-  var sc = String(score), cb = combo >= 2 ? combo + ' コンボ' : '', gp = Math.round(gauge) + '%';
+  /* v151: コンボ表示はステージ内（レーン下・右）の大表示だけに一本化した
+     （本人の指示「コンボ数ふたつも要らない。下だけ残して」）。HUD側の
+     コンボピルは廃止。対戦の vsRow コンボは対戦情報として別に残る */
+  var sc = String(score), gp = Math.round(gauge) + '%';
   if (force || lastHud.sc !== sc) { $('hudScore').textContent = sc.replace(/\B(?=(\d{3})+(?!\d))/g, ','); lastHud.sc = sc; }
-  if (force || lastHud.cb !== cb) {
-    var el = $('hudCombo'); el.textContent = cb; lastHud.cb = cb;
-    el.classList.toggle('hot', combo >= 50);
-    if (cb) popComboEl(el);
-  }
   if (force || lastHud.gp !== gp) {
     $('gaugeFill').style.width = gauge + '%';
     $('gaugePct').textContent = gp;
@@ -5199,7 +5230,7 @@ function drawScene(t, dt) {
     ctx.font = '900 ' + Math.round(28 * pop) + 'px sans-serif';
     ctx.textAlign = 'center';
     ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.6)';
-    var y = p.y - k * 30;
+    var y = p.y - k * 12; /* v151: 上昇量を抑え、レーン帯の内側から出ないようにする */
     if (p.res === 'good') { ctx.shadowColor = 'rgba(255,201,60,.9)'; ctx.shadowBlur = 14; }
     ctx.strokeText(p.txt, judgeX, y); ctx.fillStyle = p.col; ctx.fillText(p.txt, judgeX, y);
     ctx.restore();
@@ -7020,7 +7051,7 @@ window.__taiko = {
   SONGS: SONGS, DIFFS: DIFFS, buildSongData: buildSongData, buildChart: buildChart,
   judgeFor: judgeFor, scoreFor: scoreFor, gaugeDelta: gaugeDelta, makeResult: makeResult,
   mulberry32: mulberry32, melodyVoice: melodyVoice, FORMANTS: FORMANTS, VOWELS: VOWELS,
-  diffLevel: diffLevel, starStr: starStr, getRank: getRank, genreList: genreList,
+  diffLevel: diffLevel, diffLevelBase: diffLevelBase, starStr: starStr, getRank: getRank, genreList: genreList,
   inChorus: inChorus, onsetStr: onsetStr, chorusMix: function () { return chorusMix; },
   gridTime: gridTime, gridStepAt: gridStepAt, songSegs: songSegs, songTotalSteps: songTotalSteps,
   judgeGeom: function () { var lg = laneGeom(); return { r: JUDGE_R, noteR: NOTE_R, x: lg.judgeX, y: lg.y, laneH: lg.h }; },

@@ -6,7 +6,6 @@
 <title>スターリズム | PlayWeb</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--bg:#0a0618;--accent:#ff5d8f;--accent2:#7c5cff;--cyan:#3fd6ff;--panel:rgba(255,255,255,.06);--line:rgba(255,255,255,.14);--txt:#fdfaff;--sub:#b9aede;--gold:#ffc93c;--perfect:#ffd94d;--great:#ff7ac1;--good:#4ade80;--miss:#8f8fa8}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
@@ -509,6 +508,22 @@ html,body{overscroll-behavior:none;}
 @media (orientation: portrait){
   .wrap.playing #ctrlRow{justify-content:flex-end;padding-right:2px}
   .wrap.playing #ctrlRow .iconBtn{min-height:36px}
+  /* v151: 縦画面の演奏中HUDも1行バー化（スコア／コンボ／ゲージ／%／進行）
+     してステージの高さを稼ぐ。曲名は縦の演奏中だけ落とす。コンボは
+     この HUD バーの表示が唯一のコンボ表示（キャンバス側は廃止済み） */
+  .wrap.playing #hud{flex-direction:row;align-items:center;gap:8px}
+  .wrap.playing .hudRow{flex:0 0 auto;gap:8px;flex-wrap:nowrap}
+  .wrap.playing #hudScore{font-size:19px}
+  .wrap.playing #hudCombo{min-width:0;font-size:14px;white-space:nowrap}
+  .wrap.playing #hudSong{display:none}
+  .wrap.playing #gaugeWrap{flex:1 1 70px;min-width:44px;height:12px}
+  .wrap.playing #gaugeLbl{flex:0 0 auto}
+  .wrap.playing #gaugeLbl>span:first-child{display:none}
+  .wrap.playing #progWrap{flex:0 0 48px}
+  .wrap.playing #vsRow{flex:0 1 auto;flex-direction:row;gap:6px}
+  .wrap.playing .scoreBox{display:flex;align-items:center;gap:6px;padding:3px 8px;font-size:11px;white-space:nowrap}
+  .wrap.playing .scoreBox b{display:inline;font-size:14px}
+  .wrap.playing .scoreBox .mini{width:40px;margin-top:0}
 }
 </style>
 </head>
@@ -2239,9 +2254,11 @@ function judgeY() { return CH - JUDGE_BAR_H - 14; }
 function fieldTopY() { return 10; }
 function halfWAt(y) {
   var k = clamp((y - fieldTopY()) / Math.max(1, judgeY() - fieldTopY()), 0, 1);
-  /* 上（奥）は判定ライン幅の約3割まで絞り、両サイドのレールが消失点へ
-     斜めに収束する強い台形にする（プロセカ形式の構図） */
-  return lerp(CW * 0.145, CW * 0.475, k);
+  /* v151: 奥（上端）は判定ライン幅の約43%まで広げた（旧 約31%）。
+     上端の窮屈さを解しつつ、奥行きそのものは透視の深度（DEPTH_R）で
+     付ける。判定ライン位置の幅（k=1 で CW*0.475）は不変で、タップの
+     レーン判定（laneFromX は判定ライン形状のみ参照）にも影響しない */
+  return lerp(CW * 0.205, CW * 0.475, k);
 }
 function laneCenterX(lane, y) { var hw = halfWAt(y); return CW / 2 + (lane - 1.5) * (hw * 2 / 4); }
 function laneWidthAt(y) { return halfWAt(y) * 2 / 4; }
@@ -2427,7 +2444,9 @@ function songTimeAt(tsMs) {
    どちらも 1/Z（奥行きの逆数）に比例する。奥では小さく・ゆっくり、
    手前では大きく・速く見える。x座標はレーン中心線（台形の斜め）に沿う。
    判定は時刻ベースのままなので、タイミング自体は変わらない。 */
-var NOTE_TOP = -14, DEPTH_R = 3.5; /* 出現位置は判定ラインの 3.5 倍遠く。
+var NOTE_TOP = -14, DEPTH_R = 5.0; /* v151: 出現位置は判定ラインの 5 倍遠く
+   （旧 3.5 倍）。ノーツがより遠く・小さい状態から見え始め、奥へ続く
+   遠近感を強める。判定は時刻ベースのままなのでタイミングは変わらない。
    NOTE_TOP は画面上端すれすれにする：旧値 -34 では出現後しばらく（アプローチの
    約25%）ノーツが画面の外にいて「突然現れる」感触の原因になっていた */
 function perspU(q) {
@@ -2440,7 +2459,7 @@ function noteY(t) {
   return lerp(NOTE_TOP, judgeY(), perspU(q));
 }
 function depthFromY(y) { return clamp((y - NOTE_TOP) / Math.max(1, judgeY() - NOTE_TOP), 0, 1); }
-function scaleFromY(y) { return lerp(0.34, 1.05, depthFromY(y)); }
+function scaleFromY(y) { return lerp(0.21, 1.05, depthFromY(y)); } /* v151: 出現時の大きさを透視（1/Z）と一致させた 1.05/DEPTH_R = 0.21。奥のノーツが本当に小さく見え、近づくほど大きく育つ */
 
 /* 絞り込みチップの適用（現在選択中の難易度の Lv / 記録で判定する） */
 function filteredSongs() {
@@ -3972,7 +3991,7 @@ function drawNotes(t) {
    x はレーン中心線の上＝奥では中央寄り、手前では外側へ斜めに移動する。 */
 function noteVisual(nt, y) {
   var yy = clamp(y, 0, judgeY());
-  var scale = scaleFromY(y); /* 奥 0.34 → 判定ライン 1.05 */
+  var scale = scaleFromY(y); /* 奥 0.21 → 判定ライン 1.05（透視 1/Z と一致） */
   var isF = nt.type === 'flick';
   return {
     x: laneCenterX(nt.lane, yy), y: y, scale: scale, flick: isF, long: nt.type === 'long', size: noteSize,
@@ -4425,25 +4444,10 @@ function drawFx(t, dt) {
   }
 }
 function drawJudgePop(t) {
-  /* コンボ（右上に大きく。増えた瞬間に弾む） */
-  if (playing && combo >= 2) {
-    var cAge = (performance.now() - comboT0) / 1000;
-    var cScale = 1 + 0.30 * Math.exp(-cAge * 11);
-    ctx.save();
-    ctx.translate(CW - 16, 46); ctx.scale(cScale, cScale);
-    ctx.textAlign = 'right';
-    ctx.font = '900 30px sans-serif';
-    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(10,4,30,.65)';
-    ctx.strokeText(String(combo), 0, 0);
-    if (fever) { ctx.shadowColor = 'rgba(255,180,60,.9)'; ctx.shadowBlur = 13; }
-    ctx.fillStyle = fever ? '#ffd94d' : '#fff';
-    ctx.fillText(String(combo), 0, 0);
-    ctx.shadowBlur = 0;
-    ctx.font = '800 11px sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
-    ctx.fillText('COMBO', 0, 15);
-    ctx.restore();
-  }
+  /* v151: コンボ表示は HUD バーの「N コンボ」だけに一本化した（太鼓と
+     同じ方針）。従来ここにあった右上のキャンバス大表示はレーン右上＝
+     ノーツの通過域に重なるため廃止。コンボの弾み演出は HUD 側の
+     popComboEl が担う */
   /* FEVER 開始のセンターフラッシュ（コンボ節目の「○○ COMBO!」表示は本人の指示で廃止済み） */
   if (milestone) {
     var mk = (performance.now() - milestone.t0) / 780;
