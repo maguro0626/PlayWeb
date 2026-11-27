@@ -94,8 +94,8 @@
   #walletBtn:active:not(:disabled) { transform:translateY(1px); }
   #pauseBtnB { flex:0 0 auto; width:42px; height:42px; border-radius:11px; border:1px solid rgba(255,255,255,.3);
                background:rgba(255,255,255,.08); color:#fff; font-size:16px; }
-  #unitBar { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
-  .unitBtn { position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.25); border-radius:12px; padding:5px 2px 4px;
+  #unitBar { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch; }
+  .unitBtn { position:relative; overflow:hidden; flex:0 0 76px; border:1px solid rgba(255,255,255,.25); border-radius:12px; padding:5px 2px 4px;
              background:linear-gradient(180deg, rgba(120,90,200,.5), rgba(50,34,100,.65)); color:#fff; text-align:center; }
   .unitBtn .ue { font-size:21px; line-height:1.15; display:block; }
   .unitBtn .un { font-size:10.5px; font-weight:800; display:block; white-space:nowrap; overflow:hidden; }
@@ -103,7 +103,25 @@
   .unitBtn .cdov { position:absolute; left:0; right:0; bottom:0; height:0%; background:rgba(5,2,16,.62); pointer-events:none; }
   .unitBtn.poor { filter:grayscale(.75) brightness(.72); }
   .unitBtn:active { transform:scale(.96); }
-  @media (min-width:760px) { #unitBar { grid-template-columns:repeat(8,1fr); } .unitBtn .ue { font-size:24px; } }
+  @media (min-width:760px) { .unitBtn { flex-basis:92px; } .unitBtn .ue { font-size:24px; } }
+  /* ── 大砲ボタン ── */
+  #cannonBtn { position:relative; overflow:hidden; flex:0 0 108px; height:42px; border:none; border-radius:11px; font-weight:900; font-size:13px;
+               color:#4a2403; background:#5a5470; box-shadow:0 3px 0 #38324e; }
+  #cannonBtn #cannonFill { position:absolute; left:0; bottom:0; top:0; width:0%; background:linear-gradient(90deg,#ff9d5c,#ffc46e); }
+  #cannonBtn #cannonTx { position:relative; z-index:1; }
+  #cannonBtn.ready { background:#ffd76e; box-shadow:0 3px 0 #a86a12; animation:cannonPulse .7s infinite alternate; }
+  @keyframes cannonPulse { from { filter:brightness(1); } to { filter:brightness(1.18); } }
+  /* ── ガチャ結果 ── */
+  #gachaResult { display:flex; flex-wrap:wrap; gap:7px; justify-content:center; margin-top:12px; }
+  .gachaCard { flex:0 0 96px; border-radius:12px; padding:8px 4px 6px; text-align:center; border:2px solid #888; background:rgba(255,255,255,.06); }
+  .gachaCard .ge { font-size:30px; display:block; }
+  .gachaCard .gn { font-size:11.5px; font-weight:900; display:block; }
+  .gachaCard .gr { font-size:10.5px; font-weight:900; display:block; }
+  .gachaCard .gx { font-size:10.5px; color:#ffe9b0; display:block; margin-top:2px; }
+  .gachaCard.rR { border-color:#9db4ff; } .gachaCard.rR .gr { color:#9db4ff; }
+  .gachaCard.rSR { border-color:#c792ff; } .gachaCard.rSR .gr { color:#c792ff; }
+  .gachaCard.rSSR { border-color:#ffb340; box-shadow:0 0 12px rgba(255,179,64,.5); } .gachaCard.rSSR .gr { color:#ffb340; }
+  .gachaCard.rUR { border-color:#ff5d8f; box-shadow:0 0 16px rgba(255,93,143,.75); } .gachaCard.rUR .gr { color:#ff5d8f; }
   /* ── 結果・ポーズ ── */
   .ovl { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; padding:18px;
          background:rgba(5,3,14,.72); }
@@ -124,6 +142,7 @@
     <div class="fishBar">🐟 にぼし <span id="fishDisp">0</span></div>
     <button class="bigBtn" id="btnStage">⚔️ ステージへ出撃</button>
     <button class="subBtn" id="mpBtn">🤝 フレンドと対戦</button>
+    <button class="subBtn" id="btnGacha">🎰 ガチャ</button>
     <button class="subBtn" id="btnUp">⬆️ ユニット強化</button>
     <div class="gameSub" style="font-size:11.5px;opacity:.85">ステージをクリアして「にぼし」を集めると<br>ユニットを永続強化できます。</div>
   </div>
@@ -148,6 +167,22 @@
   <div id="upList"></div>
 </div>
 
+<!-- ガチャ -->
+<div class="scr" id="gachaScr">
+  <div style="width:min(560px,96vw)">
+    <button class="backBtn" id="backFromGacha">← もどる</button>
+    <div class="secTitle">🎰 もふもふガチャ</div>
+    <div class="fishBar" style="margin:0 0 12px">🐟 にぼし <span id="fishDisp3">0</span></div>
+  </div>
+  <div class="card" style="margin:0">
+    <div class="gameSub">ガチャ限定ユニットが当たる！<br>排出率：<b style="color:#ff5d8f">UR 3%</b>／<b style="color:#ffb340">SSR 12%</b>／<b style="color:#c792ff">SR 35%</b>／<b style="color:#9db4ff">R 50%</b><br>10連は SR 以上が1体確定。被りは自動で Lv+1（MAX時は 🐟120 還元）</div>
+    <button class="bigBtn" id="gacha1Btn">🎰 1回引く（🐟 200）</button>
+    <button class="bigBtn" id="gacha10Btn">🎰🎰 10連（🐟 2,000・SR以上確定）</button>
+    <div id="gachaResult"></div>
+    <div class="gameSub" id="gachaLineup" style="text-align:left;font-size:12px"></div>
+  </div>
+</div>
+
 <!-- 対戦ロビー -->
 <div class="scr" id="lobbyScr">
   <div class="card">
@@ -170,13 +205,13 @@
 <div id="battleScr">
   <div id="castleBar">
     <div class="castleHp">
-      <div class="clabel"><span id="myCastleName">🏯 自城</span><span id="myCastleHpTx"></span></div>
-      <div class="hpTrack"><div class="hpFill" id="myCastleFill"></div></div>
+      <div class="clabel"><span id="foeCastleName">敵城 🏯</span><span id="foeCastleHpTx"></span></div>
+      <div class="hpTrack"><div class="hpFill" id="foeCastleFill"></div></div>
     </div>
     <div id="battleTimer">0:00</div>
     <div class="castleHp">
-      <div class="clabel"><span id="foeCastleHpTx"></span><span id="foeCastleName">敵城 🏯</span></div>
-      <div class="hpTrack"><div class="hpFill" id="foeCastleFill"></div></div>
+      <div class="clabel"><span id="myCastleHpTx"></span><span id="myCastleName">🏯 自城</span></div>
+      <div class="hpTrack"><div class="hpFill" id="myCastleFill"></div></div>
     </div>
   </div>
   <div id="cvWrap"><canvas id="cv"></canvas><div id="battleMsg"></div></div>
@@ -184,6 +219,7 @@
     <div id="moneyRow">
       <div id="moneyDisp">💰 0</div>
       <button id="walletBtn">👛 お財布Lv.1<br>強化 100</button>
+      <button id="cannonBtn"><span id="cannonFill"></span><span id="cannonTx">🐾 もふもふ砲</span></button>
       <button id="pauseBtnB">⏸</button>
     </div>
     <div id="unitBar"></div>
@@ -230,6 +266,55 @@ var UNITS = [
 ];
 var UNIT_BY_ID = {}; UNITS.forEach(function (u) { UNIT_BY_ID[u.id] = u; });
 
+/* ガチャ限定ユニット（レアリティ付き・全てオリジナル）
+   rates: UR 3% / SSR 12% / SR 35% / R 50%（10連は SR 以上1体確定） */
+var GACHA_UNITS = [
+  { id:'suzume', name:'すずめねこ', emoji:'🐤', rarity:'R',   cost:120, hp:300,  atk:110, range:100, speed:128, atkInt:0.80, repro:1.8,  kb:3, area:false, desc:'すずめの羽根を付けた俊足ねこ。安くて速い奇襲役。' },
+  { id:'tamago', name:'たまごもふ', emoji:'🥚', rarity:'R',   cost:200, hp:1500, atk:60,  range:95,  speed:34,  atkInt:1.30, repro:2.6,  kb:2, area:false, desc:'たまごの殻をかぶった硬いもふ。コスパの良い壁。' },
+  { id:'ninja',  name:'にんじゃもふ', emoji:'🥷', rarity:'SR',  cost:350, hp:640,  atk:300, range:110, speed:120, atkInt:0.90, repro:3.4,  kb:3, area:false, desc:'影に生きる忍者ねこ。超高速で斬り込む。' },
+  { id:'mahou',  name:'まほうもふ', emoji:'🔮', rarity:'SR',  cost:560, hp:700,  atk:330, range:300, speed:44,  atkInt:1.50, repro:5.2,  kb:3, area:true,  desc:'魔法使いもふ。遠距離から範囲魔法で焼き払う。' },
+  { id:'hime',   name:'ひめもふ',   emoji:'🎀', rarity:'SSR', cost:800, hp:1900, atk:520, range:170, speed:50,  atkInt:1.25, repro:6.5,  kb:3, area:true,  desc:'気品あふれるお姫様もふ。広範囲を薙ぐ高火力。' },
+  { id:'king',   name:'きんぐもふ', emoji:'👑', rarity:'SSR', cost:950, hp:2900, atk:560, range:140, speed:38,  atkInt:1.40, repro:8.5,  kb:1, area:true,  desc:'王冠を戴く重戦車もふ。倒れにくく範囲攻撃も強力。' },
+  { id:'tenshi', name:'てんしもふ', emoji:'👼', rarity:'UR',  cost:1400, hp:2600, atk:880, range:290, speed:47,  atkInt:1.45, repro:11.0, kb:2, area:true,  desc:'天使の輪を持つ伝説のもふ。長射程・超火力の範囲攻撃。' }
+];
+var GACHA_BY_ID = {}; GACHA_UNITS.forEach(function (u) { GACHA_BY_ID[u.id] = u; UNIT_BY_ID[u.id] = u; });
+var ALL_UNITS = UNITS.concat(GACHA_UNITS);
+var GACHA_COST = 200;            /* 1回のにぼし */
+var GACHA_DUPE_REFUND = 120;     /* LvMAX の被りを引いた時の還元にぼし */
+var RARITY_ORDER = { R: 0, SR: 1, SSR: 2, UR: 3 };
+function rollRarity(r) { return r < 0.03 ? 'UR' : r < 0.15 ? 'SSR' : r < 0.50 ? 'SR' : 'R'; }
+function rollGachaOne(rng) {
+  rng = rng || Math.random;
+  var rar = rollRarity(rng());
+  var pool = GACHA_UNITS.filter(function (u) { return u.rarity === rar; });
+  return pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
+}
+/* 1回分の入手処理：新規→所持、被り→Lv+1（上限時はにぼし還元）。結果オブジェクトを返す */
+function applyPull(u) {
+  if (!save.gacha[u.id]) { save.gacha[u.id] = 1; return { unit: u, isNew: true, lvUp: false, refund: 0 }; }
+  var lv = save.unitLv[u.id] || 1;
+  if (lv < UNIT_MAX_LV) { save.unitLv[u.id] = lv + 1; return { unit: u, isNew: false, lvUp: true, refund: 0, lv: lv + 1 }; }
+  save.fish += GACHA_DUPE_REFUND;
+  return { unit: u, isNew: false, lvUp: false, refund: GACHA_DUPE_REFUND };
+}
+function doGacha(n, rng) {
+  rng = rng || Math.random;
+  if (save.fish < GACHA_COST * n) return null;
+  save.fish -= GACHA_COST * n;
+  var picked = [];
+  for (var i = 0; i < n; i++) picked.push(rollGachaOne(rng));
+  if (n >= 10 && !picked.some(function (u) { return RARITY_ORDER[u.rarity] >= RARITY_ORDER.SR; })) {
+    /* 10連の SR 以上確定：最後の1体を SR から引き直す */
+    var srPool = GACHA_UNITS.filter(function (u) { return u.rarity === 'SR'; });
+    picked[n - 1] = srPool[Math.min(srPool.length - 1, Math.floor(rng() * srPool.length))];
+  }
+  var results = picked.map(applyPull);
+  storeSave();
+  return results;
+}
+/* 出撃できるユニット（基本8種＋所持済みガチャ） */
+function deployableUnits() { return UNITS.concat(GACHA_UNITS.filter(function (u) { return !!save.gacha[u.id]; })); }
+
 /* 敵（オリジナルの動物たち） bounty: 倒した時に得るお金 */
 var ENEMIES = {
   tanuki:    { id:'tanuki',    name:'たぬき',       hp:320,   atk:65,  range:105, speed:46, atkInt:1.20, kb:3, area:false, bounty:40 },
@@ -273,11 +358,37 @@ function walletCost(lv) { return 100 + (lv - 1) * 90; }          /* lv→lv+1 �
 function lvMult(lv) { return 1 + 0.2 * (lv - 1); }
 var UNIT_MAX_LV = 20;
 function upCost(lv) { return 50 * lv + (lv - 1) * 30; }          /* lv→lv+1 のにぼし費用 */
+/* 自城の大砲「もふもふ砲」：チャージ式。城前 CANNON_RANGE 内の敵全員にダメージ＋確定ノックバック */
+var CANNON_CHARGE = 20;        /* フルチャージまでの秒数 */
+var CANNON_RANGE = 520;        /* 城の前面からの射程 */
+function cannonPow(st, side) {
+  if (st.mode === 'vs') return 700;
+  return Math.round(500 * Math.sqrt(st.scale || 1));
+}
+function tryCannon(st, side) {
+  if (st.over) return false;
+  if ((st.cannon[side] || 0) < CANNON_CHARGE) return false;
+  st.cannon[side] = 0;
+  var pow = cannonPow(st, side);
+  var inZone = side === 0
+    ? function (x) { return x >= FIELD_W - CASTLE_W - CANNON_RANGE; }
+    : function (x) { return x <= CASTLE_W + CANNON_RANGE; };
+  for (var i = 0; i < st.units.length; i++) {
+    var v = st.units[i];
+    if (v.side === side || v.hp <= 0) continue;
+    if (!inZone(v.x)) continue;
+    damageUnit(st, v, pow, side);
+    if (v.hp > 0) { v.dmgKb = 0; v.kbT = Math.max(v.kbT, 0.35); }  /* 確定ノックバック */
+  }
+  st.effects.push({ k: 'cannon', x: side === 0 ? FIELD_W - CASTLE_W - CANNON_RANGE / 2 : CASTLE_W + CANNON_RANGE / 2, side: side, t: 0.45, max: 0.45 });
+  st.events.push({ k: 'cannon', side: side });
+  return true;
+}
 
 /* ═══════════════ セーブ（素キー localStorage） ═══════════════ */
 var SAVE_KEY = 'mofusen_save_v1';
-var save = { fish: 300, unitLv: {}, cleared: {}, best: {} };
-UNITS.forEach(function (u) { save.unitLv[u.id] = 1; });
+var save = { fish: 300, unitLv: {}, cleared: {}, best: {}, gacha: {} };
+ALL_UNITS.forEach(function (u) { save.unitLv[u.id] = 1; });
 function loadSave() {
   try {
     var raw = localStorage.getItem(SAVE_KEY);
@@ -285,9 +396,10 @@ function loadSave() {
       var d = JSON.parse(raw);
       if (d && typeof d === 'object') {
         if (typeof d.fish === 'number') save.fish = d.fish;
-        if (d.unitLv) UNITS.forEach(function (u) { if (typeof d.unitLv[u.id] === 'number') save.unitLv[u.id] = Math.max(1, Math.min(UNIT_MAX_LV, d.unitLv[u.id] | 0)); });
+        if (d.unitLv) ALL_UNITS.forEach(function (u) { if (typeof d.unitLv[u.id] === 'number') save.unitLv[u.id] = Math.max(1, Math.min(UNIT_MAX_LV, d.unitLv[u.id] | 0)); });
         if (d.cleared) save.cleared = d.cleared;
         if (d.best) save.best = d.best;
+        if (d.gacha && typeof d.gacha === 'object') GACHA_UNITS.forEach(function (u) { if (d.gacha[u.id]) save.gacha[u.id] = 1; });
       }
     }
   } catch (e) {}
@@ -301,13 +413,16 @@ function makeUnit(side, typeId, lv, isEnemy, scale) {
   var base = isEnemy ? ENEMIES[typeId] : UNIT_BY_ID[typeId];
   var mult = isEnemy ? (scale || 1) : lvMult(lv || 1);
   var hp = Math.round(base.hp * mult);
+  var uid = uidSeq++;
   return {
-    uid: uidSeq++, side: side, type: typeId, enemy: !!isEnemy,
-    x: side === 0 ? 150 : FIELD_W - 150,
+    uid: uid, side: side, type: typeId, enemy: !!isEnemy,
+    x: side === 0 ? FIELD_W - 150 : 150,
     hp: hp, maxHp: hp, atk: Math.round(base.atk * mult),
     range: base.range, speed: base.speed, atkInt: base.atkInt,
     kbMax: base.kb, kbLeft: base.kb, dmgKb: 0,
     atkCd: 0.4, kbT: 0, lungeT: 0, hitT: 0, bornT: 0,
+    /* 停止位置の個体オフセット（±10px・決定的）：同種が同座標に完全吸着しないように */
+    off: ((uid * 53) % 21) - 10,
     area: !!base.area, bounty: isEnemy ? (base.bounty || 0) : 0, boss: !!base.boss
   };
 }
@@ -321,6 +436,7 @@ function createBattle(opts) {
     units: [],
     castle: [3000, 3000], castleMax: [3000, 3000],
     money: [150, 150], walletLv: [1, 1],
+    cannon: [0, 0],           /* もふもふ砲のチャージ秒（side別） */
     repro: [ {}, {} ],        /* side -> {unitId: 残り秒} */
     lvMap: [opts.lvMap0 || null, opts.lvMap1 || null],
     effects: [],              /* 描画用エフェクト（hit/death/money） */
@@ -330,7 +446,7 @@ function createBattle(opts) {
     spawnClock: 0, trickleIdx: 0, evDone: {}, rushClock: 0, bossDone: {},
     scale: opts.stage ? opts.stage.scale : 1
   };
-  UNITS.forEach(function (u) { st.repro[0][u.id] = 0; st.repro[1][u.id] = 0; });
+  ALL_UNITS.forEach(function (u) { st.repro[0][u.id] = 0; st.repro[1][u.id] = 0; });
   if (st.mode === 'solo' && st.stage) {
     st.castle[1] = st.stage.castle; st.castleMax[1] = st.stage.castle;
     st.castle[0] = Math.round(st.stage.castle * 0.8); st.castleMax[0] = st.castle[0];
@@ -378,7 +494,7 @@ function damageUnit(st, target, dmg, fromSide) {
 }
 function damageCastle(st, side, dmg) {
   st.castle[side] -= dmg;
-  st.effects.push({ k:'chit', x: side === 0 ? CASTLE_W : FIELD_W - CASTLE_W, side: side, t: 0.2, max: 0.2 });
+  st.effects.push({ k:'chit', x: side === 0 ? FIELD_W - CASTLE_W : CASTLE_W, side: side, t: 0.2, max: 0.2 });
   if (st.castle[side] <= 0 && !st.over) {
     st.castle[side] = 0;
     st.over = side === 0 ? 2 : 1;
@@ -433,6 +549,9 @@ function stepBattle(st, dt) {
     for (var uid in st.repro[s]) if (st.repro[s][uid] > 0) st.repro[s][uid] = Math.max(0, st.repro[s][uid] - dt);
   }
   if (st.mode === 'solo') stepSpawns(st, dt);
+  /* もふもふ砲のチャージ（ソロの敵側は大砲なし） */
+  st.cannon[0] = Math.min(CANNON_CHARGE, (st.cannon[0] || 0) + dt);
+  if (st.mode === 'vs') st.cannon[1] = Math.min(CANNON_CHARGE, (st.cannon[1] || 0) + dt);
   /* ユニット行動 */
   var i, u, j, v;
   for (i = 0; i < st.units.length; i++) {
@@ -443,11 +562,11 @@ function stepBattle(st, dt) {
     if (u.atkCd > 0) u.atkCd -= dt;
     if (u.kbT > 0) { /* ノックバック中：後退して行動不能 */
       u.kbT -= dt;
-      u.x += (u.side === 0 ? -1 : 1) * 95 * dt;
+      u.x += (u.side === 0 ? 1 : -1) * 95 * dt;
       u.x = Math.max(60, Math.min(FIELD_W - 60, u.x));
       continue;
     }
-    var dir = u.side === 0 ? 1 : -1;
+    var dir = u.side === 0 ? -1 : 1;
     /* 最も近い敵を探す（前方） */
     var best = null, bestD = Infinity;
     for (j = 0; j < st.units.length; j++) {
@@ -456,11 +575,11 @@ function stepBattle(st, dt) {
       var d = Math.abs(v.x - u.x);
       if (d < bestD) { bestD = d; best = v; }
     }
-    var castleX = u.side === 0 ? FIELD_W - CASTLE_W / 2 : CASTLE_W / 2;
+    var castleX = u.side === 0 ? CASTLE_W / 2 : FIELD_W - CASTLE_W / 2;
     var castleD = Math.abs(castleX - u.x);
     var targetCastle = (!best || castleD < bestD);
     var dist = targetCastle ? castleD : bestD;
-    var reach = u.range + (targetCastle ? CASTLE_R : UNIT_R);
+    var reach = u.range + (targetCastle ? CASTLE_R : UNIT_R) + (u.off || 0);
     if (dist <= reach) {
       /* 攻撃 */
       if (u.atkCd <= 0) {
@@ -478,15 +597,8 @@ function stepBattle(st, dt) {
         if (st.over) break;
       }
     } else {
-      /* 前進（味方の背中では止まる） */
-      var blocked = false;
-      for (j = 0; j < st.units.length; j++) {
-        v = st.units[j];
-        if (v === u || v.side !== u.side || v.hp <= 0) continue;
-        var ahead = (v.x - u.x) * dir;
-        if (ahead > 0 && ahead < UNIT_R * 2 - 6) { blocked = true; break; }
-      }
-      if (!blocked) u.x += dir * u.speed * dt;
+      /* 前進（本家仕様：味方同士に当たり判定はなく、すり抜けて各自の射程で止まる） */
+      u.x += dir * u.speed * dt;
       u.x = Math.max(60, Math.min(FIELD_W - 60, u.x));
     }
   }
@@ -541,7 +653,14 @@ var CAT_STYLE = {
   yumi:    { body:'#cfe8b8', sub:'#fff6da', ear:'#4d8a3d', size:1.00 },
   sui:     { body:'#fff8f0', sub:'#6b4a3a', ear:'#6b4a3a', size:1.06 },
   kinniku: { body:'#f2c14e', sub:'#d98a2b', ear:'#f2c14e', size:1.38 },
-  dragon:  { body:'#9fd67a', sub:'#fdf6d8', ear:'#9fd67a', size:1.52 }
+  dragon:  { body:'#9fd67a', sub:'#fdf6d8', ear:'#9fd67a', size:1.52 },
+  suzume:  { body:'#ffe9a8', sub:'#fff6da', ear:'#f5c542', size:0.85 },
+  tamago:  { body:'#fff3d6', sub:'#ffe1a8', ear:'#fff3d6', size:1.05 },
+  ninja:   { body:'#4a4a5e', sub:'#6a6a84', ear:'#33333f', size:0.95 },
+  mahou:   { body:'#c9a8ff', sub:'#efe4ff', ear:'#8a5fd0', size:1.00 },
+  hime:    { body:'#ffd3e8', sub:'#fff0f7', ear:'#ffb7d5', size:1.05 },
+  king:    { body:'#f7d774', sub:'#fff3c4', ear:'#e8a812', size:1.35 },
+  tenshi:  { body:'#ffffff', sub:'#eaf6ff', ear:'#ffffff', size:1.15 }
 };
 function drawCat(u, sx, gy, sc, flip, foe) {
   var st = CAT_STYLE[u.type] || CAT_STYLE.mofu;
@@ -599,6 +718,43 @@ function drawCat(u, sx, gy, sc, flip, foe) {
   if (u.type === 'sui') { /* ピンクのリボン */
     tri(hx + 8 * S, hy - 13 * S, hx + 15 * S, hy - 17 * S, hx + 14 * S, hy - 9 * S, '#ff8fb5');
     tri(hx + 8 * S, hy - 13 * S, hx + 14 * S, hy - 9 * S, hx + 7 * S, hy - 8 * S, '#ff8fb5');
+  }
+  if (u.type === 'suzume') { /* 羽根の飾り */
+    tri(hx - 2 * S, hy - 14 * S, hx + 3 * S, hy - 24 * S, hx + 7 * S, hy - 13 * S, '#57b8e8');
+  }
+  if (u.type === 'tamago') { /* たまごの殻 */
+    ell(hx, hy - 9 * S, 15 * S, 8 * S, '#fffdf4');
+    ctx.fillStyle = '#fffdf4';
+    ctx.beginPath(); ctx.moveTo(hx - 15 * S, hy - 9 * S);
+    [-10, -5, 0, 5, 10].forEach(function (o, i2) { ctx.lineTo(hx + o * S, hy - (i2 % 2 ? 6 : 10) * S); });
+    ctx.lineTo(hx + 15 * S, hy - 9 * S); ctx.closePath(); ctx.fill();
+  }
+  if (u.type === 'ninja') { /* 忍者バンド */
+    rect(hx - 15 * S, hy - 7 * S, 30 * S, 6 * S, '#e0342c');
+    tri(hx - 15 * S, hy - 4 * S, hx - 24 * S, hy + 1 * S, hx - 15 * S, hy + 2 * S, '#e0342c');
+  }
+  if (u.type === 'mahou') { /* 魔法帽子と星 */
+    tri(hx - 13 * S, hy - 10 * S, hx + 13 * S, hy - 10 * S, hx + 2 * S, hy - 30 * S, '#5d3a9e');
+    rect(hx - 14 * S, hy - 11 * S, 28 * S, 4 * S, '#8a5fd0');
+    txt('⭐', hx + 2 * S, hy - 15 * S, 9 * S, '#ffd76e');
+  }
+  if (u.type === 'hime') { /* ティアラ */
+    tri(hx - 8 * S, hy - 13 * S, hx - 4 * S, hy - 20 * S, hx, hy - 13 * S, '#ffd76e');
+    tri(hx, hy - 13 * S, hx + 4 * S, hy - 21 * S, hx + 8 * S, hy - 13 * S, '#ffd76e');
+    circ(hx, hy - 15 * S, 2 * S, '#ff8fb5');
+  }
+  if (u.type === 'king') { /* 王冠 */
+    rect(hx - 10 * S, hy - 17 * S, 20 * S, 7 * S, '#f5b81e');
+    tri(hx - 10 * S, hy - 17 * S, hx - 6 * S, hy - 24 * S, hx - 2 * S, hy - 17 * S, '#f5b81e');
+    tri(hx - 2 * S, hy - 17 * S, hx + 2 * S, hy - 25 * S, hx + 6 * S, hy - 17 * S, '#f5b81e');
+    tri(hx + 6 * S, hy - 17 * S, hx + 10 * S, hy - 24 * S, hx + 10 * S, hy - 17 * S, '#f5b81e');
+    circ(hx + 2 * S, hy - 13.5 * S, 1.8 * S, '#e0342c');
+  }
+  if (u.type === 'tenshi') { /* 天使の輪と翼 */
+    ctx.strokeStyle = '#ffd76e'; ctx.lineWidth = 2.4 * S;
+    ctx.beginPath(); ctx.ellipse(hx, hy - 19 * S, 8 * S, 3 * S, 0, 0, Math.PI * 2); ctx.stroke();
+    tri(-6 * S, -30 * S, -24 * S, -44 * S, -16 * S, -18 * S, '#ffffff');
+    tri(2 * S, -34 * S, -14 * S, -48 * S, -8 * S, -24 * S, '#eaf6ff');
   }
   if (foe) { /* 対戦の敵側：赤いバンダナ */
     tri(hx - 13 * S, hy - 10 * S, hx + 14 * S, hy - 10 * S, hx + 2 * S, hy - 2 * S, '#e0342c');
@@ -754,14 +910,14 @@ function drawBattle(st, flip) {
   /* 城 */
   var shake0 = st.effects.some(function (e) { return e.k === 'chit' && e.side === 0; });
   var shake1 = st.effects.some(function (e) { return e.k === 'chit' && e.side === 1; });
-  drawCastle(X(55), gy, unitSc, 0, false, st.castle[flip ? 1 : 0] / st.castleMax[flip ? 1 : 0], flip ? shake1 : shake0);
-  drawCastle(X(FIELD_W - 55), gy, unitSc, 1, true, st.castle[flip ? 0 : 1] / st.castleMax[flip ? 0 : 1], flip ? shake0 : shake1);
+  drawCastle(X(flip ? 55 : FIELD_W - 55), gy, unitSc, 0, false, st.castle[flip ? 1 : 0] / st.castleMax[flip ? 1 : 0], flip ? shake1 : shake0);
+  drawCastle(X(flip ? FIELD_W - 55 : 55), gy, unitSc, 1, true, st.castle[flip ? 0 : 1] / st.castleMax[flip ? 0 : 1], flip ? shake0 : shake1);
   /* ユニット（奥→手前の単純ソート：x順ではなく全員同一レーン） */
   var mySide = flip ? 1 : 0;
   var sorted = st.units.slice().sort(function (a, b) { return (a.boss ? 1 : 0) - (b.boss ? 1 : 0); });
   sorted.forEach(function (u) {
     var sx = X(u.x);
-    var facingRight = (u.side === 0) !== !!flip;
+    var facingRight = (u.side === 0) === !!flip;
     if (u.enemy) drawAnimal(u, sx, gy, unitSc, !facingRight);
     else drawCat(u, sx, gy, unitSc, !facingRight, u.side !== mySide);
   });
@@ -781,6 +937,10 @@ function drawBattle(st, flip) {
       if (e.boss) txt('💥', sx, gy - 52 - (1 - a) * 16, 26, '#fff');
     } else if (e.k === 'chit') {
       txt('💥', sx, gy - 120, 20, '#fff');
+    } else if (e.k === 'cannon') {
+      ctx.strokeStyle = 'rgba(255,170,60,' + a + ')'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(sx, gy - 46, (1 - a) * 130 + 18, 0, Math.PI * 2); ctx.stroke();
+      txt('🐾', sx, gy - 58 - (1 - a) * 22, 40, '#fff');
     }
   });
 }
@@ -806,11 +966,12 @@ function sfx(name) {
   else if (name === 'win') { [523, 659, 784, 1046].forEach(function (f, i) { setTimeout(function () { beep(f, 0.16, 'square', 0.05); }, i * 110); }); }
   else if (name === 'lose') { [400, 340, 280, 200].forEach(function (f, i) { setTimeout(function () { beep(f, 0.18, 'triangle', 0.05); }, i * 130); }); }
   else if (name === 'click') beep(660, 0.05, 'square', 0.025);
+  else if (name === 'cannon') { beep(110, 0.4, 'sawtooth', 0.09, 38); setTimeout(function () { beep(70, 0.3, 'square', 0.06, 45); }, 40); }
 }
 
 /* ═══════════════ 画面管理・UI ═══════════════ */
 function $(id) { return document.getElementById(id); }
-var SCRS = ['titleScr', 'stageScr', 'upScr', 'lobbyScr'];
+var SCRS = ['titleScr', 'stageScr', 'upScr', 'lobbyScr', 'gachaScr'];
 function showScr(id) {
   SCRS.forEach(function (s) { var el = $(s); if (el) el.classList.toggle('show', s === id); });
   $('battleScr').classList.remove('show');
@@ -822,7 +983,7 @@ function showBattle() {
   fitCanvas();
 }
 function fmtTime(sec) { sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
-function updateFish() { $('fishDisp').textContent = save.fish; $('fishDisp2').textContent = save.fish; }
+function updateFish() { $('fishDisp').textContent = save.fish; $('fishDisp2').textContent = save.fish; var f3 = $('fishDisp3'); if (f3) f3.textContent = save.fish; }
 function renderStageList() {
   var wrap = $('stageList'); wrap.innerHTML = '';
   STAGES.forEach(function (sg, idx) {
@@ -841,12 +1002,14 @@ function renderStageList() {
 function renderUpList() {
   updateFish();
   var wrap = $('upList'); wrap.innerHTML = '';
-  UNITS.forEach(function (u) {
+  var list = UNITS.concat(GACHA_UNITS.filter(function (u) { return !!save.gacha[u.id]; }));
+  list.forEach(function (u) {
     var lv = save.unitLv[u.id];
     var maxed = lv >= UNIT_MAX_LV;
     var cost = maxed ? 0 : upCost(lv);
     var row = document.createElement('div'); row.className = 'upRow';
     row.innerHTML = '<span class="uemoji">' + u.emoji + '</span><span><span class="uname">' + u.name + '</span> <span class="ulv">Lv.' + lv + '</span>' +
+      (u.rarity ? ' <span class="ulv" style="color:#c792ff">ガチャ限定 ' + u.rarity + '</span>' : '') +
       '<div class="ustat">HP ' + Math.round(u.hp * lvMult(lv)) + '／攻撃 ' + Math.round(u.atk * lvMult(lv)) + '／生産 ' + u.cost + '<br>' + u.desc + '</div></span>';
     var b = document.createElement('button'); b.className = 'upBtn';
     if (maxed) { b.textContent = 'MAX'; b.disabled = true; }
@@ -863,6 +1026,34 @@ function renderUpList() {
   });
 }
 
+/* ═══════════════ ガチャ画面 ═══════════════ */
+function renderGacha() {
+  updateFish();
+  $('gacha1Btn').disabled = save.fish < GACHA_COST;
+  $('gacha10Btn').disabled = save.fish < GACHA_COST * 10;
+  $('gacha1Btn').style.opacity = save.fish < GACHA_COST ? 0.5 : 1;
+  $('gacha10Btn').style.opacity = save.fish < GACHA_COST * 10 ? 0.5 : 1;
+  var owned = GACHA_UNITS.filter(function (u) { return !!save.gacha[u.id]; }).length;
+  $('gachaLineup').innerHTML = '所持： ' + owned + ' / ' + GACHA_UNITS.length + ' 種<br>' + GACHA_UNITS.map(function (u) {
+    return (save.gacha[u.id] ? u.emoji : '❔') + ' <b>' + u.rarity + '</b> ' + (save.gacha[u.id] ? u.name + ' Lv.' + (save.unitLv[u.id] || 1) : '？？？');
+  }).join('<br>');
+}
+function onGacha(n) {
+  var res = doGacha(n);
+  if (!res) { return; }
+  initAudio(); sfx('wallet');
+  var wrap = $('gachaResult'); wrap.innerHTML = '';
+  res.forEach(function (r) {
+    var d = document.createElement('div');
+    d.className = 'gachaCard r' + r.unit.rarity;
+    d.innerHTML = '<span class="ge">' + r.unit.emoji + '</span><span class="gn">' + r.unit.name + '</span>' +
+      '<span class="gr">' + r.unit.rarity + '</span>' +
+      '<span class="gx">' + (r.isNew ? '✨ NEW!' : r.lvUp ? '⬆️ 被りで Lv.' + r.lv + ' に強化' : '🐟 ' + r.refund + ' 還元（LvMAX）') + '</span>';
+    wrap.appendChild(d);
+  });
+  renderGacha();
+}
+
 /* ═══════════════ バトル進行 ═══════════════ */
 var battle = null;          /* 現在のバトル状態（ホスト/ソロは sim、ゲストは表示用） */
 var uiMode = 'idle';        /* idle | solo | vs-host | vs-guest */
@@ -875,7 +1066,7 @@ function showMsg(s, dur) {
 }
 function buildUnitBar() {
   var bar = $('unitBar'); bar.innerHTML = '';
-  UNITS.forEach(function (u) {
+  deployableUnits().forEach(function (u) {
     var b = document.createElement('button'); b.className = 'unitBtn'; b.id = 'ub_' + u.id;
     b.innerHTML = '<span class="ue">' + u.emoji + '</span><span class="un">' + u.name + '</span><span class="uc">💰' + u.cost + '</span><span class="cdov"></span>';
     b.onclick = function () { initAudio(); onUnitButton(u.id); };
@@ -893,9 +1084,16 @@ function onWalletButton() {
   if (uiMode === 'vs-guest') { netSend({ t: 'cmd', a: 'wallet' }); return; }
   if (tryWallet(battle, 0)) sfx('wallet');
 }
+function onCannonButton() {
+  if (!battle || battleDone) return;
+  if (uiMode === 'vs-guest') { netSend({ t: 'cmd', a: 'cannon' }); return; }
+  if (tryCannon(battle, 0)) { /* 発射音とメッセージは events 経由 */ }
+  else showMsg('🐾 もふもふ砲はチャージ中…', 900);
+}
 function startSolo(stageId) {
   curStage = STAGE_BY_ID[stageId];
   battle = createBattle({ mode: 'solo', stage: curStage, lvMap0: save.unitLv });
+  buildUnitBar();
   uiMode = 'solo'; paused = false; battleDone = false;
   $('myCastleName').textContent = '🏯 自城';
   $('foeCastleName').textContent = curStage.name + ' 🏯';
@@ -931,6 +1129,10 @@ function drainEvents() {
     var ev = battle.events.shift();
     if (ev.k === 'boss') { showMsg('⚠️ ボス出現！ ' + (ENEMIES[ev.id] ? ENEMIES[ev.id].name : ''), 2200); sfx('boss'); }
     else if (ev.k === 'rush') showMsg('⚠️ ラッシュ！', 1500);
+    else if (ev.k === 'cannon') {
+      if (ev.side === mySide()) { showMsg('💥 もふもふ砲 発射！', 1000); sfx('cannon'); }
+      else { showMsg('💥 相手のもふもふ砲！', 1000); sfx('cannon'); }
+    }
     else if (ev.k === 'end') finishBattle(ev.winner);
   }
 }
@@ -948,13 +1150,22 @@ function updateHUD() {
   var wb = $('walletBtn'), wlv = battle.walletLv[ms];
   if (wlv >= WALLET_MAX_LV) { wb.innerHTML = '👛 お財布Lv.MAX'; wb.disabled = true; }
   else { wb.innerHTML = '👛 お財布Lv.' + wlv + ' → ' + (wlv + 1) + '<br>強化 ' + walletCost(wlv); wb.disabled = battle.money[ms] < walletCost(wlv); }
-  UNITS.forEach(function (u) {
+  deployableUnits().forEach(function (u) {
     var b = $('ub_' + u.id); if (!b) return;
     var cd = battle.repro[ms][u.id] || 0;
     b.classList.toggle('poor', battle.money[ms] < u.cost || cd > 0);
     var ov = b.querySelector('.cdov');
     if (ov) ov.style.height = (cd > 0 ? Math.min(100, cd / u.repro * 100) : 0) + '%';
   });
+  /* もふもふ砲ボタン */
+  var cb = $('cannonBtn');
+  if (cb) {
+    var chg = battle.cannon ? (battle.cannon[ms] || 0) : 0;
+    var pct = Math.min(100, chg / CANNON_CHARGE * 100);
+    $('cannonFill').style.width = pct + '%';
+    cb.classList.toggle('ready', pct >= 100);
+    $('cannonTx').textContent = pct >= 100 ? '🐾 もふもふ砲 発射！' : '🐾 もふもふ砲 ' + Math.floor(pct) + '%';
+  }
 }
 function finishBattle(winnerSide) {
   if (battleDone) return;
@@ -1000,7 +1211,7 @@ var PEER_OPTS = { config: { iceServers: [
   { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
 ] } };
 var NET = { role: null, peer: null, conn: null, code: null, inGame: false, recorded: false,
-            snapTimer: 0, heartbeatTimer: 0, connTimer: 0, guestLv: null };
+            snapTimer: 0, heartbeatTimer: 0, connTimer: 0, guestLv: null, guestOwned: null };
 function genRoomCode() {
   var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', s = '';
   for (var i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
@@ -1018,7 +1229,7 @@ function netCleanup(full) {
   if (NET.conn) { try { NET.conn.close(); } catch (e) {} NET.conn = null; }
   if (full) {
     if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
-    NET.role = null; NET.code = null; NET.inGame = false; NET.guestLv = null;
+    NET.role = null; NET.code = null; NET.inGame = false; NET.guestLv = null; NET.guestOwned = null;
     try { delete window.PW_ROOM_CODE; } catch (e) { window.PW_ROOM_CODE = undefined; }
     var w = $('roomCodeWrap'); if (w) w.style.display = 'none';
   }
@@ -1031,7 +1242,7 @@ function bindConn(c) {
     if (NET.conn !== c) return;
     disarmConnTimer(); startHeartbeat();
     if (NET.role === 'guest') {
-      netSend({ t: 'hello', lv: save.unitLv });
+      netSend({ t: 'hello', lv: save.unitLv, owned: save.gacha });
       setLobbyStatus('接続しました。ホストの開始を待っています…');
     } else setLobbyStatus('フレンドが接続しました。まもなく対戦開始！');
   });
@@ -1099,6 +1310,7 @@ function guestJoin(codeRaw) {
 }
 function startVersusHost() {
   battle = createBattle({ mode: 'vs', lvMap0: save.unitLv, lvMap1: NET.guestLv });
+  buildUnitBar();
   uiMode = 'vs-host'; paused = false; battleDone = false; NET.inGame = true; NET.recorded = false;
   $('myCastleName').textContent = '🏯 自城（あなた）';
   $('foeCastleName').textContent = '敵城（フレンド） 🏯';
@@ -1116,6 +1328,7 @@ function makeSnapshot() {
     c: [Math.max(0, Math.ceil(battle.castle[0])), Math.max(0, Math.ceil(battle.castle[1]))],
     cm: battle.castleMax,
     m: [Math.floor(battle.money[0]), Math.floor(battle.money[1])],
+    cn: [Math.round((battle.cannon ? battle.cannon[0] : 0) * 10) / 10, Math.round((battle.cannon ? battle.cannon[1] : 0) * 10) / 10],
     w: battle.walletLv,
     r: battle.repro[1],
     tm: Math.round(battle.t * 10) / 10,
@@ -1129,6 +1342,7 @@ function applySnapshot(msg) {
   if (!battle) return;
   battle.castle = msg.c.slice(); battle.castleMax = msg.cm.slice();
   battle.money = msg.m.slice(); battle.walletLv = msg.w.slice();
+  if (msg.cn) battle.cannon = msg.cn.slice();
   battle.repro[1] = msg.r || {};
   battle.t = msg.tm; battle.kills = msg.k || [0, 0];
   var used = {};
@@ -1161,17 +1375,24 @@ function handleNetData(msg) {
   if (NET.role === 'host') {
     if (msg.t === 'hello') {
       NET.guestLv = msg.lv || null;
+      NET.guestOwned = msg.owned || {};
       setLobbyStatus('フレンドが参加しました！対戦開始！');
       startVersusHost();
     } else if (msg.t === 'cmd' && battle && uiMode === 'vs-host' && !battleDone) {
-      if (msg.a === 'spawn') trySpawn(battle, 1, msg.u);
+      if (msg.a === 'spawn') {
+        /* ガチャ限定ユニットはゲストの所持分だけ許可（未所持の不正生産を弾く） */
+        if (GACHA_BY_ID[msg.u] && !(NET.guestOwned && NET.guestOwned[msg.u])) { /* 未所持：無視 */ }
+        else trySpawn(battle, 1, msg.u);
+      }
       else if (msg.a === 'wallet') tryWallet(battle, 1);
+      else if (msg.a === 'cannon') tryCannon(battle, 1);
     } else if (msg.t === 'rematch' && battleDone) {
       startVersusHost();
     }
   } else if (NET.role === 'guest') {
     if (msg.t === 'start') {
       battle = createBattle({ mode: 'vs' });
+      buildUnitBar();
       uiMode = 'vs-guest'; paused = false; battleDone = false; NET.inGame = true; NET.recorded = false;
       guestPrev = [];
       $('myCastleName').textContent = '🏯 自城（あなた）';
@@ -1222,6 +1443,11 @@ function init() {
   $('backFromStage').onclick = function () { sfx('click'); showScr('titleScr'); };
   $('btnUp').onclick = function () { initAudio(); sfx('click'); renderUpList(); showScr('upScr'); };
   $('backFromUp').onclick = function () { sfx('click'); showScr('titleScr'); };
+  $('btnGacha').onclick = function () { initAudio(); sfx('click'); renderGacha(); showScr('gachaScr'); };
+  $('backFromGacha').onclick = function () { sfx('click'); showScr('titleScr'); };
+  $('gacha1Btn').onclick = function () { onGacha(1); };
+  $('gacha10Btn').onclick = function () { onGacha(10); };
+  $('cannonBtn').onclick = function () { initAudio(); onCannonButton(); };
   $('mpBtn').onclick = function () { initAudio(); sfx('click'); showScr('lobbyScr'); };
   $('backFromLobby').onclick = function () { sfx('click'); netCleanup(true); setLobbyStatus(''); showScr('titleScr'); };
   $('hostBtn').onclick = function () { initAudio(); hostCreateRoom(); };
@@ -1256,6 +1482,9 @@ function init() {
 /* テスト・検証用フック */
 window.__mofu = {
   UNITS: UNITS, ENEMIES: ENEMIES, STAGES: STAGES, UNIT_BY_ID: UNIT_BY_ID,
+  GACHA_UNITS: GACHA_UNITS, GACHA_BY_ID: GACHA_BY_ID, ALL_UNITS: ALL_UNITS,
+  doGacha: doGacha, rollGachaOne: rollGachaOne, GACHA_COST: GACHA_COST, deployableUnits: deployableUnits,
+  tryCannon: tryCannon, CANNON_CHARGE: CANNON_CHARGE, CANNON_RANGE: CANNON_RANGE,
   createBattle: createBattle, stepBattle: stepBattle, trySpawn: trySpawn, tryWallet: tryWallet,
   spawnEnemy: spawnEnemy, walletCap: walletCap, walletRate: walletRate, walletCost: walletCost,
   lvMult: lvMult, upCost: upCost, FIELD_W: FIELD_W, SAVE_KEY: SAVE_KEY,
