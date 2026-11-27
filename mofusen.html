@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>にゃんこ小戦争 | PlayWeb</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="account.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#141021; }
+  body { font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; color:#fff4e0;
+         touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+  button { font-family:inherit; cursor:pointer; }
+  /* ── 画面共通 ── */
+  .scr { position:fixed; inset:0; z-index:40; display:none; flex-direction:column; align-items:center; justify-content:flex-start;
+         padding:calc(var(--pw-header-h,46px) + 10px) 14px 14px; overflow-y:auto;
+         background:radial-gradient(ellipse at 50% 18%, #3b2a63 0%, #241a44 55%, #141021 100%); }
+  .scr.show { display:flex; }
+  .card { width:min(560px,96vw); background:rgba(24,16,48,.92); border:1px solid rgba(255,205,120,.35); border-radius:20px;
+          padding:22px 18px; box-shadow:0 18px 50px rgba(0,0,0,.55); text-align:center; margin:auto 0; }
+  .gameTitle { font-size:clamp(30px,8vw,44px); font-weight:900; letter-spacing:.04em; color:#ffe9b0;
+               text-shadow:0 0 20px rgba(255,170,60,.55), 0 3px 0 #8a4b12; }
+  .gameSub { font-size:13px; color:#e8d5ff; margin:8px 0 2px; line-height:1.7; }
+  .fishBar { display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,.35); border:1px solid rgba(255,205,120,.4);
+             border-radius:999px; padding:5px 14px; font-weight:900; font-size:15px; color:#ffe9b0; margin-top:10px; }
+  .bigBtn { display:block; width:100%; margin:10px 0 0; padding:14px; border:none; border-radius:13px;
+            font-size:16.5px; font-weight:900; color:#4a2403; background:linear-gradient(90deg,#ffb340,#ffd76e);
+            box-shadow:0 5px 0 #a86a12; }
+  .bigBtn:active { transform:translateY(2px); box-shadow:0 3px 0 #a86a12; }
+  .subBtn { display:block; width:100%; margin:10px 0 0; padding:12px; border-radius:13px; font-size:15px; font-weight:800;
+            color:#ffe9b0; background:rgba(255,255,255,.08); border:1px solid rgba(255,205,120,.45); }
+  .subBtn:active { transform:translateY(1px); }
+  .backBtn { align-self:flex-start; padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.3);
+             background:rgba(0,0,0,.3); color:#fff; font-weight:800; font-size:14px; margin-bottom:10px; }
+  .secTitle { font-size:20px; font-weight:900; color:#ffe9b0; margin:2px 0 10px; letter-spacing:.05em; }
+  /* ── ステージ選択 ── */
+  #stageList { width:min(560px,96vw); display:flex; flex-direction:column; gap:9px; padding-bottom:16px; }
+  .stageBtn { display:flex; align-items:center; gap:12px; text-align:left; padding:12px 14px; border-radius:14px; border:1px solid rgba(255,205,120,.35);
+              background:linear-gradient(90deg, rgba(90,60,160,.55), rgba(40,26,80,.75)); color:#fff; }
+  .stageBtn:active { transform:scale(.99); }
+  .stageBtn.locked { opacity:.45; }
+  .stageNo { flex:0 0 44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#ffb340,#ff7847); color:#4a2403;
+             font-weight:900; font-size:18px; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 0 #a86a12; }
+  .stageBtn .sname { font-size:16px; font-weight:900; }
+  .stageBtn .smeta { font-size:11.5px; color:#d9c8ff; margin-top:2px; line-height:1.5; }
+  .stageBtn .sclear { margin-left:auto; font-size:19px; flex:0 0 auto; }
+  /* ── 強化 ── */
+  #upList { width:min(560px,96vw); display:flex; flex-direction:column; gap:9px; padding-bottom:16px; }
+  .upRow { display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:14px; text-align:left;
+           background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); }
+  .upRow .uemoji { font-size:30px; flex:0 0 42px; text-align:center; }
+  .upRow .uname { font-size:15px; font-weight:900; }
+  .upRow .ustat { font-size:11.5px; color:#d9c8ff; line-height:1.5; }
+  .upRow .ulv { color:#ffd76e; font-weight:900; }
+  .upBtn { margin-left:auto; flex:0 0 auto; padding:10px 12px; border:none; border-radius:11px; font-weight:900; font-size:13.5px;
+           color:#4a2403; background:linear-gradient(90deg,#ffb340,#ffd76e); box-shadow:0 3px 0 #a86a12; line-height:1.35; text-align:center; }
+  .upBtn:disabled { background:#5a5470; color:#bdb6d6; box-shadow:none; }
+  /* ── ロビー ── */
+  .codeInput { width:150px; padding:11px; font-size:19px; font-weight:900; text-align:center; letter-spacing:.25em; text-transform:uppercase;
+               border-radius:11px; border:1px solid rgba(255,205,120,.5); background:rgba(0,0,0,.4); color:#ffe9b0; font-family:inherit; }
+  #roomCodeWrap { display:none; margin:12px 0 2px; }
+  #roomCodeText { font-size:30px; font-weight:900; letter-spacing:.3em; color:#ffd76e; text-shadow:0 2px 0 #8a4b12; }
+  #lobbyStatus { font-size:13px; color:#e8d5ff; margin-top:12px; line-height:1.7; min-height:22px; }
+  #lobbyStatus .err { color:#ff9d9d; }
+  .joinRow { display:flex; gap:9px; justify-content:center; align-items:center; margin-top:4px; }
+  /* ── バトル ── */
+  #battleScr { position:fixed; inset:0; z-index:40; display:none; flex-direction:column; background:#1a1430;
+               padding-top:var(--pw-header-h,46px); }
+  #battleScr.show { display:flex; }
+  #castleBar { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:6px 10px; background:rgba(10,6,24,.85); }
+  .castleHp { flex:1; min-width:0; }
+  .castleHp .clabel { font-size:11px; font-weight:900; letter-spacing:.04em; display:flex; justify-content:space-between; margin-bottom:3px; }
+  .hpTrack { height:11px; border-radius:99px; background:rgba(255,255,255,.14); overflow:hidden; border:1px solid rgba(255,255,255,.25); }
+  .hpFill { height:100%; width:100%; border-radius:99px; transition:width .18s; }
+  #myCastleFill { background:linear-gradient(90deg,#57d977,#a5ec8a); }
+  #foeCastleFill { background:linear-gradient(90deg,#ff7a59,#ffb340); }
+  #battleTimer { flex:0 0 auto; font-size:14px; font-weight:900; color:#ffe9b0; background:rgba(0,0,0,.4);
+                 border:1px solid rgba(255,205,120,.4); border-radius:9px; padding:4px 9px; min-width:58px; text-align:center; }
+  #cvWrap { flex:1 1 auto; position:relative; min-height:0; }
+  #cv { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #battleMsg { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:5; font-size:clamp(17px,4.6vw,26px); font-weight:900;
+               color:#ffd76e; text-shadow:0 2px 0 #8a4b12, 0 0 16px rgba(255,150,50,.7); opacity:0; transition:opacity .25s; pointer-events:none;
+               white-space:nowrap; }
+  #battleMsg.on { opacity:1; }
+  #ctrlBar { flex:0 0 auto; background:rgba(10,6,24,.92); border-top:1px solid rgba(255,205,120,.3); padding:7px 8px calc(7px + env(safe-area-inset-bottom)); }
+  #moneyRow { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+  #moneyDisp { font-size:16px; font-weight:900; color:#ffe9b0; background:rgba(0,0,0,.45); border:1px solid rgba(255,205,120,.45);
+               border-radius:10px; padding:5px 12px; min-width:118px; text-align:center; }
+  #walletBtn { flex:1; padding:8px 6px; border:none; border-radius:11px; font-weight:900; font-size:13.5px; color:#20300a;
+               background:linear-gradient(90deg,#9be15d,#cdea7a); box-shadow:0 3px 0 #5d8a2a; line-height:1.3; }
+  #walletBtn:disabled { background:#5a5470; color:#bdb6d6; box-shadow:none; }
+  #walletBtn:active:not(:disabled) { transform:translateY(1px); }
+  #pauseBtnB { flex:0 0 auto; width:42px; height:42px; border-radius:11px; border:1px solid rgba(255,255,255,.3);
+               background:rgba(255,255,255,.08); color:#fff; font-size:16px; }
+  #unitBar { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .unitBtn { position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.25); border-radius:12px; padding:5px 2px 4px;
+             background:linear-gradient(180deg, rgba(120,90,200,.5), rgba(50,34,100,.65)); color:#fff; text-align:center; }
+  .unitBtn .ue { font-size:21px; line-height:1.15; display:block; }
+  .unitBtn .un { font-size:10.5px; font-weight:800; display:block; white-space:nowrap; overflow:hidden; }
+  .unitBtn .uc { font-size:11px; font-weight:900; color:#ffd76e; display:block; }
+  .unitBtn .cdov { position:absolute; left:0; right:0; bottom:0; height:0%; background:rgba(5,2,16,.62); pointer-events:none; }
+  .unitBtn.poor { filter:grayscale(.75) brightness(.72); }
+  .unitBtn:active { transform:scale(.96); }
+  @media (min-width:760px) { #unitBar { grid-template-columns:repeat(8,1fr); } .unitBtn .ue { font-size:24px; } }
+  /* ── 結果・ポーズ ── */
+  .ovl { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; padding:18px;
+         background:rgba(5,3,14,.72); }
+  .ovl.show { display:flex; }
+  #resultTitle { font-size:34px; font-weight:900; letter-spacing:.06em; }
+  #resultTitle.win { color:#ffd76e; text-shadow:0 0 18px rgba(255,170,60,.8); }
+  #resultTitle.lose { color:#9db4ff; text-shadow:0 0 18px rgba(90,120,255,.7); }
+  #resultDetail { font-size:14px; line-height:1.9; color:#efe6ff; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<!-- タイトル -->
+<div class="scr show" id="titleScr">
+  <div class="card">
+    <div class="gameTitle">にゃんこ小戦争</div>
+    <div class="gameSub">もふもふ軍団を生産して、敵のお城を落とそう！<br>お金を貯めて、お財布を育てて、押し切れ！</div>
+    <div class="fishBar">🐟 にぼし <span id="fishDisp">0</span></div>
+    <button class="bigBtn" id="btnStage">⚔️ ステージへ出撃</button>
+    <button class="subBtn" id="mpBtn">🤝 フレンドと対戦</button>
+    <button class="subBtn" id="btnUp">⬆️ ユニット強化</button>
+    <div class="gameSub" style="font-size:11.5px;opacity:.85">ステージをクリアして「にぼし」を集めると<br>ユニットを永続強化できます。</div>
+  </div>
+</div>
+
+<!-- ステージ選択 -->
+<div class="scr" id="stageScr">
+  <div style="width:min(560px,96vw)">
+    <button class="backBtn" id="backFromStage">← もどる</button>
+    <div class="secTitle">🗺️ 第1章 もふもふ平原</div>
+  </div>
+  <div id="stageList"></div>
+</div>
+
+<!-- 強化 -->
+<div class="scr" id="upScr">
+  <div style="width:min(560px,96vw)">
+    <button class="backBtn" id="backFromUp">← もどる</button>
+    <div class="secTitle">⬆️ ユニット強化</div>
+    <div class="fishBar" style="margin:0 0 12px">🐟 にぼし <span id="fishDisp2">0</span></div>
+  </div>
+  <div id="upList"></div>
+</div>
+
+<!-- 対戦ロビー -->
+<div class="scr" id="lobbyScr">
+  <div class="card">
+    <button class="backBtn" id="backFromLobby">← もどる</button>
+    <div class="secTitle">🤝 フレンド対戦</div>
+    <div class="gameSub">部屋を作ってフレンドを招待するか、<br>フレンドの部屋コードで参加しよう。<br>お互いの城を落とし合う押し合いバトル！</div>
+    <button class="bigBtn" id="hostBtn">🏠 部屋を作る</button>
+    <div id="roomCodeWrap">部屋コード<br><span id="roomCodeText">------</span>
+      <div class="gameSub" style="font-size:11.5px">アカウント画面のフレンド一覧から<br>このゲームに招待できます</div>
+    </div>
+    <div class="joinRow">
+      <input class="codeInput" id="joinCode" maxlength="6" placeholder="コード" autocomplete="off">
+      <button class="subBtn" id="joinBtn" style="margin:0;width:auto;padding:11px 18px">参加する</button>
+    </div>
+    <div id="lobbyStatus"></div>
+  </div>
+</div>
+
+<!-- バトル -->
+<div id="battleScr">
+  <div id="castleBar">
+    <div class="castleHp">
+      <div class="clabel"><span id="myCastleName">🏯 自城</span><span id="myCastleHpTx"></span></div>
+      <div class="hpTrack"><div class="hpFill" id="myCastleFill"></div></div>
+    </div>
+    <div id="battleTimer">0:00</div>
+    <div class="castleHp">
+      <div class="clabel"><span id="foeCastleHpTx"></span><span id="foeCastleName">敵城 🏯</span></div>
+      <div class="hpTrack"><div class="hpFill" id="foeCastleFill"></div></div>
+    </div>
+  </div>
+  <div id="cvWrap"><canvas id="cv"></canvas><div id="battleMsg"></div></div>
+  <div id="ctrlBar">
+    <div id="moneyRow">
+      <div id="moneyDisp">💰 0</div>
+      <button id="walletBtn">👛 お財布Lv.1<br>強化 100</button>
+      <button id="pauseBtnB">⏸</button>
+    </div>
+    <div id="unitBar"></div>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div class="ovl" id="resultOv">
+  <div class="card">
+    <div id="resultTitle">勝利！</div>
+    <div id="resultDetail"></div>
+    <button class="bigBtn" id="resNext">次のステージへ ▶</button>
+    <button class="subBtn" id="resRetry">🔁 もう一度</button>
+    <button class="subBtn" id="resMap">🗺️ マップへもどる</button>
+  </div>
+</div>
+
+<!-- ポーズ -->
+<div class="ovl" id="pauseOv">
+  <div class="card">
+    <div class="secTitle">⏸ ポーズ中</div>
+    <button class="bigBtn" id="resumeBtn">▶ つづける</button>
+    <button class="subBtn" id="quitBtn">🏳️ あきらめる</button>
+  </div>
+</div>
+
+<script>
+/*__MOFU_MAIN__*/
+(function () {
+'use strict';
+/* ═══════════════ データ定義 ═══════════════ */
+/* ユニット（自軍ねこ軍団・全てオリジナル）
+   hp/atk は Lv1 の値。レベル倍率 = 1 + 0.2*(lv-1)（hp・atk 共通）
+   range: 攻撃射程（中心間距離） / kb: ノックバック回数 / area: 範囲攻撃 */
+var UNITS = [
+  { id:'mofu',    name:'もふねこ',     emoji:'🐱', cost:75,   hp:430,  atk:95,  range:115, speed:57,  atkInt:1.05, repro:1.4,  kb:3, area:false, desc:'基本のもふもふ。安くて速く出せる主力。' },
+  { id:'kabe',    name:'かべもふ',     emoji:'🐈‍⬛', cost:160,  hp:1750, atk:35,  range:95,  speed:40,  atkInt:1.20, repro:2.2,  kb:2, area:false, desc:'まるまる太った壁役。敵の進軍を止める。' },
+  { id:'hayate',  name:'はやてねこ',   emoji:'😼', cost:220,  hp:520,  atk:125, range:105, speed:112, atkInt:0.85, repro:2.6,  kb:3, area:false, desc:'赤いマフラーの俊足ねこ。手数で攻める。' },
+  { id:'battle',  name:'バトルもふ',   emoji:'🐯', cost:380,  hp:1150, atk:265, range:115, speed:62,  atkInt:1.15, repro:4.2,  kb:2, area:false, desc:'トラ柄の格闘ねこ。一撃が重い。' },
+  { id:'yumi',    name:'ゆみねこ',     emoji:'🏹', cost:480,  hp:560,  atk:210, range:330, speed:46,  atkInt:1.50, repro:5.0,  kb:3, area:false, desc:'緑フードの弓ねこ。遠くから狙い撃つ。' },
+  { id:'sui',     name:'すいもふ',     emoji:'😻', cost:650,  hp:1350, atk:310, range:155, speed:52,  atkInt:1.20, repro:6.0,  kb:3, area:true,  desc:'ラグドール風の美ねこ。範囲攻撃でなぎ払う。' },
+  { id:'kinniku', name:'きんにくもふ', emoji:'🦁', cost:850,  hp:2100, atk:430, range:135, speed:44,  atkInt:1.35, repro:8.0,  kb:2, area:true,  desc:'たてがみ自慢の筋肉ねこ。重い範囲攻撃。' },
+  { id:'dragon',  name:'ドラゴンもふ', emoji:'🐲', cost:1250, hp:3300, atk:720, range:265, speed:39,  atkInt:1.60, repro:12.0, kb:1, area:true,  desc:'翼と角を持つ伝説のもふ。超火力の範囲攻撃。' }
+];
+var UNIT_BY_ID = {}; UNITS.forEach(function (u) { UNIT_BY_ID[u.id] = u; });
+
+/* 敵（オリジナルの動物たち） bounty: 倒した時に得るお金 */
+var ENEMIES = {
+  tanuki:    { id:'tanuki',    name:'たぬき',       hp:320,   atk:65,  range:105, speed:46, atkInt:1.20, kb:3, area:false, bounty:40 },
+  crow:      { id:'crow',      name:'からす',       hp:210,   atk:85,  range:100, speed:98, atkInt:0.90, kb:3, area:false, bounty:45 },
+  boar:      { id:'boar',      name:'いのしし',     hp:950,   atk:160, range:110, speed:74, atkInt:1.40, kb:2, area:false, bounty:80 },
+  monkey:    { id:'monkey',    name:'さる',         hp:540,   atk:115, range:120, speed:62, atkInt:1.00, kb:3, area:false, bounty:65 },
+  snake:     { id:'snake',     name:'へび',         hp:700,   atk:140, range:175, speed:50, atkInt:1.30, kb:2, area:false, bounty:85 },
+  turtle:    { id:'turtle',    name:'かめ',         hp:2600,  atk:105, range:105, speed:24, atkInt:1.60, kb:1, area:false, bounty:130 },
+  bossCrow:  { id:'bossCrow',  name:'大からす',     hp:5200,  atk:270, range:120, speed:66, atkInt:1.00, kb:4, area:false, bounty:550, boss:true },
+  bossTanuki:{ id:'bossTanuki',name:'たぬき大将',   hp:9500,  atk:380, range:140, speed:34, atkInt:1.50, kb:4, area:true,  bounty:600, boss:true },
+  bossKame:  { id:'bossKame',  name:'要塞がめ',     hp:17000, atk:320, range:130, speed:20, atkInt:1.80, kb:3, area:true,  bounty:800, boss:true }
+};
+
+/* ステージ（第1章・10ステージ）
+   trickle: {from, every, ids:[...]} 一定間隔でローテーション出現
+   events:  [[秒, 敵id, 頭数], ...]  /  rush: 一定周期のバースト [[周期秒, 敵id, 頭数]]
+   boss:    {id, at:0.5} 敵城HPが割合以下で出現（複数可） */
+var STAGES = [
+  { id:1,  name:'もふ草原',       castle:3000,  reward:120,  scale:1.00, trickle:{ from:5,  every:7.0, ids:['tanuki'] }, events:[], rush:null, bosses:[] },
+  { id:2,  name:'たぬきの丘',     castle:4500,  reward:160,  scale:1.15, trickle:{ from:5,  every:6.0, ids:['tanuki'] }, events:[[40,'crow',2]], rush:null, bosses:[] },
+  { id:3,  name:'からす海岸',     castle:6500,  reward:220,  scale:1.30, trickle:{ from:5,  every:5.5, ids:['tanuki','crow'] }, events:[[55,'crow',3]], rush:null, bosses:[{ id:'bossCrow', at:0.5 }] },
+  { id:4,  name:'いのしし街道',   castle:9000,  reward:280,  scale:1.50, trickle:{ from:5,  every:5.0, ids:['tanuki','tanuki','crow'] }, events:[[30,'boar',1],[75,'boar',2]], rush:null, bosses:[] },
+  { id:5,  name:'さる山の砦',     castle:12000, reward:360,  scale:1.70, trickle:{ from:5,  every:5.5, ids:['monkey','tanuki'] }, events:[[50,'monkey',3]], rush:null, bosses:[{ id:'bossTanuki', at:0.5 }] },
+  { id:6,  name:'へび沼地',       castle:16000, reward:450,  scale:1.95, trickle:{ from:5,  every:6.0, ids:['snake','tanuki'] }, events:[[60,'turtle',1],[110,'snake',3]], rush:null, bosses:[] },
+  { id:7,  name:'かめ甲羅要塞',   castle:21000, reward:560,  scale:2.20, trickle:{ from:5,  every:5.0, ids:['tanuki','monkey','crow'] }, events:[[45,'turtle',2]], rush:null, bosses:[{ id:'bossKame', at:0.5 }] },
+  { id:8,  name:'あらしの空',     castle:27000, reward:700,  scale:2.50, trickle:{ from:5,  every:4.5, ids:['crow','tanuki'] }, events:[], rush:{ every:45, id:'crow', n:4 }, bosses:[{ id:'bossCrow', at:0.5 }] },
+  { id:9,  name:'たぬき大行進',   castle:34000, reward:880,  scale:2.80, trickle:{ from:4,  every:3.8, ids:['tanuki','boar'] }, events:[[70,'boar',3]], rush:{ every:60, id:'tanuki', n:5 }, bosses:[{ id:'bossTanuki', at:0.6 },{ id:'bossTanuki', at:0.3 }] },
+  { id:10, name:'もふもふ最終決戦', castle:45000, reward:1200, scale:3.20, trickle:{ from:4,  every:4.2, ids:['monkey','snake','crow','boar'] }, events:[[90,'turtle',3]], rush:{ every:55, id:'crow', n:4 }, bosses:[{ id:'bossTanuki', at:0.7 },{ id:'bossKame', at:0.4 }] }
+];
+var STAGE_BY_ID = {}; STAGES.forEach(function (s) { STAGE_BY_ID[s.id] = s; });
+
+/* ═══════════════ 定数 ═══════════════ */
+var FIELD_W = 1600;          /* 戦場の横幅（ワールド座標） */
+var CASTLE_W = 110;          /* 城の当たり幅 */
+var UNIT_R = 24;             /* ユニットの半径（間合い計算用） */
+var CASTLE_R = 58;
+var WALLET_MAX_LV = 8;
+function walletCap(lv) { return 400 + (lv - 1) * 260; }
+function walletRate(lv) { return 16 * (1 + 0.28 * (lv - 1)); }   /* 毎秒の収入 */
+function walletCost(lv) { return 100 + (lv - 1) * 90; }          /* lv→lv+1 の費用 */
+function lvMult(lv) { return 1 + 0.2 * (lv - 1); }
+var UNIT_MAX_LV = 20;
+function upCost(lv) { return 50 * lv + (lv - 1) * 30; }          /* lv→lv+1 のにぼし費用 */
+
+/* ═══════════════ セーブ（素キー localStorage） ═══════════════ */
+var SAVE_KEY = 'mofusen_save_v1';
+var save = { fish: 300, unitLv: {}, cleared: {}, best: {} };
+UNITS.forEach(function (u) { save.unitLv[u.id] = 1; });
+function loadSave() {
+  try {
+    var raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      var d = JSON.parse(raw);
+      if (d && typeof d === 'object') {
+        if (typeof d.fish === 'number') save.fish = d.fish;
+        if (d.unitLv) UNITS.forEach(function (u) { if (typeof d.unitLv[u.id] === 'number') save.unitLv[u.id] = Math.max(1, Math.min(UNIT_MAX_LV, d.unitLv[u.id] | 0)); });
+        if (d.cleared) save.cleared = d.cleared;
+        if (d.best) save.best = d.best;
+      }
+    }
+  } catch (e) {}
+}
+function storeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+loadSave();
+
+/* ═══════════════ 戦闘シミュレーション（DOM非依存・決定的） ═══════════════ */
+var uidSeq = 1;
+function makeUnit(side, typeId, lv, isEnemy, scale) {
+  var base = isEnemy ? ENEMIES[typeId] : UNIT_BY_ID[typeId];
+  var mult = isEnemy ? (scale || 1) : lvMult(lv || 1);
+  var hp = Math.round(base.hp * mult);
+  return {
+    uid: uidSeq++, side: side, type: typeId, enemy: !!isEnemy,
+    x: side === 0 ? 150 : FIELD_W - 150,
+    hp: hp, maxHp: hp, atk: Math.round(base.atk * mult),
+    range: base.range, speed: base.speed, atkInt: base.atkInt,
+    kbMax: base.kb, kbLeft: base.kb, dmgKb: 0,
+    atkCd: 0.4, kbT: 0, lungeT: 0, hitT: 0, bornT: 0,
+    area: !!base.area, bounty: isEnemy ? (base.bounty || 0) : 0, boss: !!base.boss
+  };
+}
+/* opts: {mode:'solo'|'vs', stage, lvMap0, lvMap1, castleHp} */
+function createBattle(opts) {
+  opts = opts || {};
+  var st = {
+    mode: opts.mode || 'solo',
+    stage: opts.stage || null,
+    t: 0, over: 0,            /* over: 0=継続 1=side0勝ち 2=side1勝ち */
+    units: [],
+    castle: [3000, 3000], castleMax: [3000, 3000],
+    money: [150, 150], walletLv: [1, 1],
+    repro: [ {}, {} ],        /* side -> {unitId: 残り秒} */
+    lvMap: [opts.lvMap0 || null, opts.lvMap1 || null],
+    effects: [],              /* 描画用エフェクト（hit/death/money） */
+    events: [],               /* 通知イベント（boss出現など） */
+    kills: [0, 0],
+    /* ソロ用スポーン管理 */
+    spawnClock: 0, trickleIdx: 0, evDone: {}, rushClock: 0, bossDone: {},
+    scale: opts.stage ? opts.stage.scale : 1
+  };
+  UNITS.forEach(function (u) { st.repro[0][u.id] = 0; st.repro[1][u.id] = 0; });
+  if (st.mode === 'solo' && st.stage) {
+    st.castle[1] = st.stage.castle; st.castleMax[1] = st.stage.castle;
+    st.castle[0] = Math.round(st.stage.castle * 0.8); st.castleMax[0] = st.castle[0];
+  } else {
+    var chp = opts.castleHp || 8000;
+    st.castle = [chp, chp]; st.castleMax = [chp, chp];
+  }
+  return st;
+}
+function unitLvOf(st, side, unitId) {
+  var m = st.lvMap[side];
+  if (m && typeof m[unitId] === 'number') return m[unitId];
+  return save.unitLv[unitId] || 1;
+}
+function trySpawn(st, side, unitId) {
+  var u = UNIT_BY_ID[unitId]; if (!u) return false;
+  if (st.over) return false;
+  if (st.money[side] < u.cost) return false;
+  if ((st.repro[side][unitId] || 0) > 0) return false;
+  st.money[side] -= u.cost;
+  st.repro[side][unitId] = u.repro;
+  st.units.push(makeUnit(side, unitId, unitLvOf(st, side, unitId), false, 1));
+  return true;
+}
+function tryWallet(st, side) {
+  if (st.over) return false;
+  var lv = st.walletLv[side];
+  if (lv >= WALLET_MAX_LV) return false;
+  var c = walletCost(lv);
+  if (st.money[side] < c) return false;
+  st.money[side] -= c; st.walletLv[side]++;
+  return true;
+}
+function spawnEnemy(st, enemyId) {
+  var u = makeUnit(1, enemyId, 1, true, st.scale);
+  st.units.push(u);
+  return u;
+}
+function damageUnit(st, target, dmg, fromSide) {
+  target.hp -= dmg; target.dmgKb += dmg; target.hitT = 0.12;
+  st.effects.push({ k:'hit', x: target.x, side: target.side, t: 0.18, max: 0.18 });
+  if (target.hp > 0 && target.kbLeft > 0 && target.dmgKb >= target.maxHp / target.kbMax) {
+    target.dmgKb = 0; target.kbLeft--; target.kbT = 0.30;
+  }
+}
+function damageCastle(st, side, dmg) {
+  st.castle[side] -= dmg;
+  st.effects.push({ k:'chit', x: side === 0 ? CASTLE_W : FIELD_W - CASTLE_W, side: side, t: 0.2, max: 0.2 });
+  if (st.castle[side] <= 0 && !st.over) {
+    st.castle[side] = 0;
+    st.over = side === 0 ? 2 : 1;
+    st.events.push({ k:'end', winner: st.over });
+  }
+}
+/* 敵スポーン（ソロ） */
+function stepSpawns(st, dt) {
+  var sg = st.stage; if (!sg) return;
+  /* トリクル */
+  if (sg.trickle && st.t >= sg.trickle.from) {
+    st.spawnClock += dt;
+    if (st.spawnClock >= sg.trickle.every) {
+      st.spawnClock = 0;
+      var id = sg.trickle.ids[st.trickleIdx % sg.trickle.ids.length];
+      st.trickleIdx++;
+      spawnEnemy(st, id);
+    }
+  }
+  /* 時刻イベント */
+  (sg.events || []).forEach(function (ev, i) {
+    if (!st.evDone[i] && st.t >= ev[0]) {
+      st.evDone[i] = 1;
+      for (var n = 0; n < ev[2]; n++) spawnEnemy(st, ev[1]);
+    }
+  });
+  /* ラッシュ */
+  if (sg.rush && st.t >= 30) {
+    st.rushClock += dt;
+    if (st.rushClock >= sg.rush.every) {
+      st.rushClock = 0;
+      for (var n2 = 0; n2 < sg.rush.n; n2++) spawnEnemy(st, sg.rush.id);
+      st.events.push({ k:'rush' });
+    }
+  }
+  /* ボス（城HP割合） */
+  (sg.bosses || []).forEach(function (b, i) {
+    if (!st.bossDone[i] && st.castle[1] <= st.castleMax[1] * b.at) {
+      st.bossDone[i] = 1;
+      spawnEnemy(st, b.id);
+      st.events.push({ k:'boss', id: b.id });
+    }
+  });
+}
+function stepBattle(st, dt) {
+  if (st.over) { stepEffects(st, dt); return st; }
+  st.t += dt;
+  /* お金 */
+  for (var s = 0; s < 2; s++) {
+    if (st.mode === 'solo' && s === 1) break;
+    st.money[s] = Math.min(walletCap(st.walletLv[s]), st.money[s] + walletRate(st.walletLv[s]) * dt);
+    for (var uid in st.repro[s]) if (st.repro[s][uid] > 0) st.repro[s][uid] = Math.max(0, st.repro[s][uid] - dt);
+  }
+  if (st.mode === 'solo') stepSpawns(st, dt);
+  /* ユニット行動 */
+  var i, u, j, v;
+  for (i = 0; i < st.units.length; i++) {
+    u = st.units[i];
+    if (u.bornT < 0.25) u.bornT += dt;
+    if (u.hitT > 0) u.hitT -= dt;
+    if (u.lungeT > 0) u.lungeT -= dt;
+    if (u.atkCd > 0) u.atkCd -= dt;
+    if (u.kbT > 0) { /* ノックバック中：後退して行動不能 */
+      u.kbT -= dt;
+      u.x += (u.side === 0 ? -1 : 1) * 95 * dt;
+      u.x = Math.max(60, Math.min(FIELD_W - 60, u.x));
+      continue;
+    }
+    var dir = u.side === 0 ? 1 : -1;
+    /* 最も近い敵を探す（前方） */
+    var best = null, bestD = Infinity;
+    for (j = 0; j < st.units.length; j++) {
+      v = st.units[j];
+      if (v.side === u.side || v.hp <= 0) continue;
+      var d = Math.abs(v.x - u.x);
+      if (d < bestD) { bestD = d; best = v; }
+    }
+    var castleX = u.side === 0 ? FIELD_W - CASTLE_W / 2 : CASTLE_W / 2;
+    var castleD = Math.abs(castleX - u.x);
+    var targetCastle = (!best || castleD < bestD);
+    var dist = targetCastle ? castleD : bestD;
+    var reach = u.range + (targetCastle ? CASTLE_R : UNIT_R);
+    if (dist <= reach) {
+      /* 攻撃 */
+      if (u.atkCd <= 0) {
+        u.atkCd = u.atkInt; u.lungeT = 0.18;
+        if (targetCastle) {
+          damageCastle(st, u.side === 0 ? 1 : 0, u.atk);
+        } else if (u.area) {
+          for (j = 0; j < st.units.length; j++) {
+            v = st.units[j];
+            if (v.side !== u.side && v.hp > 0 && Math.abs(v.x - u.x) <= u.range + UNIT_R + 26) damageUnit(st, v, u.atk, u.side);
+          }
+        } else {
+          damageUnit(st, best, u.atk, u.side);
+        }
+        if (st.over) break;
+      }
+    } else {
+      /* 前進（味方の背中では止まる） */
+      var blocked = false;
+      for (j = 0; j < st.units.length; j++) {
+        v = st.units[j];
+        if (v === u || v.side !== u.side || v.hp <= 0) continue;
+        var ahead = (v.x - u.x) * dir;
+        if (ahead > 0 && ahead < UNIT_R * 2 - 6) { blocked = true; break; }
+      }
+      if (!blocked) u.x += dir * u.speed * dt;
+      u.x = Math.max(60, Math.min(FIELD_W - 60, u.x));
+    }
+  }
+  /* 死亡処理＋バウンティ */
+  var alive = [];
+  for (i = 0; i < st.units.length; i++) {
+    u = st.units[i];
+    if (u.hp <= 0) {
+      st.effects.push({ k:'die', x: u.x, side: u.side, t: 0.35, max: 0.35, boss: u.boss });
+      st.kills[u.side === 0 ? 1 : 0]++;
+      if (st.mode === 'solo') {
+        if (u.enemy) st.money[0] = Math.min(walletCap(st.walletLv[0]), st.money[0] + u.bounty);
+      } else {
+        /* 対戦：倒した側が相手ユニットコストの30%を得る */
+        var gain = Math.round((UNIT_BY_ID[u.type] ? UNIT_BY_ID[u.type].cost : 0) * 0.3);
+        var ks = 1 - u.side;
+        if (gain > 0) st.money[ks] = Math.min(walletCap(st.walletLv[ks]), st.money[ks] + gain);
+      }
+    } else alive.push(u);
+  }
+  st.units = alive;
+  stepEffects(st, dt);
+  return st;
+}
+function stepEffects(st, dt) {
+  for (var i = st.effects.length - 1; i >= 0; i--) {
+    st.effects[i].t -= dt;
+    if (st.effects[i].t <= 0) st.effects.splice(i, 1);
+  }
+}
+
+/* ═══════════════ 描画 ═══════════════ */
+var cv = null, ctx = null, viewW = 0, viewH = 0, DPR = 1;
+function fitCanvas() {
+  if (!cv) return;
+  var r = cv.parentElement.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  viewW = Math.max(280, r.width); viewH = Math.max(180, r.height);
+  cv.width = Math.round(viewW * DPR); cv.height = Math.round(viewH * DPR);
+}
+function ell(x, y, rx, ry, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+function circ(x, y, r, color) { ell(x, y, r, r, color); }
+function tri(x1, y1, x2, y2, x3, y3, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath(); ctx.fill(); }
+function rect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
+function txt(s, x, y, size, color, align) { ctx.fillStyle = color; ctx.font = '900 ' + size + 'px "Hiragino Kaku Gothic ProN",sans-serif'; ctx.textAlign = align || 'center'; ctx.fillText(s, x, y); }
+
+var CAT_STYLE = {
+  mofu:    { body:'#f7e8c9', sub:'#f0a860', ear:'#f7e8c9', size:1.00 },
+  kabe:    { body:'#8d99c9', sub:'#e8ecff', ear:'#8d99c9', size:1.30 },
+  hayate:  { body:'#bfe3ff', sub:'#ffffff', ear:'#bfe3ff', size:0.95 },
+  battle:  { body:'#f5a83d', sub:'#ffe3b0', ear:'#f5a83d', size:1.10 },
+  yumi:    { body:'#cfe8b8', sub:'#fff6da', ear:'#4d8a3d', size:1.00 },
+  sui:     { body:'#fff8f0', sub:'#6b4a3a', ear:'#6b4a3a', size:1.06 },
+  kinniku: { body:'#f2c14e', sub:'#d98a2b', ear:'#f2c14e', size:1.38 },
+  dragon:  { body:'#9fd67a', sub:'#fdf6d8', ear:'#9fd67a', size:1.52 }
+};
+function drawCat(u, sx, gy, sc, flip, foe) {
+  var st = CAT_STYLE[u.type] || CAT_STYLE.mofu;
+  var S = sc * st.size;
+  var bob = Math.sin(u.walkPh || 0) * 2.2 * S;
+  var lunge = (u.lungeT > 0 ? Math.sin((0.18 - u.lungeT) / 0.18 * Math.PI) * 10 : 0) * (flip ? -1 : 1);
+  var x = sx + lunge, y = gy + bob * 0.3;
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
+  /* 尾 */
+  ctx.strokeStyle = u.type === 'sui' ? '#6b4a3a' : st.body; ctx.lineWidth = 6 * S; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-20 * S, -14 * S);
+  ctx.quadraticCurveTo(-34 * S, -22 * S + Math.sin(u.walkPh || 0) * 3, -32 * S, -38 * S); ctx.stroke();
+  /* 体 */
+  ell(0, -16 * S, 23 * S, 17 * S, st.body);
+  ell(4 * S, -12 * S, 13 * S, 10 * S, st.sub && u.type !== 'sui' ? st.sub : st.body);
+  if (u.type === 'sui') ell(4 * S, -12 * S, 12 * S, 9 * S, '#fff8f0');
+  /* 足 */
+  ell(-11 * S, -1 * S, 6 * S, 3.4 * S, st.body); ell(11 * S, -1 * S, 6 * S, 3.4 * S, st.body);
+  /* 頭 */
+  var hx = 13 * S, hy = -36 * S;
+  tri(hx - 13 * S, hy - 6 * S, hx - 10 * S, hy - 20 * S, hx - 2 * S, hy - 9 * S, st.ear);
+  tri(hx + 3 * S, hy - 9 * S, hx + 11 * S, hy - 20 * S, hx + 14 * S, hy - 6 * S, st.ear);
+  tri(hx - 10.5 * S, hy - 8 * S, hx - 9 * S, hy - 15 * S, hx - 5 * S, hy - 9.5 * S, '#ffb7c9');
+  tri(hx + 6 * S, hy - 9.5 * S, hx + 9.5 * S, hy - 15 * S, hx + 11 * S, hy - 8 * S, '#ffb7c9');
+  circ(hx, hy, 15.5 * S, st.body);
+  if (u.type === 'sui') { /* ラグドールのポイント（顔まわり） */
+    ell(hx, hy + 1 * S, 10.5 * S, 8.5 * S, 'rgba(107,74,58,.35)');
+    circ(hx, hy, 15.5 * S, 'rgba(0,0,0,0)');
+  }
+  if (u.type === 'battle') { /* トラ柄 */
+    ctx.strokeStyle = '#b96a12'; ctx.lineWidth = 2.4 * S;
+    [-6, 0, 6].forEach(function (o) { ctx.beginPath(); ctx.moveTo(hx + o * S - 3 * S, hy - 14 * S); ctx.lineTo(hx + o * S, hy - 7 * S); ctx.stroke(); });
+  }
+  if (u.type === 'kinniku') { /* たてがみ */
+    for (var a = 0; a < 7; a++) { var an = a / 7 * Math.PI * 2; tri(hx + Math.cos(an) * 13 * S, hy + Math.sin(an) * 13 * S, hx + Math.cos(an) * 21 * S, hy + Math.sin(an) * 21 * S, hx + Math.cos(an + 0.5) * 13 * S, hy + Math.sin(an + 0.5) * 13 * S, '#d98a2b'); }
+    circ(hx, hy, 14 * S, st.body);
+  }
+  if (u.type === 'dragon') { /* 角と翼 */
+    tri(hx - 8 * S, hy - 13 * S, hx - 13 * S, hy - 24 * S, hx - 3 * S, hy - 16 * S, '#fff2c9');
+    tri(hx + 8 * S, hy - 16 * S, hx + 13 * S, hy - 24 * S, hx + 4 * S, hy - 13 * S, '#fff2c9');
+    tri(-8 * S, -30 * S, -26 * S, -42 * S, -18 * S, -20 * S, '#7ab85c');
+  }
+  if (u.type === 'yumi') { /* 弓 */
+    ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 2.6 * S;
+    ctx.beginPath(); ctx.arc(24 * S, -28 * S, 10 * S, -1.1, 1.1); ctx.stroke();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1 * S;
+    ctx.beginPath(); ctx.moveTo(24 * S + Math.cos(-1.1) * 10 * S, -28 * S + Math.sin(-1.1) * 10 * S);
+    ctx.lineTo(24 * S + Math.cos(1.1) * 10 * S, -28 * S + Math.sin(1.1) * 10 * S); ctx.stroke();
+  }
+  if (u.type === 'hayate') { /* 赤マフラー */
+    rect(hx - 12 * S, hy + 8 * S, 24 * S, 6 * S, '#e8452c');
+    tri(hx - 12 * S, hy + 10 * S, hx - 24 * S, hy + 16 * S + Math.sin(u.walkPh || 0) * 2, hx - 12 * S, hy + 16 * S, '#e8452c');
+  }
+  if (u.type === 'sui') { /* ピンクのリボン */
+    tri(hx + 8 * S, hy - 13 * S, hx + 15 * S, hy - 17 * S, hx + 14 * S, hy - 9 * S, '#ff8fb5');
+    tri(hx + 8 * S, hy - 13 * S, hx + 14 * S, hy - 9 * S, hx + 7 * S, hy - 8 * S, '#ff8fb5');
+  }
+  if (foe) { /* 対戦の敵側：赤いバンダナ */
+    tri(hx - 13 * S, hy - 10 * S, hx + 14 * S, hy - 10 * S, hx + 2 * S, hy - 2 * S, '#e0342c');
+  }
+  /* 顔 */
+  var eyeC = u.type === 'sui' ? '#3a7bd5' : '#33302e';
+  circ(hx + 5.5 * S, hy - 1 * S, 1.9 * S, eyeC);
+  if (u.type === 'kabe' || u.type === 'kinniku') circ(hx - 5.5 * S, hy - 1 * S, 1.9 * S, eyeC);
+  ctx.strokeStyle = '#33302e'; ctx.lineWidth = 1.3 * S;
+  ctx.beginPath(); ctx.moveTo(hx + 8 * S, hy + 3.5 * S); ctx.quadraticCurveTo(hx + 10.5 * S, hy + 5.5 * S, hx + 13 * S, hy + 3.5 * S); ctx.stroke();
+  ctx.strokeStyle = 'rgba(60,50,40,.55)'; ctx.lineWidth = 0.9 * S;
+  [-4, 0, 4].forEach(function (o) { ctx.beginPath(); ctx.moveTo(hx + 10 * S, hy + o * 0.8 * S); ctx.lineTo(hx + 19 * S, hy + o * S); ctx.stroke(); });
+  if (u.hitT > 0) { ctx.globalAlpha = Math.min(0.65, u.hitT * 5); ell(2 * S, -22 * S, 26 * S, 24 * S, '#ffffff'); ctx.globalAlpha = 1; }
+  ctx.restore();
+  /* HPバー */
+  if (u.hp < u.maxHp) {
+    var w = 44 * sc * st.size;
+    rect(sx - w / 2, gy - 62 * sc * st.size, w, 5, 'rgba(0,0,0,.5)');
+    rect(sx - w / 2, gy - 62 * sc * st.size, w * Math.max(0, u.hp / u.maxHp), 5, u.side === 0 ? '#6fe36f' : '#ff7a59');
+  }
+}
+function drawAnimal(u, sx, gy, sc, flip) {
+  var t = u.type;
+  var big = t === 'bossTanuki' ? 2.0 : t === 'bossKame' ? 2.2 : t === 'bossCrow' ? 1.8 : 1.0;
+  var S = sc * big;
+  var bob = Math.sin(u.walkPh || 0) * 2 * S;
+  var lunge = (u.lungeT > 0 ? Math.sin((0.18 - u.lungeT) / 0.18 * Math.PI) * 9 : 0) * (flip ? -1 : 1);
+  var flyY = (t === 'crow' || t === 'bossCrow') ? -34 * S + Math.sin((u.walkPh || 0) * 1.7) * 4 * S : 0;
+  var x = sx + lunge, y = gy + bob * 0.3 + flyY;
+  ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
+  if (t === 'tanuki' || t === 'bossTanuki') {
+    ctx.strokeStyle = '#8a5a30'; ctx.lineWidth = 7 * S; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-18 * S, -12 * S); ctx.quadraticCurveTo(-32 * S, -26 * S, -26 * S, -40 * S); ctx.stroke();
+    ctx.strokeStyle = '#5d3c1e'; ctx.lineWidth = 2.4 * S;
+    ctx.beginPath(); ctx.moveTo(-29 * S, -30 * S); ctx.lineTo(-24 * S, -26 * S); ctx.stroke();
+    ell(0, -15 * S, 22 * S, 16 * S, '#a9743f');
+    ell(3 * S, -10 * S, 12 * S, 9 * S, '#f2ddba');
+    tri(2 * S, -42 * S, 16 * S, -42 * S, 9 * S, -52 * S, '#57a047'); /* 葉っぱ */
+    circ(11 * S, -33 * S, 13 * S, '#a9743f');
+    ell(11 * S, -27 * S, 8 * S, 6 * S, '#f2ddba');
+    circ(15 * S, -35 * S, 1.8 * S, '#2b2018');
+    circ(18.5 * S, -29 * S, 2.2 * S, '#5d3c1e');
+    if (t === 'bossTanuki') { ell(0, -13 * S, 15 * S, 11 * S, '#f2ddba'); txt('🍶', -14 * S, -34 * S, 13 * S, '#fff'); }
+  } else if (t === 'crow' || t === 'bossCrow') {
+    ell(0, -14 * S, 17 * S, 10 * S, '#2b2b33');
+    ctx.strokeStyle = '#2b2b33'; ctx.lineWidth = 3 * S;
+    ctx.beginPath(); ctx.moveTo(-4 * S, -18 * S); ctx.quadraticCurveTo(-16 * S, -30 * S - Math.sin(u.walkPh || 0) * 5 * S, -24 * S, -20 * S); ctx.stroke();
+    circ(13 * S, -19 * S, 8 * S, '#2b2b33');
+    tri(19 * S, -21 * S, 27 * S, -18 * S, 19 * S, -15 * S, '#f59e0b');
+    circ(15 * S, -20 * S, 1.7 * S, t === 'bossCrow' ? '#ff4444' : '#ffd76e');
+    tri(-15 * S, -12 * S, -26 * S, -8 * S, -15 * S, -6 * S, '#1c1c22');
+  } else if (t === 'boar') {
+    ell(0, -14 * S, 23 * S, 14 * S, '#7a4a28');
+    circ(16 * S, -17 * S, 11 * S, '#7a4a28');
+    ell(24 * S, -14 * S, 5.5 * S, 4.5 * S, '#e8a0a8');
+    tri(20 * S, -8 * S, 26 * S, -12 * S, 25 * S, -5 * S, '#ffffff'); /* 牙 */
+    circ(14 * S, -20 * S, 1.9 * S, '#201408');
+    tri(6 * S, -27 * S, 12 * S, -33 * S, 14 * S, -25 * S, '#5d3c1e');
+    ctx.strokeStyle = '#5d3c1e'; ctx.lineWidth = 2 * S;
+    [-8, -2, 4].forEach(function (o) { ctx.beginPath(); ctx.moveTo(o * S, -27 * S); ctx.lineTo((o + 2) * S, -20 * S); ctx.stroke(); });
+  } else if (t === 'monkey') {
+    ctx.strokeStyle = '#8a6136'; ctx.lineWidth = 3.4 * S; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-16 * S, -16 * S); ctx.quadraticCurveTo(-30 * S, -34 * S, -20 * S, -44 * S); ctx.stroke();
+    ell(0, -14 * S, 17 * S, 13 * S, '#b3814d');
+    circ(11 * S, -28 * S, 11 * S, '#b3814d');
+    ell(12 * S, -26 * S, 7.5 * S, 6.5 * S, '#f2d5ae');
+    circ(14 * S, -29 * S, 1.7 * S, '#33241a');
+    circ(19 * S, -25 * S, 1.8 * S, '#c97b84');
+  } else if (t === 'snake') {
+    ctx.strokeStyle = '#4d9a4d'; ctx.lineWidth = 8 * S; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-26 * S, -3 * S);
+    ctx.quadraticCurveTo(-12 * S, -10 * S, 0, -3 * S);
+    ctx.quadraticCurveTo(8 * S, 2 * S, 12 * S, -12 * S); ctx.stroke();
+    circ(14 * S, -17 * S, 7.5 * S, '#57ab57');
+    circ(16.5 * S, -19 * S, 1.6 * S, '#14330f');
+    ctx.strokeStyle = '#e0342c'; ctx.lineWidth = 1.6 * S;
+    ctx.beginPath(); ctx.moveTo(20 * S, -15 * S); ctx.lineTo(26 * S, -13 * S); ctx.moveTo(26 * S, -13 * S); ctx.lineTo(25 * S, -10 * S); ctx.stroke();
+  } else if (t === 'turtle' || t === 'bossKame') {
+    ell(0, -13 * S, 24 * S, 14 * S, t === 'bossKame' ? '#49682e' : '#5d8a3c');
+    ell(0, -16 * S, 17 * S, 10 * S, t === 'bossKame' ? '#5d7d38' : '#74a34e');
+    ctx.strokeStyle = 'rgba(30,50,16,.5)'; ctx.lineWidth = 1.6 * S;
+    ctx.beginPath(); ctx.moveTo(-12 * S, -22 * S); ctx.lineTo(12 * S, -10 * S); ctx.moveTo(12 * S, -22 * S); ctx.lineTo(-12 * S, -10 * S); ctx.stroke();
+    circ(24 * S, -10 * S, 7 * S, '#8fae5e');
+    circ(26 * S, -12 * S, 1.5 * S, '#22330f');
+    ell(-14 * S, -2 * S, 6 * S, 3 * S, '#8fae5e'); ell(12 * S, -2 * S, 6 * S, 3 * S, '#8fae5e');
+  }
+  if (u.hitT > 0) { ctx.globalAlpha = Math.min(0.6, u.hitT * 5); ell(0, -18 * S, 26 * S, 22 * S, '#ffffff'); ctx.globalAlpha = 1; }
+  ctx.restore();
+  if (u.hp < u.maxHp) {
+    var w = 46 * S;
+    rect(sx - w / 2, gy - 66 * S + flyY, w, 5, 'rgba(0,0,0,.5)');
+    rect(sx - w / 2, gy - 66 * S + flyY, w * Math.max(0, u.hp / u.maxHp), 5, u.boss ? '#ff4d6d' : '#ff7a59');
+  }
+}
+function drawCastle(sx, gy, sc, side, foeStyle, hpFrac, shake) {
+  var w = 120 * sc, h = 128 * sc;
+  var x = sx - w / 2 + (shake ? (Math.random() - 0.5) * 4 : 0);
+  var base = gy - h;
+  /* 土台 */
+  rect(x, gy - 16 * sc, w, 16 * sc, '#6b5a4a');
+  rect(x + 8 * sc, base + 30 * sc, w - 16 * sc, h - 30 * sc, side === 0 ? '#9aa7c7' : '#5d5468');
+  rect(x, base + 18 * sc, w, 16 * sc, side === 0 ? '#7d8db0' : '#453d52');
+  /* 屋根 */
+  if (side === 0) {
+    tri(x - 6 * sc, base + 22 * sc, x + w + 6 * sc, base + 22 * sc, x + w / 2, base - 16 * sc, '#e86a92');
+    tri(x + w / 2 - 20 * sc, base - 8 * sc, x + w / 2 - 12 * sc, base - 26 * sc, x + w / 2 - 2 * sc, base - 10 * sc, '#e86a92');
+    tri(x + w / 2 + 2 * sc, base - 10 * sc, x + w / 2 + 12 * sc, base - 26 * sc, x + w / 2 + 20 * sc, base - 8 * sc, '#e86a92');
+  } else {
+    tri(x - 6 * sc, base + 22 * sc, x + w + 6 * sc, base + 22 * sc, x + w / 2, base - 12 * sc, '#3a3348');
+    circ(x + w / 2, base - 14 * sc, 6 * sc, '#57a047');
+  }
+  /* 旗 */
+  var fx = x + w / 2;
+  rect(fx - 1 * sc, base - 40 * sc, 2 * sc, 26 * sc, '#4a3a28');
+  tri(fx, base - 40 * sc, fx + 20 * sc, base - 34 * sc, fx, base - 27 * sc, side === 0 ? '#ff8fb5' : '#7a4a8a');
+  /* 扉と窓 */
+  rect(x + w / 2 - 11 * sc, gy - 44 * sc, 22 * sc, 30 * sc, '#4a3423');
+  circ(x + w / 2, gy - 44 * sc, 11 * sc, '#4a3423');
+  rect(x + 16 * sc, base + 52 * sc, 13 * sc, 13 * sc, '#ffe9a0');
+  rect(x + w - 29 * sc, base + 52 * sc, 13 * sc, 13 * sc, '#ffe9a0');
+  if (hpFrac < 0.45) { /* ダメージ表現：ひび */
+    ctx.strokeStyle = 'rgba(20,14,10,.65)'; ctx.lineWidth = 2 * sc;
+    ctx.beginPath(); ctx.moveTo(x + 20 * sc, base + 40 * sc); ctx.lineTo(x + 30 * sc, base + 62 * sc); ctx.lineTo(x + 24 * sc, base + 80 * sc); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + w - 18 * sc, base + 66 * sc); ctx.lineTo(x + w - 30 * sc, base + 88 * sc); ctx.stroke();
+  }
+}
+function drawBattle(st, flip) {
+  if (!ctx) return;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var W = viewW, H = viewH;
+  /* 空 */
+  var g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#8ec9ee'); g.addColorStop(0.62, '#cfeef7'); g.addColorStop(0.63, '#a8d98a'); g.addColorStop(1, '#7fb85e');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  var gy = H * 0.78;
+  /* 雲と丘 */
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  var ct = (st ? st.t : 0) * 6;
+  for (var ci = 0; ci < 4; ci++) {
+    var cx = ((ci * 340 + ct * (0.4 + ci * 0.13)) % (W + 160)) - 80, cy = 22 + ci * 17;
+    ell(cx, cy, 30, 10, 'rgba(255,255,255,.85)'); ell(cx + 18, cy + 3, 22, 8, 'rgba(255,255,255,.85)');
+  }
+  ell(W * 0.2, gy + 4, W * 0.24, 26, '#93cc74'); ell(W * 0.82, gy + 4, W * 0.26, 30, '#8ec56c');
+  /* 地面 */
+  rect(0, gy, W, H - gy, '#79b657');
+  rect(0, gy, W, 4, '#5d9440');
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  for (var gx = 0; gx < W; gx += 46) ctx.fillRect(gx, gy + 12 + (gx % 3) * 6, 16, 3);
+  if (!st) return;
+  var sc = W / FIELD_W;
+  var unitSc = Math.max(0.55, Math.min(1.25, W / 900));
+  function X(wx) { return flip ? (FIELD_W - wx) * sc : wx * sc; }
+  /* 城 */
+  var shake0 = st.effects.some(function (e) { return e.k === 'chit' && e.side === 0; });
+  var shake1 = st.effects.some(function (e) { return e.k === 'chit' && e.side === 1; });
+  drawCastle(X(55), gy, unitSc, 0, false, st.castle[flip ? 1 : 0] / st.castleMax[flip ? 1 : 0], flip ? shake1 : shake0);
+  drawCastle(X(FIELD_W - 55), gy, unitSc, 1, true, st.castle[flip ? 0 : 1] / st.castleMax[flip ? 0 : 1], flip ? shake0 : shake1);
+  /* ユニット（奥→手前の単純ソート：x順ではなく全員同一レーン） */
+  var mySide = flip ? 1 : 0;
+  var sorted = st.units.slice().sort(function (a, b) { return (a.boss ? 1 : 0) - (b.boss ? 1 : 0); });
+  sorted.forEach(function (u) {
+    var sx = X(u.x);
+    var facingRight = (u.side === 0) !== !!flip;
+    if (u.enemy) drawAnimal(u, sx, gy, unitSc, !facingRight);
+    else drawCat(u, sx, gy, unitSc, !facingRight, u.side !== mySide);
+  });
+  /* エフェクト */
+  st.effects.forEach(function (e) {
+    var sx = X(e.x), a = Math.max(0, e.t / e.max);
+    if (e.k === 'hit') {
+      ctx.strokeStyle = 'rgba(255,240,170,' + a + ')'; ctx.lineWidth = 2.4;
+      for (var k = 0; k < 5; k++) {
+        var an = k / 5 * Math.PI * 2 + e.x;
+        ctx.beginPath(); ctx.moveTo(sx + Math.cos(an) * 4, gy - 34 + Math.sin(an) * 4);
+        ctx.lineTo(sx + Math.cos(an) * (12 + (1 - a) * 8), gy - 34 + Math.sin(an) * (12 + (1 - a) * 8)); ctx.stroke();
+      }
+    } else if (e.k === 'die') {
+      ctx.fillStyle = 'rgba(255,255,255,' + a * 0.8 + ')';
+      circ(sx, gy - 20 - (1 - a) * 12, 12 * a + 4, 'rgba(255,255,255,' + a * 0.8 + ')');
+      if (e.boss) txt('💥', sx, gy - 52 - (1 - a) * 16, 26, '#fff');
+    } else if (e.k === 'chit') {
+      txt('💥', sx, gy - 120, 20, '#fff');
+    }
+  });
+}
+
+/* ═══════════════ SFX（WebAudio 簡易シンセ） ═══════════════ */
+var AC = null;
+function initAudio() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) {} }
+function beep(freq, dur, type, vol, slideTo) {
+  if (!AC) return;
+  try {
+    var o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function sfx(name) {
+  if (!AC) return;
+  if (name === 'spawn') beep(520, 0.07, 'square', 0.03);
+  else if (name === 'wallet') { beep(700, 0.07, 'square', 0.04); setTimeout(function () { beep(980, 0.09, 'square', 0.04); }, 60); }
+  else if (name === 'boss') { beep(140, 0.3, 'sawtooth', 0.06, 70); }
+  else if (name === 'win') { [523, 659, 784, 1046].forEach(function (f, i) { setTimeout(function () { beep(f, 0.16, 'square', 0.05); }, i * 110); }); }
+  else if (name === 'lose') { [400, 340, 280, 200].forEach(function (f, i) { setTimeout(function () { beep(f, 0.18, 'triangle', 0.05); }, i * 130); }); }
+  else if (name === 'click') beep(660, 0.05, 'square', 0.025);
+}
+
+/* ═══════════════ 画面管理・UI ═══════════════ */
+function $(id) { return document.getElementById(id); }
+var SCRS = ['titleScr', 'stageScr', 'upScr', 'lobbyScr'];
+function showScr(id) {
+  SCRS.forEach(function (s) { var el = $(s); if (el) el.classList.toggle('show', s === id); });
+  $('battleScr').classList.remove('show');
+  window.scrollTo(0, 0);
+}
+function showBattle() {
+  SCRS.forEach(function (s) { var el = $(s); if (el) el.classList.remove('show'); });
+  $('battleScr').classList.add('show');
+  fitCanvas();
+}
+function fmtTime(sec) { sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
+function updateFish() { $('fishDisp').textContent = save.fish; $('fishDisp2').textContent = save.fish; }
+function renderStageList() {
+  var wrap = $('stageList'); wrap.innerHTML = '';
+  STAGES.forEach(function (sg, idx) {
+    var unlocked = idx === 0 || !!save.cleared[STAGES[idx - 1].id];
+    var btn = document.createElement('button');
+    btn.className = 'stageBtn' + (unlocked ? '' : ' locked');
+    var bossTx = sg.bosses.length ? '／ボスあり' : '';
+    btn.innerHTML = '<span class="stageNo">' + sg.id + '</span><span><span class="sname">' + sg.name + '</span>' +
+      '<div class="smeta">敵城HP ' + sg.castle.toLocaleString() + bossTx + '<br>報酬 🐟 ' + sg.reward +
+      (save.best[sg.id] ? '／ベスト ' + fmtTime(save.best[sg.id]) : '') + '</div></span>' +
+      '<span class="sclear">' + (save.cleared[sg.id] ? '⭐' : (unlocked ? '' : '🔒')) + '</span>';
+    if (unlocked) btn.onclick = function () { initAudio(); sfx('click'); startSolo(sg.id); };
+    wrap.appendChild(btn);
+  });
+}
+function renderUpList() {
+  updateFish();
+  var wrap = $('upList'); wrap.innerHTML = '';
+  UNITS.forEach(function (u) {
+    var lv = save.unitLv[u.id];
+    var maxed = lv >= UNIT_MAX_LV;
+    var cost = maxed ? 0 : upCost(lv);
+    var row = document.createElement('div'); row.className = 'upRow';
+    row.innerHTML = '<span class="uemoji">' + u.emoji + '</span><span><span class="uname">' + u.name + '</span> <span class="ulv">Lv.' + lv + '</span>' +
+      '<div class="ustat">HP ' + Math.round(u.hp * lvMult(lv)) + '／攻撃 ' + Math.round(u.atk * lvMult(lv)) + '／生産 ' + u.cost + '<br>' + u.desc + '</div></span>';
+    var b = document.createElement('button'); b.className = 'upBtn';
+    if (maxed) { b.textContent = 'MAX'; b.disabled = true; }
+    else {
+      b.innerHTML = '⬆️ 強化<br>🐟 ' + cost;
+      b.disabled = save.fish < cost;
+      b.onclick = function () {
+        if (save.fish < upCost(save.unitLv[u.id])) return;
+        save.fish -= upCost(save.unitLv[u.id]); save.unitLv[u.id]++;
+        storeSave(); initAudio(); sfx('wallet'); renderUpList();
+      };
+    }
+    row.appendChild(b); wrap.appendChild(row);
+  });
+}
+
+/* ═══════════════ バトル進行 ═══════════════ */
+var battle = null;          /* 現在のバトル状態（ホスト/ソロは sim、ゲストは表示用） */
+var uiMode = 'idle';        /* idle | solo | vs-host | vs-guest */
+var curStage = null;
+var paused = false, battleDone = false, rafId = 0, lastTs = 0;
+var msgTimer = 0;
+function showMsg(s, dur) {
+  var el = $('battleMsg'); el.textContent = s; el.classList.add('on');
+  clearTimeout(msgTimer); msgTimer = setTimeout(function () { el.classList.remove('on'); }, dur || 1800);
+}
+function buildUnitBar() {
+  var bar = $('unitBar'); bar.innerHTML = '';
+  UNITS.forEach(function (u) {
+    var b = document.createElement('button'); b.className = 'unitBtn'; b.id = 'ub_' + u.id;
+    b.innerHTML = '<span class="ue">' + u.emoji + '</span><span class="un">' + u.name + '</span><span class="uc">💰' + u.cost + '</span><span class="cdov"></span>';
+    b.onclick = function () { initAudio(); onUnitButton(u.id); };
+    bar.appendChild(b);
+  });
+}
+function mySide() { return uiMode === 'vs-guest' ? 1 : 0; }
+function onUnitButton(unitId) {
+  if (!battle || battleDone) return;
+  if (uiMode === 'vs-guest') { netSend({ t: 'cmd', a: 'spawn', u: unitId }); return; }
+  if (trySpawn(battle, 0, unitId)) sfx('spawn');
+}
+function onWalletButton() {
+  if (!battle || battleDone) return;
+  if (uiMode === 'vs-guest') { netSend({ t: 'cmd', a: 'wallet' }); return; }
+  if (tryWallet(battle, 0)) sfx('wallet');
+}
+function startSolo(stageId) {
+  curStage = STAGE_BY_ID[stageId];
+  battle = createBattle({ mode: 'solo', stage: curStage, lvMap0: save.unitLv });
+  uiMode = 'solo'; paused = false; battleDone = false;
+  $('myCastleName').textContent = '🏯 自城';
+  $('foeCastleName').textContent = curStage.name + ' 🏯';
+  $('resNext').style.display = '';
+  $('resRetry').textContent = '🔁 もう一度';
+  $('resMap').textContent = '🗺️ マップへもどる';
+  showBattle(); startLoop();
+  showMsg('⚔️ ' + curStage.name + ' スタート！', 1600);
+}
+function startLoop() {
+  cancelAnimationFrame(rafId); lastTs = 0;
+  var loop = function (ts) {
+    rafId = requestAnimationFrame(loop);
+    if (!lastTs) lastTs = ts;
+    var dt = Math.min(0.05, (ts - lastTs) / 1000); lastTs = ts;
+    if (!battle) return;
+    if (!paused && !battleDone && uiMode !== 'vs-guest') {
+      stepBattle(battle, dt);
+      drainEvents();
+    }
+    if (battle) {
+      battle.units.forEach(function (u) { u.walkPh = (u.walkPh || 0) + dt * (u.kbT > 0 ? 2 : 9); });
+      drawBattle(battle, uiMode === 'vs-guest');
+      updateHUD();
+    }
+  };
+  rafId = requestAnimationFrame(loop);
+}
+function stopLoop() { cancelAnimationFrame(rafId); rafId = 0; }
+function drainEvents() {
+  if (!battle) return;
+  while (battle.events.length) {
+    var ev = battle.events.shift();
+    if (ev.k === 'boss') { showMsg('⚠️ ボス出現！ ' + (ENEMIES[ev.id] ? ENEMIES[ev.id].name : ''), 2200); sfx('boss'); }
+    else if (ev.k === 'rush') showMsg('⚠️ ラッシュ！', 1500);
+    else if (ev.k === 'end') finishBattle(ev.winner);
+  }
+}
+function updateHUD() {
+  if (!battle) return;
+  var ms = mySide(), fs = 1 - ms;
+  var mHp = Math.max(0, Math.ceil(battle.castle[ms])), fHp = Math.max(0, Math.ceil(battle.castle[fs]));
+  $('myCastleFill').style.width = (mHp / battle.castleMax[ms] * 100) + '%';
+  $('foeCastleFill').style.width = (fHp / battle.castleMax[fs] * 100) + '%';
+  $('myCastleHpTx').textContent = mHp.toLocaleString();
+  $('foeCastleHpTx').textContent = fHp.toLocaleString();
+  $('battleTimer').textContent = fmtTime(battle.t);
+  var money = Math.floor(battle.money[ms]);
+  $('moneyDisp').textContent = '💰 ' + money + ' / ' + walletCap(battle.walletLv[ms]);
+  var wb = $('walletBtn'), wlv = battle.walletLv[ms];
+  if (wlv >= WALLET_MAX_LV) { wb.innerHTML = '👛 お財布Lv.MAX'; wb.disabled = true; }
+  else { wb.innerHTML = '👛 お財布Lv.' + wlv + ' → ' + (wlv + 1) + '<br>強化 ' + walletCost(wlv); wb.disabled = battle.money[ms] < walletCost(wlv); }
+  UNITS.forEach(function (u) {
+    var b = $('ub_' + u.id); if (!b) return;
+    var cd = battle.repro[ms][u.id] || 0;
+    b.classList.toggle('poor', battle.money[ms] < u.cost || cd > 0);
+    var ov = b.querySelector('.cdov');
+    if (ov) ov.style.height = (cd > 0 ? Math.min(100, cd / u.repro * 100) : 0) + '%';
+  });
+}
+function finishBattle(winnerSide) {
+  if (battleDone) return;
+  battleDone = true;
+  var ms = mySide();
+  var winBool = (winnerSide === 1 && ms === 0) || (winnerSide === 2 && ms === 1);
+  if (uiMode === 'solo') finishSolo(winBool);
+  else finishVersus(winBool);
+}
+function finishSolo(won) {
+  var title = $('resultTitle');
+  if (won) {
+    var first = !save.cleared[curStage.id];
+    var reward = first ? curStage.reward : Math.round(curStage.reward * 0.4);
+    save.cleared[curStage.id] = true;
+    if (!save.best[curStage.id] || battle.t < save.best[curStage.id]) save.best[curStage.id] = Math.round(battle.t);
+    save.fish += reward; storeSave(); updateFish();
+    title.textContent = '🎉 勝利！'; title.className = 'win';
+    $('resultDetail').innerHTML = '敵城を落とした！<br>タイム ' + fmtTime(battle.t) + '／撃破数 ' + battle.kills[0] + '<br>報酬 🐟 にぼし +' + reward + (first ? '' : '（再クリア）');
+    $('resNext').style.display = STAGE_BY_ID[curStage.id + 1] ? '' : 'none';
+    sfx('win');
+  } else {
+    title.textContent = '💦 敗北…'; title.className = 'lose';
+    $('resultDetail').innerHTML = '自城が落ちてしまった…<br>タイム ' + fmtTime(battle.t) + '／撃破数 ' + battle.kills[0] + '<br>ユニットを強化して再挑戦しよう！';
+    $('resNext').style.display = 'none';
+    sfx('lose');
+  }
+  setTimeout(function () { $('resultOv').classList.add('show'); }, 650);
+}
+function endBattleToTitle() {
+  stopLoop(); battle = null; uiMode = 'idle'; battleDone = false; paused = false;
+  $('resultOv').classList.remove('show'); $('pauseOv').classList.remove('show');
+  updateFish(); showScr('titleScr');
+}
+
+/* ═══════════════ ネット対戦（ホスト権威＋スナップショット） ═══════════════ */
+var PEER_PREFIX = 'playweb-mf-';
+var PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+] } };
+var NET = { role: null, peer: null, conn: null, code: null, inGame: false, recorded: false,
+            snapTimer: 0, heartbeatTimer: 0, connTimer: 0, guestLv: null };
+function genRoomCode() {
+  var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', s = '';
+  for (var i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+function netSend(obj) { if (NET.conn && NET.conn.open) { try { NET.conn.send(obj); } catch (e) {} } }
+function setLobbyStatus(html) { var el = $('lobbyStatus'); if (el) el.innerHTML = html; }
+function startHeartbeat() { stopHeartbeat(); NET.heartbeatTimer = setInterval(function () { netSend({ t: 'ping' }); }, 8000); }
+function stopHeartbeat() { if (NET.heartbeatTimer) clearInterval(NET.heartbeatTimer); NET.heartbeatTimer = 0; }
+function armConnTimer(msg) { disarmConnTimer(); NET.connTimer = setTimeout(function () { if (!NET.inGame) setLobbyStatus('<span class="err">' + msg + '</span>'); }, 25000); }
+function disarmConnTimer() { if (NET.connTimer) clearTimeout(NET.connTimer); NET.connTimer = 0; }
+function netCleanup(full) {
+  if (NET.snapTimer) clearInterval(NET.snapTimer); NET.snapTimer = 0;
+  stopHeartbeat(); disarmConnTimer();
+  if (NET.conn) { try { NET.conn.close(); } catch (e) {} NET.conn = null; }
+  if (full) {
+    if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
+    NET.role = null; NET.code = null; NET.inGame = false; NET.guestLv = null;
+    try { delete window.PW_ROOM_CODE; } catch (e) { window.PW_ROOM_CODE = undefined; }
+    var w = $('roomCodeWrap'); if (w) w.style.display = 'none';
+  }
+}
+function bindConn(c) {
+  if (NET.conn && NET.conn !== c) { try { NET.conn.close(); } catch (e) {} }
+  NET.conn = c;
+  c.on('data', function (msg) { if (NET.conn === c) handleNetData(msg); });
+  c.on('open', function () {
+    if (NET.conn !== c) return;
+    disarmConnTimer(); startHeartbeat();
+    if (NET.role === 'guest') {
+      netSend({ t: 'hello', lv: save.unitLv });
+      setLobbyStatus('接続しました。ホストの開始を待っています…');
+    } else setLobbyStatus('フレンドが接続しました。まもなく対戦開始！');
+  });
+  c.on('close', function () { if (NET.conn === c) onConnClose(); });
+}
+function onConnClose() {
+  NET.conn = null; stopHeartbeat();
+  if (NET.snapTimer) { clearInterval(NET.snapTimer); NET.snapTimer = 0; }
+  if (uiMode === 'vs-host' && battle && !battleDone) {
+    showMsg('相手が切断しました', 2000);
+    NET.inGame = false;
+    finishBattle(1); /* ホストの不戦勝 */
+  } else if (uiMode === 'vs-guest' && battle && !battleDone) {
+    showMsg('接続が切れました', 2200);
+    setTimeout(function () { if (uiMode === 'vs-guest') { netCleanup(true); endBattleToTitle(); } }, 1600);
+  } else if (!NET.inGame) {
+    setLobbyStatus('相手が切断しました。');
+  }
+  NET.inGame = false;
+}
+function hostCreateRoom() {
+  if (typeof Peer === 'undefined') { setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; }
+  netCleanup(true);
+  NET.role = 'host'; NET.code = genRoomCode();
+  try { NET.peer = new Peer(PEER_PREFIX + NET.code, PEER_OPTS); }
+  catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); NET.role = null; return; }
+  var myPeer = NET.peer, opened = false;
+  NET.peer.on('open', function () {
+    if (NET.peer !== myPeer || opened) return; opened = true;
+    window.PW_ROOM_CODE = NET.code;
+    $('roomCodeText').textContent = NET.code;
+    $('roomCodeWrap').style.display = 'block';
+    setLobbyStatus('部屋を作りました。フレンドの参加を待っています…');
+  });
+  NET.peer.on('connection', function (c) {
+    if (NET.peer !== myPeer) return;
+    bindConn(c);
+    if (!NET.inGame) armConnTimer('相手との接続を確立できませんでした。もう一度参加してもらうか、ネットワーク環境を変えてお試しください。');
+  });
+  NET.peer.on('error', function (err) {
+    if (NET.peer !== myPeer) return;
+    if (err && err.type === 'unavailable-id') { try { NET.peer.destroy(); } catch (e) {} hostCreateRoom(); }
+  });
+}
+function guestJoin(codeRaw) {
+  var code = String(codeRaw || '').trim().toUpperCase();
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) { setLobbyStatus('<span class="err">部屋コードは6文字で入力してください。</span>'); return; }
+  if (typeof Peer === 'undefined') { setLobbyStatus('<span class="err">オンライン機能を読み込めませんでした。</span>'); return; }
+  netCleanup(true);
+  NET.role = 'guest'; NET.code = code;
+  setLobbyStatus('接続しています…');
+  try { NET.peer = new Peer(undefined, PEER_OPTS); }
+  catch (e) { setLobbyStatus('<span class="err">接続の作成に失敗しました。</span>'); return; }
+  var myPeer = NET.peer, tried = false;
+  NET.peer.on('open', function () {
+    if (NET.peer !== myPeer || tried) return; tried = true;
+    var c = NET.peer.connect(PEER_PREFIX + code, { reliable: true });
+    bindConn(c);
+    armConnTimer('ホストに接続できませんでした。コードが合っているか、ホストが部屋を開いているか確認してください。');
+  });
+  NET.peer.on('error', function (err) {
+    if (NET.peer !== myPeer) return;
+    if (err && err.type === 'peer-unavailable') setLobbyStatus('<span class="err">その部屋が見つかりませんでした。コードを確認してください。</span>');
+  });
+}
+function startVersusHost() {
+  battle = createBattle({ mode: 'vs', lvMap0: save.unitLv, lvMap1: NET.guestLv });
+  uiMode = 'vs-host'; paused = false; battleDone = false; NET.inGame = true; NET.recorded = false;
+  $('myCastleName').textContent = '🏯 自城（あなた）';
+  $('foeCastleName').textContent = '敵城（フレンド） 🏯';
+  $('resultOv').classList.remove('show');
+  netSend({ t: 'start' });
+  showBattle(); startLoop();
+  if (NET.snapTimer) clearInterval(NET.snapTimer);
+  NET.snapTimer = setInterval(sendSnapshot, 100);
+  showMsg('⚔️ 対戦スタート！', 1500);
+}
+function makeSnapshot() {
+  return {
+    t: 'snap',
+    u: battle.units.map(function (u) { return [u.type, u.side, Math.round(u.x), Math.ceil(u.hp), u.maxHp, u.kbT > 0 ? 1 : 0, u.lungeT > 0 ? 1 : 0, u.enemy ? 1 : 0, u.boss ? 1 : 0]; }),
+    c: [Math.max(0, Math.ceil(battle.castle[0])), Math.max(0, Math.ceil(battle.castle[1]))],
+    cm: battle.castleMax,
+    m: [Math.floor(battle.money[0]), Math.floor(battle.money[1])],
+    w: battle.walletLv,
+    r: battle.repro[1],
+    tm: Math.round(battle.t * 10) / 10,
+    k: battle.kills,
+    over: battle.over
+  };
+}
+function sendSnapshot() { if (battle && NET.role === 'host') netSend(makeSnapshot()); }
+var guestPrev = [];
+function applySnapshot(msg) {
+  if (!battle) return;
+  battle.castle = msg.c.slice(); battle.castleMax = msg.cm.slice();
+  battle.money = msg.m.slice(); battle.walletLv = msg.w.slice();
+  battle.repro[1] = msg.r || {};
+  battle.t = msg.tm; battle.kills = msg.k || [0, 0];
+  var used = {};
+  var news = msg.u.map(function (a, idx) {
+    /* 前フレームの同一個体を探して walkPh とエフェクトを引き継ぐ */
+    var match = -1, matchD = 46;
+    guestPrev.forEach(function (p, pi) {
+      if (used[pi] || p.type !== a[0] || p.side !== a[1]) return;
+      var d = Math.abs(p.x - a[2]); if (d < matchD) { matchD = d; match = pi; }
+    });
+    var prev = match >= 0 ? guestPrev[match] : null;
+    if (prev) {
+      used[match] = 1;
+      if (a[3] < prev.hp) battle.effects.push({ k: 'hit', x: a[2], side: a[1], t: 0.18, max: 0.18 });
+    }
+    return { type: a[0], side: a[1], x: a[2], hp: a[3], maxHp: a[4], kbT: a[5] ? 0.2 : 0, lungeT: a[6] ? 0.1 : 0,
+             enemy: !!a[7], boss: !!a[8], walkPh: prev ? prev.walkPh : idx * 1.3, atkCd: 0, hitT: prev && a[3] < prev.hp ? 0.12 : 0, dmgKb: 0, kbLeft: 1, kbMax: 1 };
+  });
+  guestPrev.forEach(function (p, pi) {
+    if (!used[pi]) battle.effects.push({ k: 'die', x: p.x, side: p.side, t: 0.35, max: 0.35, boss: p.boss });
+  });
+  guestPrev = news.map(function (u) { return { type: u.type, side: u.side, x: u.x, hp: u.hp, walkPh: u.walkPh, boss: u.boss }; });
+  battle.units = news;
+  stepEffects(battle, 0.1);
+  if (msg.over && !battleDone) finishBattle(msg.over);
+}
+function handleNetData(msg) {
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'ping') return;
+  if (NET.role === 'host') {
+    if (msg.t === 'hello') {
+      NET.guestLv = msg.lv || null;
+      setLobbyStatus('フレンドが参加しました！対戦開始！');
+      startVersusHost();
+    } else if (msg.t === 'cmd' && battle && uiMode === 'vs-host' && !battleDone) {
+      if (msg.a === 'spawn') trySpawn(battle, 1, msg.u);
+      else if (msg.a === 'wallet') tryWallet(battle, 1);
+    } else if (msg.t === 'rematch' && battleDone) {
+      startVersusHost();
+    }
+  } else if (NET.role === 'guest') {
+    if (msg.t === 'start') {
+      battle = createBattle({ mode: 'vs' });
+      uiMode = 'vs-guest'; paused = false; battleDone = false; NET.inGame = true; NET.recorded = false;
+      guestPrev = [];
+      $('myCastleName').textContent = '🏯 自城（あなた）';
+      $('foeCastleName').textContent = '敵城（フレンド） 🏯';
+      $('resultOv').classList.remove('show');
+      showBattle(); startLoop();
+      showMsg('⚔️ 対戦スタート！', 1500);
+    } else if (msg.t === 'snap' && uiMode === 'vs-guest') {
+      applySnapshot(msg);
+    } else if (msg.t === 'end' && battle && !battleDone) {
+      finishBattle(msg.winner);
+    }
+  }
+}
+function recordVs(won) {
+  if (NET.recorded) return; NET.recorded = true;
+  try { if (window.PWFriends && PWFriends.recordMatch) PWFriends.recordMatch(won ? 'win' : 'lose', {}); } catch (e) {}
+}
+function finishVersus(won) {
+  if (NET.role === 'host') {
+    if (NET.snapTimer) { clearInterval(NET.snapTimer); NET.snapTimer = 0; }
+    sendSnapshot();
+    netSend({ t: 'end', winner: battle.over });
+  }
+  NET.inGame = false;
+  recordVs(won);
+  var title = $('resultTitle');
+  title.textContent = won ? '🎉 勝利！' : '💦 敗北…';
+  title.className = won ? 'win' : 'lose';
+  $('resultDetail').innerHTML = 'フレンド対戦<br>タイム ' + fmtTime(battle.t) + '／あなたの撃破数 ' + battle.kills[mySide()];
+  $('resNext').style.display = 'none';
+  $('resRetry').textContent = '🔁 再戦する';
+  $('resMap').textContent = '🏠 タイトルへもどる';
+  if (won) sfx('win'); else sfx('lose');
+  setTimeout(function () { $('resultOv').classList.add('show'); }, 650);
+}
+function leaveVersus() {
+  netCleanup(true);
+  endBattleToTitle();
+}
+
+/* ═══════════════ 起動・配線 ═══════════════ */
+function init() {
+  cv = $('cv'); if (cv) ctx = cv.getContext('2d');
+  buildUnitBar();
+  updateFish();
+  $('btnStage').onclick = function () { initAudio(); sfx('click'); renderStageList(); showScr('stageScr'); };
+  $('backFromStage').onclick = function () { sfx('click'); showScr('titleScr'); };
+  $('btnUp').onclick = function () { initAudio(); sfx('click'); renderUpList(); showScr('upScr'); };
+  $('backFromUp').onclick = function () { sfx('click'); showScr('titleScr'); };
+  $('mpBtn').onclick = function () { initAudio(); sfx('click'); showScr('lobbyScr'); };
+  $('backFromLobby').onclick = function () { sfx('click'); netCleanup(true); setLobbyStatus(''); showScr('titleScr'); };
+  $('hostBtn').onclick = function () { initAudio(); hostCreateRoom(); };
+  $('joinBtn').onclick = function () { initAudio(); guestJoin($('joinCode').value); };
+  $('walletBtn').onclick = function () { initAudio(); onWalletButton(); };
+  $('pauseBtnB').onclick = function () {
+    initAudio();
+    if (uiMode === 'solo' && battle && !battleDone) { paused = true; $('pauseOv').classList.add('show'); }
+    else if (uiMode !== 'idle') showMsg('対戦中はポーズできません', 1300);
+  };
+  $('resumeBtn').onclick = function () { paused = false; $('pauseOv').classList.remove('show'); };
+  $('quitBtn').onclick = function () { $('pauseOv').classList.remove('show'); endBattleToTitle(); };
+  $('resNext').onclick = function () {
+    $('resultOv').classList.remove('show');
+    if (uiMode === 'solo' && curStage && STAGE_BY_ID[curStage.id + 1]) startSolo(curStage.id + 1);
+  };
+  $('resRetry').onclick = function () {
+    $('resultOv').classList.remove('show');
+    if (uiMode === 'solo') startSolo(curStage.id);
+    else if (uiMode === 'vs-host') startVersusHost();
+    else if (uiMode === 'vs-guest') { netSend({ t: 'rematch' }); showMsg('再戦を申し込みました…', 1600); }
+  };
+  $('resMap').onclick = function () {
+    $('resultOv').classList.remove('show');
+    $('resRetry').textContent = '🔁 もう一度';
+    $('resMap').textContent = '🗺️ マップへもどる';
+    if (uiMode === 'solo') { stopLoop(); battle = null; uiMode = 'idle'; renderStageList(); showScr('stageScr'); }
+    else leaveVersus();
+  };
+  window.addEventListener('resize', function () { if ($('battleScr').classList.contains('show')) fitCanvas(); });
+}
+/* テスト・検証用フック */
+window.__mofu = {
+  UNITS: UNITS, ENEMIES: ENEMIES, STAGES: STAGES, UNIT_BY_ID: UNIT_BY_ID,
+  createBattle: createBattle, stepBattle: stepBattle, trySpawn: trySpawn, tryWallet: tryWallet,
+  spawnEnemy: spawnEnemy, walletCap: walletCap, walletRate: walletRate, walletCost: walletCost,
+  lvMult: lvMult, upCost: upCost, FIELD_W: FIELD_W, SAVE_KEY: SAVE_KEY,
+  NET: NET, hostCreateRoom: hostCreateRoom, guestJoin: guestJoin, handleNetData: handleNetData,
+  makeSnapshot: makeSnapshot, applySnapshot: applySnapshot, drainEvents: drainEvents,
+  isDone: function () { return battleDone; },
+  getBattle: function () { return battle; }, getSave: function () { return save; },
+  getUiMode: function () { return uiMode; }
+};
+init();
+})();
+</script>
+<script>window.PW_GAME='mofusen';window.PW_JOIN_CFG={openers:[{click:'#mpBtn'}],input:'#joinCode',joinBtn:'#joinBtn',hostBtn:'#hostBtn'};</script>
+<script src="friends.js"></script>
+</body>
+</html>

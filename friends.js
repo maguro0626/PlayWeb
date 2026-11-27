@@ -77,9 +77,10 @@
     rpg:        { title: 'モンスターライズ',       file: 'rpg.html' },
     taiko:      { title: '太鼓の超人',     file: 'taiko.html' },
     snake:      { title: 'スネークアリーナ',       file: 'snake.html' },
-    starrhythm: { title: 'スターリズム',           file: 'starrhythm.html' }
+    starrhythm: { title: 'スターリズム',           file: 'starrhythm.html' },
+    mofusen:    { title: 'にゃんこ小戦争',         file: 'mofusen.html' }
   };
-  var GAME_ORDER = ['tetris','suica','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','rpg','taiko','snake','starrhythm'];
+  var GAME_ORDER = ['tetris','suica','survivors','blockblast','minesweeper','reversi','shogi','majan','daihugou','hanahuda','uno','blockzushi','jump','caring','rpg','taiko','snake','starrhythm','mofusen'];
   var PEER_OPTS = { config: { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },

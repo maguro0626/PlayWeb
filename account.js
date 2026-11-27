@@ -2047,7 +2047,7 @@
     janken: 'じゃんけんバトル', calc: 'けいさんダッシュ', memory: 'しんけいすいじゃく',
     mole: 'もぐらパニック', simon: 'いろメモリ', timing: 'タイミングストップ',
     dice: 'ダイスレース', taiko: '太鼓の超人', snake: 'スネークアリーナ',
-    starrhythm: 'スターリズム'
+    starrhythm: 'スターリズム', mofusen: 'にゃんこ小戦争'
   };
   function pageTitle() {
     if (typeof window.PW_PAGE_TITLE === 'string' && window.PW_PAGE_TITLE) return window.PW_PAGE_TITLE;
