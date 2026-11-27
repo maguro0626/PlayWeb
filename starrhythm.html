@@ -623,12 +623,13 @@ html,body{overscroll-behavior:none;}
 (function () {
 'use strict';
 /* ================================================================
-   スターリズム — 4レーン落下式リズムゲーム（WebAudio合成のオリジナル曲）
+   スターリズム — 4レーン落下式リズムゲーム（実音源22曲）
    譜面は曲データから決定的に生成する（同じ曲・同じ難易度＝同じ譜面）。
+   v155: シンセ生成曲5曲とシンセ再生経路を全廃し、全曲が実音源になった。
    ================================================================ */
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+/* midiHz はシンセ再生専用だったため v155 で除去（参照ゼロを確認済み） */
 function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 function lerp(a, b, k) { return a + (b - a) * k; }
 
@@ -643,59 +644,10 @@ var JUDGE_FONT_PX = 16; /* 判定ポップのフォントサイズ（小さく�
 var JUDGE_POP_MS = 380; /* 判定ポップの表示時間(ms) */
 
 /* ---------------- 曲データ ----------------
-   mel は 1フレーズ=4小節×16ステップ=64文字。'.'=休符、'1'〜'9'=スケールの度数。
-   bass は小節ごとのベース度数（4つ）。seq はフレーズの並び。 */
+   v155: シンセ生成曲5曲（starlight / runline / electrica / idoldays /
+   sakuramau）を本人の指示で全廃。全22曲が実音源曲になった。
+   旧シンセ曲の scale / phrases / seq 等の生成データも併せて除去済み。 */
 var SONGS = [
-  {
-    id: 'starlight', title: 'キラキラ☆スターライト', emo: '🌟', genre: 'キラキラポップ', bpm: 132, wave: 'square', theme: 'pop', jk: 'jk-pop',
-    artist: 'ルミナス☆スターズ', desc: 'きらめくステージの幕開けにぴったりな、王道キラキラポップ。', level: { easy: 2, normal: 5, hard: 8 }, jcol: ['#ff5d8f', '#7dd3fc'],
-    scale: [60, 62, 64, 65, 67, 69, 71, 72, 74],
-    phrases: {
-      A: { mel: '5...5...6...5...' + '8...7.6.5...3...' + '5.5.6.5.3.3.2.2.' + '3.3.4.3.2.1.2...', bass: [1, 6, 4, 5] },
-      B: { mel: '8.8.9.8.6...5...' + '6.6.7.6.5...4...' + '5...6...7...8...' + '7.6.5.4.3...2...', bass: [1, 4, 5, 1] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A']
-  },
-  {
-    id: 'runline', title: '疾走ライン', emo: '🎸', genre: '疾走ロック', bpm: 156, wave: 'sawtooth', theme: 'rock', jk: 'jk-rock', dens: 0.9,
-    artist: 'OVERDRIVE HEARTS', desc: '息つく暇もない高速ロック。フリックの嵐を駆け抜けろ。', level: { easy: 3, normal: 6, hard: 9 }, jcol: ['#f43f5e', '#f59e0b'],
-    scale: [64, 66, 67, 69, 71, 72, 74, 76, 78],
-    phrases: {
-      A: { mel: '1.1.1.1.3.2.1.1.' + '1.1...1.4.3.2...' + '4.4.4.4.6.5.4.4.' + '5.4.3.2.1...2...', bass: [1, 1, 6, 7] },
-      B: { mel: '8.7.6.5.6.7.8.7.' + '6.5.4.3.4.5.6...' + '8...8...7.6.5...' + '4.3.2.1.2...3...', bass: [6, 4, 1, 5] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
-  },
-  {
-    id: 'electrica', title: '夢幻エレクトリカ', emo: '🔮', genre: '幻想エレクトロ', bpm: 118, wave: 'sine', theme: 'electro', jk: 'jk-electro', dens: 1.35,
-    artist: 'Neon Dream Lab', desc: '夢のなかを漂うような幻想エレクトロ。ロングノーツの海。', level: { easy: 3, normal: 6, hard: 8 }, jcol: ['#6366f1', '#22d3ee'],
-    scale: [57, 59, 60, 62, 64, 65, 67, 69, 71],
-    phrases: {
-      A: { mel: '5...3...1...3...' + '4...3...2...1...' + '5...6...8...6...' + '5...3...2.......', bass: [1, 6, 4, 5] },
-      B: { mel: '8.7.6.5.6.7.8...' + '9.8.7.6.5.6.7...' + '6...5...4...3...' + '2...1...2.......', bass: [1, 4, 5, 1] }
-    },
-    seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
-  },
-  {
-    id: 'idoldays', title: 'キラメキ☆アイドルデイズ', emo: '🎤', genre: 'アイドルポップ', bpm: 138, wave: 'square', theme: 'idol', jk: 'jk-idol', vocal: true,
-    artist: 'プリズム☆ハーツ', desc: '歌声シンセが歌う、スターリズムの看板アイドルソング。ラララと一緒に歌おう。', level: { easy: 2, normal: 5, hard: 8 }, jcol: ['#ff8ac2', '#67e8f9'],
-    scale: [62, 64, 65, 67, 69, 71, 72, 74, 76],
-    phrases: {
-      A: { mel: '5.5.6.5.8.7.6.5.' + '6.6.7.6.5.4.3.2.' + '3.3.4.3.5.5.6.5.' + '4.3.2.3.1.......', bass: [1, 6, 4, 5] },
-      B: { mel: '8.8.8.9.8.6.5.6.' + '7.7.8.7.6.5.4.5.' + '5...6...8...9...' + '8.7.6.5.4.3.2...', bass: [1, 4, 5, 1] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A']
-  },
-  {
-    id: 'sakuramau', title: '桜舞うステージ', emo: '🌸', genre: '和風ポップ', bpm: 124, wave: 'triangle', theme: 'wa', jk: 'jk-wa', dens: 1.1,
-    artist: '桜小町', desc: '筝の音色が舞う和風ポップ。都節の旋律と桜の花びら。', level: { easy: 3, normal: 5, hard: 8 }, jcol: ['#f472b6', '#4338ca'],
-    scale: [57, 58, 62, 64, 65, 69, 70, 74, 76],
-    phrases: {
-      A: { mel: '5...4...3...1...' + '3.4.5...4.3.1...' + '5.5.7.5.4...3...' + '4.3.1...2...1...', bass: [1, 4, 1, 5] },
-      B: { mel: '7...5...4...5...' + '8.7.5.4.5...3...' + '3...4...5...7...' + '5.4.3.1.2...1...', bass: [1, 5, 4, 1] }
-    },
-    seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B']
-  },
   /* ---------------- 実音源曲（audio/parts/<id>.pNN.js の分割 AAC を選曲時に遅延読み込み） ----------------
      bpm / offset（最初の拍の位置・秒）/ duration（秒）は実測値。譜面は拍グリッドから決定的に生成する。
      parts は base64 分割ファイルの個数（push の1ファイル上限を避けるため分割している）。 */
@@ -919,37 +871,16 @@ var SONGS = [
 ];
 function songById(id) { for (var i = 0; i < SONGS.length; i++) if (SONGS[i].id === id) return SONGS[i]; return SONGS[0]; }
 
-/* 曲の全ステップを展開し、メロディイベントと小節ごとのベース根音を求める */
+/* 曲のステップ数・曲長などの基礎データを返す。
+   v155: シンセ曲の全廃に伴い、フレーズ展開（seq/phrases/scale）の経路は除去。
+   全曲が実音源のため、ここは実音源の計算だけになった */
 function buildSongData(song) {
-  if (song.audio) {
-    /* 実音源：1拍=4ステップ（16分グリッド）。全拍数ぶんだけ生成し、最後の拍より先には置かない。
-       区間グリッド曲（segs あり）は最終区間のグリッドで総ステップ数を数える */
-    var aStepDur = 60 / song.bpm / 4;
-    var aTotal = (song.segs && song.segs.length) ? songTotalSteps(song)
-      : Math.max(4, Math.floor((song.duration - song.offset) / (60 / song.bpm))) * 4;
-    return { stepDur: aStepDur, totalSteps: aTotal, duration: song.duration, melEvents: {}, melSteps: {}, bassByBar: [], bars: aTotal / 16, audio: true, offset: song.offset };
-  }
-  var stepDur = 60 / song.bpm / 4;
-  var melStr = '';
-  var bassByBar = [];
-  song.seq.forEach(function (pk) {
-    var ph = song.phrases[pk];
-    melStr += ph.mel;
-    for (var b = 0; b < 4; b++) bassByBar.push(song.scale[ph.bass[b] - 1] - 12);
-  });
-  var totalSteps = melStr.length;
-  var melEvents = {}; /* step -> {midi, len} */
-  var melSteps = {};
-  var cur = -1, curStart = -1;
-  for (var s = 0; s <= totalSteps; s++) {
-    var ch = s < totalSteps ? melStr.charAt(s) : '.';
-    var deg = (ch >= '1' && ch <= '9') ? (ch.charCodeAt(0) - 48) : 0;
-    if (deg > 0) {
-      if (cur > 0) melEvents[curStart] = { midi: song.scale[cur - 1], len: s - curStart };
-      cur = deg; curStart = s; melSteps[s] = true;
-    }
-  }
-  return { stepDur: stepDur, totalSteps: totalSteps, duration: totalSteps * stepDur, melEvents: melEvents, melSteps: melSteps, bassByBar: bassByBar, bars: totalSteps / 16 };
+  /* 実音源：1拍=4ステップ（16分グリッド）。全拍数ぶんだけ生成し、最後の拍より先には置かない。
+     区間グリッド曲（segs あり）は最終区間のグリッドで総ステップ数を数える */
+  var aStepDur = 60 / song.bpm / 4;
+  var aTotal = (song.segs && song.segs.length) ? songTotalSteps(song)
+    : Math.max(4, Math.floor((song.duration - song.offset) / (60 / song.bpm))) * 4;
+  return { stepDur: aStepDur, totalSteps: aTotal, duration: song.duration, melEvents: {}, melSteps: {}, bassByBar: [], bars: aTotal / 16, audio: true, offset: song.offset };
 }
 
 /* ---------------- 難易度と譜面生成（決定的） ---------------- */
@@ -961,21 +892,12 @@ var DIFFS = {
 /* フリックの方向指定は廃止済み：フリックノーツの dir は常に null で、
    どの方向へのスワイプ／矢印キーでも成功する（flickAttempt が方向を見ない） */
 /* ---------------- サビ区間とオンセット ----------------
-   実音源曲：解析データ（music_map）の chorus（秒）/ steps（16分ステップごとの
+   解析データ（music_map）の chorus（秒）/ steps（16分ステップごとの
    オンセット強度 0-9）を曲定義に埋め込み済み。
-   シンセ曲：フレーズ構成からサビ相当区間を導出する（Bフレーズ＝高音域で
-   メロディが密になるサビ相当部。連続する B は1区間にまとめる）。 */
+   v155: シンセ曲のフレーズ構成からサビ区間を導出する経路は除去した。 */
 var CHORUS_MUL = { easy: 1.12, normal: 1.22, hard: 1.50 }; /* サビの密度倍率（最低難易度は上げ幅を小さく） */
 function chorusRangesSec(song, data) {
-  if (song.audio) return song.chorus || [];
-  var out = [];
-  song.seq.forEach(function (pk, i) {
-    if (pk !== 'B') return;
-    var s0 = i * 64 * data.stepDur, s1 = (i + 1) * 64 * data.stepDur;
-    if (out.length && Math.abs(out[out.length - 1][1] - s0) < 1e-6) out[out.length - 1][1] = s1;
-    else out.push([s0, s1]);
-  });
-  return out;
+  return song.chorus || [];
 }
 function inChorusRanges(ranges, tSec) {
   for (var i = 0; i < ranges.length; i++) if (tSec >= ranges[i][0] && tSec < ranges[i][1]) return true;
@@ -1040,8 +962,9 @@ function songTotalSteps(song) {
   return Math.max(0, last.from + Math.floor((song.duration - (last.off + last.from * last.sd)) / last.sd));
 }
 /* ボーカル強度（vst）：歌もの曲のみ持つ、ボーカル帯域のオンセット強度 0〜9。
-   ※歌声合成の vocalAt(midi, t, ...) と名前が衝突すると宣言の後勝ちで
-     こちらが上書きされ、譜面生成が NaN 例外で死ぬため、名前を分けること */
+   ※v116 の教訓：歌声合成の同名関数と衝突すると宣言の後勝ちでこちらが
+     上書きされ譜面生成が NaN 例外で死ぬため、この名前は単独で保つこと
+     （歌声合成 vocalAt 自体は v155 で除去済み） */
 function vocalStrAt(song, step) {
   if (!song.vst || step < 0 || step >= song.vst.length) return 0;
   var n = song.vst.charCodeAt(step) - 48;
@@ -1148,81 +1071,9 @@ function enforceLongRules(notes) {
   return out;
 }
 function buildChart(song, diffKey) {
-  if (song.audio) return buildAudioChart(song, diffKey);
-  var P = DIFFS[diffKey];
-  var data = buildSongData(song);
-  var chRanges = chorusRangesSec(song, data);
-  var rng = mulberry32(hashStr('sr:' + song.id + ':' + diffKey));
-  var notes = [];
-  var lastStep = -9999, prevLane = 1, sameLaneRun = 0;
-  function pickLane(step, accent) {
-    var lane;
-    var ev = data.melEvents[step];
-    if (accent && ev) {
-      var deg = song.scale.indexOf(ev.midi) + 1; /* 1..9 */
-      lane = Math.round((deg - 1) / 8 * 3 + (rng() * 1.1 - 0.55));
-    } else {
-      var mv = rng() < 0.32 ? 2 : 1;
-      lane = prevLane + (rng() < 0.5 ? -mv : mv);
-      if (lane < 0 || lane > 3) lane = prevLane - (lane - prevLane);
-    }
-    lane = clamp(lane, 0, 3);
-    if (lane === prevLane) { sameLaneRun++; if (sameLaneRun >= 2 && rng() < 0.75) { lane = clamp(lane + (lane >= 2 ? -1 : 1), 0, 3); sameLaneRun = 0; } }
-    else sameLaneRun = 0;
-    prevLane = lane;
-    return lane;
-  }
-  for (var step = 16; step < data.totalSteps - 8; step++) {
-    if (step % P.grid !== 0) continue;
-    if (step - lastStep < P.minGap) continue;
-    var accent = !!data.melSteps[step];
-    var barStart = step % 16 === 0;
-    var ch = inChorusRanges(chRanges, step * data.stepDur);
-    /* 主旋律のリズムを主軸にする：メロディのあるステップはほぼ置き、
-       メロディの無いステップは控えめな埋め草に留める */
-    var p = accent ? Math.min(0.97, P.pAccent + 0.08) : P.pOff * 0.55;
-    if (barStart) p = Math.max(p, 0.85);
-    p *= (song.dens || 1);
-    if (ch) p *= CHORUS_MUL[diffKey]; /* サビは少し難しく */
-    if (rng() >= p) continue;
-    var lane = pickLane(step, accent);
-    var type = 'tap', lenSteps = 0, dir = null;
-    var ev2 = data.melEvents[step];
-    if (accent && ev2 && ev2.len >= 4 && rng() < P.pLong * (ch ? 1.3 : 1)) {
-      type = 'long';
-      lenSteps = clamp(Math.round(ev2.len / 2) * 2, 4, 12);
-      if (step + lenSteps > data.totalSteps - 4) lenSteps = data.totalSteps - 4 - step;
-    } else if (P.pFlick > 0 && step % 4 === 0 && rng() < P.pFlick * (ch ? 1.4 : 1)) {
-      type = 'flick';
-      rng(); /* 方向指定は廃止（どの方向に弾いても成功）。乱数消費だけ残し、他のノーツの配置を従来譜面から変えない */
-      dir = null;
-    }
-    notes.push({ step: step, t: step * data.stepDur, lane: lane, type: type, lenSteps: lenSteps, lenSec: lenSteps * data.stepDur, dir: dir, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 });
-    /* 同時押し（小節頭などに和音ノーツを追加。サビでは拍ステップにも付く。
-       ロングの頭には付けない＝保持しながら別レーンを叩く要求を避ける。
-       easy は通常同時押しなしだが、サビの小節頭だけ稀に付ける） */
-    var chordP2 = ch ? (diffKey === 'easy' ? 0.18 : Math.min(1, P.pChord * 1.5)) : P.pChord;
-    if (type !== 'long' && chordP2 > 0 && (barStart || (diffKey === 'hard' && step % 8 === 0) || (ch && step % 4 === 0)) && rng() < chordP2) {
-      var lane2 = (lane + 1 + Math.floor(rng() * 3)) % 4;
-      notes.push({ step: step, t: step * data.stepDur, lane: lane2, type: 'tap', lenSteps: 0, lenSec: 0, dir: null, state: 'wait', res: null, headRes: null, unheld: 0, group: -1 });
-    }
-    lastStep = (type === 'long') ? step + lenSteps : step;
-  }
-  notes.sort(function (a, b) { return (a.step - b.step) || (a.lane - b.lane); });
-  notes = capSimultaneous(notes); /* 同時押しは最大2つまで */
-  notes = enforceLongRules(notes); /* ロングの同一レーン区間と全区間（途中・末尾含む）の占有を上限内に */
-  /* 同時押しグループ（同じ step に2つ以上）を線で結ぶために印付け */
-  var g = 0;
-  for (var i = 0; i < notes.length;) {
-    var j = i;
-    while (j + 1 < notes.length && notes[j + 1].step === notes[i].step) j++;
-    if (j > i) { for (var k = i; k <= j; k++) notes[k].group = g; g++; }
-    i = j + 1;
-  }
-  var counts = { tap: 0, long: 0, flick: 0 };
-  var totalWeight = 0;
-  notes.forEach(function (n) { counts[n.type]++; n.weight = n.type === 'long' ? 2 : 1; totalWeight += n.weight; });
-  return { notes: notes, counts: counts, totalWeight: Math.max(1, totalWeight), data: data };
+  /* v155: シンセ曲の全廃により、譜面生成は実音源経路（buildAudioChart）だけになった。
+     旧シンセ経路（メロディ主軸の生成）は除去済み */
+  return buildAudioChart(song, diffKey);
 }
 /* 実音源曲の譜面生成（決定的）：解析データのオンセット強度に駆動されて配置する。
    強いオンセットに優先して置き、弱いステップは高難易度の埋め草程度、強度0には置かない。
@@ -1656,8 +1507,9 @@ try { var mv0 = parseInt(localStorage.getItem(MUSIC_VOL_KEY), 10); if (mv0 >= 0 
 function musicVol() { return musicVolPct / 100; }
 function applyMasterGain() {
   if (!master) return;
-  var pv = (typeof preview !== 'undefined' && preview && preview.kind === 'synth') ? PREVIEW_VOL : 1;
-  master.gain.value = muted ? 0 : 0.9 * musicVol() * pv;
+  /* v155: シンセプレビュー廃止に伴い、プレビュー時の減音は実音源側
+     （audioEl.volume）だけになったため、ここは曲音量のみで決まる */
+  master.gain.value = muted ? 0 : 0.9 * musicVol();
 }
 function applyMusicVol() {
   applyMasterGain();
@@ -1693,106 +1545,9 @@ function laneTapSound(lane) {
 function hitSound(res) { if (!AC) return; var t = AC.currentTime; if (res === 'PERFECT') { toneAt(1320, t, 0.1, 'sine', seV(0.18), null, seBus); toneAt(1980, t, 0.12, 'sine', seV(0.105), null, seBus); } else if (res === 'GREAT') toneAt(990, t, 0.09, 'sine', seV(0.145), null, seBus); else if (res === 'GOOD') toneAt(660, t, 0.08, 'sine', seV(0.11), null, seBus); }
 function flickSound() { if (!AC) return; var t = AC.currentTime; noiseAt(t, 0.13, 'bandpass', 900, 1.0, seV(0.27), seBus); toneAt(300, t, 0.13, 'sawtooth', seV(0.085), 1400, seBus); }
 
-/* ---------------- 歌声シンセ（アイドル曲のリード） ----------------
-   鋸波を母音フォルマントのバンドパス3本に通し、ビブラートと
-   歌い出しのピッチスコープ、音節ごとの立ち上がりで「ラララ」と歌わせる。 */
-var vocalCalls = 0;
-var VOWELS = [
-  { f: [730, 1090, 2440], g: [1.0, 0.55, 0.30] }, /* あ */
-  { f: [270, 2290, 3010], g: [1.0, 0.50, 0.34] }, /* い */
-  { f: [300, 870, 2240],  g: [1.0, 0.42, 0.22] }, /* う */
-  { f: [530, 1840, 2480], g: [1.0, 0.55, 0.30] }, /* え */
-  { f: [570, 840, 2410],  g: [1.0, 0.48, 0.24] }  /* お */
-];
-function vocalAt(midi, t, dur, vol, seedStep) {
-  if (!AC) return;
-  vocalCalls++;
-  var freq = midiHz(midi);
-  var vow = VOWELS[Math.abs(seedStep | 0) % VOWELS.length];
-  var o = AC.createOscillator(); o.type = 'sawtooth';
-  /* 歌い出しは少し下から scooping して音程に入る */
-  o.frequency.setValueAtTime(Math.max(30, freq * 0.93), t);
-  o.frequency.exponentialRampToValueAtTime(freq, t + 0.07);
-  /* ビブラート（後半にかけて深くなる） */
-  var lfo = AC.createOscillator(); lfo.frequency.setValueAtTime(5.6, t);
-  var lfoG = AC.createGain();
-  lfoG.gain.setValueAtTime(0.01, t);
-  lfoG.gain.exponentialRampToValueAtTime(Math.max(0.02, freq * 0.009), t + Math.min(0.4, dur * 0.7));
-  lfo.connect(lfoG); lfoG.connect(o.frequency);
-  var lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3600, t); lp.Q.setValueAtTime(0.4, t);
-  var vg = AC.createGain();
-  vg.gain.setValueAtTime(0.0001, t);
-  vg.gain.exponentialRampToValueAtTime(vol, t + 0.05);
-  vg.gain.setValueAtTime(vol, t + Math.max(0.05, dur * 0.72));
-  vg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(lp);
-  var dg = AC.createGain(); dg.gain.setValueAtTime(0.18, t);
-  lp.connect(dg); dg.connect(vg);
-  for (var i = 0; i < 3; i++) {
-    var bp = AC.createBiquadFilter(); bp.type = 'bandpass';
-    bp.frequency.setValueAtTime(vow.f[i], t); bp.Q.setValueAtTime(1.1, t);
-    var bg = AC.createGain(); bg.gain.setValueAtTime(vow.g[i], t);
-    lp.connect(bp); bp.connect(bg); bg.connect(vg);
-  }
-  vg.connect(master);
-  o.start(t); o.stop(t + dur + 0.05);
-  lfo.start(t); lfo.stop(t + dur + 0.05);
-}
-
-/* 曲の1ステップ分をスケジュールする */
-function scheduleStep(song, data, step, t) {
-  var ev = data.melEvents[step];
-  var bar = Math.floor(step / 16), bs = step % 16;
-  var root = data.bassByBar[bar];
-  if (song.theme === 'pop') {
-    if (ev) toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 0.9, 1.4), 'square', 0.11);
-    if (bs % 2 === 0) toneAt(midiHz(song.scale[4] + 12 + [0, 4, 7, 12][(step >> 1) % 4]), t, data.stepDur * 1.4, 'sine', 0.045);
-    if (root && bs % 4 === 0) toneAt(midiHz(root), t, data.stepDur * 3.2, 'triangle', 0.24);
-    if (bs === 0 || bs === 8) kickAt(t, 0.42);
-    if (bs === 4 || bs === 12) clapAt(t, 0.20);
-    if (bs % 2 === 0) hatAt(t, 0.07, false);
-  } else if (song.theme === 'rock') {
-    if (ev) toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 0.92, 1.4), 'sawtooth', 0.13);
-    if (root && bs % 2 === 0) toneAt(midiHz(root), t, data.stepDur * 1.8, 'triangle', 0.26);
-    if (bs === 0 || bs === 8 || bs === 10) kickAt(t, 0.6);
-    if (bs === 4 || bs === 12) snareAt(t, 0.4);
-    if (bs % 2 === 0) hatAt(t, 0.12, bs === 14);
-    if (bs === 0 && bar % 4 === 0) noiseAt(t, 0.35, 'bandpass', 3300, 0.5, 0.09); /* クラッシュ：SEクリック帯域(5kHz〜)を避け鈍いシズルに */
-  } else if (song.theme === 'idol') {
-    /* リードは歌声シンセが担当 */
-    if (ev) vocalAt(ev.midi, t, Math.min(ev.len * data.stepDur * 0.92, 1.6), 0.13, step);
-    if (root && bs % 4 === 0) { /* キラキラしたコードスタッブ */
-      var bi2 = song.scale.indexOf(root + 12);
-      [0, 2, 4].forEach(function (off) { var ix = clamp((bi2 < 0 ? 0 : bi2) + off, 0, song.scale.length - 1); toneAt(midiHz(song.scale[ix] + 12), t, data.stepDur * 3.4, 'triangle', 0.05); });
-    }
-    if (bs % 2 === 0) toneAt(midiHz(song.scale[[0, 4, 2, 6][(step >> 1) % 4]] + 24), t, data.stepDur * 1.2, 'sine', 0.03);
-    if (root && bs % 2 === 0) toneAt(midiHz(root), t, data.stepDur * 1.7, 'triangle', 0.22);
-    if (bs % 4 === 0) kickAt(t, 0.40);
-    if (bs === 4 || bs === 12) clapAt(t, 0.22);
-    if (bs % 2 === 1) hatAt(t, 0.06, bs === 15);
-  } else if (song.theme === 'wa') {
-    if (ev) { /* 筝のような撥弦：三角波＋短い鋸波の重ね */
-      toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 0.85, 0.9), 'triangle', 0.17);
-      toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 0.4, 0.4), 'sawtooth', 0.045);
-    }
-    if (root && bs % 4 === 0) toneAt(midiHz(root), t, data.stepDur * 6, 'sine', 0.20);
-    if (bs === 0 || bs === 8) kickAt(t, 0.36);
-    if (bs === 4 || bs === 12) snareAt(t, 0.16);
-    if (bs % 4 === 2) hatAt(t, 0.045, false);
-    if (bs === 0 && bar % 2 === 0) toneAt(midiHz(song.scale[4] + 24), t, data.stepDur * 10, 'sine', 0.02);
-  } else { /* electro */
-    if (ev) toneAt(midiHz(ev.midi), t, Math.min(ev.len * data.stepDur * 1.5, 2.2), 'sine', 0.16);
-    if (bs === 0 && root) { /* パッド：根音＋3度＋5度を長く */
-      var base = song.scale.indexOf(root + 12);
-      [0, 2, 4].forEach(function (off) { var idx = clamp((base < 0 ? 0 : base) + off, 0, song.scale.length - 1); toneAt(midiHz(song.scale[idx] + 12), t, data.stepDur * 15, 'triangle', 0.035); });
-      toneAt(midiHz(root), t, data.stepDur * 8, 'sine', 0.20);
-    }
-    var arpSeq = [0, 2, 4, 7, 4, 2];
-    toneAt(midiHz(song.scale[2] + 24 + arpSeq[step % 6]), t, data.stepDur * 0.9, 'sine', 0.028);
-    if (bs === 0 || bs === 8) kickAt(t, 0.34);
-    if (bs % 4 === 2) hatAt(t, 0.05, false);
-  }
-}
+/* v155: 歌声シンセ（vocalAt / VOWELS）とシンセ伴奏スケジューラ（scheduleStep）は、
+   それを使うシンセ曲5曲の全廃に伴い除去した。残る22曲は全て実音源で、
+   再生は下の実音源経路だけを使う */
 
 /* ---------------- 実音源の読み込みと再生 ----------------
    曲データは audio/parts/<id>.pNN.js（base64 AAC を分割したもの）を選曲時に初めて読み込み、
@@ -2099,7 +1854,7 @@ function stopAudioEl() {
    演奏開始・曲の切り替え・モード切替・画面を離れたら止める。
    iOS の自動再生制限に配慮し、開始は選曲タップのジェスチャ内から行い、
    ブロックされた場合は次の pointerdown で再試行する */
-var preview = null; /* { songId, kind:'audio'|'synth', start, end, timer, step, nextTime, data, song } */
+var preview = null; /* { songId, kind:'audio', start, end, timer, song }（v155: シンセプレビュー廃止で kind は 'audio' のみ） */
 var previewNeedTap = false;
 var PREVIEW_VOL = 0.6;
 function previewRange(song) {
@@ -2137,23 +1892,8 @@ function startPreview(song) {
     else loadAudioTrack(song, function (err) { if (!err) begin(); });
     return;
   }
-  if (!AC) return; /* シンセのプレビューは AudioContext が要る（選曲タップで生成済みのはず） */
-  var data = r.data;
-  var startStep = Math.max(0, Math.ceil(r.start / data.stepDur));
-  var endStep = Math.min(Math.floor(r.end / data.stepDur), startStep + Math.floor(15 / data.stepDur)); /* 最大15秒 */
-  if (endStep <= startStep) return;
-  preview = { songId: song.id, kind: 'synth', start: r.start, end: endStep * data.stepDur, timer: null, step: startStep, nextTime: AC.currentTime + 0.08, data: data, song: song };
-  applyMasterGain(); /* プレビュー中は全体を控えめに（曲音量も反映） */
-  preview.timer = setInterval(function () {
-    if (!preview || preview.kind !== 'synth' || !AC) return;
-    var ahead = AC.currentTime + 0.15;
-    while (preview.step <= endStep && preview.nextTime < ahead) {
-      scheduleStep(preview.song, preview.data, preview.step, Math.max(preview.nextTime, AC.currentTime - 0.02));
-      preview.step++;
-      preview.nextTime += preview.data.stepDur;
-    }
-    if (preview.step > endStep) stopPreview();
-  }, 25);
+  /* v155: シンセ曲のプレビュー経路は曲の全廃に伴い除去。全曲が実音源で、
+     プレビューは上の audio 経路だけになった */
 }
 function stopPreview() {
   if (!preview) { previewNeedTap = false; return; }
@@ -2162,7 +1902,6 @@ function stopPreview() {
     try { audioEl.pause(); } catch (e) {}
     try { audioEl.volume = musicVol(); } catch (e) {} /* 本編再生用に音量を戻す */
   }
-  if (preview.kind === 'synth') applyMasterGain();
   preview = null;
   previewNeedTap = false;
 }
@@ -2171,7 +1910,7 @@ function stopPreview() {
 function $(id) { return document.getElementById(id); }
 var wrapEl = $('wrapEl'), cv = $('cv'), ctx = cv.getContext('2d');
 var mode = 'solo';
-var selSong = 'starlight', selDiff = 'normal';
+var selSong = 'cipher', selDiff = 'normal'; /* v155: 既定曲は旧 starlight（削除済み）から先頭の実音源曲 cipher へ */
 var playing = false, songTime = 0, startCtx = 0, schedTimer = null, nextStep = 0;
 var timeOverride = null; /* テスト用：songTime を手動で進める */
 var curSong = null, curBuilt = null, chart = [], totalWeight = 1;
@@ -2727,7 +2466,7 @@ function startSong() {
   ensureAudio();
   if (!AC) return;
   var song = songById(selSong);
-  if (!song.audio) { beginPlay(song); return; }
+  /* v155: 全曲が実音源になったため、旧シンセ曲の即時開始ショートカットは除去 */
   if (audioDataReady(song)) {
     loadAudioTrack(song, function () {}); /* ObjectURL 化まで済ませる（同期） */
     beginPlay(song);
@@ -2802,20 +2541,8 @@ function beginPlay(song) {
   startCtx = AC.currentTime + 3.2; /* 3秒カウントダウン */
   nextStep = playStartOffset > 0 ? Math.max(0, Math.floor(playStartOffset / curBuilt.data.stepDur)) : 0;
   if (schedTimer) clearInterval(schedTimer);
-  if (song.audio) setupAudioPlayback(song); /* 実音源：カウントダウン後に Audio を再生 */
-  else schedTimer = setInterval(scheduleAhead, 25);
+  setupAudioPlayback(song); /* 実音源：カウントダウン後に Audio を再生（v155: シンセ先行スケジューラ scheduleAhead は除去） */
   updateHUD(true);
-}
-function scheduleAhead() {
-  if (!playing || !AC || (curSong && curSong.audio)) return;
-  var ahead = AC.currentTime + 0.15;
-  while (true) {
-    var st = startCtx + nextStep * curBuilt.data.stepDur - playStartOffset;
-    if (st > ahead) break;
-    if (nextStep < curBuilt.data.totalSteps) scheduleStep(curSong, curBuilt.data, nextStep, Math.max(st, AC.currentTime - 0.05));
-    nextStep++;
-    if (nextStep > curBuilt.data.totalSteps + 32) { clearInterval(schedTimer); schedTimer = null; break; }
-  }
 }
 function stopSong(toMenu) {
   playing = false;
@@ -2835,7 +2562,7 @@ function pauseGame() {
   if (!playing || paused || mode !== 'solo') return;
   paused = true;
   pauseStartCtx = AC ? AC.currentTime : 0;
-  if (schedTimer) { clearInterval(schedTimer); schedTimer = null; } /* シンセの先行スケジュールを止める */
+  if (schedTimer) { clearInterval(schedTimer); schedTimer = null; } /* 念のための掃除（v155以降スケジューラは使わない） */
   if (audioPlayTimer) { clearTimeout(audioPlayTimer); audioPlayTimer = null; audioPendingStart = true; } /* カウントダウン中の実音源は再開時に鳴らす */
   else if (curAudioActive && audioEl) { try { audioEl.pause(); } catch (e) {} }
   /* テストプレイ中だけ、専用のやり直し2項目（初めから／テスト開始地点から）を出す。通常演奏・対戦では出さない */
@@ -2852,8 +2579,7 @@ function resumeGame() {
   /* 曲時計（songTimeAt の外挿元 startCtx）をポーズ時間ぶん後ろへずらし、
      実音源の再生位置と譜面時計がずれないようにする */
   startCtx += AC.currentTime - pauseStartCtx;
-  if (curSong && !curSong.audio) { if (schedTimer) clearInterval(schedTimer); schedTimer = setInterval(scheduleAhead, 25); scheduleAhead(); }
-  else if (curAudioActive && audioEl) {
+  if (curAudioActive && audioEl) {
     if (audioPendingStart) {
       audioPendingStart = false;
       var p = null; try { p = audioEl.play(); } catch (e) {}
@@ -5488,37 +5214,14 @@ function edPlayStart() {
       showToast('音源を読み込んでいます…', 2000);
       loadAudioTrack(song, function (err) { if (!err) begin(); });
     }
-  } else {
-    if (!AC) { showToast('音が出せませんでした', 2000); return; }
-    edPlay.playing = true;
-    edPlay.t0 = AC.currentTime + 0.06;
-    edPlay.nextStep = startStep;
-    edPlay.timer = setInterval(edSynthTick, 25);
-    edPlay.raf = requestAnimationFrame(edPlayTick);
-    edRender();
   }
-}
-function edSynthTick() {
-  if (!edPlay.playing || !ed) return;
-  var song = edSong(), d = edData();
-  var ahead = AC.currentTime + 0.15;
-  while (edPlay.nextStep < d.totalSteps) {
-    var when = edPlay.t0 + (edPlay.nextStep - edPlay.fromStep) * d.stepDur;
-    if (when > ahead) break;
-    scheduleStep(song, d, edPlay.nextStep, Math.max(when, AC.currentTime - 0.05));
-    edPlay.nextStep++;
-  }
-  if (edPlay.nextStep >= d.totalSteps && AC.currentTime > edPlay.t0 + (d.totalSteps - edPlay.fromStep) * d.stepDur + 0.3) edStopPlayback();
+  /* v155: シンセ曲用のエディタ再生（edSynthTick／scheduleStep 駆動）は曲の全廃に伴い除去 */
 }
 function edPlayTick() {
   if (!ed || !edPlay.playing) return;
   var song = edSong(), d = edData();
-  if (song.audio) {
-    edPlay.time = audioEl ? audioEl.currentTime : 0;
-    if (audioEl && audioEl.ended) { edStopPlayback(); return; }
-  } else {
-    edPlay.time = edPlay.fromStep * d.stepDur + Math.max(0, AC.currentTime - edPlay.t0);
-  }
+  edPlay.time = audioEl ? audioEl.currentTime : 0;
+  if (audioEl && audioEl.ended) { edStopPlayback(); return; }
   edRender();
   /* プレビューでもノーツが判定位置に来たらヒット音を鳴らす
      （通常演奏と同じ laneTapSound/flickSound＝同じ音量設定に従う） */
@@ -5541,7 +5244,7 @@ function edPlayTick() {
   edPlay.raf = requestAnimationFrame(edPlayTick);
 }
 /* restore=true は「ユーザーがストップした」時だけ：再生を始めたフレームへ表示を戻す。
-   曲の終わりまで再生し切った時（edSynthTick／edPlayTick からの呼び出し）は戻さない */
+   曲の終わりまで再生し切った時（edPlayTick からの呼び出し）は戻さない */
 function edStopPlayback(restore) {
   if (edPlay.timer) { clearInterval(edPlay.timer); edPlay.timer = null; }
   if (edPlay.raf) cancelAnimationFrame(edPlay.raf);
@@ -5853,8 +5556,7 @@ window.__sr = {
   },
   finishNow: function () { if (playing) { finishSong(); } },
   flickColor: FLICK_COL,
-  scheduleStep: scheduleStep,
-  vocalCalls: function () { return vocalCalls; },
+  /* v155: scheduleStep / vocalCalls のテスト公開は、シンセ再生経路の除去に伴い廃止 */
   judgeBar: function () { return judgeBarSegs(); },
   judgeBarRect: function () { return judgeBarRect(); },
   judgeBarH: function () { return JUDGE_BAR_H; },

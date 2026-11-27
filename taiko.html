@@ -706,63 +706,11 @@ function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
 /* ---------------- 曲データ ----------------
-   mel は 1フレーズ=4小節×16ステップ=64文字。'.'=休符、'1'〜'9'=スケールの度数。
-   bassRoots は小節ごとのベース度数（4つ）。seq はフレーズの並び。
-   chorus はサビ区間（秒）。シンセ曲はフレーズの平均度数が高い方（B）の出現区間を
-   サビ相当とし、演奏中の見た目の変化だけに使う（シンセ曲の譜面は従来どおり不変）。 */
+   v155: シンセ生成曲5曲（matsuri／chip／rock／idol／jazz）は本人の指示で
+   全廃し、全22曲が実音源曲になった。シンセ曲専用だったフレーズデータ
+   （mel／scale／seq）と譜面生成のシンセ分岐も併せて除去済み。
+   chorus はサビ区間（秒）。 */
 var SONGS = [
-  {
-    id: 'matsuri', title: 'まつり太鼓', emo: '🏮', genre: '和風・まつり', cat: '和風', bpm: 112, wave: 'triangle', theme: 'wafu',
-    scale: [57, 60, 62, 64, 67, 69, 72, 74, 76],
-    phrases: {
-      A: { mel: '6...6...5.4.5...' + '3...3...2.1.2...' + '4...4...5.6.5.4.' + '3..2.3..1.......', bass: [1, 3, 2, 1] },
-      B: { mel: '6...7.6.5...4...' + '5...6.5.4...3...' + '4.4.5.5.6...5...' + '6.......6.......', bass: [1, 4, 5, 1] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'B', 'A', 'B'],
-    chorus: [[17.14,25.71],[34.29,51.43],[60,68.57]]
-  },
-  {
-    id: 'chip', title: 'チップチューン・ダッシュ', emo: '👾', genre: 'チップチューン', cat: 'ゲーム', bpm: 140, wave: 'square', theme: 'chip', dens: 0.82,
-    scale: [60, 62, 64, 65, 67, 69, 71, 72, 74],
-    phrases: {
-      A: { mel: '5.5.6.5.3.3.2.2.' + '3.3.4.3.2.1.2...' + '5.5.6.5.8.8.7.6.' + '5.3.2.1.2.......', bass: [1, 6, 4, 5] },
-      B: { mel: '8.7.6.5.6.7.8...' + '9.8.7.6.5.6.7...' + '8.7.6.5.4.3.2.3.' + '1...5...1.......', bass: [1, 4, 5, 1] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B'],
-    chorus: [[13.71,20.57],[27.43,34.29],[41.14,54.86],[61.71,68.57]]
-  },
-  {
-    id: 'rock', title: 'ロックン太鼓', emo: '🎸', genre: 'ロック', cat: 'ロック', bpm: 128, wave: 'sawtooth', theme: 'rock',
-    scale: [64, 66, 67, 69, 71, 72, 74, 76, 78],
-    phrases: {
-      A: { mel: '1.1...1.1.1...1.' + '1.1...1.3.2.1...' + '4.4...4.4.4...4.' + '5.4.3.2.1.......', bass: [1, 1, 6, 7] },
-      B: { mel: '8...7.6.5...4...' + '3.4.5...6...5...' + '4.5.6.6.7...6...' + '8.......8.......', bass: [6, 4, 1, 5] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B', 'A'],
-    chorus: [[15,22.5],[30,37.5],[45,60]]
-  },
-  {
-    /* アイドルポップ：メロディは歌声シンセ（vocal）が「ラララ」と歌う */
-    id: 'idol', title: 'キラメキ☆ドリームステージ', emo: '🎤', genre: 'アイドル・ポップ', cat: 'ポップ', bpm: 132, wave: 'triangle', theme: 'idol', vocal: true, dens: 0.85,
-    scale: [60, 62, 64, 65, 67, 69, 71, 72, 74],
-    phrases: {
-      A: { mel: '5.5.6.5.3.3.5...' + '3.3.2.2.1.2.3...' + '5.5.6.5.8.8.7.6.' + '5.3.2.1.2.......', bass: [1, 6, 4, 5] },
-      B: { mel: '8.8.7.6.5.6.8...' + '9.9.8.7.6.......' + '8.8.7.6.5.6.5.3.' + '5.6.5...3.......', bass: [1, 5, 6, 4] }
-    },
-    seq: ['A', 'B', 'A', 'B', 'A', 'B', 'B', 'A', 'B'],
-    chorus: [[7.27,14.55],[21.82,29.09],[36.36,50.91],[58.18,65.45]]
-  },
-  {
-    /* ジャズ：裏拍に乗るシンコペーションのメロディと I-IV-ii-V の循環 */
-    id: 'jazz', title: 'ムーンライト・スウィング', emo: '🎷', genre: 'ジャズ・スウィング', cat: 'ジャズ', bpm: 120, wave: 'triangle', theme: 'jazz',
-    scale: [65, 67, 69, 70, 72, 74, 76, 77, 79],
-    phrases: {
-      A: { mel: '..3...5...4.3...' + '..2...3...1.....' + '..5...6...5.4.3.' + '..2...1.........', bass: [1, 4, 2, 5] },
-      B: { mel: '..8...7.6.5.....' + '..5.6.7...8.....' + '..9...8.7.6.5...' + '..3...2...1.....', bass: [2, 5, 1, 1] }
-    },
-    seq: ['A', 'A', 'B', 'A', 'B', 'A', 'B', 'B'],
-    chorus: [[16,24],[32,40],[48,64]]
-  },
   /* ---------------- 実音源の曲（フリーBGM／Suno自作曲） ----------------
      音声は audio/parts/<id>.pNN.js（AAC の base64 を分割したもの）を選曲時に
      遅延読み込みし、連番順に結合して再生する。分割数は parts に持たせる。
@@ -985,30 +933,10 @@ function realSongData(song) {
   return { stepDur: stepDur, totalSteps: totalSteps, duration: song.duration, melEvents: {}, melSteps: {}, bassByBar: [], bars: totalSteps / 16, real: true };
 }
 
-/* 曲の全ステップを展開し、メロディイベントと小節ごとのベース根音を求める */
+/* v155: 全曲が実音源曲になったため、曲データは常に実音源用を返す。
+   シンセ曲のフレーズ展開（mel／scale／seq からのメロディ生成）は除去した */
 function buildSongData(song) {
-  if (song.real) return realSongData(song);
-  var stepDur = 60 / song.bpm / 4;
-  var melStr = '';
-  var bassByBar = [];
-  song.seq.forEach(function (pk) {
-    var ph = song.phrases[pk];
-    melStr += ph.mel;
-    for (var b = 0; b < 4; b++) bassByBar.push(song.scale[ph.bass[b] - 1] - 12);
-  });
-  var totalSteps = melStr.length;
-  var melEvents = {}; /* step -> {midi, len} */
-  var melSteps = {};
-  var cur = -1, curStart = -1;
-  for (var s = 0; s <= totalSteps; s++) {
-    var ch = s < totalSteps ? melStr.charAt(s) : '.';
-    var deg = (ch >= '1' && ch <= '9') ? (ch.charCodeAt(0) - 48) : 0;
-    if (deg > 0) {
-      if (cur > 0) melEvents[curStart] = { midi: song.scale[cur - 1], len: s - curStart };
-      cur = deg; curStart = s; melSteps[s] = true;
-    }
-  }
-  return { stepDur: stepDur, totalSteps: totalSteps, duration: totalSteps * stepDur, melEvents: melEvents, melSteps: melSteps, bassByBar: bassByBar, bars: totalSteps / 16 };
+  return realSongData(song);
 }
 
 /* ---------------- 難易度と譜面生成（決定的） ---------------- */
@@ -1021,13 +949,13 @@ var DIFFS = {
      approach はノーツの見え始めから判定までの秒数（短いほど速く流れる） */
   oni:    { label: 'おに',       grid: 1, pAccent: 1.00, pOff: 0.96, minGap: 1, good: 0.048, bad: 0.108, runLen: 9, approach: 1.32 },
   /* うら：その曲の「おに」をランクA以上でクリアすると解放（曲ごと）。
-     譜面は buildChartUra / buildChartUraSynth が全オンセット採用＋32分連打で生成する。
+     譜面は buildChartUra が全オンセット採用＋32分連打で生成する。
      既存4難易度の生成ロジックには一切触れない */
   ura:    { label: 'うら',       grid: 1, pAccent: 1.00, pOff: 1.00, minGap: 1, good: 0.042, bad: 0.095, runLen: 16, approach: 1.1 }
 };
 /* ---------------- サビ区間とオンセット ----------------
-   chorus は全曲が持つサビ区間（秒）の配列。実音源は音量エネルギーの解析、
-   シンセ曲はフレーズ構造から特定したもの。譜面生成と演奏中の見た目で共用する。 */
+   chorus は全曲が持つサビ区間（秒）の配列（音量エネルギーの解析で特定）。
+   譜面生成と演奏中の見た目で共用する。 */
 function inChorus(song, t) {
   var c = song.chorus;
   if (!c) return false;
@@ -1317,37 +1245,9 @@ function buildChartReal(song, diffKey) {
   return notes;
 }
 function buildChart(song, diffKey) {
-  if (song.real) return buildChartReal(song, diffKey);
-  if (diffKey === 'ura') return buildChartUraSynth(song);
-  var P = DIFFS[diffKey];
-  var data = buildSongData(song);
-  var rng = mulberry32(hashStr('taiko:' + song.id + ':' + diffKey));
-  var notes = [];
-  var lastStep = -9999;
-  for (var step = 16; step < data.totalSteps - 8; step++) {
-    if (step % P.grid !== 0) continue;
-    if (step - lastStep < P.minGap) continue;
-    var accent = !!data.melSteps[step];
-    var barStart = step % 16 === 0;
-    var p = accent ? P.pAccent : P.pOff;
-    if (barStart) p = Math.max(p, diffKey === 'oni' ? 0.97 : 0.85); /* 小節頭の下限（おにだけ引き上げ） */
-    p *= (song.dens || 1); /* 曲ごとの密度調整（メロディが密な曲を均す） */
-    if (rng() >= p) continue;
-    var r = rng();
-    var type = (step % 4 === 0) ? (r < 0.68 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
-    /* 同種別の連続上限（通常3連まで。おには runLen まで伸ばして連打を作る。runLim=3 の時は従来判定と等価） */
-    var n = notes.length, runLim = P.runLen || 3, run = 0;
-    while (run < runLim && run < n && notes[n - 1 - run].type === type) run++;
-    if (run >= runLim) type = (type === 'don') ? 'katsu' : 'don';
-    /* 旧・大音符抽選の乱数消費だけを再現する互換シム（譜面のステップ/種別を変えないため）。大音符は生成しない */
-    var legacyRoll = LEGACY_ROLL_PROB[diffKey] > 0 && barStart && rng() < LEGACY_ROLL_PROB[diffKey];
-    if (!legacyRoll && diffKey === 'oni' && accent && rng() < 0.22) legacyRoll = true;
-    var main = { step: step, t: step * data.stepDur, type: type, judged: 0, res: null };
-    notes.push(main);
-    lastStep = step;
-    /* 同時打ち（ペア）は廃止済み */
-  }
-  return notes;
+  /* v155: 全曲が実音源曲になったため、譜面生成は常に実音源経路。
+     シンセ曲用の生成分岐（メロディ駆動）は除去した */
+  return buildChartReal(song, diffKey);
 }
 /* 判定：dt秒ずれ → 'good'|'ok'|null(不可窓の外) */
 function judgeFor(dt, diffKey) {
@@ -1686,7 +1586,7 @@ function scheduleStep(song, data, step, t) {
    選曲時に初めて全分割を並列で遅延読み込みし、連番順に結合して復元する。
    base64 → Blob(audio/mp4) → ObjectURL → HTMLAudioElement で再生し、
    演奏の時計は audio.currentTime を使う。
-   シンセ曲は従来どおり WebAudio スケジューラで、両者は startSong で分岐する。 */
+   v155 で全曲が実音源曲になり、この経路が唯一の再生経路になった。 */
 var realAudio = {}; /* id -> {state:'loading'|'ready'|'error', url, el} */
 var realPlayTimer = null;  /* カウントダウン後に再生を始めるタイマー */
 var realStartPerf = 0;     /* 再生開始予定の performance.now()（カウントダウン中の時計用） */
@@ -2303,7 +2203,7 @@ function playComboVoice(key, needPlaying) {
 function $(id) { return document.getElementById(id); }
 var wrapEl = $('wrapEl'), cv = $('cv'), ctx = cv.getContext('2d');
 var mode = 'solo';
-var selSong = 'matsuri', selDiff = 'normal';
+var selSong = 'amenoshita', selDiff = 'normal'; /* v155: 既定曲は旧既定の matsuri（削除済み）から実音源曲へ付け替え */
 var playing = false, songTime = 0, startCtx = 0, schedTimer = null, nextStep = 0;
 var chorusMix = 0; /* サビ演出の混ざり具合（0〜1、区間の出入りでなめらかに遷移） */
 var curSong = null, curData = null, chart = [], notePtr = 0;
@@ -2879,7 +2779,7 @@ function recheckStartSize() {
 }
 
 /* 曲選択UI（本家風：ジャンルタブ＋ジャケットカード＋選択中パネル） */
-var SONG_COLORS = { matsuri: ['#e2543e', '#8f2318'], chip: ['#4f6df5', '#232a8f'], rock: ['#d43d6a', '#6d1030'], idol: ['#ff5d8f', '#8f2a6e'], jazz: ['#6a7bd8', '#232a5e'], amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'], lovezaru: ['#ff5d8f', '#6d1030'], obari: ['#ff7ab8', '#7a1040'], yamanobori: ['#4f9d69', '#173d24'], yumenohanashi: ['#8f7fe0', '#1d1440'], oppaiko: ['#ff9ecb', '#8f2a5e'], shinryaku: ['#7dffb0', '#14532d'] };
+var SONG_COLORS = { amenoshita: ['#2e8fb2', '#123a5e'], volatile: ['#e2543e', '#5e1030'], industrial: ['#8a93a6', '#2c3140'], torikago: ['#7a4fd0', '#2a1450'], sora: ['#d08a3e', '#5e2f10'], trick: ['#e2793e', '#3d1450'], kenka: ['#d43d3d', '#571010'], suiuta: ['#ff8fb2', '#7a2a4e'], nyaan: ['#f5a83d', '#6d3a10'], shiningstar: ['#ffd23e', '#8f5a10'], tsukitookami: ['#5a6bd8', '#141a3e'], halzion: ['#f5a8c0', '#7a2a4e'], burningheart: ['#f43d2e', '#5e0f08'], maou12345: ['#3ec6d4', '#103a5e'], utakata: ['#8ad0c2', '#1d4a44'], still: ['#7a6bd8', '#241a4e'], lovezaru: ['#ff5d8f', '#6d1030'], obari: ['#ff7ab8', '#7a1040'], yamanobori: ['#4f9d69', '#173d24'], yumenohanashi: ['#8f7fe0', '#1d1440'], oppaiko: ['#ff9ecb', '#8f2a5e'], shinryaku: ['#7dffb0', '#14532d'] };
 /* ジャケットアート：曲ごとのモチーフを Canvas で手続き生成する（dataURL化して使い回す。
    生成できない環境では null を返し、CSSグラデーションの従来表示にフォールバックする） */
 var jacketCache = {};
@@ -6238,36 +6138,6 @@ function buildChartUra(song) {
   notes.sort(function (a, b) { return (a.t - b.t) || (a.step - b.step); });
   return notes;
 }
-/* ---------------- うら譜面（シンセ曲）：メロディ onset は全採用、
-   サビのアクセントには半ステップの追い打ちを付ける ---------------- */
-function buildChartUraSynth(song) {
-  var data = buildSongData(song);
-  var rng = mulberry32(hashStr('taiko:' + song.id + ':ura'));
-  var notes = [];
-  var lastPos = -9999;
-  function push(pos, type) {
-    notes.push({ step: pos, t: pos * data.stepDur, type: type, judged: 0, res: null });
-    lastPos = pos;
-  }
-  for (var step = 16; step < data.totalSteps - 8; step++) {
-    var accent = !!data.melSteps[step];
-    var t = step * data.stepDur;
-    var ch = inChorus(song, t);
-    var p = accent ? 1 : (ch ? 0.92 : 0.82);
-    if (rng() >= p) continue;
-    var r = rng();
-    var type = (step % 4 === 0) ? (r < 0.68 ? 'don' : 'katsu') : (r < 0.42 ? 'don' : 'katsu');
-    var n = notes.length, run = 0;
-    while (run < 12 && run < n && notes[n - 1 - run].type === type) run++;
-    if (run >= 12) type = (type === 'don') ? 'katsu' : 'don';
-    push(step, type);
-    if (accent && (ch || rng() < 0.6) && step + 0.5 - lastPos >= 0.5) {
-      push(step + 0.5, rng() < 0.5 ? 'don' : 'katsu');
-    }
-  }
-  notes.sort(function (a, b) { return (a.t - b.t) || (a.step - b.step); });
-  return notes;
-}
 /* ---------------- 新セーブ群（stamps / fav / stats / clear） ---------------- */
 var STAMPS_KEY = 'taiko_stamps_v1', FAV_KEY = 'taiko_fav_v1', STATS_KEY = 'taiko_stats_v1', CLEAR_KEY = 'taiko_clear_v1';
 function loadJsonKey(k, def) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return (v && typeof v === 'object') ? v : def; } catch (e) { return def; } }
@@ -6693,7 +6563,7 @@ function mascotCondCtx() {
 }
 var MASCOT_ITEMS = [
   { slot: 'hat', id: 'cap', name: '🧢 キャップ', condText: 'おにを1曲クリア', test: function (c) { return c.oni >= 1; } },
-  { slot: 'hat', id: 'hachimaki', name: '🎌 はちまき', condText: '「まつり太鼓」をむずかしい以上でクリア', test: function () { return hasCleared('matsuri', 'hard') || hasCleared('matsuri', 'oni') || hasCleared('matsuri', 'ura'); } },
+  { slot: 'hat', id: 'hachimaki', name: '🎌 はちまき', condText: '「Amenoshita2」をむずかしい以上でクリア', test: function () { return hasCleared('amenoshita', 'hard') || hasCleared('amenoshita', 'oni') || hasCleared('amenoshita', 'ura'); } }, /* v155: 旧条件の「まつり太鼓」は曲ごと削除されたため、同じ和風の実音源曲 Amenoshita2 へ付け替え。解放済みの人は unlocked 保存により保持される */
   { slot: 'hat', id: 'crown', name: '👑 おうかん', condText: 'うらを1曲クリア', test: function (c) { return c.ura >= 1; } },
   { slot: 'body', id: 'happi', name: '🎆 はっぴ', condText: '10曲クリア（難易度はどれでも）', test: function (c) { return c.any >= 10; } },
   { slot: 'body', id: 'sailor', name: '🎀 セーラーふく', condText: '「Love斬る」をクリア（難易度はどれでも）', test: function () { return anyDiffCleared('lovezaru'); } },
