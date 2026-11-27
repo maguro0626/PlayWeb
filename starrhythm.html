@@ -431,6 +431,62 @@ input,textarea{-webkit-user-select:text;user-select:text}
 html,body{overscroll-behavior:none;}
 #onlinePane{overscroll-behavior:none;}
 </style>
+<style>
+/* ===== 横画面対応（v146） =====
+   横長（orientation: landscape かつ幅700px以上）で自動的に横画面レイアウトへ
+   切り替える。スマホを横に倒した時と、PCの横長ウィンドウが対象。
+   縦画面のレイアウトには一切触れない（このブロックは横長条件でのみ効く）。
+   選曲： #songArea を display:contents にし、.wrap を2カラムグリッド化する
+   （左＝ジャンル／絞り込み／曲一覧、右＝モード／情報／選択中／難易度／スタート）。
+   演奏： 左に 150px のHUDレール、中央にステージ、右に 56px の操作レールを
+   置き、低い横画面でもレーンの落下距離を全高ぶん確保する。 */
+@media (orientation: landscape) and (min-width: 700px){
+  .wrap{max-width:1120px}
+  /* ---- 選曲画面 ---- */
+  .wrap:not(.playing){
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 348px;
+    grid-template-rows:auto auto auto minmax(0,1fr) auto auto auto;
+    column-gap:12px;
+  }
+  .wrap:not(.playing) #songArea{display:contents}
+  .wrap:not(.playing) .ttl{grid-column:1/-1;grid-row:1;padding-right:58px}
+  .wrap:not(.playing) #genreTabs{grid-column:1;grid-row:2}
+  .wrap:not(.playing) #modeSeg{grid-column:2;grid-row:2}
+  .wrap:not(.playing) #filterSeg{grid-column:1;grid-row:3}
+  .wrap:not(.playing) #infoRow{grid-column:2;grid-row:3}
+  .wrap:not(.playing) .songGrid{grid-column:1;grid-row:4/8;min-height:0}
+  .wrap:not(.playing) #songDetail{grid-column:2;grid-row:4;align-self:start;min-height:0;max-height:100%;overflow-y:auto}
+  .wrap:not(.playing) #diffSeg{grid-column:2;grid-row:5}
+  .wrap:not(.playing) .subBtnRow{grid-column:2;grid-row:6}
+  .wrap:not(.playing) #soloPane{grid-column:2;grid-row:7}
+  /* 選曲時の操作行はミュートのみのため、右上の浮動ボタンにする */
+  .wrap:not(.playing) #ctrlRow{position:absolute;top:4px;right:12px;z-index:30}
+  /* 対戦パネルはオプションシートと同じ「被せ」形式にする */
+  .wrap:not(.playing) #onlinePane{position:absolute;left:10px;right:10px;bottom:10px;z-index:55;max-height:72%;overflow-y:auto}
+  /* フレンドバー（friends.js が差し込む）はグリッドの行を占有させず、
+     左下の浮動バーにする（一覧は下をスクロールできるので内容は隠れない） */
+  .wrap:not(.playing) .pwf-gamebar{position:absolute;left:12px;bottom:8px;z-index:34;margin:0;max-width:min(456px,58%)}
+  .wrap:not(.playing) #diffSeg button{min-height:40px}
+  /* ---- 演奏画面 ---- */
+  .wrap.playing{
+    display:grid;
+    grid-template-columns:150px minmax(0,1fr) 56px;
+    grid-template-rows:minmax(0,1fr);
+    column-gap:8px;
+  }
+  /* 演奏中はタイトルとフレンドバーを畳み、ステージを全高にする
+     （曲名は HUD レール内に出る） */
+  .wrap.playing .ttl,.wrap.playing .pwf-gamebar{display:none}
+  .wrap.playing #hud{grid-column:1;grid-row:1;min-height:0}
+  .wrap.playing .hudRow{flex-direction:column;align-items:flex-start;gap:2px}
+  .wrap.playing #hudSong{margin-left:0}
+  .wrap.playing #vsRow{flex-direction:column}
+  .wrap.playing #stageWrap{grid-column:2;grid-row:1}
+  .wrap.playing #ctrlRow{grid-column:3;grid-row:1;flex-direction:column;align-items:stretch}
+  .wrap.playing #quitBtn{flex:none;min-height:44px;font-size:11px;padding:6px 2px}
+}
+</style>
 </head>
 <body>
 <div class="wrap" id="wrapEl">
