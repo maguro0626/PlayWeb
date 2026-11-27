@@ -49,6 +49,15 @@
    （オフラインでも届く）。引けない場合は PeerJS 送信にフォールバックする。
    ターン制ゲームの対戦は v55 から Firestore マッチ（match.js）が担い、
    リアルタイム系の対戦接続（matchjoin 等）は PeerJS のまま。
+
+   【v153〜 使う時だけ接続（軽量化）】
+   ログイン中の裏側の常時活動を「フレンド欄を見ている間」と「対戦ロビー
+   の間」だけに限定した。在席ハートビート・フレンド在席の Firestore
+   購読は account.js の在席セッション（パネル連動、閉じて45秒で停止）が
+   担い、招待・フレンド申請の受信は常時購読をやめてログイン時／パネルを
+   開いた時／ページを開いた時の一括チェック化した（到着遅延は仕様）。
+   playweb-u-<uid> の Peer も需要（パネル表示・招待ピッカー・招待送信・
+   対戦ロビー）がある間だけ生かし、需要が消えたら45秒後に畳む。
    ============================================================ */
 (function () {
   'use strict';
@@ -203,7 +212,7 @@
       else sessionStorage.removeItem(SS_MATCH);
     } catch (e) {}
   }
-  function setMatch(m) { match = m; saveMatch(); }
+  function setMatch(m) { match = m; saveMatch(); noteMatchActivity(); }
   function matchPeers() {
     if (!match) return [];
     var me = myUid();
@@ -402,6 +411,7 @@
     peerRetryTimer = setTimeout(function () {
       peerRetryTimer = null;
       if (gateState !== 'member' || state.peerOpen) return;
+      if (!peerDemandActive()) return; /* v153〜 需要が消えていたら再登録しない */
       try { if (state.peer) state.peer.destroy(); } catch (e) {}
       state.peer = null;
       startPeerWhenReady();
@@ -530,6 +540,7 @@
       if (!match || match.game !== mg || match.role !== 'host') {
         setMatch({ game: mg, role: 'host', room: (typeof msg.room === 'string' ? msg.room : null), peers: [], joinSent: false });
       }
+      noteMatchActivity(); /* ロビーが動いている間は Peer を維持する */
       addMatchPeer(code);
       clearInvited(code); /* 相手が参加したので「招待済み」表示は解除（試合後すぐ再招待できる） */
       var all = [myUid()].concat(match.peers);
@@ -539,6 +550,7 @@
     }
     else if (msg.t === 'matchroster') {
       if (!match || match.game !== msg.game || !Array.isArray(msg.peers)) return;
+      noteMatchActivity();
       msg.peers.forEach(function (c) { addMatchPeer(c); });
     }
     else if (msg.t === 'bye') { clearInvited(code); setPresence(code, { online: false, game: null }); }
@@ -554,6 +566,7 @@
     /* 軽量化: 非表示中は ping を送らない（前面に戻った瞬間に
        refreshPresenceNow が即時再送するので在席の鮮度は落ちない） */
     if (document.hidden) return;
+    if (!state.peer) return; /* v153〜 Peer が畳まれている間は何もしない */
     var now = Date.now();
     Object.keys(state.conns).forEach(function (code) {
       var e = state.conns[code];
@@ -576,6 +589,8 @@
   /* タブ復帰・ネットワーク復帰時は、間隔タイマーを待たず即座に在席を立て直す。
      隠れたこと自体ではオフライン扱いにしない（切断判定は上の無音閾値だけ）。 */
   function refreshPresenceNow() {
+    /* v153〜 需要があるのに Peer が畳まれていたら立て直す */
+    if (peerDemandActive()) ensurePeer();
     if (state.peer && !state.peerOpen) { try { state.peer.reconnect(); } catch (e) {} }
     Object.keys(state.conns).forEach(function (code) {
       var e = state.conns[code];
@@ -595,6 +610,59 @@
     Object.keys(state.conns).forEach(function (code) { sendRaw(code, { t: 'bye' }); });
     try { if (state.peer) state.peer.destroy(); } catch (e) {}
   });
+
+  /* ---------------- Peer のオンデマンド化（v153〜） ----------------
+     【監査】playweb-u-<uid> の常時 Peer が運ぶのは次の5種だけ:
+       hello / ping / pong … Peer 経路の在席（補助。主はクラウド在席）
+       invite … クラウド招待が使えない相手へのフォールバック配送
+       matchjoin / matchroster … 対戦ロビーでの参加通知と参加者 uid の配布
+       bye … 切断通知
+     対戦そのものの通信は、各ゲームが部屋コードで張る別 Peer（playweb-xx-）
+     や Firestore マッチ（match.js）が担うため、この Peer は対戦の成立にも
+     継続にも関与しない。したがって「フレンド欄／招待ピッカーを見ている間」
+     「招待を送る時」「対戦ロビーの間（参加通知が飛ぶ期間）」だけ生きて
+     いれば足りる。需要が消えたら猶予（45秒）後に destroy し、ブローカー
+     接続とフレンド全員とのメッシュ接続を畳む。 */
+  var PEER_GRACE_MS = 45000;
+  var peerGraceTimer = null;
+  var matchPeerUntil = 0;   /* 対戦ロビー需要の期限（setMatch / matchjoin 系で延長） */
+  var MATCH_PEER_WINDOW_MS = 15 * 60 * 1000;
+  function peerDemandActive() {
+    if (gateBlocked()) return false;
+    if (state.panelOpen || pickerOpen) return true;
+    if (match && match.game === MY_GAME) {
+      if (match.role === 'guest' && !match.joinSent) return true; /* 参加通知を送るまで */
+      if (Date.now() < matchPeerUntil) return true;
+    }
+    return false;
+  }
+  function ensurePeer() {
+    if (gateBlocked()) return;
+    if (peerGraceTimer) { clearTimeout(peerGraceTimer); peerGraceTimer = null; }
+    if (!state.peer) startPeerWhenReady();
+  }
+  function updatePeerDemand() {
+    if (peerDemandActive()) { ensurePeer(); return; }
+    if (!state.peer || peerGraceTimer) return;
+    peerGraceTimer = setTimeout(function () {
+      peerGraceTimer = null;
+      if (peerDemandActive()) return;
+      destroyPeer();
+    }, PEER_GRACE_MS);
+  }
+  function destroyPeer() {
+    Object.keys(state.conns).forEach(function (code) { sendRaw(code, { t: 'bye' }); });
+    cancelPeerRetry();
+    try { if (state.peer) state.peer.destroy(); } catch (e) {}
+    state.peer = null; state.peerOpen = false; state.idTaken = false;
+    state.conns = {}; state.presence = {};
+    renderAll();
+  }
+  /* 対戦コンテキストに動きがあったらロビー需要の期限を延長する */
+  function noteMatchActivity() {
+    matchPeerUntil = Date.now() + MATCH_PEER_WINDOW_MS;
+    updatePeerDemand();
+  }
 
   /* ---------------- 公開API（招待まわり） ---------------- */
   /* 文字列からルームコードらしい6文字を抽出する。要素の表示テキストに
@@ -619,6 +687,9 @@
   function sendInvite(code, game, room) {
     if (gateBlocked()) return false;
     if (!GAMES[game] || !ROOM_RE.test(room || '')) return false;
+    /* v153〜 招待を送る時は Peer を立てておく（フォールバック配送と
+       相手からの matchjoin 受信に使う。クラウド経路が本線） */
+    ensurePeer();
     /* ログイン時は Firestore 招待を優先（相手がオフラインでも次に開いた時に届く）。
        相手のアカウントが実在しない場合だけ従来の PeerJS 送信にフォールバックする。 */
     if (cloudActive() && window.PWAccount.sendInviteCloud) {
@@ -753,6 +824,7 @@
       state.panelOpen = !!open;
       if (open) renderAll();
       else flushPendingInviteToast();
+      updatePeerDemand(); /* v153〜 パネル表示中だけ Peer を生かす */
     }
   };
 
@@ -810,6 +882,14 @@
     ov.querySelector('#pwfPickerClose').onclick = closeInvitePicker;
     ov.addEventListener('click', function (e) { if (e.target === ov) closeInvitePicker(); });
   }
+  /* 招待ピッカーの開閉を account.js の在席セッションへ伝える
+     （ピッカー表示中も「フレンド欄を見ている」扱いにする） */
+  function notifyAccountPanel(open) {
+    var a = window.PWAccount;
+    if (a && typeof a.friendsPanelVisible === 'function') {
+      try { a.friendsPanelVisible(open); } catch (e) {}
+    }
+  }
   function openInvitePicker() {
     if (gateBlocked()) { loginNotice(); return; }
     if (MY_GAME === 'portal') { openPanel(); return; }
@@ -819,10 +899,15 @@
     pickerOpen = true;
     els.pickerOverlay.classList.add('show');
     renderPickerList();
+    notifyAccountPanel(true);   /* v153〜 在席セッション開始＋招待の一括チェック */
+    updatePeerDemand();         /* v153〜 ピッカー表示中は Peer を生かす */
   }
   function closeInvitePicker() {
+    var wasOpen = pickerOpen;
     pickerOpen = false;
     if (els.pickerOverlay) els.pickerOverlay.classList.remove('show');
+    if (wasOpen) notifyAccountPanel(false);
+    updatePeerDemand();
   }
   /* 同一HTMLの再描画を避けるためのキャッシュ。在席更新のたびに renderAll が
      走っても、内容が変わらない一覧は DOM を作り直さない（タップ中のボタンが
@@ -1460,20 +1545,24 @@
       state.panelOpen = true;
       window.PWAccount.openModal();
       renderAll();
+      updatePeerDemand();
       return;
     }
     state.panelOpen = true;
     if (els.overlay) els.overlay.classList.add('show');
     renderAll();
+    updatePeerDemand();
   }
   function closePanel() {
     state.panelOpen = false;
     if (window.PWAccount && window.PWAccount.closeModal && inlineMode) {
       window.PWAccount.closeModal();
+      updatePeerDemand();
       return;
     }
     if (els.overlay) els.overlay.classList.remove('show');
     flushPendingInviteToast();
+    updatePeerDemand();
   }
 
   function bindPanelEvents() {
@@ -1884,6 +1973,7 @@
     els.overlay = null;
     document.querySelectorAll('.pwf-gamebar').forEach(function (b) { b.remove(); });
     cancelPeerRetry();
+    if (peerGraceTimer) { clearTimeout(peerGraceTimer); peerGraceTimer = null; }
     try { if (state.peer) state.peer.destroy(); } catch (e) {}
     state.peer = null; state.peerOpen = false; state.idTaken = false; state.conns = {}; state.presence = {};
   }
@@ -1902,15 +1992,20 @@
     gateState = state || 'guest';
     if (gateState === 'member') {
       restoreInvites(); /* 前ページで届いた招待の控えを復元（uid 確定後） */
+      /* v153〜 ページを開いたタイミングで招待・申請を一括チェックする
+         （account.js のログイン時チェックと重なっても向こうのスロットルで1回分） */
+      if (window.PWAccount && typeof window.PWAccount.checkInvitesNow === 'function') {
+        try { window.PWAccount.checkInvitesNow(); } catch (e) {}
+      }
       if (!fullInitDone) {
         fullInitDone = true;
         buildUI();
-        startPeerWhenReady();
+        updatePeerDemand(); /* v153〜 Peer は需要がある時だけ（パネル/対戦ロビー） */
         initHooks();
-        setInterval(trySendMatchJoin, 10000); /* 軽量化: 4秒→10秒（接続確立時の即時送信が主経路） */
+        setInterval(function () { trySendMatchJoin(); updatePeerDemand(); }, 10000); /* 軽量化: 4秒→10秒（接続確立時の即時送信が主経路）。v153〜 需要の再評価も兼ねる */
       } else {
         if (!els.panel) buildUI();
-        if (!state.peer) startPeerWhenReady();
+        updatePeerDemand();
         /* 再試行: ゲート未確定の間にブロックされた参加/招待ホスト要求や、
            member→guest→member の teardown サイクルで initHooks が再実行
            されないケースを、認証確定のたびに回収する。開始済みフラグが

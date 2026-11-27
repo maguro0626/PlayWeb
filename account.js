@@ -144,6 +144,8 @@
   var META_PREFIX = 'pwmeta:';      /* 旧方式の接頭辞（救済インポート専用） */
   var PRESENCE_STALE_MS = 300000;  /* lastSeen がこれより古ければオフライン扱い（ハートビート120秒間隔でも誤判定しないよう5分） */
   var HEARTBEAT_MS = 120000;       /* 在席ハートビート間隔。Firebase書き込み削減のため120秒（旧30秒＝最大2,880回/日→約720回/日） */
+  var PRESENCE_GRACE_MS = 45000;   /* v153〜 フレンド欄を閉じてから在席セッション（ハートビート＋在席購読）を停止するまでの猶予 */
+  var INVITE_CHECK_THROTTLE_MS = 5000; /* v153〜 招待・申請の一括チェックの最小間隔（ログイン直後とパネル表示が重なっても二重に引かない） */
   /* 管理者 uid のリスト（意見ボックスの表示・読み取りに使う）。
      ★管理者アカウントを作ったら、ここにその uid を入れること。
        uid の確認方法: (1) Firebase コンソール → Authentication → Users の
@@ -1351,6 +1353,9 @@
   var presenceData = {};     /* uid -> {name, game, lastSeen, online} */
   function refreshPresenceWatch() {
     if (!cloudActive()) return;
+    /* v153〜 在席購読は在席セッション中だけ張る（パネル連動。停止中は
+       presenceUnsubs 自体が空なので、ここで早期 return してよい） */
+    if (!presenceActive) return;
     var list = localFriends();
     var wanted = {};
     list.forEach(function (f) { if (f.uid) wanted[f.uid] = true; });
@@ -1391,14 +1396,66 @@
     Object.keys(presenceData).forEach(pushPresence);
   }
 
+  /* ---------------- 在席セッション（v153〜 パネル連動） ----------------
+     ハートビート書き込みとフレンド在席の購読は「フレンド欄を見ている間」
+     だけ動かす。アカウントドロワーを開く／招待ピッカーを開くと開始し、
+     閉じてから PRESENCE_GRACE_MS 経ったら停止する（開閉のたびに購読を
+     張り直さないための猶予）。停止中、自分の在席は相手側で
+     PRESENCE_STALE_MS 経過後にオフライン表示になる（在席の鮮度は
+     「見ている側が保つ」設計。ログインしたまま放置しても裏では
+     ハートビートも購読も走らない）。タブが hidden になった時の
+     即オフライン化（setOffline）は従来どおり別経路で効く。 */
+  var presenceActive = false;
+  var presenceStopTimer = null;
+  var heartbeatTimer = null;   /* ハートビート専用（timers のセーブ再送とは分離） */
+  function startPresenceSession() {
+    if (!cloudActive()) return;
+    if (presenceStopTimer) { clearTimeout(presenceStopTimer); presenceStopTimer = null; }
+    if (presenceActive) return;
+    presenceActive = true;
+    refreshPresenceWatch();
+    heartbeat();
+    if (!heartbeatTimer) heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+  }
+  function stopPresenceSession() {
+    if (presenceStopTimer) { clearTimeout(presenceStopTimer); presenceStopTimer = null; }
+    if (!presenceActive) return;
+    presenceActive = false;
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    Object.keys(presenceUnsubs).forEach(function (uid) {
+      try { presenceUnsubs[uid](); } catch (e) {}
+    });
+    presenceUnsubs = {}; presenceData = {};
+    var api = pwf();
+    if (api && api._cloud) api._cloud.clearPresence();
+  }
+  function schedulePresenceStop() {
+    if (!presenceActive || presenceStopTimer) return;
+    presenceStopTimer = setTimeout(function () {
+      presenceStopTimer = null;
+      stopPresenceSession();
+    }, PRESENCE_GRACE_MS);
+  }
+  /* フレンド欄の表示状態の受け口。ドロワー開閉は notifyFriendsView から、
+     招待ピッカーの開閉は friends.js から PWAccount.friendsPanelVisible 経由で
+     ここへ届く。開いた時は招待・申請の一括チェックも併せて行う */
+  function setFriendsPanelVisible(open) {
+    if (open) { startPresenceSession(); checkInvitesAndRequests(); }
+    /* ドロワーが開いたままなら閉じない（招待ピッカーだけ閉じた場合の誤停止防止） */
+    else if (!drawerOpen) schedulePresenceStop();
+  }
+
   /* ---------------- 招待（Firestore） ----------------
      invites コレクションにはゲーム招待（kind なし）とフレンド申請
      （kind:'friend'）が同居する。双方の処理で kind を見て確実に振り分ける
      （フレンド申請をゲーム招待として拾わない／その逆もしない）。 */
   var seenInviteIds = {};
-  function startInviteListener() {
-    var q = fb.db.collection('invites').where('toUid', '==', me.uid);
-    var unsub = q.onSnapshot(function (snap) {
+  /* v153〜 招待・申請の受信は常時購読（onSnapshot）をやめ、ログイン時／
+     パネルを開いた時／ページを開いた時（＋タブ復帰時）に one-shot で
+     まとめて確認する。到着がその分遅れるのは仕様として許容済み。
+     以下の処理本体は旧リスナー時代と同一（delivered 化・期限切れ処理・
+     申請の振り分けまで含む） */
+  function processIncomingInvitesSnap(snap) {
       var newReqIn = {};
       snap.forEach(function (d) {
         var inv = d.data() || {};
@@ -1429,7 +1486,7 @@
         if (!api || !api._cloud || typeof api._cloud.receiveInvite !== 'function') {
           /* friends.js がまだ読み込まれていない: ここで delivered にして
              しまうと招待が静かに消える。pending のまま残し、次回の
-             スナップショット（または次のセッション）で再配送する */
+             一括チェック（または次のセッション）で再配送する */
           return;
         }
         var accepted = api._cloud.receiveInvite({
@@ -1442,8 +1499,11 @@
       });
       friendReqIn = newReqIn;
       pushFriendReqUI();
-    }, function () {});
-    unsubs.push(unsub);
+  }
+  function checkIncomingInvitesOnce() {
+    if (!cloudActive()) return;
+    fb.db.collection('invites').where('toUid', '==', me.uid).get()
+      .then(processIncomingInvitesSnap).catch(function () {});
   }
   function sendInviteCloud(opts) {
     if (!cloudActive() || !opts || !opts.toUid) return Promise.resolve(false);
@@ -1621,10 +1681,10 @@
       return true;
     }).catch(function () { return false; });
   }
-  /* 自分の送信分の購読: accepted を検知してフレンド化＋ドキュメント消費 */
-  function startFriendReqOutListener() {
-    var q = fb.db.collection('invites').where('fromUid', '==', me.uid);
-    var unsub = q.onSnapshot(function (snap) {
+  /* 自分の送信分の確認: accepted を検知してフレンド化＋ドキュメント消費。
+     v153〜 常時購読をやめ、checkInvitesAndRequests の one-shot で処理する
+     （処理本体は旧購読時代と同一） */
+  function processOutgoingRequestsSnap(snap) {
       var next = {};
       snap.forEach(function (d) {
         var inv = d.data() || {};
@@ -1647,8 +1707,25 @@
         fb.db.doc('invites/' + id).delete().catch(function () {})
           .then(function () { delete friendReqConsuming[id]; });
       });
-    }, function () {});
-    unsubs.push(unsub);
+  }
+  function checkOutgoingRequestsOnce() {
+    if (!cloudActive()) return;
+    fb.db.collection('invites').where('fromUid', '==', me.uid).get()
+      .then(processOutgoingRequestsSnap).catch(function () {});
+  }
+  /* 招待（受信）とフレンド申請（送受信）の一括チェック。
+     呼び出し元: ログイン直後（startServices）／パネルを開いた時
+     （setFriendsPanelVisible）／ページを開いた時（friends.js の
+     メンバー初期化）／タブ復帰時（visibilitychange）。
+     スロットル付きで、短時間の重複呼び出しは1回にまとめる */
+  var lastInviteCheckAt = 0;
+  function checkInvitesAndRequests() {
+    if (!cloudActive()) return;
+    var now = nowMs();
+    if (now - lastInviteCheckAt < INVITE_CHECK_THROTTLE_MS) return;
+    lastInviteCheckAt = now;
+    checkIncomingInvitesOnce();
+    checkOutgoingRequestsOnce();
   }
 
   /* ---------------- プロフィール作成・プレゼンス ---------------- */
@@ -1693,6 +1770,9 @@
   }
   function heartbeat() {
     if (!cloudActive()) return;
+    /* v153〜 ハートビートは在席セッション中（フレンド欄を見ている間）だけ
+       書き込む。ログインしたまま放置しても裏では書き込まない */
+    if (!presenceActive) return;
     /* 非表示タブでは書き込まない。隠れた直後は setOffline() が online:false を
        書くのに、止まらないタイマーが online:true を書き戻し続ける穴があった。
        表示に戻った時は visibilitychange 側の即時ハートビートで立て直す */
@@ -1816,14 +1896,14 @@
       refreshPresenceWatch();
     }, function () {});
     unsubs.push(fu);
-    startInviteListener();
-    startFriendReqOutListener();
-    heartbeat();
-    timers.push(setInterval(heartbeat, HEARTBEAT_MS));
+    /* v153〜 招待・申請は常時購読せず、ログイン直後に一括チェックする。
+       ハートビートと在席購読は在席セッション（パネル連動）側で開始する */
+    checkInvitesAndRequests();
     timers.push(setInterval(function () { uploadDirty(); }, 30000));
   }
   function stopServices() {
     servicesOn = false;
+    stopPresenceSession(); /* v153〜 ハートビート停止＋在席購読の解除 */
     unsubs.forEach(function (u) { try { u(); } catch (e) {} });
     unsubs = [];
     timers.forEach(function (t) { clearInterval(t); });
@@ -1850,8 +1930,11 @@
       if (cloudActive()) setOffline();
       return;
     }
-    /* 戻ってきたら即ハートビートでオンライン復帰＋必要ならクラウドと再マージ */
+    /* 戻ってきたら即ハートビートでオンライン復帰＋必要ならクラウドと再マージ。
+       v153〜 ハートビートは在席セッション中のみ（heartbeat 側でガード）。
+       招待・申請もタブ復帰のタイミングで一括チェックする */
     if (cloudActive()) heartbeat();
+    checkInvitesAndRequests();
     if (document.visibilityState === 'visible' && cloudActive() && nowMs() - lastPullAt > 30000) {
       lastPullAt = nowMs();
       mergeCloudSaves({ force: true });
@@ -2257,6 +2340,9 @@
     refreshAdminUI();
   }
   function notifyFriendsView() {
+    /* v153〜 ドロワーの開閉を在席セッションにも連動させる
+       （開く=開始＋招待の一括チェック、閉じる=猶予後に停止） */
+    setFriendsPanelVisible(drawerOpen);
     var api = window.PWFriends;
     if (api && api._viewState) { try { api._viewState(drawerOpen); } catch (e) {} }
   }
@@ -3277,6 +3363,10 @@
     respondFriendRequest: respondFriendRequest,
     friendStateFor: friendStateFor,
     sendInviteCloud: sendInviteCloud,
+    /* v153〜 フレンド欄の表示連動（招待ピッカーの開閉を friends.js から受ける）と
+       招待・申請の一括チェック（friends.js のメンバー初期化から） */
+    friendsPanelVisible: setFriendsPanelVisible,
+    checkInvitesNow: checkInvitesAndRequests,
     consumeInvite: consumeInvite,
     dismissInvite: dismissInvite,
     withdrawInviteCloud: withdrawInviteCloud,
