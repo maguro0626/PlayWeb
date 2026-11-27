@@ -217,6 +217,28 @@
 html,body{overscroll-behavior:none;}
 #overlay,.scroll-row{overscroll-behavior:none;}
 </style>
+<style>
+/* ===== 横画面対応（v148） =====
+   横長では左に HUD＋ゲーム画面、右にパネル（設定・モード等）を置く2カラム。
+   ゲーム画面は 2:1 のため高さ基準で幅を決め、画面内に必ず収める。
+   JUMPボタンは右下の浮動にしてプレイ領域を奪わない。縦画面は不変。 */
+@media (orientation: landscape) and (min-width: 700px){
+  body{height:100vh;height:100dvh;overflow:hidden}
+  header{padding:6px 12px}
+  header .ttl{font-size:14px}
+  header .ttl small{display:none}
+  .hbtn{padding:6px 11px;font-size:12px}
+  main{flex:1;min-height:0;max-width:1440px;padding:8px 12px 10px;display:grid;grid-template-columns:minmax(0,1fr) 332px;grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:12px;row-gap:8px}
+  #hud{grid-column:1;grid-row:1;gap:7px;flex-wrap:nowrap}
+  .hud-card{padding:5px 8px;gap:6px;min-width:0}
+  #race-bar{grid-column:1;grid-row:2}
+  #game-container{grid-column:1;grid-row:3;align-self:center;justify-self:center;width:min(100%,calc((100dvh - 198px)*2),1020px);margin:0}
+  #jump-btn{grid-column:1;grid-row:4}
+  #jump-btn.on{position:fixed;right:346px;bottom:12px;z-index:50;width:158px;height:54px}
+  #panel{grid-column:2;grid-row:1/5;min-height:0;overflow-y:auto}
+  main>footer{display:none}
+}
+</style>
 </head>
 <body>
 <header>

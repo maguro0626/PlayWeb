@@ -189,6 +189,28 @@
 html,body{overscroll-behavior:none;}
 #moveList,.panel{overscroll-behavior:none;}
 </style>
+<style>
+/* ===== 横画面対応（v148） =====
+   横長では盤面を左に正方形で最大化し、スコア・形勢・操作・設定パネルを
+   右カラムに積む（.board-area を display:contents にして main のグリッドへ
+   子要素を直接配置する）。盤面サイズは高さ基準。縦画面は不変。 */
+@media (orientation: landscape) and (min-width: 700px){
+  html,body{height:100%}
+  body{height:100dvh;overflow:hidden}
+  #app{height:calc(100dvh - 46px);display:flex;flex-direction:column;padding:8px 12px 10px;max-width:1180px}
+  #app>header{display:flex;align-items:center;gap:14px;padding:0 2px 6px}
+  #app>header h1{font-size:20px}
+  main{flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:16px;row-gap:6px;align-items:stretch}
+  .board-area{display:contents}
+  #boardWrap{grid-column:1;grid-row:1/5;align-self:center;justify-self:center;margin-top:0;width:min(600px,calc(100dvh - 112px))}
+  .scorebar{grid-column:2;grid-row:1}
+  .evalwrap{grid-column:2;grid-row:2;margin-top:0}
+  .panel{grid-column:2;grid-row:3;min-height:0;overflow-y:auto;max-width:none}
+  .controls{grid-column:2;grid-row:4;margin-top:0}
+  footer{display:none}
+  .pwf-gamebar{position:fixed;left:8px;bottom:8px;z-index:40;margin:0;max-width:300px}
+}
+</style>
 </head>
 <body>
 <div id="app">

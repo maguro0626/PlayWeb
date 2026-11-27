@@ -116,6 +116,40 @@
 /* バウンス抑止（麻雀方式：画面固定） */
 html,body{overscroll-behavior:none;}
 </style>
+<style>
+/* ===== 横画面対応（v148） =====
+   横長では盤面を画面内に収め、サイドパネルを圧縮する。盤面の縮小は
+   fitBoardScale() の shortScr 分岐と対になっている。縦画面は不変。 */
+@media (orientation: landscape) and (min-width: 700px){
+  body{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+  header:not(#pwHeader){padding:6px 12px 2px;flex:0 0 auto}
+  .logo{font-size:15px;letter-spacing:.16em}
+  .hbtn{padding:6px 9px;font-size:12px}
+  main{flex:1 1 auto;min-height:0;align-items:center;padding:4px 12px 8px}
+  .help{display:none}
+  .side{gap:8px}
+  .box{padding:6px 4px}
+  .box h3{font-size:10px;margin-bottom:4px}
+  .stat .v{font-size:16px}
+  #boardWrap{padding:6px}
+  #next{height:148px;width:auto}
+  #hold{height:44px;width:auto}
+  .overlay{inset:6px;padding:10px;gap:8px}
+  .overlay h2{font-size:22px}
+  .overlay p{font-size:12px;line-height:1.5}
+  .bigbtn{padding:10px 26px;font-size:14px}
+  /* フレンドバーは左下の浮動にして盤面の面積を奪わない */
+  .pwf-gamebar{position:fixed;left:8px;bottom:8px;z-index:40;margin:0;max-width:300px}
+}
+@media (orientation: landscape) and (min-width: 700px) and (pointer: coarse){
+  /* タッチ操作は1段に畳んで下部に置く（2段構成を display:contents で平坦化） */
+  .touch{display:flex;flex-direction:row;flex-wrap:nowrap;gap:6px;padding:0 10px 8px;width:100%;flex:0 0 auto}
+  .touch .trow,.touch .tcluster{display:contents}
+  .tbtn{flex:1;width:auto;height:48px;border-radius:12px}
+  .tbtn .tic{font-size:18px}
+  .pwf-gamebar{display:none}
+}
+</style>
 </head>
 <body>
 <header>
@@ -246,10 +280,17 @@ let boardScale = 1;
 function fitBoardScale(){
   let k = 1;
   if (window.innerWidth > 680){
-    const availH = window.innerHeight - 185; /* 共通ヘッダー＋自前ヘッダー＋ヘルプ＋余白 */
+    /* 横画面など低い画面では、盤面を縮小してでも画面内に収める（v148） */
+    const shortScr = window.innerHeight < 560;
+    let chrome = 185; /* 共通ヘッダー＋自前ヘッダー＋ヘルプ＋余白 */
+    if (shortScr){
+      chrome = 104; /* 横画面ではヘルプを畳みヘッダーを圧縮する分 */
+      if (window.matchMedia('(pointer: coarse)').matches) chrome += 58; /* 横画面のタッチ操作1段分 */
+    }
+    const availH = window.innerHeight - chrome;
     const availW = Math.min(window.innerWidth, 860) - 330; /* 両サイド＋gap＋padding */
     k = Math.min(availH / 620, availW / 320, 1.7);
-    if (!(k > 1)) k = 1;
+    if (!(k > 1)) k = shortScr ? Math.max(k, 0.3) : 1;
   }
   boardScale = k;
   const w = Math.round(300 * k), h = Math.round(600 * k);

@@ -255,6 +255,26 @@ body.online-on .foot-row{display:none}
 html,body{overscroll-behavior:none;}
 #book-content{overscroll-behavior:none;}
 </style>
+<style>
+/* ===== 横画面対応（v148） =====
+   横長（幅700px〜）でも PC 用の2カラムグリッドを使い、部屋を左に大きく、
+   ステータス類を右に配置する。ステージの高さは画面高に合わせる。
+   育成画面はダッシュボード型のため縦スクロール自体は従来どおり。 */
+@media (orientation: landscape) and (min-width: 700px){
+  main.col{max-width:1180px;display:grid;column-gap:14px;row-gap:10px;align-items:start;
+    grid-template-columns:minmax(0,1.4fr) minmax(320px,1fr);
+    grid-template-areas:"stage status" "stage gauges" "msg online" "actions online" "actions log" "howto foot"}
+  main.col>.status-strip{grid-area:status}
+  main.col>.gauges{grid-area:gauges}
+  main.col>#monster-stage{grid-area:stage;min-height:min(460px,calc(100dvh - 150px))}
+  main.col>#msg-line{grid-area:msg}
+  main.col>.actions{grid-area:actions}
+  main.col>details.card{grid-area:howto}
+  main.col>#online-panel{grid-area:online}
+  main.col>#log-panel{grid-area:log}
+  main.col>.foot-row{grid-area:foot}
+}
+</style>
 </head>
 <body>
 

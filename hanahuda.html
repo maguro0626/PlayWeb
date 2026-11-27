@@ -365,6 +365,24 @@
 html,body{overscroll-behavior:none;}
 .cards-row,#field-cards,.caps,.overlay{overscroll-behavior:none;}
 </style>
+<style>
+/* ===== 横画面対応（v148） =====
+   横長では左に場、右にスコア／CPU／自分の札／ステータスを積む2カラムにし、
+   低い画面でも全要素が main 内に収まるようにする。縦画面は不変。
+   main の子 section は出現順（CPU→場→自分→操作）で割り当てる。 */
+@media (orientation: landscape) and (min-width: 700px){
+  main{max-width:1180px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:12px;row-gap:3px;padding:4px 10px 6px}
+  #field-zone{grid-column:1;grid-row:1/5;min-height:0}
+  #scores{grid-column:2;grid-row:1}
+  main>section:nth-of-type(1){grid-column:2;grid-row:2}
+  main>section:nth-of-type(3){grid-column:2;grid-row:3}
+  #controls{grid-column:2;grid-row:4}
+  #player-hand .hana-card{width:42px}
+  #cpu-hand .hana-card{width:22px}
+  .caps{min-height:24px;padding:2px 8px}
+  .pwf-gamebar{position:fixed;left:8px;bottom:8px;z-index:40;margin:0;max-width:300px}
+}
+</style>
 </head>
 <body>
 

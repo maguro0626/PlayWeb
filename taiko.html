@@ -496,8 +496,8 @@ html,body{overscroll-behavior:none;}
    縦画面のレイアウトには一切触れない（このブロックは横長条件でのみ効く）。
    選曲： #songArea を display:contents にし、.wrap を2カラムグリッド化する
    （左＝ジャンル／絞り込み／曲一覧、右＝モード／選択中／難易度／スタート）。
-   演奏： ステージを左に全高で置き、右に 148px のレール（HUD＋操作ボタン）を
-   置くことで、低い横画面でも太鼓の直径とレーン幅を確保する。 */
+   演奏： ステージを画面いっぱいに広げ、HUDは上部の細いバーに集約する
+   （v148で右レール方式から変更）。 */
 @media (orientation: landscape) and (min-width: 700px){
   .wrap{max-width:1120px}
   /* ---- 選曲画面 ---- */
@@ -526,22 +526,48 @@ html,body{overscroll-behavior:none;}
      左下の浮動バーにする（一覧は下をスクロールできるので内容は隠れない） */
   .wrap:not(.playing) .pwf-gamebar{position:absolute;left:12px;bottom:8px;z-index:34;margin:0;max-width:min(456px,58%)}
   #diffSeg button{min-height:48px}
-  /* ---- 演奏画面 ---- */
+  /* ---- 演奏画面（v148で刷新）：ステージを画面いっぱいに広げ、HUDは
+     上部の細いバーに必要最低限（スコア／コンボ／魂ゲージ／進行）だけ集約する。
+     操作ボタンは右上の浮動配置にしてステージの面積を奪わない ---- */
   .wrap.playing{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) 148px;
-    grid-template-rows:minmax(0,1fr) auto;
-    column-gap:10px;
+    display:flex;
+    flex-direction:column;
   }
-  /* 演奏中はタイトル行とフレンドバーを畳み、ステージを全高にする
-     （曲名は HUD レール内に出る） */
-  .wrap.playing .ttlRow,.wrap.playing .pwf-gamebar{display:none}
-  .wrap.playing #stageWrap{grid-column:1;grid-row:1/3}
-  .wrap.playing #hud{grid-column:2;grid-row:1;min-height:0}
-  .wrap.playing .hudRow{flex-wrap:wrap;height:auto;row-gap:2px}
-  .wrap.playing #vsRow{flex-direction:column}
-  .wrap.playing #ctrlRow{grid-column:2;grid-row:2;gap:6px}
-  .wrap.playing #ctrlRow .iconBtn{min-width:44px}
+  .wrap.playing #hud{
+    flex:0 0 auto;
+    flex-direction:row;
+    align-items:center;
+    gap:12px;
+    padding:2px 172px 2px 4px; /* 右端は浮動の操作ボタン列の分を空ける */
+    min-height:0;
+  }
+  .wrap.playing .hudRow{flex:0 0 auto;height:auto;gap:8px;flex-wrap:nowrap}
+  .wrap.playing #hudSong{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wrap.playing #gaugeWrap{flex:1 1 120px;min-width:70px;margin-top:0;height:16px}
+  .wrap.playing #gaugeLbl{flex:0 0 auto}
+  .wrap.playing #gaugeLbl>span:first-child{display:none}
+  .wrap.playing #progWrap{flex:0 0 100px}
+  .wrap.playing #vsRow{flex:0 1 auto;flex-direction:row;gap:6px}
+  .wrap.playing .scoreBox{display:flex;align-items:center;gap:6px;padding:3px 8px;font-size:11px;white-space:nowrap}
+  .wrap.playing .scoreBox b{display:inline;font-size:14px}
+  .wrap.playing .scoreBox .cb{display:inline;height:auto;line-height:1}
+  .wrap.playing .scoreBox .mini{width:50px;margin-top:0}
+  .wrap.playing #stageWrap{flex:1 1 auto;min-height:0;width:100%}
+  .wrap.playing #ctrlRow{position:absolute;top:2px;right:8px;z-index:45;gap:6px}
+  .wrap.playing #ctrlRow .iconBtn{min-width:40px;min-height:36px}
+}
+</style>
+<style>
+/* ===== 演奏中の上部最小化（縦・横共通／v148） =====
+   演奏中はタイトル行・フッターヘルプ・フレンドバーを畳み、HUDを詰めて
+   ステージの高さを稼ぐ。選曲画面のレイアウトには影響しない。 */
+.wrap.playing .ttlRow{display:none}
+.wrap.playing .footHelp{display:none}
+.wrap.playing .pwf-gamebar{display:none}
+.wrap.playing #hud{gap:3px}
+@media (orientation: portrait){
+  .wrap.playing #ctrlRow{justify-content:flex-end;padding-right:2px}
+  .wrap.playing #ctrlRow .iconBtn{min-height:36px}
 }
 </style>
 </head>
