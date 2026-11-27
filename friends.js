@@ -551,6 +551,9 @@
      120 秒間隔になったのに合わせ、90 秒から 5 分へ引き上げた。 */
   var PRESENCE_DROP_MS = 300000;
   setInterval(function () {
+    /* 軽量化: 非表示中は ping を送らない（前面に戻った瞬間に
+       refreshPresenceNow が即時再送するので在席の鮮度は落ちない） */
+    if (document.hidden) return;
     var now = Date.now();
     Object.keys(state.conns).forEach(function (code) {
       var e = state.conns[code];
@@ -565,10 +568,11 @@
     });
   }, 15000);
   function reconnectSweep() {
+    if (document.hidden) return; /* 非表示中は再接続を試みない（前面復帰時に refreshPresenceNow が回す） */
     if (!state.peerOpen) return;
     friends.forEach(function (f) { if (!isOnline(f.uid)) connectTo(f.uid); });
   }
-  setInterval(reconnectSweep, 12000);
+  setInterval(reconnectSweep, 30000); /* 軽量化: 12秒→30秒（在席の鮮度は ping と復帰時リフレッシュが担う） */
   /* タブ復帰・ネットワーク復帰時は、間隔タイマーを待たず即座に在席を立て直す。
      隠れたこと自体ではオフライン扱いにしない（切断判定は上の無音閾値だけ）。 */
   function refreshPresenceNow() {
@@ -648,6 +652,8 @@
     _applyGate: function (state) { applyGate(state); },
     gateState: function () { return gateState; },
     loginNotice: loginNotice,
+    /* PeerJS ライブラリの動的読み込み（対戦開始前にゲーム側からも呼べる） */
+    ensurePeerLib: function () { return loadPeerLib(); },
     profile: function () { return { name: myName(), uid: myUid() }; },
     isOnline: isOnline,
     sendInvite: sendInvite,
@@ -1721,7 +1727,11 @@
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.input) return;
     window.PW_JOIN_STARTED = true;
-    runOpeners(cfg).then(function () {
+    /* PeerJS の動的読み込み完了を待ってからゲーム側の参加UIを駆動する
+       （読み込み失敗時は従来どおりゲーム側のエラー表示に委ねる） */
+    loadPeerLib().then(function () {
+      return runOpeners(cfg);
+    }).then(function () {
       return pollEl(cfg.input, 9000);
     }).then(function (input) {
       if (!input) return;
@@ -1744,7 +1754,10 @@
     var cfg = window.PW_JOIN_CFG;
     if (!cfg || !cfg.hostBtn) return;
     window.PW_HOSTINVITE_STARTED = true;
-    runOpeners(cfg).then(function () {
+    /* 部屋作成には PeerJS が要るため、動的読み込み完了を待ってから駆動する */
+    loadPeerLib().then(function () {
+      return runOpeners(cfg);
+    }).then(function () {
       return pollEl(cfg.hostBtn, 9000);
     }).then(function (btn) {
       if (btn) { try { btn.click(); } catch (e) {} }
@@ -1894,7 +1907,7 @@
         buildUI();
         startPeerWhenReady();
         initHooks();
-        setInterval(trySendMatchJoin, 4000);
+        setInterval(trySendMatchJoin, 10000); /* 軽量化: 4秒→10秒（接続確立時の即時送信が主経路） */
       } else {
         if (!els.panel) buildUI();
         if (!state.peer) startPeerWhenReady();
@@ -1942,9 +1955,24 @@
   /* ゲスト時のオンライン入口クリック遮断（capture フェーズ）:
      ゲーム独自の入口が画面に残っていても、押した時点で止めて案内を出す */
   document.addEventListener('click', function (e) {
-    if (!gateBlocked() || MY_GAME === 'portal') return;
+    if (MY_GAME === 'portal') return;
     var cfg = window.PW_JOIN_CFG;
     if (!cfg) return;
+    if (!gateBlocked()) {
+      /* 軽量化: メンバーがオンライン入口に触れた時点で PeerJS の
+         読み込みを先行開始する（対戦開始までの待ちを消すウォームアップ。
+         読み込むだけで、クリック自体は妨げない） */
+      var sels0 = [];
+      (cfg.openers || []).forEach(function (op) { if (op.click) sels0.push(op.click); });
+      if (cfg.hostBtn) sels0.push(cfg.hostBtn);
+      if (cfg.joinBtn) sels0.push(cfg.joinBtn);
+      for (var j = 0; j < sels0.length; j++) {
+        var hit0 = null;
+        try { hit0 = (e.target && e.target.closest) ? e.target.closest(sels0[j]) : null; } catch (err) {}
+        if (hit0) { loadPeerLib(); return; }
+      }
+      return;
+    }
     var sels = [];
     (cfg.openers || []).forEach(function (op) { if (op.click) sels.push(op.click); });
     if (cfg.hostBtn) sels.push(cfg.hostBtn);
@@ -1962,17 +1990,29 @@
   }, true);
 
   /* ---------------- 初期化 ---------------- */
-  var peerLoadTried = false;
+  /* 軽量化: PeerJS は各ページの head では読み込まず、メンバー確定時／
+     対戦開始時にここから動的に読み込む（ゲストは一切読み込まない）。
+     読み込み失敗時は次回の呼び出しで再試行できるよう状態を戻す */
+  var PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+  var peerLibPromise = null;
+  function loadPeerLib() {
+    if (typeof window.Peer !== 'undefined') return Promise.resolve(true);
+    if (peerLibPromise) return peerLibPromise;
+    peerLibPromise = new Promise(function (resolve) {
+      var s = document.createElement('script');
+      s.src = PEERJS_URL;
+      s.onload = function () { resolve(typeof window.Peer !== 'undefined'); };
+      s.onerror = function () { peerLibPromise = null; resolve(false); };
+      document.head.appendChild(s);
+    });
+    return peerLibPromise;
+  }
   function startPeerWhenReady() {
     if (typeof window.Peer !== 'undefined') { startPeer(); return; }
-    if (peerLoadTried) { state.unavailable = true; renderAll(); return; }
-    peerLoadTried = true;
-    /* PeerJS が無いページ（ポータル等）では動的に読み込む */
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
-    s.onload = function () { startPeer(); };
-    s.onerror = function () { state.unavailable = true; renderAll(); };
-    document.head.appendChild(s);
+    loadPeerLib().then(function (ok) {
+      if (ok) startPeer();
+      else { state.unavailable = true; renderAll(); }
+    });
   }
   function init() {
     buildShell();

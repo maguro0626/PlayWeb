@@ -824,7 +824,7 @@
      送信した updatedAt はメタの時刻と一致させる（マージ比較の一貫性のため）。
      ack が返るまでキーは dirtyKeys に残し続ける。送信中に同じキーが
      書き換わっていたら（メタの時刻が進んでいたら）dirty に残して改めて送る。
-     失敗したキーは dirtyKeys に残り、次の書き込み・flush・15秒間隔で
+     失敗したキーは dirtyKeys に残り、次の書き込み・flush・30秒間隔で
      再送されるほか、次回ログイン時のマージでも必ず拾われる。 */
   function uploadDirty() {
     if (!me || !fb || mergedUid !== me.uid || !syncMeta || syncMeta.owner !== me.uid) return;
@@ -1820,7 +1820,7 @@
     startFriendReqOutListener();
     heartbeat();
     timers.push(setInterval(heartbeat, HEARTBEAT_MS));
-    timers.push(setInterval(function () { uploadDirty(); }, 15000));
+    timers.push(setInterval(function () { uploadDirty(); }, 30000));
   }
   function stopServices() {
     servicesOn = false;
@@ -1879,6 +1879,7 @@
     var pv = validatePassword(password);
     if (!pv.ok) return Promise.resolve({ ok: false, msg: pv.error });
     if (!fb) return Promise.resolve({ ok: false, msg: 'ログイン機能を読み込めませんでした' });
+    ensureDb(); /* 認証リクエストと並行して Firestore の読み込みを先行開始する */
     var name = v.name;
     /* 注意: ルール上 usernames の get はログイン済みでないと許可されないため、
        登録前の空き確認はできない。まず認証ユーザーを作り、ログイン状態で
@@ -1891,7 +1892,10 @@
     authTransition = 'signup';
     return fb.auth.createUserWithEmailAndPassword(usernameToEmail(name), password).then(function (cred) {
       var uid = cred.user.uid;
-      return ensureProfileDocs(uid, name, true).then(function () {
+      return whenFb(20000).then(function (fsReady) {
+        if (!fsReady) throw new Error('firestore unavailable');
+        return ensureProfileDocs(uid, name, true);
+      }).then(function () {
         pendingUsername = null;
         /* 端末ストアの扱いは onAuthUser 冒頭の所有者引き継ぎが決める:
            端末の owner が他人なら全消去して空から始まり、未設定なら
@@ -1924,6 +1928,7 @@
     var v = validateUsername(username);
     if (!v.ok) return Promise.resolve({ ok: false, msg: v.error });
     if (!fb) return Promise.resolve({ ok: false, msg: 'ログイン機能を読み込めませんでした' });
+    ensureDb(); /* 認証リクエストと並行して Firestore の読み込みを先行開始する */
     /* ログイン中の別ユーザーがいる場合は、先にその人の未送信分を本人の
        クラウドへ上げてから認証を切り替える（doSignup と同じ引き継ぎ対策） */
     return flushBeforeAuthChange().then(function () {
@@ -2000,7 +2005,18 @@
       myCreatedAtMs = null;
     }
     var uid = user.uid;
-    userDoc(uid).get().then(function (d) {
+    /* 軽量化: Firestore の段階読み込み完了を待ってから db を使う。
+       読めなかった場合はログイン状態にせず sdk-down として扱う */
+    whenFb(20000).then(function (fsReady) {
+      if (!fsReady) {
+        sdkState = 'unavailable';
+        setGate('sdk-down');
+        updatePill(); updateModal(); updateSearchRow();
+        return null;
+      }
+      return userDoc(uid).get();
+    }).then(function (d) {
+      if (!d) return; /* Firestore を読めなかった場合は上の分岐で処理済み */
       absorbProfileData(d.exists ? d.data() : null);
       noteAuthCreation(user);
       var username;
@@ -2734,7 +2750,10 @@
       createdAt: nowMs(),
       status: 'new'
     };
-    return new Promise(function (resolve) {
+    /* ゲストでも送信できるため、Firestore の段階読み込み完了を待つ */
+    return whenFb(FB_SUBMIT_TIMEOUT_MS).then(function (ready) {
+      if (!ready) return { ok: false, msg: '送信できませんでした（通信環境を確認してください）' };
+      return new Promise(function (resolve) {
       var settled = false;
       var timer = setTimeout(function () {
         finish({ ok: false, timeout: true, msg: '送信できませんでした。通信環境を確認して、もう一度お試しください' });
@@ -2754,6 +2773,7 @@
       }
       Promise.resolve(addPromise).then(function () { finish({ ok: true }); })
         .catch(function (e) { finish({ ok: false, msg: '送信できませんでした' + (e && e.code ? '（' + e.code + '）' : '') }); });
+    });
     });
   }
   function submitFeedbackFromUI() {
@@ -2909,6 +2929,7 @@
   var chartOfficialItems = [];
   var chartAdminStarted = false;
   function whenFb(timeoutMs) {
+    ensureDb(); /* db を待つ消費者は、段階読み込みの開始も兼ねる */
     return new Promise(function (resolve) {
       var t0 = Date.now();
       (function poll() {
@@ -3130,10 +3151,12 @@
   }
 
   /* ---------------- SDK ロード ---------------- */
-  function loadScript(src) {
+  function loadScript(src, ordered) {
     return new Promise(function (resolve, reject) {
       var s = document.createElement('script');
       s.src = src;
+      /* ordered=true: 動的挿入でも挿入順の実行を保証する（並列DL＋順序実行） */
+      if (ordered) s.async = false;
       s.onload = function () { resolve(); };
       s.onerror = function () { reject(new Error('load failed: ' + src)); };
       document.head.appendChild(s);
@@ -3145,14 +3168,39 @@
   }
   function initFirebase() {
     if (sdkReady()) return Promise.resolve(true);
-    var chain = Promise.resolve();
-    ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js'].forEach(function (f) {
-      chain = chain.then(function () { return loadScript(SDK_BASE + f); });
+    /* 軽量化: app/auth は並列ダウンロード（async=false で実行順は保証）し、
+       認証の開始はこの2つだけに絞る。firestore（最大の 341KB）は
+       ensureDb() で必要時に段階読み込みする */
+    var loads = ['firebase-app-compat.js', 'firebase-auth-compat.js'].map(function (f) {
+      return loadScript(SDK_BASE + f, true);
     });
     var timeout = new Promise(function (_, reject) {
       setTimeout(function () { reject(new Error('sdk timeout')); }, 20000);
     });
-    return Promise.race([chain, timeout]).then(function () { return sdkReady(); });
+    return Promise.race([Promise.all(loads), timeout]).then(function () {
+      return !!(window.firebase && window.firebase.auth &&
+        typeof window.firebase.initializeApp === 'function');
+    });
+  }
+  /* Firestore SDK の段階読み込み。メンバー確定・ログイン/登録・
+     フィードバック送信・公式譜面取得など、db が実際に必要になった
+     時点で呼ばれる（whenFb 経由でも自動でキックされる）。
+     ゲストのソロプレイでは一切ダウンロード・パースされない */
+  var fsLoadState = 'idle';   /* idle | loading | ready | failed */
+  var fsLoadPromise = null;
+  function ensureDb() {
+    if (fb && fb.db) return Promise.resolve(true);
+    if (!fb || sdkState === 'unavailable') return Promise.resolve(false);
+    if (fsLoadPromise) return fsLoadPromise;
+    fsLoadState = 'loading';
+    fsLoadPromise = loadScript(SDK_BASE + 'firebase-firestore-compat.js').then(function () {
+      try {
+        fb.db = window.firebase.firestore();
+        fsLoadState = 'ready';
+        return true;
+      } catch (e) { fsLoadState = 'failed'; return false; }
+    }).catch(function () { fsLoadState = 'failed'; return false; });
+    return fsLoadPromise;
   }
   function startAuth() {
     try {
@@ -3160,8 +3208,11 @@
       try { app = window.firebase.initializeApp(FIREBASE_CONFIG); }
       catch (e) { app = window.firebase.app(); }
       var auth = window.firebase.auth();
-      var db = window.firebase.firestore();
-      fb = { auth: auth, db: db, app: app };
+      /* 軽量化: Firestore は段階読み込み（ensureDb）。既に読み込み済みの
+         環境（テスト等）ではその場で db を作り、従来どおり即時利用可能にする */
+      fb = { auth: auth, db: null, app: app };
+      try { if (window.firebase.firestore) fb.db = window.firebase.firestore(); } catch (e) {}
+      if (fb.db) fsLoadState = 'ready';
       var persist = auth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL);
       if (persist && persist.catch) persist.catch(function () {});
       sdkState = 'ready';

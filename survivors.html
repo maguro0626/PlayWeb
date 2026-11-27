@@ -6,7 +6,6 @@
 <title>まじょねこサバイバーズ | PlayWeb</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="account.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -874,8 +873,9 @@ const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 let viewW = 0, viewH = 0, DPR = 1, bgGrad = null, vigGrad = null;
 var NET_DPR_CAP = 2; /* 第14弾: 協力中は描画負荷軽減のため 1.5 に下げる（resize() 初回実行時点で参照できるよう var で宣言） */
+var Q_DPR_CAP = 2; /* 軽量化: 自動品質が下げる描画解像度の上限（Q_DPR_STEPS と連動） */
 function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, NET_DPR_CAP);
+  DPR = Math.min(window.devicePixelRatio || 1, NET_DPR_CAP, Q_DPR_CAP);
   viewW = window.innerWidth; viewH = window.innerHeight;
   cv.width = Math.floor(viewW * DPR); cv.height = Math.floor(viewH * DPR);
   cv.style.width = viewW + 'px'; cv.style.height = viewH + 'px';
@@ -883,6 +883,32 @@ function resize(){
   bgGrad.addColorStop(0, '#0a1030'); bgGrad.addColorStop(.55, '#0d1a3a'); bgGrad.addColorStop(1, '#10261f');
   vigGrad = ctx.createRadialGradient(viewW/2, viewH/2, Math.min(viewW, viewH)*.42, viewW/2, viewH/2, Math.max(viewW, viewH)*.78);
   vigGrad.addColorStop(0, 'rgba(0,0,0,0)'); vigGrad.addColorStop(1, 'rgba(2,3,14,.55)');
+}
+/* ── 軽量化: 自動品質。プレイ中の FPS を測り、落ちたら演出量と描画解像度を
+   段階的に下げ、余裕が続けば段階的に戻す（妻の端末など弱い環境の救済）。
+   QLEVEL 0=通常 / 1=中 / 2=軽量 ── */
+let QLEVEL = 0;
+const Q_DPR_STEPS = [2, 1.5, 1.15];
+const Q_PART_STEPS = [1, .6, .35];
+let qFrames = 0, qWindowT = 0, qUpStreak = 0;
+function applyQuality(lv){
+  lv = Math.max(0, Math.min(2, lv));
+  if (lv === QLEVEL) return;
+  QLEVEL = lv;
+  Q_DPR_CAP = Q_DPR_STEPS[lv];
+  resize();
+}
+function qSample(now, rawDt){
+  if (rawDt > .25) { qFrames = 0; qWindowT = now; return; } /* タブ復帰直後などの異常な間隔は捨てる */
+  if (!qWindowT) qWindowT = now;
+  qFrames++;
+  const el = now - qWindowT;
+  if (el < 2500) return;
+  const fps = qFrames * 1000 / el;
+  qFrames = 0; qWindowT = now;
+  if (fps < 45) { qUpStreak = 0; applyQuality(QLEVEL + 1); }
+  else if (fps > 57) { if (++qUpStreak >= 2) { applyQuality(QLEVEL - 1); qUpStreak = 0; } }
+  else qUpStreak = 0;
 }
 window.addEventListener('resize', resize); resize();
 
@@ -971,8 +997,17 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pageshow', e => { if (e.persisted) audioSuspect = true; ensureAudio(true); }); // bfcache 復帰
 window.addEventListener('focus', () => ensureAudio(true));
+/* 軽量化: SFX の同時発音数に上限を設ける。大量ヒット時に AudioNode が
+   積み上がって弱い端末で処理落ちするのを防ぐ（上限到達時は新規発音を落とす） */
+let beepActive = 0, beepLastStart = 0;
+const BEEP_MAX = 24;
 function beep(f0, f1, dur, type, vol, delay){
   if (muted) return;
+  if (beepActive >= BEEP_MAX) {
+    /* 終了通知が来ないまま固まった場合の保険: 1秒以上新規発音が無ければ数え直す */
+    if (performance.now() - beepLastStart > 1000) beepActive = 0;
+    else return;
+  }
   /* 第18弾: 発音側からも復旧を駆動する。AC が無い/閉じた/止まっている時はまず ensureAudio を
      試す（300ms スロットル）。これが無いと「AC=null のまま誰も復旧しない」状態が固定化する */
   if (!AC || AC.state !== 'running') {
@@ -987,6 +1022,8 @@ function beep(f0, f1, dur, type, vol, delay){
     o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
     g.gain.setValueAtTime(vol || .5, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
     o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + dur + .02);
+    beepActive++; beepLastStart = performance.now();
+    o.onended = function () { if (beepActive > 0) beepActive--; };
   } catch (e) { /* 1回の再生エラーで音全体やフレーム処理を止めない */ }
 }
 let lastShootSnd = 0, pickupCombo = 0, lastPickupSnd = 0;
@@ -2403,10 +2440,14 @@ document.getElementById('merchantCloseBtn').onclick = () => { closeMerchant(); }
 
 /* ── ダメージ ── */
 function addText(x, y, txt, color, size){
+  /* 軽量化: 最軽量時は通常ダメージ数字（数値のみ）を間引く。
+     クリティカル等の文字列表示は残す */
+  if (QLEVEL === 2 && typeof txt === 'number' && Math.random() < .6) return;
   if (texts.length > 46) texts.shift();
   texts.push({ x: x + rand(-6, 6), y, txt, color: color || '#fff', size: size || 14, ttl: .8, max: .8 });
 }
 function addParts(x, y, n, color, spd, size){
+  n = Math.max(1, Math.round(n * Q_PART_STEPS[QLEVEL])); /* 軽量化: 自動品質で発生数を絞る */
   for (let i = 0; i < n; i++) {
     if (parts.length > 320) return;
     const a = rand(0, TAU), v = rand(spd * .3, spd);
@@ -2888,6 +2929,7 @@ function fireWeapon(p, w, dt){
       if (Math.abs(da) < .62) damageEnemy(e, st.dmg * dm, Math.cos(fa) * 110, Math.sin(fa) * 110, p);
     }
     for (let i = 0; i < 10; i++) {
+      if (Math.random() >= Q_PART_STEPS[QLEVEL]) continue; /* 軽量化: 自動品質で発生数を絞る */
       const a = fa + rand(-.5, .5), v = rand(120, st.range * 1.4);
       parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, ttl: rand(.2, .45), max: .45, color: ['#ff9d5c', '#ff5d3d', '#ffd94d'][i % 3], size: rand(3, 6) });
     }
@@ -3161,7 +3203,7 @@ function updateProjectiles(dt){
         const na = cur + clamp(da, -7.5 * dt, 7.5 * dt), sp = Math.min(Math.hypot(p.vx, p.vy) + 620 * dt, 430);
         p.vx = Math.cos(na) * sp; p.vy = Math.sin(na) * sp;
       }
-      if (Math.random() < .6) parts.push({ x: p.x, y: p.y, vx: rand(-16, 16), vy: rand(-16, 16), ttl: .3, max: .3, color: p.type === 'hellorb' ? '#c77dff' : '#ffb37c', size: 3 });
+      if (Math.random() < .6 * Q_PART_STEPS[QLEVEL]) parts.push({ x: p.x, y: p.y, vx: rand(-16, 16), vy: rand(-16, 16), ttl: .3, max: .3, color: p.type === 'hellorb' ? '#c77dff' : '#ffb37c', size: 3 });
     }
     if (p.type === 'mfall') {
       /* 第10弾: 隕石。fallT の間は予告サークルのみ、0で着弾して爆発＋燃焼ゾーンを残す */
@@ -3249,7 +3291,7 @@ function updateProjectiles(dt){
         const na = cur + clamp(da, -10.5 * dt, 10.5 * dt), sp = Math.min(Math.hypot(p.vx, p.vy) + 950 * dt, 570);
         p.vx = Math.cos(na) * sp; p.vy = Math.sin(na) * sp;
       }
-      if (Math.random() < .7) parts.push({ x: p.x, y: p.y, vx: rand(-12, 12), vy: rand(-12, 12), ttl: .25, max: .25, color: '#7fd4ff', size: 2.6 });
+      if (Math.random() < .7 * Q_PART_STEPS[QLEVEL]) parts.push({ x: p.x, y: p.y, vx: rand(-12, 12), vy: rand(-12, 12), ttl: .25, max: .25, color: '#7fd4ff', size: 2.6 });
     }
     if (p.type === 'arrow') {
       const tgt = (p.tgt && !p.tgt.dead) ? p.tgt : nearestEnemy(p.x, p.y, 560);
@@ -6132,6 +6174,9 @@ let lastT = performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   let dt = (now - lastT) / 1000; lastT = now;
+  /* 軽量化: プレイ中だけ FPS を実測して自動品質に渡す（dt はクランプ前の生値） */
+  if (S.state === 'play' || (NET.role === 'guest' && NET.inGame)) qSample(now, dt);
+  else { qFrames = 0; qWindowT = 0; qUpStreak = 0; }
   if (dt > .05) dt = .05;
   /* 音声ウォッチドッグ（約1秒ごと）。止まった AudioContext の resume と、無い/閉じた場合の
      再生成を試す（疑わしいコンテキストの作り直しはジェスチャ側の ensureAudio(true) が担当）。
