@@ -2254,11 +2254,13 @@ function judgeY() { return CH - JUDGE_BAR_H - 14; }
 function fieldTopY() { return 10; }
 function halfWAt(y) {
   var k = clamp((y - fieldTopY()) / Math.max(1, judgeY() - fieldTopY()), 0, 1);
-  /* v151: 奥（上端）は判定ライン幅の約43%まで広げた（旧 約31%）。
-     上端の窮屈さを解しつつ、奥行きそのものは透視の深度（DEPTH_R）で
-     付ける。判定ライン位置の幅（k=1 で CW*0.475）は不変で、タップの
+  /* v152: 奥（上端）は判定ライン幅の約20%まで「狭めた」。v151 で約43%へ
+     広げたのは本人の意図と逆だった（2026-11-28、実機スクショへの赤線指示：
+     上端の幅は判定バーの約0.20倍・下端は現行どおり・奥はもっと遠く）。
+     狭い上端＋深い透視（DEPTH_R）で「遠くに収束する」形にする。
+     判定ライン位置の幅（k=1 で CW*0.475）は不変で、タップの
      レーン判定（laneFromX は判定ライン形状のみ参照）にも影響しない */
-  return lerp(CW * 0.205, CW * 0.475, k);
+  return lerp(CW * 0.095, CW * 0.475, k);
 }
 function laneCenterX(lane, y) { var hw = halfWAt(y); return CW / 2 + (lane - 1.5) * (hw * 2 / 4); }
 function laneWidthAt(y) { return halfWAt(y) * 2 / 4; }
@@ -2444,9 +2446,11 @@ function songTimeAt(tsMs) {
    どちらも 1/Z（奥行きの逆数）に比例する。奥では小さく・ゆっくり、
    手前では大きく・速く見える。x座標はレーン中心線（台形の斜め）に沿う。
    判定は時刻ベースのままなので、タイミング自体は変わらない。 */
-var NOTE_TOP = -14, DEPTH_R = 5.0; /* v151: 出現位置は判定ラインの 5 倍遠く
-   （旧 3.5 倍）。ノーツがより遠く・小さい状態から見え始め、奥へ続く
-   遠近感を強める。判定は時刻ベースのままなのでタイミングは変わらない。
+var NOTE_TOP = -14, DEPTH_R = 7.0; /* v152: 出現位置は判定ラインの 7 倍遠く
+   （v151 の 5 倍からさらに深化。本人の赤線指示「奥はもっと遠く」に合わせ、
+   上端の狭小化とセットで強く収束する遠近感にする）。
+   ノーツが見えている時間（アプローチ時間）自体は approachSec() のままで
+   変えていない。判定は時刻ベースのままなのでタイミングは変わらない。
    NOTE_TOP は画面上端すれすれにする：旧値 -34 では出現後しばらく（アプローチの
    約25%）ノーツが画面の外にいて「突然現れる」感触の原因になっていた */
 function perspU(q) {
@@ -2459,7 +2463,7 @@ function noteY(t) {
   return lerp(NOTE_TOP, judgeY(), perspU(q));
 }
 function depthFromY(y) { return clamp((y - NOTE_TOP) / Math.max(1, judgeY() - NOTE_TOP), 0, 1); }
-function scaleFromY(y) { return lerp(0.21, 1.05, depthFromY(y)); } /* v151: 出現時の大きさを透視（1/Z）と一致させた 1.05/DEPTH_R = 0.21。奥のノーツが本当に小さく見え、近づくほど大きく育つ */
+function scaleFromY(y) { return lerp(0.15, 1.05, depthFromY(y)); } /* v152: 出現時の大きさを透視（1/Z）と一致させた 1.05/DEPTH_R = 1.05/7 = 0.15。奥のノーツが本当に小さく見え、近づくほど大きく育つ */
 
 /* 絞り込みチップの適用（現在選択中の難易度の Lv / 記録で判定する） */
 function filteredSongs() {
@@ -3991,7 +3995,7 @@ function drawNotes(t) {
    x はレーン中心線の上＝奥では中央寄り、手前では外側へ斜めに移動する。 */
 function noteVisual(nt, y) {
   var yy = clamp(y, 0, judgeY());
-  var scale = scaleFromY(y); /* 奥 0.21 → 判定ライン 1.05（透視 1/Z と一致） */
+  var scale = scaleFromY(y); /* 奥 0.15 → 判定ライン 1.05（透視 1/Z と一致） */
   var isF = nt.type === 'flick';
   return {
     x: laneCenterX(nt.lane, yy), y: y, scale: scale, flick: isF, long: nt.type === 'long', size: noteSize,
