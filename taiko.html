@@ -235,7 +235,7 @@ input,textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-selec
 /* VSコンボも常時同じ高さを確保する（有無でスコア枠が伸縮して画面が上下しないように） */
 .scoreBox .cb{display:block;height:18px;line-height:18px;font-size:12px;font-weight:800;color:var(--gold);white-space:nowrap}
 #stageWrap{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:2px solid rgba(255,220,160,.34);background:#1a0d14;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 0 0 1px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.22)}
-#cv{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none;user-select:none;-webkit-user-select:none}
 /* タップ色分けは Canvas 上の大太鼓（中=ドン）とその外側エリア（=カツ）で描く。旧 #tapZones は廃止 */
 #resultPanel{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 38%,rgba(46,16,30,.92),rgba(10,4,8,.94) 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:16px;text-align:center;z-index:5;overflow:hidden}
 #resultPanel .rays{position:absolute;inset:-48%;background:repeating-conic-gradient(from 0deg,rgba(255,201,60,.10) 0 10deg,transparent 10deg 24deg);animation:raysSpin 18s linear infinite;pointer-events:none;z-index:-1}
@@ -1352,10 +1352,42 @@ function ensureAudio() {
       var d = noiseBuf.getChannelData(0);
       for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (AC.state === 'suspended') AC.resume();
+    if (AC.state === 'suspended') acResumeLogged('ensure');
   } catch (e) {}
   if (startVoiceAb && !startVoiceBuf) decodeStartVoice(); /* 開始ボイスのデコード再試行 */
   if (Object.keys(comboVoiceAb).length && !comboVoiceAllReady()) decodeComboVoices(); /* 節目ボイスのデコード再試行 */
+}
+/* v156: AudioContext の resume 試行と成否を診断ログへ残す。
+   着信・通知・ロック画面で iOS が AC を suspended／interrupted にすると、
+   曲（シンセ時計）と打鍵 SE が無音のまま固まる。従来は resume() を投げる
+   だけで結果を見ていなかったため、「試したのに戻らなかった」ケースが
+   ログに残らなかった。試行は遷移の初回だけ、成功は失敗が続いた後の
+   復帰時だけ、失敗は10回連続時点で1回だけ記録し、連打で埋めない */
+var acResumeFails = 0, acResumeAttemptLogged = false;
+function acResumeLogged(why) {
+  if (!AC || AC.state === 'running') return;
+  if (!acResumeAttemptLogged) {
+    acResumeAttemptLogged = true;
+    diagLog('ac-resume', { why: why, from: AC.state }, true);
+  }
+  var p = null;
+  try { p = AC.resume(); } catch (e) {
+    acResumeFails++;
+    if (acResumeFails === 10) diagLog('ac-resume-ng', { why: why, err: String((e && e.message) || e).slice(0, 60), fails: acResumeFails }, true);
+    return;
+  }
+  if (p && p.then) p.then(function () {
+    if (AC.state === 'running') {
+      if (acResumeFails > 0 || acResumeAttemptLogged) diagLog('ac-resume-ok', { why: why, fails: acResumeFails }, true);
+      acResumeFails = 0; acResumeAttemptLogged = false;
+    } else {
+      acResumeFails++;
+      if (acResumeFails === 10) diagLog('ac-resume-ng', { why: why, st: AC.state, fails: acResumeFails }, true);
+    }
+  }, function (e) {
+    acResumeFails++;
+    if (acResumeFails === 10) diagLog('ac-resume-ng', { why: why, err: String((e && e.message) || e).slice(0, 60), fails: acResumeFails }, true);
+  });
 }
 function setMuted(m) {
   muted = m;
@@ -2390,7 +2422,10 @@ function diagTick(now) {
       bu: diagBlobUrls(),
       opx: Math.round(diagOffscreenPx() / 1000),
       vvs: window.visualViewport ? Math.round(window.visualViewport.scale * 100) / 100 : 0,
-      iw: window.innerWidth, ih: window.innerHeight
+      iw: window.innerWidth, ih: window.innerHeight,
+      /* v156: 直近1秒の平均FPS／曲時計の増分異常（0続き・急増）／自動軽量化レベル */
+      fps: fpsRing.length ? fpsRing[fpsRing.length - 1] : 0,
+      cz: ctZero, cj: ctJump, aq: autoQLevel
     };
     if (isReal) { data.ars = ars; data.apz = apz; }
     var last = diagBuf.length ? diagBuf[diagBuf.length - 1] : null;
@@ -2418,6 +2453,7 @@ window.addEventListener('unhandledrejection', function (e) { var r = e && e.reas
 document.addEventListener('visibilitychange', function () {
   diagLog('vis', { h: document.hidden ? 1 : 0 }, !!document.hidden);
   if (document.hidden) diagFlush(); /* ページが殺される前に残す */
+  else acResumeLogged('vis'); /* v156: 復帰時（着信・通知の割り込み明け）に AudioContext の再開を試みる */
 });
 if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', function () { diagLog('sw-controller', {}, true); });
 /* v136: standalone（ホーム画面アプリ）特有のビューポート変動を捉える。
@@ -2432,6 +2468,116 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', func
    記録が残るように。dirty の時だけ書くので通常時の負荷はない） */
 setInterval(function () { if (diagDirty) diagFlush(); }, 5000);
 diagLog('boot', { ua: String(navigator.userAgent || '').slice(0, 90) });
+/* ================================================================
+   v156: 診断ログ v3 拡張（2026-11-28、妻の iPhone 14 Plus・standalone で
+   演奏中に止まる／落ちる件の対策便）
+   ----------------------------------------------------------------
+   v2 の tick は「生きている間の定期記録」だが、プロセスが無言で死ぬと
+   最後の tick 以後の空白が残るだけだった。v3 では死そのものの痕跡を残す:
+   - prev-crash: 演奏開始時に sessionStorage へ立てた生存フラグが次回
+     起動時に残っていたら「前回は演奏中に終了した」と記録する。正常終了
+     （完奏・やめる）では必ず消すので、残っている＝演奏中にページごと
+     死んだ／捨てられた証拠になる。
+   - FPS リングバッファ: 演奏中1秒ごとの平均 FPS を直近20秒分保持し、
+     tick に最新値を、曲終了時に全列を fps-ring として残す。「徐々に
+     重くなって死んだ」のか「突然死」だったのかを切り分ける。
+   - 曲時計（audio.currentTime）のフレーム間増分の異常カウンタ: 再生中
+     なのに増分 0 が続く（時計の凍結＝デコーダ／要素の停止）と、フレー
+     ム時間の3倍超の急増（ジャンプ）を数え、tick に cz／cj として載せる。
+   - pagehide／pageshow の記録（vis は v136 から有り）。
+   あわせて、この FPS 実績を使った自動軽量化（autoq）: 直近の曲の
+   終盤2秒平均が 45fps 未満なら次曲から解像度上限 1.5＋演出量半減を
+   適用する。適用は必ず曲間（startSong の確定時点）だけで、演奏中の
+   解像度変更はしない（ステージロック設計と矛盾させない）。手動の
+   軽量モード（上限1.25）とは min で共存する。適用レベルは端末に
+   保存し、起動直後の1曲目から効かせる。
+   ================================================================ */
+var SONG_ALIVE_KEY = 'taiko_song_alive_v1';
+function songAliveMark(on) {
+  try {
+    if (on) sessionStorage.setItem(SONG_ALIVE_KEY, JSON.stringify({ id: selSong, diff: selDiff, t: Date.now() }));
+    else sessionStorage.removeItem(SONG_ALIVE_KEY);
+  } catch (e) {}
+}
+try {
+  var alivePrev = sessionStorage.getItem(SONG_ALIVE_KEY);
+  if (alivePrev) {
+    sessionStorage.removeItem(SONG_ALIVE_KEY);
+    var apPrev = {};
+    try { apPrev = JSON.parse(alivePrev) || {}; } catch (e) {}
+    diagLog('prev-crash', { id: apPrev.id || '', diff: apPrev.diff || '', at: apPrev.t || 0 }, true);
+  }
+} catch (e) {}
+/* ---- FPS リングバッファ（演奏中・1秒ごとの平均） ---- */
+var fpsRing = [];        /* 直近20秒分（時系列） */
+var fpsSongSecs = [];    /* 現在の曲の全秒列（fps-ring ダンプと autoq 判定用） */
+var fpsAccN = 0, fpsAccT = 0;
+function fpsSample(rawDt) {
+  if (!playing || paused) { fpsAccN = 0; fpsAccT = 0; return; }
+  if (!(rawDt > 0) || rawDt > 0.25) return; /* 非表示復帰直後などの異常間隔は捨てる */
+  fpsAccN++; fpsAccT += rawDt;
+  if (fpsAccT >= 1) {
+    var v = Math.round((fpsAccN / fpsAccT) * 10) / 10;
+    fpsRing.push(v); if (fpsRing.length > 20) fpsRing.shift();
+    fpsSongSecs.push(v);
+    fpsAccN = 0; fpsAccT = 0;
+  }
+}
+function fpsRingDump(why) {
+  if (!fpsSongSecs.length) return;
+  diagLog('fps-ring', { why: why, s: fpsSongSecs.join(',') });
+}
+/* ---- 曲時計の増分異常カウンタ ---- */
+var ctPrev = null, ctZero = 0, ctJump = 0;
+function ctReset() { ctPrev = null; ctZero = 0; ctJump = 0; }
+function ctSample(ct, frameDt) {
+  if (ctPrev === null) { ctPrev = ct; return; }
+  var d = ct - ctPrev; ctPrev = ct;
+  if (d < -0.01) return;             /* シーク等での巻き戻しは異常に数えない */
+  if (d <= 0.0005) ctZero++;         /* 再生中なのに時計が進んでいない */
+  else if (d > Math.max(0.12, frameDt * 3)) ctJump++;   /* フレーム時間に比べて急増 */
+}
+/* ---- 自動軽量化（autoq） ---- */
+var AUTOQ_DPR = 1.5;
+var autoQLevel = 0;
+try { autoQLevel = localStorage.getItem('taiko_autoq_v1') === '1' ? 1 : 0; } catch (e) {}
+function fxScale() { return autoQLevel > 0 ? 0.5 : 1; }
+function autoQEvaluate() {
+  /* 前の曲の FPS 実績から、この曲へ適用するレベルを決める（曲間専用）。
+     終盤2秒平均が 45 未満で一段下げ、曲全体 57 以上＋終盤 55 以上で戻す。
+     それ以外は現状維持（ヒステリシスで往復させない） */
+  if (fpsSongSecs.length >= 2) {
+    var n = fpsSongSecs.length;
+    var last2 = (fpsSongSecs[n - 1] + fpsSongSecs[n - 2]) / 2;
+    var sum = 0; for (var i = 0; i < n; i++) sum += fpsSongSecs[i];
+    var avg = sum / n;
+    var next = autoQLevel;
+    if (last2 < 45) next = 1;
+    else if (avg >= 57 && last2 >= 55) next = 0;
+    if (next !== autoQLevel) {
+      autoQLevel = next;
+      try { localStorage.setItem('taiko_autoq_v1', String(next)); } catch (e) {}
+      diagLog('autoq', { lv: next, f2: Math.round(last2 * 10) / 10, fa: Math.round(avg * 10) / 10 }, true);
+    }
+  }
+  fpsSongSecs = [];
+  fpsAccN = 0; fpsAccT = 0;
+}
+/* ---- 演奏中のクラウド同期ホールド（account.js の窓口） ---- */
+var syncHoldOn = false;
+function taikoSyncHold(on) {
+  if (on === syncHoldOn) return;
+  syncHoldOn = on;
+  try { if (window.PWAccount && PWAccount.setSyncHold) PWAccount.setSyncHold(on); } catch (e) {}
+}
+window.addEventListener('pagehide', function () {
+  diagLog('pagehide', {}, true);
+  fpsRingDump('pagehide');
+  diagFlush(); /* ページが殺される前に残す */
+});
+window.addEventListener('pageshow', function (e) {
+  diagLog('pageshow', { per: (e && e.persisted) ? 1 : 0 }, true);
+});
 /* v136: standalone（ホーム画面に追加したアプリ）表示では、演奏キャンバスの
    DPR 上限を 1.5 に抑える。本人の環境は standalone PWA と判明しており、
    「内部の数値は正常なのに表示だけ縮む」症状は WKWebView のコンポジット／
@@ -2454,7 +2600,11 @@ if (isStandalone && dprCap > 1.5) {
    ラグが残る場合の受け皿。保存キー taiko_light_mode、既定 OFF */
 var lightMode = false;
 try { lightMode = localStorage.getItem('taiko_light_mode') === '1'; } catch (e) {}
-function dprCapEff() { return lightMode ? Math.min(dprCap, 1.25) : dprCap; }
+function dprCapEff() {
+  var c = lightMode ? Math.min(dprCap, 1.25) : dprCap;
+  if (autoQLevel > 0) c = Math.min(c, AUTOQ_DPR); /* v156: 自動軽量化の解像度上限（曲間のみで切替） */
+  return c;
+}
 if (lightMode) diagLog('dpr', { from: dprCap, to: dprCapEff(), why: 'light' }, true);
 function setLightMode(on, why) {
   var before = dprCapEff();
@@ -4177,6 +4327,16 @@ function startSong() {
     pendingStart = false;
   }
   curData = buildSongData(curSong);
+  /* v156: 演奏セッションの開始処理（ここから先は開始が確定している）。
+     - autoQEvaluate: 前曲の FPS 実績で自動軽量化レベルを決める（曲間のみ。
+       この後の initParticles／fitCanvas から新しいレベルが効く）
+     - taikoSyncHold(true): 演奏中はクラウド同期を止める（終了時に一括送信）
+     - songAliveMark(true): 演奏中にページごと死んだ場合の痕跡を立てる
+     - ctReset: 曲時計の増分異常カウンタを初期化する */
+  autoQEvaluate();
+  taikoSyncHold(true);
+  songAliveMark(true);
+  ctReset();
   /* v120: 譜面の解決順 = テストプレイ（エディタ） > カスタム（ソロ＆選択時） >
      承認譜面（official_charts） > 自動生成。対戦は常に公式側。
      テスト譜面は消費しない：ポーズのリスタートやリザルトの「もう一度」でも
@@ -4286,6 +4446,11 @@ function scheduleAhead() {
 }
 function stopSong(toMenu) {
   if (playing) diagLog('song-end', { id: selSong, diff: selDiff, fin: 0 }, true);
+  /* v156: 正常な終了（やめる）なので生存フラグを消し、FPS 全列を残して、
+     同期ホールドを解除する（解除で未送信分が一括送信される） */
+  songAliveMark(false);
+  if (playing) fpsRingDump('stop');
+  taikoSyncHold(false);
   playing = false;
   paused = false;
   testPlayActive = false;
@@ -4347,6 +4512,12 @@ function finishSong() {
       checkMascotUnlocks(true); /* v122: 着せ替えアイテムの新規解放をトーストで知らせる */
     }
   }
+  /* v156: 完奏＝正常終了。生存フラグを消し、FPS 全列を残して、同期
+     ホールドを解除する（記録の書き込みはこの上で完了済み。解除で
+     演奏前〜結果までの未送信分が一括で1回送られる） */
+  songAliveMark(false);
+  fpsRingDump('finish');
+  taikoSyncHold(false);
   resultFromTest = testPlayActive && !!edSession; /* v122: テストプレイのリザルトには「エディタに戻る」を出す */
   renderSongList();
   if (mode === 'online') { finishOnline(res, totalScore, isBest); return; }
@@ -4467,7 +4638,7 @@ function closeCalib() { calib = null; $('calibModal').classList.add('hidden'); }
 function startCalib() {
   ensureAudio();
   if (!AC) return;
-  if (AC.state === 'suspended') AC.resume();
+  if (AC.state === 'suspended') acResumeLogged('calib');
   calib = { t0: AC.currentTime + CALIB_LEAD, byBeat: {}, finished: false, result: null };
   for (var k = 0; k < CALIB_BEATS; k++) toneAt(k % 4 === 0 ? 1560 : 1040, calib.t0 + k * CALIB_INTERVAL, 0.07, 'square', 0.14);
   $('calibResult').textContent = '';
@@ -4678,7 +4849,7 @@ function spawnHitFx(nt) {
   var lg = laneGeom();
   hitFx.push({ x: lg.judgeX, y: lg.y, t0: performance.now(), col: nt.type === 'don' ? '255,110,90' : '120,180,255' });
   if (hitFx.length > 6) hitFx.shift();
-  var n = 10;
+  var n = Math.max(3, Math.round(10 * fxScale())); /* v156: 自動軽量化中は破片の生成数を半減 */
   for (var i = 0; i < n; i++) {
     var a = Math.random() * 6.283, sp = 40 + Math.random() * 140;
     bursts.push({ x: lg.judgeX, y: lg.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, t0: performance.now(), life: 380 + Math.random() * 240, col: nt.type === 'don' ? '#ff8a6a' : '#8ab6ff', r: 2 + Math.random() * 2.6, ang: a, star: i % 4 === 3 });
@@ -4780,14 +4951,17 @@ function updateHUD(force) {
 /* ---------------- 描画（Canvas） ---------------- */
 function initParticles(theme) {
   var arr = [];
-  for (var i = 0; i < 34; i++) arr.push({ x: Math.random(), y: Math.random(), s: 0.4 + Math.random() * 0.9, ph: Math.random() * 6.28, sp: 0.02 + Math.random() * 0.05 });
+  var n = fxScale() < 1 ? 18 : 34; /* v156: 自動軽量化中は背景パーティクルを減らす */
+  for (var i = 0; i < n; i++) arr.push({ x: Math.random(), y: Math.random(), s: 0.4 + Math.random() * 0.9, ph: Math.random() * 6.28, sp: 0.02 + Math.random() * 0.05 });
   return arr;
 }
 var lastFrame = performance.now();
 function draw() {
   requestAnimationFrame(draw);
   var now = performance.now();
-  var dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+  var rawDt = (now - lastFrame) / 1000;
+  var dt = Math.min(0.05, rawDt); lastFrame = now;
+  fpsSample(rawDt); /* v156: FPS リングバッファ（演奏中のみ蓄積） */
   if (!CW) fitCanvas();
   ensureCanvasSize(); /* v132: 裏解像度／変換／枠とのズレを自己修復（寸法が合っていれば読み取りのみ） */
   if (paused) {
@@ -4797,7 +4971,7 @@ function draw() {
        自動一時停止中は凍結する */
     var rel = realAudio[curSong.id];
     if (realFrozen) { /* songTime は据え置き */ }
-    else if (realStarted && rel && rel.el) songTime = rel.el.currentTime;
+    else if (realStarted && rel && rel.el) { songTime = rel.el.currentTime; ctSample(rel.el.currentTime, dt); /* v156: 曲時計の増分異常を数える */ }
     else songTime = (performance.now() - realStartPerf) / 1000;
     autoAdvance();
     testPlaySeSweep();
@@ -5194,7 +5368,7 @@ function drawScene(t, dt) {
       ctx.restore();
     }
     /* 高コンボでは火の粉が舞う（上限つき） */
-    if (combo >= 30 && Math.random() < dt * 9 && bursts.length < 110) {
+    if (combo >= 30 && Math.random() < dt * 9 * fxScale() && bursts.length < 110) { /* v156: 自動軽量化中はコンボ火花の発生率も半減 */
       bursts.push({ x: cx - 26 + Math.random() * 30, y: cy - 8, vx: (Math.random() - 0.5) * 16, vy: -36 - Math.random() * 30, t0: nowMs, life: 560 + Math.random() * 200, col: '#ffb03a', r: 1.5 + Math.random() * 1.6, ang: -1.57, star: false });
     }
   } else if (comboShown !== 0) { comboShown = 0; }
@@ -6991,6 +7165,10 @@ window.__taiko = {
     canvasInfo: function () { return { cvW: cv.width, cvH: cv.height, DPR: DPR }; } },
   diag: { text: diagText, log: diagLog, entries: function () { return diagBuf.slice(); }, clear: function () { diagBuf = []; diagDirty = true; diagFlush(); },
     state: function () { return { standalone: isStandalone, dprCap: dprCap, dprEff: dprCapEff(), light: lightMode, rdpr: window.devicePixelRatio || 1, lastRdpr: diagLastRdpr, ac: AC ? AC.state : 'none', box: { bw: diagBox.bw, bh: diagBox.bh, sw: diagBox.sw, sh: diagBox.sh } }; },
+    /* v156: 診断 v3 の状態（FPS リング／曲時計の異常カウンタ／自動軽量化／生存フラグ／同期ホールド／Canvas 棚卸し） */
+    v3: function () { return { fpsRing: fpsRing.slice(), fpsSong: fpsSongSecs.slice(), ct: { prev: ctPrev, zero: ctZero, jump: ctJump }, autoQ: autoQLevel, fx: fxScale(), alive: (function () { try { return sessionStorage.getItem(SONG_ALIVE_KEY); } catch (e) { return null; } })(), syncHold: syncHoldOn, acFails: acResumeFails }; },
+    canvasInv: function () { var main = cv.width * cv.height; return { domCount: document.querySelectorAll('canvas').length, mainPx: main, mainW: cv.width, mainH: cv.height, edW: ($('edCanvas') || {}).width || 0, edH: ($('edCanvas') || {}).height || 0, offPx: Math.round(diagOffscreenPx()), partsChars: diagPartsChars(), blobUrls: diagBlobUrls() }; },
+    setAutoQ: function (lv) { autoQLevel = lv ? 1 : 0; try { localStorage.setItem('taiko_autoq_v1', String(autoQLevel)); } catch (e) {} },
     setLight: function (on) { setLightMode(!!on, 'test'); },
     audioEl: function (songId) { var r = realAudio[songId || (curSong ? curSong.id : selSong)]; return r ? r.el : null; },
     acSuspend: function () { if (AC && AC.suspend) { AC.suspend(); return true; } return false; },

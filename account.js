@@ -549,6 +549,22 @@
   var SAVE_ERROR_MSG = 'クラウドへの同期に失敗しました（この端末には保存されています）';
   var uploadTimer = null;
   var friendsUploadTimer = null;
+  /* v156〜 同期ホールド（太鼓の演奏中だけクラウド送信を止めるための汎用窓口）。
+     ホールド中は uploadDirty が送信せず、書き込みは端末ストア＋同期メタに
+     その場で残る（＝未送信分の保持は既存の永続化が担保する）。解除した
+     瞬間に flushUploads で一括送信し、失敗したキーは dirtyKeys に残って
+     既存の再送経路（次の書き込み・flush・30秒ポーリング・次回マージ）に
+     乗る。参照カウント式で、入れた側が必ず同じ回数だけ解除する前提。
+     認証切替前の flushBeforeAuthChange だけはホールドを迂回する
+     （引き継ぎの端末消去で、切替前ユーザーの未送信分を失わないため） */
+  var syncHoldCount = 0;
+  var syncForceDepth = 0;   /* flushBeforeAuthChange の迂回中だけ >0 */
+  function syncHeld() { return syncHoldCount > 0 && syncForceDepth === 0; }
+  function setSyncHold(on) {
+    if (on) { syncHoldCount++; return; }
+    if (syncHoldCount > 0) syncHoldCount--;
+    if (syncHoldCount === 0) flushUploads();   /* 最後の解除で一括送信 */
+  }
 
   /* ---------------- 同期メタ（v74〜 単一キー・実ディスク） ----------------
      pwacct_meta_v2 に JSON で保存する:
@@ -800,7 +816,11 @@
   function flushBeforeAuthChange() {
     if (!me || !fb || mergedUid !== me.uid) return Promise.resolve();
     if (!Object.keys(dirtyKeys).length && pendingUploads === 0) return Promise.resolve();
+    /* v156〜 同期ホールド中でも認証切替前の上げ切りだけは迂回する
+       （uploadDirty の呼び出しは同期的なので、この範囲内だけ効く） */
+    syncForceDepth++;
     var settled = flushUploads();
+    syncForceDepth--;
     return Promise.race([
       settled,
       new Promise(function (res) { setTimeout(res, 2500); })
@@ -829,6 +849,7 @@
      失敗したキーは dirtyKeys に残り、次の書き込み・flush・30秒間隔で
      再送されるほか、次回ログイン時のマージでも必ず拾われる。 */
   function uploadDirty() {
+    if (syncHeld()) return;   /* v156〜 同期ホールド中（太鼓の演奏中）は送らない。dirtyKeys は残り、解除時の flush で一括送信される */
     if (!me || !fb || mergedUid !== me.uid || !syncMeta || syncMeta.owner !== me.uid) return;
     if (resettingUid && resettingUid === me.uid) return;   /* 初期化の最中は上げない（削除を蘇らせない） */
     var keys = Object.keys(dirtyKeys);
@@ -3349,6 +3370,11 @@
       try { cb({ open: overlayOpenNow(), drawer: !!drawerOpen, feedback: !!fbOpen, source: 'init' }); } catch (e) {}
     },
     syncNow: function () { flushUploads(); return mergeCloudSaves({ force: true }); },
+    /* v156〜 同期ホールド（太鼓の演奏中だけクラウド送信を止める窓口。
+       on=true で保持開始、false で解除し、最後の解除で未送信分を一括送信する。
+       他のゲームは使わない（太鼓の演奏区間だけが対象） */
+    setSyncHold: setSyncHold,
+    syncHoldCount: function () { return syncHoldCount; },
     /* v66〜 自分のセーブ全削除（端末ストア＋同期メタ＋クラウド）＋公開戦績リセット */
     resetMyData: resetMyData,
     /* バックアップ JSON（文字列またはパース済みオブジェクト）を取り込む。
@@ -3401,6 +3427,8 @@
       hashStr: hashStr,
       friendsListHash: friendsListHash,
       dirtyKeys: function () { var c = {}; Object.keys(dirtyKeys).forEach(function (k) { c[k] = true; }); return c; },
+      /* v156〜 同期ホールドの状態（テスト用） */
+      syncHold: function () { return { count: syncHoldCount, held: syncHeld() }; },
       /* ゲスト相当の分離状態か（ログイン中は false / それ以外は true） */
       guestActive: function () { return gateState !== 'member'; },
       overlayOpen: function () { return overlayOpenNow(); },
